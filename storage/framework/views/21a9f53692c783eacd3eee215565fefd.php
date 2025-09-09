@@ -1,8 +1,6 @@
-@extends('layouts.app')
-
-@section('content')
-<form class="ajax-input-form" method="POST" action="{{ route('logistics.lorry-receipt.store') }}"   data-redirect="{{ route('logistics.lorry-receipt.index') }}">
-    @csrf
+<?php $__env->startSection('content'); ?>
+<form class="ajax-input-form" method="POST" action="<?php echo e(route('logistics.lorry-receipt.store')); ?>"   data-redirect="<?php echo e(route('logistics.lorry-receipt.index')); ?>">
+    <?php echo csrf_field(); ?>
 
   <!-- BEGIN: Content-->
     <div class="app-content content ">
@@ -16,7 +14,7 @@
 							<div class="col-12">
 								<h2 class="content-header-title float-start mb-0">Lorry Receipt</h2>
 								<div class="breadcrumb-wrapper">
-									<ol class="breadcrumb"><li class="breadcrumb-item"><a href="{{ url('/') }}">Home</a>
+									<ol class="breadcrumb"><li class="breadcrumb-item"><a href="<?php echo e(url('/')); ?>">Home</a>
 										</li>  
 										<li class="breadcrumb-item active">Add New</li>
 									</ol>
@@ -75,12 +73,13 @@
                                                         <div class="col-md-5">  
                                                             <input type="hidden" name="status" id="statusInput" value="draft"> 
                                                            <select class="form-select disable_on_edit" onchange="getDocNumberByBookId(this);" name="book_id" id="series_id_input">
-                                                                @foreach ($series as $currentSeries)
-                                                                    <option value="{{ $currentSeries->id }}" 
-                                                                        {{ isset($order) && $order->book_id == $currentSeries->id ? 'selected' : '' }}>
-                                                                        {{ $currentSeries->book_code }}
+                                                                <?php $__currentLoopData = $series; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $currentSeries): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                                    <option value="<?php echo e($currentSeries->id); ?>" 
+                                                                        <?php echo e(isset($order) && $order->book_id == $currentSeries->id ? 'selected' : ''); ?>>
+                                                                        <?php echo e($currentSeries->book_code); ?>
+
                                                                     </option> 
-                                                                @endforeach
+                                                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                             </select>
 
                                                         </div>
@@ -103,7 +102,7 @@
                                                         </div>  
 
                                                         <div class="col-md-5"> 
-                                                            <input type="date" class="form-control" id="document_date" name="document_date" max="{{ date('Y-m-d') }}" value="{{ date('Y-m-d') }}">
+                                                            <input type="date" class="form-control" id="document_date" name="document_date" max="<?php echo e(date('Y-m-d')); ?>" value="<?php echo e(date('Y-m-d')); ?>">
                                                         </div>
  
                                                      </div>
@@ -115,9 +114,9 @@
 
                                                         <div class="col-md-5"> 
                                                            <select class="form-select" name="location" id="locationId">
-                                                                @foreach($locations as $location)
-                                                                    <option value="{{ $location->id }}">{{ $location->store_name }}</option>
-                                                                @endforeach
+                                                                <?php $__currentLoopData = $locations; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $location): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                                    <option value="<?php echo e($location->id); ?>"><?php echo e($location->store_name); ?></option>
+                                                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                             </select>
 
                                                         </div> 
@@ -426,9 +425,9 @@
                                                             <label class="form-label" for="lr_charges">LR Charges</label>
                                                            <select class="form-select" id="lr_charges" name="lr_charges">
                                                                 <option value="">Select</option>
-                                                                @foreach($lorryCharges as $value)
-                                                                    <option value="{{ $value }}">{{ $value }}</option>
-                                                                @endforeach
+                                                                <?php $__currentLoopData = $lorryCharges; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $value): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                                    <option value="<?php echo e($value); ?>"><?php echo e($value); ?></option>
+                                                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                                                             </select>
                                                         </div>
                                                     </div>
@@ -629,8 +628,8 @@
                                                                     <div class="col-md-4">
                                                                        <div class="mb-1">
                                                                            <label class="form-label">Upload Document</label>
-                                                                           <input type="file" class="form-control" name = "attachments[]" onchange = "addFiles(this,'main_order_file_preview')" max_file_count = "{{isset($maxFileCount) ? $maxFileCount : 10}}" multiple >
-                                                                           <span class = "text-primary small">{{__("message.attachment_caption")}}</span>
+                                                                           <input type="file" class="form-control" name = "attachments[]" onchange = "addFiles(this,'main_order_file_preview')" max_file_count = "<?php echo e(isset($maxFileCount) ? $maxFileCount : 10); ?>" multiple >
+                                                                           <span class = "text-primary small"><?php echo e(__("message.attachment_caption")); ?></span>
                                                                        </div>
                                                                    </div> 
                                                                    <div class = "col-md-6" style = "margin-top:19px;">
@@ -665,8 +664,8 @@
     <!-- END: Content-->
 </form>
 
-@endsection
-@section('scripts')
+<?php $__env->stopSection(); ?>
+<?php $__env->startSection('scripts'); ?>
 
 <script>
     $(document).on('change', '#lr_charges', function () {
@@ -914,7 +913,7 @@ $(document).ready(function () {
     if (!bookId) return;
 
     let documentDate = $("#document_date").val() || '';
-    let actionUrl = '{{ route("book.get.doc_no_and_parameters") }}?book_id=' + bookId + '&document_date=' + documentDate;
+    let actionUrl = '<?php echo e(route("book.get.doc_no_and_parameters")); ?>?book_id=' + bookId + '&document_date=' + documentDate;
 
     fetch(actionUrl).then(response => {
         return response.json().then(data => {
@@ -952,17 +951,18 @@ $(document).ready(function () {
 </script>
     <script>
         const routeMasters = [
-  @if($routeMasters->isNotEmpty())
-    @foreach($routeMasters as $rm)
+  <?php if($routeMasters->isNotEmpty()): ?>
+    <?php $__currentLoopData = $routeMasters; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $rm): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
         {
-            label: "{{ $rm->name }}",
-            value: "{{ $rm->name }}",
-            id: {{ $rm->id }}
-        }@if(!$loop->last),@endif
-    @endforeach
-@else
+            label: "<?php echo e($rm->name); ?>",
+            value: "<?php echo e($rm->name); ?>",
+            id: <?php echo e($rm->id); ?>
+
+        }<?php if(!$loop->last): ?>,<?php endif; ?>
+    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+<?php else: ?>
     null
-@endif
+<?php endif; ?>
 
 ];
 
@@ -1058,17 +1058,18 @@ $(document).on('focus click', '.route-master-autocomplete', function () {
 
 //customer autocomplete
 const customerList = [
-@if($customers->isNotEmpty())
-    @foreach($customers as $customer)
+<?php if($customers->isNotEmpty()): ?>
+    <?php $__currentLoopData = $customers; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $customer): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
         { 
-            label: "{{ addslashes($customer->company_name) }}",
-            value: "{{ addslashes($customer->company_name) }}",
-            id: {{ $customer->id }}
+            label: "<?php echo e(addslashes($customer->company_name)); ?>",
+            value: "<?php echo e(addslashes($customer->company_name)); ?>",
+            id: <?php echo e($customer->id); ?>
+
         },
-    @endforeach
-    @else
+    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+    <?php else: ?>
     null
-    @endif
+    <?php endif; ?>
 ];
 
 $(document).on('focus click', '.customer-autocomplete', function () {
@@ -1116,17 +1117,18 @@ $(document).on('focus click', '.customer-autocomplete', function () {
 
     //drivers autocomplete
  const driverList = [
-    @if($drivers->isNotEmpty())
-    @foreach($drivers as $driver)
+    <?php if($drivers->isNotEmpty()): ?>
+    <?php $__currentLoopData = $drivers; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $driver): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
         {
-            label: "{{ addslashes($driver->name) }}",
-            value: "{{ addslashes($driver->name) }}",
-            id: {{ $driver->id }}
+            label: "<?php echo e(addslashes($driver->name)); ?>",
+            value: "<?php echo e(addslashes($driver->name)); ?>",
+            id: <?php echo e($driver->id); ?>
+
         },
-    @endforeach
-    @else
+    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+    <?php else: ?>
     null
-@endif
+<?php endif; ?>
 ];
 
 $(document).on('focus', '.driver-autocomplete', function () {
@@ -1168,19 +1170,21 @@ $(document).on('focus', '.driver-autocomplete', function () {
 
  </script>   
 
-@if($vehicleNumbers->isNotEmpty())
+<?php if($vehicleNumbers->isNotEmpty()): ?>
 <script>
 const vehicleNumbers = [
-    @foreach($vehicleNumbers as $vn)
+    <?php $__currentLoopData = $vehicleNumbers; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $vn): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
         {
-            label: "{{ $vn->lorry_no }} ({{ $vn->vehicleType->name ?? '' }})",
-            value: "{{ $vn->lorry_no }} ({{ $vn->vehicleType->name ?? '' }})",
-            id: {{ $vn->id }}
-        }{{ !$loop->last ? ',' : '' }}
-    @endforeach
+            label: "<?php echo e($vn->lorry_no); ?> (<?php echo e($vn->vehicleType->name ?? ''); ?>)",
+            value: "<?php echo e($vn->lorry_no); ?> (<?php echo e($vn->vehicleType->name ?? ''); ?>)",
+            id: <?php echo e($vn->id); ?>
+
+        }<?php echo e(!$loop->last ? ',' : ''); ?>
+
+    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
 ];
 </script>
-@endif
+<?php endif; ?>
 
 <script>
 
@@ -2076,5 +2080,7 @@ $(document).on('input', 'input[name="source_name"], input[name="vehicle_number"]
 
 </script>
 
-@endsection
+<?php $__env->stopSection(); ?>
 
+
+<?php echo $__env->make('layouts.app', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH /var/www/html/omega_presecen360/resources/views/logistics/lorry-receipt/create.blade.php ENDPATH**/ ?>
