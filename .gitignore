@@ -7,6 +7,7 @@
 /public/storage
 /public/storage
 /public/build
+/storage/*
 /storage/*.key
 /storage/logs/*.log
 /bootstrap/cache/*
