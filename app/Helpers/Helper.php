@@ -4363,9 +4363,8 @@ class Helper
                     foreach($mrn_detail->batches as $batch)
                     {
                         $totalqty += $batch->inventory_uom_qty;
-                        $singlevalue = round($currentValue/$totalqty, 2);
-
                     }
+                        $singlevalue = round($currentValue/$totalqty, 2);
 
                      $offset = 0;
 
