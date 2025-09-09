@@ -17,6 +17,9 @@
 .env.production
 .phpunit.result.cache
 /.phpunit.cache
+/storage/*
+!/storage/.gitignore
+
 
 # Ignore configuration files
 /config/database.php
