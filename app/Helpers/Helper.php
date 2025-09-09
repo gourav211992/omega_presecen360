@@ -4359,7 +4359,6 @@ class Helper
                     $count=count($mrn_detail->batches);
                     $uniqueCodes = $mrn_detail->uniqueCodes->values();
                     $totalqty = 0;
-                    $taxpercentage = ($mrn_detail->tax_value/($mrn_detail->basic_value-$mrn_detail->discount_amount));
                     foreach($mrn_detail->batches as $batch)
                     {
                         $totalqty += $batch->inventory_uom_qty;
@@ -4374,6 +4373,14 @@ class Helper
 
                         $asset_code = self::generateAssetCode($category_id);
                         $existingAsset = FixedAssetRegistration::where('asset_code', $asset_code)->first();
+                         if(!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS))
+                        {
+                            $sub_total = $mrn_detail->pb_item_value;
+                        }
+                        else
+                        {
+                            $sub_total = $mrn_detail->basic_value;
+                        }
                         $data = [
                         'organization_id' => $user->organization_id,
                         'group_id' => $organization->group_id,
@@ -4400,9 +4407,9 @@ class Helper
                         'last_dep_date' => $capitalize_date,
                         'vendor_id' => $mrn->vendor_id,
                         'currency_id' => $mrn->vendor?->currency_id,
-                        'sub_total' => $mrn_detail->basic_value ,
+                        'sub_total' => $sub_total ,
                         'tax' => $mrn_detail->tax_value,
-                        'purchase_amount' => $mrn_detail->basic_value + $mrn_detail->tax_value,
+                        'purchase_amount' => $sub_total + $mrn_detail->tax_value,
                         'supplier_invoice_date' => $mrn->supplier_invoice_date,
                         'book_date' => $mrn_detail->created_at ?? null,
                         'supplier_invoice_no' => $mrn->supplier_invoice_no,
