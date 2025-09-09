@@ -53,7 +53,7 @@
       <input type="text" name="components[{{$rowCount}}][item_name]" class="form-control mw-100 mb-25" readonly value="{{$bomDetail?->item?->item_name}}" />
   </td>
    <td class="poprod-decpt">
-      <button type="button" {{-- data-bs-toggle="modal" data-bs-target="#attribute" --}} class="btn p-25 btn-sm btn-outline-secondary attributeBtn" @if(empty($isEdit) || !$isEdit) disabled @endif data-row-count="{{$rowCount}}" style="font-size: 10px">Attributes</button>
+      <button type="button" {{-- data-bs-toggle="modal" data-bs-target="#attribute" --}} class="btn p-25 btn-sm btn-outline-secondary attributeBtn" data-row-count="{{$rowCount}}" style="font-size: 10px">Attributes</button>
    </td>
    <td>
       <select class="form-select mw-100 " name="components[{{$rowCount}}][uom_id]">

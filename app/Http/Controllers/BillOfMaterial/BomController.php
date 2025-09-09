@@ -195,7 +195,8 @@ class BomController extends Controller
             'serviceAlias' => $servicesAliasParam,
             'productionRoutes' => $productionRoutes,
             'customizables' => $customizables,
-            'canView' => $canView
+            'canView' => $canView,
+            'isEdit' => true
         ]);
 
     }
