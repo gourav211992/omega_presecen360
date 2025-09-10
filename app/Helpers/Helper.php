@@ -4193,9 +4193,14 @@ class Helper
 
         DB::beginTransaction();
         try {
+               Log::info('mrn register', [
+                'mrn_id' => $mrn_id,
+                'alias' => $alias,
+                'constantalisa' => ConstantHelper::PB_SERVICE_ALIAS
+                ]);
 
-             if(!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS))
-            {
+            if (!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS)) {
+                Log::error('pbheader get');
                 $mrn_id = PbHeader::where('id', $mrn_id)->pluck('mrn_header_id')->first();
             }
             else
@@ -4331,14 +4336,14 @@ class Helper
                         ];
                     }
 
-                     if(!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS))
-                    {
+                     if (!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS)) {
+                        Log::error('pb item value set: '.$mrn_detail->pb_item_value);
                         $currentValue = $mrn_detail->pb_item_value;
-                    }
-                    else
-                    {
+                    } else {
+                        Log::error('basic_value: ' . ($mrn_detail->basic_value + $mrn_detail->header_exp_amount));
                         $currentValue = $mrn_detail->basic_value + $mrn_detail->header_exp_amount;
                     }
+
                     $depreciationPercentage = $setup->salvage_percentage ?? $organization->dep_percentage ?? null;
                     $salvageValue = round($currentValue * ($depreciationPercentage / 100), 2);
                     $method = $organization->dep_method;
