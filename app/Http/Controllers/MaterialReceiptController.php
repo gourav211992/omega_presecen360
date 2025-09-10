@@ -535,6 +535,7 @@ class MaterialReceiptController extends Controller
                     $orderQty = floatval($component['order_qty']) ?? 0.00;
                     $acceptedQty = ($inspectionReqired == 0) ? floatval($component['order_qty']) : 0.00;
                     $rejectedQty = 0.00;
+                    $focQty = floatval($component['foc_qty']) ?? 0.00;
                     $item = Item::find($component['item_id'] ?? null);
 
                     if (!$item) {
@@ -567,6 +568,7 @@ class MaterialReceiptController extends Controller
                     $inventory_uom_id = null;
                     $inventory_uom_code = null;
                     $inventory_uom_qty = 0.00;
+                    $foc_inv_uom_qty = 0.00;
                     $accepted_inventory_uom_qty = 0.00;
                     $reqQty = ($component['accepted_qty'] ?? $component['order_qty']);
                     $inventoryUom = Unit::find($item->uom_id ?? null);
@@ -576,11 +578,17 @@ class MaterialReceiptController extends Controller
                     if (@$component['uom_id'] == $itemUomId) {
                         $inventory_uom_qty = floatval($orderQty) ?? 0.00;
                         $accepted_inventory_uom_qty = floatval($acceptedQty) ?? 0.00;
+                        if ($focQty > 0) {
+                            $foc_inv_uom_qty = floatval($focQty) ?? 0.00;
+                        }
                     } else {
                         $alUom = AlternateUOM::where('item_id', $component['item_id'])->where('uom_id', $component['uom_id'])->first();
                         if ($alUom) {
                             $inventory_uom_qty = floatval($orderQty) * $alUom->conversion_to_inventory;
                             $accepted_inventory_uom_qty = floatval($acceptedQty) * $alUom->conversion_to_inventory;
+                            if ($focQty > 0) {
+                                $foc_inv_uom_qty = floatval($focQty) * $alUom->conversion_to_inventory;
+                            }
                         }
                     }
 
@@ -615,12 +623,14 @@ class MaterialReceiptController extends Controller
                         'order_qty' => floatval($component['order_qty']) ?? 0.00,
                         'accepted_qty' => $acceptedQty,
                         'rejected_qty' => $rejectedQty,
+                        'foc_qty' => $focQty,
                         'inventory_uom_id' => $inventory_uom_id ?? null,
                         'inventory_uom_code' => $inventory_uom_code ?? null,
                         'inventory_uom_qty' => $inventory_uom_qty ?? 0.00,
                         'accepted_inventory_uom_id' => $inventory_uom_id ?? null,
                         'accepted_inventory_uom_code' => $inventory_uom_code ?? null,
                         'accepted_inventory_uom_qty' => $accepted_inventory_uom_qty ?? 0.00,
+                        'foc_inv_uom_qty' => $foc_inv_uom_qty ?? 0.00,
                         'store_id' => $mrn->store_id ?? null,
                         'store_code' => $mrn?->erpStore?->store_code ?? null,
                         'sub_store_id' => $mrn->sub_store_id ?? null,
@@ -723,6 +733,9 @@ class MaterialReceiptController extends Controller
                     $mrnDetail->accepted_inv_uom_id = $mrnItem['accepted_inventory_uom_id'];
                     $mrnDetail->accepted_inv_uom_code = $mrnItem['accepted_inventory_uom_code'];
                     $mrnDetail->accepted_inv_uom_qty = $mrnItem['accepted_inventory_uom_qty'];
+                    $mrnDetail->accepted_inv_uom_qty = $mrnItem['accepted_inventory_uom_qty'];
+                    $mrnDetail->foc_qty = $mrnItem['foc_qty'];
+                    $mrnDetail->foc_inv_uom_qty = $mrnItem['foc_inv_uom_qty'];
                     $mrnDetail->store_id = $mrnItem['store_id'];
                     $mrnDetail->store_code = $mrnItem['store_code'];
                     $mrnDetail->sub_store_id = $mrnItem['sub_store_id'];
@@ -1506,6 +1519,7 @@ class MaterialReceiptController extends Controller
                     $order_qty = $component['order_qty'];
                     $accepted_qty = $component['accepted_qty'];
                     $rejected_qty = $component['rejected_qty'];
+                    $foc_qty = $component['foc_qty'];
                     if ($component['is_inspection'] == 1) {
                         $isInspection = 0;
                     }
@@ -1546,24 +1560,6 @@ class MaterialReceiptController extends Controller
                         $poItem = PoItem::find($component['po_detail_id'] ?? @$mrnDetail->purchase_order_item_id);
                         if (isset($poItem) && $poItem) {
                             if (isset($poItem->id) && $poItem->id) {
-                                // $geDetail = GateEntryDetail::find($component['gate_entry_detail_id'] ?? @$mrnDetail->gate_entry_detail_id);
-                                // if(isset($geDetail) && $geDetail) {
-                                //     // Rrecalc after quantity increase
-                                //     $geUpdate = self::updateGateEntryDetail($geDetail, $component, $order_qty, $isExistMrn, 'po');
-                                // } elseif(!$geDetail || !$component['gate_entry_detail_id']) {
-                                //     $asnDetail = VendorAsnItem::find($component['vendor_asn_dtl_id'] ?? @$mrnDetail->vendor_asn_item_id);
-                                //     if(isset($asnDetail) && $asnDetail) {
-                                //         // Rrecalc after quantity increase
-                                //         $geUpdate = self::updateAsnDetail($geDetail, $component, $order_qty, $isExistMrn, 'po');
-                                //     }
-                                // } else{
-                                //     $orderQty = floatval($order_qty);
-                                //     $componentQty = floatval($component['order_qty'] ?? $component['accepted_qty']);
-                                //     $qtyDifference = $componentQty - $orderQty;
-                                //     if($qtyDifference) {
-                                //         $poItem->grn_qty += $qtyDifference;
-                                //     }
-                                // }
                                 $orderQty = floatval($order_qty);
                                 $componentQty = floatval($component['order_qty'] ?? $component['accepted_qty']);
                                 $qtyDifference = $componentQty - $orderQty;
@@ -1579,18 +1575,6 @@ class MaterialReceiptController extends Controller
                         $joItem = JoProduct::find($component['jo_detail_id'] ?? @$mrnDetail->job_order_item_id);
                         if (isset($joItem) && $joItem) {
                             if (isset($joItem->id) && $joItem->id) {
-                                // $geDetail = $mrn->geItem;
-                                // $geDetail = GateEntryDetail::find($component['gate_entry_detail_id'] ?? @$mrnDetail->gate_entry_detail_id);
-                                // if(isset($geDetail) && $geDetail) {
-                                //     // Rrecalc after quantity increase
-
-                                //     $calculateService = new TransactionCalculationService();
-                                //     $data = $calculateService->updateGECalculation($geDetail);
-                                //     if ($data['status'] === 'error') {
-                                //         \DB::rollBack();
-                                //         return self::notFoundResponse($data['message']);
-                                //     }
-                                // }
                                 $orderQty = floatval($order_qty);
                                 $componentQty = floatval($component['order_qty'] ?? $component['accepted_qty']);
                                 $qtyDifference = $componentQty - $orderQty;
@@ -1612,17 +1596,24 @@ class MaterialReceiptController extends Controller
                     $orderQty = $order_qty ?? $component['order_qty'];
                     $reqQty = $accepted_qty ?? $component['accepted_qty'];
                     $rejQty = $rejected_qty ?? $component['rejected_qty'];
+                    $focQty = $foc_qty ?? $component['foc_qty'];
                     $inventoryUom = Unit::find($item->uom_id ?? null);
                     $inventory_uom_id = $inventoryUom->id;
                     $inventory_uom_code = $inventoryUom->name;
                     if (@$component['uom_id'] == $item->uom_id) {
                         $inventory_uom_qty = floatval($orderQty) ?? 0.00;
                         $accepted_inventory_uom_qty = floatval($reqQty) ?? 0.00;
+                        if ($focQty > 0) {
+                            $foc_inv_uom_qty = floatval($focQty) ?? 0.00;
+                        }
                     } else {
                         $alUom = AlternateUOM::where('item_id', $component['item_id'])->where('uom_id', $component['uom_id'])->first();
                         if ($alUom) {
                             $inventory_uom_qty = floatval($orderQty) * $alUom->conversion_to_inventory;
                             $accepted_inventory_uom_qty = floatval($reqQty) * $alUom->conversion_to_inventory;
+                            if ($focQty > 0) {
+                                $foc_inv_uom_qty = floatval($focQty) * $alUom->conversion_to_inventory;
+                            }
                         }
                     }
                     $itemValue = floatval($orderQty) * floatval($component['rate']);
@@ -1655,12 +1646,14 @@ class MaterialReceiptController extends Controller
                         'order_qty' => floatval($component['order_qty']) ?? 0.00,
                         'accepted_qty' => ($isInspection == 0) ? floatval($reqQty) : floatval($component['order_qty']) ?? 0.00,
                         'rejected_qty' => ($isInspection == 0) ? floatval($rejQty) : 0.00,
+                        'foc_qty' => floatval($focQty) ?? 0.00,
                         'inventory_uom_id' => $inventory_uom_id ?? null,
                         'inventory_uom_code' => $inventory_uom_code ?? null,
                         'inventory_uom_qty' => $inventory_uom_qty ?? 0.00,
                         'accepted_inventory_uom_id' => $inventory_uom_id ?? null,
                         'accepted_inventory_uom_code' => $inventory_uom_code ?? null,
                         'accepted_inventory_uom_qty' => $accepted_inventory_uom_qty ?? 0.00,
+                        'foc_inv_uom_qty' => $foc_inv_uom_qty ?? 0.00,
                         'store_id' => $mrn->store_id ?? null,
                         'store_code' => $mrn?->erpStore?->store_code ?? null,
                         'sub_store_id' => $mrn->sub_store_id ?? null,
@@ -1785,7 +1778,8 @@ class MaterialReceiptController extends Controller
                     $mrnDetail->inventory_uom_qty = $mrnItem['inventory_uom_qty'];
                     $mrnDetail->accepted_inv_uom_id = $mrnItem['accepted_inventory_uom_id'];
                     $mrnDetail->accepted_inv_uom_code = $mrnItem['accepted_inventory_uom_code'];
-                    $mrnDetail->accepted_inv_uom_qty = $mrnItem['accepted_inventory_uom_qty'];
+                    $mrnDetail->foc_qty = $mrnItem['foc_qty'];
+                    $mrnDetail->foc_inv_uom_qty = $mrnItem['foc_inv_uom_qty'];
                     $mrnDetail->store_id = @$mrnItem['store_id'];
                     $mrnDetail->store_code = @$mrnItem['store_code'];
                     $mrnDetail->sub_store_id = @$mrnItem['sub_store_id'];

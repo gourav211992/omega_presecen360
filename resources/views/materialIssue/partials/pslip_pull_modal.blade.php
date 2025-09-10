@@ -40,7 +40,7 @@
                     <div class="col">
                         <div class="mb-1">
                             <label class="form-label">Pslip No. </label>
-                            <input type="text" id="document_no_input_mo" placeholder="Select"
+                            <input type="text" id="document_no_input_pslip" placeholder="Select"
                                 class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off"
                                 value="">
                             <input type="hidden" id="document_id_pslip_val"></input>
@@ -69,8 +69,8 @@
                             <label class="form-label">Type </label>
                             <select id="pslip_issue_type" placeholder="Select"
                                 class="form-control mw-100" value="R" oninput = "getOrders('pslip')">
-                                <option value = "R" selected>Accepted (A)</option>
-                                <option value = "A">Sub Standard (B)</option>
+                                <option value = "A" selected>Accepted (A)</option>
+                                <option value = "B">Sub Standard (B)</option>
                             </select>
                         </div>
                     </div>

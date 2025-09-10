@@ -95,9 +95,9 @@ class EditMaterialReceiptRequest extends FormRequest
         if ($this->filled('book_id')) {
             $user = Helper::getAuthenticatedUser();
             $numPattern = NumberPattern::where('organization_id', $user->organization_id)
-                        ->where('book_id', $this->book_id)
-                        ->orderBy('id', 'DESC')
-                        ->first();
+                ->where('book_id', $this->book_id)
+                ->orderBy('id', 'DESC')
+                ->first();
 
             // Update document_number rule based on the condition
             if ($numPattern && $numPattern->series_numbering == 'Manually') {
@@ -173,6 +173,11 @@ class EditMaterialReceiptRequest extends FormRequest
             $items = [];
             foreach ($components as $key => $component) {
                 $itemValue = floatval($component['item_total_cost'] ?? 0);
+                $receiptQty = floatval($component['order_qty'] ?? 0);
+                $focQty = floatval($component['foc_qty'] ?? 0);
+                if ($receiptQty < $focQty) {
+                    $validator->errors()->add("components.$key.foc_qty", "Foc Qty. can't be greater than Receipt Qty.");
+                }
                 if ($itemValue < 0) {
                     $validator->errors()->add("components.$key.item_name", "Item total can't be negative.");
                 }

@@ -220,6 +220,11 @@ class MaterialReceiptRequest extends FormRequest
             $items = [];
             foreach ($components as $key => $component) {
                 $itemValue = floatval($component['item_total_cost'] ?? 0);
+                $receiptQty = floatval($component['order_qty'] ?? 0);
+                $focQty = floatval($component['foc_qty'] ?? 0);
+                if ($receiptQty < $focQty) {
+                    $validator->errors()->add("components.$key.foc_qty", "Foc Qty. can't be greater than Receipt Qty.");
+                }
                 if ($itemValue < 0) {
                     $validator->errors()->add("components.$key.item_name", "Item total can't be negative.");
                 }
