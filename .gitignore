@@ -7,6 +7,8 @@
 /public/storage
 /public/storage
 /public/build
+/storage/framework/*
+/storage/framework/sessions/*
 /storage/*
 /storage/*.key
 /storage/logs/*.log
