@@ -107,7 +107,7 @@ Route::group(['middleware' => ['sso-api', 'apiresponse']], function () {
         Route::get('defect-types/{severity}/{itemId}', 'getDefectTypes')->name('defect.types.by-severity'); 
         Route::get('/get-items', 'getItems')->name('items.goods.list');                   
         Route::get('/get-items/{itemId}/attributes', 'getAttributesByItemId')->name('items.attributes.get'); 
-        Route::get('/scan-item/{item_uid}', 'scanItem')->name('items.scan');                
+        Route::get('/scan-item/{item_uid}/{job_id}', 'scanItem')->name('items.scan');                
         Route::get('segregation/{uniqueItemId}', 'getSegregationByUniqueItemId')->name('segregation.details');
         Route::get('jobs/{jobId}/item-status','getJobItemStatus')->name('jobs.item-status');      
         Route::post('/segregate-item', 'createSegregation')->name('segregation.create-or-update'); 

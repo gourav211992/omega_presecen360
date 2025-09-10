@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\WHM;
 
+use App\Exceptions\ApiGenericException;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -354,10 +355,10 @@ class RgrJobController extends Controller
     }
 
 
-  public function scanItem($item_uid)
+  public function scanItem($item_uid, $job_id)
     {
         try {
-            $uniqueItem = ErpItemUniqueCode::where('uid', $item_uid)->first();
+            $uniqueItem = ErpItemUniqueCode::where('item_uid', $item_uid)->where('job_id', $job_id)->first();
 
             if (!$uniqueItem) {
                 throw ValidationException::withMessages(['item' => ['Item not found.']]);

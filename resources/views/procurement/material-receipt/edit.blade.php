@@ -154,10 +154,12 @@
                                         </button>
                                     @endif
                                     @if (@$mrn->deviationJob)
-                                        <input type="hidden" name="mrn_head_id" id="mrn_head_id" value="{{ $mrn?->id }}">
-                                        <input type="hidden" name="closing_job_id" id="closing_job_id" value="{{ $mrn?->deviationJob?->id }}">
+                                        <input type="hidden" name="mrn_head_id" id="mrn_head_id"
+                                            value="{{ $mrn?->id }}">
+                                        <input type="hidden" name="closing_job_id" id="closing_job_id"
+                                            value="{{ $mrn?->deviationJob?->id }}">
                                         <button type="button" data-bs-toggle="modal" id="deviation-button"
-                                        class="btn btn-primary btn-sm mb-50 mb-sm-0">
+                                            class="btn btn-primary btn-sm mb-50 mb-sm-0">
                                             <i data-feather='edit'></i> Deviation
                                         </button>
                                     @endif
@@ -653,6 +655,7 @@
                                                                 <th class="text-end">Recpt Qty</th>
                                                                 <th class="text-end">Acpt. Qty</th>
                                                                 <th class="text-end">Rej. Qty</th>
+                                                                <th class="text-end">Foc Qty</th>
                                                                 <th class="text-end" id="rateHeader">Rate</th>
                                                                 <th class="text-end">Value</th>
                                                                 <th>Discount</th>
@@ -665,7 +668,7 @@
                                                         </tbody>
                                                         <tfoot>
                                                             <tr class="totalsubheadpodetail">
-                                                                <td colspan="10"></td>
+                                                                <td colspan="11"></td>
                                                                 <td class="text-end" id="totalItemValue">
                                                                     {{ @$mrn->items->sum('basic_value') }}
                                                                 </td>
@@ -701,7 +704,7 @@
                                                                         </tbody>
                                                                     </table>
                                                                 </td>
-                                                                <td colspan="5">
+                                                                <td colspan="6">
                                                                     <table class="table border mrnsummarynewsty">
                                                                         <tr>
                                                                             <td colspan="2" class="p-0">
@@ -1209,7 +1212,7 @@
                                 </div>
                             </div>
                             <!-- <div id="deviation-batch-table-wrap" class="mt-3"></div>
-                                                                <input type="hidden" name="deviation_breakup_json" id="deviation_breakup_json"> -->
+                                                                        <input type="hidden" name="deviation_breakup_json" id="deviation_breakup_json"> -->
                         </div>
                         <div class="mb-3">
                             <label for="remarks" class="form-label fw-semibold text-dark">Remarks</label>
@@ -1683,8 +1686,8 @@
                         rowCount: rowCount
                     }).toString();
                     getItemDetail(closestTr);
-                    let storeLocation = $('.header_store_id').val();
-                    getSubStores(storeLocation, itemId);
+                    // let storeLocation = $('.header_store_id').val();
+                    // getSubStores(storeLocation, itemId);
                     setTimeout(() => {
                         if (ui.item.is_attr) {
                             $input.closest('tr').find('.attributeBtn').trigger('click');

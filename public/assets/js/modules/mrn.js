@@ -320,6 +320,29 @@ $(document).on("change", "[name*='accepted_qty']", function (e) {
     // }
 });
 
+/*foc qty on change*/
+$(document).on("change", "[name*='foc_qty']", function (e) {
+    edit = true; // Set edit to true when order_qty changes
+    const $tr = $(e.target).closest("tr");
+    const $focQtyInput = $tr.find("[name*='foc_qty']");
+    const $orderQtyInput = $tr.find("[name*='order_qty']");
+    const dataIndex = $tr.attr("data-index");
+
+    let focQty = parseFloat($focQtyInput.val()) || 0;
+    const orderQty = parseFloat($orderQtyInput.val()) || 0;
+
+    if (focQty > orderQty) {
+        Swal.fire({
+            title: "Error!",
+            text: "FOC Qty. cannot be greater than Receipt Qty.",
+            icon: "error",
+        });
+        focQty = 0;
+    }
+
+    $focQtyInput.val(focQty.toFixed(6));
+});
+
 /*rate on change*/
 $(document).on("change", "[name*='rate']", (e) => {
     let tr = e.target.closest("tr");
@@ -2456,9 +2479,8 @@ $(document).on("input", ".asn_number", function () {
 $(document).on("click", ".asn_process", function () {
     const asnInput = $(".process_number");
     const asnNumber = asnInput.val().trim();
-    let headerBookId = $("#book_id").val() || '';
-    let locationId = $("[name='header_store_id']").val() || '';
-
+    let headerBookId = $("#book_id").val() || "";
+    let locationId = $("[name='header_store_id']").val() || "";
 
     const moduleType = $("input[name='process_type']:checked").val();
 

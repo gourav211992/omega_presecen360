@@ -50,17 +50,7 @@ class SsoAuthApi
 			$connect = DB::reconnect('mysql');
 		}
 
-		$user = $authUser->authUser();
-		if (!$user) {
-			return response()->json(['message' => 'Invalid user token.'], 401);
-		}
-		$user->auth_user_id = $authUser->id;
-		$user->authenticable_type = $authUser->authenticable_type;
-		$user->auth_type = $authType;
-		$user->db_name = $dbName;
-
-		// $request->merge(['db_name' => $dbName]);
-        $request->setUserResolver(fn() => $user);
+        $request->setUserResolver(fn() => $authUser);
 
 
 		return $next($request);

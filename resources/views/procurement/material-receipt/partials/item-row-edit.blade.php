@@ -21,53 +21,48 @@
             $readOnly = '';
         }
 
-        if($item->header->reference_type == 'po')
-        {
+        if ($item->header->reference_type == 'po') {
             $procurementType = $item->po->procurement_type ?? null;
-        }
-        elseif($item->header->reference_type == 'po')
-        {
+        } elseif ($item->header->reference_type == 'po') {
             $procurementType = $item->jo->procurement_type ?? null;
-        }
-        elseif($item->header->reference_type == 'po')
-        {
+        } elseif ($item->header->reference_type == 'po') {
             $procurementType = $item->so->procurement_type ?? null;
-        }
-        else
-        {
+        } else {
             $procurementType = null;
         }
 
         $hasAssetDetail = (int) ($item?->item?->is_asset ?? 0);
         $asset = $item?->assetDetail;
         $assetPayload = [
-            'asset_id'            => $asset?->id ?? null,
-            'asset_name'          => $asset?->asset_name ?? ($item?->item?->item_name ?? ''),
-            'asset_category_id'   => $asset?->asset_category_id ?? ($item?->item?->asset_category_id ?? null),
+            'asset_id' => $asset?->id ?? null,
+            'asset_name' => $asset?->asset_name ?? ($item?->item?->item_name ?? ''),
+            'asset_category_id' => $asset?->asset_category_id ?? ($item?->item?->asset_category_id ?? null),
             'asset_category_name' => $asset?->assetCategory?->name ?? ($item?->item?->assetCategory?->name ?? null),
-            'asset_code'          => $asset?->asset_code ?? null,
-            'brand_name'          => $asset?->brand_name ?? ($item?->item?->brand_name ?? ''),
-            'model_no'            => $asset?->model_no ?? ($item?->item?->model_no ?? ''),
-            'estimated_life'      => $asset?->estimated_life ?? ($item?->item?->expected_life ?? ''),
-            'salvage_percentage'  => $item?->item?->getSalvagePercentage() ?? 0,
-            'salvage_value'       => $asset?->salvage_value ?? null,
-            'procurement_type'    => $item?->assetDetail?->procurement_type ?? null,
-            'capitalization_date' => optional($asset?->capitalization_date)->toDateString()
-                                        ?? optional($mrn->document_date)->toDateString()
-                                        ?? now()->toDateString(),
+            'asset_code' => $asset?->asset_code ?? null,
+            'brand_name' => $asset?->brand_name ?? ($item?->item?->brand_name ?? ''),
+            'model_no' => $asset?->model_no ?? ($item?->item?->model_no ?? ''),
+            'estimated_life' => $asset?->estimated_life ?? ($item?->item?->expected_life ?? ''),
+            'salvage_percentage' => $item?->item?->getSalvagePercentage() ?? 0,
+            'salvage_value' => $asset?->salvage_value ?? null,
+            'procurement_type' => $item?->assetDetail?->procurement_type ?? null,
+            'capitalization_date' =>
+                optional($asset?->capitalization_date)->toDateString() ??
+                (optional($mrn->document_date)->toDateString() ?? now()->toDateString()),
         ];
         $batchDetails = $item->batches ?? [];
-        $isBatchEditable = ($item?->item?->is_batch_no == 1) ? 1 : 0;
-        $isBatchEnable = ($item?->item?->is_batch_no == 1) ? 'Yes' : 'No';
-        $batches = collect($batchDetails ?? [])->map(function ($b) {
-            return [
-               'id' => (int) $b->id,
-               'batch_number'        => (string) $b->batch_number,
-               'manufacturing_year'  => $b->manufacturing_year ? (int) $b->manufacturing_year : null,
-               'expiry_date'         => $b->expiry_date?->toDateString(), // Y-m-d
-               'quantity'            => (float) $b->quantity,
-            ];
-        })->values();
+        $isBatchEditable = $item?->item?->is_batch_no == 1 ? 1 : 0;
+        $isBatchEnable = $item?->item?->is_batch_no == 1 ? 'Yes' : 'No';
+        $batches = collect($batchDetails ?? [])
+            ->map(function ($b) {
+                return [
+                    'id' => (int) $b->id,
+                    'batch_number' => (string) $b->batch_number,
+                    'manufacturing_year' => $b->manufacturing_year ? (int) $b->manufacturing_year : null,
+                    'expiry_date' => $b->expiry_date?->toDateString(), // Y-m-d
+                    'quantity' => (float) $b->quantity,
+                ];
+            })
+            ->values();
     @endphp
     <tr id="row_{{ $rowCount }}" data-index="{{ $rowCount }}"
         @if ($rowCount < 2) class="trselected" @endif>
@@ -169,8 +164,12 @@
                 step="any" {{ $acceptedReadOnly }} />
         </td>
         <td>
-            <input type="number" name="components[{{ $rowCount }}][rate]" value="{{ $item->rate }}" step="any"
-                class="form-control mw-100 text-end rate checkNegativeVal" />
+            <input type="number" step="any" class="form-control mw-100 foc_qty text-end checkNegativeVal"
+                name="components[{{ $rowCount }}][foc_qty]" value="{{ $item->foc_qty }}" />
+        </td>
+        <td>
+            <input type="number" name="components[{{ $rowCount }}][rate]" value="{{ $item->rate }}"
+                step="any" class="form-control mw-100 text-end rate checkNegativeVal" />
         </td>
         <td>
             <input type="number" name="components[{{ $rowCount }}][basic_value]"
@@ -224,42 +223,39 @@
         </td>
         <td>
             <div class="d-flex">
-                @if($hasAssetDetail === 1)
-                    <input type="hidden" name="components[{{$rowCount}}][assetDetailData]" />
+                @if ($hasAssetDetail === 1)
+                    <input type="hidden" name="components[{{ $rowCount }}][assetDetailData]" />
                     <div class="cursor-pointer ms-50 text-success assetDetailBtn"
-                        data-row-count="{{ $rowCount }}"
-                        data-asset='@json($assetPayload)'
-                        data-bs-toggle="modal"
-                        data-bs-target="#assetDetailModal"
-                        title="Asset Detail">
+                        data-row-count="{{ $rowCount }}" data-asset='@json($assetPayload)'
+                        data-bs-toggle="modal" data-bs-target="#assetDetailModal" title="Asset Detail">
                         <span data-bs-toggle="tooltip" data-bs-placement="top" class="text-primary"
                             data-bs-original-title="Asset Detail" aria-label="Asset Detail">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                                class="bi bi-clipboard-check" viewBox="0 0 16 16">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                fill="currentColor" class="bi bi-clipboard-check" viewBox="0 0 16 16">
                                 <path fill-rule="evenodd"
-                                    d="M10.854 6.146a.5.5 0 0 0-.708.708L11.293 8l-1.147 1.146a.5.5 0 0 0 .708.708L12 8.707l1.146 1.147a.5.5 0 0 0 .708-.708L12.707 8l1.147-1.146a.5.5 0 0 0-.708-.708L12 7.293 10.854 6.146z"/>
+                                    d="M10.854 6.146a.5.5 0 0 0-.708.708L11.293 8l-1.147 1.146a.5.5 0 0 0 .708.708L12 8.707l1.146 1.147a.5.5 0 0 0 .708-.708L12.707 8l1.147-1.146a.5.5 0 0 0-.708-.708L12 7.293 10.854 6.146z" />
                                 <path
-                                    d="M10 1.5v1h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1v-1a1 1 0 1 1 2 0v1h2v-1a1 1 0 1 1 2 0zM5 4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H5z"/>
+                                    d="M10 1.5v1h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1v-1a1 1 0 1 1 2 0v1h2v-1a1 1 0 1 1 2 0zM5 4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H5z" />
                             </svg>
                         </span>
                     </div>
                 @endif
-                <input type="hidden" id="components_batches_{{ $rowCount }}" name="components[{{$rowCount}}][batch_details]" value='@json($batches)' />
-                <div class="me-50 cursor-pointer addBatchBtn"
-                data-bs-toggle="modal"
-                data-row-count="{{$rowCount}}"
-                data-is-batch-number="{{$item?->item?->is_batch_no}}"
-                data-is-expiry="{{$item?->item?->is_expiry}}"
-                data-bs-target="#item-batch-modal">
+                <input type="hidden" id="components_batches_{{ $rowCount }}"
+                    name="components[{{ $rowCount }}][batch_details]" value='@json($batches)' />
+                <div class="me-50 cursor-pointer addBatchBtn" data-bs-toggle="modal"
+                    data-row-count="{{ $rowCount }}" data-is-batch-number="{{ $item?->item?->is_batch_no }}"
+                    data-is-expiry="{{ $item?->item?->is_expiry }}" data-bs-target="#item-batch-modal">
                     <span data-bs-toggle="tooltip" data-bs-placement="top" title="" class="text-primary"
                         data-bs-original-title="Item Batch" aria-label="Item Batch">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                        class="feather feather-map-pin">
-                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round" class="feather feather-map-pin">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg></span>
                 </div>
-                <!-- <input type="hidden" id="components_storage_packets_{{ $rowCount }}" name="components[{{$rowCount}}][storage_packets]" value=""/>
-                <div class="me-50 cursor-pointer addStoragePointBtn" data-bs-toggle="modal" data-row-count="{{$rowCount}}" data-bs-target="#storage-point-modal">
+                <!-- <input type="hidden" id="components_storage_packets_{{ $rowCount }}" name="components[{{ $rowCount }}][storage_packets]" value=""/>
+                <div class="me-50 cursor-pointer addStoragePointBtn" data-bs-toggle="modal" data-row-count="{{ $rowCount }}" data-bs-target="#storage-point-modal">
                     <span data-bs-toggle="tooltip" data-bs-placement="top" title="" class="text-primary"
                         data-bs-original-title="Storage Point" aria-label="Storage Point">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"

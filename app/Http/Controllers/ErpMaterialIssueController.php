@@ -1092,7 +1092,7 @@ class ErpMaterialIssueController extends Controller
                             ->when($request->document_id, fn($q) => $q->where('id', $request->document_id))
                             ->whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])
                             ->whereIn('book_id', $applicableBookIds)
-                            ->where('fg_sub_store_id', $request->store_id);
+                            ->where('fg_sub_store_id', $request->sub_store_id_from);
                     })
                     ->when($pslipType === 'A', function ($aStockQuery) {
                         $aStockQuery -> whereColumn('accepted_qty', '>', 'mi_accepted_qty');
