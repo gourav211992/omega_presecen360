@@ -23,7 +23,7 @@ class VehicleTypeRequest extends FormRequest
             'required',
             'string',
             'max:100',
-            'regex:/^[A-Za-z\s\.\-]+$/'
+            'regex:/^[A-Za-z0-9\s\.\-]+$/'
         ],
 
 
