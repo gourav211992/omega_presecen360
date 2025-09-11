@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Exception;
 use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use Carbon\Carbon;
 
 class FurbooksImport implements ToCollection, WithHeadingRow, WithChunkReading
 {
@@ -59,11 +61,7 @@ class FurbooksImport implements ToCollection, WithHeadingRow, WithChunkReading
 
     public function collection(Collection $rows)
     {
-        $user = Helper::getAuthenticatedUser();
-        $organization = $user->organization;
-
-        $uploadedFurbooks = collect();
-        
+        $uploadedFurbooks = collect(); 
         foreach ($rows as $rowIndex => $row) {
             DB::beginTransaction();
             $uploadedFurbook = null;
@@ -72,16 +70,18 @@ class FurbooksImport implements ToCollection, WithHeadingRow, WithChunkReading
                 // Validate required fields
                 $validator = Validator::make($row->toArray(), [
                     'location_id' => 'required|integer',
+                    'organization_id' => 'required|integer',
                     'currency_code' => 'required',
-                    'furbook_code' => 'required', // Changed from furbooks_code to furbook_code to match Excel
+                    'furbook_code' => 'required',
                     'debit_amount' => 'nullable|numeric|min:0',
                     'credit_amount' => 'nullable|numeric|min:0',
                     'amount' => 'nullable|numeric',
-                    'document_date' => 'nullable|date',
+                    'document_date' => 'nullable',
                     'cost_center' => 'nullable',
                     'remark' => 'nullable',
                     'final_remark' => 'nullable',
                 ]);
+
 
                 if ($validator->fails()) {
                     throw new Exception('Validation failed: ' . implode(', ', $validator->errors()->all()));
@@ -104,20 +104,21 @@ class FurbooksImport implements ToCollection, WithHeadingRow, WithChunkReading
                     $amount = $row['amount'] ?? 0;
                 }
 
+                $documentDate = isset($row['document_date']) ? ExcelDate::excelToDateTimeObject($row['document_date'])->format('Y-m-d') : Carbon::now()->format('Y-m-d');
                 
                 // Create staging record
                 $uploadedFurbook = ErpStagingFurbooksLedger::create([
-                    'location_id' => $row['location_id'],
-                    'organization_id' => $organization->id,
-                    'currency_code' => $row['currency_code'],
-                    'furbooks_code' => $row['furbook_code'], // Using furbook_code from Excel
+                    'location_id' => $row['location_id'] ?? null,
+                    'organization_id' => $row['organization_id'],
+                    'currency_code' => $row['currency_code'] ?? 'USD',
+                    'furbooks_code' => $row['furbook_code'] ?? 'UNKNOWN_' . $rowIndex, // Using furbook_code from Excel
                     'cost_center' => $row['cost_center'] ?? null,
                     'remark' => $row['remark'] ?? null,
                     'final_remark' => $row['final_remark'] ?? null,
-                    'document_date' => $row['document_date'] ?? null,
-                    'debit_amount' => $debitAmount,
-                    'credit_amount' => $creditAmount,
-                    'amount' => $amount,
+                    'document_date' => $documentDate,
+                    'debit_amount' => (float) ($row['debit_amount'] ?? 0),
+                    'credit_amount' => (float) ($row['credit_amount'] ?? 0),
+                    'amount' => (float) ($row['amount'] ?? 0),
                     'status' => 'Success',
                 ]);
 
@@ -137,21 +138,27 @@ class FurbooksImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'row_index' => $rowIndex
                 ]);
 
+                $errorMessage = $e->getMessage();  // Capture exception message
+
                 // Create failed record in try-catch to handle any creation errors
-                try {
+                try 
+                {
+                    $documentDate = isset($row['document_date']) ? ExcelDate::excelToDateTimeObject($row['document_date'])->format('Y-m-d') : Carbon::now()->format('Y-m-d');
+
                     $uploadedFurbook = ErpStagingFurbooksLedger::create([
                         'location_id' => $row['location_id'] ?? null,
-                        'organization_id' => $organization->id,
+                        'organization_id' => $row['organization_id'],
                         'currency_code' => $row['currency_code'] ?? 'USD',
                         'furbooks_code' => $row['furbook_code'] ?? 'UNKNOWN_' . $rowIndex, // Using furbook_code from Excel
                         'cost_center' => $row['cost_center'] ?? null,
                         'remark' => $row['remark'] ?? null,
                         'final_remark' => $row['final_remark'] ?? null,
-                        'document_date' => $row['document_date'] ?? null,
+                        'document_date' =>$documentDate,
                         'debit_amount' => (float) ($row['debit_amount'] ?? 0),
                         'credit_amount' => (float) ($row['credit_amount'] ?? 0),
                         'amount' => (float) ($row['amount'] ?? 0),
                         'status' => 'Failed',
+                        'remarks' => $e->getMessage(),  // Save exact error reason
                     ]);
 
                     if ($uploadedFurbook) {
