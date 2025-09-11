@@ -12,10 +12,9 @@ use App\Models\ErpEquipMaintenanceDetail;
 use App\Models\ErpMaintenanceType;
 use App\Models\ErpEquipment;
 use App\Models\ErpEquipmentHistory;
-use App\Models\InspectionChecklist;
 use App\Models\InspectionChecklistDetail;
+use App\Models\InspectionChecklist;
 use App\Models\Item;
-use App\Models\PlantMaintWo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -28,24 +27,6 @@ class ErpEquipmentController extends Controller
     public function index()
     {
         $equipments = ErpEquipment::with(['organization', 'location', 'spareParts', 'maintenanceDetails.checklists'])->get();
-        $plantMainWo = PlantMaintWo::select('id','document_status','equipment_details','created_at','updated_at')->get();
-        
-        $equipments = $equipments->map(function($equipment) use ($plantMainWo) {
-          
-            $matchingWorkOrder = $plantMainWo->filter(function($workOrder) use ($equipment) {
-                $equipmentDetails = json_decode($workOrder->equipment_details, true);
-                
-                return isset($equipmentDetails['equipment_id']) && 
-                       $equipmentDetails['equipment_id'] == $equipment->id;
-            })->first();
-            
-            if ($matchingWorkOrder) {
-                $equipment->equipment_status = $matchingWorkOrder->document_status;
-            } 
-            
-            return $equipment;
-        });
-        
         return view('equipment.index', compact('equipments'));
     }
     public function create()
@@ -81,7 +62,7 @@ class ErpEquipmentController extends Controller
 
     public function store(ErpEquipmentRequest $request)
     {
-        
+        // dd($request->all());
         DB::beginTransaction();
         try {
             $user = Helper::getAuthenticatedUser();
@@ -149,36 +130,23 @@ class ErpEquipmentController extends Controller
                     // Checklist for this maintenance
                     if (!empty($mRow['checklists']) && is_array($mRow['checklists'])) {
                         foreach ($mRow['checklists'] as $check) {
-                            // Skip if required IDs are missing
-                            if (empty($check['checklist_id']) || empty($check['checklist_detail_id'])) {
+                            // Skip if no ID or name
+                            if (empty($check['checklist_id'])) {
                                 continue;
                             }
 
-                            // Fetch checklist details from database using the IDs
-                            $checklistDetail = InspectionChecklistDetail::find($check['checklist_detail_id']);
-                            if (!$checklistDetail) {
-                                continue; // Skip if checklist detail not found
-                            }
-                            
-                            // Fetch main checklist name using checklist_id
-                            $mainChecklist = InspectionChecklist::find($check['checklist_id']);
-                            $mainChecklistName = $mainChecklist ? $mainChecklist->name : 'Unknown Checklist';
+                           
 
-                            // Create checklist record with main checklist name and complete details in JSON
+                            $checkListName = InspectionChecklist::where('id', $check['checklist_id'])->select('id','name','description','type')->first();
+
                             ErpEquipMaintenanceChecklist::create([
                                 'erp_equip_maintenance_id' => $maintenance_detail_item->id,
-                                'name' => $mainChecklistName, // Store main checklist name as requested
-                                'description' => $checklistDetail->description ?? null,
-                                'type' => $checklistDetail->data_type ?? null,
+                                'checklist_id' => $checkListName->id ?? null,
+                                'name' => $checkListName->name,
+                                'description' => $checkListName->description,
+                                'type' => $checkListName->type,
                                 'created_by' => $user->auth_user_id,
-                                'checklist_detail' => json_encode([
-                                    'checklist_id' => $check['checklist_id'],
-                                    'checklist_detail_id' => $check['checklist_detail_id'],
-                                    'main_checklist_name' => $mainChecklistName,
-                                    'name' => $checklistDetail->name,
-                                    'description' => $checklistDetail->description,
-                                    'data_type' => $checklistDetail->data_type
-                                ]),
+                                'checklist_detail'=>json_encode($check),
                             ]);
                         }
                     }
@@ -284,37 +252,28 @@ class ErpEquipmentController extends Controller
         $maintenanceTypes = ErpMaintenanceType::all(['id', 'name']);
         $maintenanceBOM = PlantMaintBom::all(['id', 'bom_name as name']);
         $items = Item::get();
-        $categories = Category::where('type', 'Equipment')->get();
+       $categories = Category::where('type', 'Equipment')->get();
         $approvalHistory = [];
         if (!empty($equipment->book_id))
             $approvalHistory = Helper::getApprovalHistory($equipment->book_id, $equipment->id, $revNo, 0, $equipment->created_by);
 
 
         $checklists = InspectionChecklist::where('type','maintenance')->get();
-       
+        
 
         $fixedAssetRegistration = FixedAssetRegistration::select('id', 'asset_name','asset_code')->get();
         $maintenanceDetails = ErpEquipMaintenanceDetail::where('erp_equipment_id', $equipment->id)->value('id');
        
         $checkListData = ErpEquipMaintenanceChecklist::where('erp_equip_maintenance_id', $maintenanceDetails)->select('id','checklist_detail')->get();
-        
         $checkListIds = [];
-        $mainChecklistNames = []; // Store main checklist names for display
 
-        foreach($checkListData as $checkListItem){
-            $checkListDetail = json_decode($checkListItem->checklist_detail);
-            if(!empty($checkListDetail->checklist_detail_id)){
-                $checkListIds[] = $checkListDetail->checklist_detail_id;
+        foreach($checkListData as $checkListId){
+            $checkListId = json_decode($checkListId->checklist_detail);
+            if(!empty($checkListId->checklist_detail_id)){
+                $checkListIds[] = $checkListId->checklist_detail_id;
             }
-            
-            // Extract main checklist name if available
-            if(!empty($checkListDetail->main_checklist_name)){
-                $mainChecklistNames[] = $checkListDetail->main_checklist_name;
-            }
+           
         }
-        
-        // Remove duplicate main checklist names
-        $mainChecklistNames = array_unique($mainChecklistNames);
         
       
        
@@ -333,8 +292,7 @@ class ErpEquipmentController extends Controller
             'items',
             'checklists',
             'fixedAssetRegistration',
-            'checkListIds',
-            'mainChecklistNames'
+            'checkListIds'
         ));
     }
 
@@ -372,17 +330,11 @@ class ErpEquipmentController extends Controller
                 $equipment->save();
             }
 
-           
-
-            // Store old checklist data before deletion
-            $oldChecklistData = [];
-            $equipment->maintenanceDetails()->each(function ($detail) use (&$oldChecklistData) {
-                $oldChecklistData[$detail->maintenance_type_id] = $detail->checklists()->get()->toArray();
+            // Remove old maintenance details and checklists
+            $equipment->maintenanceDetails()->each(function ($detail) {
                 $detail->checklists()->delete();
             });
             $equipment->maintenanceDetails()->delete();
-
-            
 
             // Maintenance Details
             if ($request->has('maintenance') && is_array($request->maintenance)) {
@@ -400,66 +352,22 @@ class ErpEquipmentController extends Controller
                         'time' => $mRow['time'] ?? null,
                     ]);
 
-                    // Handle checklist data - fetch details from database using IDs
                     if (!empty($mRow['checklists']) && is_array($mRow['checklists'])) {
-                        // New checklist data provided, fetch details using IDs
                         foreach ($mRow['checklists'] as $check) {
-                            if (empty($check['checklist_id']) && empty($check['checklist_detail_id'])) {
+                            if (empty($check['id']) && empty($check['name'])) {
                                 continue;
                             }
-                            
-                            // Fetch checklist details from database using the IDs
-                            $checklistDetail = \App\Models\InspectionChecklistDetail::find($check['checklist_detail_id']);
-                            
-                            if (!$checklistDetail) {
-                                Log::warning('Checklist detail not found for ID: ' . $check['checklist_detail_id']);
-                                continue;
-                            }
-                            
-                            // Fetch main checklist name using checklist_id
-                            $mainChecklist = \App\Models\InspectionChecklist::find($check['checklist_id']);
-                            $mainChecklistName = $mainChecklist ? $mainChecklist->name : 'Unknown Checklist';
 
-                            Log::info('Processing checklist item with fetched details:', [
-                                'checklist_id' => $check['checklist_id'],
-                                'checklist_detail_id' => $check['checklist_detail_id'],
-                                'fetched_name' => $checklistDetail->name,
-                                'fetched_description' => $checklistDetail->description,
-                                'fetched_type' => $checklistDetail->data_type
-                            ]);
+                           Log::info('Processing checklist item:', $check);
 
                             ErpEquipMaintenanceChecklist::create([
                                 'erp_equip_maintenance_id' => $maintenance_detail_item->id,
-                                'name' => $mainChecklistName,
-                                'description' => $checklistDetail->description ?? null,
-                                'type' => $checklistDetail->data_type ?? null,
+                                'name' => $check['name'],
+                                'description' => $check['description'] ?? null,
+                                'type' => $check['type'] ?? null,
                                 'created_by' => $user->auth_user_id,
-                                'checklist_detail' => json_encode([
-                                    'checklist_id' => $check['checklist_id'],
-                                    'checklist_detail_id' => $check['checklist_detail_id'],
-                                    'main_checklist_name' => $mainChecklistName,
-                                    'name' => $checklistDetail->name,
-                                    'description' => $checklistDetail->description,
-                                    'data_type' => $checklistDetail->data_type
-                                ]),
+                                'checklist_detail'=>json_encode($check),
                             ]);
-                        }
-                    } else {
-                        // No new checklist data provided, preserve old checklist data if exists
-                        $maintenanceTypeId = $mRow['type'];
-                        if (isset($oldChecklistData[$maintenanceTypeId])) {
-                            foreach ($oldChecklistData[$maintenanceTypeId] as $oldCheck) {
-                                Log::info('Preserving old checklist item:', $oldCheck);
-
-                                ErpEquipMaintenanceChecklist::create([
-                                    'erp_equip_maintenance_id' => $maintenance_detail_item->id,
-                                    'name' => $oldCheck['name'],
-                                    'description' => $oldCheck['description'] ?? null,
-                                    'type' => $oldCheck['type'] ?? null,
-                                    'created_by' => $oldCheck['created_by'] ?? $user->auth_user_id,
-                                    'checklist_detail' => $oldCheck['checklist_detail'] ?? null,
-                                ]);
-                            }
                         }
                     }
                 }
@@ -664,7 +572,6 @@ class ErpEquipmentController extends Controller
             }
 
             // Get checklist with its details
-            $checkLIstName = InspectionChecklist::where('id', $checklistId)->value('name');
             $checklist = InspectionChecklistDetail::where('header_id', $checklistId)
                         ->get();
        
@@ -682,11 +589,18 @@ class ErpEquipmentController extends Controller
                 'message' => 'Checklist details fetched successfully',
                 'data' => [
                     'checklist' => $checklist,
-                    'details' => $checklist,
-                    'checklist_name' => $checkLIstName
+                    'details' => $checklist
                 ]
             ], 200);
 
+        // } catch (\Exception $e) {
+        //     Log::error("Get Checklist Details Error: " . $e->getMessage());
+        //     return response()->json([
+        //         'success' => false,
+        //         'message' => 'An error occurred while fetching checklist details',
+        //         'data' => []
+        //     ], 500);
+        // }
     }
 
     /**
@@ -717,29 +631,6 @@ class ErpEquipmentController extends Controller
                 'data' => []
             ], 500);
         }
-    }
-
-    public function getPopupChecklistData(Request $request){
-       
-            $equipmentId = $request->equipment_id;
-            $maintenanceTypeId = $request->id;
-            $inspectionChecklist = InspectionChecklist::where('type', 'maintenance')->select('id', 'name')->get();
-            foreach($inspectionChecklist as $checklist){
-                $checklist->details = InspectionChecklistDetail::where('header_id', $checklist->id)
-                            ->get();
-            }
-           
-            $maintenanceChecklist = ErpEquipMaintenanceChecklist::where('erp_equip_maintenance_id', $maintenanceTypeId)->get();
-           
-           
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Checklists found successfully',
-                'data' => $inspectionChecklist,
-                'maintenanceChecklist' => $maintenanceChecklist
-            ], 200);      
-     
     }
 
 }

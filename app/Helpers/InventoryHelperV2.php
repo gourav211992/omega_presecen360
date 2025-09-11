@@ -482,8 +482,14 @@ class InventoryHelperV2
         $unConfirmedStock = $availStock['unConfirmedStock'] ?? null;
 
         if ($confirmedStock || $unConfirmedStock) {
-            $unConfirmedStock->attributes()->delete();
-            $unConfirmedStock->delete();
+            foreach ([$confirmedStock, $unConfirmedStock] as $stock) {
+                if ($stock) {
+                    if (method_exists($stock, 'attributes')) {
+                        $stock->attributes()?->delete();
+                    }
+                    $stock->delete();
+                }
+            }
 
             return self::successResponse("Stock deleted successfully", [
                 'stockLedger' => $documentDetail,

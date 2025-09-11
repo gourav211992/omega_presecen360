@@ -18,7 +18,9 @@
                   @endif
                   <div class="mb-2">
                      <label class="form-label">Remarks <span class="text-danger">*</span></label>
-                     <textarea maxlength="250" name="approval_remarks" class="form-control"></textarea>
+                     <textarea maxlength="250" name="approval_remarks" id="approve_remarks" class="form-control"></textarea>
+                     <small id="remarksError" style="color:red; display:none;"></small>
+
                   </div>
                   <div class="mb-2">
                      <label class="form-label">Upload Document</label>

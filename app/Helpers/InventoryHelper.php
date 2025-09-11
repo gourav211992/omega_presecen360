@@ -1286,7 +1286,6 @@ class InventoryHelper
             ];
 
         } catch (\Exception $e) {
-            dd($e->getMessage(), $e->getLine());
             \Log::error('Error in insertStockLedger: ' . $e->getMessage() . 'on line' . $e->getLine(), [
                 'exception' => $e
             ]);
@@ -2498,7 +2497,7 @@ class InventoryHelper
             ->whereIn('document_detail_id', $documentDetailId)
             ->where('book_type', '=', $bookType)
             ->where('transaction_type', '=', $transactionType)
-            ->where('document_status', 'draft')
+            // ->where('document_status', 'draft')
             ->where('is_foc', 0)
             ->whereNull('utilized_id')
             ->get();
@@ -2552,7 +2551,7 @@ class InventoryHelper
             ->whereIn('document_detail_id', $documentDetailId)
             ->where('book_type', '=', $bookType)
             ->where('transaction_type', '=', $transactionType)
-            ->where('document_status', 'draft')
+            // ->where('document_status', 'draft')
             ->where('is_foc', 1)
             ->whereNull('utilized_id')
             ->get();
@@ -2574,7 +2573,12 @@ class InventoryHelper
             if ($documentItemLocation->foc_inv_uom_qty > $utilizedQty) {
                 $stockLedger = new StockLedger();
                 $invoiceLedger = self::insertStockLedger($stockLedger, $documentItemLocation, $bookType, $documentStatus, $transactionType, $utilizedQty, $utlStockLedger = NULL, $stockType = 'R', $jobType = null, $isFoc = true);
-
+            } else if ($documentItemLocation->foc_inv_uom_qty < 1) {
+                $invoiceLedger = [
+                    'status' => 'success',
+                    'message' => 'No Foc Qty.',
+                    'invoiceLedger' => $documentItemLocation
+                ];
             } else {
                 $invoiceLedger = [
                     'status' => 'error',

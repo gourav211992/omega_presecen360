@@ -226,7 +226,7 @@
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Currency <span class="text-danger">*</span></label>
-                                                            <select class="form-select" name="currency_id">
+                                                            <select class="form-select" id="currency_id" name="currency_id">
                                                             </select>
                                                         </div>
                                                     </div>
@@ -315,7 +315,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 E-Way Bill No.
-                                                                <!-- <span class="text-danger">*</span> -->
+                                                                {{-- <span class="text-danger">*</span> --}}
                                                             </label>
                                                             <input type="text" name="eway_bill_no"
                                                                 class="form-control bg-white"
@@ -326,7 +326,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 Consignment No.
-                                                                <!-- <span class="text-danger">*</span> -->
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="consignment_no"
                                                                 class="form-control bg-white"
@@ -337,6 +337,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                             Supplier Invoice No.
+                                                            <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="supplier_invoice_no"
                                                                 class="form-control bg-white"
@@ -347,7 +348,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 Supplier Invoice Date
-                                                                <!-- <span class="text-danger">*</span> -->
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="date" name="supplier_invoice_date"
                                                                 class="form-control bg-white gate-entry" id="datepicker3"
@@ -358,6 +359,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                             Transporter Name
+                                                            <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="transporter_name"
                                                                 class="form-control bg-white"
@@ -368,6 +370,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 Vehicle No.
+                                                                <span class="text-danger">*</span>
                                                                 <i class="ml-2 fas fa-info-circle text-primary"
                                                                 data-bs-toggle="tooltip"
                                                                 data-bs-html="true"
@@ -382,6 +385,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                             Manual Entry No.
+                                                            <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="manual_entry_no"
                                                                 class="form-control bg-white"

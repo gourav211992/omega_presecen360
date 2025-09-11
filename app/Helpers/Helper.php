@@ -4193,14 +4193,9 @@ class Helper
 
         DB::beginTransaction();
         try {
-               Log::info('mrn register', [
-                'mrn_id' => $mrn_id,
-                'alias' => $alias,
-                'constantalisa' => ConstantHelper::PB_SERVICE_ALIAS
-                ]);
 
-            if (!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS)) {
-                Log::error('pbheader get');
+             if(!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS))
+            {
                 $mrn_id = PbHeader::where('id', $mrn_id)->pluck('mrn_header_id')->first();
             }
             else
@@ -4336,14 +4331,14 @@ class Helper
                         ];
                     }
 
-                     if (!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS)) {
-                        Log::error('pb item value set: '.$mrn_detail->pb_item_value);
+                     if(!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS))
+                    {
                         $currentValue = $mrn_detail->pb_item_value;
-                    } else {
-                        Log::error('basic_value: ' . ($mrn_detail->basic_value + $mrn_detail->header_exp_amount));
+                    }
+                    else
+                    {
                         $currentValue = $mrn_detail->basic_value + $mrn_detail->header_exp_amount;
                     }
-
                     $depreciationPercentage = $setup->salvage_percentage ?? $organization->dep_percentage ?? null;
                     $salvageValue = round($currentValue * ($depreciationPercentage / 100), 2);
                     $method = $organization->dep_method;
@@ -4364,11 +4359,13 @@ class Helper
                     $count=count($mrn_detail->batches);
                     $uniqueCodes = $mrn_detail->uniqueCodes->values();
                     $totalqty = 0;
+                    $taxpercentage = ($mrn_detail->tax_value/($mrn_detail->basic_value-$mrn_detail->discount_amount));
                     foreach($mrn_detail->batches as $batch)
                     {
                         $totalqty += $batch->inventory_uom_qty;
-                    }
                         $singlevalue = round($currentValue/$totalqty, 2);
+
+                    }
 
                      $offset = 0;
 
@@ -4378,7 +4375,6 @@ class Helper
 
                         $asset_code = self::generateAssetCode($category_id);
                         $existingAsset = FixedAssetRegistration::where('asset_code', $asset_code)->first();
-                        
                         $data = [
                         'organization_id' => $user->organization_id,
                         'group_id' => $organization->group_id,
@@ -4405,9 +4401,9 @@ class Helper
                         'last_dep_date' => $capitalize_date,
                         'vendor_id' => $mrn->vendor_id,
                         'currency_id' => $mrn->vendor?->currency_id,
-                        'sub_total' =>  $mrn_detail->basic_value,
+                        'sub_total' => $mrn_detail->basic_value ,
                         'tax' => $mrn_detail->tax_value,
-                        'purchase_amount' =>  $mrn_detail->basic_value + $mrn_detail->tax_value,
+                        'purchase_amount' => $mrn_detail->basic_value + $mrn_detail->tax_value,
                         'supplier_invoice_date' => $mrn->supplier_invoice_date,
                         'book_date' => $mrn_detail->created_at ?? null,
                         'supplier_invoice_no' => $mrn->supplier_invoice_no,

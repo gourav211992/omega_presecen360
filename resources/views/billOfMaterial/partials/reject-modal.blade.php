@@ -16,7 +16,7 @@
                <div class="col-md-12">
                   <div class="mb-2">
                      <label class="form-label">Remarks <span class="text-danger">*</span></label>
-                     <textarea maxlength="250" name="approval_remarks" class="form-control"></textarea>
+                     <textarea maxlength="250" name="approval_remarks" class="form-control" required></textarea>
                   </div>
                   <div class="mb-2">
                      <label class="form-label">Upload Document</label>

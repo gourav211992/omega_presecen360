@@ -55,9 +55,9 @@ class GateEntryRequest extends FormRequest
             'currency_id' => 'required',
             'payment_term_id' => 'required',
             'eway_bill_no' => 'nullable|max:50',
-            'consignment_no' => 'nullable|max:50',
+            'consignment_no' => 'required|max:50',
             'supplier_invoice_no' => [
-                'nullable',
+                'required',
                 'max:50',
                 // Rule::unique('erp_gate_entry_headers')
                 //     ->where(function ($query) {
@@ -68,11 +68,11 @@ class GateEntryRequest extends FormRequest
                 //     })
                 //     ->ignore($mrnId), // ignore when updating
             ],
-            'supplier_invoice_date' => 'nullable|date',
-            'manual_entry_no' => 'nullable|max:50',
-            'transporter_name' => 'nullable|max:50',
+            'supplier_invoice_date' => 'required|date',
+            'manual_entry_no' => 'required|max:50',
+            'transporter_name' => 'required|max:50',
             'vehicle_no' => [
-                'nullable',
+                'required',
                 'regex:/^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/'
             ],
 
@@ -149,6 +149,9 @@ class GateEntryRequest extends FormRequest
     {
         return [
             'book_id.required' => 'The series is required.',
+            'vendor_id.required' => 'Vendor Name is required.',
+            'currency_id.required' => 'Currency is required.',
+            'payment_term_id.required' => 'Payment Term is required.',
             'header_store_id.required' => 'Location is required',
             'document_date.in' => 'The document date must be today.',
             'document_date.required' => 'The document date is required.',
@@ -162,6 +165,7 @@ class GateEntryRequest extends FormRequest
             'transporter_name.required' => 'Transporter Name is required.',
             'vehicle_no.required' => 'Vehicle number is required.',
             'vehicle_no.regex' => 'Invalid vehicle number format. Example: MH12AB1234',
+            'manual_entry_no.required' => 'Manual Entry Number is required.',
             'remarks.required' => 'Remark is required.',
             'item_code.required' => 'The product code is required.',
             'uom_id' => 'The unit of measure must be a string.',
