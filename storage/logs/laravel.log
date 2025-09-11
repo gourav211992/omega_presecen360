@@ -6376,3 +6376,8 @@
 #53 /var/www/html/omega_presecen360/public/index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle()
 #54 {main}
 "} 
+[2025-09-11 04:49:16] local.INFO: Authenticated user: {"id":1,"type":"employee","full_user":{"P360\\Core\\Models\\Employee":{"id":1,"group_id":null,"organization_id":8,"company_id":null,"employee_code":"CODE-001","name":"Employee One one","email":"saurabhchhabra018@gmail.com","mobile":"9968302318","status":"active","profile_image":null,"authenticable_type":"employee","auth_user_id":1,"db_name":null}}} 
+[2025-09-11 04:49:16] local.INFO: Cookies for Financial Year: {"startDate":"2025-09-11","endDate":"2025-09-11"} 
+[2025-09-11 04:49:16] local.INFO: Financial Year from Helper: {"alias":"FY24","id":1,"start_date":"2025-04-01","end_date":"2026-03-31","lock_fy":0,"fy_close":false,"range":"2025-26","authorized":true} 
+[2025-09-11 04:49:16] local.INFO: Fetched months:  
+[2025-09-11 04:49:16] local.INFO: Final month result:  
