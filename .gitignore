@@ -17,6 +17,8 @@
 /storage/logs/*.log
 /bootstrap/cache/*
 /public/voucherDocuments
+storage/logs/laravel.log
+/storage/logs/laravel.log
 /.env
 storage
 .env.backup
