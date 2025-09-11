@@ -756,7 +756,7 @@ class FurbooksController extends Controller
             // Generate document number using BookController method (same as frontend)
             $bookController = new BookController();
             $docRequest = new Request([
-                'book_id' => '135',
+                'book_id' => $bookId,
                 'document_date' => $documentDate
             ]);
             
