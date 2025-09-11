@@ -10,11 +10,15 @@
 /storage/framework/*
 /storage/framework/sessions/*
 /storage/*
+/storage/framework/*
+/storage/logs/*
+/storage/framework/cache/*
 /storage/*.key
 /storage/logs/*.log
 /bootstrap/cache/*
 /public/voucherDocuments
 /.env
+storage
 .env.backup
 .env.production
 .phpunit.result.cache
