@@ -38,10 +38,10 @@ class KaizenController extends Controller
             ->where(function($query) use($request){
                 self::filter($request, $query);
             })
-            ->where(function ($q) use ($user) {
-                $q->where('created_by', $user->id)
-                ->orWhere('approver_id', $user->id);
-            })
+            // ->where(function ($q) use ($user) {
+            //     $q->where('created_by', $user->id)
+            //     ->orWhere('approver_id', $user->id);
+            // })
             ->orderBy('id','desc')
             ->paginate($length);
         return view('kaizen.index',[
