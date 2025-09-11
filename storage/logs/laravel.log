@@ -7393,3 +7393,6 @@
 [2025-09-11 06:45:46] local.INFO: Financial Year from Helper: {"alias":"FY24","id":1,"start_date":"2025-04-01","end_date":"2026-03-31","lock_fy":0,"fy_close":false,"range":"2025-26","authorized":true} 
 [2025-09-11 06:45:46] local.INFO: Fetched months:  
 [2025-09-11 06:45:46] local.INFO: Final month result:  
+[2025-09-11 06:58:15] local.INFO: PaymentVoucher Update (voucher_no: PAY_V-113) | document_status: 'draft' → 'submitted' | Source: /var/www/html/omega_presecen360/app/Http/Controllers/PaymentVoucherController.php (Line 884)  
+[2025-09-11 06:58:15] local.INFO: PaymentVoucher Update (voucher_no: PAY_V-113) | document_status: 'submitted' → 'posted' | Source: /var/www/html/omega_presecen360/app/Helpers/FinancialPostingHelper.php (Line 1155)  
+[2025-09-11 06:58:15] local.INFO: PaymentVoucher Update (voucher_no: PAY_V-113) | document_status: 'submitted' → 'posted' | Source: /var/www/html/omega_presecen360/app/Http/Controllers/PaymentVoucherController.php (Line 893)  
