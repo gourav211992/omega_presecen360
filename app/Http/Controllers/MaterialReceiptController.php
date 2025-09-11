@@ -210,7 +210,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-    
+
                         return $joReferences ?: 'N/A';
                     } elseif ($row->reference_type === 'po') {
                         // Multiple POs from related items
@@ -223,7 +223,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-    
+
                         return $joReferences ?: 'N/A';
                     } else {
                         return '';
@@ -3406,7 +3406,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-    
+
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     });
@@ -3969,7 +3969,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-    
+
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     })
@@ -4282,7 +4282,7 @@ class MaterialReceiptController extends Controller
                     ? ($request->selected_so_ids[0] ?? 'null')
                     : 'null';
                 // $disabled = ($dataExistingPo !== 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-    
+
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input so_item_checkbox' type='checkbox' name='so_item_check' value='{$row->id}' data-module='{$this->moduleType}' data-current-so='{$dataCurrentSo}' data-existing-so='{$dataExistingSo}'>
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -4654,7 +4654,7 @@ class MaterialReceiptController extends Controller
     private static function maintainStockLedger($mrn)
     {
         $user = Helper::getAuthenticatedUser();
-        $detailIds = $mrn->batches->pluck('id')->toArray();
+        $detailIds = $mrn->batches->pluck('detail_id')->toArray();
         $data = InventoryHelper::settlementOfInventoryAndStock($mrn->id, $detailIds, ConstantHelper::MRN_SERVICE_ALIAS, $mrn->document_status);
         return $data;
     }

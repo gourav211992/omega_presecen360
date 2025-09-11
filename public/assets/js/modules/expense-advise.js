@@ -459,7 +459,7 @@ function setTableCalculation() {
                 let queryParams = new URLSearchParams({
                     price: price,
                     item_id: itemId,
-                    transaction_type: transactionType,
+                    transaction_type: 'purchase',
                     party_country_id: partyCountryId,
                     party_state_id: partyStateId,
                     rowCount: rowCount3,

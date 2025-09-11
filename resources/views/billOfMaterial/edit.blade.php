@@ -838,7 +838,14 @@ $(function(){
 
     // Set Approval Modal Data
     $(document).on('click','#approval-clone-btn',(e) => {
-
+        let remarks = document.getElementById("approve_remarks");
+        if (remarks.value === "") {
+            let error = document.getElementById("remarksError");
+            error.style.display = "block";
+            error.textContent = "Remarks field is required.";
+            remarks.style.border = "1px solid red";
+            return false;
+        }
         // Reset approval-data
         $('#approval-data').empty();
 

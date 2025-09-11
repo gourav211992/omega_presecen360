@@ -1697,7 +1697,7 @@ class ExpenseAdviseController extends Controller
     public function taxCalculation(Request $request)
     {
         $user = Helper::getAuthenticatedUser();
-        $location = ErpStore::find($request->location_id ?? null);
+         $location = ErpStore::find($request->location_id ?? null);
 
         $organization = $user->organization;
         $firstAddress = $location?->address ?? null;
@@ -1713,21 +1713,21 @@ class ExpenseAdviseController extends Controller
         $price = $request->input('price', 6000);
         $document_date = $request->document_date ?? date('Y-m-d');
         $hsnId = null;
-        $item = Item::find($request->item_id);
+        $item = Item::find($request -> item_id);
         if (isset($item)) {
-            $hsnId = $item->hsn_id;
+            $hsnId = $item -> hsn_id;
         } else {
             return response()->json(['error' => 'Invalid Item'], 500);
         }
-        $transactionType = $request->input('transaction_type', 'sale');
-        if ($transactionType === "sale") {
+        $transactionType = $request->input('transaction_type', 'purchase');
+        if ($transactionType === "purchase") {
             $fromCountry = $companyCountryId;
             $fromState = $companyStateId;
-            $upToCountry = $request->input('hidden_country_id', $companyCountryId) ?? 0;
-            $upToState = $request->input('hidden_state_id', $companyStateId) ?? 0;
+            $upToCountry = $request->input('party_country_id', $companyCountryId) ?? 0;
+            $upToState = $request->input('party_state_id', $companyStateId) ?? 0;
         } else {
-            $fromCountry = $request->input('hidden_country_id', $companyCountryId) ?? 0;
-            $fromState = $request->input('hidden_state_id', $companyStateId) ?? 0;
+            $fromCountry = $request->input('party_country_id', $companyCountryId) ?? 0;
+            $fromState = $request->input('party_state_id', $companyStateId) ?? 0;
             $upToCountry = $companyCountryId;
             $upToState = $companyStateId;
         }
@@ -2000,6 +2000,7 @@ class ExpenseAdviseController extends Controller
             ->findOrFail($id);
 
         $shippingAddress = $expense->shippingAddress;
+        $billingAddress = $expense->billingAddress;
 
         $totalItemValue = $expense->total_item_amount ?? 0.00;
         $totalDiscount = $expense->total_discount ?? 0.00;
@@ -2026,8 +2027,8 @@ class ExpenseAdviseController extends Controller
             [
                 'exp' => $expense,
                 'user' => $user,
-
                 'shippingAddress' => $shippingAddress,
+                'billingAddress' => $billingAddress,
                 'organization' => $organization,
                 'amountInWords' => $amountInWords,
                 'organizationAddress' => $organizationAddress,
@@ -2049,204 +2050,6 @@ class ExpenseAdviseController extends Controller
 
         $fileName = 'Expense-Advice-' . date('Y-m-d') . '.pdf';
         return $pdf->stream($fileName);
-    }
-
-    # Handle calculation update
-    public function updateCalculation($expenseId)
-    {
-        $expense = ExpenseHeader::find($expenseId);
-        if (!$expense) {
-            return;
-        }
-
-        $totalItemAmnt = 0;
-        $totalTaxAmnt = 0;
-        $totalItemValue = 0.00;
-        $totalTaxValue = 0.00;
-        $totalDiscValue = 0.00;
-        $totalExpValue = 0.00;
-        $totalItemLevelDiscValue = 0.00;
-        $totalAmount = 0.00;
-        $vendorShippingCountryId = $expense->shippingAddress->country_id;
-        $vendorShippingStateId = $expense->shippingAddress->state_id;
-
-        $user = Helper::getAuthenticatedUser();
-        $organization = $user->organization;
-        $firstAddress = $organization->addresses->first();
-        $companyCountryId = $firstAddress->country_id;
-        $companyStateId = $firstAddress->state_id;
-
-        # Save Item level discount
-        foreach ($expense->items as $expense_item) {
-            $itemPrice = $expense_item->rate * $expense_item->accepted_qty;
-            $totalItemAmnt = $totalItemAmnt + $itemPrice;
-            $itemDis = $expense_item->itemDiscount()->sum('ted_amount');
-            $expense_item->discount_amount = $itemDis;
-            $expense_item->save();
-        }
-        # Save header level discount
-        $totalItemValue = $expense->total_item_amount;
-        $totalItemValueAfterTotalItemDisc = $expense->total_item_amount - $expense->items()->sum('discount_amount');
-        $totalHeaderDiscount = $expense->total_header_disc_amount;
-
-        foreach ($expense->items as $expense_item) {
-            $itemPrice = $expense_item->rate * $expense_item->accepted_qty;
-            $itemPriceAfterItemDis = $itemPrice - $expense_item->discount_amount;
-            # Calculate header discount
-            // Calculate and save header discount
-            if ($totalItemValueAfterTotalItemDisc > 0 && $totalHeaderDiscount > 0) {
-                $headerDis = ($itemPriceAfterItemDis / $totalItemValueAfterTotalItemDisc) * $totalHeaderDiscount;
-            } else {
-                $headerDis = 0;
-            }
-            $expense_item->header_discount_amount = $headerDis;
-
-            # Calculate header expenses
-            $priceAfterBothDis = $itemPriceAfterItemDis - $headerDis;
-            $taxDetails = TaxHelper::calculateTax($expense_item->hsn_id, $priceAfterBothDis, $companyCountryId, $companyStateId, $vendorShippingCountryId, $vendorShippingStateId, 'purchase');
-            if (isset($taxDetails) && count($taxDetails) > 0) {
-                $itemTax = 0;
-                $cTaxDeIds = array_column($taxDetails, 'id');
-                $existTaxIds = ExpenseTed::where('expense_detail_id', $expense_item->id)
-                    ->where('ted_type', 'Tax')
-                    ->pluck('ted_id')
-                    ->toArray();
-
-                $array1 = array_map('strval', $existTaxIds);
-                $array2 = array_map('strval', $cTaxDeIds);
-                sort($array1);
-                sort($array2);
-
-                if ($array1 != $array2) {
-                    # Changes
-                    ExpenseTed::where("expense_detail_id", $expense_item->id)
-                        ->where('ted_type', 'Tax')
-                        ->delete();
-                }
-
-                foreach ($taxDetails as $taxDetail) {
-                    $itemTax += ((float)$taxDetail['tax_percentage'] / 100 * $priceAfterBothDis);
-
-                    $ted = ExpenseTed::firstOrNew([
-                        'expense_detail_id' => $expense_item->id,
-                        'ted_id' => $taxDetail['id'],
-                        'ted_type' => 'Tax',
-                    ]);
-
-                    $ted->expense_header_id = $expense->id;
-                    $ted->expense_detail_id = $expense_item->id;
-                    $ted->ted_type = 'Tax';
-                    $ted->ted_level = 'D';
-                    $ted->ted_id = $taxDetail['id'] ?? null;
-                    $ted->ted_name = $taxDetail['tax_type'] ?? null;
-                    $ted->assesment_amount = $expense_item->assessment_amount_total;
-                    $ted->ted_percentage = $taxDetail['tax_percentage'] ?? 0.00;
-                    $ted->ted_amount = ((float)$taxDetail['tax_percentage'] / 100 * $priceAfterBothDis) ?? 0.00;
-                    $ted->applicability_type = $taxDetail['applicability_type'] ?? 'Collection';
-                    $ted->save();
-                }
-                if ($itemTax) {
-                    $expense_item->tax_value = $itemTax;
-                    $expense_item->save();
-                    $totalTaxAmnt = $totalTaxAmnt + $itemTax;
-                }
-            }
-            $expense_item->save();
-        }
-
-        # Save expenses
-        $totalValueAfterBothDis = $totalItemValueAfterTotalItemDisc - $totalHeaderDiscount;
-        $headerExpensesTotal = $expense->expenses()->sum('ted_amount');
-
-        if ($headerExpensesTotal) {
-            foreach ($expense->items as $expense_item) {
-                $itemPriceAterBothDis = ($expense_item->rate * $expense_item->accepted_qty) - $expense_item->header_discount_amount - $expense_item->discount_amount;
-                $exp = $itemPriceAterBothDis / $totalValueAfterBothDis * $headerExpensesTotal;
-                $expense_item->header_exp_amount = $exp;
-                $expense_item->save();
-            }
-        } else {
-            foreach ($expense->items as $expense_item) {
-                $expense_item->header_exp_amount = 0.00;
-                $expense_item->save();
-            }
-        }
-
-        /*Update Calculation*/
-        $totalDiscValue = $expense->items()->sum('header_discount_amount') + $expense->items()->sum('discount_amount');
-        $totalExpValue = $expense->items()->sum('header_exp_amount');
-        $expense->total_item_amount = $totalItemAmnt;
-        $expense->total_discount = $totalDiscValue;
-        $expense->taxable_amount = ($totalItemAmnt - $totalDiscValue);
-        $expense->total_taxes = $totalTaxAmnt;
-        $expense->total_after_tax_amount = (($totalItemAmnt - $totalDiscValue) + $totalTaxAmnt);
-        $expense->expense_amount = $totalExpValue;
-        $totalAmount = (($totalItemAmnt - $totalDiscValue) + ($totalTaxAmnt + $totalExpValue));
-        $expense->total_amount = $totalAmount;
-        $expense->save();
-    }
-
-    # Remove discount item level
-    public function removeDisItemLevel(Request $request)
-    {
-        DB::beginTransaction();
-        try {
-            $pTedId = $request->id;
-            $ted = ExpenseTed::find($pTedId);
-            if ($ted) {
-                $tedPoId = $ted->expense_header_id;
-                $ted->delete();
-                $this->updateCalculation($tedPoId);
-            }
-            DB::commit();
-            return response()->json(['status' => 200, 'message' => 'data deleted successfully.']);
-        } catch (Exception $e) {
-            DB::rollBack();
-            \Log::error('Error deleting component: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to delete the item level disc.'], 500);
-        }
-    }
-
-    # Remove discount header level
-    public function removeDisHeaderLevel(Request $request)
-    {
-        DB::beginTransaction();
-        try {
-            $pTedId = $request->id;
-            $ted = ExpenseTed::find($pTedId);
-            if ($ted) {
-                $tedPoId = $ted->expense_header_id;
-                $ted->delete();
-                $this->updateCalculation($tedPoId);
-            }
-            DB::commit();
-            return response()->json(['status' => 200, 'message' => 'data deleted successfully.']);
-        } catch (Exception $e) {
-            DB::rollBack();
-            \Log::error('Error deleting component: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to delete the item level disc.'], 500);
-        }
-    }
-
-    # Remove exp header level
-    public function removeExpHeaderLevel(Request $request)
-    {
-        DB::beginTransaction();
-        try {
-            $pTedId = $request->id;
-            $ted = ExpenseTed::find($pTedId);
-            if ($ted) {
-                $tedPoId = $ted->expense_header_id;
-                $ted->delete();
-                $this->updateCalculation($tedPoId);
-            }
-            DB::commit();
-            return response()->json(['status' => 200, 'message' => 'data deleted successfully.']);
-        } catch (Exception $e) {
-            DB::rollBack();
-            \Log::error('Error deleting component: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to delete the item level disc.'], 500);
-        }
     }
 
     # Submit Amendment

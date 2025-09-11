@@ -49,41 +49,43 @@ class EditMaterialReceiptRequest extends FormRequest
         $mrnId = $this->route('id');
         $rules = [
             'book_id' => 'required',
-            'document_number' => 'nullable|max:50', // Default rule for document_number
+            'document_number' => 'required',
+            'document_date' => 'required|date',
             'header_store_id' => 'required',
             'sub_store_id' => 'required',
-            'vendor_id' => 'nullable',
-            'currency_id' => 'nullable',
-            'payment_term_id' => 'nullable',
-            // 'gate_entry_no' => [
-            //     'nullable',
-            //     'max:50',
-            //     Rule::unique('erp_mrn_headers')
-            //         ->where(function ($query) {
-            //             return $query
-            //                 ->where('group_id', $this->group_id)
-            //                 ->where('organization_id', $this->organization_id)
-            //                 ->whereNull('deleted_at');
-            //         })
-            //         ->ignore($mrnId), // ignore when updating
-            // ],
-            'gate_entry_date' => 'nullable|date',
-            'eway_bill_no' => 'nullable|max:50',
-            'consignment_no' => 'nullable|max:50',
-            'supplier_invoice_no' => [
+            'vendor_id' => 'required',
+            'currency_id' => 'required',
+            'payment_term_id' => 'required',
+            'gate_entry_no' => [
                 'nullable',
                 'max:50',
-                Rule::unique('erp_mrn_headers')
-                    ->where(function ($query) {
-                        return $query
-                            ->where('group_id', $this->group_id)
-                            ->where('organization_id', $this->organization_id)
-                            ->whereNull('deleted_at');
-                    })
-                    ->ignore($mrnId), // ignore when updating
+                // Rule::unique('erp_mrn_headers')
+                //     ->where(function ($query) {
+                //         return $query
+                //             ->where('group_id', $this->group_id)
+                //             ->where('organization_id', $this->organization_id)
+                //             ->whereNull('deleted_at');
+                //     })
+                //     ->ignore($mrnId), // ignore when updating
             ],
-            'supplier_invoice_date' => 'nullable|date',
-            'transporter_name' => 'nullable|max:50',
+            'gate_entry_date' => 'nullable|date',
+            'eway_bill_no' => 'nullable|max:50',
+            'consignment_no' => 'required|max:50',
+            'supplier_invoice_no' => [
+                'required',
+                'max:50',
+                // Rule::unique('erp_mrn_headers')
+                //     ->where(function ($query) {
+                //         return $query
+                //             ->where('group_id', $this->group_id)
+                //             ->where('organization_id', $this->organization_id)
+                //             ->whereNull('deleted_at');
+                //     })
+                //     ->ignore($mrnId), // ignore when updating
+            ],
+            'supplier_invoice_date' => 'required|date',
+            'transporter_name' => 'required|max:50',
+            'manual_entry_no' => 'required|max:50',
             'remarks' => 'nullable|max:500',
             'vehicle_no' => [
                 'nullable',
@@ -132,8 +134,16 @@ class EditMaterialReceiptRequest extends FormRequest
     {
         return [
             'book_id.required' => 'The series is required.',
+            'document_date.in' => 'The document date must be today.',
+            'document_date.required' => 'The document date is required.',
+            'document_date.date' => 'Please enter a valid date for the document date.',
+            'document_date.after_or_equal' => 'The document date cannot be in the past.',
+            'document_date.before_or_equal' => 'The document date cannot be in the future.',
             'header_store_id.required' => 'Location is required',
             'sub_store_id.required' => 'Store is required',
+            'vendor_id.required' => 'Vendor Name is required.',
+            'currency_id.required' => 'Currency is required.',
+            'payment_term_id.required' => 'Payment Term is required.',
             'gate_entry_no.required' => 'Gate Entry No is required.',
             'gate_entry_date.required' => 'Gate Entry Date is required.',
             'eway_bill_no.required' => 'Eway Bill No is required.',
@@ -143,6 +153,7 @@ class EditMaterialReceiptRequest extends FormRequest
             'transporter_name.required' => 'Transporter Name is required.',
             'vehicle_no.required' => 'Vehicle number is required.',
             'vehicle_no.regex' => 'Invalid vehicle number format. Example: MH12AB1234',
+            'manual_entry_no.required' => 'Manual Entry Number is required.',
             'remarks.required' => 'Remark is required.',
             'item_code.required' => 'The product code is required.',
             'status.required' => 'The status field is required.',

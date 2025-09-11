@@ -760,7 +760,6 @@
                 return response.json().then(data => {
                     if (data.status == 200) {
                         if (rowsLength) {
-                            so
                             $("#itemTable > tbody > tr:last").after(data.data.html);
                         } else {
                             $("#itemTable > tbody").html(data.data.html);

@@ -35,7 +35,6 @@ class PlantMaintWo extends Model
         'doc_number_type',
         'doc_reset_pattern',
         'document_status',
-        'document_number',
         'location_id',
         'spare_parts',
         'checklist_data',

@@ -180,7 +180,7 @@
                                                     </div>
                                                     <div class="col-md-5">
                                                         <input type="text" class="form-control" readonly
-                                                            value="{{ @$mrn->document_number }}" id="document_number">
+                                                            value="{{ @$mrn->document_number }}" id="document_number" name="document_number">
                                                     </div>
                                                 </div>
                                                 <div class="row align-items-center mb-1">
@@ -412,7 +412,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 E-Way Bill No.
-                                                                <!-- <span class="text-danger">*</span> -->
+                                                                {{-- <span class="text-danger">*</span> --}}
                                                             </label>
                                                             <input type="text" name="eway_bill_no"
                                                                 value="{{ @$mrn->eway_bill_no }}" class="form-control"
@@ -423,7 +423,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 Consignment No.
-                                                                <!-- <span class="text-danger">*</span> -->
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="consignment_no"
                                                                 value="{{ @$mrn->consignment_no }}" class="form-control"
@@ -434,6 +434,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 Supplier Invoice No.
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="supplier_invoice_no"
                                                                 value="{{ @$mrn->supplier_invoice_no }}"
@@ -445,7 +446,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 Supplier Invoice Date
-                                                                <!-- <span class="text-danger">*</span> -->
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="date" name="supplier_invoice_date"
                                                                 value="{{ date('Y-m-d', strtotime($mrn->supplier_invoice_date)) }}"
@@ -457,6 +458,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 Transporter Name
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="transporter_name"
                                                                 value="{{ @$mrn->transporter_name }}"
@@ -467,6 +469,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 Vehicle No.
+                                                                <span class="text-danger">*</span>
                                                                 <i class="ml-2 fas fa-info-circle text-primary"
                                                                     data-bs-toggle="tooltip" data-bs-html="true"
                                                                     title="Format:<br>[A-Z]{2} – 2 uppercase letters (e.g., 'MH')<br>[0-9]{2} – 2 digits (e.g., '12')<br>[A-Z]{0,3} – 0 to 3 uppercase letters (e.g., 'AB', 'ABZ')<br>[0-9]{4} – 4 digits (e.g., '1234')"></i>
@@ -481,6 +484,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 Manual Entry No.
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="manual_entry_no"
                                                                 value="{{ @$mrn->manual_entry_no }}" class="form-control"
