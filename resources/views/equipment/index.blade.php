@@ -54,6 +54,7 @@
                       
 										  <tbody>
 @foreach($equipments as $index => $equipment)
+      
     <tr>
         <td>{{ $index + 1 }}</td>
         <td class="fw-bolder text-dark">{{ $equipment->name ?? '' }}</td>
@@ -66,7 +67,7 @@
         <td>{{ $equipment->alias ?? '' }}</td>
         <td>{{ $equipment->category->name ?? '' }}</td>
         <td>
-            {{ $equipment->maintenanceDetails->flatMap->checklists->pluck('name')->implode(', ') }}
+        {{ $equipment->maintenanceDetails->flatMap->checklists->pluck('name')->unique()->implode(', ') }}
         </td>
 
         {{-- Last Maint Date --}}
@@ -74,17 +75,20 @@
             @php
                 $lastMaintDate = null;
                 $dueDate = null;
-
+                
                 $first = $equipment->maintenanceDetails->sortBy('start_date')->first();
+               
         
-                if ($equipment->equipment_status === 'approved') {
+                if ($equipment->equipment_status == 'approved') {
                  
                     $approvedDetail = $equipment->maintenanceDetails->sortByDesc('start_date')->first();
-                    
+                   
+                   
                     if ($approvedDetail) {
                         $lastMaintDate = \Carbon\Carbon::parse($approvedDetail->start_date);
                         $base = $lastMaintDate->copy();
                         $freqType = $approvedDetail->frequency ?? '';
+                       
                         
 
                         switch ($freqType) {

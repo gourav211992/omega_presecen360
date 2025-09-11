@@ -573,37 +573,50 @@ function populateChecklistTable(equipmentData, maintenanceTypeId) {
   $('.mrntableselectexcel1').empty();
   let checklistsData = equipmentData.equipment?.checklists_data || [];
   console.log('checklistsData:', checklistsData);
+
   if (checklistsData && checklistsData.length > 0) {
     let checklistIndex = 1;
-    checklistsData.forEach(function (group, groupIndex) {
+
+    // 🔹 group by main_name
+    let grouped = {};
+    checklistsData.forEach(function (group) {
+      if (!grouped[group.main_name]) {
+        grouped[group.main_name] = [];
+      }
+      grouped[group.main_name].push(...group.checklist);
+    });
+
+    // 🔹 now render grouped data
+    Object.keys(grouped).forEach(function (mainName) {
       let headerRow = `
         <tr>
           <td>${checklistIndex}</td>
-          <td colspan="2" class="poprod-decpt p-50"><strong class="font-small-4">${group.main_name}</strong></td>
+          <td colspan="2" class="poprod-decpt p-50"><strong class="font-small-4">${mainName}</strong></td>
         </tr>`;
       $('.mrntableselectexcel1').append(headerRow);
-      if (group.checklist && group.checklist.length > 0) {
-        group.checklist.forEach(function (item, itemIndex) {
-          let inputField = createChecklistInputField(item, groupIndex, itemIndex);
-          let req = item.mandatory ? '<span class="text-danger">*</span>' : '';
-          let row = `
-            <tr>
-              <td></td>
-              <td class="ps-1">
-                ${item.name} ${req}
-                ${item.description ? `<br><small class="text-muted">${item.description}</small>` : ''}
-              </td>
-              <td class="poprod-decpt">${inputField}</td>
-            </tr>`;
-          $('.mrntableselectexcel1').append(row);
-        });
-      }
+
+      grouped[mainName].forEach(function (item, itemIndex) {
+        let inputField = createChecklistInputField(item, checklistIndex - 1, itemIndex);
+        let req = item.mandatory ? '<span class="text-danger">*</span>' : '';
+        let row = `
+          <tr>
+            <td></td>
+            <td class="ps-1">
+              ${item.name} ${req}
+              ${item.description ? `<br><small class="text-muted">${item.description}</small>` : ''}
+            </td>
+            <td class="poprod-decpt">${inputField}</td>
+          </tr>`;
+        $('.mrntableselectexcel1').append(row);
+      });
+
       checklistIndex++;
     });
   } else {
     $('.mrntableselectexcel1').append(`<tr><td colspan="3" class="text-center text-muted">No checklist data available for this equipment</td></tr>`);
   }
 }
+
 function createChecklistInputField(checklistItem, groupIndex, itemIndex) {
   const fieldName = `checklist_data[${groupIndex}][checklist][${itemIndex}][value]`;
   const fieldId = `checklist_${groupIndex}_${itemIndex}`;
@@ -987,6 +1000,7 @@ $(document).on('change', '.equipment-radio', function () {
         equipment_category: equipment?.equipment?.category?.name || '',
         maintenance_type_id: maintenanceTypeId,
         maintenance_type_name: equipment?.maintenance_type?.name || '',
+        due_date: equipment?.equipment?.due_date || '',
         reference_type: 'equipment'
       };
       $('#equipment_details').val(JSON.stringify(equipmentDetails));
