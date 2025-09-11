@@ -470,14 +470,16 @@ class PaymentVoucherController extends Controller
 
             if ($request->payment_type === "Bank") {
                 $bank = Bank::find($request->bank_id);
-                $voucher->ledger_id = $bank->ledger_id;
-                $voucher->ledger_group_id = $bank->ledger_group_id;
+                // $voucher->ledger_id = $bank->ledger_id;
+                // $voucher->ledger_group_id = $bank->ledger_group_id;
                 $voucher->bankCode = $bank->bank_code;
                 if ($request->account_id) {
                     $account = BankDetail::find($request->account_id);
                     $voucher->accountNo = $account->account_number;
                     $voucher->account_id = $request->account_id;
                 }
+                $voucher->ledger_id = $account->ledger_id ? $account->ledger_id : $bank->ledger_id;
+                $voucher->ledger_group_id = $account->ledger_group_id ? $account->ledger_group_id : $bank->ledger_group_id;
             } else {
                 $groupId = Helper::getGroupsQuery()->where('name', 'Cash-in-Hand')->value('id');
                 $voucher->ledger_id = $request->ledger_id;
@@ -823,19 +825,19 @@ class PaymentVoucherController extends Controller
             $voucher->location = $request->location;
             $status = $request->status;
 
-
+           
             if ($voucher->payment_type == "Bank") {
                 $voucher->bank_id = $request->bank_id;
                 $bank = Bank::find($request->bank_id);
                 $voucher->bankCode = $bank->bank_code;
-
+                
                 $voucher->account_id = $request->account_id;
                 $account = BankDetail::find($request->account_id);
                 $voucher->accountNo = $account->account_number;
                 $voucher->payment_mode = $request->payment_mode;
                 // $voucher->reference_no = $request->payment_type === "Bank"?$request->reference_no:"";
-                $voucher->ledger_id = $bank->ledger_id;
-                $voucher->ledger_group_id = $bank->ledger_group_id;
+                $voucher->ledger_id = $account->ledger_id ? $account->ledger_id : $bank->ledger_id;
+                $voucher->ledger_group_id = $account->ledger_group_id ? $account->ledger_group_id : $bank->ledger_group_id;
             } else {
                 $groupId = Helper::getGroupsQuery()->where('name', 'Cash-in-Hand')->value('id');
 
