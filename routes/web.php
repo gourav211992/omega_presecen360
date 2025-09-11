@@ -193,6 +193,7 @@ use App\Http\Controllers\LoanManagement\LoanDisbursementReportController;
 use App\Http\Controllers\ErpItemBundleController;
 use App\Http\Controllers\RgrController;
 use App\Http\Controllers\PrintBarcodeController;
+use App\Http\Controllers\FurbooksController;
 
 
 
@@ -3205,6 +3206,18 @@ Route::middleware(['user.auth'])->group(function () {
     // generate IRN
     Route::post('/validate-gst', [GstValidationController::class, 'validateGstNumber']);
 
+    Route::prefix('furbooks')->group(function () {
+        Route::get('/', [FurbooksController::class, 'index'])->name('furbooks.index');
+        Route::post('/', [FurbooksController::class, 'store'])->name('furbooks.store');
+        Route::delete('/{id}', [FurbooksController::class, 'destroy'])->name('furbooks.destroy');
+        Route::post('furbook-ledger-search', [FurbooksController::class, 'furbook_ledgers_search'])->name('furbook-ledger-search');
+        Route::get('/get-series', [FurbooksController::class, 'getSeries'])->name('furbooks.get-series');
+        Route::get('/import', [FurbooksController::class, 'showImportForm'])->name('furbooks.import');
+        Route::post('/import', [FurbooksController::class, 'import'])->name('furbooks.import.post');
+        Route::get('/export-successful', [FurbooksController::class, 'exportSuccessful'])->name('furbooks.export.successful');
+        Route::get('/export-failed', [FurbooksController::class, 'exportFailed'])->name('furbooks.export.failed');
+        Route::get('/transfer-to-voucher', [FurbooksController::class, 'transferToVoucher'])->name('furbooks.transfer.voucher');
+    });
 
 
 
