@@ -2438,60 +2438,135 @@ function showToast(icon, title) {
             return !duplicatesFound && !hasEmptyFields;
         }
 
+         $(document).on('input', '.reference_no', function() {
+            triggerReferenceInput($(this));
+        });
 
-
-        // Update the input event handler
-       $(document).on('input', '.reference_no', function() {
-       clearTimeout(timer);
-    
-            const $input = $(this);
+        function triggerReferenceInput($input) 
+        {
             const refNo = $input.val().trim();
             const row = $input.data('row');
             const $errorSpan = $('#reference_error' + row);
-            
-            // Clear server error if it exists for this field
+
+            // Clear server error if it exists
             if (serverValidationErrors[row]) {
                 delete serverValidationErrors[row];
             }
-            
+
             // Clear previous validation
             $input.removeClass('is-invalid');
             $errorSpan.text('');
-            
-            // First validate locally
-            validateReferenceNumbers();
-            
-            // Only check with server if reference is not empty and no local duplicates
-            if (refNo.length > 0) {
-                timer = setTimeout(function() {
-                    $.ajax({
-                        url: '{{ route('voucher.checkReference') }}',
-                        method: 'POST',
-                        data: {
-                            _token: '{{ csrf_token() }}',
-                            reference_no: refNo,
-                            // Include all other reference numbers in the form
-                            otherRefs: Object.keys(referenceNumbers).filter(r => r !== refNo),
-                        },
-                        success: function(response) {
-                            if (response.exists) {
+           
+
+                // First validate locally
+                // validateReferenceNumbers();
+            let otherRefs = $('.reference_no').not($input).map(function() {
+                return $(this).val().trim();
+            }).get();
+            if (refNo.length > 0 && otherRefs.includes(refNo)) {
+                $errorSpan.text('This reference number already exists in the form.');
+                $input.addClass('is-invalid');
+                return;  // Don't call server if local duplicate exists
+            }
+
+                // Only check with server if reference is not empty and no local duplicates
+                if (refNo.length > 0) {
+                    timer = setTimeout(function() {
+                        $.ajax({
+                            url: '{{ route('voucher.checkReference') }}',
+                            method: 'POST',
+                            data: {
+                                _token: '{{ csrf_token() }}',
+                                reference_no: refNo,
+                                edit_id: '{{$data->id}}',
+                                // Include all other reference numbers in the form
+                                // otherRefs: otherRefs,
+                            },
+                            success: function(response) {
+                                // let $matchedElements = $('.reference_no').filter(function() {
+                                //     return $(this).val().trim() === refNo;
+                                // });
+
+                                // Remove error text and invalid class for all matched elements
+                                // $matchedElements.each(function() {
+                                //     const row = $(this).data('row'); // assuming each input has data-row attribute
+                                //     $(this).removeClass('is-invalid');
+                                //     $('#reference_error' + row).text('');
+                                // });
+                                if (response.exists) {
+                                    // Track this as a server validation error
+                                    serverValidationErrors[row] = true;
+                                    $errorSpan.text(response.message ||
+                                        'This reference number already exists.');
+                                    $input.addClass('is-invalid');
+                                }
+                            },
+                            error: function(xhr) {
                                 // Track this as a server validation error
                                 serverValidationErrors[row] = true;
-                                $errorSpan.text(response.message || 'This reference number already exists.');
+                                const errorMessage = xhr.responseJSON?.message ||
+                                    'Error validating reference number.';
+                                $errorSpan.text(errorMessage);
                                 $input.addClass('is-invalid');
                             }
-                        },
-                        error: function(xhr) {
-                            // Track this as a server validation error
-                            serverValidationErrors[row] = true;
-                            const errorMessage = xhr.responseJSON?.message || 'Error validating reference number.';
-                            $errorSpan.text(errorMessage);
-                            $input.addClass('is-invalid');
-                        }
-                    });
-                }, 500);
-            }
-        });
+                       });
+                    }, 500);
+                }
+        }
+
+        // Update the input event handler
+    //    $(document).on('input', '.reference_no', function() {
+    //    clearTimeout(timer);
+    
+        //     const $input = $(this);
+        //     const refNo = $input.val().trim();
+        //     const row = $input.data('row');
+        //     const $errorSpan = $('#reference_error' + row);
+            
+        //     // Clear server error if it exists for this field
+        //     if (serverValidationErrors[row]) {
+        //         delete serverValidationErrors[row];
+        //     }
+            
+        //     // Clear previous validation
+        //     $input.removeClass('is-invalid');
+        //     $errorSpan.text('');
+            
+        //     // First validate locally
+        //     validateReferenceNumbers();
+            
+        //     // Only check with server if reference is not empty and no local duplicates
+        //     if (refNo.length > 0) {
+        //         timer = setTimeout(function() {
+        //             $.ajax({
+        //                 url: '{{ route('voucher.checkReference') }}',
+        //                 method: 'POST',
+        //                 data: {
+        //                     _token: '{{ csrf_token() }}',
+        //                     reference_no: refNo,
+        //                     // Include all other reference numbers in the form
+        //                     otherRefs: Object.keys(referenceNumbers).filter(r => r !== refNo),
+        //                 },
+        //                 success: function(response) {
+        //                     if (response.exists) {
+        //                         // Track this as a server validation error
+        //                         serverValidationErrors[row] = true;
+        //                         $errorSpan.text(response.message || 'This reference number already exists.');
+        //                         $input.addClass('is-invalid');
+        //                     }
+        //                 },
+        //                 error: function(xhr) {
+        //                     // Track this as a server validation error
+        //                     serverValidationErrors[row] = true;
+        //                     const errorMessage = xhr.responseJSON?.message || 'Error validating reference number.';
+        //                     $errorSpan.text(errorMessage);
+        //                     $input.addClass('is-invalid');
+        //                 }
+        //             });
+        //         }, 500);
+        //     }
+        // });
+
         $(document).on('click', '#amendmentBtnSubmit', (e) => {
             let remark = $("#amendmentModal").find('[name="amend_remarks"]').val();
             if(!remark) {
