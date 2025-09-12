@@ -155,7 +155,7 @@ class GateEntryController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-    
+
                         return $joReferences ?: 'N/A';
                     } elseif ($row->reference_type === 'po') {
                         // Multiple POs from related items
@@ -168,7 +168,7 @@ class GateEntryController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-    
+
                         return $poReferences ?: 'N/A';
                     } else {
                         return '';
@@ -2339,7 +2339,7 @@ class GateEntryController extends Controller
             // $GateEntryHeader->save();
 
             /*Create document submit log*/
-            if ($GateEntryHeader->document_status == ConstantHelper::SUBMITTED) {
+            if ($GateEntryHeader->document_status) {
                 $bookId = $GateEntryHeader->series_id;
                 $docId = $GateEntryHeader->id;
                 $remarks = $GateEntryHeader->remarks;
@@ -2442,7 +2442,7 @@ class GateEntryController extends Controller
                     : 'null';
 
                 // $disabled = ($dataExistingPo != 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-    
+
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input po_item_checkbox' type='checkbox' name='po_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-po='{$dataCurrentPo}' data-current-asn='{$dataCurrentAsn}' data-current-asn-item='{$dataCurrentAsnItem}' data-existing-po='{$dataExistingPo}' >
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -2833,7 +2833,7 @@ class GateEntryController extends Controller
                     : 'null';
 
                 // $disabled = ($dataExistingPo != 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-    
+
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input jo_item_checkbox' type='checkbox' name='jo_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-jo='{$dataCurrentJo}' data-current-asn='{$dataCurrentAsn}' data-current-asn-item='{$dataCurrentAsnItem}' data-existing-jo='{$dataExistingJo}' >
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -3208,7 +3208,7 @@ class GateEntryController extends Controller
                     : 'null';
 
                 // $disabled = ($dataExistingPo != 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-    
+
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input so_item_checkbox' type='checkbox' name='so_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-jo='{$dataCurrentJo}' data-current-asn='{$dataCurrentAsn}' data-current-asn-item='{$dataCurrentAsnItem}' data-existing-jo='{$dataExistingSo}' >
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>

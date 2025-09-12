@@ -2186,7 +2186,7 @@ class ExpenseAdviseController extends Controller
             // $expenseHeader->save();
 
             /*Create document submit log*/
-            if ($expenseHeader->document_status == ConstantHelper::SUBMITTED) {
+            if ($expenseHeader->document_status) {
                 $bookId = $expenseHeader->series_id;
                 $docId = $expenseHeader->id;
                 $remarks = $expenseHeader->remarks;
