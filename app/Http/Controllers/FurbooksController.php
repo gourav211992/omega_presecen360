@@ -911,5 +911,12 @@ class FurbooksController extends Controller
         //     ], 500);
         // }
     }
+     public function furbookdata(Request $request)
+    {
+        $data = ErpStagingFurbooksLedger::orderBy('created_at', 'desc')->get();
+        
+        return view('furbooks.apidata', compact('data'));
+
+    }
 
 }
