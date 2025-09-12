@@ -3229,10 +3229,11 @@ Route::middleware(['user.auth'])->group(function () {
         Route::delete('/{id}', [FurbooksController::class, 'destroy'])->name('furbooks.destroy');
         Route::post('furbook-ledger-search', [FurbooksController::class, 'furbook_ledgers_search'])->name('furbook-ledger-search');
         Route::get('/get-series', [FurbooksController::class, 'getSeries'])->name('furbooks.get-series');
-        Route::get('/import', [FurbooksController::class, 'showImportForm'])->name('furbooks.import');
-        Route::post('/import', [FurbooksController::class, 'import'])->name('furbooks.import.post');
-        Route::get('/export-successful', [FurbooksController::class, 'exportSuccessful'])->name('furbooks.export.successful');
-        Route::get('/export-failed', [FurbooksController::class, 'exportFailed'])->name('furbooks.export.failed');
+        // Route::get('/import', [FurbooksController::class, 'showImportForm'])->name('furbooks.import');
+        // Route::post('/import', [FurbooksController::class, 'import'])->name('furbooks.import.post');
+        // Route::get('/export-successful', [FurbooksController::class, 'exportSuccessful'])->name('furbooks.export.successful');
+        // Route::get('/export-failed', [FurbooksController::class, 'exportFailed'])->name('furbooks.export.failed');
+        Route::get('/data', [FurbooksController::class, 'furbookdata'])->name('furbooks.data');
         Route::get('/transfer-to-voucher', [FurbooksController::class, 'transferToVoucher'])->name('furbooks.transfer.voucher');
     });
 });

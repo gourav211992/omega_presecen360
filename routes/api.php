@@ -47,15 +47,14 @@ Route::group(['middleware' => ['apiresponse']], function () {
         // Route::post('transporter-requests/reopen','reopen')->name('reopen'); // (Optional) Reopen a closed request
     });
 
-    Route::controller(FurbooksController::class)->group(function(){
-        Route::post('vouchers/create','create')->name('create'); // Create a new transporter request
-    });
-
     /**
      * Routes protected with SSO Auth Middleware
      */
     Route::group(['middleware' => ['sso-api']], function () {
 
+         Route::controller(FurbooksController::class)->group(function(){
+            Route::post('vouchers/create','create')->name('create'); // Create a new transporter request
+        });
         // Get the authenticated user details
         Route::get('/user', function (Request $request) {
             return [
