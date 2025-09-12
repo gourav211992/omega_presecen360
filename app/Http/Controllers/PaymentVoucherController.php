@@ -470,14 +470,16 @@ class PaymentVoucherController extends Controller
 
             if ($request->payment_type === "Bank") {
                 $bank = Bank::find($request->bank_id);
-                $voucher->ledger_id = $bank->ledger_id;
-                $voucher->ledger_group_id = $bank->ledger_group_id;
+                // $voucher->ledger_id = $bank->ledger_id;
+                // $voucher->ledger_group_id = $bank->ledger_group_id;
                 $voucher->bankCode = $bank->bank_code;
                 if ($request->account_id) {
                     $account = BankDetail::find($request->account_id);
                     $voucher->accountNo = $account->account_number;
                     $voucher->account_id = $request->account_id;
                 }
+                $voucher->ledger_id = $account->ledger_id ? $account->ledger_id : $bank->ledger_id;
+                $voucher->ledger_group_id = $account->ledger_group_id ? $account->ledger_group_id : $bank->ledger_group_id;
             } else {
                 $groupId = Helper::getGroupsQuery()->where('name', 'Cash-in-Hand')->value('id');
                 $voucher->ledger_id = $request->ledger_id;
@@ -720,10 +722,17 @@ class PaymentVoucherController extends Controller
 
         $locations = InventoryHelper::getAccessibleLocations();
         $fyear = Helper::getFinancialYear(date('Y-m-d'));
+        // dd($buttons);
         if ($data->document_status == ConstantHelper::DRAFT || ($r->amendment==1 && $buttons['amend']))
+        {
+           
             return view('paymentVoucher.editPaymentVoucher', compact('cost_centers', 'books_t', 'data', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'locations', 'fyear'));
+        }
         else
+        {
+         
             return view('paymentVoucher.viewPaymentVoucher', compact('cost_centers', 'data', 'books_t', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'approvalHistory', 'cc_users', 'to_users', 'to_user_mail', 'to_type', 'locations', 'fyear'));
+        }
     }
 
 
@@ -833,8 +842,8 @@ class PaymentVoucherController extends Controller
                 $voucher->accountNo = $account->account_number;
                 $voucher->payment_mode = $request->payment_mode;
                 // $voucher->reference_no = $request->payment_type === "Bank"?$request->reference_no:"";
-                $voucher->ledger_id = $bank->ledger_id;
-                $voucher->ledger_group_id = $bank->ledger_group_id;
+                $voucher->ledger_id = $account->ledger_id ? $account->ledger_id : $bank->ledger_id;
+                $voucher->ledger_group_id = $account->ledger_group_id ? $account->ledger_group_id : $bank->ledger_group_id;
             } else {
                 $groupId = Helper::getGroupsQuery()->where('name', 'Cash-in-Hand')->value('id');
 
@@ -1731,20 +1740,24 @@ class PaymentVoucherController extends Controller
     }
     public function checkReference(Request $request)
     {
-        $unique = count($request->otherRefs) === count(array_unique($request->otherRefs));
-        if(!$unique)
-            return response()->json(['exists' => true]);
+        // $unique = count($request->otherRefs) === count(array_unique($request->otherRefs));
+        // if(!$unique)
+        //     return response()->json(['exists' => true]);
         
         
-        if ($request->edit_id){
-            if (in_array($request->reference_no, $request->otherRefs ?? [])) {
-            return response()->json(['exists' => true]);
-            }
+        if ($request->edit_id)
+        {
+            // if (in_array($request->reference_no, $request->otherRefs ?? [])) {
+            // return response()->json(['exists' => true]);
+            // }
             $exists = PaymentVoucherDetails::where('reference_no', $request->reference_no)
                 ->where('payment_voucher_id', '!=', $request->edit_id)->exists();
-            }
+        }
         else
+        {
             $exists = PaymentVoucherDetails::where('reference_no', $request->reference_no)->exists();
+        }
+            
 
         return response()->json(['exists' => $exists]);
     }

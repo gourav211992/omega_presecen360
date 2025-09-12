@@ -41,6 +41,8 @@ use App\Mail\ImportComplete;
 // use App\Mail\ImportComplete;
 use App\Services\CrDrImportExportService;
 use App\Models\CostGroup;
+use App\Models\EmployeeOrganizationMapping;
+use App\Models\UserOrganizationMapping;
 
 
 
@@ -1788,13 +1790,20 @@ class CrDrReportController extends Controller
         $type = 'credit';
         $books_t = Helper::getAccessibleServicesFromMenuAlias('vouchers')['services'];
         $user = Helper::getAuthenticatedUser();
-       
-        
-        
-        $mappings = Helper::access_org();
-        
-        
-        
+        if($user->authenticable_type == 'user')
+        {
+              $organizationdata = UserOrganizationMapping::where('user_id', $user->id)
+                ->pluck('organization_id');  // No need to use get()
+        }
+        else
+        {
+             $organizationdata = EmployeeOrganizationMapping::where('employee_id', $user->id)
+                ->pluck('organization_id');  // No need to use get()
+        }
+      
+$mappings = DB::table('organizations')
+    ->whereIn('id', $organizationdata)
+    ->get();
         $organizationId = $user->organization_id;
         $locations = InventoryHelper::getAccessibleLocations();
         $cost_centers = Helper::getActiveCostCenters();

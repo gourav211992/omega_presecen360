@@ -7,6 +7,7 @@ use App\Http\Controllers\API\BookController;
 use App\Http\Controllers\CRM\API\ServiceController;
 use App\Http\Controllers\API\Integration\FurlencoController;
 use App\Http\Controllers\API\TransporterRequest\TransporterRequestApiController;
+use App\Http\Controllers\API\Integration\FurbooksController;
 
 /*
 |--------------------------------------------------------------------------
@@ -44,6 +45,10 @@ Route::group(['middleware' => ['apiresponse']], function () {
         Route::post('transporter-requests/shortlist','shortlist')->name('shortlist'); // Shortlist transporter bids
         Route::post('transporter-requests/close','close')->name('close'); // Close a transporter request
         // Route::post('transporter-requests/reopen','reopen')->name('reopen'); // (Optional) Reopen a closed request
+    });
+
+    Route::controller(FurbooksController::class)->group(function(){
+        Route::post('vouchers/create','create')->name('create'); // Create a new transporter request
     });
 
     /**
