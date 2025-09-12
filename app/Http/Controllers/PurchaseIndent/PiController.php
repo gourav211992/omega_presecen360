@@ -27,6 +27,7 @@ use App\Services\BomService;
 use Illuminate\Http\Request;
 use App\Models\AttributeGroup;
 use App\Models\PurchaseIndent;
+use App\Services\PI\PiService;
 use App\Helpers\ConstantHelper;
 use App\Models\PiItemAttribute;
 use App\Models\PiSoMappingItem;
@@ -1329,11 +1330,12 @@ class PiController extends Controller
                         return ['status' => 422, 'message' => $message];
                     }
                 }
+
                 $requiredQty = floatval($soQty) * floatval($bomDetail->qty);
                 if ($bufferPerc > 0) {
                     $requiredQty += $requiredQty * $bufferPerc / 100;
                 }
-                $requiredQty = $requiredQty;
+
                 if (!in_array($checkBomExist['sub_type'], ['Expense'])) {
                     $mappingData = [
                         'so_id' => $soId,
@@ -1357,6 +1359,7 @@ class PiController extends Controller
                     ])
                         ->whereJsonContains('attributes', $attributes)
                         ->first();
+
                     if ($mappingExit) {
                         $mappingData['qty'] = $mappingData['qty'] + $mappingExit->qty;
                     }
@@ -1422,7 +1425,6 @@ class PiController extends Controller
         }
         return ['status' => 200, 'message' => 'Saved!'];
     }
-
 
     public function processSoItemSubmit(Request $request)
     {
@@ -1777,5 +1779,111 @@ class PiController extends Controller
         ])->render();
 
         return response()->json(['data' => ['pos' => $html], 'status' => 200, 'message' => "fetched!"]);
+    }
+
+    public function processAnalyzedBomItem(Request $request)
+    {
+        $user = Helper::getAuthenticatedUser();
+        $procurementType = $request->procurement_type ?? 'rm';
+
+        $selectedItems = $request->selected_items;
+        $items = is_array($selectedItems)
+            ? $selectedItems
+            : (is_string($selectedItems) && is_array(json_decode($selectedItems, true))
+                ? json_decode($selectedItems, true)
+                : []);
+
+        $soItemIdArr = [];
+        $createdBy = $user?->auth_user_id;
+
+        $service =  new PiService;
+
+        $html = '';
+        DB::beginTransaction();
+        if ($procurementType === 'rm') {
+            foreach ($items as $item) {
+                $soId       = $item['so_id'] ?? null;
+                $soItemId  = $item['so_item_id'] ?? [];
+                $soItemIds  = $item['so_item_ids'] ?? [];
+                $itemId     = $item['item_id'] ?? null;
+                $reqQty     = floatval($item['req_qty'] ?? 0);
+                $main_so_item       = $item['main_so_item'] ?? null;
+                $level       = $item['level'] ?? null;
+
+                if ($reqQty <= 0) {
+                    continue;
+                }
+
+                if (count($soItemIds) && $main_so_item && $level == 0) {
+                    foreach ($soItemIds as $soItemId) {
+                        $soItemIdArr[] = $soItemId;
+                        $soItem = ErpSoItem::find($soItemId);
+                        $soAttributes = $soItem?->attributes->map(fn($attr) => [
+                            'attribute_id'   => $attr->item_attribute_id,
+                            'attribute_value' => intval($attr->attr_value)
+                        ])->toArray() ?? [];
+                        $res = $service->syncPiSoMapping($soId, $soItemId, $itemId, $soAttributes, $reqQty, $createdBy, $soItem->order_qty);
+                        if ($res['status'] == 422) {
+                            DB::rollBack();
+                            return response()->json([
+                                'data' => ['pos' => ''],
+                                'status' => 422,
+                                'message' => $res['message']
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            $soTracking = $request?->so_tracking_required ?? 'no';
+            if ($soTracking === 'yes') {
+                $soProcessItems = PiSoMapping::whereIn('so_item_id', $soItemIdArr)
+                    ->select(
+                        'erp_pi_so_mapping.vendor_id',
+                        'erp_pi_so_mapping.so_id',
+                        'erp_pi_so_mapping.item_id',
+                        DB::raw('erp_pi_so_mapping.attributes'),
+                        DB::raw('ROUND(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty),6) as total_qty')
+                    )
+                    ->groupBy(
+                        'erp_pi_so_mapping.so_id',
+                        'erp_pi_so_mapping.item_id',
+                        'erp_pi_so_mapping.attributes',
+                        'erp_pi_so_mapping.vendor_id'
+                    )
+                    ->havingRaw('total_qty > 0')
+                    ->get();
+            } else {
+                $soProcessItems = PiSoMapping::whereIn('so_item_id', $soItemIdArr)
+                    ->select(
+                        DB::raw('NULL as so_id'),
+                        'erp_pi_so_mapping.vendor_id',
+                        'erp_pi_so_mapping.item_id',
+                        DB::raw('erp_pi_so_mapping.attributes'),
+                        DB::raw('ROUND(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty),6) as total_qty')
+                    )
+                    ->groupBy(
+                        'erp_pi_so_mapping.item_id',
+                        'erp_pi_so_mapping.attributes',
+                        'erp_pi_so_mapping.vendor_id'
+                    )
+                    ->havingRaw('total_qty > 0')
+                    ->get();
+            }
+
+
+            $html = view('procurement.pi.partials.so-process-data', [
+                'soTracking' => $soTracking,
+                'soProcessItems' => $soProcessItems
+            ])->render();
+        }
+
+        DB::commit();
+
+        return response()->json([
+            'data' => ['pos' => $html, 'procurement_type' => $procurementType],
+            'status' => 200,
+            'message' => "fetched!"
+        ]);
     }
 }

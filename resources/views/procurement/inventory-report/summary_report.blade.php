@@ -485,9 +485,9 @@
                     // Define the table row content for each record
                     const cells = [
                         `<td>${index + 1}</td>`,
-                        `<td class="no-wrap ">${formatDate(report.document_date)}</td>`,
-                        `<td class="no-wrap">${report.book.book_code}</td>`,
-                        `<td class="no-wrap">${report.document_number}</td>`,
+                        `<td class="no-wrap ">${formatDate(report?.document_date)}</td>`,
+                        `<td class="no-wrap">${report?.book?.book_code}</td>`,
+                        `<td class="no-wrap">${report?.document_number}</td>`,
                         `<td class="no-wrap">${report?.book_type ?? ""}</td>`,
                         `<td class="no-wrap">${report?.item?.item_code ?? ""}</td>`,
                         `<td class="no-wrap">

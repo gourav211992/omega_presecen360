@@ -3,10 +3,6 @@
 namespace App\Http\Controllers\API\Integration;
 
 use App\Models\ErpStagingFurbooksLedger;
-use App\Imports\FurbooksImport;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\Mail;
-use App\Mail\ImportComplete;
 use Illuminate\Support\Facades\Validator;
 use App\Models\ErpLedgerFurbook;
 use Carbon\Carbon;
@@ -16,7 +12,6 @@ use App\Helpers\CurrencyHelper;
 use App\Models\Voucher;
 use App\Helpers\Helper;
 use Illuminate\Http\Request;
-use App\Jobs\TransferFurbooksToVoucher;
 use DB;
 use Exception;
 use Illuminate\Support\Facades\Log;

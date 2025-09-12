@@ -456,10 +456,10 @@ class AutocompleteController extends Controller
                 //     ->
                 $results = Item::searchByKeywords($term)
                     ->where('status', ConstantHelper::ACTIVE)
-                    ->with([
-                    'itemAttributes:id',
-                    'uom:id,name'
-                    ])
+                    ->where('status', ConstantHelper::ACTIVE)
+                    ->with(['itemAttributes:id'])
+                    ->with(['uom:id,name'])
+                    ->with(['alternateUOMs.uom'])
                     ->withCount('itemAttributes')
                     ->limit(10)
                     ->get(['id', 'item_name', 'item_code', 'uom_id']);

@@ -155,10 +155,6 @@ class RgrJobController extends Controller
                 ];
             });
 
-            if ($formattedScannedItems->isEmpty()) {
-                throw ValidationException::withMessages(['scanned_items' => ['No scanned items found.']]);
-            }
-
             $data = [
                 'id'                 => $rgr?->job?->id,
                 'document_no'        => ($rgr->book_code ?? '') . '-' . ($rgr->document_number ?? ''),
@@ -231,7 +227,25 @@ class RgrJobController extends Controller
             }
 
             if (!$defectType) {
-                throw ValidationException::withMessages(['defect_type' => ['No matching defect type found for this category and severity.']]);
+                // throw ValidationException::withMessages(['defect_type' => ['No matching defect type found for this category and severity.']]);
+                $reasons = [
+                    [
+                        'id' => 1,
+                        'reason' => 'Component Missing'
+                    ],
+                    [
+                        'id' => 2,
+                        'reason' => 'Major Damage'
+                    ],
+                    [
+                        'id' => 3,
+                        'reason' => 'Full Hardware Missing'
+                    ]
+                ];
+                return [
+                    'message' => 'Successfully retrieved defect reasons.',
+                    'data'    => $reasons,
+                ];
             }
 
             $reasons = ErpRgrDefectTypeDetail::select('id', 'reason')

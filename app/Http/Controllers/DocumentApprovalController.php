@@ -18,6 +18,7 @@ use App\Models\ErpSaleInvoiceHistory;
 use App\Models\ErpTransporterRequest;
 use App\Models\ErpTransporterRequestBid;
 use App\Models\PackingList;
+use App\Models\MfgOrder;
 use App\Models\Vendor;
 use App\Models\Item;
 use App\Models\Customer;
@@ -81,7 +82,8 @@ class DocumentApprovalController extends Controller
             $attachments = $request->file('attachment');
             $currentLevel = $bom->approval_level;
             $revisionNumber = $bom->revision_number ?? 0;
-            $actionType = $request->action_type; // Approve or reject
+            $actionType = $request->action_type;
+ 
             $modelName = get_class($bom);
             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             $bom->approval_level = $approveDocument['nextLevel'];
@@ -94,9 +96,49 @@ class DocumentApprovalController extends Controller
                 'data' => $bom,
             ]);
         } catch (Exception $e) {
+    
             DB::rollBack();
             return response()->json([
                 'message' => "Error occurred while $actionType bom document.",
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+      # mfgOrder Approval
+    public function mfgOrder(Request $request)
+    {
+        $request->validate([
+            'remarks' => 'nullable',
+            'attachment' => 'nullable'
+        ]);
+        DB::beginTransaction();
+        try {
+            $bom = MfgOrder::find($request->id);
+            $bookId = $bom->book_id;
+            $docId = $bom->id;
+            $docValue = 0;
+            $remarks = $request->remarks;
+            $attachments = $request->file('attachment');
+            $currentLevel = $bom->approval_level;
+            $revisionNumber = $bom->revision_number ?? 0;
+            $actionType = $request->action_type;
+            $modelName = get_class($bom);
+            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            $bom->approval_level = $approveDocument['nextLevel'];
+            $bom->document_status = $approveDocument['approvalStatus'];
+            $bom->save();
+
+            DB::commit();
+            return response()->json([
+                'message' => "Document $actionType successfully!",
+                'data' => $bom,
+            ]);
+        } catch (Exception $e) {
+         
+            DB::rollBack();
+            return response()->json([
+                'message' => "Error occurred while  $request->action_type MO document.",
                 'error' => $e->getMessage(),
             ], 500);
         }

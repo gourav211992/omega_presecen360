@@ -9,7 +9,7 @@ class ErpStagingFurbooksLedger extends Model
 {
     use HasFactory;
 
-    protected $table = 'erp_staging_furbooks_ledger';
+    protected $table = 'erp_finance_staging_furbooks_ledger';
 
     protected $fillable = [
         'location_id',

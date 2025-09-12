@@ -12,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-         Schema::create('erp_ledger_furbooks', function (Blueprint $table) {
+         Schema::create('erp_finance_ledger_furbooks', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('book_id');
             $table->unsignedBigInteger('group_id');

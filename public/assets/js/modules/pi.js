@@ -495,7 +495,6 @@ $(document).on("click", ".toggle-collapse", function (e) {
     $(this).siblings(".toggle-expand").removeClass("d-none");
 });
 
-// Analyze modal js code
 function getSelectedPiIDS() {
     let ids = [];
     $(".pi_item_checkbox:checked").each(function () {
@@ -543,7 +542,9 @@ $(document).on("click", ".analyzeButton", (e) => {
             });
         });
     }
+
     let selectedItemsParam = encodeURIComponent(JSON.stringify(selectedItems));
+    console.log(ids, selectedItemsParam);
     let actionUrl =
         analyzeSoItemUrl +
         "?ids=" +
@@ -574,11 +575,71 @@ $(document).on("click", ".analyzeButton", (e) => {
         });
     });
 });
-
 $(document).on("click", ".analyzeProcessBtn", (e) => {
-    let ids = getSelectedPiIDS2();
-    if (!ids.length) {
-        // $("#soModal").modal('show');
+    let ids = [];
+    if ($("#analyzeDataTable .analyze_row:checked").length === 0) {
+        Swal.fire({
+            title: "Error!",
+            text: "Please select at least one line item to process",
+            icon: "error",
+        });
+        return false;
+    }
+
+    let validateItems = true;
+    $("#analyzeDataTable tr").each(function () {
+        let $row = $(this);
+        let $checkbox = $row.find(".analyze_row");
+        let reqQty =
+            parseFloat($row.find('input[id^="analyse_required_qty_"]').val()) ||
+            0;
+
+        if ($checkbox.is(":checked") && reqQty <= 0) {
+            $row.find('input[id^="analyse_required_qty_"]')
+                .focus()
+                .css("border", "1px solid red");
+            validateItems = false;
+        }
+    });
+
+    if (!validateItems) {
+        Swal.fire({
+            title: "Error!",
+            text: `Please enter required qty!`,
+            icon: "error",
+        });
+        return false;
+    }
+
+    let selectedItems = [];
+    $("#analyzeDataTable .analyze_row:checked").each(function () {
+        let $checkbox = $(this);
+        let soItemIdsRaw = $checkbox.data("so-item-ids") || "";
+        let soItemIds = soItemIdsRaw
+            .toString()
+            .split(",")
+            .map((id) => id.trim().replace(/^['"]|['"]$/g, ""))
+            .map((id) => Number(id))
+            .filter((id) => id > 0);
+
+        selectedItems.push({
+            bom_id: Number($checkbox.val()),
+            parent_bom_id: Number($checkbox.data("parent-bom-id")),
+            so_id: Number($checkbox.data("so-id")),
+            so_item_id: Number($checkbox.data("so-item-id")),
+            so_item_ids: soItemIds,
+            main_so_item: Number($checkbox.data("main-so-item")),
+            level: Number($checkbox.data("level")),
+            item_id: Number($checkbox.data("item-id")),
+            total_qty: parseFloat($checkbox.data("total-qty")) || 0,
+            rem_qty: parseFloat($checkbox.data("remaining-qty")) || 0,
+            req_qty: parseFloat($checkbox.data("required-qty")) || 0,
+        });
+
+        ids.push(Number($checkbox.data("so-item-id")));
+    });
+
+    if (ids.length === 0) {
         Swal.fire({
             title: "Error!",
             text: "Please select at least one line item",
@@ -587,127 +648,57 @@ $(document).on("click", ".analyzeProcessBtn", (e) => {
         return false;
     }
 
-    ids = JSON.stringify(ids);
-    console.log(ids);
+    console.log("selectedItems   => ", selectedItems);
+    console.log(" ids   => ", ids);
 
-    let d_date = $("input[name='document_date']").val() || "";
-    let book_id = $("#book_id").val() || "";
-    let rowCount = $("#itemTable tbody tr[id*='row_']").length;
-    let isAttribute = 0;
-    if ($("#attributeCheck").is(":checked")) {
-        isAttribute = 1;
-    } else {
-        isAttribute = 0;
-    }
+    let isAttribute = $("#attributeCheck").is(":checked") ? 1 : 0;
+    let procurementType = $("#orderTypeSelect").val() || "rm";
+    let storeId = $("#store_id").val() || "";
+    let soTracking = $("#so_tracking_required").val();
 
-    // if(!isAttribute) {
-    //     $("#soModal .pi_item_checkbox:checked").each(function () {
-    //         selectedItems.push({
-    //             "sale_order_id": Number($(this).val()),
-    //             "item_id": Number($(this).data("item-id"))
-    //         });
-    //     });
-    // }
-    let selectedItems = [];
-    $(".analyze_row:checked").each(function () {
-        let tr = $(this).closest("tr");
-        if (!tr.hasClass("d-none")) {
-            let $checkbox = $(this);
-            let soItemIdsRaw = $checkbox.data("so-item-ids") || "";
-            let soItemIds = soItemIdsRaw
-                .toString()
-                .split(",")
-                .map((id) => id.trim().replace(/^['"]|['"]$/g, ""))
-                .map((id) => Number(id))
-                .filter((id) => id > 0);
-            selectedItems.push({
-                bom_id: Number($checkbox.val()),
-                so_id: Number($checkbox.data("so-id")),
-                so_item_id: Number($checkbox.data("so-item-id")),
-                so_item_ids: soItemIds,
-                level: Number($checkbox.data("level")),
-                parent_bom_id: Number($checkbox.data("parent-bom-id")),
-                item_id: Number($checkbox.data("item-id")),
-                item_name: $checkbox.data("item-name"),
-                item_code: $checkbox.data("item-code"),
-                uom_id: Number($checkbox.data("uom-id")),
-                uom_name: $checkbox.data("uom-name"),
-                attribute: $checkbox.data("attribute"),
-                total_qty: parseFloat($checkbox.data("total-qty")),
-                store_name: $checkbox.data("store-name"),
-                store_id: Number($checkbox.data("store-id")),
-                doc_no: $checkbox.data("doc-no"),
-                doc_date: $checkbox.data("doc-date"),
-                main_so_item: Number($checkbox.data("main-so-item")),
-            });
-        }
-    });
+    let actionUrl = `${processAnalyzedBomItem}?ids=${encodeURIComponent(
+        JSON.stringify(ids)
+    )}&is_attribute=${isAttribute}&selected_items=${encodeURIComponent(
+        JSON.stringify(selectedItems)
+    )}&so_tracking_required=${soTracking}&procurement_type=${procurementType}&store_id=${storeId}`;
 
-    let postData = {
-        ids: ids,
-        d_date: d_date,
-        book_id: book_id,
-        rowCount: rowCount,
-        is_attribute: isAttribute,
-        selected_items: selectedItems,
-    };
-
-    fetch(processSoActionUrl, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content"),
-        },
-        body: JSON.stringify(postData),
-    })
+    fetch(actionUrl)
         .then((response) => response.json())
         .then((data) => {
             if (data.status == 200) {
-                if ($("#itemTable > tbody tr").length) {
-                    $("#itemTable > tbody > tr:last").after(data.data.pos);
-                } else {
-                    $("#itemTable > tbody").empty().append(data.data.pos);
-                }
-                updateRowIndex(true);
                 $("#soModal").modal("hide");
-                initializeAutocomplete2(".comp_item_code");
-                initializeAutocompleteCustomer("[name*='[customer_code]']");
-                let newIds = [];
-                $('input[name^="components"][name$="[so_item_id]"]').each(
-                    function () {
-                        let val = $(this).val();
-                        if (val && val !== "0" && !newIds.includes(val)) {
-                            newIds.push(val);
-                        }
-                    }
-                );
-                let existingIds = localStorage.getItem("selectedSoItemIds");
-                if (existingIds) {
-                    existingIds = JSON.parse(existingIds);
-                    const mergedIds = Array.from(
-                        new Set([...existingIds, ...newIds])
-                    );
-                    localStorage.setItem(
-                        "selectedSoItemIds",
-                        JSON.stringify(mergedIds)
-                    );
-                } else {
-                    localStorage.setItem(
-                        "selectedSoItemIds",
-                        JSON.stringify(newIds)
-                    );
-                }
-                $("#analyzeModal").modal("hide");
-            }
 
-            if (data.status == 422) {
+                if (data.data.procurement_type != "fg") {
+                    $("#soSubmitDataTable").empty().append(data.data.pos);
+                    $("#soSubmitModal").modal("show");
+                } else {
+                    $("#itemTable .mrntableselectexcel")
+                        .empty()
+                        .append(data.data.pos);
+
+                    setTimeout(() => {
+                        $("#itemTable .mrntableselectexcel tr").each(function (
+                            index
+                        ) {
+                            let currentIndex = index + 1;
+                            setAttributesUIHelper(currentIndex, "#itemTable");
+                        });
+                    }, 100);
+                }
+            } else {
                 Swal.fire({
                     title: "Error!",
                     text: data.message,
                     icon: "error",
                 });
-                return false;
             }
+        })
+        .catch((err) => {
+            Swal.fire({
+                title: "Error!",
+                text: err.message,
+                icon: "error",
+            });
         });
 });
 
@@ -732,27 +723,38 @@ $(document).on("change", ".po-order-detail > tbody .form-check-input", (e) => {
 });
 
 $(document).on("input", 'input[id^="analyse_required_qty_"]', function () {
-    let $required = $(this);
-    let rowIndex = $required.attr("id").replace("analyse_required_qty_", "");
+    try {
+        let $required = $(this);
+        let $row = $required.closest("tr");
 
-    let $total = $("#analyse_total_qty_" + rowIndex);
-    let $remaining = $("#analyse_remaining_qty_" + rowIndex);
+        let $total = $row.find('input[id^="analyse_total_qty_"]');
+        let $remaining = $row.find('input[id^="analyse_remaining_qty_"]');
 
-    let total = parseFloat($total.val()) || 0;
-    let required = parseFloat($required.val()) || 0;
+        let total = parseFloat($total.val()) || 0;
+        let required = parseFloat($required.val()) || 0;
 
-    if (required > total) {
-        required = total;
-        $required.val(required);
+        if (required > total) {
+            required = total;
+            $required.val(required);
+        }
+
+        let remaining = parseFloat((total - required).toFixed(6));
+        $remaining.val(remaining);
+
+        let $checkbox = $row.find(".analyze_row");
+        $checkbox.data("required-qty", required);
+        $checkbox.data("remaining-qty", remaining);
+        $checkbox.attr("data-required-qty", required);
+        $checkbox.attr("data-remaining-qty", remaining);
+
+        let currentKey = $required.data("current-key");
+        cascadeToChildren(currentKey, required);
+    } catch (error) {
+        console.error("Error in required qty input handler:", error);
+        alert("Error in required qty input handler: " + error);
+        $("#analyzeModal").modal("hide");
+        $("#soModal").modal("show");
     }
-
-    $remaining.val(total - required);
-
-
-    let parentKey = $required.data("row-key");
-    console.log("Parent Key:", parentKey);
-
-    cascadeToChildren(parentKey, required);
 });
 
 function cascadeToChildren(parentKey, parentRequired) {
@@ -770,14 +772,44 @@ function cascadeToChildren(parentKey, parentRequired) {
                 'input[id^="analyse_remaining_qty_"]'
             );
 
-            let childTotal = parseFloat($childTotal.val()) || 0;
-            let childRequired = Math.min(parentRequired, childTotal);
+            let childTotal = parseFloat($childTotal.val()) || 0.0;
 
+            let parentTotal =
+                parseFloat(
+                    $("#analyse_total_qty_" + parentKey.split("-").pop()).val()
+                ) || 0.0;
+
+            let ratio = parentTotal > 0 ? parentRequired / parentTotal : 0;
+
+            let childRequired = parseFloat((childTotal * ratio).toFixed(6));
+            let childRemaining = parseFloat(
+                (childTotal - childRequired).toFixed(6)
+            );
+
+            // Update UI fields
             $childRequired.val(childRequired);
-            $childRemaining.val(childTotal - childRequired);
+            $childRemaining.val(childRemaining);
 
-            console.log("Cascade → Parent:", parentKey, "Child:", childKey);
+            let $checkbox = $childRow.find(".analyze_row");
+            console.log($checkbox.html());
 
+            $checkbox.data("required-qty", childRequired);
+            $checkbox.data("remaining-qty", childRemaining);
+            $checkbox.attr("data-required-qty", childRequired);
+            $checkbox.attr("data-remaining-qty", childRemaining);
+
+            console.log(
+                "Cascade → Parent:",
+                parentKey,
+                "Child:",
+                childKey,
+                "Required:",
+                childRequired,
+                "Remaining:",
+                childRemaining
+            );
+
+            // Cascade deeper
             cascadeToChildren(childKey, childRequired);
         });
 }
