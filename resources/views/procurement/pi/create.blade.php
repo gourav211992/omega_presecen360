@@ -447,7 +447,9 @@
     <script type="text/javascript" src="{{ asset('app-assets/js/file-uploader.js') }}"></script>
     <script>
         var analyzeSoItemUrl = '{{ route('pi.analyze.so-item') }}';
+        var processSoItemUrl = '{{ route('pi.process.so-item') }}';
         let processSoActionUrl = '{{ route('pi.process.so-item.submit') }}';
+        var processAnalyzedBomItem = '{{ route('pi.process.analyzed.bom-item') }}';
     </script>
     <script>
         setTimeout(() => {
@@ -1285,6 +1287,7 @@
         /*Final process submit*/
         $(document).on('click', '.soSubmitProcess', (e) => {
             if ($('#soSubmitModal tbody .form-check-input:checked').length) {
+                $("#analyzeModal").modal('hide');
                 $("#soSubmitModal").modal('hide');
                 let selectedData = [];
                 $('#soSubmitModal tbody .form-check-input:checked').each(function(index, item) {
@@ -1749,8 +1752,8 @@
                         </td>
                         <td>
                             ${typeof soTrackingRequired !== 'undefined' && soTrackingRequired ? `
-                                    <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />
-                                ` : ''}
+                                                                                                                                    <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />
+                                                                                                                                ` : ''}
                         </td>
                         <td>
                             <input type="text" name="components[${index}][remark]" class="form-control mw-100 mb-25" value="${remarks}"/>

@@ -660,6 +660,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('get-so', 'getSo')->name('get.so');
             Route::get('analyze-so-item', 'analyzeSoItem')->name('analyze.so-item');
             Route::get('process-so-item', 'processSoItem')->name('process.so-item');
+            Route::get('process-analyzed-bom-item', 'processAnalyzedBomItem')->name('process.analyzed.bom-item');
             Route::post('process-so-item-submit', 'processSoItemSubmit')->name('process.so-item.submit');
             Route::get('get-selected-department', 'getSelectedDepartment')->name('get.selected.department');
             Route::get('report', 'piReport')->name('report');
@@ -1446,6 +1447,7 @@ Route::middleware(['user.auth'])->group(function () {
         ->name('document.approval.')
         ->controller(DocumentApprovalController::class)
         ->group(function () {
+            Route::post('mfgOrder', 'mfgOrder')->name('mfgOrder');
             Route::post('bom', 'bom')->name('bom');
             Route::post('saleOrder', 'saleOrder')->name('so');
             Route::post('po', 'po')->name('po');
@@ -3183,6 +3185,7 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('amend/{id}', [ErpEquipmentController::class, 'amendment'])->name('equipment.amendment');
         Route::post('/get-asset-codes-by-book', [ErpEquipmentController::class, 'getFixedAssetCodesByBookId'])->name('equipment.get-asset-codes-by-book');
         Route::post('/get-checklist-details', [ErpEquipmentController::class, 'getChecklistDetails'])->name('equipment.get-checklist-details');
+        Route::post('/popup-checklist-data', [ErpEquipmentController::class, 'getPopupChecklistData'])->name('equipment.popup-checklist-data');
         Route::post('/search-checklists', [ErpEquipmentController::class, 'searchChecklists'])->name('equipment.search-checklists');
     });
 

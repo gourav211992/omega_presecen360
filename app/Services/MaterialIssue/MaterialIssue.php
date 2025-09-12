@@ -48,8 +48,6 @@ class MaterialIssue
         $issueRecords = InventoryHelper::settlementOfInventoryAndStock($materialIssue->id, $issueDetailIds, ConstantHelper::MATERIAL_ISSUE_SERVICE_ALIAS_NAME, $materialIssue->document_status, 'issue');
          if ($issueRecords['status'] == 'error') {
             return $issueRecords['message'];
-        } else {
-            return "";
         }
         //Now Recieve
         $receivableIssueTypes = [MIConstants::LOCATION_TRANSFER, MIConstants::SUB_LOCATION_TRANSFER, MIConstants::SUB_CONTRACTING, MIConstants::JOB_ORDER];

@@ -205,12 +205,8 @@ class InventoryReportController extends Controller
             ->selectRaw('SUM(CASE WHEN document_status NOT IN (?, ?, ?) THEN receipt_qty ELSE 0 END) as unconfirmed_stock',
                 ['approved', 'approval_not_required', 'posted']
             )
-            ->selectRaw('SUM(CASE WHEN document_status IN (?, ?, ?) THEN putaway_pending_qty ELSE 0 END) as putaway_pending_qty',
-                ['approved', 'approval_not_required', 'posted']
-            )
-            ->selectRaw('SUM(CASE WHEN document_status IN (?, ?, ?) THEN reserved_qty ELSE 0 END) as reserved_qty',
-                ['approved', 'approval_not_required', 'posted']
-            )
+            ->selectRaw('SUM(putaway_pending_qty) as putaway_pending_qty')
+            ->selectRaw('SUM(reserved_qty) as reserved_qty')
             ->selectRaw('SUM(CASE WHEN document_status IN (?, ?, ?) THEN org_currency_cost ELSE 0 END) as confirmed_stock_value',
                 ['approved', 'approval_not_required', 'posted']
             )
@@ -422,6 +418,8 @@ class InventoryReportController extends Controller
             SUM(CASE WHEN transaction_type = "issue" THEN issue_qty ELSE 0 END) as issue_qty,
             SUM(CASE WHEN transaction_type = "receipt" THEN org_currency_cost ELSE 0 END) as receipt_org_currency_cost,
             SUM(CASE WHEN transaction_type = "issue" THEN org_currency_cost ELSE 0 END) as issue_org_currency_cost')
+            ->selectRaw('SUM(putaway_pending_qty) as putaway_pending_qty')
+            ->selectRaw('SUM(reserved_qty) as reserved_qty')
             ->groupBy(['document_header_id', 'document_detail_id', 'book_type', 'transaction_type', 'lot_number', 'stock_type', 'inventory_uom_id']);
 
         if (!$hasFilters) {
@@ -534,6 +532,8 @@ class InventoryReportController extends Controller
             SUM(CASE WHEN transaction_type = "issue" THEN issue_qty ELSE 0 END) as issue_qty,
             SUM(CASE WHEN transaction_type = "receipt" THEN org_currency_cost ELSE 0 END) as receipt_org_currency_cost,
             SUM(CASE WHEN transaction_type = "issue" THEN org_currency_cost ELSE 0 END) as issue_org_currency_cost')
+            ->selectRaw('SUM(putaway_pending_qty) as putaway_pending_qty')
+            ->selectRaw('SUM(reserved_qty) as reserved_qty')
             ->groupBy(['document_header_id', 'document_detail_id', 'book_type', 'transaction_type', 'lot_number', 'stock_type', 'inventory_uom_id']);
 
         // If no valid filters were applied, return an empty JSON response
@@ -669,6 +669,8 @@ class InventoryReportController extends Controller
             SUM(CASE WHEN transaction_type = "issue" THEN issue_qty ELSE 0 END) as issue_qty,
             SUM(CASE WHEN transaction_type = "receipt" THEN org_currency_cost ELSE 0 END) as receipt_org_currency_cost,
             SUM(CASE WHEN transaction_type = "issue" THEN org_currency_cost ELSE 0 END) as issue_org_currency_cost')
+            ->selectRaw('SUM(putaway_pending_qty) as putaway_pending_qty')
+            ->selectRaw('SUM(reserved_qty) as reserved_qty')
             ->groupBy(['document_header_id', 'document_detail_id', 'book_type', 'transaction_type', 'lot_number', 'stock_type', 'inventory_uom_id']);
 
         $records = $query->get()->toArray();
@@ -773,6 +775,8 @@ class InventoryReportController extends Controller
             SUM(CASE WHEN transaction_type = "issue" THEN issue_qty ELSE 0 END) as issue_qty,
             SUM(CASE WHEN transaction_type = "receipt" THEN org_currency_cost ELSE 0 END) as receipt_org_currency_cost,
             SUM(CASE WHEN transaction_type = "issue" THEN org_currency_cost ELSE 0 END) as issue_org_currency_cost')
+            ->selectRaw('SUM(putaway_pending_qty) as putaway_pending_qty')
+            ->selectRaw('SUM(reserved_qty) as reserved_qty')
             ->groupBy(['document_header_id', 'document_detail_id', 'book_type', 'transaction_type', 'lot_number', 'stock_type', 'inventory_uom_id']);
 
         $records = $query->get();

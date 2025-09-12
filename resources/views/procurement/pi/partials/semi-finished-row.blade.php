@@ -64,9 +64,9 @@
     <td>{!! $html !!}</td>
     <td>{{ $node['store_name'] ?? '' }}</td>
     <td class="avl_stock">{{ $node['avl_qty'] }}</td>
-    <td><input type="number" step="any" class="form-control text-end mw-100" data-parent-key="{{ $parentKey }}" data-current-key="{{ $uniquePart }}" id="analyse_total_qty_{{ $rowIndex }}" value="{{ $node['total_qty'] }}" disabled></td>
-    <td><input type="number" step="any" class="form-control text-end mw-100" data-parent-key="{{ $parentKey }}" data-current-key="{{ $uniquePart }}" id="analyse_required_qty_{{ $rowIndex }}" value="{{ $node['total_qty'] }}"></td>
-    <td><input type="number" step="any" class="form-control text-end mw-100" data-parent-key="{{ $parentKey }}" data-current-key="{{ $uniquePart }}" id="analyse_remaining_qty_{{ $rowIndex }}" value="0" disabled></td>
+    <td><input type="number" step="any" class="form-control text-end mw-100 analyse_total_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_total_qty_{{ $rowIndex }}" value="{{ $node['total_qty'] }}" disabled></td>
+    <td><input type="number" step="any" class="form-control text-end mw-100 analyse_required_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_required_qty_{{ $rowIndex }}" value="{{ $node['total_qty'] }}"></td>
+    <td><input type="number" step="any" class="form-control text-end mw-100 analyse_remaining_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_remaining_qty_{{ $rowIndex }}" value="0" disabled></td>
 </tr>
 @if ($hasChildren)
     @php $childIndex = 1; @endphp

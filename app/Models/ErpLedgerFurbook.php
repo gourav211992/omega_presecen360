@@ -9,6 +9,8 @@ class ErpLedgerFurbook extends Model
 {
     use HasFactory;
 
+    protected $table = 'erp_finance_ledger_furbooks';
+
     protected $fillable = [
         'group_id',
         'company_id',

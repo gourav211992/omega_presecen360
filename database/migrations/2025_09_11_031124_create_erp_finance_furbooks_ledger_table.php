@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('erp_staging_furbooks_ledger', function (Blueprint $table) {
+        Schema::create('erp_finance_staging_furbooks_ledger', function (Blueprint $table) {
             $table->id();
 
             $table->unsignedBigInteger('location_id');
