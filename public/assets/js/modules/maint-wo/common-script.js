@@ -692,14 +692,19 @@ function transformAttributesForDataAttr(attributes) {
 }
 
 function fetchEquipmentSpareParts(equipmentId, maintenanceTypeId) {
+  
   showLoadingIndicator();
   $.ajax({
     url: '/plant/maint-wo/get-equipment-spare-parts',
     method: 'GET',
     data: { equipment_id: equipmentId, maintenance_type_id: maintenanceTypeId },
     success: function (response) {
+      console.log('🚨 SPARE PARTS AJAX SUCCESS!');
+      console.log('🚨 Response:', response);
+      
       hideLoadingIndicator();
       if (response.success) {
+        console.log('🚨 CALLING populateSparePartsTable with:', response.data.spare_parts);
         populateSparePartsTable(response.data.spare_parts);
         $('#selected_equipment_id').val(response.data.equipment_id);
         $('#selected_bom_id').val(response.data.bom_id);
@@ -715,8 +720,6 @@ function fetchEquipmentSpareParts(equipmentId, maintenanceTypeId) {
   });
 }
 function populateSparePartsTable(sparePartsData) {
-
-  console.log("check the spare parts", sparePartsData);
   const tableBody = $('.mrntableselectexcel');
   tableBody.empty();
   if (!sparePartsData || sparePartsData.length === 0) {
@@ -802,6 +805,11 @@ function populateSparePartsTable(sparePartsData) {
 
   // Use event delegation for AJAX loaded spare parts to work with create.blade.php click handler
   $('.mrntableselectexcel tr[data-index]').off('click').on('click', function () {
+    // Skip spare parts interaction if defect notification is being processed
+    if (window.processingDefectNotification) {
+      return;
+    }
+    
     // First handle row selection (same as create.blade.php)
     $(this).addClass('trselected').siblings().removeClass('trselected');
     
@@ -815,13 +823,17 @@ function populateSparePartsTable(sparePartsData) {
       const partData = sparePartsData[index];
       if (partData) {
         populatePartDetails(partData);
-        console.log('Called populatePartDetails from AJAX handler');
       }
     }
   });
 
   // Auto-select first row and show its details immediately after AJAX load
   if (sparePartsData && sparePartsData.length > 0) {
+    // Skip auto-selection if defect notification is being processed
+    if (window.processingDefectNotification) {
+      return;
+    }
+    
     setTimeout(() => {
       const $firstRow = $('.mrntableselectexcel tr[data-index="0"]');
       if ($firstRow.length) {
@@ -831,13 +843,11 @@ function populateSparePartsTable(sparePartsData) {
         // Show its details automatically
         if (typeof updateFooterFromSelected === 'function') {
           updateFooterFromSelected();
-          console.log('Auto-selected first spare part and updated details');
         } else {
           // Fallback to populatePartDetails
           const firstPartData = sparePartsData[0];
           if (firstPartData) {
             populatePartDetails(firstPartData);
-            console.log('Auto-selected first spare part with populatePartDetails');
           }
         }
       }
@@ -982,39 +992,57 @@ $(document).on('change', '.equipment-radio', function () {
   $('#equipment_category').prop('readonly', true);
   $('#equipment_name').prop('readonly', true);
   $('#maintenance_type').prop('disabled', true);
-  console.log('window.equipmentModalData:', window.equipmentModalData);
-  console.log('equipmentIndex:', equipmentIndex);
-  if (window.equipmentModalData && equipmentIndex !== undefined) {
-    const equipmentData = window.equipmentModalData[equipmentIndex];
-    console.log('Selected equipmentData:', equipmentData);
-    if (equipmentData) {
-      const equipment = Array.isArray(equipmentData) ? equipmentData[0] : equipmentData;
-      if (equipment && equipment.equipment.category && equipment.equipment.category.name) {
-        $('#equipment_category').val(equipment.equipment.category.name);
+  
+  // Call populate-modal endpoint to get fresh data (same as normal process)
+  $.ajax({
+    url: ApiURL,
+    type: "GET",
+    data: { type: 'eqpt', book_code: selectedSeries },
+    dataType: "json",
+    success: function (response) {
+      console.log('Populate modal response:', response);
+      if (response && Array.isArray(response) && response.length > 0) {
+        // Store the fresh data
+        window.equipmentModalData = response;
+        
+        // Find the selected equipment in the response
+        const equipmentData = response.find(item => item.equipment?.id == equipmentId);
+        
+        if (equipmentData) {
+          const equipment = Array.isArray(equipmentData) ? equipmentData[0] : equipmentData;
+          if (equipment && equipment.equipment.category && equipment.equipment.category.name) {
+            $('#equipment_category').val(equipment.equipment.category.name);
+          }
+          
+          // Populate equipment_details hidden field
+          const equipmentDetails = {
+            equipment_id: equipmentId,
+            equipment_name: equipmentName,
+            equipment_category: equipment?.equipment?.category?.name || '',
+            maintenance_type_id: maintenanceTypeId,
+            maintenance_type_name: equipment?.maintenance_type?.name || '',
+            due_date: equipment?.equipment?.due_date || '',
+            reference_type: 'equipment'
+          };
+          $('#equipment_details').val(JSON.stringify(equipmentDetails));
+          console.log('Equipment details populated:', equipmentDetails);
+          
+          populateChecklistTable(equipmentData, maintenanceTypeId);
+        } else {
+          console.log('Selected equipment not found in response');
+          $('.mrntableselectexcel1').empty().append(`<tr><td colspan="3" class="text-center text-muted">Equipment data not found</td></tr>`);
+        }
+      } else {
+        console.log('No equipment data received from populate-modal');
+        $('.mrntableselectexcel1').empty().append(`<tr><td colspan="3" class="text-center text-muted">No equipment data available</td></tr>`);
       }
-      
-      // Populate equipment_details hidden field
-      const equipmentDetails = {
-        equipment_id: equipmentId,
-        equipment_name: equipmentName,
-        equipment_category: equipment?.equipment?.category?.name || '',
-        maintenance_type_id: maintenanceTypeId,
-        maintenance_type_name: equipment?.maintenance_type?.name || '',
-        due_date: equipment?.equipment?.due_date || '',
-        reference_type: 'equipment'
-      };
-      $('#equipment_details').val(JSON.stringify(equipmentDetails));
-      console.log('Equipment details populated:', equipmentDetails);
-      
-      populateChecklistTable(equipmentData, maintenanceTypeId);
-    } else {
-      console.log('No equipmentData found at index:', equipmentIndex);
-      $('.mrntableselectexcel1').empty().append(`<tr><td colspan="3" class="text-center text-muted">No checklist data available for this equipment</td></tr>`);
+    },
+    error: function(xhr, status, error) {
+      console.error('Error calling populate-modal:', error);
+      $('.mrntableselectexcel1').empty().append(`<tr><td colspan="3" class="text-center text-muted">Error loading equipment data</td></tr>`);
     }
-  } else {
-    console.log('window.equipmentModalData or equipmentIndex is undefined');
-    $('.mrntableselectexcel1').empty().append(`<tr><td colspan="3" class="text-center text-muted">Equipment data not available</td></tr>`);
-  }
+  });
+  
   $('#equipmentModal').modal('hide');
 });
 $(document).on('change', '#maintenance_type', function () {
@@ -1058,6 +1086,10 @@ function fillFormFromDefect(defect) {
   $repBy.prop('disabled', false); setInputValue('#report_by_field input', defect?.creator?.name ?? ''); $repBy.prop('disabled', true);
   
   // Populate equipment_details hidden field for defect notification
+  console.log('fillFormFromDefect called with defect:', defect);
+  console.log('Defect structure - equipment:', defect?.equipment);
+  console.log('Defect structure - category:', defect?.category);
+  
   const equipmentDetails = {
     equipment_id: defect?.equipment?.id ?? '',
     equipment_name: defect?.equipment?.name ?? '',
@@ -1070,19 +1102,77 @@ function fillFormFromDefect(defect) {
     reported_by: defect?.creator?.name ?? '',
     reference_type: 'defect_notification'
   };
+  
+  console.log('Equipment details object created:', equipmentDetails);
+  console.log('Setting equipment_details field with:', JSON.stringify(equipmentDetails));
+  
   $('#equipment_details').val(JSON.stringify(equipmentDetails));
-  console.log('Defect equipment details populated:', equipmentDetails);
+  
+  // Verify the field was set
+  const fieldValue = $('#equipment_details').val();
+  console.log('Equipment details field value after setting:', fieldValue);
+  console.log('Field exists?', $('#equipment_details').length > 0);
 }
-function processDefectSelection() {
-  const $sel = $('input.defect-radio:checked');
-  if ($sel.length === 0) { (window.toastr?.warning && toastr.warning('Please select a defect')) || alert('Please select a defect'); return; }
-  const idx = Number($sel.data('index'));
-  const list = window.defectModalData || [];
-  const picked = list[idx];
-  if (!picked) return;
-  fillFormFromDefect(picked);
-  $('#defectlog').modal('hide');
-}
+// function processDefectSelection() {
+//   console.log('processDefectSelection called');
+//   const $sel = $('input.defect-radio:checked');
+//   console.log('Selected defect radio buttons:', $sel.length);
+//   if ($sel.length === 0) { (window.toastr?.warning && toastr.warning('Please select a defect')) || alert('Please select a defect'); return; }
+//   const idx = Number($sel.data('index'));
+//   const defectId = $sel.data('defect-id');
+//   console.log('Selected defect - idx:', idx, 'defectId:', defectId);
+  
+//   // Fallback: use cached data if available
+//   const cachedList = window.defectModalData || [];
+//   const cachedPicked = cachedList[idx];
+  
+//   // Call populate-modal endpoint to get fresh data (same as equipment process)
+//   $.ajax({
+//     url: ApiURL,
+//     type: "GET",
+//     data: { type: 'defect', book_code: selectedSeries },
+//     dataType: "json",
+//     success: function (response) {
+//       console.log('Defect populate modal response:', response);
+//       if (response && Array.isArray(response) && response.length > 0) {
+//         // Store the fresh data
+//         window.defectModalData = response;
+        
+//         // Find the selected defect in the response
+//         const picked = response.find(item => item.id == defectId) || response[idx];
+        
+//         if (picked) {
+//           fillFormFromDefect(picked);
+//           console.log('Equipment details after fillFormFromDefect:', $('#equipment_details').val());
+//         } else {
+//           console.log('Selected defect not found in response, using cached data');
+//           if (cachedPicked) {
+//             fillFormFromDefect(cachedPicked);
+//             console.log('Equipment details after fillFormFromDefect (cached):', $('#equipment_details').val());
+//           }
+//         }
+//       } else {
+//         console.log('No defect data received from populate-modal, using cached data');
+//         if (cachedPicked) {
+//           fillFormFromDefect(cachedPicked);
+//           console.log('Equipment details after fillFormFromDefect (cached):', $('#equipment_details').val());
+//         }
+//       }
+      
+//       // Close modal after processing is complete
+//       $('#defectlog').modal('hide');
+//     },
+//     error: function(xhr, status, error) {
+//       console.error('Error calling populate-modal for defect:', error);
+//       console.log('Using cached defect data due to error');
+//       if (cachedPicked) {
+//         fillFormFromDefect(cachedPicked);
+//         console.log('Equipment details after fillFormFromDefect (error fallback):', $('#equipment_details').val());
+//       }
+//       $('#defectlog').modal('hide');
+//     }
+//   });
+// }
 
 // === Checklist Submit Hook ===
 function collectChecklistData() {
