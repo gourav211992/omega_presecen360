@@ -67,16 +67,23 @@
         @php
           // Extract data from the work order for show view
           $workOrder = $data ?? null;
+         
           $equipmentDetailsArr = $workOrder && $workOrder->equipment_details ? json_decode($workOrder->equipment_details) : (object)[];
+          
           $refType = $equipmentDetailsArr->reference_type ?? '';
           $sparePartsData = $workOrder && $workOrder->spare_parts ? json_decode($workOrder->spare_parts, true) : [];
           $checklistData = $workOrder && $workOrder->checklist_data ? json_decode($workOrder->checklist_data, true) : [];
           
           // Extract defect notification details if reference type is defect_notification
-          $selectedDefectName = $equipmentDetailsArr->equipment_defect_type ?? '';
-          $selectedPriority = $equipmentDetailsArr->equipment_priority ?? '';
-          $reportedById = $equipmentDetailsArr->equipment_reported_by ?? null;
-          $reportDateRaw = $equipmentDetailsArr->equipment_report_date ?? null;
+          $selectedDefectName = $equipmentDetailsArr->defect_type ?? '';
+          $selectedPriority = $equipmentDetailsArr->priority ?? '';
+          $reportedById = $equipmentDetailsArr->reported_by ?? null;
+          $reportedByName = '';
+          if ($reportedById) {
+              $reportedByUser = \App\Models\AuthUser::find($reportedById);
+              $reportedByName = $reportedByUser ? $reportedByUser->name : '';
+          }
+          $reportDateRaw = $equipmentDetailsArr->report_date_time ?? null;
           $reportDate = $reportDateRaw ;
         @endphp
 
@@ -274,7 +281,7 @@
                       <div class="col-md-3 equipment-detail-field">
                         <div class="mb-1" id="problem_field">
                           <label class="form-label">Problem <span class="text-danger">*</span></label>
-                          <input type="text" value="{{ $equipmentDetailsArr->equipment_problem ?? '' }}" class="form-control" disabled />
+                          <input type="text" value="{{ $equipmentDetailsArr->problem ?? '' }}" class="form-control" disabled />
                         </div>
                       </div>
 
@@ -296,7 +303,10 @@
                       <div class="col-md-3 equipment-detail-field">
                         <div class="mb-1" id="report_date_field">
                           <label class="form-label">Report Date & Time</label>
-                          <input type="text" value="{{ $reportDate }}" class="form-control" disabled />
+                          <input type="text" 
+                            value="{{ \Carbon\Carbon::parse($reportDate)->format('d-m-Y H:i') }}" 
+                            class="form-control" 
+                            disabled />
                         </div>
                       </div>
 
@@ -304,7 +314,7 @@
                       <div class="col-md-3 equipment-detail-field">
                         <div class="mb-1" id="report_by_field">
                           <label class="form-label">Reported by</label>
-                          <input type="text" value="{{ $equipmentDetailsArr->equipment_reported_by_name ?? '' }}" class="form-control" disabled />
+                          <input type="text" value="{{ $reportedByName }}" class="form-control" disabled />
                         </div>
                       </div>
                     
