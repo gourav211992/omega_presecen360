@@ -665,7 +665,7 @@
                   <div class="col">
                     <div class="mb-1">
                       <label class="form-label">Equipment</label>
-                      <select class="form-control ledgerselecct" name="equipment_id">
+                      <select class="form-control ledgerselecct" name="defect_equipment_id">
                         <option value="">Select Equipment</option>
 						@foreach($equipments as $equipment)
 							<option value="{{ $equipment->id }}">{{ $equipment->name }}</option>
@@ -687,7 +687,7 @@
                   <div class="col">
                     <div class="mb-1">
                       <label class="form-label">Priority</label>
-                      <select class="form-select" name="priority">
+                      <select class="form-select" name="defect_priority">
                         <option value="">Select Priority</option>
                         <option value="high">High</option>
                         <option value="medium">Medium</option>
@@ -700,7 +700,7 @@
                       <label class="form-label">Series</label>
                       <select class="form-select" id="series_filter" name="series">
                         <option value="">Select Series</option>
-						@foreach($series as $book)
+						@foreach($defectSeries as $book)
 							<option value="{{ $book->id }}">{{ $book->book_code }}</option>
 						@endforeach
                       </select>
@@ -853,6 +853,77 @@
 		const itemsData = @json($items);
 		
 		let rowCount = 1;
+
+		// Function to clear spare parts table and show only single row for defect notifications
+		// MUST be defined early to avoid "function not defined" errors
+		function clearSparePartsTable() {
+			console.log('🧹 clearSparePartsTable() called');
+			
+			// Find the spare parts table body
+			const sparePartsTableBody = $('.mrntableselectexcel');
+			
+			console.log('🧹 Found spare parts table body:', sparePartsTableBody.length);
+			console.log('🧹 Current rows in table:', sparePartsTableBody.find('tr').length);
+			
+			if (sparePartsTableBody.length > 0) {
+				// Clear all existing rows
+				sparePartsTableBody.empty();
+				console.log('🧹 Table emptied, rows after empty:', sparePartsTableBody.find('tr').length);
+				
+				// Add a single empty row for defect notification spare parts selection
+				const singleRow = `
+					<tr class="trselected">
+						<td class="customernewsection-form">
+							<div class="form-check form-check-primary custom-checkbox">
+								<input type="checkbox" class="form-check-input row-check" id="Email">
+								<label class="form-check-label" for="Email"></label>
+							</div>
+						</td>
+						<td class="poprod-decpt">
+							<input type="hidden" class="item_id">
+							<input required type="text" placeholder="Select" name="item[]"
+								class="item_code form-control mw-100 ledgerselecct mb-25" />
+						</td>
+						<td required class="poprod-decpt">
+							<input type="text" placeholder="Select"
+								class="item_name form-control mw-100 ledgerselecct mb-25" />
+						</td>
+						<td class="poprod-decpt">
+							<input type="hidden" class="attribute">
+							<div class="d-flex flex-wrap gap-1" id="attribute-badges">
+								<!-- Attribute badges will be displayed here -->
+							</div>
+						</td>
+						<td>
+							<select class="uom form-select mw-100" name="uom[]" required>
+							</select>
+						</td>
+						<td><input type="number" class="qty form-control mw-100" name="qty[]" required /></td>
+						<td><input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly /></td>
+					</tr>
+				`;
+				
+				// Add the single row to the table
+				sparePartsTableBody.html(singleRow);
+				console.log('🧹 Single row added, final row count:', sparePartsTableBody.find('tr').length);
+				
+				// Reinitialize autocomplete for the new row
+				initAutoForItem('.item_code');
+				console.log('🔄 Autocomplete reinitialized for new spare parts row');
+				
+				// Clear the spare_parts hidden field
+				$('#spare_parts').val('');
+				
+				// Clear any selected equipment and BOM IDs to prevent spare parts from being fetched
+				$('#selected_equipment_id').val('');
+				$('#selected_bom_id').val('');
+				$('#selected_maintenance_type_id').val('');
+				
+				console.log('🧹 Spare parts table cleared and reset to single row for defect notification');
+			} else {
+				console.log('🧹 ERROR: Spare parts table body not found!');
+			}
+		}
 		$(window).on('load', function () {
 			if (feather) {
 				feather.replace({
@@ -1073,6 +1144,8 @@
 				}
 			});
 
+			console.log('🔍 SPARE PARTS DATA BEING SET:', allRows);
+			console.log('🔍 SPARE PARTS SET FROM:', new Error().stack);
 			$('#spare_parts').val(JSON.stringify(allRows));
 		}
 
@@ -1470,11 +1543,15 @@
 
 		// Simple functions for equipment selection
 		function selectEquipmentReference() {
+			console.log('🔧 selectEquipmentReference() called');
 			loadModal('eqpt');
 			$('#reference_type').val('equipment');
 			$('#reference_type_error').hide();
 			$('#equipment_ref_btn').removeClass('btn-outline-primary').addClass('btn-primary');
 			$('#defect_ref_btn').removeClass('btn-primary').addClass('btn-outline-primary');
+			
+			// Clear spare parts when switching to equipment selection to ensure clean state
+			clearSparePartsTable();
 			
 			// Show only basic equipment fields, hide detail fields
 			$('.basic-equipment-field').show();
@@ -1490,11 +1567,16 @@
 		}
 		
 		function selectDefectNotificationReference() {
+			console.log('🚨 selectDefectNotificationReference() called');
 			loadModal('defect');
 			$('#reference_type').val('defect_notification');
 			$('#reference_type_error').hide();
 			$('#defect_ref_btn').removeClass('btn-outline-primary').addClass('btn-primary');
 			$('#equipment_ref_btn').removeClass('btn-primary').addClass('btn-outline-primary');
+			
+			// Clear spare parts when switching to defect notification
+			console.log('🚨 About to clear spare parts for defect notification');
+			clearSparePartsTable();
 			
 			// Show all equipment detail fields but make them read-only
 			$('.basic-equipment-field').show();
@@ -1503,7 +1585,13 @@
 			// Make fields read-only for defect notification (they will be populated from selected defect)
 			$('#equipment_category').prop('readonly', true);
 			$('#equipment_name').prop('readonly', true);
-			// $('#maintenance_type').prop('disabled', true); // Keep maintenance type enabled for user selection
+			$('#maintenance_type').prop('disabled', false); // Enable maintenance type for user selection
+			
+			// Set first maintenance type as default selection if not already selected
+			if ($('#maintenance_type option').length > 0 && !$('#maintenance_type').val()) {
+				$('#maintenance_type option:first').prop('selected', true);
+				$('#maintenance_type').trigger('change'); // Trigger change event to update related fields
+			}
 			
 			// Also disable other equipment detail fields
 			$('#defect_type_select').prop('disabled', true);
@@ -1555,10 +1643,16 @@
 			console.log('Equipment selected:', equipmentName);
 			console.log('Equipment detail fields shown');
 			
-			// Fetch spare parts via AJAX
+			// Fetch spare parts via AJAX only if reference type is equipment (not defect notification)
+			const referenceType = $('#reference_type').val();
 			const maintenanceTypeId = selectedEquipment.data('maintenance-type');
-			if (equipmentId && maintenanceTypeId) {
+			if (equipmentId && maintenanceTypeId && referenceType === 'equipment') {
+				console.log('🔧 Fetching spare parts for equipment reference type');
 				fetchEquipmentSpareParts(equipmentId, maintenanceTypeId);
+			} else if (referenceType === 'defect_notification') {
+				console.log('🚫 Skipping spare parts fetch - defect notification mode');
+				// Ensure spare parts table is cleared for defect notifications
+				clearSparePartsTable();
 			}
 			
 			// Close modal manually
@@ -1568,8 +1662,20 @@
 		}
 
 		function processDefectSelection() {
+			
+			// Set flag to prevent spare parts updates during defect notification processing
+			window.processingDefectNotification = true;
+			
 			let selectedDefect = $('input.defect-radio:checked').attr('id');
-      let onlyNumber = selectedDefect.replace("defect_row_", "");
+			
+			// Check if a defect is actually selected
+			if (!selectedDefect) {
+				showToast('error', 'Please select a defect notification');
+				window.processingDefectNotification = false; // Reset flag
+				return false;
+			}
+			
+      		let onlyNumber = selectedDefect.replace("defect_row_", "");
   
 			if (onlyNumber === "") {
 				showToast('error', 'Please select a defect notification');
@@ -1590,12 +1696,17 @@
 				success: function(response) {
 					if (response.status && response.data) {
 						var defect = response.data;
+						console.log('Defect data received:', defect);
+						console.log('Defect equipment:', defect.equipment);
 
-						// Equipment
+						// Equipment - Set values without triggering events to avoid spare parts UI changes
 						if (defect.equipment) {
-							$('#equipment_id').val(defect.equipment.id);
-							$('#selected_equipment_id').val(defect.equipment.id); // Store for maintenance type handler
-							$('#equipment_name').val(defect.equipment.document_number || defect.equipment.name || '');
+							// Set equipment fields silently (without triggering change events)
+							$('#equipment_id').prop('value', defect.equipment.id);
+							$('#selected_equipment_id').prop('value', defect.equipment.id);
+							$('#equipment_name').prop('value', defect.equipment.document_number || defect.equipment.name || '');
+							
+			
 						}
 
 						// Defect Type
@@ -1662,22 +1773,9 @@
 							supportingDiv.remove();
 						}
 
-						// Populate Maintenance Type dropdown
-						if (response.maintenance_types && response.maintenance_types.length > 0) {
-							var maintenanceTypeSelect = $('#maintenance_type');
-							maintenanceTypeSelect.empty();
-							maintenanceTypeSelect.append('<option value="">Select Maintenance Type</option>');
-							
-							$.each(response.maintenance_types, function(index, type) {
-								maintenanceTypeSelect.append('<option value="' + type.id + '" data-name="' + type.name + '">' + type.name + '</option>');
-							});
-							
-							maintenanceTypeSelect.prop('disabled', false);
-							console.log('Maintenance types populated:', response.maintenance_types.length);
-						} else {
-							$('#maintenance_type').empty().append('<option value="">No maintenance types available</option>').prop('disabled', true);
-							console.log('No maintenance types available for this equipment');
-						}
+						// Skip maintenance type population for defect notifications to avoid spare parts data
+						// Defect notifications should not trigger spare parts or maintenance type functionality
+		
 
 
 						// Hidden fields
@@ -1688,8 +1786,41 @@
 						$('#report_date_time_hidden').val(reportDate);
 						$('#reported_by_hidden').val(defect.created_by || '');
 
+						// Populate equipment_details hidden field for defect notification
+						console.log('Creating equipment details - defect.equipment:', defect.equipment);
+						console.log('Creating equipment details - defect.equipment.id:', defect.equipment ? defect.equipment.id : 'NO EQUIPMENT');
+						
+						var equipmentDetails = {
+							equipment_id: defect.equipment ? defect.equipment.id : '',
+							equipment_name: defect.equipment ? defect.equipment.name : '',
+							equipment_category: defect.category ? defect.category.name : '',
+							equipment_maintenance_type_id: $('#maintenance_type').val() || '',
+							equipment_maintenance_type_name: $('#maintenance_type option:selected').text() || '',
+							defect_notification_id: defect.id || '',
+							defect_type: defect.defect_type ? defect.defect_type.name : '',
+							priority: defect.priority || '',
+							problem: defect.problem || '',
+							report_date_time: defect.report_date_time || '',
+							reported_by: defect.created_by || '',
+							equipment_detailed_observations: $('#detailed_observations_field textarea').val() || '',
+							reference_type: 'defect_notification'
+						};
+						
+						console.log('Equipment details object created:', equipmentDetails);
+						console.log('Equipment ID in details:', equipmentDetails.equipment_id);
+						
+						$('#equipment_details').val(JSON.stringify(equipmentDetails));
+						console.log('Equipment details JSON set:', JSON.stringify(equipmentDetails));
+						console.log('Hidden field value after setting:', $('#equipment_details').val());
+
 						// Close modal
 						$('#defectlog').modal('hide');
+
+						// Clear spare parts after defect notification processing to ensure clean state
+						setTimeout(function() {
+							clearSparePartsTable();
+							console.log('🧹 Spare parts cleared after defect notification processing');
+						}, 100);
 
 						showToast('success', 'Defect notification selected successfully');
 					} else {
@@ -1702,6 +1833,9 @@
 				},
 				complete: function() {
 					$('#defect_process_btn').prop('disabled', false).html('<i data-feather="check-circle"></i> Process');
+					// Reset flag to allow normal spare parts functionality after defect processing
+					window.processingDefectNotification = false;
+	
 				}
 			});
 
@@ -1724,6 +1858,12 @@
 			$('#equipment_category').prop('readonly', true); // Keep category readonly with default value
 			$('#equipment_name').prop('readonly', true); // Keep equipment readonly until selected
 			$('#maintenance_type').prop('disabled', false); // Enable maintenance type selection
+			
+			// Set first maintenance type as default selection if not already selected
+			if ($('#maintenance_type option').length > 0 && !$('#maintenance_type').val()) {
+				$('#maintenance_type option:first').prop('selected', true);
+				$('#maintenance_type').trigger('change'); // Trigger change event to update related fields
+			}
 			
 			// Clear any previous values from hidden inputs for defect-related fields
 			$('#defect_type_hidden').val('');
@@ -1785,6 +1925,12 @@
 
 		// Maintenance Type change handler to update checklist
 		$(document).on('change', '#maintenance_type', function() {
+			// Skip maintenance type processing if defect notification is being processed
+			if (window.processingDefectNotification) {
+				console.log('Skipping maintenance type change handler - defect notification being processed');
+				return;
+			}
+			
 			var maintenanceTypeId = $(this).val();
 			var maintenanceTypeName = $(this).find('option:selected').data('name') || $(this).find('option:selected').text();
 			var equipmentId = $('#selected_equipment_id').val();
@@ -1848,10 +1994,17 @@
 			$('#defect_search_btn').on('click', function(e) {
 				e.preventDefault();
 
-				var equipmentId = $('select[name="equipment_id"]').val();
+				var equipmentId = $('select[name="defect_equipment_id"]').val();
 				var defectTypeId = $('select[name="defect_type_id"]').val();
-				var priority = $('select[name="priority"]').val();
+				var priority = $('select[name="defect_priority"]').val();
 				var series = $('select[name="series"]').val();
+
+				console.log('Defect filter params:', {
+					equipment_id: equipmentId,
+					defect_type_id: defectTypeId,
+					priority: priority,
+					series_code: series
+				});
 
 				$.ajax({
 					url: '/plant/maint-wo/filter',
@@ -1868,7 +2021,7 @@
 						
 					},
 					success: function(response) {
-						console.log("Defect filter response:", response);
+	
 						
 						if(response && response.length > 0) {
 							var tbody = '';
@@ -1876,7 +2029,7 @@
 								tbody += `<tr>
 									<td class="customernewsection-form">
 										<div class="form-check form-check-primary custom-radio">
-											<input type="radio" class="form-check-input" name="defect_selection" id="defect_row_${defect.id}"
+											<input type="radio" class="form-check-input defect-radio" name="defect_selection" id="defect_row_${defect.id}"
 												value="${defect.id}"
 												data-defect-id="${defect.id}"
 												data-equipment-id="${defect.equipment?.id ?? ''}"
@@ -1898,10 +2051,10 @@
 									<td>${defect.creator?.name ?? 'N/A'}</td>
 								</tr>`;
 							});
-							$('.po-order-detail tbody').html(tbody);
+							$('#defectlog .po-order-detail tbody').html(tbody);
 							feather.replace(); // re-render Feather icons
 						} else {
-							$('.po-order-detail tbody').html('<tr><td colspan="9" class="text-center">No defect notifications found</td></tr>');
+							$('#defectlog .po-order-detail tbody').html('<tr><td colspan="9" class="text-center">No defect notifications found</td></tr>');
 						}
 					},
 					error: function(xhr) {
@@ -2181,8 +2334,57 @@
 			// Clear the equipment table results
 			$('#eqptTable').html('');
 			
-			console.log('Equipment modal filters have been reset');
+			// Clear any selected radio buttons
+			$(this).find('input[type="radio"].equipment-radio').prop('checked', false);
+			
+			// Clear selected equipment state
+			window.selectedEquipmentState = null;
+			
+
 		});
+
+		// Reset defect notification filter dropdowns when modal is closed
+		$('#defectlog').on('hidden.bs.modal', function() {
+			// Reset Defect Equipment dropdown
+			$(this).find('select[name="defect_equipment_id"]').val('').trigger('change');
+			
+			// Reset Defect Type dropdown
+			$(this).find('select[name="defect_type_id"]').val('').trigger('change');
+			
+			// Reset Priority dropdown
+			$(this).find('select[name="defect_priority"]').val('').trigger('change');
+			
+			// Reset Series dropdown
+			$(this).find('select[name="series"]').val('').trigger('change');
+			
+			// Clear any selected radio buttons
+			$(this).find('input[type="radio"].defect-radio').prop('checked', false);
+			
+
+		});
+
+
+
+		// Override the populateSparePartsTable function to prevent spare parts population in defect notification mode
+		window.originalPopulateSparePartsTable = window.populateSparePartsTable;
+		window.populateSparePartsTable = function(sparePartsData) {
+			const referenceType = $('#reference_type').val();
+			console.log('🔍 populateSparePartsTable called with reference type:', referenceType);
+			console.log('🔍 Spare parts data:', sparePartsData);
+			
+			if (referenceType === 'defect_notification') {
+				console.log('🚫 Blocking spare parts population - defect notification mode');
+				// Force clear and show single row for defect notifications
+				clearSparePartsTable();
+				return;
+			}
+			
+			// Call original function for equipment mode
+			console.log('✅ Allowing spare parts population - equipment mode');
+			if (window.originalPopulateSparePartsTable) {
+				window.originalPopulateSparePartsTable(sparePartsData);
+			}
+		};
 
 		});
 	</script>
