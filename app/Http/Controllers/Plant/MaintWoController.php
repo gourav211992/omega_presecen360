@@ -932,7 +932,6 @@ class MaintWoController extends Controller
                 'equipment.spareParts'
             ])
             ->whereHas('bom')
-            ->whereNotIn('erp_equipment_id', $usedEquipmentIds)
             ->whereHas('equipment', function ($q) use ($r) {
                 $q->where('document_status', '!=', 'draft') 
                     ->whereHas('book', function ($qu) use ($r) {
@@ -944,11 +943,16 @@ class MaintWoController extends Controller
             //Need to optimize this query acording to only requied field for each relation
 
             foreach ($equipmentData as $eqpt) {
-
+                $plantMaintWo = PlantMaintWo::where('equipment_details->equipment_id',$eqpt->erp_equipment_id)->orderBy('id','DESC')->first();
+               
                 $dueDate = null;
-
-                if ($eqpt->equipment && $eqpt->equipment->document_status === 'approved') {
-                    $base = $eqpt->start_date ? Carbon::parse($eqpt->start_date) : null;
+                if ($plantMaintWo) {
+                    $equipmentDetails = json_decode($plantMaintWo->equipment_details, true);
+                    $dueDate = $equipmentDetails['due_date'] ?? null;
+                    if($dueDate){
+                        $base = Carbon::parse($dueDate);
+                    }
+                   
                     if ($base) {
                         $freqType = $eqpt->frequency ?? '';
             
@@ -982,61 +986,70 @@ class MaintWoController extends Controller
                     $dueDate = $eqpt->start_date ? Carbon::parse($eqpt->start_date) : null;
                 }
             
-                $eqpt->due_date = $dueDate ? $dueDate->format('Y-m-d') : null;
+                $eqpt->due_date = $dueDate ? $dueDate->format('d-m-Y') : null;
 
                 $maintenance_type_id = $eqpt->maintenance_type_id;
 
                 $maintenanceChecklists = ErpEquipMaintenanceChecklist::where('erp_equip_maintenance_id', $eqpt->id)
-                    ->select('erp_equip_maintenance_id', 'name')
+                    ->select('checklist_detail', 'name')
                     ->get();
-
-               
-                
-
-                
 
                 $checklistsData = [];
 
                 foreach ($maintenanceChecklists as $maintenanceChecklist) {
-                    $checklistName = $maintenanceChecklist->name;
-                    $inspectionChecklist = \App\Models\InspectionChecklist::where('name', $checklistName)->first();
+                    // checklist_detail JSON ko array me convert karna
+                    $detailsArray = json_decode($maintenanceChecklist->checklist_detail, true);
+                   
 
-                    if ($inspectionChecklist) {
-                        $checklistDetails = \App\Models\InspectionChecklistDetail::where('header_id', $inspectionChecklist->id)
-                            ->select('id', 'name', 'data_type', 'description', 'mandatory')
-                            ->get();
-
-                        $detailsWithValues = [];
-
-                        foreach ($checklistDetails as $detail) {
-                            $detailData = [
-                                'name' => $detail->name,
-                                'data_type' => $detail->data_type,
-                                'description' => $detail->description,
-                                'mandatory' => $detail->mandatory,
-                                'value' => '',
-                            ];
-
-                            $detailValues = \App\Models\InspectionChecklistDetailValue::where('inspection_checklist_detail_id', $detail->id)
-                                ->pluck('value')
-                                ->toArray();
-
-                            if ($detail->data_type === 'list') {
-                                $detailData['values'] = $detailValues;
-                                $detailData['value'] = !empty($detailValues) ? $detailValues[0] : '';
-                            } else {
-                                $detailData['value'] = !empty($detailValues) ? $detailValues[0] : '';
-                            }
-
-                            $detailsWithValues[] = $detailData;
-                        }
-
-                        $checklistsData[] = [
-                            'main_name' => $checklistName,
-                            'checklist' => $detailsWithValues,
-                        ];
+                    // agar single object mila ho to usko array bana do
+                    if (isset($detailsArray['checklist_detail_id'])) {
+                        $detailsArray = [$detailsArray];
                     }
+                    
+                    foreach ($detailsArray as $detailObj) {
+                        if (empty($detailObj['main_checklist_name']) || empty($detailObj['checklist_detail_id'])) {
+                            continue;
+                        }
+                        $inspectionChecklist = \App\Models\InspectionChecklist::where('name', $detailObj['main_checklist_name'])->first();
+                    
+                        if ($inspectionChecklist) {
+                            $detail = \App\Models\InspectionChecklistDetail::where('header_id', $inspectionChecklist->id)
+                                ->where('id', $detailObj['checklist_detail_id'])
+                                ->select('id', 'name', 'data_type', 'description', 'mandatory')
+                                ->first();
+                    
+                            $detailsWithValues = [];
+                    
+                            if ($detail) {
+                                $detailValues = \App\Models\InspectionChecklistDetailValue::where('inspection_checklist_detail_id', $detail->id)
+                                    ->pluck('value')
+                                    ->toArray();
+                    
+                                $detailData = [
+                                    'id'          => $detail->id,
+                                    'name'        => $detail->name,
+                                    'data_type'   => $detail->data_type,
+                                    'description' => $detail->description,
+                                    'mandatory'   => $detail->mandatory,
+                                    'value'       => !empty($detailValues) ? $detailValues[0] : '',
+                                ];
+                    
+                                if ($detail->data_type === 'list') {
+                                    $detailData['values'] = $detailValues;
+                                }
+                    
+                                $detailsWithValues[] = $detailData;
+                            }
+                    
+                            $checklistsData[] = [
+                                'main_name' => $detailObj['main_checklist_name'],
+                                'checklist' => $detailsWithValues,
+                            ];
+                        }
+                    }
+                    
                 }
+
 
                 $eqpt->checklistsData = $checklistsData;
                 $eqpt->checklistsIdsName = $maintenanceChecklists;
@@ -1053,7 +1066,7 @@ class MaintWoController extends Controller
 
                     $equipment = $detail->equipment;
                     $equipment->checklists_data = $checklistsData;
-                    $equipment->due_date = $detail->due_date;
+                    $equipment->due_date = date('d-m-Y', strtotime($detail->due_date));
 
                     $data[] = [
                         'equipment' => $equipment,
@@ -1510,7 +1523,7 @@ class MaintWoController extends Controller
                     }
                 } else {
                     $lastMaintDate = null;
-                    $dueDate = $firstDetail->start_date ? Carbon::parse($firstDetail->start_date) : null;
+                    $dueDate = $firstDetail->start_date ? Carbon::parse($firstDetail->start_date)->format('d-m-Y') : null;
                 }
 
                 // Checklists logic
@@ -1562,8 +1575,8 @@ class MaintWoController extends Controller
 
                 $equipment = $firstDetail->equipment;
                 $equipment->checklists_data = $checklistsData;
-                $equipment->last_maint_date = $lastMaintDate ? $lastMaintDate->format('Y-m-d') : null;
-                $equipment->due_date = $dueDate ? $dueDate->format('Y-m-d') : null;
+                $equipment->last_maint_date = $lastMaintDate ? $lastMaintDate->format('d-m-Y') : null;
+                $equipment->due_date = $dueDate ? Carbon::parse($dueDate)->format('d-m-Y') : null;
 
                 $data[] = [
                     'equipment' => $equipment,

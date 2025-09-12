@@ -126,11 +126,11 @@
 
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">Asset Code</label>
+                                                        <label class="form-label">Sub Asset Code</label>
                                                     </div>
                                                     <div class="col-md-5">
                                                         <select class="form-select" id="asset_code_id" name="asset_code_id">
-                                                            <option value="">Select Asset Code</option>
+                                                            <option value="">Select Sub Asset Code</option>
                                                             @foreach($fixedAssetRegistration as $asset)
                                                                 <option value="{{ $asset->id }}">{{ $asset->asset_code }} - {{ $asset->asset_name }}</option>
                                                             @endforeach

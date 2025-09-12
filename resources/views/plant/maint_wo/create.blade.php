@@ -24,9 +24,9 @@
         </div>
         <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
           <div class="form-group breadcrumb-right">
-            <button class="btn btn-secondary btn-sm mb-50 mb-sm-0">
+            <a href="{{ route('maint-wo.index') }}"><button class="btn btn-secondary btn-sm mb-50 mb-sm-0">
               <i data-feather="arrow-left-circle"></i> Back
-            </button>
+            </button></a>	
             <button class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="save-draft-btn">
               <i data-feather="save"></i> Save as Draft
             </button>
@@ -1679,6 +1679,7 @@
 							console.log('No maintenance types available for this equipment');
 						}
 
+
 						// Hidden fields
 						$('#defect_notification_id_hidden').val(defect.id);
 						$('#equipment_name_hidden').val(defect.equipment ? defect.equipment.document_number : '');
@@ -2164,6 +2165,23 @@
 			
 			// Close modal
 			$('#attribute').modal('hide');
+		});
+
+		// Reset equipment filter dropdowns when modal is closed
+		$('#reference').on('hidden.bs.modal', function() {
+			// Reset Equipment dropdown
+			$(this).find('select[name="equipment_id"]').val('').trigger('change');
+			
+			// Reset Maintenance Type dropdown
+			$(this).find('select[name="maintenance_type_id"]').val('').trigger('change');
+			
+			// Reset Maint. BOM dropdown
+			$(this).find('select[name="maintenance_bom_id"]').val('').trigger('change');
+			
+			// Clear the equipment table results
+			$('#eqptTable').html('');
+			
+			console.log('Equipment modal filters have been reset');
 		});
 
 		});
