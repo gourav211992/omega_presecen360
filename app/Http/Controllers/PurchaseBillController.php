@@ -1047,8 +1047,8 @@ class PurchaseBillController extends Controller
                     $mrn_detail_id = null;
 
                     $pbDetail = [];
-                    if (!empty($component['detail_id'])) {
-                        $pbDetail = PbDetail::find($component['detail_id']) ?? [];
+                    if (!empty($component['pb_dtl_id'])) {
+                        $pbDetail = PbDetail::find($component['pb_dtl_id']) ?? [];
                     }
                     if ($pb->mrn_header_id) {
                         $reference_type = 'mrn';
@@ -1182,7 +1182,7 @@ class PurchaseBillController extends Controller
                     $itemHeaderExp = $itemPriceAterBothDis / $totalAfterTax * $totalHeaderExpense;
 
                     # Pb Detail Save
-                    $pbDetail = PbDetail::find($component['detail_id'] ?? null) ?? new PbDetail;
+                    $pbDetail = PbDetail::find($component['pb_dtl_id'] ?? null) ?? new PbDetail;
 
                     $pbDetail->header_id = $pbItem['header_id'];
                     $pbDetail->mrn_detail_id = $pbItem['mrn_detail_id'];
@@ -2505,7 +2505,7 @@ class PurchaseBillController extends Controller
             // $pbHeader->save();
 
             /*Create document submit log*/
-            if ($pbHeader->document_status == ConstantHelper::SUBMITTED) {
+            if ($pbHeader->document_status) {
                 $bookId = $pbHeader->series_id;
                 $docId = $pbHeader->id;
                 $remarks = $pbHeader->remarks;
@@ -3409,7 +3409,7 @@ class PurchaseBillController extends Controller
             'item_id' => $component['item_id'] ?? null,
             'mrn_header_id' => $component['mrn_header_id'] ?? null,
             'mrn_detail_id' => $component['mrn_detail_id'] ?? null,
-            'detail_id' => $component['detail_id'] ?? null,
+            'detail_id' => $component['pb_dtl_id'] ?? null,
             'qty' => $component['accepted_qty'],
             'type' => $refType,
         ];
@@ -3426,7 +3426,7 @@ class PurchaseBillController extends Controller
             'item_id' => $request->item_id,
             'mrn_header_id' => $request->mrn_header_id,
             'mrn_detail_id' => $request->mrn_detail_id,
-            'detail_id' => $request->detail_id ?? null,
+            'detail_id' => $request->pb_dtl_id ?? null,
             'qty' => $request->qty,
             'type' => $request->type ?? 'mrn',
         ];

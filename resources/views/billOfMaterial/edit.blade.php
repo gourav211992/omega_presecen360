@@ -2860,28 +2860,28 @@ function updateOverheadRowCount() {
             let inputName = $(this).attr('name');
             if (inputName) {
                 if(inputName.includes('description')) {
-                    $(this).attr('name',`components[${newLevel}][overhead][${rowCount}][description]`);
+                    $(this).attr('name',`header[${newLevel}][overhead][${rowCount}][description]`);
                 }
                 if(inputName.includes('overhead_id')) {
-                    $(this).attr('name',`components[${newLevel}][overhead][${rowCount}][overhead_id]`);
+                    $(this).attr('name',`header[${newLevel}][overhead][${rowCount}][overhead_id]`);
                 }
                 if(inputName.includes('perc')) {
-                    $(this).attr('name',`components[${newLevel}][overhead][${rowCount}][perc]`);
+                    $(this).attr('name',`header[${newLevel}][overhead][${rowCount}][perc]`);
                 }
                 if(inputName.includes('amnt')) {
-                    $(this).attr('name',`components[${newLevel}][overhead][${rowCount}][amnt]`);
+                    $(this).attr('name',`header[${newLevel}][overhead][${rowCount}][amnt]`);
                 }
                 if(inputName.includes('ledger_name')) {
-                    $(this).attr('name',`components[${newLevel}][overhead][${rowCount}][ledger_name]`);
+                    $(this).attr('name',`header[${newLevel}][overhead][${rowCount}][ledger_name]`);
                 }
                 if(inputName.includes('ledger_id')) {
-                    $(this).attr('name',`components[${newLevel}][overhead][${rowCount}][ledger_id]`);
+                    $(this).attr('name',`header[${newLevel}][overhead][${rowCount}][ledger_id]`);
                 }
                 if(inputName.includes('ledger_group_name')) {
-                    $(this).attr('name',`components[${newLevel}][overhead][${rowCount}][ledger_group_name]`);
+                    $(this).attr('name',`header[${newLevel}][overhead][${rowCount}][ledger_group_name]`);
                 }
                 if(inputName.includes('ledger_group_id')) {
-                    $(this).attr('name',`components[${newLevel}][overhead][${rowCount}][ledger_group_id]`);
+                    $(this).attr('name',`header[${newLevel}][overhead][${rowCount}][ledger_group_id]`);
                 }
             }
             let inputId = $(this).attr('id');

@@ -2478,7 +2478,7 @@ class PurchaseReturnController extends Controller
             // $pbHeader->save();
 
             /*Create document submit log*/
-            if ($pbHeader->document_status == ConstantHelper::SUBMITTED) {
+            if ($pbHeader->document_status) {
                 $bookId = $pbHeader->series_id;
                 $docId = $pbHeader->id;
                 $remarks = $pbHeader->remarks;
