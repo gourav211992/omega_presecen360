@@ -2130,35 +2130,32 @@
 
         // Update the input event handler
         $(document).on('input', '.reference_no', function() {
-            triggerReferenceInput($(this));
+            //clearTimeout(timer);
+            triggerAllReferenceInputs();
+
         });
 
-        function triggerReferenceInput($input) 
-        {
-            const refNo = $input.val().trim();
-            const row = $input.data('row');
-            const $errorSpan = $('#reference_error' + row);
+        function triggerAllReferenceInputs() {
+            $('.reference_no').each(function() {
+                const $input = $(this);
+                const refNo = $input.val().trim();
+                const row = $input.data('row');
+                const $errorSpan = $('#reference_error' + row);
 
-            // Clear server error if it exists
-            if (serverValidationErrors[row]) {
-                delete serverValidationErrors[row];
-            }
+                // Clear server error if it exists for this field
+                if (serverValidationErrors[row]) {
+                    delete serverValidationErrors[row];
+                }
 
-            // Clear previous validation
-            $input.removeClass('is-invalid');
-            $errorSpan.text('');
-           
+                // Clear previous validation
+                $input.removeClass('is-invalid');
+                $errorSpan.text('');
 
                 // First validate locally
-                // validateReferenceNumbers();
-            let otherRefs = $('.reference_no').not($input).map(function() {
-                return $(this).val().trim();
-            }).get();
-            if (refNo.length > 0 && otherRefs.includes(refNo)) {
-                $errorSpan.text('This reference number already exists in the form.');
-                $input.addClass('is-invalid');
-                return;  // Don't call server if local duplicate exists
-            }
+                validateReferenceNumbers();
+                let otherRefs = $('.reference_no').map(function() {
+                        return $(this).val().trim();
+                }).get();
 
                 // Only check with server if reference is not empty and no local duplicates
                 if (refNo.length > 0) {
@@ -2170,19 +2167,19 @@
                                 _token: '{{ csrf_token() }}',
                                 reference_no: refNo,
                                 // Include all other reference numbers in the form
-                                // otherRefs: otherRefs,
+                                otherRefs: otherRefs,
                             },
                             success: function(response) {
-                                // let $matchedElements = $('.reference_no').filter(function() {
-                                //     return $(this).val().trim() === refNo;
-                                // });
+                                let $matchedElements = $('.reference_no').filter(function() {
+                                    return $(this).val().trim() === refNo;
+                                });
 
                                 // Remove error text and invalid class for all matched elements
-                                // $matchedElements.each(function() {
-                                //     const row = $(this).data('row'); // assuming each input has data-row attribute
-                                //     $(this).removeClass('is-invalid');
-                                //     $('#reference_error' + row).text('');
-                                // });
+                                $matchedElements.each(function() {
+                                    const row = $(this).data('row'); // assuming each input has data-row attribute
+                                    $(this).removeClass('is-invalid');
+                                    $('#reference_error' + row).text('');
+                                });
                                 if (response.exists) {
                                     // Track this as a server validation error
                                     serverValidationErrors[row] = true;
@@ -2199,9 +2196,10 @@
                                 $errorSpan.text(errorMessage);
                                 $input.addClass('is-invalid');
                             }
-                       });
+                        });
                     }, 500);
                 }
+            });
         }
     </script>
 @endsection
