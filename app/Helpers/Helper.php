@@ -4558,7 +4558,6 @@ class Helper
     {
         $user = Helper::getAuthenticatedUser();
         $companies = $user?->access_rights_org;
-
         $companies = ($companies && $companies->isNotEmpty())
             ? $companies
             : collect([$user]);

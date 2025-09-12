@@ -50,7 +50,6 @@ class AppServiceProvider extends ServiceProvider
 
                 // Fetch user organization mappings
                 $mappings = $user -> access_rights_org;
-
                 // Fetch Organization Logo
                 $orgLogo = Helper::getOrganizationLogo($organizationId);
 

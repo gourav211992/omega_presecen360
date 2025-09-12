@@ -344,7 +344,18 @@
                     <div class="tab-content tablecomponentreport">
                         <div class="tab-pane active" id="Ageing">
 
-
+                            <div class="demo-inline-spacing">
+                                <div class="form-check form-check-primary mt-0">
+                                    <input type="radio" id="customColorRadio1" name="d"
+                                        value="invoice" class="form-check-input" checked="">
+                                    <label class="form-check-label fw-bolder" for="customColorRadio1">Invoice Date</label>
+                                </div>
+                                <div class="form-check form-check-primary mt-0">
+                                    <input type="radio" id="service" name="d" value="due"
+                                        class="form-check-input">
+                                    <label class="form-check-label fw-bolder" for="service">Due Date</label>
+                                </div>
+                            </div>
 
                             <div class="compoenentboxreport" style="margin-top:2%;">
                                 <div class="row">
@@ -357,7 +368,7 @@
                                     </div>
                                 </div>
                                 <div class="row sortable">
-                                    <div class="col-md-12">
+                                    <!-- <div class="col-md-12">
                                     
                                         <div class="demo-inline-spacing">
                                             <div class="form-check form-check-primary mt-0">
@@ -372,7 +383,7 @@
                                             </div>
                                         </div>
                                     
-                                        </div>
+                                    </div> -->
                                     <!-- New input fields for days -->
                                     <div class="col-md-4">
                                         <div class="form-group">
@@ -893,7 +904,11 @@
 
 
             if (isValid)
+            {
+                $("#addcoulmn").modal('hide');
+                document.getElementById('erp-overlay-loader').style.display = "flex";
                 window.location.href = currentUrl.toString();
+            }
             else {
                 Swal.fire({
                     title: 'Not Valid Ageing!',
@@ -1029,4 +1044,16 @@ function loadCostGroupsByLocation(locationId) {
                 loadCostCentersByGroup(locationId, groupId);
             });
     </script>
+    <script>
+    // URL se parameter 'd' ko get karna
+    const urlParams = new URLSearchParams(window.location.search);
+    const dParam = urlParams.get('d');
+
+    if (dParam === 'due') {
+        document.getElementById('service').checked = true;
+    } else {
+        // 'invoice' ya undefined dono case me invoice ko select karenge
+        document.getElementById('customColorRadio1').checked = true;
+    }
+</script>
 @endsection
