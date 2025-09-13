@@ -34,7 +34,7 @@
 								</button>
 							</a>
              
-						@if($buttons['approve'])
+                @if ($data->document_status == 'draft' || ($buttons['amend'] && request('amendment') == 1))
                 <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" 
                         data-bs-target="#approveModal" onclick="setApproval()">
                     <i data-feather="check-circle"></i> Approve
@@ -43,12 +43,12 @@
                         data-bs-toggle="modal" data-bs-target="#approveModal" onclick="setRejection()">
                     <i data-feather="x-circle"></i> Reject
                 </button>
-             
               
-                    <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
+              
+                <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
                         class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
-                @endif
-
+               @endif
+`
                 <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light" data-bs-toggle="modal" data-bs-target="#closeModal">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Close
                 </button>
@@ -76,8 +76,8 @@
           
           // Extract defect notification details if reference type is defect_notification
           $selectedDefectName = $equipmentDetailsArr->defect_type ?? '';
-          $selectedPriority = $equipmentDetailsArr->priority ?? '';
-          $reportedById = $equipmentDetailsArr->reported_by ?? null;
+          $selectedPriority = $equipmentDetailsArr->equipment_priority ?? '';
+          $reportedById = $equipmentDetailsArr->equipment_reported_by ?? null;
           $reportedByName = '';
           if ($reportedById) {
               $reportedByUser = \App\Models\AuthUser::find($reportedById);
@@ -172,7 +172,7 @@
                           <label class="form-label">Doc No <span class="text-danger">*</span></label>
                         </div>
                         <div class="col-md-5">
-                          <input type="text" class="form-control" id="document_number" name="document_number" value="{{ $workOrder->document_number ?? '' }}" disabled required>
+                          <input type="text" class="form-control"  name="document_number" value="{{ $workOrder->document_number ?? '' }}" disabled required>
                         </div>
                       </div>
 
@@ -281,7 +281,7 @@
                       <div class="col-md-3 equipment-detail-field">
                         <div class="mb-1" id="problem_field">
                           <label class="form-label">Problem <span class="text-danger">*</span></label>
-                          <input type="text" value="{{ $equipmentDetailsArr->problem ?? '' }}" class="form-control" disabled />
+                          <input type="text" value="{{ $equipmentDetailsArr->equipment_problem ?? '' }}" class="form-control" disabled />
                         </div>
                       </div>
 
@@ -1083,7 +1083,6 @@
 		function updateFooterFromSelected() {
 			let $selected = $('.trselected');
 			if ($selected.length) {
-				console.log("qty " + $selected.find('.qty').val());
 				$('#part_name').text($selected.find('.item_name').val());
 				$('#uom').text($selected.find('.uom option:selected').text());
 				$('#qty').text($selected.find('.qty').val());
@@ -1134,8 +1133,6 @@
 		
 		// Initialize autocomplete for existing spare parts row when document is ready
 		$(document).ready(function() {
-			console.log('Document ready - initializing autocomplete for existing rows');
-			console.log('Found .item_code elements:', $('.item_code').length);
 			initAutoForItem('.item_code');
 		});
 
@@ -1286,12 +1283,7 @@
 			};
 
 			$('#equipment_details').val(JSON.stringify(equipmentDetails));
-			
-			console.log('Form data collected:', {
-				spare_parts: allRows.length + ' items',
-				checklist: checklistData.length + ' items', 
-				equipment_details: equipmentDetails
-			});
+		
 		}
 
 
@@ -1504,7 +1496,6 @@
 
 			// Update hidden input with JSON
 			hiddenInput.val(JSON.stringify(selectedAttributes));
-			console.log(selectedAttributes);
 		}
 
 		$(document).on('click', '.attributeBtn', function (e) {
@@ -1667,8 +1658,6 @@
 			$('#equipment_name').prop('readonly', true);
 			$('#maintenance_type').prop('disabled', true);
 			
-			console.log('Equipment selected:', equipmentName);
-			console.log('Equipment detail fields shown');
 			
 			// Close modal manually
 			$('#reference').modal('hide');
@@ -1705,7 +1694,7 @@
 					if (response.status && response.data) {
 						var defect = response.data;
 
-						console.log("Fetched defect:", defect);
+						
 
 						// Equipment
 						if (defect.equipment) {
@@ -1794,7 +1783,7 @@
 					}
 				},
 				error: function(err) {
-					console.error(err);
+					
 					showToast('error', 'Failed to load defect details');
 				},
 				complete: function() {
@@ -1806,16 +1795,14 @@
 		}
 
 		function showEquipmentFields() {
-			console.log('showEquipmentFields() called');
+			
 			
 			// Hide all equipment detail fields first
 			$('.basic-equipment-field').hide();
 			$('.equipment-detail-field').hide();
-			console.log('All fields hidden');
 			
 			// Show only basic equipment fields (Category, Equipment, Maintenance Type)
 			$('.basic-equipment-field').show();
-			console.log('Basic equipment fields shown, count:', $('.basic-equipment-field:visible').length);
 			
 			// Enable the fields for user interaction
 			$('#equipment_category').prop('readonly', true); // Keep category readonly with default value
@@ -1828,7 +1815,6 @@
 			$('#report_date_time_hidden').val('');
 			$('#reported_by_hidden').val('');
 			
-			console.log('Equipment fields setup complete');
 		}
 
 		// function showDefectNotificationFields() {
@@ -1939,7 +1925,6 @@
 						}
 					},
 					error: function(xhr) {
-						console.error(xhr);
 						Swal.fire({
 							icon: 'error',
 							title: 'Error',
@@ -1992,7 +1977,11 @@ $(document).on('submit', '.ajax-submit-2', function(e) {
         processData: false,
         contentType: false,
         success: function(response) {
-            toastr.success(response.message || 'Operation completed successfully');
+            Swal.fire({
+            title: 'Success!',
+            text: response.message || 'Operation completed successfully',
+            icon: 'success'
+          });
             $('#approveModal').modal('hide');
             
             // Redirect if specified
@@ -2008,7 +1997,11 @@ $(document).on('submit', '.ajax-submit-2', function(e) {
         },
         error: function(xhr) {
             const response = xhr.responseJSON;
-            toastr.error(response?.message || 'An error occurred while processing your request');
+            Swal.fire({
+              title: 'Error!',
+              text: response?.message || 'An error occurred while processing your request',
+              icon: 'error'
+            });
         },
         complete: function() {
             submitBtn.prop('disabled', false).html(originalBtnText);
@@ -2166,9 +2159,6 @@ $(document).ready(function () {
     function populateAttributeModal(attributesJSON, existingAttributes, $row) {
         // This function would populate the attribute modal
         // For now, just show a message that modal functionality needs to be implemented
-        console.log('Attribute modal functionality needs to be implemented');
-        console.log('Attributes:', attributesJSON);
-        console.log('Existing selections:', existingAttributes);
     }
 
     // Initialize attribute badges for existing rows on page load
@@ -2180,6 +2170,34 @@ $(document).ready(function () {
     });
 
 });
+function showToast(icon, title) {
+			const Toast = Swal.mixin({
+				toast: true,
+				position: "top-end",
+				showConfirmButton: false,
+				timer: 3000,
+				timerProgressBar: true,
+				didOpen: (toast) => {
+					toast.onmouseenter = Swal.stopTimer;
+					toast.onmouseleave = Swal.resumeTimer;
+				},
+			});
+			Toast.fire({
+				icon,
+				title
+			});
+		}
+
+		@if (session('success'))
+			$('.preloader').hide();
+			showToast("success", "{{ session('success') }}");
+		@endif
+
+		@if (session('error'))
+			$('.preloader').hide();
+			showToast("error", "{{ session('error') }}");
+		@endif
+
 </script>
 
 @endsection

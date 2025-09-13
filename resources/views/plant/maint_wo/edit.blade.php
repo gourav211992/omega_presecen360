@@ -68,9 +68,16 @@
           // Extract defect notification details if reference type is defect_notification
           $selectedDefectName = $equipmentDetailsArr->equipment_defect_type ?? '';
           $selectedPriority = $equipmentDetailsArr->equipment_priority ?? '';
+          $selectedProblem = $equipmentDetailsArr->equipment_problem ?? '';
           $reportedById = $equipmentDetailsArr->equipment_reported_by ?? null;
           $reportDateRaw = $equipmentDetailsArr->equipment_report_date ?? null;
           $reportDate = $reportDateRaw;
+
+          $reportedByName = '';
+          if ($reportedById) {
+              $reportedByUser = \App\Models\AuthUser::find($reportedById);
+              $reportedByName = $reportedByUser ? $reportedByUser->name : '';
+          }
 
           // Amendment mode
           $isAmendmentMode = intval(request('amendment') ?? 0) === 1;
@@ -89,7 +96,8 @@
         <input type="hidden" name="doc_reset_pattern" id="doc_reset_pattern" value="{{ $workOrder->doc_reset_pattern ?? '' }}">
         <input type="hidden" name="doc_prefix" id="doc_prefix" value="{{ $workOrder->doc_prefix ?? '' }}">
         <input type="hidden" name="doc_suffix" id="doc_suffix" value="{{ $workOrder->doc_suffix ?? '' }}">
-        <input type="hidden" name="document_number" id="document_number" value="{{ $workOrder->document_number ?? '' }}">
+        <input type="hidden" name="document_number" id="" value="{{ $workOrder->document_number ?? '' }}">
+		<input type="hidden" name="doc_no" id="doc_no" value="{{ $workOrder->document_number ?? '' }}">
         <input type="hidden" name="book_id" id="book_id" value="{{ $workOrder->book_id ?? '' }}">
         <input type="hidden" name="document_date" id="document_date" value="{{ $workOrder->document_date ?? '' }}">
         <input type="hidden" name="document_status" id="document_status" value="{{ $workOrder->document_status ?? '' }}">
@@ -150,7 +158,7 @@
                           <label class="form-label">Doc No <span class="text-danger">*</span></label>
                         </div>
                         <div class="col-md-5">
-                          <input type="text" class="form-control" name="document_number" id="document_number" value="{{ $workOrder->document_number ?? '' }}" {{ $commonFieldsDisabled ? 'disabled' : ($editableFieldsDisabled ? 'disabled' : '') }}>
+                          <input type="text" class="form-control" name="document_number"  value="{{ $workOrder->document_number ?? '' }}" {{ $commonFieldsDisabled ? 'disabled' : ($editableFieldsDisabled ? 'disabled' : '') }}>
                         </div>
                       </div>
 
@@ -264,13 +272,14 @@
             </div>
           </div>
 
+         
           <div class="col-md-3 equipment-detail-field">
             <div class="mb-1" id="problem_field">
               <label class="form-label">Problem <span class="text-danger">*</span></label>
               <textarea class="form-control" name="problem" id="problem" rows="2" readonly>{{ $equipmentDetailsArr->equipment_problem ?? '' }}</textarea>
             </div>
           </div>
-
+            
           <div class="col-md-3 equipment-detail-field" id="priority_field">
             <div class="mb-1">
               <label class="form-label">Priority</label>
@@ -294,7 +303,7 @@
           <div class="col-md-3 equipment-detail-field">
             <div class="mb-1" id="report_by_field">
               <label class="form-label">Reported by</label>
-              <input type="text" value="{{ $equipmentDetailsArr->equipment_reported_by_name ?? '' }}" class="form-control" readonly />
+              <input type="text" value="{{ $reportedByName ?? '' }}" class="form-control" readonly />
             </div>
           </div>
         
@@ -303,7 +312,7 @@
         <div class="col-md-9 equipment-detail-field">
           <div class="mb-1" id="detailed_observations_field">
             <label class="form-label">Detailed observations</label>
-            <textarea name="detailed_observations" class="form-control" id="detailed_observations" rows="3" placeholder="Enter detailed observations"></textarea>
+            <textarea name="detailed_observations" class="form-control" id="detailed_observations" rows="3" placeholder="Enter detailed observations" readonly>{{$equipmentDetailsArr->equipment_detailed_observations ?? ''}}</textarea>
           </div>
         </div>
 
@@ -340,27 +349,18 @@
 
                   <div class="step-custhomapp bg-light">
                     <ul class="nav nav-tabs my-25 custapploannav" role="tablist" id="main-tabs">
-                      @if($refType === 'equipment')
-                        <li class="nav-item" id="checklist-tab">
-                          <a class="nav-link active" data-bs-toggle="tab" href="#payment">Checklist</a>
-                        </li>
-                        <li class="nav-item" id="spare-parts-tab">
-                          <a class="nav-link" data-bs-toggle="tab" href="#attachment">Spare Parts</a>
-                        </li>
-                      @else
-                        <li class="nav-item" id="spare-parts-tab">
-                          <a class="nav-link active" data-bs-toggle="tab" href="#attachment">Spare Parts</a>
-                        </li>
-                      @endif
+                      <li class="nav-item" id="checklist-tab" style="display: {{ $refType === 'equipment' ? 'block' : 'none' }};">
+                        <a class="nav-link {{ $refType === 'equipment' ? 'active' : '' }}" data-bs-toggle="tab" href="#payment">Checklist</a>
+                      </li>
+                      <li class="nav-item" id="spare-parts-tab">
+                        <a class="nav-link {{ $refType === 'equipment' ? '' : 'active' }}" data-bs-toggle="tab" href="#attachment">Spare Parts</a>
+                      </li>
                     </ul>
                   </div>
 
                   <div class="tab-content pb-1">
-                    {{-- Checklist tab - only show for equipment reference type --}}
-					{{-- Checklist tab - only show for equipment reference type --}}
-					{{-- Checklist tab - only show for equipment reference type --}}
-@if($refType === 'equipment')
-  <div class="tab-pane active" id="payment">
+                    {{-- Checklist tab - dynamically shown/hidden based on reference type --}}
+                    <div class="tab-pane {{ $refType === 'equipment' ? 'active' : '' }}" id="payment">
     <div class="row">
       <div class="col-md-12">
         <div class="table-responsive pomrnheadtffotsticky1">
@@ -448,9 +448,7 @@
         </div>
       </div>
     </div>
-  </div>
-@endif
-
+                    </div>
 
                     {{-- Spare parts tab --}}
                     <div class="tab-pane {{ $refType === 'equipment' ? '' : 'active' }}" id="attachment">
@@ -851,6 +849,7 @@
                             <th>BOM</th>
                             <th>Series</th>
                             <th>Doc No</th>
+                            <th>Due Date</th>
                           </tr>
                         </thead>
                         <tbody id="eqptTable">
@@ -886,7 +885,7 @@
                   <!-- Filters -->
                   <div class="col">
                   <label class="form-label">Equipment</label>
-                  <select class="form-control ledgerselecct" name="equipment_id">
+                  <select class="form-control ledgerselecct" name="defect_equipment_id">
                     <option value="">Select Equipment</option>
                     @foreach($equipments as $equipment)
                       <option value="{{ $equipment->id }}">{{ $equipment->name }}</option>
@@ -896,18 +895,10 @@
                   <div class="col">
                     <div class="mb-1">
                       <label class="form-label">Defect Type</label>
-                      <select class="form-control ledgerselecct" name="maintenance_type_id">
-                        <option value="">Select Maintenance Type</option>
-                        @php
-                          $allMaintenanceTypes = [];
-                          foreach(($maintenanceTypesByEquipment ?? []) as $equipmentId => $types) {
-                            foreach($types as $type) {
-                              $allMaintenanceTypes[$type['id']] = $type['name'];
-                            }
-                          }
-                        @endphp
-                        @foreach($allMaintenanceTypes as $id => $name)
-                          <option value="{{ $id }}">{{ $name }}</option>
+                      <select class="form-control ledgerselecct" name="defect_type_id">
+                        <option value="">Select Defect Type</option>
+                        @foreach($defectTypes as $defectType)
+                          <option value="{{ $defectType->id }}">{{ $defectType->name }}</option>
                         @endforeach
                       </select>
                     </div>
@@ -915,8 +906,11 @@
                   <div class="col">
                     <div class="mb-1">
                       <label class="form-label">Priority</label>
-                      <select class="form-select" name="priority">
-                        <option value="">Select</option>
+                      <select class="form-select" name="defect_priority">
+                        <option value="">Select Priority</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
                       </select>
                     </div>
                   </div>
@@ -924,7 +918,10 @@
                     <div class="mb-1">
                       <label class="form-label">Series</label>
                       <select class="form-select" id="series_filter" name="series">
-                        <option value="">Select Series</option>
+                      <option value="">Select Series</option>
+                      @foreach($defectSeries as $book)
+                        <option value="{{ $book->id }}">{{ $book->book_code }}</option>
+                      @endforeach
                       </select>
                     </div>
                   </div>
@@ -1267,7 +1264,7 @@
 			equipment_maintenance_type_id: $('#maintenance_type').val() || '',
 			equipment_maintenance_type_name: $('#equipment_maintenance_type_name').val() || $('#maintenance_type option:selected').text() || '',
 			equipment_defect_type: $('#defect_type_hidden').val() || $('#defect_type_select').val() || '',
-			equipment_problem: $('#problem_hidden').val() || $('#problem_field input').val() || '',
+			equipment_problem: $('#problem_hidden').val() || $('#problem').val() || '',
 			equipment_priority: $('#priority_field select').val() || '',
 			equipment_report_date: $('#report_date_time_hidden').val() || $('#report_date_field input').val() || '',
 			equipment_reported_by: $('#reported_by_hidden').val() || $('#report_by_field input').val() || '',
@@ -1790,6 +1787,902 @@
 		$('.mrntableselectexcel tr').each(function() {
 			let $row = $(this);
 			updateAttributeBadges($row);
+		});
+	});
+
+	// Missing function definitions for edit form
+	function clearSparePartsTable() {
+		console.log('🧹 clearSparePartsTable() called');
+		
+		// Find the spare parts table body
+		const sparePartsTableBody = $('.mrntableselectexcel');
+		
+		console.log('🧹 Found spare parts table body:', sparePartsTableBody.length);
+		console.log('🧹 Current rows in table:', sparePartsTableBody.find('tr').length);
+		
+		if (sparePartsTableBody.length > 0) {
+			// Clear all existing rows
+			sparePartsTableBody.empty();
+			console.log('🧹 Table emptied, rows after empty:', sparePartsTableBody.find('tr').length);
+			
+			// Add a single empty row for defect notification spare parts selection
+			const singleRow = `
+				<tr class="trselected">
+					<td class="customernewsection-form">
+						<div class="form-check form-check-primary custom-checkbox">
+							<input type="checkbox" class="form-check-input row-check" id="Email">
+							<label class="form-check-label" for="Email"></label>
+						</div>
+					</td>
+					<td class="poprod-decpt">
+						<input type="hidden" class="item_id">
+						<input required type="text" placeholder="Select" name="item[]"
+							class="item_code form-control mw-100 ledgerselecct mb-25" />
+					</td>
+					<td required class="poprod-decpt">
+						<input type="text" placeholder="Select"
+							class="item_name form-control mw-100 ledgerselecct mb-25" />
+					</td>
+					<td class="poprod-decpt">
+						<input type="hidden" class="attribute">
+						<div class="d-flex flex-wrap gap-1" id="attribute-badges">
+							<!-- Attribute badges will be displayed here -->
+						</div>
+					</td>
+					<td>
+						<select class="uom form-select mw-100" name="uom[]" required>
+						</select>
+					</td>
+					<td><input type="number" class="qty form-control mw-100" name="qty[]" required /></td>
+					<td><input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly /></td>
+				</tr>
+			`;
+			
+			// Add the single row to the table
+			sparePartsTableBody.html(singleRow);
+			console.log('🧹 Single row added, final row count:', sparePartsTableBody.find('tr').length);
+			
+			// Reinitialize autocomplete for the new row
+			initAutoForItem('.item_code');
+			console.log('🔄 Autocomplete reinitialized for new spare parts row');
+			
+			// Clear the spare_parts hidden field
+			$('#spare_parts').val('');
+			
+			// Clear any selected equipment and BOM IDs to prevent spare parts from being fetched
+			$('#selected_equipment_id').val('');
+			$('#selected_bom_id').val('');
+			$('#selected_maintenance_type_id').val('');
+			
+			console.log('🧹 Spare parts table cleared and reset to single row for defect notification');
+		} else {
+			console.log('🧹 ERROR: Spare parts table body not found!');
+		}
+	}
+
+	function processEquipmentSelection() {
+		var selectedEquipment = $('input[name="equipment_radio"]:checked');
+		
+		if (selectedEquipment.length === 0) {
+			// Show toaster notification
+			showToast('error', 'Please select at least one equipment');
+			return false; // Don't close modal
+		}
+		
+		// Get selected equipment data
+		var equipmentRow = selectedEquipment.closest('tr');
+		var equipmentName = equipmentRow.find('td').eq(0).find('strong').text().trim();
+		if (!equipmentName) {
+			equipmentName = equipmentRow.find('td').eq(0).text().trim();
+		}
+		var eqpt = selectedEquipment.data('eqpt');
+		
+		// Get equipment and BOM IDs for AJAX call
+		const equipmentId = selectedEquipment.val();
+		const bomId = selectedEquipment.data('bom-id');
+		
+		// Populate equipment fields
+		$('#equipment_name').val(selectedEquipment.data('equipment-name'));
+		$('#equipment_id').val(selectedEquipment.data('equipment-id'));
+		$('#selected_equipment_id').val(selectedEquipment.data('equipment-id')); // Store for maintenance type handler
+		$('#maintenance_type').val(selectedEquipment.data('maintenance-type'));
+		
+		// Keep only basic equipment fields visible and read-only for equipment selection
+		$('.equipment-detail-field').hide();
+		$('.basic-equipment-field').show();
+		$('#equipment_category').prop('readonly', true);
+		$('#equipment_name').prop('readonly', true);
+		$('#maintenance_type').prop('disabled', true);
+		
+		console.log('Equipment selected:', equipmentName);
+		console.log('Equipment detail fields shown');
+		
+		// Fetch spare parts via AJAX only if reference type is equipment (not defect notification)
+		const referenceType = $('#reference_type').val();
+		const maintenanceTypeId = selectedEquipment.data('maintenance-type');
+		if (equipmentId && maintenanceTypeId && referenceType === 'equipment') {
+			console.log('🔧 Fetching spare parts for equipment reference type');
+			// Note: fetchEquipmentSpareParts function should be available from common-script.js
+			if (typeof fetchEquipmentSpareParts === 'function') {
+				fetchEquipmentSpareParts(equipmentId, maintenanceTypeId);
+			} else {
+				console.log('⚠️ fetchEquipmentSpareParts function not available');
+			}
+		} else if (referenceType === 'defect_notification') {
+			console.log('🚫 Skipping spare parts fetch - defect notification mode');
+			// Ensure spare parts table is cleared for defect notifications
+			clearSparePartsTable();
+		}
+		
+		// Close modal manually
+		$('#reference').modal('hide');
+		
+		return true;
+	}
+
+	// Reference button functions (missing from edit form)
+	function selectEquipmentReference() {
+		console.log('🔧 selectEquipmentReference() called');
+		loadModal('eqpt');
+		$('#reference_type').val('equipment');
+		$('#reference_type_error').hide();
+		$('#equipment_ref_btn').removeClass('btn-outline-primary').addClass('btn-primary');
+		$('#defect_ref_btn').removeClass('btn-primary').addClass('btn-outline-primary');
+		
+		// Clear spare parts when switching to equipment selection to ensure clean state
+		clearSparePartsTable();
+		
+		// Show only basic equipment fields, hide detail fields
+		$('.basic-equipment-field').show();
+		$('.equipment-detail-field').hide();
+		
+		// Make basic fields read-only immediately
+		$('#equipment_category').prop('readonly', true);
+		$('#equipment_name').prop('readonly', true);
+		// $('#maintenance_type').prop('disabled', true);
+		
+		// Show checklist tab when equipment is selected
+		$('#checklist-tab').show();
+	}
+	
+	function selectDefectNotificationReference() {
+		loadModal('defect');
+		$('#reference_type').val('defect_notification');
+		$('#reference_type_error').hide();
+		$('#defect_ref_btn').removeClass('btn-outline-primary').addClass('btn-primary');
+		$('#equipment_ref_btn').removeClass('btn-primary').addClass('btn-outline-primary');
+		
+		// Clear spare parts when switching to defect notification
+		clearSparePartsTable();
+		
+		// Show all equipment detail fields but make them read-only
+		$('.basic-equipment-field').show();
+		$('.equipment-detail-field').show();
+		
+		// Make fields read-only for defect notification (they will be populated from selected defect)
+		$('#equipment_category').prop('readonly', true);
+		$('#equipment_name').prop('readonly', true);
+		$('#maintenance_type').prop('disabled', false); // Enable maintenance type for user selection
+		
+		// Set first maintenance type as default selection if not already selected
+		if ($('#maintenance_type option').length > 0 && !$('#maintenance_type').val()) {
+			$('#maintenance_type option:first').prop('selected', true);
+			$('#maintenance_type').trigger('change'); // Trigger change event to update related fields
+		}
+		
+		// Also disable other equipment detail fields
+		$('#defect_type_select').prop('disabled', true);
+		$('#priority_field select').prop('disabled', true);
+		$('#problem_field input').prop('readonly', true);
+		$('#detailed_observations_field textarea').prop('readonly', true);
+		$('#report_by_field input').prop('readonly', true);
+		
+		console.log(' Spare parts table cleared and reset to single row for defect notification');
+	
+}
+
+function processEquipmentSelection() {
+	var selectedEquipment = $('input[name="equipment_radio"]:checked');
+	
+	if (selectedEquipment.length === 0) {
+		// Show toaster notification
+		showToast('error', 'Please select at least one equipment');
+		return false; // Don't close modal
+	}
+	
+	// Get selected equipment data
+	var equipmentRow = selectedEquipment.closest('tr');
+	var equipmentName = equipmentRow.find('td').eq(0).find('strong').text().trim();
+	if (!equipmentName) {
+		equipmentName = equipmentRow.find('td').eq(0).text().trim();
+	}
+	var eqpt = selectedEquipment.data('eqpt');
+	
+	// Get equipment and BOM IDs for AJAX call
+	const equipmentId = selectedEquipment.val();
+	const bomId = selectedEquipment.data('bom-id');
+	
+	// Populate equipment fields
+	$('#equipment_name').val(selectedEquipment.data('equipment-name'));
+	$('#equipment_id').val(selectedEquipment.data('equipment-id'));
+	$('#selected_equipment_id').val(selectedEquipment.data('equipment-id')); // Store for maintenance type handler
+	$('#maintenance_type').val(selectedEquipment.data('maintenance-type'));
+	
+	// Keep only basic equipment fields visible and read-only for equipment selection
+	$('.equipment-detail-field').hide();
+	$('.basic-equipment-field').show();
+	$('#equipment_category').prop('readonly', true);
+	$('#equipment_name').prop('readonly', true);
+	$('#maintenance_type').prop('disabled', true);
+	
+	console.log('Equipment selected:', equipmentName);
+	console.log('Equipment detail fields shown');
+	
+	// Fetch spare parts via AJAX only if reference type is equipment (not defect notification)
+	const referenceType = $('#reference_type').val();
+	const maintenanceTypeId = selectedEquipment.data('maintenance-type');
+	if (equipmentId && maintenanceTypeId && referenceType === 'equipment') {
+		console.log(' Fetching spare parts for equipment reference type');
+		// Note: fetchEquipmentSpareParts function should be available from common-script.js
+		if (typeof fetchEquipmentSpareParts === 'function') {
+			fetchEquipmentSpareParts(equipmentId, maintenanceTypeId);
+		} else {
+			console.log(' fetchEquipmentSpareParts function not available');
+		}
+	} else if (referenceType === 'defect_notification') {
+		console.log(' Skipping spare parts fetch - defect notification mode');
+		// Ensure spare parts table is cleared for defect notifications
+		clearSparePartsTable();
+	}
+	
+	// Close modal manually
+	$('#reference').modal('hide');
+	
+	return true;
+}
+
+
+
+
+
+function formatDate(dateStr) {
+	var date = new Date(dateStr);
+	var day = ("0" + date.getDate()).slice(-2);
+	var month = ("0" + (date.getMonth() + 1)).slice(-2);
+	var year = date.getFullYear();
+	return `${day}-${month}-${year}`;
+}
+
+// Reset defect modal filters when modal is closed
+$('#defectlog').on('hidden.bs.modal', function () {
+	// Reset all filter fields to default values
+	$('select[name="defect_equipment_id"]').val('');
+	$('select[name="defect_type_id"]').val('');
+	$('select[name="defect_priority"]').val('');
+	$('select[name="series"]').val('');
+	
+	// Clear the modal table body to show original data
+	loadModal('defect');
+});
+
+function processDefectSelection() {
+	
+	// Set flag to prevent spare parts updates during defect notification processing
+	window.processingDefectNotification = true;
+	
+	let selectedDefect = $('input.defect-radio:checked').attr('id');
+	
+	// Check if a defect is actually selected
+	if (!selectedDefect) {
+		showToast('error', 'Please select a defect notification');
+		window.processingDefectNotification = false; // Reset flag
+		return false;
+	}
+	
+	let onlyNumber = selectedDefect.replace("defect_row_", "");
+
+	if (onlyNumber === "") {
+		showToast('error', 'Please select a defect notification');
+		return false;
+	}
+
+	var defectId = onlyNumber;
+
+	$('#defect_process_btn').prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Loading...');
+
+	$.ajax({
+    url: "{{ route('defect-notification.get', 'PLACEHOLDER') }}".replace('PLACEHOLDER', defectId),
+    type: 'GET',
+    success: function(response) {
+        if (response.status && response.data) {
+            var defect = response.data;
+
+            // Equipment
+            if (defect.equipment) {
+                $('#equipment_id').prop('value', defect.equipment.id);
+                $('#selected_equipment_id').prop('value', defect.equipment.id);
+                $('#equipment_name').prop('value', defect.equipment.document_number || defect.equipment.name || '');
+            }
+
+            // Defect Type
+            if (defect.defect_type) {
+                var defectTypeSelect = $('#defect_type_select');
+                if (defectTypeSelect.find('option[value="' + defect.defect_type.id + '"]').length === 0) {
+                    defectTypeSelect.append('<option value="' + defect.defect_type.id + '">' + defect.defect_type.name + '</option>');
+                }
+                defectTypeSelect.val(defect.defect_type.id).prop('disabled', true);
+            }
+
+            // Category
+            if (defect.category) {
+                $('#equipment_category').val(defect.category.name);
+            }
+
+            // Book
+            if (defect.book) {
+                $('#book_code').val(defect.book.book_code);
+            }
+
+            // Location
+            if (defect.location) {
+                $('#location_name').val(defect.location.name);
+            }
+
+            // Priority
+            if (defect.priority) {
+                $('#priority_field select').val(defect.priority).prop('disabled', true);
+            }
+
+            // Problem
+            $('#problem').val(defect.problem || '').prop('disabled', true);
+
+            // Detailed Observation
+            if (defect.detailed_oberservation) {
+                $('#detailed_observation').val(defect.detailed_oberservation).prop('disabled', true);
+            }
+
+            // Report Date
+            var reportDate = defect.report_date_time ? defect.report_date_time.replace('T', ' ').split('.')[0] : '';
+            $('#report_date_field input').val(reportDate).prop('disabled', true);
+
+            if (defect.detailed_oberservation) {
+                $('#detailed_observations').val(defect.detailed_oberservation);
+            } else {
+                $('#detailed_observations').val('');
+            }
+
+            // Supporting documents
+            $('#supporting_documents_field').empty();
+            var supportingDiv = $('#supporting_documents_field');
+            if (defect.attachment) {
+                supportingDiv.show();
+                var iconContainer = supportingDiv.find('.mt-50');
+                iconContainer.empty();
+                var icon = $('<i>', { 'data-feather': 'file-text', class: 'font-large-1 me-25' });
+                iconContainer.append(icon);
+                if (typeof feather !== 'undefined') {
+                    feather.replace();
+                }
+            } else {
+                supportingDiv.hide();
+            }
+
+            $('#supporting_documents_field input').prop('disabled', true);
+
+            // Hide checklist tab and show only spare parts tab
+            $('#checklist-tab').hide();
+            $('#spare-parts-tab a').tab('show');
+        }
+    },
+    error: function(xhr, status, error) {
+        console.error('Error loading defect notification:', error);
+        Swal.fire({
+            title: 'Error!',
+            text: 'An error occurred while loading defect notification data.',
+            icon: 'error'
+        });
+    },
+    complete: function() {
+        // Reset button state
+        $('#defect_process_btn').prop('disabled', false).html('Process');
+    }
+});
+}
+
+
+	// Maintenance Type change handler to update checklist
+	$(document).on('change', '#maintenance_type', function() {
+		// Skip maintenance type processing if defect notification is being processed
+		if (window.processingDefectNotification) {
+			return;
+		}
+		
+		var maintenanceTypeId = $(this).val();
+		var maintenanceTypeName = $(this).find('option:selected').data('name') || $(this).find('option:selected').text();
+		var equipmentId = $('#selected_equipment_id').val();
+		
+		// Store maintenance type name in hidden field
+		$('#equipment_maintenance_type_name').val(maintenanceTypeName);
+		
+		if (maintenanceTypeId && equipmentId) {
+			// Clear existing checklist
+			$('#checklistTableBody').empty();
+			
+			// Show loading state
+			$('#checklistTableBody').html('<tr><td colspan="3" class="text-center">Loading checklists...</td></tr>');
+			
+			$.ajax({
+				url: "{{ route('defect-notification.get-checklists') }}",
+				type: 'POST',
+				data: {
+					_token: $('meta[name="csrf-token"]').attr('content'),
+					equipment_id: equipmentId,
+					maintenance_type_id: maintenanceTypeId
+				},
+				success: function(response) {
+					$('#checklistTableBody').empty();
+					
+					if (response.status && response.checklists && response.checklists.length > 0) {
+						$.each(response.checklists, function(index, checklist) {
+							var inputField = '';
+							if (checklist.type === 'boolean') {
+								inputField = '<input type="checkbox" class="form-check-input" name="checklist[' + checklist.id + ']" value="1">';
+							} else {
+								inputField = '<input type="text" class="form-control" name="checklist[' + checklist.id + ']" placeholder="Enter value">';
+							}
+							
+							var row = '<tr>' +
+								'<td>' + (index + 1) + '</td>' +
+								'<td>' + checklist.name + '</td>' +
+								'<td>' + inputField + '</td>' +
+								'</tr>';
+							
+							$('#checklistTableBody').append(row);
+						});
+					} else {
+						$('#checklistTableBody').html('<tr><td colspan="3" class="text-center text-muted">No checklists available for this maintenance type</td></tr>');
+					}
+				},
+				error: function(xhr, status, error) {
+					console.error('Error loading checklists:', error);
+					$('#checklistTableBody').html('<tr><td colspan="3" class="text-center text-danger">Error loading checklists</td></tr>');
+				}
+			});
+		} else {
+			$('#checklistTableBody').html('<tr><td colspan="3" class="text-center text-muted">Please select equipment and maintenance type</td></tr>');
+		}
+	});
+
+	// Search button event handlers (missing from edit form)
+	$('#defect_search_btn').on('click', function(e) {
+		e.preventDefault();
+
+		var equipmentId = $('select[name="defect_equipment_id"]').val();
+		var defectTypeId = $('select[name="defect_type_id"]').val();
+		var priority = $('select[name="defect_priority"]').val();
+		var series = $('select[name="series"]').val();
+
+		console.log('Defect filter params:', {
+			equipment_id: equipmentId,
+			defect_type_id: defectTypeId,
+			priority: priority,
+			series_code: series
+		});
+
+		$.ajax({
+			url: "{{ route('maint-wo.filter') }}",
+			method: 'POST',
+			data: {
+				type: 'defect',
+				equipment_id: equipmentId,
+				defect_type_id: defectTypeId,
+				priority: priority,
+				series_code: series,
+				_token: $('meta[name="csrf-token"]').attr('content')
+			},
+			beforeSend: function() {
+				
+			},
+			success: function(response) {
+
+				
+				if(response && response.length > 0) {
+					var tbody = '';
+					response.forEach(function(defect) {
+						tbody += `<tr>
+							<td class="customernewsection-form">
+								<div class="form-check form-check-primary custom-radio">
+									<input type="radio" class="form-check-input defect-radio" name="defect_selection" id="defect_row_${defect.id}"
+										value="${defect.id}"
+										data-defect-id="${defect.id}"
+										data-equipment-id="${defect.equipment?.id ?? ''}"
+										data-equipment-name="${defect.equipment?.name ?? 'N/A'}"
+										data-defect-type="${defect.defect_type?.name ?? 'N/A'}"
+										data-priority="${defect.priority ?? ''}"
+										data-problem="${defect.problem ?? ''}"
+										data-reported-by="${defect.creator?.name ?? 'N/A'}">
+									<label class="form-check-label" for="defect_row_${defect.id}"></label>
+								</div>
+							</td>
+							<td><strong>${defect.document_date ? formatDate(defect.document_date) : 'N/A'}</strong></td>
+							<td>${defect.book?.book_code ?? 'N/A'}</td>
+							<td>${defect.document_number ?? 'N/A'}</td>
+							<td>${defect.equipment?.name ?? 'N/A'}</td>
+							<td>${defect.defect_type?.name ?? 'N/A'}</td>
+							<td>${defect.priority ?? ''}</td>
+							<td>${defect.problem ?? ''}</td>
+							<td>${defect.creator?.name ?? 'N/A'}</td>
+						</tr>`;
+					});
+					$('#defectlog .po-order-detail tbody').html(tbody);
+					feather.replace(); // re-render Feather icons
+				} else {
+					$('#defectlog .po-order-detail tbody').html('<tr><td colspan="9" class="text-center">No defect notifications found</td></tr>');
+				}
+			},
+			error: function(xhr) {
+				console.error(xhr);
+				showToast('error', 'Failed to fetch filtered defects.');
+			},
+			complete: function() {
+			}
+		});
+	});
+
+	function formatDate(dateStr) {
+		var date = new Date(dateStr);
+		var day = ("0" + date.getDate()).slice(-2);
+		var month = ("0" + (date.getMonth() + 1)).slice(-2);
+		var year = date.getFullYear();
+		return `${day}-${month}-${year}`;
+	}
+
+	// Reset defect modal filters when modal is closed
+	$('#defectlog').on('hidden.bs.modal', function () {
+		// Reset all filter fields to default values
+		$('select[name="defect_equipment_id"]').val('');
+		$('select[name="defect_type_id"]').val('');
+		$('select[name="defect_priority"]').val('');
+		$('select[name="series"]').val('');
+		
+		// Clear the modal table body to show original data
+		loadModal('defect');
+	});
+
+	function processDefectSelection() {
+		
+		// Set flag to prevent spare parts updates during defect notification processing
+		window.processingDefectNotification = true;
+		
+		let selectedDefect = $('input.defect-radio:checked').attr('id');
+		
+		// Check if a defect is actually selected
+		if (!selectedDefect) {
+			showToast('error', 'Please select a defect notification');
+			window.processingDefectNotification = false; // Reset flag
+			return false;
+		}
+		
+		let onlyNumber = selectedDefect.replace("defect_row_", "");
+
+		if (onlyNumber === "") {
+			showToast('error', 'Please select a defect notification');
+			return false;
+		}
+
+		var defectId = onlyNumber;
+
+		$('#defect_process_btn')
+			.prop('disabled', true)
+			.html('<span class="spinner-border spinner-border-sm"></span> Loading...');
+
+		$.ajax({
+			url: "{{ route('defect-notification.get', 'PLACEHOLDER') }}".replace('PLACEHOLDER', defectId),
+			type: 'GET',
+			success: function(response) {
+				if (response.status && response.data) {
+					var defect = response.data;
+
+					// Equipment - Set values without triggering events to avoid spare parts UI changes
+					if (defect.equipment) {
+						// Set equipment fields silently (without triggering change events)
+						$('#equipment_id').prop('value', defect.equipment.id);
+						$('#selected_equipment_id').prop('value', defect.equipment.id);
+						$('#equipment_name').prop('value', defect.equipment.document_number || defect.equipment.name || '');
+						
+
+					}
+
+					// Defect Type
+					if (defect.defect_type) {
+						var defectTypeSelect = $('#defect_type_select');
+						if (defectTypeSelect.find('option[value="' + defect.defect_type.id + '"]').length === 0) {
+							defectTypeSelect.append('<option value="' + defect.defect_type.id + '">' + defect.defect_type.name + '</option>');
+						}
+						defectTypeSelect.val(defect.defect_type.id).prop('disabled', true);
+					}
+
+					// Category
+					if (defect.category) {
+						$('#equipment_category').val(defect.category.name);
+					}
+
+					// Book
+					if (defect.book) {
+						$('#book_code').val(defect.book.book_code);
+					}
+
+					// Location
+					if (defect.location) {
+						$('#location_name').val(defect.location.name);
+					}
+
+					// Priority
+					if (defect.priority) {
+						$('#priority_field select').val(defect.priority).prop('disabled', true);
+					}
+
+					// Problem
+					$('#problem').val(defect.problem || '').prop('disabled', true);
+
+					// Detailed Observation
+					if (defect.detailed_oberservation) {
+						$('#detailed_observation').val(defect.detailed_oberservation).prop('disabled', true);
+					}
+
+					// Report Date
+					var reportDate = defect.report_date_time ? defect.report_date_time.replace('T', ' ').split('.')[0] : '';
+					$('#report_date_field input').val(reportDate).prop('disabled', true);
+
+					if (defect.detailed_oberservation) {
+						$('#detailed_observations').val(defect.detailed_oberservation);
+					} else {
+						$('#detailed_observations').val('');
+					}
+
+					$('#supporting_documents_field').empty();
+					var supportingDiv = $('#supporting_documents_field');
+					if (defect.attachment) {
+						supportingDiv.show();
+						var iconContainer = supportingDiv.find('.mt-50');
+						iconContainer.empty();
+						var icon = $('<i>', { 'data-feather': 'file-text', class: 'font-large-1 me-25' });
+						iconContainer.append(icon);
+						if (typeof feather !== 'undefined') {
+							feather.replace();
+						}
+					} else {
+						supportingDiv.remove();
+					}
+
+					// Skip maintenance type population for defect notifications to avoid spare parts data
+					// Defect notifications should not trigger spare parts or maintenance type functionality
+
+
+					// Hidden fields
+					$('#defect_notification_id_hidden').val(defect.id);
+					$('#equipment_name_hidden').val(defect.equipment ? defect.equipment.document_number : '');
+					$('#defect_type_hidden').val(defect.defect_type ? defect.defect_type.name : '');
+					$('#problem_hidden').val(defect.problem);
+					$('#report_date_time_hidden').val(reportDate);
+					$('#reported_by_hidden').val(defect.created_by || '');
+
+					// Populate equipment_details hidden field for defect notification
+					// Get values from form fields after they've been populated
+					var problemValue = $('#problem').val() || defect.problem || '';
+					var priorityValue = $('#priority_field select').val() || defect.priority || '';
+					var detailedObsValue = $('#detailed_observations').val() || defect.detailed_oberservation || '';
+					
+					var equipmentDetails = {
+						equipment_id: defect.equipment ? defect.equipment.id : '',
+						equipment_name: defect.equipment ? defect.equipment.name : '',
+						equipment_category: defect.category ? defect.category.name : '',
+						equipment_maintenance_type_id: $('#maintenance_type').val() || '',
+						equipment_maintenance_type_name: $('#maintenance_type option:selected').text() || '',
+						defect_notification_id: defect.id || '',
+						equipment_defect_type: defect.defect_type ? defect.defect_type.name : '',
+						equipment_priority: priorityValue,
+						equipment_problem: problemValue,
+						equipment_report_date: defect.report_date_time || '',
+						equipment_reported_by: defect.created_by || '',
+						equipment_detailed_observations: detailedObsValue,
+						equipment_supporting_documents: '',
+						reference_type: 'defect_notification'
+					};
+					
+					$('#equipment_details').val(JSON.stringify(equipmentDetails));
+
+					// Close modal
+					$('#defectlog').modal('hide');
+
+					// Clear spare parts after defect notification processing to ensure clean state
+					setTimeout(function() {
+						clearSparePartsTable();
+					}, 100);
+
+					showToast('success', 'Defect notification selected successfully');
+				} else {
+					showToast('error', 'Invalid defect data received');
+				}
+			},
+			error: function(err) {
+				console.error(err);
+				showToast('error', 'Failed to load defect details');
+			},
+			complete: function() {
+				$('#defect_process_btn').prop('disabled', false).html('<i data-feather="check-circle"></i> Process');
+				// Reset flag to allow normal spare parts functionality after defect processing
+				window.processingDefectNotification = false;
+
+			}
+		});
+
+		return true;
+	}
+
+	// Equipment search button handler
+	$('#equipmentSearchBtn').on('click', function() {
+		const equipmentId = $('select[name="equipment_id"]').val();
+		const maintenanceTypeId = $('select[name="maintenance_type_id"]').val();
+		const bomId = $('select[name="maintenance_bom_id"]').val();
+
+		if (!equipmentId) {
+			Swal.fire({
+				title: 'Missing Information',
+				text: 'Please select Equipment before searching.',
+				icon: 'warning'
+			});
+			return;
+		}
+
+		// Show loading state
+		$(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Searching...');
+
+		// Call filter method for equipment
+		$.ajax({
+			url: "{{ route('maint-wo.filter') }}",
+			method: 'POST',
+			data: {
+				type: 'equipment',
+				equipment_id: equipmentId,
+				maintenance_type_id: maintenanceTypeId,
+				bom_id: bomId,
+				_token: $('meta[name="csrf-token"]').attr('content')
+			},
+			success: function(response) {
+				// Response is now direct array data (like populateModal)
+				if (response && response.length > 0) {
+					// Clear existing table content
+					$('#eqptTable').empty();
+					
+					// Populate equipment modal table with filtered results
+					response.forEach(function (eqpt, idx) {
+						const isSelected = window.selectedEquipmentState && window.selectedEquipmentState.equipmentId == eqpt.id;
+						const checkedAttribute = isSelected ? 'checked' : '';
+						let row = `
+							<tr class="trail-bal-tabl-none">
+								<th class="customernewsection-form">
+									<div class="form-check form-check-primary custom-radio">
+										<input type="radio" class="form-check-input equipment-radio" 
+											   name="equipment_radio" 
+											   id="equipment_${eqpt.id}" 
+											   value="${eqpt?.equipment?.id ?? eqpt.id}"
+											   data-index="${idx}"
+											   data-equipment-id="${eqpt?.equipment?.id ?? eqpt.id}" 
+											   data-equipment-name="${eqpt?.equipment?.name ?? ''}" 
+											   data-maintenance-type="${eqpt?.maintenance_type?.id ?? ''}"
+											   data-bom-id="${eqpt?.bom?.id ?? ''}"
+											   ${checkedAttribute}>
+										<label class="form-check-label" for="equipment_${eqpt.id}"></label>
+									</div> 
+								</th>
+								<td><strong>${eqpt?.equipment?.name ?? 'N/A'}</strong></td> 
+								<td>${eqpt?.maintenance_type?.name ?? 'N/A'}</td>
+								<td>${eqpt?.bom?.bom_name ?? 'N/A'}</td>
+								<td>${eqpt?.bom?.book?.book_code ?? 'N/A'}</td>
+								<td>${eqpt?.bom?.document_number ?? 'N/A'}</td>
+								<td>${eqpt?.equipment?.due_date ?? 'N/A'}</td>
+							</tr>`;
+						$('#eqptTable').append(row);
+					});
+					
+					// Store filtered data globally for reference
+					window.equipmentModalData = response;
+					
+					// Show equipment modal
+					$('#equipment-modal').modal('show');
+
+					Swal.fire({
+						title: 'Success!',
+						text: `Found ${response.length} equipment configuration(s).`,
+						icon: 'success',
+						timer: 2000,
+						showConfirmButton: false
+					});
+
+				} else {
+					// No data found - show empty modal
+					$('#eqptTable').html('<tr><td colspan="7" class="text-center">No equipment found for the selected criteria.</td></tr>');
+					$('#equipment-modal').modal('show');
+					
+					Swal.fire({
+						title: 'No Results',
+						text: 'No equipment found matching the selected criteria.',
+						icon: 'info'
+					});
+				}
+			},
+			error: function(xhr, status, error) {
+				console.error('Equipment search error:', error);
+				Swal.fire({
+					title: 'Error!',
+					text: 'An error occurred while searching for equipment data.',
+					icon: 'error'
+				});
+			},
+			complete: function() {
+				// Reset button state
+				$('#equipmentSearchBtn').prop('disabled', false).html('<i data-feather="search"></i> Search');
+				feather.replace(); // Re-initialize feather icons
+			}
+		});
+	});
+
+	// Amendment workflow logic
+	document.addEventListener('DOMContentLoaded', function() {
+		const submitBtn = document.getElementById('submit-btn');
+		const isAmendmentMode = {{ $isAmendmentMode ? 'true' : 'false' }};
+		
+		if (submitBtn) {
+			submitBtn.addEventListener('click', function (e) {
+				e.preventDefault(); // Always prevent default first
+				
+				if (isAmendmentMode) {
+					// Show amendment modal for amendment mode
+					$("#amendmentSubmitModal").modal('show');
+				} else {
+					// Direct form submission for regular edit
+					$('.preloader').show();
+					document.getElementById('maint-wo-form').submit();
+				}
+			});
+		}
+		
+		// Handle amendment modal submission
+		$(document).on('click', '#confirmAmendmentSubmit', function(e) {
+			e.preventDefault();
+			
+			let remarks = $("#amendment_remarks").val().trim();
+			if (!remarks) {
+				// Show error for required remarks
+				$("#amendment_remarks").addClass('is-invalid');
+				if (!$("#amendment_remarks").next('.invalid-feedback').length) {
+					$("#amendment_remarks").after('<div class="invalid-feedback">Amendment remarks are required.</div>');
+				}
+				return false;
+			} else {
+				$("#amendment_remarks").removeClass('is-invalid');
+				$("#amendment_remarks").next('.invalid-feedback').remove();
+			}
+			
+			// Add action_type hidden field for amendment
+			if (!$('#action_type').length) {
+				$('#maint-wo-form').append('<input type="hidden" name="action_type" id="action_type" value="amendment">');
+			} else {
+				$('#action_type').val('amendment');
+			}
+			
+			// Hide modal and submit form
+			$("#amendmentSubmitModal").modal('hide');
+			$('.preloader').show();
+			document.getElementById('maint-wo-form').submit();
+		});
+		
+		// Handle amendment confirmation modal
+		$(document).on('click', '#amendmentSubmit', function(e) {
+			e.preventDefault();
+			$("#amendmentconfirm").modal('hide');
+			$("#amendmentSubmitModal").modal('show');
 		});
 	});
 

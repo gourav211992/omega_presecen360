@@ -937,7 +937,6 @@ function convertToSimpleFormat(attributesDetailed) {
 }
 
 function populatePartDetails(partData) {
-  console.log("check the partData",partData);
   
   // Populate part name
   const partNameHtml = `<span class="badge rounded-pill badge-light-secondary"><strong>Name</strong>: ${partData.item_name || 'N/A'}</span>`;
@@ -1000,7 +999,7 @@ $(document).on('change', '.equipment-radio', function () {
     data: { type: 'eqpt', book_code: selectedSeries },
     dataType: "json",
     success: function (response) {
-      console.log('Populate modal response:', response);
+      
       if (response && Array.isArray(response) && response.length > 0) {
         // Store the fresh data
         window.equipmentModalData = response;
@@ -1025,20 +1024,19 @@ $(document).on('change', '.equipment-radio', function () {
             reference_type: 'equipment'
           };
           $('#equipment_details').val(JSON.stringify(equipmentDetails));
-          console.log('Equipment details populated:', equipmentDetails);
           
           populateChecklistTable(equipmentData, maintenanceTypeId);
         } else {
-          console.log('Selected equipment not found in response');
+          
           $('.mrntableselectexcel1').empty().append(`<tr><td colspan="3" class="text-center text-muted">Equipment data not found</td></tr>`);
         }
       } else {
-        console.log('No equipment data received from populate-modal');
+        
         $('.mrntableselectexcel1').empty().append(`<tr><td colspan="3" class="text-center text-muted">No equipment data available</td></tr>`);
       }
     },
     error: function(xhr, status, error) {
-      console.error('Error calling populate-modal:', error);
+      
       $('.mrntableselectexcel1').empty().append(`<tr><td colspan="3" class="text-center text-muted">Error loading equipment data</td></tr>`);
     }
   });
@@ -1086,9 +1084,7 @@ function fillFormFromDefect(defect) {
   $repBy.prop('disabled', false); setInputValue('#report_by_field input', defect?.creator?.name ?? ''); $repBy.prop('disabled', true);
   
   // Populate equipment_details hidden field for defect notification
-  console.log('fillFormFromDefect called with defect:', defect);
-  console.log('Defect structure - equipment:', defect?.equipment);
-  console.log('Defect structure - category:', defect?.category);
+
   
   const equipmentDetails = {
     equipment_id: defect?.equipment?.id ?? '',
@@ -1103,15 +1099,11 @@ function fillFormFromDefect(defect) {
     reference_type: 'defect_notification'
   };
   
-  console.log('Equipment details object created:', equipmentDetails);
-  console.log('Setting equipment_details field with:', JSON.stringify(equipmentDetails));
+
   
   $('#equipment_details').val(JSON.stringify(equipmentDetails));
   
-  // Verify the field was set
-  const fieldValue = $('#equipment_details').val();
-  console.log('Equipment details field value after setting:', fieldValue);
-  console.log('Field exists?', $('#equipment_details').length > 0);
+  
 }
 // function processDefectSelection() {
 //   console.log('processDefectSelection called');
@@ -1362,7 +1354,6 @@ function changeAttributeVal($row) {
     hiddenInputEnriched.val(JSON.stringify(selectedAttributesEnriched));
   }
   
-  console.log('Selected attributes:', selectedAttributes);
 }
 
 // Function to update attribute badges display
@@ -1398,7 +1389,7 @@ function updateAttributeBadges($row) {
         totalSelectedCount++;
       }
     });
-    console.log('Total selected attributes:', totalSelectedCount);
+   
     
 
     // Badge display logic based on count
