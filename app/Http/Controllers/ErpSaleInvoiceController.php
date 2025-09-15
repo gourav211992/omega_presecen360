@@ -76,6 +76,7 @@ use DB;
 use Dompdf\Options;
 use App\Models\CashCustomerDetail;
 use App\Models\Configuration;
+use App\Services\Sales\DeliveryNoteDelete;
 use Http;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -777,65 +778,75 @@ class ErpSaleInvoiceController extends Controller
                 //     }
                 // }
 
-                if (count($deletedData['deletedSiItemIds'])) {
-                    $siItems = ErpInvoiceItem::whereIn('id',$deletedData['deletedSiItemIds'])->get();
-                    # all ted remove item level
-                    foreach($siItems as $siItem) {
-                        if ($saleInvoice -> dcoument_type != ConstantHelper::SI_SERVICE_ALIAS) {
-                            InventoryHelper::deleteIssueStock($saleInvoice->id, $siItem->id, ConstantHelper::SI_SERVICE_ALIAS);
-                        }
+                $keys = ['deletedSiItemIds', 'deletedAttachmentIds'];
+                $deletedData = [];
 
-                        if ($siItem -> so_item_id) {
-                            $soItem = ErpSoItem::find($siItem -> so_item_id);
-                            if (isset($soItem)) {
-                                $soItem -> dnote_qty -= $siItem -> order_qty;
-                                if ($siItem -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS) {
-                                    $soItem -> invoice_qty -= $siItem -> order_qty;
-                                }
-                                $soItem -> save();
-                            }
-                        }
-                        if ($siItem -> dnote_item_id) {
-                            $refSiItem = ErpInvoiceItem::find($siItem -> dnote_item_id);
-                            if (isset($refSiItem)) {
-                                $refSiItem -> invoice_qty -= $siItem -> order_qty;
-                                $refSiItem -> save();
-                            }
-                        }
-                        //Free up all the bundles
-                        ErpPslipItemDetail::where('dn_item_id', $siItem -> id) -> update([
-                            'dn_item_id' => null
-                        ]);
-                        $siItem->teds()->delete();
-                        #delivery remove
-                        // $siItem->item_deliveries()->delete();
-                        # all attr remove
-                        $siItem->attributes()->delete();
-
-                        // $refereceItemIds = $siItem -> mapped_so_item_ids();
-                        // if (count($refereceItemIds) > 0) {
-                        //     foreach ($refereceItemIds as $referenceFromId) {
-                        //         $referenceItem = ErpSoItem::where('id', $referenceFromId) -> first();
-                        //         $existingMapping = ErpSoDnMapping::where([
-                        //             ['sale_order_id', $referenceItem -> sale_order_id],
-                        //             ['so_item_id', $referenceItem -> id],
-                        //             ['delivery_note_id', $saleInvoice -> id],
-                        //             ['dn_item_id', $siItem -> id],
-                        //         ]) -> first();
-                        //         if (isset($existingMapping)) {
-                        //             $referenceItem -> dnote_qty = $referenceItem -> dnote_qty - $siItem -> order_qty;
-                        //             if (!$invoiceRequiredParam) {
-                        //                 $referenceItem -> invoice_qty = $referenceItem -> invoice_qty - $siItem -> order_qty;
-                        //             }
-                        //             $referenceItem -> save();
-                        //             $existingMapping -> delete();
-                        //         }
-                        //     }
-                        // }
-                       
-                        $siItem->delete();
-                    }
+                foreach ($keys as $key) {
+                    $deletedData[$key] = json_decode($request->input($key, '[]'), true);
                 }
+
+                $deleteService = new DeliveryNoteDelete();
+                $deleteService -> deleteByRequest($deletedData['deletedSiItemIds'], $saleInvoice);
+
+                // if (count($deletedData['deletedSiItemIds'])) {
+                //     $siItems = ErpInvoiceItem::whereIn('id',$deletedData['deletedSiItemIds'])->get();
+                //     # all ted remove item level
+                //     foreach($siItems as $siItem) {
+                //         if ($saleInvoice -> dcoument_type != ConstantHelper::SI_SERVICE_ALIAS) {
+                //             InventoryHelper::deleteIssueStock($saleInvoice->id, $siItem->id, ConstantHelper::SI_SERVICE_ALIAS);
+                //         }
+
+                //         if ($siItem -> so_item_id) {
+                //             $soItem = ErpSoItem::find($siItem -> so_item_id);
+                //             if (isset($soItem)) {
+                //                 $soItem -> dnote_qty -= $siItem -> order_qty;
+                //                 if ($siItem -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS) {
+                //                     $soItem -> invoice_qty -= $siItem -> order_qty;
+                //                 }
+                //                 $soItem -> save();
+                //             }
+                //         }
+                //         if ($siItem -> dnote_item_id) {
+                //             $refSiItem = ErpInvoiceItem::find($siItem -> dnote_item_id);
+                //             if (isset($refSiItem)) {
+                //                 $refSiItem -> invoice_qty -= $siItem -> order_qty;
+                //                 $refSiItem -> save();
+                //             }
+                //         }
+                //         //Free up all the bundles
+                //         ErpPslipItemDetail::where('dn_item_id', $siItem -> id) -> update([
+                //             'dn_item_id' => null
+                //         ]);
+                //         $siItem->teds()->delete();
+                //         #delivery remove
+                //         // $siItem->item_deliveries()->delete();
+                //         # all attr remove
+                //         $siItem->attributes()->delete();
+
+                //         // $refereceItemIds = $siItem -> mapped_so_item_ids();
+                //         // if (count($refereceItemIds) > 0) {
+                //         //     foreach ($refereceItemIds as $referenceFromId) {
+                //         //         $referenceItem = ErpSoItem::where('id', $referenceFromId) -> first();
+                //         //         $existingMapping = ErpSoDnMapping::where([
+                //         //             ['sale_order_id', $referenceItem -> sale_order_id],
+                //         //             ['so_item_id', $referenceItem -> id],
+                //         //             ['delivery_note_id', $saleInvoice -> id],
+                //         //             ['dn_item_id', $siItem -> id],
+                //         //         ]) -> first();
+                //         //         if (isset($existingMapping)) {
+                //         //             $referenceItem -> dnote_qty = $referenceItem -> dnote_qty - $siItem -> order_qty;
+                //         //             if (!$invoiceRequiredParam) {
+                //         //                 $referenceItem -> invoice_qty = $referenceItem -> invoice_qty - $siItem -> order_qty;
+                //         //             }
+                //         //             $referenceItem -> save();
+                //         //             $existingMapping -> delete();
+                //         //         }
+                //         //     }
+                //         // }
+                       
+                //         $siItem->delete();
+                //     }
+                // }
 
                 //Delete all Item references
                 // foreach ($saleInvoice -> items as $item) {

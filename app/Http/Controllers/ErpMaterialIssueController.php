@@ -68,8 +68,14 @@ use stdClass;
 use Yajra\DataTables\DataTables;
 use App\Helpers\Configuration\Helper as ConfigurationHelper;
 use App\Helpers\Configuration\Constants as ConfigurationConstant;
+use App\Helpers\MasterIndiaHelper;
+use App\Helpers\TaxHelper;
+use App\Models\ErpMaterialIssueTed;
 use App\Models\ErpPslipItem;
+use App\Models\EwayBillMaster;
 use App\Services\MaterialIssue\MiDelete;
+use DateTime;
+use Illuminate\Support\Facades\Validator;
 
 class ErpMaterialIssueController extends Controller
 {
@@ -273,6 +279,10 @@ class ErpMaterialIssueController extends Controller
         $selectedfyYear = Helper::getFinancialYear(Carbon::now());
         $currentfyYear['current_date'] = Carbon::now() -> format('Y-m-d');
         $stockTypes = InventoryHelper::getStockType();
+        $transportationModes = EwayBillMaster::where('status', 'active')
+            ->where('type', '=', 'transportation-mode')
+            ->orderBy('id', 'ASC')
+            ->get();
         $data = [
             'user' => $user,
             'services' => $servicesBooks['services'],
@@ -286,7 +296,8 @@ class ErpMaterialIssueController extends Controller
             'selectedUserId' => null,
             'redirect_url' => $redirectUrl,
             'current_financial_year' => $selectedfyYear,
-            'stockTypes' => $stockTypes
+            'stockTypes' => $stockTypes,
+            'transportationModes' => $transportationModes
         ];
         return view('materialIssue.create_edit', $data);
     }
@@ -350,6 +361,10 @@ class ErpMaterialIssueController extends Controller
         $departments = UserHelper::getDepartments($user -> auth_user_id);  
         $stockTypes = InventoryHelper::getStockType();
         $dynamicFieldsUI = $doc -> dynamicfieldsUi();
+        $transportationModes = EwayBillMaster::where('status', 'active')
+            ->where('type', '=', 'transportation-mode')
+            ->orderBy('id', 'ASC')
+            ->get();
         $data = [
             'user' => $user,
             'series' => $books,
@@ -369,7 +384,8 @@ class ErpMaterialIssueController extends Controller
             'selectedUserId' => $doc ?-> user_id,
             'dynamicFieldsUi' => $dynamicFieldsUI,
             'redirect_url' => $redirect_url,
-            'stockTypes' => $stockTypes
+            'stockTypes' => $stockTypes,
+            'transportationModes' => $transportationModes
         ];
         return view('materialIssue.create_edit', $data);  
         
@@ -394,6 +410,7 @@ class ErpMaterialIssueController extends Controller
             $groupId = $organization ?-> group_id ?? null;
             $companyId = $organization ?-> company_id ?? null;
             $itemAttributeIds = [];
+            $itemTaxIds = [];
             //Currency Check
             $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($organization -> currency -> id, $request -> document_date);
             if ($currencyExchangeData['status'] == false) {
@@ -424,10 +441,10 @@ class ErpMaterialIssueController extends Controller
             }
             $enforceUicScanning = ConfigurationHelper::getConfigurationValueOfOrg(ConfigurationConstant::ORG_CONFIG_ENFORCE_UIC_SCANNING, $organizationId);
             $materialIssue = null;
-            $fromStore = ErpStore::find($request -> store_from_id);
+            $fromStore = ErpStore::with('address')->find($request -> store_from_id);
             $toStoreId = ($request->store_to_id);
             $toSubStoreId = ($request -> issue_type === 'Sub Contracting' || $request -> issue_type === ConstantHelper::TYPE_JOB_ORDER ? $request -> vendor_store_id : $request -> sub_store_to_id);
-            $toStore = ErpStore::find($toStoreId);
+            $toStore = ErpStore::with('address')->find($toStoreId);
             $vendor = Vendor::find($request -> vendor_id);
             if($request -> requester_type == 'User') {
                 $user = AuthUser::find($request->user_id);
@@ -526,7 +543,23 @@ class ErpMaterialIssueController extends Controller
                     'total_tax_value' => 0,
                     'total_expense_value' => 0,
                 ]);
+                $shippingAddress = null;
+                $billingAddress = null;
+                $locationAddress = null;
                 // Shipping Address
+                $fromStoreAddress = $fromStore -> address;
+                if (isset($fromStoreAddress)) {
+                    $locationAddress = $materialIssue -> location_address_details() -> create([
+                        'address' => $fromStoreAddress -> address,
+                        'country_id' => $fromStoreAddress -> country_id,
+                        'state_id' => $fromStoreAddress -> state_id,
+                        'city_id' => $fromStoreAddress -> city_id,
+                        'type' => 'location',
+                        'pincode' => $fromStoreAddress -> pincode,
+                        'phone' => $fromStoreAddress -> phone,
+                        'fax_number' => $fromStoreAddress -> fax_number
+                    ]);
+                }
                 if ($materialIssue -> issue_type === "Sub Contracting" || $materialIssue -> issue_type === "Job Work") {
                     if ($materialIssue -> issue_type === "Sub Contracting" && isset($request -> jo_item_id[0])) {
                         $joItem = JoItem::find($request -> jo_item_id[0]);
@@ -535,18 +568,49 @@ class ErpMaterialIssueController extends Controller
                     }
                     if (isset($joItem)) {
                         $vendorShippingAddress = $joItem ?-> header ?-> ship_address;
-                        if (isset($vendorShippingAddress)) {
-                            $vendorShippingAddress = $materialIssue -> vendor_shipping_address() -> create([
-                                'address' => $vendorShippingAddress -> address,
-                                'country_id' => $vendorShippingAddress -> country_id,
-                                'state_id' => $vendorShippingAddress -> state_id,
-                                'city_id' => $vendorShippingAddress -> city_id,
-                                'type' => 'shipping',
-                                'pincode' => $vendorShippingAddress -> pincode,
-                                'phone' => $vendorShippingAddress -> phone,
-                                'fax_number' => $vendorShippingAddress -> fax_number
-                            ]);
-                        }
+                        $vendorBillingAddress = $joItem ?-> header ?-> bill_address;
+                    } else {
+                        $vendorBillingAddress = $vendor ?-> latestBillingAddress();
+                    }
+                    if (isset($vendorShippingAddress)) {
+                        //Shipping Address
+                        $shippingAddress = $materialIssue -> vendor_shipping_address() -> create([
+                            'address' => $vendorShippingAddress -> address,
+                            'country_id' => $vendorShippingAddress -> country_id,
+                            'state_id' => $vendorShippingAddress -> state_id,
+                            'city_id' => $vendorShippingAddress -> city_id,
+                            'type' => 'shipping',
+                            'pincode' => $vendorShippingAddress -> pincode,
+                            'phone' => $vendorShippingAddress -> phone,
+                            'fax_number' => $vendorShippingAddress -> fax_number
+                        ]);
+                    }
+                    if (isset($vendorBillingAddress)) {
+                        $billingAddress = $materialIssue -> billing_address_details() -> create([
+                            'address' => $vendorBillingAddress -> address,
+                            'country_id' => $vendorBillingAddress -> country_id,
+                            'state_id' => $vendorBillingAddress -> state_id,
+                            'city_id' => $vendorBillingAddress -> city_id,
+                            'type' => 'billing',
+                            'pincode' => $vendorBillingAddress -> pincode,
+                            'phone' => $vendorBillingAddress -> phone,
+                            'fax_number' => $vendorBillingAddress -> fax_number
+                        ]);
+                    }
+                    
+                } else if ($materialIssue -> issue_type == "Location Transfer") {
+                    $toStoreAddress = $toStore -> address;
+                    if (isset($toStoreAddress)) {
+                        $billingAddress = $materialIssue -> billing_address_details() -> create([
+                            'address' => $toStoreAddress -> address,
+                            'country_id' => $toStoreAddress -> country_id,
+                            'state_id' => $toStoreAddress -> state_id,
+                            'city_id' => $toStoreAddress -> city_id,
+                            'type' => 'billing',
+                            'pincode' => $toStoreAddress -> pincode,
+                            'phone' => $toStoreAddress -> phone,
+                            'fax_number' => $toStoreAddress -> fax_number
+                        ]);
                     }
                 }
             }
@@ -654,7 +718,26 @@ class ErpMaterialIssueController extends Controller
                         $itemHeaderExpenseAmount = 0;
                         //Tax
                         $itemTax = 0;
-                        $totalTax += $itemTax;
+                        $itemPrice = ($itemDataValue['item_value'] + $headerDiscount + $itemDataValue['item_discount_amount']) / $itemDataValue['issue_qty'];
+                        $partyCountryId = isset($billingAddress) ? $billingAddress -> country_id : null;
+                        $partyStateId = isset($billingAddress) ? $billingAddress -> state_id : null;
+                        $taxDetails = [];
+                        if ($materialIssue -> issue_type === "Location Transfer" || $materialIssue -> issue_type === "Sub Contracting" || $materialIssue -> issue_type === "Job Work") {
+                            $taxDetails = TaxHelper::calculateTax($itemDataValue['hsn_id'], $itemPrice, $locationAddress -> country_id, $locationAddress -> state_id, $partyCountryId , $partyStateId , 'sale');
+                        } 
+                        if (isset($taxDetails) && count($taxDetails) > 0) {
+                            foreach ($taxDetails as $taxDetail) {
+                                $itemTax += ((double)$taxDetail['tax_percentage'] / 100 * $valueAfterHeaderDiscount);
+                            }
+                            if($taxDetail['applicability_type']=="collection")
+                            {
+                                $totalTax += $itemTax;
+                            }
+                            else
+                            {
+                                $totalTax -= $itemTax;
+                            }
+                        }
                         $itemDepartment = Department::find($itemDataValue['department_id']);
                         $itemUser = AuthUser::find($itemDataValue['user_id']);
                         //Update or create
@@ -764,6 +847,29 @@ class ErpMaterialIssueController extends Controller
                                 $pslipItem -> save();
                             }
                         }
+                        //ITEM TAX
+                        if (isset($taxDetails) && count($taxDetails) > 0) {
+                            foreach ($taxDetails as $taxDetail) {
+                                $miItemTedForDiscount = ErpMaterialIssueTed::updateOrCreate(
+                                    [
+                                        'material_issue_id' => $materialIssue -> id,
+                                        'mi_item_id' => $miItem -> id,
+                                        'ted_type' => 'Tax',
+                                        'ted_level' => 'D',
+                                        'ted_id' => $taxDetail['id'],
+                                    ],
+                                    [
+                                        'ted_group_code' => $taxDetail['tax_group'],
+                                        'ted_name' => $taxDetail['tax_type'],
+                                        'assessment_amount' => $valueAfterHeaderDiscount,
+                                        'ted_percentage' => (double)$taxDetail['tax_percentage'],
+                                        'ted_amount' => ((double)$taxDetail['tax_percentage'] / 100 * $valueAfterHeaderDiscount),
+                                        'applicable_type' => $taxDetail['applicability_type'],
+                                    ]
+                                );
+                                array_push($itemTaxIds,$miItemTedForDiscount -> id);
+                            }
+                        }
                         //Item Attributes
                         if (isset($request -> item_attributes[$itemDataKey])) {
                             $attributesArray = json_decode($request -> item_attributes[$itemDataKey], true);
@@ -801,6 +907,12 @@ class ErpMaterialIssueController extends Controller
                                 ], 422);
                             }
                         }
+                        ErpMaterialIssueTed::where([
+                            'material_issue_id' => $materialIssue -> id,
+                            'mi_item_id' => $miItem -> id,
+                            'ted_type' => 'Tax',
+                            'ted_level' => 'D',
+                        ]) -> whereNotIn('id', $itemTaxIds) -> delete();
                     }
                 } else {
                     DB::rollBack();
@@ -1087,7 +1199,7 @@ class ErpMaterialIssueController extends Controller
                     ->whereHas('header', function ($query) use ($request, $applicableBookIds, $selectedIds) {
                         $referedHeaderId = ErpProductionSlip::whereIn('id', $selectedIds)->first()?->header?->id;
                         $query->when($referedHeaderId, fn($q) => $q->where('id', $referedHeaderId))
-                            ->when($request->store_id, fn($q) => $q->where('store_id', $request->store_id))
+                            ->when($request->store_id_from, fn($q) => $q->where('store_id', $request->store_id_from))
                             ->when($request->book_id, fn($q) => $q->where('book_id', $request->book_id))
                             ->when($request->document_id, fn($q) => $q->where('id', $request->document_id))
                             ->whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])
@@ -1234,7 +1346,7 @@ class ErpMaterialIssueController extends Controller
                     }
                 })
                 ->addColumn('attributes_array', function ($item) use ($request) {
-                    if(in_array($request->doc_type, [ConstantHelper::JO_SERVICE_ALIAS])){
+                    if(in_array($request->doc_type, [ConstantHelper::JO_SERVICE_ALIAS, ConstantHelper::PRODUCTION_SLIP_SERVICE_ALIAS])){
                         return $item->attributes->map(fn($attr) => [
                             'attribute_name' => $attr->headerAttribute?->name,
                             'attribute_value' => $attr->headerAttributeValue?->value,
@@ -1396,11 +1508,17 @@ class ErpMaterialIssueController extends Controller
                     ]);
                 })
                 ->find($id);
+            $pdfFile = "pdf.material_document";
+            if ($mx -> issue_type == "Location Transfer" || $mx -> issue_type == "Job Work" || $mx -> issue_type == "Sub Contracting") {
+                $pdfFile = "pdf.mi-delivery-note";
+            }
             // $creator = AuthUser::with(['authUser'])->find($mx->created_by);
-            $shippingAddress = $mx?->from_store?->address;
+            $shippingAddress = $mx?->location_address_details;
+            $billingAddress = $mx?->billing_address_details ?? $mx?->to_store?->address;
+            $locationAddress = $mx?->location_address_details;
             $jobOrderNos = "";
             if ($mx -> issue_type === "Sub Contracting" || $mx -> issue_type === "Job Work") {
-                $billingAddress = $mx?->vendor_shipping_address;
+                // $billingAddress = $mx?->vendor_shipping_address;
                 foreach ($mx -> items as $mxItemIndex => $mxItem) {
                     $joItemHeader = $mxItem ?-> jo_item ?-> header;
                     $joProductHeader = $mxItem ?-> jo_product ?-> header;
@@ -1412,7 +1530,7 @@ class ErpMaterialIssueController extends Controller
                     }
                 }
             } else {
-                $billingAddress = $mx?->to_store?->address;
+                // $billingAddress = $mx?->to_store?->address;
             }
 
             $approvedBy = Helper::getDocStatusUser(get_class($mx), $mx -> id, $mx -> document_status);
@@ -1428,10 +1546,12 @@ class ErpMaterialIssueController extends Controller
             $imagePath = public_path('assets/css/midc-logo.jpg'); // Store the image in the public directory
             $data_array = [
                 'print_type' => $pattern,
+                'type' => $pattern,
                 'mx' => $mx,
                 'user' => $user,
                 'shippingAddress' => $shippingAddress,
                 'billingAddress' => $billingAddress,
+                'locationAddress' => $locationAddress,
                 'organization' => $organization,
                 'amountInWords' => $amountInWords,
                 'organizationAddress' => $organizationAddress,
@@ -1443,9 +1563,7 @@ class ErpMaterialIssueController extends Controller
                 'approvedBy' => $approvedBy,
             ];
             $pdf = PDF::loadView(
-
-                // return view(
-                'pdf.material_document',
+                $pdfFile,
                 $data_array
             );
 
@@ -1760,5 +1878,97 @@ class ErpMaterialIssueController extends Controller
         })
         ->rawColumns(['item_attributes','delivery_schedule','status'])
         ->make(true);
+    }
+
+    public function generateEwayBill(Request $request)
+    {
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'vehicle_no' => [
+                    'required',
+                    'regex:/^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/'
+                ],
+                'transporter_mode' => 'required|integer',
+                "transporter_name" => [
+                   "required",
+                   'string'
+                ],
+            ],
+            [
+                'vehicle_no.required' => 'Vehicle number is required.',
+                'vehicle_no.regex' => 'Vehicle number format is invalid. Example: MH12AB1234.',
+                'transporter_mode.required' => 'Transporter mode is required.',
+                'transporter_mode.integer' => 'Transporter mode must be an integer.',
+                'transporter_name.required' => 'Transporter name is required.',
+                'transporter_name.string' => 'Transporter name must be a string.',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validator->messages()->first(),
+            ], 422);
+        }
+        try{
+            $authUser = Helper::getAuthenticatedUser();
+            $documentHeader = ErpMaterialIssueHeader::find($request->id);
+            $transportationMode = EwayBillMaster::find($request->transporter_mode);
+            $documentHeader->transporter_name=$request->transporter_name;
+            $documentHeader->transportation_mode=$transportationMode?->description ?? null;
+            $documentHeader->eway_bill_master_id=$transportationMode?->id ?? null;
+            $documentHeader->vehicle_no=$request->vehicle_no;
+            $data = MasterIndiaHelper::generateEwayBill($documentHeader, $authUser);
+            if (isset($data) && (isset($data['results']) && ($data['results']['status'] != 'Success'))) {
+                return response()->json([
+                    'status' => 'error',
+                    'error' => 'error',
+                    'message' => $data['results']['message'],
+                ], 500);
+            } else{
+                $message = $data['results']['message'];
+                //Get all the required data
+                $originalEwbDate = $message['ewayBillDate'];
+                $originalValidUpto = $message['validUpto'];
+                $ewbDateObj = DateTime::createFromFormat('d/m/Y h:i:s A', $originalEwbDate);
+                $validUptoObj = DateTime::createFromFormat('d/m/Y h:i:s A', $originalValidUpto);
+                $ewb_date = $ewbDateObj ? $ewbDateObj->format('Y-m-d H:i:s') : null;
+                $ewb_valid_till = $validUptoObj ? $validUptoObj->format('Y-m-d H:i:s') : null;
+
+                $eInvoice = $documentHeader?->irnDetail()?->first();
+                if ($eInvoice) {
+                    $eInvoice->ewb_no = $message['ewayBillNo'];
+                    $eInvoice->ewb_date = $ewb_date;
+                    $eInvoice->ewb_valid_till = $ewb_valid_till;
+                    $eInvoice->status = $data['results']['status'];
+                    $eInvoice->type = "Direct Eway Bill";
+                    $eInvoice->save();
+                } else {
+                    $documentHeader->irnDetail()->create([
+                        'ewb_no' => $message['ewayBillNo'],
+                        'ewb_date' => $ewb_date,
+                        'ewb_valid_till' => $ewb_valid_till,
+                        'status' => $data['results']['status'],
+                        'type' => 'Direct Eway Bill'
+                    ]);
+                }
+
+                $documentHeader -> is_ewb_generated = 1;
+                $documentHeader -> save();
+
+                return response() -> json([
+                    'status' => 'success',
+                    'results' => $data,
+                    'message' => 'E-Way bill generated succesfully',
+                ]);
+            }
+            
+        } catch(Exception $ex) {
+            return response() -> json([
+                'status' => 'error',
+                'message' => $ex -> getMessage(),
+            ]);
+        }
     }
 }

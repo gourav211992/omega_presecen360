@@ -12,7 +12,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\WHM\PicklistItemResource;
 use App\Http\Resources\WHM\PicklistResource;
 use App\Lib\Services\WHM\MaterialIssueWhmJob;
-use App\Lib\Services\WHM\WhmJob;
 use App\Models\ErpMaterialIssueHeader;
 use App\Models\ErpMiItem;
 use App\Lib\Services\WHM\PickingJob;
@@ -22,8 +21,8 @@ use App\Models\StockLedgerReservation;
 use App\Models\WHM\ErpItemUniqueCode;
 use App\Models\WHM\ErpWhmJob;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use App\Lib\Validation\WHM\PickingRequest as Validator;
 use DB;
 
 class PicklistTaskController extends Controller
@@ -77,29 +76,14 @@ class PicklistTaskController extends Controller
     }
 
     public function items(Request $request){
-        $validator = Validator::make($request->all(),[
-            'job_id' => ['required'],
-            'store_id' => ['required'],
-        ],[
-            'job_id.required' => 'Job id is required',
-            'store_id.required' => 'Store id is required',
-        ]);
-
+        $validator = (new Validator($request))->getItems();
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
 
-        $job = ErpWhmJob::where('type', CommonHelper::PICKING)->where('id',$request->job_id)->first();
-        if (!$job) {
-            throw ValidationException::withMessages([
-                'job_id' => ['Job not found.'],
-            ]);
-        }
-
-        $morphableId = $job->morphable_id;
-        $storeId = $request->store_id;
-        
-        $items = $this -> getItemDetailsData($job, $storeId);
+        $job = (new PickingJob())->getJob($request->job_id);
+        $storeId = $request->store_id;        
+        $items = $this->getItemDetailsData($job, $storeId);
         return [
             'message' => 'Records fetched successfully',
             "data" => $items,
@@ -108,27 +92,14 @@ class PicklistTaskController extends Controller
     }
 
     public function itemDetail(Request $request){
-        $validator = Validator::make($request->all(),[
-            'store_id' => ['required'],
-            'pl_item_id' => ['required'],
-            'job_id' => ['required'],
-        ],[
-            'store_id.required' => 'Store id is required',
-            'pl_item_id.required' => 'Pl item id is required',
-            'job_id.required' => 'Job id is required',
-        ]);
-
+        $validator = (new Validator($request))->getItemDetail();
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
 
         $storeId = $request->store_id;
-        $job = ErpWhmJob::find($request -> job_id);
-        if (!$job) {
-            throw ValidationException::withMessages([
-                'job_id' => ['Job not found.'],
-            ]);
-        }
+        $job = (new PickingJob())->getJob($request->job_id);
+        
         if ($job -> trns_type === ConstantHelper::MATERIAL_ISSUE_SERVICE_ALIAS_NAME) {
             $plItem = ErpMiItem::whereHas('header', function($q) use($storeId){
                     $q->where('from_store_id',$storeId);
@@ -203,7 +174,6 @@ class PicklistTaskController extends Controller
                 ->select('storage_point_id', DB::raw('COUNT(*) as quantity'))
                 ->groupBy('storage_point_id')
                 ->get();
-            // dd($storageData,$plScannedItemUids,$itemId,$storeId,$mrnIds,$transType);
 
             // STEP 2: Map storage point detail with quantity
             $plItem->storage_points = $storageData->map(function ($record) use($storeId, $itemId, $plItemId){
@@ -253,31 +223,14 @@ class PicklistTaskController extends Controller
     }
 
     public function saveAsDraft(Request $request){
-        $validator = Validator::make($request->all(),[
-            'job_id' => ['required'],
-            'pl_item_id' => ['required'],
-            'packet_ids' => ['required', 'array'],
-            'storage_point_id' => ['nullable']
-        ],[
-            'job_id.required' => 'Job id is required',
-            'pl_item_id.required' => 'Picklist item id is required',
-            'packet_ids.required' => 'Scan a packet to draft the form',
-            'storage_point_id.required' => 'Storage point id is required',
-        ]);
-
+        $validator = (new Validator($request))->scanQr();
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
 
-        $job = ErpWhmJob::where('id',$request->job_id)
-            ->where('type',CommonHelper::PICKING)
-            ->first();
-
-        if(!$job){
-            throw ValidationException::withMessages([
-                'job_id' => ['Job not found.'],
-            ]);
-        }
+        $pickingJob = new PickingJob();
+        $job = $pickingJob->getJob($request->job_id);
+        $detail = $pickingJob->getPlItemDetail($job->trns_type, $request->pl_item_id);
 
         $subStore = $job->subStore;
         if ($subStore && $subStore->is_warehouse_required) {
@@ -288,73 +241,67 @@ class PicklistTaskController extends Controller
             }
         }
 
-        if ($job -> trns_type === ConstantHelper::MATERIAL_ISSUE_SERVICE_ALIAS_NAME) {
-            $detail = ErpMiItem::find($request->pl_item_id);
-        } else if ($job -> trns_type === ConstantHelper::PL_SERVICE_ALIAS) {        
-            $detail = ErpPlItem::find($request->pl_item_id);
-        }
-
-        if(!$detail){
-            throw ValidationException::withMessages([
-                'pl_item_id' => ['Item not found.'],
-            ]);
-        }
-
-        $plHeaderId = $job->morphable_id;
-        $reservedStock = $detail->stockReservation()
-            ->where('issue_book_type',$job->trns_type)
-            ->where('issue_header_id',$plHeaderId)
-            ->where('issue_detail_id',$request->pl_item_id);
-
-        $transType = $reservedStock->pluck('receipt_book_type')
-            ->toArray();
-
-        $mrnIds = $reservedStock->pluck('receipt_detail_id')
-            ->toArray();
-
         $storagePointId = $request->storage_point_id ?? NULL;
-        $packets = ErpItemUniqueCode::whereIn('item_uid', $request->packet_ids)
-            // ->where('storage_point_id',$request->storage_point_id)
-            ->when($storagePointId, function ($query) use ($storagePointId) {
-                $query->where('storage_point_id', $storagePointId);
-            })
-            ->where('item_id',$detail->item_id)
-            // ->whereNull('utilized_id')
-            ->whereIn('morphable_id',$mrnIds)
-            ->whereIn('trns_type', $transType)
-            ->pluck('item_uid')
-            ->toArray();
-
-        $invalidPackets = array_diff($request->packet_ids, $packets);
-
+        $reservedStock = $pickingJob->reservedStock($job, $detail->id);
+        $transType = $reservedStock['transType'];
+        $mrnIds = $reservedStock['mrnIds'];
+        
+        $validPackets = $pickingJob->getMrnPackets($request->packet_ids, $storagePointId, $detail->item_id, $mrnIds, $transType);
+        $invalidPackets = array_diff($request->packet_ids, $validPackets);
         if (!empty($invalidPackets)) {
-            throw ValidationException::withMessages([
-                'packet_ids' => ['Invalid or mismatched packet IDs: ' . implode(', ', $invalidPackets)],
-            ]);
+            return [
+                "message" => 'Invalid or mismatched packet IDs: ' . implode(', ', $invalidPackets),
+                "status" => false
+            ];
         }
 
         // custom validation after
-        $alreadyScanned = ErpItemUniqueCode::where('job_id', $request->job_id)
-            ->whereIn('item_uid', $request->packet_ids)
-            ->where('status', CommonHelper::SCANNED)
-            ->where('job_type', CommonHelper::PICKING)
-            ->pluck('item_uid')
-            ->toArray();
-
+        $scannedPackets = $pickingJob->getScannedPackets($request->job_id,$request->packet_ids, $request->pl_item_id);
+        $alreadyScanned = $scannedPackets['data']->pluck('item_uid')->toArray();
         if (!empty($alreadyScanned)) {
             throw ValidationException::withMessages([
                 'packet_ids' => ['Some packets are already scanned: ' . implode(', ', $alreadyScanned)],
             ]);
         }
 
-        // $count = count($request->packet_ids);
-        // $stockRes = StockReservation::validateReservedStock($job->trns_type,$job->morphable_id,$request->pl_item_id,$count);
-        // if($stockRes['status'] == 'error'){
-        //     throw ValidationException::withMessages([
-        //         'pl_item_id' => [$stockRes['message']],
-        //     ]);
-        // }
-       
+        $scannedPacketsRes = $pickingJob->getScannedPackets($request->job_id, NULL , $request->pl_item_id);
+        $scannedPacketsUid = $scannedPacketsRes['data']->pluck('uid')->toArray();
+
+        // Validate stock
+        $packetData = ErpItemUniqueCode::when($storagePointId, function ($query) use ($storagePointId) {
+                $query->where('storage_point_id', $storagePointId);
+            })
+            ->where(function($q) use($request,$scannedPacketsUid){
+                $q->where(function($q1) use($request){
+                    $q1->whereIn('item_uid', $request->packet_ids)
+                    ->whereNull('utilized_id');
+                })->orWhereIn('utilized_id',$scannedPacketsUid);
+            })
+            ->where('item_id',$detail->item_id)
+            ->whereIn('morphable_id',$mrnIds)
+            ->whereIn('trns_type', $transType)
+            ->get();
+
+        $count = $packetData->count();
+        $noOfPackets = optional($detail->item)->storage_uom_count ?? 1;
+        $inventoryQty = (int) $detail->inventory_uom_qty;
+
+        $qty = $count/$noOfPackets;
+        $stockRes = StockReservation::validateReservedStock($job->trns_type,$job->morphable_id,$request->pl_item_id,$qty);
+        if($stockRes['status'] == 'error'){
+            throw ValidationException::withMessages([
+                'pl_item_id' => [$stockRes['message']],
+            ]);
+        }
+
+        // Validate qr scan packet wise
+        foreach ($packetData->groupBy('packet_no') as $packetNo => $qrs) {
+            if ($qrs->count() > $inventoryQty) {
+                throw ValidationException::withMessages([
+                    'packet_data.' . $packetNo => "You can only scan $inventoryQty quantity per packet. Already scanned: " . $qrs->count(),
+                ]);
+            }
+        }
 
         \DB::beginTransaction();
         try {
@@ -368,31 +315,30 @@ class PicklistTaskController extends Controller
             }
 
             $header = $job->morphable;
-            (new PickingJob())->scanQRCodes($detail, $header, $job, $request->packet_ids, $storagePointId, $user, CommonHelper::PICKING, $transType);
+            $pickingJob->scanQRCodes($detail, $header, $job, $request->packet_ids, $storagePointId, $user, CommonHelper::PICKING, $transType);
 
-            $scannedPackets = ErpItemUniqueCode::where('job_id', $request->job_id)
-                ->where('status', CommonHelper::SCANNED)
-                ->where('job_type', CommonHelper::PICKING)
-                ->get();
+            if ($request->storage_point_id) {
+                $scannedPackets = $pickingJob->getScannedPackets($request->job_id,$request->packet_ids, $request->pl_item_id);
 
-            $count = count($scannedPackets);
-            $noOfPackets = optional($detail->item)->storage_uom_count ?? 1;
-            $inventoryQty = (int) $detail->inventory_uom_qty;
+                $totalIncomingWeight = 0;
+                $totalIncomingVolume = 0;
+                foreach($scannedPackets['data'] as $packet){
+                    // Calculate packet weight & volume
+                    $itemWeight = StoragePointHelper::getItemWeight($packet->item_id, $packet->packet_no);
+                    if($itemWeight['status'] == "error"){
+                        throw ValidationException::withMessages([
+                            'packets' => $itemWeight['message'],
+                        ]);
+                    }
 
-            $qty = $count/$noOfPackets;
-            $stockRes = StockReservation::validateReservedStock($job->trns_type,$job->morphable_id,$request->pl_item_id,$qty);
-            if($stockRes['status'] == 'error'){
-                throw ValidationException::withMessages([
-                    'pl_item_id' => [$stockRes['message']],
-                ]);
-            }
-                                
-            foreach ($scannedPackets->groupBy('packet_no') as $packetNo => $qrs) {
-                if ($qrs->count() > $inventoryQty) {
-                    throw ValidationException::withMessages([
-                        'packet_data.' . $packetNo => "You can only scan $inventoryQty quantity per packet. Already scanned: " . $qrs->count(),
-                    ]);
+                    $packetWeight = $itemWeight['data']['packetWeight'];
+                    $packetVolume = $itemWeight['data']['packetVolume'];
+
+                    $totalIncomingWeight += $packetWeight;
+                    $totalIncomingVolume += $packetVolume;
                 }
+
+                StoragePointHelper::updateStorageWeight($request->storage_point_id, $totalIncomingWeight, $totalIncomingVolume);
             }
 
             \DB::commit();
@@ -405,29 +351,16 @@ class PicklistTaskController extends Controller
         }
     }
 
-    public function updateStatus(Request $request){
-        $validator = Validator::make($request->all(),[
-            'packet_id' => ['required'],
-            'job_id' => ['required'],
-            'storage_point_id' => ['nullable']
-        ],[
-            'packet_id.required' => 'Packet id is required',
-            'job_id.required' => 'Job id is required',
-            'storage_point_id.required' => 'Storage point id is required',
-        ]);
 
+    public function updateStatus(Request $request){
+        $validator = (new Validator($request))->updateStatus();
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
 
         // custom validation after
-        $job = ErpWhmJob::where('id',$request->job_id)->where('type',CommonHelper::PICKING)->first();
-
-        if (!$job) {
-            throw ValidationException::withMessages([
-                'job_id' => ['Job not found.'],
-            ]);
-        }
+        $pickingJob = new PickingJob();
+        $job = $pickingJob->getJob($request->job_id);
 
         $subStore = $job->subStore;
         if ($subStore && $subStore->is_warehouse_required) {
@@ -447,10 +380,10 @@ class PicklistTaskController extends Controller
 
         $uniqueCode = ErpItemUniqueCode::where('item_uid', $request->packet_id)
                         ->where('job_id',$request->job_id)
-                        // ->where('storage_point_id',$request->storage_point_id)
                         ->where('morphable_type', $morphableType)
                         ->where('status',CommonHelper::SCANNED)
                         ->first();
+                        
         if (!$uniqueCode) {
             throw ValidationException::withMessages([
                 'packet_id' => ['Packet ID not found.'],
@@ -465,13 +398,24 @@ class PicklistTaskController extends Controller
 
         \DB::beginTransaction();
         try {
+            $reservedStock = StockLedgerReservation::where('issue_book_type',$job->trns_type)
+                ->where('issue_header_id',$job->morphable_id)
+                ->where('issue_detail_id',$uniqueCode->morphable_id);
+
+            $transType = $reservedStock->pluck('receipt_book_type')
+                ->toArray();
+
+            $mrnIds = $reservedStock->pluck('receipt_detail_id')
+                ->toArray();
+
             $storagePointId = $request->storage_point_id ?? NULL;
             $mrnDetail = ErpItemUniqueCode::where('item_uid', $request->packet_id)
                 // ->where('storage_point_id',$request->storage_point_id)
                 ->when($storagePointId, function ($query) use ($storagePointId) {
                     $query->where('storage_point_id', $storagePointId);
                 })
-                ->where('job_type', CommonHelper::PUTAWAY)
+                ->whereIn('trns_type', $transType)
+                ->whereIn('morphable_id', $mrnIds)
                 ->where('status',CommonHelper::SCANNED)
                 ->where('utilized_id',$uniqueCode->uid)
                 ->first();
@@ -480,6 +424,18 @@ class PicklistTaskController extends Controller
                 $mrnDetail->utilized_id = NULL;
                 $mrnDetail->save();
                 $uniqueCode->delete();
+            }
+
+            if($mrnDetail->storage_point_id){
+                $itemWeight = StoragePointHelper::getItemWeight($mrnDetail->item_id, $mrnDetail->packet_no);
+                if($itemWeight['status'] == "error"){
+                    throw ValidationException::withMessages([
+                        'packet_id' => $itemWeight['message'],
+                    ]);
+                }
+
+                
+                StoragePointHelper::addStorageWeight($mrnDetail->storage_point_id, $itemWeight['data']['packetWeight'], $itemWeight['data']['packetVolume']);
             }
 
             \DB::commit();
@@ -495,24 +451,14 @@ class PicklistTaskController extends Controller
     }
 
     public function closeJob(Request $request){
-        $validator = Validator::make($request->all(),[
-            'job_id' => ['required'],
-            'deviation' => ['required'],
-        ],[
-            'job_id.required' => 'Job id is required'
-        ]);
-
+        $validator = (new Validator($request))->closeJob();
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
 
         // custom validation after
-        $job = ErpWhmJob::find($request->job_id);
-        if (!$job) {
-            throw ValidationException::withMessages([
-                'job_id' => ['Job not found.'],
-            ]);
-        }
+        $pickingJob = new PickingJob();
+        $job = $pickingJob->getJob($request->job_id);
 
         // Check if job is already closed with deviation=0 and incoming deviation=0
         if ($job->job_closed_at !== null ) {
@@ -523,11 +469,9 @@ class PicklistTaskController extends Controller
             }
         }
 
-
         \DB::beginTransaction();
         try {
 
-            $job = ErpWhmJob::find($request->job_id);
             $job->status = CommonHelper::CLOSED;
             $job->job_closed_at = now();
             $job->deviation_qty = $request->deviation;
@@ -601,39 +545,19 @@ class PicklistTaskController extends Controller
     }
 
     public function pendingTasks(Request $request){
-        $validator = Validator::make($request->all(),[
-            'job_id' => ['required'],
-            'pl_item_id' => ['required'],
-            'status' => ['nullable'],
-        ],[
-            'job_id.required' => 'Job id is required',
-            'pl_item_id.required' => 'Picklist item id is required',
-        ]);
-
+        $validator = (new Validator($request))->pendingJob();
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
 
-        $job = ErpWhmJob::find($request->job_id);
-        if (!$job) {
-            throw ValidationException::withMessages([
-                'job_id' => ['Job not found.'],
-            ]);
-        }
+        $pickingJob = new PickingJob();
+        $job = $pickingJob->getJob($request->job_id);
 
         $status = $request->status;
-        $plHeaderId = $job->morphable_id;
         $storagePointId = $request->storage_point_id;
-
-        $reservedStock = StockLedgerReservation::where('issue_book_type', $job->trns_type)
-            ->where('issue_header_id',$plHeaderId)
-            ->where('issue_detail_id',$request->pl_item_id);
-
-        $transType = $reservedStock->pluck('receipt_book_type')
-            ->toArray();
-
-        $mrnIds = $reservedStock->pluck('receipt_detail_id')
-            ->toArray();
+        $reservedStock = $pickingJob->reservedStock($job,$request->pl_item_id);
+        $transType = $reservedStock['transType'];
+        $mrnIds = $reservedStock['mrnIds'];
 
         $scannedPacketsUids = ErpItemUniqueCode::where('job_id', $request->job_id)
                 ->where('morphable_id',$request->pl_item_id)
@@ -641,7 +565,6 @@ class PicklistTaskController extends Controller
                 ->get()
                 ->pluck('uid')
                 ->toArray();
-        // dd($scannedPacketsUids);
 
         $pendingTasksQuery = ErpItemUniqueCode::with(['storagePoint' => function($q){
                 $q->select('id', 'storage_number');
@@ -677,40 +600,14 @@ class PicklistTaskController extends Controller
     }
 
     public function scanStorage(Request $request){
-        $validator = Validator::make($request->all(),[
-            'storage_number' => ['required'],
-            'job_id' => ['required'],
-            'pl_item_id' => ['required'],
-        ],[
-            'storage_number.required' => 'Storage number is required',
-            'job_id.required' => 'Job id is required',
-            'pl_item_id.required' => 'Picklist item id is required',
-        ]);
-
+        $validator = (new Validator($request))->scanStorage();
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
 
-
-        $job = ErpWhmJob::where('id',$request->job_id)
-            ->where('type',CommonHelper::PICKING)
-            ->first();
-
-        if(!$job){
-            throw ValidationException::withMessages([
-                'job_id' => ['Job not found.'],
-            ]);
-        }
-        if ($job->trns_type === ConstantHelper::MATERIAL_RETURN_SERVICE_ALIAS_NAME) {
-            $detail = ErpMiItem::find($request->pl_item_id);
-        } else if ($job->trns_type === ConstantHelper::PL_SERVICE_ALIAS) {
-            $detail = ErpPlItem::find($request->pl_item_id);
-        }
-        if(!$detail){
-            throw ValidationException::withMessages([
-                'pl_item_id' => ['Item not found.'],
-            ]);
-        }
+        $pickingJob = new PickingJob(); 
+        $job = $pickingJob->getJob($request->job_id);
+        $detail = $pickingJob->getPlItemDetail($job->trns_type, $request->pl_item_id);
 
         $storageNumber = $request->input('storage_number');
         $response = StoragePointHelper::getStoragePointDetail($storageNumber);
@@ -730,18 +627,11 @@ class PicklistTaskController extends Controller
         $storagePoint = $response['data'];
         $storagePointId = $storagePoint->id;
 
-        $plHeaderId = $job->morphable_id;
-        $reservedStock = $detail->stockReservation()
-            ->where('issue_book_type',$job->trns_type)
-            ->where('issue_header_id',$plHeaderId)
-            ->where('issue_detail_id',$request->pl_item_id);
-
-        $transType = $reservedStock->pluck('receipt_book_type')
-            ->toArray();
-
-        $mrnIds = $reservedStock->pluck('receipt_detail_id')
-            ->toArray();
-
+        // Get reserved stock
+        $reservedStock = $pickingJob->reservedStock($job,$request->pl_item_id);
+        $transType = $reservedStock['transType'];
+        $mrnIds = $reservedStock['mrnIds'];
+        
         $packets = ErpItemUniqueCode::where('storage_point_id',$storagePointId)
             ->where('item_id',$detail->item_id)
             ->whereNull('utilized_id')
@@ -831,14 +721,7 @@ class PicklistTaskController extends Controller
     }
 
     public function scannedItemQrs(Request $request){
-        $validator = Validator::make($request->all(),[
-            'job_id' => ['required'],
-            'pl_item_id' => ['required'],
-        ],[
-            'job_id.required' => 'Job id is required',
-            'pl_item_id.required' => 'Pl item id is required',
-        ]);
-
+        $validator = (new Validator($request))->scannedItemQrs();
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }

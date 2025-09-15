@@ -42,9 +42,14 @@ class ErpExternalIntegration extends Model
         return $this->belongsTo(ErpCustomer::class, 'group_id');
     }
 
-    public function book()
+    public function soBook()
     {
-        return $this->belongsTo(Book::class);
+        return $this->belongsTo(Book::class, 'so_book_id');
+    }
+
+    public function transportBook()
+    {
+        return $this->belongsTo(Book::class, 'transport_book_id');
     }
 
     public function store()

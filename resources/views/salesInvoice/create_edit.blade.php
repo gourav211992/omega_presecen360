@@ -5051,6 +5051,9 @@ function initializeAutocompleteTed(selector, idSelector, type, percentageVal) {
     function getBundles(itemIndex, soItemId, dnItemId = null, disabled = false, openPopup = true)
     {
         const docElement = document.getElementById('item_bundles_' + itemIndex);
+        if (!docElement) {
+            return;
+        }
         const itemBundleTableId = document.getElementById('bundles_info_table');
         itemBundleTableId.setAttribute('current-item-index', itemIndex);
         itemBundleTableId.innerHTML = ``;
@@ -5515,7 +5518,7 @@ function initializeAutocompleteTed(selector, idSelector, type, percentageVal) {
     function checkStockData(itemRowId)
     {
         let currentdocType = $("#service_id_input").val();
-        if (currentdocType == "si" || currentDocType == 'sinv') {
+        if (currentdocType == "si" || currentdocType == 'sinv') {
             return;
         }
         let itemAttributes = JSON.parse(document.getElementById(`items_dropdown_${itemRowId}`).getAttribute('attribute-array'));

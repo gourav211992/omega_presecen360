@@ -359,9 +359,34 @@ class PutawayTaskController extends Controller
             }
         }
 
+        // Initialize weight & volume
+        $totalIncomingWeight = 0;
+        $totalIncomingVolume = 0;
+        $currentWeight = 0;
+        $currentVolume = 0;
+        $maxVolume = 0;
+        $maxWeight = 0;
+
+        // Get storage weight & volume
+        if($request->storage_point_id){
+            $storagePointDetail = StoragePointHelper::getStoragePointDetailById($request->storage_point_id);
+    
+            if($storagePointDetail['status'] == "error"){
+                throw ValidationException::withMessages([
+                    'storage_point_id' => $storagePointDetail['message'],
+                ]);
+            }
+    
+            $currentWeight = $storagePointDetail['data']->current_weight ?? 0;
+            $maxWeight = $storagePointDetail['data']->max_weight ?? null;
+
+            $currentVolume = $storagePointDetail['data']->current_volume ?? 0;
+            $maxVolume = $storagePointDetail['data']->max_volume ?? null;
+        }
+
         $packetIds = collect($request->packets)->pluck('packet_id')->toArray();
         $packets = ErpItemUniqueCode::with(['item' => function($q){
-                    $q->select('id','is_serial_no','is_asset');
+                    $q->select('id','is_serial_no','is_asset','storage_uom_count');
             }])
             ->where('job_id', $request->job_id)
             ->whereIn('item_uid', $packetIds)
@@ -402,6 +427,22 @@ class PutawayTaskController extends Controller
                 continue; // skip if packet not found in request (shouldn't happen)
             }
 
+            // Calculate packet weight & volume
+            if ($request->storage_point_id) {
+                $itemWeight = StoragePointHelper::getItemWeight($packet->item_id, $packet->packet_no);
+                if($itemWeight['status'] == "error"){
+                    throw ValidationException::withMessages([
+                        'packets' => $itemWeight['message'],
+                    ]);
+                }
+
+                $packetWeight = $itemWeight['data']['packetWeight'];
+                $packetVolume = $itemWeight['data']['packetVolume'];
+
+                $totalIncomingWeight += $packetWeight;
+                $totalIncomingVolume += $packetVolume;
+            }
+
             $serialNo = $requestData['serial_no'] ?? null;
             $manufacturingYear = $requestData['manufacturing_year'] ?? null;
 
@@ -430,6 +471,20 @@ class PutawayTaskController extends Controller
             }
         }
 
+        // Check if weight limits are exceeded
+        if ($request->storage_point_id && !is_null($maxWeight) && ($currentWeight + $totalIncomingWeight) > $maxWeight) {
+            throw ValidationException::withMessages([
+                'storage_point_id' => ["Storage point weight limit exceeded. Max: {$maxWeight}, Current: {$currentWeight}, Incoming: {$totalIncomingWeight}"],
+            ]);
+        }
+
+        // Check if volume limits are exceeded
+        if ($request->storage_point_id && !is_null($maxVolume) && ($currentVolume + $totalIncomingVolume) > $maxVolume) {
+            throw ValidationException::withMessages([
+                'storage_point_id' => ["Storage point volume limit exceeded. Max: {$maxVolume}, Current: {$currentVolume}, Incoming: {$totalIncomingVolume}"],
+            ]);
+        }
+
         \DB::beginTransaction();
         try {
             // Get Login User
@@ -453,6 +508,11 @@ class PutawayTaskController extends Controller
                 $packet->action_by = $user->id;
                 $packet->action_at = now();
                 $packet->save();
+
+            }
+            
+            if($request->storage_point_id){
+                StoragePointHelper::addStorageWeight($request->storage_point_id, $totalIncomingWeight, $totalIncomingVolume);
             }
 
             \DB::commit();
@@ -505,6 +565,18 @@ class PutawayTaskController extends Controller
 
         \DB::beginTransaction();
         try {
+            if($uniqueCode->storage_point_id){
+                $itemWeight = StoragePointHelper::getItemWeight($uniqueCode->item_id, $uniqueCode->packet_no);
+                if($itemWeight['status'] == "error"){
+                    throw ValidationException::withMessages([
+                        'packet_id' => $itemWeight['message'],
+                    ]);
+                }
+
+                
+                StoragePointHelper::updateStorageWeight($uniqueCode->storage_point_id, $itemWeight['data']['packetWeight'], $itemWeight['data']['packetVolume']);
+            }
+
             $uniqueCode->status = CommonHelper::PENDING;
             $uniqueCode->storage_point_id = Null;
             $uniqueCode->save();

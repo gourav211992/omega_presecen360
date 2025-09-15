@@ -1691,7 +1691,6 @@ function onItemClick(itemRowId)
                     document.getElementById('current_item_stocks_row').style.display = "none";
                     document.getElementById('current_item_lot_no_row').style.display = "none";
 
-                    return;
                 }
                 if (data.inv_qty && data.inv_uom) {
                     let inventoryDocElement = document.getElementById('current_item_inventory_details');
@@ -1712,17 +1711,14 @@ function onItemClick(itemRowId)
 
 
                 //Stocks
-             if (data?.stocks && (data.stocks.confirmedStockAltUom || data.stocks.pendingStockAltUom)) {
+                if (data?.stocks &&('confirmedStockAltUom' in data.stocks || 'pendingStockAltUom' in data.stocks))
+                {
                     document.getElementById('current_item_stocks_row').style.display = "table-row";
                     document.getElementById('current_item_stocks').innerHTML = `
                         <span class="badge rounded-pill badge-light-primary"><strong>Confirmed Stock</strong>: <span id="item_sub_category">${data?.stocks?.confirmedStockAltUom}</span></span>
                         <span class="badge rounded-pill badge-light-primary"><strong>Unconfirmed Stock</strong>: <span id="item_category">${data?.stocks?.pendingStockAltUom}</span></span>
                     `;
-                } else {
                 }
-                 
-
-
                     if (data?.lot_details && data.lot_details.length) {
                     document.getElementById('current_item_lot_no_row').style.display = "table-row";
                     let lotHTML = `<strong style="font-size:11px; color : #6a6a6a;">Lot Number</strong> : `;
@@ -1772,6 +1768,10 @@ function submitAttr(id) {
     getStoresData(item_index, input ? (input.value ? input.value : 0) : 0);
     setAttributesUI(item_index);
     closeModal(id);
+    if (typeof checkStockData === 'function') {
+        checkStockData(item_index);
+    }
+    onItemClick(item_index);
 }
 
 $('#attribute').on('hidden.bs.modal', function () {

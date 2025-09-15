@@ -398,6 +398,83 @@ class StoragePointHelper
         }
     }
 
+    // get packet weight & volume
+    public static function getItemWeight($itemId,$packetNo){
+        $item = ErpItem::find($itemId);
+        if (!$item) {
+            return self::errorResponse("Invalid item.");
+        }
+        $packetWeight = $item->storage_weight ?? 0;
+        $packetVolume = $item->storage_volume ?? 0;
+        $storageUomCount = intval($item->storage_uom_count);
+        if ($storageUomCount > 1) {
+            $packagingDetail = \DB::table('erp_item_packaging_details')
+                ->where('item_id', $item->id)
+                ->where('packet_no', $packetNo)
+                ->whereNull('deleted_at')
+                ->first();
+
+            $packetWeight = $packagingDetail ? $packagingDetail->storage_weight : 0;
+            $packetVolume = $packagingDetail ? $packagingDetail->storage_volume : 0;
+        }
+
+        $response = [
+            "packetWeight" => $packetWeight,
+            "packetVolume" => $packetVolume
+        ];
+
+        return self::successResponse("Storage point weight updated successfully.", $response);
+    }
+
+    public static function addStorageWeight($storagePointId, $totalIncomingWeight, $totalIncomingVolume){
+        if (!$storagePointId) {
+            return self::errorResponse("Storage point ID is required.");
+        }
+
+        $storagePoint = WhDetail::find($storagePointId);
+        $currentWeight = $storagePoint->current_weight;
+        $currentVolume = $storagePoint->current_volume;
+        $maxWeight = $storagePoint->max_weight ?? null;
+        $maxVolume = $storagePoint->max_volume ?? null;
+        
+        if (!is_null($maxWeight) && ($currentWeight + $totalIncomingWeight) > $storagePoint->max_weight) {
+            return self::errorResponse("Storage point weight limit exceeded. Max: {$maxWeight}, Current: {$currentWeight}, Incoming: {$totalIncomingWeight}");
+        }
+        
+        if (!is_null($maxVolume) && ($currentVolume + $totalIncomingVolume) > $maxVolume) {
+            return self::errorResponse("Storage point volume limit exceeded. Max: {$maxVolume}, Current: {$currentVolume}, Incoming: {$totalIncomingVolume}");
+        }
+
+       
+        $storagePoint->current_weight = $currentWeight + $totalIncomingWeight;
+        $storagePoint->current_volume = $currentVolume + $totalIncomingVolume;
+        $storagePoint->save();
+
+        return self::successResponse("Storage point weight updated successfully.", $storagePoint);
+
+    }
+
+    public static function updateStorageWeight($storagePointId, $weight, $volume){
+        if (!$storagePointId) {
+            return self::errorResponse("Storage point ID is required.");
+        }
+
+        $storagePoint = WhDetail::find($storagePointId);
+
+        if (!$storagePoint) {
+            return self::errorResponse("Invalid storage point.");
+        }
+
+        $currentWeight = $storagePoint->current_weight ?? 0;
+        $currentVolume = $storagePoint->current_volume ?? 0;
+       
+        $storagePoint->current_weight = $currentWeight > $weight ? $currentWeight - $weight : 0;
+        $storagePoint->current_volume = $currentVolume > $volume ? $currentVolume - $volume : 0;
+        $storagePoint->save();
+
+        return self::successResponse("Storage point weight updated successfully.", $storagePoint);
+
+    }
 
 
 }

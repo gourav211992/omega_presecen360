@@ -40,7 +40,7 @@ class ErpRgrItemSegregation extends Model
         $defectType = $this -> defect_type;
         $damageNature = $this -> damage_nature;
         $isWrongProduct = isset($this -> new_item_id) ? true : false;
-        if ($defectSeverity == RgrConstants::DAMAGE_NATURE_NO_DAMAGE) {
+        if ($defectSeverity == RgrConstants::DEFECT_SEVERITY_MINOR) {
             $statuses[] = RgrConstants::RGR_SEGREGATION_OK_TO_RECIEVE;
         } else {
             $statuses[] = $damageNature;
@@ -53,6 +53,10 @@ class ErpRgrItemSegregation extends Model
         if ($isWrongProduct) {
             $statuses[] = RgrConstants::RGR_SEGREGATION_WRONG_PRODUCT;
         }
+        if ($defectType) {
+            $statuses[] = $defectType;
+        }
+        return $statuses;
     }
 
      public function media()

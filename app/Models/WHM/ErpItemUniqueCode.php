@@ -8,6 +8,8 @@ use App\Models\ErpStore;
 use App\Models\ErpSubStore;
 use App\Models\ErpVendor;
 use App\Models\ErpRepMedia;
+use App\Models\ErpRgrItemSegregation;
+use App\Models\ErpTripPlanHeader;
 use App\Models\Item;
 use App\Models\User;
 use App\Models\Vendor;
@@ -61,6 +63,7 @@ class ErpItemUniqueCode extends Model
         'reference_no',
         'packet_no',
         'total_packets',
+        'trip_id',
     ];
 
     // protected  $casts = [
@@ -107,6 +110,13 @@ class ErpItemUniqueCode extends Model
         return $this->belongsTo(ErpStore::class, 'store_id');
     }
 
+
+    public function trip()
+    {
+        return $this->belongsTo(ErpTripPlanHeader::class, 'trip_id');
+    }
+
+    
     public function getItemAttributesAttribute($value)
     {
         // First decode stringified JSON to string or array
@@ -123,6 +133,10 @@ class ErpItemUniqueCode extends Model
      public function media()
     {
         return $this->morphMany(ErpRepMedia::class, 'model');
+    }
+    public function segregation()
+    {
+        return $this -> hasOne(ErpRgrItemSegregation::class, 'job_item_id', 'id');
     }
 
 }

@@ -34,10 +34,10 @@ class Customer  extends Model
         'display_name',
         'display_name',
         'taxpayer_type',
-        'gst_status',    
-        'block_status',  
+        'gst_status',
+        'block_status',
         'deregistration_date',
-        'legal_name',   
+        'legal_name',
         'gst_state_id',
         'currency_id',
         'payment_terms_id',
@@ -65,26 +65,26 @@ class Customer  extends Model
         'interest_percent',
         'status',
         'document_status',
-        'approver_level', 
+        'approver_level',
         'revision_number',
         'revision_date',
         'created_by',
         'stop_billing',
         'stop_purchasing',
         'stop_payment',
-        'group_id',            
-        'company_id',        
-        'organization_id', 
-        'pan_attachment', 
-        'tin_attachment', 
-        'aadhar_attachment', 
-        'other_documents', 
+        'group_id',
+        'company_id',
+        'organization_id',
+        'pan_attachment',
+        'tin_attachment',
+        'aadhar_attachment',
+        'other_documents',
         'enter_company_org_id',
 
     ];
 
     protected $dates = ['created_at', 'updated_at'];
-    
+
     protected $casts = [
         'notification' => 'array',
         'other_documents' => 'array',
@@ -124,7 +124,7 @@ class Customer  extends Model
     {
         return $this->morphMany(Contact::class, 'contactable');
     }
-   
+
     public function addresses()
     {
         return $this->morphMany(ErpAddress::class, 'addressable');
@@ -146,7 +146,7 @@ class Customer  extends Model
     }
     public function paymentTerm()
     {
-        return $this->belongsTo(PaymentTerm::class,'payment_terms_id');
+        return $this->belongsTo(PaymentTerm::class,'payment_terms_id', 'id');
     }
 
     public function paymentTerms()
@@ -159,7 +159,7 @@ class Customer  extends Model
     }
     public function ledgerGroup()
     {
-        return $this->belongsTo(Group::class); 
+        return $this->belongsTo(Group::class);
     }
 
     public function group()
