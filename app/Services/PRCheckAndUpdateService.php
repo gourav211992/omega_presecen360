@@ -1,4 +1,4 @@
-<?php 
+<?php
 namespace App\Services;
 
 use Illuminate\Http\Request;
@@ -37,7 +37,7 @@ class PRCheckAndUpdateService
         // === Case 1: Edit (PR Detail exists) ===
         if (!empty($inputData['detail_id'])) {
             $prDetail = PRDetail::find($inputData['detail_id']);
-            $mrnOrderQty = number_format((float) $prDetail?->mrnDetail?->accepted_qty ?? 0.00, 2);
+            $mrnOrderQty = (float) $prDetail?->mrnDetail?->accepted_qty ?? 0.00;
             if (!$prDetail) {
                 return self::errorResponse("PR Detail not found.", [
                     'order_qty' => $mrnOrderQty
@@ -103,7 +103,7 @@ class PRCheckAndUpdateService
                 $totalQty = $inputQty + $prQty;
                 if ($totalQty > $mrnQty) {
                     return self::errorResponse("PR qty cannot be greater than MRN qty.", [
-                        'order_qty' => number_format($mrnQty, 2)
+                        'order_qty' => $mrnQty
                     ]);
                 }
             }
@@ -115,7 +115,7 @@ class PRCheckAndUpdateService
         ]);
     }
 
-    // Check Issue Stock 
+    // Check Issue Stock
     private static function checkIssueStock($prItem, $inputQty)
     {
         $inventoryUomQty = ItemHelper::convertToBaseUom($prItem->item_id, $prItem->uom_id, $inputQty);

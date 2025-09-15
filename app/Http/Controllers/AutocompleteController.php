@@ -1575,7 +1575,16 @@ class AutocompleteController extends Controller
                     }
                 }
             }
-            else if ($type === "pi_document") {
+            else if ($type === "pi_document_report") {
+                $results = PurchaseIndent::where('document_number', 'LIKE', "%$term%")
+                    -> whereIn('document_status', [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED])
+                    ->get(['id', 'book_code' ,'document_number']);
+                if ($results->isEmpty()) {
+                    $results = PurchaseIndent::limit(10)
+                    -> whereIn('document_status', [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED])
+                        ->get(['id', 'book_code' , 'document_number']);
+                }
+            }else if ($type === "pi_document") {
                 $applicableBookIds = ServiceParametersHelper::getBookCodesForReferenceFromParam($request -> header_book_id);
                 $results = PurchaseIndent::where('document_number', 'LIKE', "%$term%")
                     -> when($request -> header_book_id, function ($applicableQuery) use($applicableBookIds) {

@@ -23,6 +23,7 @@ class Compliance extends Model
         'tds_value_cab',
         'tan_number',
         'gst_applicable',
+        'is_rcm',
         'gstin_no',
         'gst_registered_name',
         'gstin_registration_date',

@@ -17,13 +17,13 @@ class PRDeleteService
     {
         try{
             // Delete header-item-level TEDs
-            PRTed::whereIn('id', $deletedData['deletedHeaderExpTedIds'] ?? [])->delete();
-            PRTed::whereIn('id', $deletedData['deletedHeaderDiscTedIds'] ?? [])->delete();
-            PRTed::whereIn('id', $deletedData['deletedItemDiscTedIds'] ?? [])->delete();
+            // PRTed::whereIn('id', $deletedData['deletedHeaderExpTedIds'] ?? [])->delete();
+            // PRTed::whereIn('id', $deletedData['deletedHeaderDiscTedIds'] ?? [])->delete();
+            // PRTed::whereIn('id', $deletedData['deletedItemDiscTedIds'] ?? [])->delete();
 
             // Delete MRN items
-            if (!empty($deletedData['deletedPRItemIds'])) {
-                $prItems = PRDetail::whereIn('id', $deletedData['deletedPRItemIds'])->get();
+            if (!empty($deletedData['deletedMrnItemIds'])) {
+                $prItems = PRDetail::whereIn('id', $deletedData['deletedMrnItemIds'])->get();
                 foreach ($prItems as $prItem) {
                     $orderQty = (float) $prItem->accepted_qty;
                     if ($pr->mrn_header_id) {
@@ -70,7 +70,7 @@ class PRDeleteService
             \DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while creating the record.',
-                'error' => $e->getMessage(),
+                'error' => $e->getMessage().'on line'. $e->getLine(),
             ], 500);
         }
 

@@ -43,6 +43,7 @@ class UploadVendorMaster extends Model
         'credit_limit', 
         'credit_days', 
         'gst_applicable', 
+        'is_rcm',
         'gstin_no', 
         'gst_registered_name', 
         'gstin_registration_date', 

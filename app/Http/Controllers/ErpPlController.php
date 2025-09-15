@@ -46,6 +46,8 @@ use App\Models\ErpSoItem;
 use App\Models\ErpSoItemDelivery;
 use App\Models\ErpStore;
 use App\Models\ErpSubStore;
+use App\Models\ErpTripPlanDetail;
+use App\Models\ErpTripPlanHeader;
 use App\Models\ErpVendor;
 use App\Models\Hsn;
 use App\Models\Item;
@@ -381,6 +383,14 @@ class ErpPlController extends Controller
             $groupId = $organization ?-> group_id ?? null;
             $companyId = $organization ?-> company_id ?? null;
             $itemAttributeIds = [];
+            $serviceParamReference = ServiceParametersHelper::getBookLevelParameterValue(ServiceParametersHelper::REFERENCE_FROM_SERVICE_PARAM, $request->book_id);
+            if(in_array(ConstantHelper::TRIP_SERVICE_ALIAS, $serviceParamReference['data']) && !$request -> trip_header_id)
+            {
+                return response()->json([
+                    'message' => "Trip is mandatory as per service configuration.",
+                    'error' => "",
+                ], 422);
+            }
             $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($organization -> currency -> id, $request -> document_date);
             if ($currencyExchangeData['status'] == false) {
                 return response()->json([
@@ -413,10 +423,10 @@ class ErpPlController extends Controller
             $mainSubStore = ErpSubStore::find($request -> main_sub_store_id);
             $stagingSubStore = ErpSubStore::find($request -> staging_sub_store_id);
             $enforceUicScanning = ConfigurationHelper::getConfigurationValueOfOrg(ConfigurationConstant::ORG_CONFIG_ENFORCE_UIC_SCANNING, $organizationId);
-
             if ($request -> pl_header_id) { //Update
                 $PL = ErpPlHeader::find($request -> pl_header_id);
                 $PL -> document_date = $request -> document_date;
+                $PL -> trip_id = $request -> trip_header_id ?? null;
                 //Store and department keys
                 $PL -> store_id = $request -> store_id ?? null;
                 $PL -> remarks = $request -> final_remarks;
@@ -452,6 +462,7 @@ class ErpPlController extends Controller
                     'organization_id' => $organizationId,
                     'group_id' => $groupId,
                     'company_id' => $companyId,
+                    'trip_id' => $request->trip_header_id ?? null,
                     'book_id' => $request->book_id,
                     'book_code' => $request->book_code,
                     'store_id' => $request->store_id ?? null,
@@ -509,9 +520,14 @@ class ErpPlController extends Controller
                     $itemsToDelete = ErpPlItemDetail::where('pl_header_id', $PL->id)->get();
                     foreach ($itemsToDelete as $item) {
                         $soItem = $item->soItem; // Access the related ErpSoItem
+                        $tripItem = $item->tripItem;
                         if ($soItem) {
                             $soItem->picked_qty -= $item->picked_qty; // Adjust the picked_qty
                             $soItem->save(); // Save the updated ErpSoItem
+                        }
+                        if($tripItem) {
+                            $tripItem->picked_qty -= $item->picked_qty; // Adjust the picked_qty
+                            $tripItem->save(); // Save the updated ErpSoItem
                         }
                     }
                     foreach ($request->selected_deliveries as $Dkey => $deliveryId) {
@@ -525,12 +541,15 @@ class ErpPlController extends Controller
                         $delivery = ErpSoItemDelivery::find($deliveryId);
                         if (isset($delivery)) {
                             $item = ErpSoItem::find($delivery->so_item_id);
+                            $trip= ErpTripPlanDetail::find($request -> trip_detail_id[$Dkey] ?? null);
                             $order = ErpSaleOrder::find($delivery->sale_order_id);
                             $uom = Unit::find($item->uom_id);
                             $hsn = Hsn::find($item->hsn_id);
                             $base_uom_qty = ItemHelper::convertToBaseUom($item->item_id,$item->uom_id,$request->picked_qty[$Dkey]);
                             $PLItemData = [
                                 'pl_header_id' => $PL->id,
+                                'trip_id' => $request -> trip_header_id ?? null,
+                                'trip_detail_id' => $request -> trip_detail_id[$Dkey] ?? null,
                                 'order_id' => $order->id,
                                 'order_item_id' => $item->id,
                                 'order_item_delivery_id' => $delivery->id,
@@ -566,6 +585,8 @@ class ErpPlController extends Controller
                             {
                                 $item->picked_qty +=$request->picked_qty[$Dkey];
                                 $item->save();
+                                $trip->picked_qty +=$request->picked_qty[$Dkey];
+                                $trip->save();
                             }
                             if (method_exists($item, 'item_attributes_array') && is_callable([$item, 'item_attributes_array'])) {
                                 $attributesArray = json_decode(json_encode($item->item_attributes_array()), true);
@@ -824,9 +845,113 @@ class ErpPlController extends Controller
             $storeids = $request->store_id ?? null;
             $subStoreId = $request->sub_store_id ?? null;
             $showAll = $request->show_all ?? "true";
+            $serviceParamReference = ServiceParametersHelper::getBookLevelParameterValue(ServiceParametersHelper::REFERENCE_FROM_SERVICE_PARAM, $request->header_book_id);
             $orderItems = ErpSoItemDelivery::withWhereHas('item', function ($query) use($applicableBookIds) {
                 $query->with('uom') ->withWhereHas('header', function ($subQuery) use($applicableBookIds) {
                     $subQuery->with(['store', 'customer']) -> withDefaultGroupCompanyOrg() -> whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])
+                    ->whereIn('book_id', $applicableBookIds);
+                });
+            })
+            ->when(in_array(ConstantHelper::TRIP_SERVICE_ALIAS, $serviceParamReference['data']), function ($query) {
+                $query->with(['trip_details','trip_details.header']);
+            })
+            ->when($request->to_date, function ($query) use ($request) {
+                $query->whereHas('item.header', function ($subQuery) use ($request) {
+                    $subQuery->whereDate('document_date', '<=', Carbon::parse($request->to_date));
+                });
+            })
+            ->when($request->trip_id, function ($query) use ($request) {
+                $query->withWhereHas('trip_details', function ($subQuery) use ($request) {
+                    $subQuery->where('trip_header_id', $request->trip_id);
+                });
+            })
+            ->when($request->book_id, function ($query) use ($request) {
+                $query->whereHas('item.header', function ($subQuery) use ($request) {
+                    $subQuery->where('book_id', $request->book_id);
+                });
+            })
+            ->when($request->store_id, function ($query) use ($request) {
+                $query->whereHas('item.header', function ($subQuery) use ($request) {
+                    $subQuery->where('store_id', $request->store_id);
+                });
+            }, function ($query) {
+                $query->whereRaw('1 = 0'); // Ensures no results are returned if store_id is not provided
+            })
+            ->when($request->so_book_code, function ($query) use ($request) {
+                $query->whereHas('item.header', function ($subQuery) use ($request) {
+                    $subQuery->where('book_code', 'LIKE', '%' . $request->so_book_code . '%');
+                });
+            })
+            ->when($request->so_document_no, function ($query) use ($request) {
+                $query->whereHas('item.header', function ($subQuery) use ($request) {
+                    $subQuery->where('document_number', 'LIKE', '%' . $request->so_document_no . '%');
+                });
+            })
+            ->when($request->document_date, function ($query) use ($request) {
+                $dateRange = explode('to', $request->document_date);
+                $endDate = Carbon::parse(trim($dateRange[0]));
+                $query->whereHas('item.header', function ($subQuery) use ($endDate) {
+                    $subQuery->where('document_date', '>=' ,$endDate);
+                });
+            })
+            ->when($request->delivery_date, function ($query) use ($request) {
+                $dateRange = explode('to', $request->delivery_date);
+                $endDate = Carbon::parse(trim($dateRange[0]));
+                $query->where('delivery_date', '>=' ,$endDate);
+            })
+            ->when($request->customer_code, function ($query) use ($request) {
+                $query->whereHas('item.header.customer', function ($subQuery) use ($request) {
+                    $subQuery->where('customer_code', 'LIKE', '%' . $request->customer_code . '%');
+                });
+            })
+            ->whereHas('item', function ($query) {
+                $query->whereRaw('order_qty > (short_close_qty + dnote_qty + picked_qty)');
+            })
+            ->orderBy('delivery_date')->get();
+
+            $processedItems = collect([]);
+
+            foreach ($orderItems as $orderItem) {
+                $orderItem->attributes = collect($orderItem->item->item_attributes_array())->map(function ($attrArr) {
+                    $short = $attrArr['short_name'] ?? null;
+                    $groupName = $attrArr['group_name'] ?? '';
+                    $selectedValue = collect($attrArr['values_data'])->firstWhere('selected', true)['value'] ?? '';
+                    $displayName = $short ?? $groupName;
+                    return "<span class='badge rounded-pill badge-light-primary'><strong>{$displayName}: {$selectedValue}</strong></span>";
+                })->implode(' ');
+                $orderItem->avl_stock = $orderItem->item->getStockBalanceQty($storeids, $subStoreId);
+                $orderItem->store_location_code = $orderItem->item->header?->store_location?->store_name;
+                $orderItem->department_code = $orderItem->item->header?->department?->name;
+                $orderItem->station_name = $orderItem->item->header?->station?->name;
+                if ($showAll == 'false') {
+                    if ($orderItem -> avl_stock > 0) {
+                        $processedItems -> push($orderItem);
+                    }
+                } else {
+                    $processedItems -> push($orderItem);
+                }
+            }
+            return response()->json([
+                'data' => $processedItems
+            ]);
+        } catch (Exception $ex) {
+            return response()->json([
+                'message' => 'Some internal error occurred',
+                'error' => $ex->getMessage() . $ex->getFile() . $ex->getLine()
+            ]);
+        }
+    }
+
+    public function getTripItemsForPulling(Request $request)
+    {
+        try {
+            $applicableBookIds = ServiceParametersHelper::getBookCodesForReferenceFromParam($request->header_book_id);
+            $storeids = $request->store_id ?? null;
+            $subStoreId = $request->sub_store_id ?? null;
+            $showAll = $request->show_all ?? "true";
+            $orderItems = ErpTripPlanDetail::withWhereHas('item', function ($query) use($applicableBookIds) {
+                $query->with('uom') ->withWhereHas('header', function ($subQuery) use($applicableBookIds) {
+                    $subQuery->with(['store']) -> withDefaultGroupCompanyOrg() -> whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])
                     ->whereIn('book_id', $applicableBookIds);
                 });
             })
@@ -870,7 +995,7 @@ class ErpPlController extends Controller
                 $query->where('delivery_date', '>=' ,$endDate);
             })
             ->when($request->customer_code, function ($query) use ($request) {
-                $query->whereHas('item.header.customer', function ($subQuery) use ($request) {
+                $query->whereHas('item.so.customer', function ($subQuery) use ($request) {
                     $subQuery->where('customer_code', 'LIKE', '%' . $request->customer_code . '%');
                 });
             })
@@ -1508,6 +1633,35 @@ class ErpPlController extends Controller
                 }
                 // ErpPlItemDetail::where('item_id', $groupedKeys['item_id']) -> where('uom_id', $groupedKeys['uom_id']) -> where('')
             // }
+        }
+    }
+    public function getTripDetails(Request $request)
+    {
+        try {
+            $applicable_book_ids = ServiceParametersHelper::getBookCodesForReferenceFromParam($request->header_book_id);
+
+            $trips = ErpTripPlanHeader::whereIn('document_status', ['approved', 'approval_not_required'])
+                ->whereIn('book_id', $applicable_book_ids)
+                ->where('store_id', $request->from_store_id)
+                ->get();
+
+            if ($trips->isNotEmpty()) {
+                return response()->json([
+                    'status' => 'success',
+                    'data'   => $trips
+                ]);
+            }
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'No Trips Found'
+            ]);
+        } catch (\Exception $ex) {
+            return response()->json([
+                'status'  => 'exception',
+                'message' => 'Some internal error occurred',
+                'error'   => $ex->getMessage()
+            ]);
         }
     }
 }

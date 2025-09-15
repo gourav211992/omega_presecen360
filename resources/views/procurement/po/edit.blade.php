@@ -3128,7 +3128,11 @@
                 return response.json().then(data => {
                     if (data.status == 200) {
                         let cost = data?.data?.cost || 0;
-                        $(currentTr).find("input[name*='[rate]']").val(cost);
+                        let rateInput = $(currentTr).find("input[name*='[rate]']");
+                        let rate = rateInput.val();
+                        if (rate === undefined || rate === null || rate === '' || parseFloat(rate) <= 0) {
+                            rateInput.val(cost);
+                        }
                         setTableCalculation();
                     }
                 });

@@ -186,7 +186,10 @@
                                                     <input type="hidden" name="category_type" class="category-type" value="Product">
                                                     <input type="hidden" name="cat_initials" class="cat_initials-id" value="{{ $item->subCategory->cat_initials ?? ($item->subCategory->sub_cat_initials ?? '') }}">
                                                 </div>
-                                                <div class="col-md-3">
+                                                <div class="col-md-5">
+                                                    <input type="text" class="form-control category-hierarchy"  value="{{ $item->subCategory->full_name ?? '' }}" readonly placeholder="Group hierarchy">
+                                                 </div>
+                                                <div class="col-md-1">
                                                     <a href="{{route('categories.index')}}" target="_blank" class="voucehrinvocetxt mt-0">Add Group</a>
                                                 </div>
                                             </div>
@@ -425,6 +428,9 @@
                                                         </li>
                                                         <li class="nav-item">
                                                             <a class="nav-link" data-bs-toggle="tab" href="#Details">Inventory Details</a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a class="nav-link" id="packagingTabLink" data-bs-toggle="tab" href="#Packaging">Packaging Details</a>
                                                         </li>
                                                         <li class="nav-item">
                                                             <a class="nav-link" data-bs-toggle="tab" href="#Customer">Approved Customers</a>
@@ -773,57 +779,6 @@
                                                             <div class="row mt-1">
                                                                 <div class="col-md-12">
                                                                     <div class="newheader border-bottom pb-50 mb-1">
-                                                                        <h4 class="card-title text-theme">Storage</h4>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            <div class="row align-items-center mb-1">
-                                                                <div class="col-md-3 mb-1">
-                                                                    <label class="form-label">Storage UOM</label>
-                                                                    <select name="storage_uom_id" class="form-select select2">
-                                                                        <option value="">Select Storage Uom</option>
-                                                                        @foreach ($units as $unit)
-                                                                            <option value="{{ $unit->id }}" {{ (isset($item) && $item->storage_uom_id == $unit->id) ? 'selected' : '' }}>
-                                                                                {{ $unit->name }}
-                                                                            </option>
-                                                                        @endforeach
-                                                                    </select>
-                                                                </div>
-
-                                                               <div class="col-md-3 mb-1">
-                                                                    <label class="form-label">Conversion</label>
-                                                                    <input type="text" name="storage_uom_conversion" class="form-control" 
-                                                                        placeholder="Enter Conversion"
-                                                                        value="{{ isset($item->storage_uom_conversion) ? number_format($item->storage_uom_conversion, 2, '.', '') : '' }}"
-                                                                        {{ (isset($item) && $item->uom_id == $item->storage_uom_id) ? 'readonly' : '' }}>
-                                                                </div>
-
-                                                                <div class="col-md-3 mb-1">
-                                                                    <label class="form-label">No of Pack</label>
-                                                                    <input type="number" name="storage_uom_count" class="form-control" 
-                                                                        placeholder="Enter No of Pack"
-                                                                        value="{{ isset($item->storage_uom_count) ? number_format($item->storage_uom_count, 2, '.', '') : '' }}">
-                                                                </div>
-
-                                                                <div class="col-md-3 mb-1">
-                                                                    <label class="form-label">Weight (kg)</label>
-                                                                    <input type="number" step="0.01" name="storage_weight" class="form-control" 
-                                                                        placeholder="Enter Storage Weight in KG"
-                                                                        value="{{ isset($item->storage_weight) ? number_format($item->storage_weight, 2, '.', '') : '' }}">
-                                                                </div>
-
-                                                                <div class="col-md-3 mb-1">
-                                                                    <label class="form-label">Volume (cft)</label>
-                                                                    <input type="number" step="0.01" name="storage_volume" class="form-control" 
-                                                                        placeholder="Enter Storage Volume in CFT"
-                                                                        value="{{ isset($item->storage_volume) ? number_format($item->storage_volume, 2, '.', '') : '' }}">
-                                                                </div>
-                                                            </div>
-
-                                                            <div class="row mt-1">
-                                                                <div class="col-md-12">
-                                                                    <div class="newheader border-bottom pb-50 mb-1">
                                                                         <h4 class="card-title text-theme">Inspection</h4>
                                                                     </div>
                                                                 </div>
@@ -921,7 +876,122 @@
                                                             </div>
                                                             --}}
                                                         </div>
-                                                       
+
+                                                        <div class="tab-pane" id="Packaging">
+                
+                                                            <div class="row align-items-center mb-1">
+                                                                 <div class="col-md-3 mb-1">
+                                                                    <label class="form-label">Storage UOM</label>
+                                                                    <select name="storage_uom_id" class="form-select select2">
+                                                                        <option value="">Select Storage Uom</option>
+                                                                        @foreach ($units as $unit)
+                                                                            <option value="{{ $unit->id }}" {{ (isset($item) && $item->storage_uom_id == $unit->id) ? 'selected' : '' }}>
+                                                                                {{ $unit->name }}
+                                                                            </option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                </div>
+
+                                                                <div class="col-md-3 mb-1">
+                                                                    <label class="form-label">Conversion</label>
+                                                                    <input type="text" name="storage_uom_conversion" class="form-control" 
+                                                                        placeholder="Enter Conversion"
+                                                                        value="{{ isset($item->storage_uom_conversion) ? number_format($item->storage_uom_conversion, 2, '.', '') : '' }}"
+                                                                        {{ (isset($item) && $item->uom_id == $item->storage_uom_id) ? 'readonly' : '' }}>
+                                                                </div>
+
+                                                                <div class="col-md-3 mb-1">
+                                                                    <label class="form-label">No of Pack</label>
+                                                                    <input type="number" name="storage_uom_count" id="packet_no" class="form-control" 
+                                                                        placeholder="Enter No of Pack"
+                                                                        value="{{ isset($item->storage_uom_count) ? number_format($item->storage_uom_count, 2, '.', '') : '' }}">
+                                                                </div>
+                                                                <div class="col-md-3 mb-1">
+                                                                    <label class="form-label">Weight (kg)</label>
+                                                                    <input type="number" step="0.0001" name="storage_weight" class="form-control" 
+                                                                        placeholder="Enter Storage Weight"
+                                                                        value="{{ isset($item->storage_weight) ? number_format($item->storage_weight, 2, '.', '') : '' }}">
+                                                                </div>
+
+                                                                <div class="col-md-3 mb-1">
+                                                                    <label class="form-label">Length (ft)</label>
+                                                                    <input type="number" step="0.0001" name="length_in_feet" class="form-control" 
+                                                                        placeholder="Enter Length" 
+                                                                        value="{{ isset($item->length_in_feet) ? number_format($item->length_in_feet, 2, '.', '') : '' }}">
+                                                                </div>
+
+                                                                <div class="col-md-3 mb-1">
+                                                                    <label class="form-label">Width (ft)</label>
+                                                                    <input type="number" step="0.0001" name="breadth_in_feet" class="form-control" 
+                                                                        placeholder="Enter Width" 
+                                                                        value="{{ isset($item->breadth_in_feet) ? number_format($item->breadth_in_feet, 2, '.', '') : '' }}">
+                                                                </div>
+
+                                                                <div class="col-md-3 mb-1">
+                                                                    <label class="form-label">Height (ft)</label>
+                                                                    <input type="number" step="0.0001" name="height_in_feet" class="form-control" 
+                                                                        placeholder="Enter Height" 
+                                                                        value="{{ isset($item->height_in_feet) ? number_format($item->height_in_feet, 2, '.', '') : '' }}">
+                                                                </div>
+                                                                
+                                                                <div class="col-md-3 mb-1">
+                                                                    <label class="form-label">Volume (cft)</label>
+                                                                    <input type="number" step="0.0001" name="storage_volume" class="form-control" 
+                                                                        placeholder="Enter Storage Volume"
+                                                                        value="{{ isset($item->storage_volume) ? number_format($item->storage_volume, 4, '.', '') : '' }}">
+                                                                </div>
+                                                            </div>
+                                                              {{-- Packaging Rows (Edit UI like Add UI) --}}
+                                                            <div id="packaging_rows_container">
+                                                                @if(isset($item->packagingDetails) && count($item->packagingDetails) > 0)
+                                                                    <div class="table-responsive">
+                                                                        <table class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail border">
+                                                                            <thead>
+                                                                                <tr>
+                                                                                  
+                                                                                    <th style="width:400px;">Package Name</th>
+                                                                                    <th style="width:40px;">Package No</th>
+                                                                                    <th>Length (ft)</th>
+                                                                                    <th>Width (ft)</th>
+                                                                                    <th>Height (ft)</th>
+                                                                                    <th>Volume (cft)</th>
+                                                                                    <th>Weight (kg)</th>
+                                                                                </tr>
+                                                                            </thead>
+                                                                            <tbody id="dynamic-packaging-body">
+                                                                                @foreach($item->packagingDetails as $index => $pack)
+                                                                                    <tr>
+                                                                                        <td>
+                                                                                            <input type="text" name="packaging[{{ $index }}][pack_name]" value="{{ $pack->packet_name }}" class="form-control mw-100" readonly>
+                                                                                        </td>
+                                                                                        <td>
+                                                                                            <input type="number" name="packaging[{{ $index }}][pack_no]" value="{{ $pack->packet_no }}" class="form-control mw-100" readonly>
+                                                                                            <input type="hidden" name="packaging[{{ $index }}][id]" value="{{ $pack->id }}">
+                                                                                        </td>
+                                                                                         <td>
+                                                                                            <input type="number" step="0.0001" name="packaging[{{ $index }}][pack_length]" class="form-control mw-100 mw-100 dimension-field" value="{{ $pack->length_in_feet }}">
+                                                                                        </td>
+                                                                                        <td>
+                                                                                            <input type="number" step="0.0001" name="packaging[{{ $index }}][pack_breadth]" class="form-control mw-100 dimension-field" value="{{ $pack->breadth_in_feet }}">
+                                                                                        </td>
+                                                                                        <td>
+                                                                                            <input type="number" step="0.0001" name="packaging[{{ $index }}][pack_height]" class="form-control mw-100 dimension-field" value="{{ $pack->height_in_feet }}">
+                                                                                        </td>
+                                                                                        <td>
+                                                                                            <input type="number" step="0.0001" name="packaging[{{ $index }}][pack_volume]" class="form-control mw-100" readonly value="{{ $pack->storage_volume }}">
+                                                                                        </td>
+                                                                                         <td>
+                                                                                            <input type="number" step="0.0001" name="packaging[{{ $index }}][pack_weight]" class="form-control mw-100 pack-weight" value="{{ $pack->storage_weight }}">
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                @endforeach
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </div>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+
                                                         <?php
                                                             $alternateUOMIds = [];
                                                             foreach ($item->alternateUOMs as $alternateItem) {
@@ -2773,37 +2843,37 @@
 </script>
 <script>
     // storage-uom-start
-    $(document).ready(function () {
-        function syncStorageFields() {
-            const uomName = $('select[name="uom_id"] option:selected').text().trim().toUpperCase();
-            const storageUomName = $('select[name="storage_uom_id"] option:selected').text().trim().toUpperCase();
-            const storageUomValue = $('select[name="storage_uom_id"]').val();
-            const $conversionInput = $('input[name="storage_uom_conversion"]');
-            const $countInput = $('input[name="storage_uom_count"]');
+    // $(document).ready(function () {
+    //     function syncStorageFields() {
+    //         const uomName = $('select[name="uom_id"] option:selected').text().trim().toUpperCase();
+    //         const storageUomName = $('select[name="storage_uom_id"] option:selected').text().trim().toUpperCase();
+    //         const storageUomValue = $('select[name="storage_uom_id"]').val();
+    //         const $conversionInput = $('input[name="storage_uom_conversion"]');
+    //         const $countInput = $('input[name="storage_uom_count"]');
 
-            if (storageUomValue) {
-                if (uomName === storageUomName) {
-                    $conversionInput.val(1);   
-                    $conversionInput.prop('readonly', true);
-                    $countInput.prop('readonly', false);
-                } else {
-                    $conversionInput.prop('readonly', false);
-                    $countInput.val(1);  
-                    $countInput.prop('readonly', true);
-                }
-                if (!$conversionInput.val()) $conversionInput.val(1);
-                if (!$countInput.val()) $countInput.val(1);
+    //         if (storageUomValue) {
+    //             if (uomName === storageUomName) {
+    //                 $conversionInput.val(1);   
+    //                 $conversionInput.prop('readonly', true);
+    //                 $countInput.prop('readonly', false);
+    //             } else {
+    //                 $conversionInput.prop('readonly', false);
+    //                 $countInput.val(1);  
+    //                 $countInput.prop('readonly', true);
+    //             }
+    //             if (!$conversionInput.val()) $conversionInput.val(1);
+    //             if (!$countInput.val()) $countInput.val(1);
 
-            } else {
-                $conversionInput.val('');
-                $countInput.val('');
-                $conversionInput.prop('readonly', false);
-                $countInput.prop('readonly', false);
-            }
-        }
-        syncStorageFields();
-        $('select[name="uom_id"], select[name="storage_uom_id"]').on('change', syncStorageFields);
-    });
+    //         } else {
+    //             $conversionInput.val('');
+    //             $countInput.val('');
+    //             $conversionInput.prop('readonly', false);
+    //             $countInput.prop('readonly', false);
+    //         }
+    //     }
+    //     syncStorageFields();
+    //     $('select[name="uom_id"], select[name="storage_uom_id"]').on('change', syncStorageFields);
+    // });
     
     // storage-uom-end
 
@@ -3130,6 +3200,7 @@
         if (tradedCheckbox) {
             tradedCheckbox.disabled = (currentType === 'Service');
         }
+           window.syncStorageFields();
     }
 
     function amendConfirm()
@@ -3275,6 +3346,139 @@
         }
     });
  //approval-end
+
+  $(document).ready(function() {
+        var existingPackaging = @json($item->packagingDetails ?? []);
+        function handlePacketFields() {
+            let packetNo = parseInt($('#packet_no').val()) || 1;
+            let itemNameInput = $('input[name="item_name"]').val().trim();
+            let itemName = itemNameInput !== '' ? itemNameInput : 'Packet';
+            let container = $('#packaging_rows_container');
+
+            if (packetNo > 1) {
+                $('input[name="storage_weight"], input[name="length_in_feet"], input[name="breadth_in_feet"], input[name="height_in_feet"], input[name="storage_volume"]')
+                    .closest('.col-md-3').hide();
+
+                container.show();
+
+                let tbody = container.find('#dynamic-packaging-body');
+                if (!tbody.length) {
+                    container.html(`
+                        <div class="table-responsive">
+                            <table class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail border">
+                                <thead>
+                                    <tr>
+                                        <th style="width:400px;">Package Name</th>
+                                        <th style="width:40px;">Package No</th>
+                                        <th>Length (ft)</th>
+                                        <th>Width (ft)</th>
+                                        <th>Height (ft)</th>
+                                        <th>Volume (cft)</th>
+                                        <th>Weight (kg)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dynamic-packaging-body"></tbody>
+                            </table>
+                        </div>
+                    `);
+                    tbody = container.find('#dynamic-packaging-body');
+                } else {
+                    tbody.empty();
+                }
+
+                for (let i = 0; i < packetNo; i++) {
+                    let saved = existingPackaging[i] || {};
+                    let packetLabel = `${itemName} (Box ${i + 1} of ${packetNo})`
+                    tbody.append(`
+                        <tr>
+                            <td><input type="text" name="packaging[${i}][pack_name]" value="${packetLabel}" class="form-control mw-100" readonly></td>
+                            <td><input type="number" name="packaging[${i}][pack_no]" value="${i+1}" class="form-control mw-100" readonly>
+                                <input type="hidden" name="packaging[${i}][id]" value="${saved.id || ''}">
+                            </td>
+                             <td><input type="number" step="0.0001" name="packaging[${i}][pack_length]" class="form-control mw-100 dimension-field" value="${saved.length_in_feet || ''}"></td>
+                            <td><input type="number" step="0.0001" name="packaging[${i}][pack_breadth]" class="form-control mw-100 dimension-field" value="${saved.breadth_in_feet || ''}"></td>
+                            <td><input type="number" step="0.0001" name="packaging[${i}][pack_height]" class="form-control mw-100 dimension-field" value="${saved.height_in_feet || ''}"></td>
+                            <td><input type="number" step="0.0001" name="packaging[${i}][pack_volume]" class="form-control mw-100" readonly value="${saved.storage_volume || ''}"></td>
+                            <td><input type="number" step="0.0001" name="packaging[${i}][pack_weight]" class="form-control mw-100 pack-weight" value="${saved.storage_weight || ''}"></td>
+                            </tr>
+                    `);
+                }
+
+                attachDimensionFieldHandler();
+
+            } else {
+                $('input[name="storage_weight"], input[name="length_in_feet"], input[name="breadth_in_feet"], input[name="height_in_feet"], input[name="storage_volume"]')
+                    .closest('.col-md-3').show();
+                container.empty().hide();
+                attachItemDimensionHandler();
+            }
+        }
+
+        function calculateVolume(length, breadth, height) {
+            if (length <= 0 || breadth <= 0 || height <= 0) {
+                return '';
+            }
+            return (length * breadth * height).toFixed(4);
+        }
+
+        function attachDimensionFieldHandler() {
+            $('.dimension-field').off('input').on('input', function() {
+                let row = $(this).closest('tr');
+                let length = parseFloat(row.find('input[name*="[pack_length]"]').val()) || 0;
+                let breadth = parseFloat(row.find('input[name*="[pack_breadth]"]').val()) || 0;
+                let height = parseFloat(row.find('input[name*="[pack_height]"]').val()) || 0;
+                let volume = calculateVolume(length, breadth, height);
+                row.find('input[name*="[pack_volume]"]').val(volume);
+            });
+        }
+
+        function attachItemDimensionHandler() {
+            $('input[name="length_in_feet"], input[name="breadth_in_feet"], input[name="height_in_feet"]').off('input').on('input', function() {
+                let length = parseFloat($('input[name="length_in_feet"]').val()) || 0;
+                let breadth = parseFloat($('input[name="breadth_in_feet"]').val()) || 0;
+                let height = parseFloat($('input[name="height_in_feet"]').val()) || 0;
+                let volume = calculateVolume(length, breadth, height);
+                $('input[name="storage_volume"]').val(volume);
+            });
+        }
+
+         window.syncStorageFields = function() {
+            const uomName = $('select[name="uom_id"] option:selected').text().trim().toUpperCase();
+            const storageUomName = $('select[name="storage_uom_id"] option:selected').text().trim().toUpperCase();
+            const storageUomValue = $('select[name="storage_uom_id"]').val();
+            const $conversionInput = $('input[name="storage_uom_conversion"]');
+            const $countInput = $('input[name="storage_uom_count"]');
+
+            if (!storageUomValue) {
+                let invUOM = $('select[name="uom_id"]').val();
+                if (invUOM) {
+                    $('select[name="storage_uom_id"]').val(invUOM).trigger('change');
+                }
+            }
+
+            if (storageUomValue) {
+                if (uomName === storageUomName) {
+                    $conversionInput.val(1).prop('readonly', true);
+                    $countInput.prop('readonly', false).val($countInput.val() || 1);
+                } else {
+                    $conversionInput.prop('readonly', false).val($conversionInput.val() || 1);
+                    $countInput.val(1).prop('readonly', true);
+                }
+            } else {
+                $conversionInput.val('').prop('readonly', false);
+                $countInput.val('').prop('readonly', false);
+            }
+
+            handlePacketFields();
+        }
+
+        $('#packet_no, input[name="item_name"]').on('input', handlePacketFields);
+        $('select[name="uom_id"], select[name="storage_uom_id"]').on('change', syncStorageFields);
+
+        handlePacketFields();
+        window.syncStorageFields();
+  });
+
 </script>
 @endsection
 

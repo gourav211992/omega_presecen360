@@ -28,9 +28,12 @@
             <tr>
                 <td style="border: 1px solid #000;  border-bottom: none; padding: 3px; width: 30%; vertical-align: top;">
                     @if (isset($orgLogo) && $orgLogo)
-                        <img src="{!! $orgLogo !!}" alt="" height="50px" />
-                    @else
-                        <img src="{{ $imagePath }}" height="50px" alt="">
+                        @php
+                            $data = isset($orgLogo) && $orgLogo ? file_get_contents($orgLogo) : '';
+                            $imgType = pathinfo($orgLogo, PATHINFO_EXTENSION);
+                            $base64 = 'data:image/' . $imgType . ';base64,' . base64_encode($data);
+                        @endphp
+                        <img src="{!! $base64 !!}" alt="" height="50px" />
                     @endif
                 </td>
                 <td style="border: 1px solid #000;  border-bottom: none; padding: 3px; width: 40%; vertical-align: top; font-size: 10px;">
@@ -70,7 +73,7 @@
                     </div>
 
                     {{ implode(', ', $addressParts) }},<br>
-                    {{ implode(', ', $countryPincode) }} . <b>STATE CODE: {{ @$organizationAddress?->state?->state_code }}</b>
+                    {{ implode(', ', $countryPincode) }} . <b>STATE CODE: {{ $order->location_address_details->state->state_code }}</b>
                     @if($email)
                         <br>
                         {{ $email }}

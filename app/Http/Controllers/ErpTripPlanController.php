@@ -925,8 +925,17 @@ class ErpTripPlanController extends Controller
             })
             ->when($request->delivery_date, function ($query) use ($request) {
                 $dateRange = explode('to', $request->delivery_date);
-                $endDate = Carbon::parse(trim($dateRange[0]));
-                $query->where('delivery_date', '>=' ,$endDate);
+
+                if (count($dateRange) === 2) {
+                    // Range: start to end
+                    $startDate = Carbon::parse(trim($dateRange[0]));
+                    $endDate   = Carbon::parse(trim($dateRange[1]));
+                    $query->whereBetween('delivery_date', [$startDate, $endDate]);
+                } else {
+                    // Single date
+                    $date = Carbon::parse(trim($dateRange[0]));
+                    $query->whereDate('delivery_date', $date);
+                }
             })
             ->when($request->customer_code, function ($query) use ($request) {
                 $query->whereHas('item.header.customer', function ($subQuery) use ($request) {
@@ -1567,6 +1576,35 @@ class ErpTripPlanController extends Controller
                 }
                 // ErpTripPlanDetail::where('item_id', $groupedKeys['item_id']) -> where('uom_id', $groupedKeys['uom_id']) -> where('')
             // }
+        }
+    }
+    public function getTripData(Request $request)
+    {
+        try {
+            $applicable_book_ids = ServiceParametersHelper::getBookCodesForReferenceFromParam($request->header_book_id);
+
+            $trips = ErpTripPlanHeader::whereIn('document_status', ['approved', 'approval_not_required'])
+                ->whereIn('book_id', $applicable_book_ids)
+                ->where('store_id', $request->from_store_id)
+                ->get();
+
+            if ($trips->isNotEmpty()) {
+                return response()->json([
+                    'status' => 'success',
+                    'data'   => $trips
+                ],200);
+            }
+
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'No Trips Found'
+            ],200);
+        } catch (\Exception $ex) {
+            return response()->json([
+                'status'  => 'exception',
+                'message' => 'Some internal error occurred',
+                'error'   => $ex->getMessage()
+            ],500);
         }
     }
 }

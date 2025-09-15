@@ -605,7 +605,7 @@ class InventoryHelper
     }
 
     // Update document status while update mrn
-    private static function insertStockLedger($stockLedger, $documentItemLocation, $bookType, $documentStatus, $transactionType, $utilizedQty, $utlStockLedger = NULL, $stockType = 'R', $jobType = null, $isFoc = false)
+    private static function insertStockLedger($stockLedger, $documentItemLocation, $bookType, $documentStatus, $transactionType, $utilizedQty,$utlStockLedger = NULL, $stockType = 'R', $jobType = null, $isFoc = false)
     {
         $user = Helper::getAuthenticatedUser();
         try {
@@ -1706,7 +1706,6 @@ class InventoryHelper
                                 $stockLedger->utilized_id = null;
                                 $stockLedger->utilized_date = null;
                                 $stockLedger->save();
-
                             } else{
                                 $newStockLedger = $stockLedger->replicate();
                                 $newStockLedger->receipt_qty = $adjustedQty;
@@ -2693,7 +2692,7 @@ class InventoryHelper
     private static function settlementForPurchaseReturn($documentHeaderId, $documentDetailId, $bookType, $documentStatus)
     {
         $user = Helper::getAuthenticatedUser();
-
+        $updatedInvoiceLedger = [];
         $transactionType = 'issue';
         $documentItems = PRDetail::where('header_id', $documentHeaderId)
             ->with(
@@ -2720,8 +2719,8 @@ class InventoryHelper
                     return $invoiceLedger;
                 }
                 $updatedInvoiceLedger = self::updateStockLedger($invoiceLedger, $documentItem, $bookType, $documentStatus, $transactionType, $issueQty);
-                return $updatedInvoiceLedger;
             }
+            return $updatedInvoiceLedger;
         }
     }
 

@@ -4682,13 +4682,17 @@ class MaterialReceiptController extends Controller
         try {
             DB::beginTransaction();
             // Asset Registration
-            $assetData = Helper::mrnAssetRegister($request->document_id ?? 0, ConstantHelper::MRN_SERVICE_ALIAS);
-            if ($assetData['status'] === false) {
-                DB::rollBack();
-                return response()->json([
-                    'status' => 'error',
-                    'message' => $assetData['message']
-                ]);
+            $existData = MrnHeader::where('id', $request->document_id)->first();
+            if($existData && ($existData->bill_to_follow != ConstantHelper::YES))
+            {
+                $assetData = Helper::mrnAssetRegister($request->document_id ?? 0, ConstantHelper::MRN_SERVICE_ALIAS);
+                if ($assetData['status'] === false) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => $assetData['message']
+                    ]);
+                }
             }
             $data = FinancialPostingHelper::financeVoucherPosting($request->book_id ?? 0, $request->document_id ?? 0, 'post');
             if ($data['status']) {

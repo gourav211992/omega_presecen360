@@ -21,6 +21,7 @@ let bookDetails = window.routes.bookDetails;
 let amendUrl = window.routes.amend;
 let getSeries = window.routes.getSeries;
 let redirectUrl = window.routes.redirectUrl;
+let tripRoute = window.routes.tripRoute;
 // Optional: use them in fetch, axios, etc.
 $('#order_date_input').on('blur', function() {
     if(checkDateRange(this)){
@@ -414,7 +415,7 @@ function editScript()
 
             item?.discount_ted?.forEach((ted, tedIndex) => {
                 addHiddenInput("item_discount_name_" + itemIndex + "_" + tedIndex, ted.ted_name, `item_discount_name[${itemIndex}][${tedIndex}]`, 'discount_names_hidden_' + itemIndex, 'item_value_' + itemIndex, ted.id);
-                addHiddenInput("item_discount_master_id_" + itemIndex + "_" + tedIndex, ted.ted_id, `item_discount_master_id[${itemIndex}][${tedIndex}]`, 'discount_names_hidden_' + itemIndex, 'item_value_' + itemIndex, ted.id);
+                addHiddenInput("item_discount_master_id_" + itemIndex + "_" + tedIndex, ted.ted_id, `item_discount_master_id[${itemIndex}][${tedIndex}]`, 'discount_masters_hidden_' + itemIndex, 'item_value_' + itemIndex, ted.id);
                 addHiddenInput("item_discount_percentage_" + itemIndex + "_" + tedIndex, ted.ted_percentage ? ted.ted_percentage : '', `item_discount_percentage[${itemIndex}][${tedIndex}]`, 'discount_percentages_hidden_' + itemIndex,  'item_value_' + itemIndex, ted.id);
                 addHiddenInput("item_discount_value_" + itemIndex + "_" + tedIndex, ted.ted_amount, `item_discount_value[${itemIndex}][${tedIndex}]`, 'discount_values_hidden_' + itemIndex, 'item_value_' + itemIndex, ted.id);
                 addHiddenInput("item_discount_id_" + itemIndex + "_" + tedIndex, ted.id, `item_discount_id[${itemIndex}][${tedIndex}]`, 'discount_ids_hidden_' + itemIndex, 'item_value_' + itemIndex);
@@ -608,6 +609,10 @@ function resetParametersDependentElements(reset = true)
         selectionSectionSO.style.display = "none";
     }
     var selectionSectionPl = document.getElementById('pl_selection');
+    if (selectionSectionPl) {
+        selectionSectionPl.style.display = "none";
+    }
+    var selectionSectionPl = document.getElementById('trip_selection');
     if (selectionSectionPl) {
         selectionSectionPl.style.display = "none";
     }
@@ -932,6 +937,31 @@ function implementBookParameters(paramData)
                         selectionPopupElement.style.display = ""
                     }
                 }
+                if (selectSingleVal == 'trip') {
+                    var selectionSectionElement = document.getElementById('selection_section');
+                    if (selectionSectionElement) {
+                        selectionSectionElement.style.display = "";
+                    }
+
+                    var selectionPopupElement = document.getElementById('trip_selection');
+                    if (selectionPopupElement) {
+                        selectionPopupElement.style.display = "";
+                    }
+
+                    var selectedElement = document.getElementById('trip_header_section');
+                    if (selectedElement) {
+                        selectedElement.classList.remove('d-none');
+                    }
+                    if(typeof getTripData === "function")
+                    {
+                        if (order?.trip_id && order.document_status !== "draft") {
+                            // No action needed if trip already set and not draft
+                        } else {
+                            getTripData();
+                        }
+                    }
+                }
+
                 if (selectSingleVal == 'd') {
                     // document.getElementById('add_item_section').style.display = "";
                 }
@@ -1042,6 +1072,12 @@ function implementBookParameters(paramData)
                     }
                 }
             });
+            var tripElement = document.getElementById('trip_header_section');
+            if (tripElement) {
+                if (!selectVal.includes('trip')) {
+                    tripElement.classList.add('d-none');
+                }
+            }
         }
     }
 
@@ -1291,7 +1327,9 @@ function viewModeScript(disable = true)
             element.style.display = disable ? "none" : "";
         });
         //Remove add delete button
-        document.getElementById('add_delete_item_section').style.display = disable ? "none" : "";
+        if (document.getElementById('add_delete_item_section')) {
+            document.getElementById('add_delete_item_section').style.display = disable ? "none" : "";
+        }
         //Readonly the terms and conditions
         if (disable) {
             $('#summernote1').summernote('disable');
@@ -2811,4 +2849,51 @@ function updateHeaderExpenses()
     }
     getTotalOrderExpenses();
 
+}
+function getTripData()
+{
+    var header_book_id = document.getElementById('series_id_input').value;
+    var location_id = document.getElementById('store_id_input').value;
+    $.ajax({
+        url: tripRoute,
+        method: 'GET',
+        dataType: 'json',
+        data : {
+            header_book_id : header_book_id,
+            from_store_id : location_id,
+        },
+        success: function(response) {
+            console.log(response);
+
+            if (response?.status === 'success') {
+                const dataRecords = response?.data || [];
+
+                if (dataRecords.length > 0) {
+                    let tripOptions = `<option value="">Select</option>`;
+                    dataRecords.forEach((tripData) => {
+                        const vehicleNumber = tripData.vehicle_number ?? 'No Vehicle';
+                        const tripDisplay = `${tripData.book_code}-${tripData.document_number} (${vehicleNumber})`;
+                        const isSelected = order.trip_id == tripData.id ? 'selected' : '';
+
+                        tripOptions += `<option value="${tripData.id}" ${isSelected}>${tripDisplay}</option>`;
+                    });
+                    document.getElementById('trip_header_input').innerHTML = tripOptions;
+                } else {
+                    document.getElementById('trip_header_input').innerHTML = `<option value="">No Trip Available</option>`;
+                }
+            } else {
+                Swal.fire({
+                    title: 'Error!',
+                    text: response?.message || 'No Trips Found',
+                    icon: 'error',
+                });
+                document.getElementById('trip_header_input').innerHTML = `<option value="">No Trip Available</option>`;
+            }
+        },
+
+        error: function(xhr) {
+            console.error('Error fetching trip data:', xhr.responseText);
+            document.getElementById('trip_header_input').innerHTML = `<option value = "">No Trip Available</option>`;
+        }
+    });
 }

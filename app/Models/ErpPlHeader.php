@@ -20,6 +20,7 @@ class ErpPlHeader extends Model
         'organization_id',
         'group_id',
         'company_id',
+        'trip_id',
         'book_id',
         'book_code',
         'store_id',
@@ -60,6 +61,11 @@ class ErpPlHeader extends Model
         'updated_by',
         'deleted_by',
     ];
+
+    public function trip()
+    {
+        return $this->belongsTo(ErpTripPlanHeader::class, 'trip_id');
+    }
 
     public function media()
     {

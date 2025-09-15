@@ -84,6 +84,21 @@
                                     <button type="button" class="btn btn-primary btn-sm" id="approved-button" name="action" value="approved"><i data-feather="check-circle"></i> Approve</button>
                                     <button type="button" id="reject-button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Reject</button>
                                 @endif
+
+                                @if($buttons['post'])
+                                    {{-- @if($eInvoice && !$eInvoice['ewb_no'])
+                                        <a type="button" class="btn btn-primary btn-sm" id="eWayBillBtn" href="#">
+                                            <i data-feather="check-circle"></i> Direct Eway Bill
+                                        </a>
+                                    @endif --}}
+                                    @if(!intval(request('amendment') ?? 0) && $mrn->document_status != \App\Helpers\ConstantHelper::DRAFT && $mrn->document_status != \App\Helpers\ConstantHelper::SUBMITTED && $mrn->document_status != \App\Helpers\ConstantHelper::PARTIALLY_APPROVED)
+                                        @if(!$eInvoice || ($eInvoice->irn_number && ($eInvoice->status == "cancelled")))
+                                            <a type="button" class="btn btn-primary btn-sm" id="eEnvoiceBtn" href="#">
+                                                <i data-feather="check-circle"></i> Generate Envoice
+                                            </a>
+                                        @endif
+                                    @endif
+                                @endif
                                 @if($buttons['voucher'])
                                     <button type="button" onclick="onPostVoucherOpen('posted');" class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-file-text"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Voucher</button>
                                     <button type = "button" onclick = "sendMailTo();"  class="btn btn-primary btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i data-feather="mail"></i> E-Mail</button>
@@ -992,6 +1007,7 @@
     <script type="text/javascript">
         var actionUrlTax = '{{route("purchase-return.tax.calculation")}}';
         var qtyChangeUrl = '{{ route("purchase-return.get.validate-quantity") }}';
+        let taxCalUrl = '{{ route('tax.group.calculate') }}';
     </script>
     <script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
     <script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>
@@ -1037,7 +1053,7 @@
             localStorage.removeItem('deletedItemDiscTedIds');
             localStorage.removeItem('deletedHeaderDiscTedIds');
             localStorage.removeItem('deletedHeaderExpTedIds');
-            localStorage.removeItem('deletedPRItemIds');
+            localStorage.removeItem('deletedMrnItemIds');
         },0);
 
         @if($subStoreCount > 0)
@@ -1840,7 +1856,7 @@
         $(document).on('click','#deleteConfirm', (e) => {
             let ids = e.target.getAttribute('data-ids');
             ids = JSON.parse(ids);
-            localStorage.setItem('deletedPRItemIds', JSON.stringify(ids));
+            localStorage.setItem('deletedMrnItemIds', JSON.stringify(ids));
             $("#deleteComponentModal").modal('hide');
 
             if(ids.length) {
@@ -2169,6 +2185,7 @@
                                     id: item.id,
                                     label: `${item.name}`,
                                     percentage: `${item.percentage}`,
+                                    hsn_id: item.hsn_id,
                                 };
                             }));
                         },
@@ -2180,12 +2197,14 @@
                 minLength: 0,
                 select: function(event, ui) {
                     var $input = $(this);
-                    var itemName = ui.item.label;
                     var itemId = ui.item.id;
+                    var hsnId = ui?.item?.hsn_id;
+                    var itemName = ui.item.label;
                     var itemPercentage = ui.item.percentage;
 
                     $input.val(itemName);
-                    $("#" + idSelector).val(itemId);
+
+                    $("#" + idSelector).val(itemId).attr("data-hsn-id", hsnId);
                     $("#" + nameSelector).val(itemName);
                     $("#" + percentageVal).val(itemPercentage).trigger('keyup');
                     return false;
@@ -2193,7 +2212,7 @@
                 change: function(event, ui) {
                     if (!ui.item) {
                         $(this).val("");
-                        $("#" + idSelector).val("");
+                        $("#" + idSelector).val("").attr("data-hsn-id", "");
                         $("#" + nameSelector).val("");
                     }
                 }
@@ -2933,27 +2952,62 @@
                             index = index + 1;
                             rows+=`<tr class="display_summary_exp_row">
                                     <td>${index}</td>
-                                    <td>${item.ted_name}
-                                        <input type="hidden" value="${item.ted_id}" name="exp_summary[${index}][ted_e_id]">
-                                        <input type="hidden" value="" name="exp_summary[${index}][e_id]">
-                                        <input type="hidden" value="${item.ted_name}" name="exp_summary[${index}][e_name]">
-                                    </td>
-                                    <td class="text-end">${typeof item.ted_percentage === "number" ? '0' : item.ted_percentage}
-                                        <input type="hidden" value="${typeof item.ted_percentage === "number" ? '0' : item.ted_percentage}" name="exp_summary[${index}][e_perc]">
-                                        <input type="hidden" value="${item.ted_percentage}" name="exp_summary[${index}][hidden_e_perc]">
+                                    <td class="text-right">
+                                        ${item.ted_name}
+                                        <input type="hidden" name="exp_summary[${index}][hsn_id]" value="${item.hsn_id}">
+                                        <input type="hidden" name="exp_summary[${index}][ted_e_id]" value="${item.ted_id}">
+                                        <input type="hidden" name="exp_summary[${index}][e_id]" value="${item.id}">
+                                        <input type="hidden" name="exp_summary[${index}][e_name]" value="${item.ted_name}">
                                     </td>
                                     <td class="text-end">
-                                    <input type="hidden" value="" name="exp_summary[${index}][e_amnt]">
+                                        ${parseFloat((item.ted_amount ?? "0").toString().replace(/,/g, '')).toFixed(2)}
+                                        <input type="hidden"
+                                            name="exp_summary[${index}][e_amnt]"
+                                            value="${(item.ted_amount ?? "0").toString().replace(/,/g, '')}">
+                                    </td>
+                                    <td class="text-end">
+                                        ${parseFloat((item.tax_amount ?? "0").toString().replace(/,/g, '')).toFixed(2)}
+                                        <input type="hidden"
+                                            name="exp_summary[${index}][tax_amount]"
+                                            value="${parseFloat((item.tax_amount ?? "0").toString().replace(/,/g, '')).toFixed(2)}">
+                                    </td>
+                                    <td class="text-end">
+                                        ${(parseFloat((item.ted_amount ?? "0").toString().replace(/,/g, '')) +
+                                        parseFloat((item.tax_amount ?? "0").toString().replace(/,/g, ''))).toFixed(2)}
+                                        <input type="hidden"
+                                            name="exp_summary[${index}][total]"
+                                            value="${(parseFloat((item.ted_amount ?? "0").toString().replace(/,/g, '')) +
+                                                        parseFloat((item.tax_amount ?? "0").toString().replace(/,/g, ''))).toFixed(2)}">
                                     </td>
                                     <td>
-                                        <a href="javascript:;" class="text-danger deleteExpRow">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-trash-2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                                        </a>
+                                        ${item.tax_breakup ? formatTaxBreakup(item.tax_breakup) : ''}
+                                        <input type="hidden" name="exp_summary[${index}][tax_breakup]" value='${item.tax_breakup ?? ''}'>
+                                    </td>
+                                    <td>
+                                        <!-- <a href="javascript:;" class="text-danger deleteExpRow">
+                                            <i class="fa fa-trash"></i>
+                                        </a> -->
                                     </td>
                                 </tr>`;
                         });
-                        $("#summaryExpTable tbody").find('.display_summary_exp_row').remove();
-                        $("#summaryExpTable tbody").find('#expSummaryFooter').before(rows);
+                        if (!$(".display_summary_exp_row").length) {
+                            $("#summaryExpTable #expSummaryFooter").before(tr);
+                        } else {
+                            $(".display_summary_exp_row:last").after(tr);
+                        }
+                        $("#f_header_expense_hidden").removeClass('d-none');
+                        $("#new_exp_name_select").val("");
+                        $("#new_exp_id").val("");
+                        $("#new_exp_name").val("");
+                        $("#new_exp_perc").val("").prop("readonly", false);
+                        $("#new_exp_value").val("").prop("readonly", false);
+                        let total_head_exp = 0;
+                        $("[name*='[total]']").each(function (index, item) {
+                            total_head_exp += Number($(item).val());
+                        });
+
+                        $("#expSummaryFooter #total").text(total_head_exp.toFixed(2));
+                        summaryExpTotal();
                     }
 
                     // General details
@@ -2974,11 +3028,11 @@
                         if(idsLength > 1)
                         {
                             $("#itemTable .mrntableselectexcel tr").each(function(index, item) {
+                                let currentIndex = index + 1;
                                 if(tableRowCount>0)
                                 {
                                     currentIndex = tableRowCount + 1;
                                 }
-                                let currentIndex = index + 1;
                                 setAttributesUIHelper(currentIndex,"#itemTable");
                             });
                         }

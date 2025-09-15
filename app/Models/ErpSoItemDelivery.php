@@ -23,4 +23,9 @@ class ErpSoItemDelivery extends Model
     {
         return $this->belongsTo(ErpSoItem::class, 'so_item_id');
     }
+    public function trip_details()
+    {
+        return $this->hasMany(ErpTripPlanDetail::class, 'order_item_delivery_id', 'id');
+    }
+
 }

@@ -5,7 +5,7 @@
             if (isset($scrap->reference_type) && $scrap->reference_type) {
                 $scrap->applyReference($scrap->reference_type);
             }
-            $createEdit = $buttons['draft'] && $buttons['submit'] ? true : false;
+            $createEdit = isset($buttons) ? (bool) (($buttons['draft'] ?? false) && ($buttons['submit'] ?? false)) : true;
             $createEditReadonly = $createEdit ? '' : 'readonly';
             $createEditDisabled = $createEdit ? '' : 'disabled';
         @endphp
@@ -174,8 +174,8 @@
                                                     <div class="col-md-3">
                                                         <label class="form-label">Reference from</label>
                                                     </div>
-                                                    <div class="col-md-5 action-button">
-                                                        @if (isset($scrap->reference_type) && $scprocurement_type_paramrap->reference_type)
+                                                    <div class="col-md-5 action-button" id="reference_from">
+                                                        @if (isset($scrap->id))
                                                             @if ($scrap->reference_type == 'pslip')
                                                                 <button {{ $createEditDisabled }} type="button" class="btn btn-outline-primary btn-sm mb-0 psSelect" @if (!$buttons['draft'] || !$buttons['submit']) disabled @endif>
                                                                     <i data-feather="plus-square"></i>
@@ -186,10 +186,13 @@
                                                                     <i data-feather="plus-square"></i>
                                                                     Repair Order
                                                                 </button>
+                                                            @else
+                                                                <button type="button" class="btn btn-outline-primary btn-sm mb-0 psSelect" disabled><i data-feather="plus-square"></i>Production Slip </button>
+                                                                <button type="button" class="btn btn-outline-primary btn-sm mb-0 roSelect" disabled><i data-feather="plus-square"></i> Repair Order</button>
                                                             @endif
                                                         @else
-                                                            <button type="button" class="btn btn-outline-primary btn-sm mb-0 psSelect d-none" disabled> <i data-feather="plus-square"></i>Production Slip </button>
-                                                            <button type="button" class="btn btn-outline-primary btn-sm mb-0 roSelect d-none" disabled><i data-feather="plus-square"></i> Repair Order</button>
+                                                            <button type="button" class="btn btn-outline-primary btn-sm mb-0 psSelect"><i data-feather="plus-square"></i>Production Slip </button>
+                                                            <button type="button" class="btn btn-outline-primary btn-sm mb-0 roSelect"><i data-feather="plus-square"></i> Repair Order</button>
                                                         @endif
                                                     </div>
                                                 </div>

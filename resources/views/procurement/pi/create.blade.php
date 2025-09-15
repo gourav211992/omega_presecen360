@@ -265,7 +265,7 @@
                                                             <div class="col-md-4">
                                                                 <div class="mb-1">
                                                                     <label class="form-label">Upload Document</label>
-                                                                    <input type="file" name="attachment[]" class="form-control" onchange = "addFiles(this,'main_order_file_preview')" multiple>
+                                                                    <input type="file" name="attachment[]" class="form-control" onchange = "addFiles(this,'main_order_file_preview')" max_file_count = "5" multiple>
                                                                     <span class = "text-primary small">{{ __('message.attachment_caption') }}</span>
                                                                 </div>
                                                             </div>
@@ -1752,8 +1752,8 @@
                         </td>
                         <td>
                             ${typeof soTrackingRequired !== 'undefined' && soTrackingRequired ? `
-                                                                                                                                    <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />
-                                                                                                                                ` : ''}
+                                                                                                                                            <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />
+                                                                                                                                        ` : ''}
                         </td>
                         <td>
                             <input type="text" name="components[${index}][remark]" class="form-control mw-100 mb-25" value="${remarks}"/>

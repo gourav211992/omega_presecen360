@@ -61,6 +61,7 @@
                                 <button type = "button" name="action" value="draft" id = "save-draft-button" onclick = "submitForm('draft');" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0"><i data-feather='save'></i> Save as Draft</button>
                                 <button type = "button" name="action" value="submitted"  id = "submit-button" onclick = "submitForm('submitted');" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather="check-circle"></i> Submit</button>
 
+
                             @endif
                             @endif
 						</div>
@@ -1938,10 +1939,12 @@
     <div class="modal fade" id="importItemModal" tabindex="-1" aria-labelledby="importItemModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content shadow-lg rounded">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title" id="importItemModalLabel">Import Items</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
+                <div class="modal-header">
+             <div>
+                <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="importItemModalLabel">Import Items</h4>
+             </div>
+             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
                 <div class="modal-body">
                     <!-- File Upload -->
                     <div class="mb-3">
@@ -3989,7 +3992,7 @@
 
                 item.discount_ted.forEach((ted, tedIndex) => {
                     addHiddenInput("item_discount_name_" + itemIndex + "_" + tedIndex, ted.ted_name, `item_discount_name[${itemIndex}][${tedIndex}]`, 'discount_names_hidden_' + itemIndex, 'item_value_' + itemIndex, ted.id);
-                    addHiddenInput("item_discount_master_id_" + itemIndex + "_" + tedIndex, ted.ted_name, `item_discount_master_id[${itemIndex}][${tedIndex}]`, 'discount_names_hidden_' + itemIndex, 'item_value_' + itemIndex, ted.id);
+                    addHiddenInput("item_discount_master_id_" + itemIndex + "_" + tedIndex, ted.ted_name, `item_discount_master_id[${itemIndex}][${tedIndex}]`, 'discount_masters_hidden_' + itemIndex, 'item_value_' + itemIndex, ted.id);
                     addHiddenInput("item_discount_percentage_" + itemIndex + "_" + tedIndex, ted.ted_percentage ? ted.ted_percentage : '', `item_discount_percentage[${itemIndex}][${tedIndex}]`, 'discount_percentages_hidden_' + itemIndex,  'item_value_' + itemIndex, ted.id);
                     addHiddenInput("item_discount_value_" + itemIndex + "_" + tedIndex, ted.ted_amount, `item_discount_value[${itemIndex}][${tedIndex}]`, 'discount_values_hidden_' + itemIndex, 'item_value_' + itemIndex, ted.id);
                     addHiddenInput("item_discount_id_" + itemIndex + "_" + tedIndex, ted.id, `item_discount_id[${itemIndex}][${tedIndex}]`, 'discount_ids_hidden_' + itemIndex, 'item_value_' + itemIndex);
@@ -6823,7 +6826,7 @@ $('#attribute').on('hidden.bs.modal', function () {
                 const itemValue = (rate * physicalQty).toFixed(2);
                 // console.log(index);
                 const rowHtml = `
-                <tr id="item_row_${index}">
+                <tr id="item_row_${index}" class = "item_header_rows">
                     <td class="customernewsection-form">
                         <div class="form-check form-check-primary custom-checkbox">
                             <input type="checkbox" class="form-check-input item_row_checks" id="item_row_check_${index}" del-index="${index}">

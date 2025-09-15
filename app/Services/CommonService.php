@@ -194,7 +194,7 @@ class CommonService
         $newAddresses = [];
         foreach ($data as $address) {
             if (!empty($address['country_id']) && !empty($address['state_id']) && !empty($address['city_id'])) {
-                 if ($isVendor) {
+            if ($isVendor) {
                 $type = 'billing';
                 $is_billing = 1;
                 $is_shipping = 0;
@@ -243,6 +243,7 @@ class CommonService
     {
         $data['msme_registered'] = isset($data['msme_registered']) ? 1 : 0;
         $data['tds_applicable'] = isset($data['tds_applicable']) ? 1 : 0;
+        $data['is_rcm'] = isset($data['is_rcm']) ? 1 : 0; 
         if (isset($data['gst_applicable'])) {
         $compliance = $morphable->compliances()->create($data);
 
@@ -274,6 +275,7 @@ class CommonService
     {
         $data['msme_registered'] = isset($data['msme_registered']) ? 1 : 0;
         $data['tds_applicable'] = isset($data['tds_applicable']) ? 1 : 0;
+        $data['is_rcm'] = isset($data['is_rcm']) ? 1 : 0; 
         $compliance = $vendor->compliances()->first();
 
         if ($compliance) {

@@ -67,6 +67,7 @@
                                 </div>
                             </th>
                             <th>Series</th>
+                            <th>Trip No.</th>
                             <th>Doc No.</th>
                             <th>Doc Date</th>
                             <th>Delivery Date</th>
@@ -77,6 +78,7 @@
                             <th>UOM</th>
                             <th class="text-end">Order Qty</th>
                             <th class="text-end">Balance Qty</th>
+                            <th class="text-end">Trip Qty</th>
                             <th class="text-end">Avl Stk</th>
                             <th class="text-end">Pick Qty</th>
                             <th>Rate.</th>

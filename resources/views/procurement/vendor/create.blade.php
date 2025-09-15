@@ -713,6 +713,24 @@
                                                                     
                                                                     <div class="row align-items-center mb-1">
                                                                         <div class="col-md-4">
+                                                                            <label class="form-label">TDS Certificate No.</label>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <input type="text" name="compliance[tds_certificate_no]" class="form-control numberonly">
+                                                                        </div>
+                                                                    </div>
+                                                                
+                                                                    <div class="row align-items-center mb-1">
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label">TAN Number</label>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <input type="text" name="compliance[tan_number]" class="form-control numberonly">
+                                                                        </div>
+                                                                    </div>
+
+                                                                     <div class="row align-items-center mb-1">
+                                                                        <div class="col-md-4">
                                                                             <label class="form-label">TDS Applicable</label>
                                                                         </div>
                                                                         <div class="col-md-6">
@@ -720,60 +738,6 @@
                                                                                 <input type="checkbox" name="compliance[tds_applicable]" id="tdsApplicableIndia" class="form-check-input" checked>
                                                                                 <label class="form-check-label" for="tdsApplicableIndia">Yes/No</label>
                                                                             </div>
-                                                                        </div>
-                                                                    </div>
-                                                                    
-                                                                    <div class="row align-items-center mb-1">
-                                                                        <div class="col-md-4">
-                                                                            <label class="form-label">Wef Date</label>
-                                                                        </div>
-                                                                        <div class="col-md-6">
-                                                                            <input type="date" name="compliance[wef_date]" class="form-control">
-                                                                        </div>
-                                                                    </div>
-                                                                    
-                                                                    <div class="row align-items-center mb-1">
-                                                                        <div class="col-md-4">
-                                                                            <label class="form-label">TDS Certificate No.</label>
-                                                                        </div>
-                                                                        <div class="col-md-6">
-                                                                            <input type="text" name="compliance[tds_certificate_no]" class="form-control numberonly">
-                                                                        </div>
-                                                                    </div>
-                                                                    
-                                                                    <div class="row align-items-center mb-1">
-                                                                        <div class="col-md-4">
-                                                                            <label class="form-label">TDS Tax Percentage</label>
-                                                                        </div>
-                                                                        <div class="col-md-6">
-                                                                            <input type="text" name="compliance[tds_tax_percentage]" class="form-control numberonly">
-                                                                        </div>
-                                                                    </div>
-                                                                    
-                                                                    <div class="row align-items-center mb-1">
-                                                                        <div class="col-md-4">
-                                                                            <label class="form-label">TDS Category</label>
-                                                                        </div>
-                                                                        <div class="col-md-6">
-                                                                            <input type="text" name="compliance[tds_category]" class="form-control">
-                                                                        </div>
-                                                                    </div>
-                                                                    
-                                                                    <div class="row align-items-center mb-1">
-                                                                        <div class="col-md-4">
-                                                                            <label class="form-label">TDS Value Cab</label>
-                                                                        </div>
-                                                                        <div class="col-md-6">
-                                                                            <input type="text" name="compliance[tds_value_cab]" class="form-control numberonly">
-                                                                        </div>
-                                                                    </div>
-                                                                    
-                                                                    <div class="row align-items-center mb-1">
-                                                                        <div class="col-md-4">
-                                                                            <label class="form-label">TAN Number</label>
-                                                                        </div>
-                                                                        <div class="col-md-6">
-                                                                            <input type="text" name="compliance[tan_number]" class="form-control numberonly">
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -824,6 +788,19 @@
                                                                         </div>
                                                                         <div class="col-md-6">
                                                                             <input type="date" name="compliance[gstin_registration_date]" class="form-control">
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div class="row align-items-center mb-1" id="rcmCheckboxWrapper">
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label">RCM Applicable</label>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <div class="form-check form-check-primary mt-25 custom-checkbox">
+                                                                                <input type="hidden" name="compliance[is_rcm]" value="0">
+                                                                                <input type="checkbox" id="rcmCheckbox" name="compliance[is_rcm]" class="form-check-input" value="1">
+                                                                                <label class="form-check-label" for="rcmCheckbox">Yes/No</label>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                     
@@ -2217,6 +2194,26 @@ $(document).ready(function() {
                     toggleLedgerOption(); 
                 }
             });
+    });
+
+    $(document).ready(function() {
+        function toggleRcmCheckbox() {
+            const isRegistered = $('#gstRegisteredIndia').is(':checked');
+            const $rcmWrapper = $('#rcmCheckboxWrapper');
+            const $rcmCheckbox = $('#rcmCheckbox');
+
+            if (isRegistered) {
+                $rcmCheckbox.prop('checked', false); 
+                $rcmWrapper.hide();
+            } else {
+                $rcmWrapper.show();
+            }
+        }
+
+        toggleRcmCheckbox();
+        $('#gstRegisteredIndia, #gstNonRegisteredIndia').on('change', function() {
+            toggleRcmCheckbox();
+        });
     });
 </script>
 @endsection

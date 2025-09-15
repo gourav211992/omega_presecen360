@@ -210,6 +210,21 @@
                                                 </select>
                                             </div>
                                         </div>
+                                        <div class="row align-items-center trip_header_section d-none mb-1" id="trip_header_section">
+                                            <div class="col-md-3"> 
+                                                <label class="form-label" id="trip_header_label">Trip Number<span class="text-danger">*</span></label>  
+                                            </div>
+                                            <div class="col-md-5">  
+                                                @if(isset($order) && $order->trip_id && $order->document_status != App\Helpers\ConstantHelper::DRAFT)
+                                                    <input type="text" class="form-control" value="{{ $order->trip->book_code . '-' . $order->trip->document_number }}" disabled>
+                                                    <input type="hidden" name="trip_header_id" value="{{ $order->trip_id }}">
+                                                @else
+                                                    <select class="form-select disable_on_edit" name="trip_header_id" id="trip_header_input" oninput="loadOrders();">
+                                                        <option value="">Select</option> 
+                                                    </select>
+                                                @endif    
+                                            </div>
+                                        </div>
                                     </div>
                                     @if(isset($order))
                                     @include('partials.approval-history', ['document_status' => $order->document_status, 'revision_number' => $order->revision_number]) 

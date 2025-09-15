@@ -56,7 +56,7 @@ class MaterialIssueWhmJob
             ]
         );
         //PUTAWAY JOB
-        if ($job -> trns_type === CommonHelper::PICKING) {
+        if ($job -> trns_type === CommonHelper::PUTAWAY) {
             $this -> copyQRCodes($job);
         }
         return;

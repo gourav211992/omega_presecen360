@@ -675,14 +675,18 @@ class PurchaseReturnController extends Controller
                 if (isset($request->all()['exp_summary'])) {
                     foreach ($request->all()['exp_summary'] as $dis) {
                         if (isset($dis['e_amnt']) && $dis['e_amnt']) {
-                            $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount + $totalTax;
+                            $totalAfterTax =   $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount - $totalTax;
                             $ted = new PRTed;
                             $ted->header_id = $pb->id;
                             $ted->detail_id = null;
+                            $ted->hsn_id = $dis['hsn_id'] ?? null;
+                            $ted->tax_amount = $dis['tax_amount'] ?? 0.00;
+                            $ted->tax_breakup  =  $dis['tax_breakup'] ?? null;
                             $ted->ted_type = 'Expense';
                             $ted->ted_level = 'H';
                             $ted->ted_id = $dis['ted_e_id'] ?? null;
                             $ted->ted_name = $dis['e_name'];
+                            $ted->ted_code = $dis['e_name'];
                             $ted->assesment_amount = $totalAfterTax;
                             $ted->ted_percentage = $dis['e_perc'] ?? 0.00;
                             $ted->ted_amount = $dis['e_amnt'] ?? 0.00;
@@ -999,7 +1003,7 @@ class PurchaseReturnController extends Controller
                 $this->amendmentSubmit($request, $id);
             }
 
-            $keys = ['deletedItemDiscTedIds', 'deletedHeaderDiscTedIds', 'deletedHeaderExpTedIds', 'deletedPRItemIds'];
+            $keys = ['deletedItemDiscTedIds', 'deletedHeaderDiscTedIds', 'deletedHeaderExpTedIds', 'deletedMrnItemIds'];
             $deletedData = [];
 
             foreach ($keys as $key) {
@@ -1115,8 +1119,8 @@ class PurchaseReturnController extends Controller
                 foreach ($request->all()['components'] as $c_key => $component) {
                     $item = Item::find($component['item_id'] ?? null);
                     $mrn_detail_id = null;
-                    if (isset($component['detail_id']) && $component['detail_id']) {
-                        $pbDetail = PRDetail::find($component['detail_id'] ?? null);
+                    if (isset($component['pr_dtl_id']) && $component['pr_dtl_id']) {
+                        $pbDetail = PRDetail::find($component['pr_dtl_id'] ?? null);
                     }
                     if ($pb->mrn_header_id) {
                         $reference_type = 'mrn';
@@ -1246,7 +1250,7 @@ class PurchaseReturnController extends Controller
                     $itemHeaderExp = floatval($pbItem['expense_amount']);
 
                     # PR Detail Save
-                    $pbDetail = PRDetail::find($component['detail_id'] ?? null) ?? new PRDetail;
+                    $pbDetail = PRDetail::find($component['pr_dtl_id'] ?? null) ?? new PRDetail;
 
                     $isNewItem = false;
                     if(isset($pbDetail->item_id) && $pbDetail->item_id) {
@@ -1370,11 +1374,14 @@ class PurchaseReturnController extends Controller
                 if (isset($request->all()['exp_summary'])) {
                     foreach ($request->all()['exp_summary'] as $dis) {
                         if (isset($dis['e_amnt']) && $dis['e_amnt']) {
-                            $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount + $totalTax;
+                            $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount - $totalTax;
                             $pbAmountId = @$dis['e_id'];
                             $ted = PRTed::find($pbAmountId) ?? new PRTed;
                             $ted->header_id = $pb->id;
                             $ted->detail_id = null;
+                            $ted->hsn_id = $dis['hsn_id'] ?? null;
+                            $ted->tax_amount = $dis['tax_amount'] ?? 0.00;
+                            $ted->tax_breakup  =  $dis['tax_breakup'] ?? null;
                             $ted->ted_type = 'Expense';
                             $ted->ted_level = 'H';
                             $ted->ted_id = $dis['ted_e_id'] ?? null;
@@ -2532,7 +2539,7 @@ class PurchaseReturnController extends Controller
         $inputData = [
             'item_id'            => $request->item_id,
             'mrn_detail_id'      => $request->mrn_detail_id,
-            'pr_item_id'         => $request->pr_item_id,
+            'detail_id'         => $request->pr_dtl_id,
             'qty'                => $request->qty,
             'type'               => $request->type,
             'return_type'        => $request->return_type,
@@ -2586,9 +2593,30 @@ class PurchaseReturnController extends Controller
         $qtyTypeRequired = $queryData['type'];
         $mrnItemsQuery = $queryData['mrn_items'];
         return DataTables::of($mrnItemsQuery)
-            ->addColumn('select_checkbox', fn($row) =>
-                app(\App\View\Components\PR\CheckBox::class, ['row' => $row])->resolveView()->render()
-            )
+            ->addColumn('select_checkbox', function ($row) use ($request) {
+                $moduleType = 'mrn-order';
+                $ref_no = ($row?->header?->book?->book_code ?? 'NA') . '-' . ($row?->header?->document_number ?? 'NA');
+
+                $dataCurrentMrn = ($row->mrn_header_id ?? 'null');
+                $decoded = urldecode(urldecode($request->selected_mrn_ids));
+                $selected_mrn_ids = json_decode($decoded, true) ?? [];
+                $mrnDetail = MrnDetail::find($selected_mrn_ids)->pluck('mrn_header_id')->toArray();
+                $dataExistingMrn = $request->type == 'create' && $row?->mrn_header_id
+                    ? ($selected_mrn_ids[0] ?? 'null')
+                    : 'null';
+
+                // Determine if checkbox should be disabled
+                if (empty($selected_mrn_ids)) {
+                    $disabled = '';
+                } else {
+                    $disabled = (!in_array($dataCurrentMrn, $mrnDetail)) ? 'disabled' : '';
+                }
+
+                return "<div class='form-check form-check-inline me-0'>
+                            <input class='form-check-input mrn_item_checkbox' type='checkbox' name='mrn_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-mrn='{$dataCurrentMrn}' data-existing-mrn='{$dataExistingMrn}' {$disabled}>
+                            <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
+                        </div>";
+            })
             ->addColumn('vendor', fn($row) =>
                 $row?->mrnHeader?->vendor?->company_name ?? 'NA'
             )
@@ -2691,7 +2719,7 @@ class PurchaseReturnController extends Controller
         $vendorId = $request->vendor_id ?? null;
         $qtyTypeRequired = $request->return_type ?? null;
         $headerBookId = $request->header_book_id ?? null;
-        $storeId = $request->header_store_id ?? null;
+        $storeId = $request->store_id ?? null;
         $subStoreId = $request->sub_store_id ?? null;
         $itemSearch = $request->item_search ?? null;
         $detailsIds = $request->details_ids ?? '';
@@ -2770,7 +2798,7 @@ class PurchaseReturnController extends Controller
                 }
 
                 if ($docNumber) {
-                    $mrn->where('document_number', $docNumber);
+                    $mrn->where('id', $docNumber);
                 }
 
                 if ($vendorId) {
@@ -2797,6 +2825,7 @@ class PurchaseReturnController extends Controller
             $mrnItems->whereNotIn('erp_mrn_details.id', $selected_mrn_ids);
         }
 
+
         // ❌ Do not call get()
         // ✅ Return query
         $finalData = [
@@ -2820,6 +2849,14 @@ class PurchaseReturnController extends Controller
         $storeId = $request->store_id ?? null;
         $subStoreId = $request->sub_store_id ?? null;
         $tableRowCount = $request->tableRowCount ?: 0;
+
+        $uniqueMrnIds = MrnDetail::whereIn('id', $ids)
+            ->distinct()
+            ->pluck('mrn_header_id')
+            ->toArray();
+        if(count($uniqueMrnIds) > 1) {
+            return response()->json(['data' => ['pos' => ''], 'status' => 422, 'message' => "Purchase Return can be created from one MRN at a time."]);
+        }
 
         // MRN detail query with stock_ledger join
         $mrnItems = MrnDetail::query()

@@ -12,6 +12,8 @@ class ErpPlItemDetail extends Model
     use HasFactory;
     protected $fillable = [
         'pl_header_id',
+        'trip_id',
+        'trip_detail_id',
         'order_id',
         'order_item_id',
         'order_item_delivery_id',
@@ -114,6 +116,10 @@ class ErpPlItemDetail extends Model
     public function soItem()
     {
         return $this->belongsTo(ErpSoItem::class,'order_item_id');
+    }
+    public function tripItem()
+    {
+        return $this->belongsTo(ErpTripPlanDetail::class,'trip_detail_id');
     }
     public function so()
     {

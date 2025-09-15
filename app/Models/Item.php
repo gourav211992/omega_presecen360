@@ -35,6 +35,9 @@ class Item extends Model implements Exportable
         'storage_uom_conversion',
         'storage_uom_count',
         'storage_weight',
+        'length_in_feet',
+        'breadth_in_feet',
+        'height_in_feet',
         'storage_volume',
         'is_serial_no',
         'is_batch_no',
@@ -103,6 +106,11 @@ class Item extends Model implements Exportable
     public function hsn()
     {
         return $this->belongsTo(Hsn::class, 'hsn_id');
+    }
+
+     public function packagingDetails()
+    {
+        return $this->hasMany(ItemPackagingDetail::class, 'item_id');
     }
 
     public function category()

@@ -21,9 +21,12 @@
                 <!-- Organization Logo (Left) -->
                  <td style="text-align: left; width: 33%;">
                     @if (isset($orgLogo) && $orgLogo)
-                        <img src="{!! $orgLogo !!}" alt="" height="50px" />
-                    @else
-                        <img src="{{ $imagePath }}" height="50px" alt="">
+                        @php
+                            $data = isset($orgLogo) && $orgLogo ? file_get_contents($orgLogo) : '';
+                            $imgType = pathinfo($orgLogo, PATHINFO_EXTENSION);
+                            $base64 = 'data:image/' . $imgType . ';base64,' . base64_encode($data);
+                        @endphp
+                        <img src="{!! $base64 !!}" alt="" height="50px" />
                     @endif
                 </td>
 

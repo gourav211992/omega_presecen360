@@ -605,6 +605,22 @@ class ItemController extends Controller
             }
         }
 
+        if ($request->has('packaging')) {
+            foreach ($request->input('packaging') as $packData) {
+                if (isset($packData['pack_no'], $packData['pack_name'], $packData['pack_length'], $packData['pack_breadth'], $packData['pack_height'], $packData['pack_weight'], $packData['pack_volume'])) {
+                    $item->packagingDetails()->create([
+                        'packet_no'     => $packData['pack_no'],
+                        'packet_name'   => $packData['pack_name'],
+                        'length_in_feet'  => $packData['pack_length'],
+                        'breadth_in_feet' => $packData['pack_breadth'],
+                        'height_in_feet'  => $packData['pack_height'],
+                        'storage_weight'   => $packData['pack_weight'],
+                        'storage_volume'  => $packData['pack_volume'],
+                    ]);
+                }
+            }
+        }
+
         DB::commit();
 
         return response()->json([
@@ -746,15 +762,14 @@ class ItemController extends Controller
             return redirect()->route('/');
         }
         if ($request->has('revisionNumber')) {
-            $item = ItemHistory::with(['subTypes.subType'])
+            $item = ItemHistory::with(['subTypes.subType','packagingDetails'])
                 ->where('source_id', $id)
                 ->where('revision_number', $request->revisionNumber)
                 ->firstOrFail();
             $ogItem = Item::with(['subTypes.subType'])
             ->findOrFail($id);
         } else {
-            $item = Item::with(['subTypes.subType'])
-                ->findOrFail($id);
+           $item = Item::with(['subTypes.subType', 'packagingDetails'])->findOrFail($id);
             $ogItem = $item;
         }
         $organization = Organization::where('id', $user->organization_id)->first();
@@ -941,6 +956,7 @@ class ItemController extends Controller
                 ['model_type' => 'detail', 'model_name' => 'ItemSpecification', 'relation_column' => 'item_id'],
                 ['model_type' => 'detail', 'model_name' => 'VendorItem', 'relation_column' => 'item_id'],
                 ['model_type' => 'detail', 'model_name' => 'CustomerItem', 'relation_column' => 'item_id'],
+                ['model_type' => 'detail', 'model_name' => 'ItemPackagingDetail', 'relation_column' => 'item_id'],
 
             ];
 
@@ -1291,6 +1307,41 @@ class ItemController extends Controller
             $item->specifications()->whereNotIn('id', $existingIds)->delete();
         } else {
             $item->specifications()->delete();
+        }
+
+        // --- Packaging Details ---
+        if ($request->has('packaging')) {
+            $existingPackaging = $item->packagingDetails()->pluck('id')->toArray();
+            $newPackagingIds = [];
+
+            foreach ($request->input('packaging') as $packData) {
+                if (!empty($packData['id']) && in_array($packData['id'], $existingPackaging)) {
+                    $item->packagingDetails()->where('id', $packData['id'])->update([
+                        'packet_no' => $packData['pack_no'] ?? null,
+                        'packet_name' => $packData['pack_name'] ?? null,
+                        'length_in_feet' => $packData['pack_length'] ?? null,
+                        'breadth_in_feet' => $packData['pack_breadth'] ?? null,
+                        'height_in_feet' => $packData['pack_height'] ?? null,
+                        'storage_weight' => $packData['pack_weight'] ?? null,
+                        'storage_volume' => $packData['pack_volume'] ?? null,
+                    ]);
+                    $newPackagingIds[] = $packData['id'];
+                } else {
+                    $newPack = $item->packagingDetails()->create([
+                        'packet_no' => $packData['pack_no'] ?? null,
+                        'packet_name' => $packData['pack_name'] ?? null,
+                        'length_in_feet' => $packData['pack_length'] ?? null,
+                        'breadth_in_feet' => $packData['pack_breadth'] ?? null,
+                        'height_in_feet' => $packData['pack_height'] ?? null,
+                        'storage_weight' => $packData['pack_weight'] ?? null,
+                        'storage_volume' => $packData['pack_volume'] ?? null,
+                    ]);
+                    $newPackagingIds[] = $newPack->id;
+                }
+            }
+            $item->packagingDetails()->whereNotIn('id', $newPackagingIds)->delete();
+        } else {
+            $item->packagingDetails()->delete();
         }
 
         DB::commit();

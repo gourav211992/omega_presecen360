@@ -191,11 +191,7 @@ class CustomerImport implements ToCollection, WithHeadingRow, WithChunkReading
                 'gst_applicable' => $gstApplicable,
                 'gstin_no' => $gstinNo,
                 'tds_applicable' => ($row['tds_applicable'] ?? 'N') === 'Y' ? 1 : 0,
-                'wef_date' => $tdsWefDatee ?? null,
                 'tds_certificate_no' => $row['tds_certificate_no'] ?? null,
-                'tds_tax_percentage' => $row['tds_tax'] ?? null,
-                'tds_category' => $row['tds_category'] ?? null,
-                'tds_value_cab' => $row['tds_value_cap'] ?? null,
                 'tan_number' => $row['tan_no'] ?? null,
                 'status' => 'Processed',
                 'group_id' => $validatedData['group_id'],
@@ -374,11 +370,7 @@ private function processCustomerFromUpload($uploadedCustomers)
                 'gst_applicable' => $uploadedCustomer->gst_applicable ?? 0,
                 'gstin_no' => $uploadedCustomer->gstin_no ?? null,
                 'tds_applicable' => $uploadedCustomer->tds_applicable ?? 0,
-                'wef_date' => $uploadedCustomer->wef_date ?? null,
                 'tds_certificate_no' => $uploadedCustomer->tds_certificate_no ?? null,
-                'tds_tax_percentage' => $uploadedCustomer->tds_tax_percentage ?? null,
-                'tds_category' => $uploadedCustomer->tds_category ?? null,
-                'tds_value_cab' => $uploadedCustomer->tds_value_cab ?? null,
                 'tan_number' => $uploadedCustomer->tan_number ?? null,
                 'country_id' => $locationIds['country_id'] ?? null,
                 'state_id' => $locationIds['state_id'] ?? null,
@@ -472,32 +464,10 @@ private function processCustomerFromUpload($uploadedCustomers)
                 'gst_registered_name' => 'nullable|string|max:255',
                 'gstin_registration_date' => 'nullable|date',
                 'tds_applicable' => 'nullable',
-                'wef_date' => [
-                    'nullable',
-                    'date',
-                    'required_if:tds_applicable,1'
-                ],
                 'tds_certificate_no' => [
                     'nullable',
                     'string',
                     'max:255',
-                    'required_if:tds_applicable,1'
-                ],
-                'tds_tax_percentage' => [
-                    'nullable',
-                    'numeric',
-                    'max:100',
-                    'required_if:tds_applicable,1'
-                ],
-                'tds_category' => [
-                    'nullable',
-                    'string',
-                    'max:255',
-                    'required_if:tds_applicable,1'
-                ],
-                'tds_value_cab' => [
-                    'nullable',
-                    'numeric',
                     'required_if:tds_applicable,1'
                 ],
                 'tan_number' => 'nullable|string|max:255',
@@ -571,14 +541,6 @@ private function processCustomerFromUpload($uploadedCustomers)
                 'tds_certificate_no.required_if' => 'TDS Certificate Number is required if TDS is applicable.',
                 'tds_certificate_no.string' => 'TDS Certificate Number must be a string.',
                 'tds_certificate_no.max' => 'TDS Certificate Number cannot exceed 255 characters.',
-                'tds_tax_percentage.required_if' => 'TDS Tax Percentage is required if TDS is applicable.',
-                'tds_tax_percentage.numeric' => 'TDS Tax Percentage must be a number.',
-                'tds_tax_percentage.max' => 'TDS Tax Percentage cannot exceed 100.',
-                'tds_category.required_if' => 'TDS Category is required if TDS is applicable.',
-                'tds_category.string' => 'TDS Category must be a string.',
-                'tds_category.max' => 'TDS Category should not exceed 255 characters.',
-                'tds_value_cab.required_if' => 'TDS Value Cap is required if TDS is applicable.',
-                'tds_value_cab.numeric' => 'TDS Value Cap must be a number.',
                 'tan_number.string' => 'TAN number must be a string.',
                 'tan_number.max' => 'TAN number cannot exceed 255 characters.',
                 'status.string' => 'Status must be a string.',
@@ -675,11 +637,7 @@ private function processCustomerFromUpload($uploadedCustomers)
                 'gstin_registration_date' => $gstDetails ? ($gstDetails['DtReg'] ?? null) : null,
                 'gst_registered_name' => $gstDetails ? ($gstDetails['LegalName'] ?? null) : null,
                 'tds_applicable' => $uploadedCustomer->tds_applicable ?? 0,
-                'wef_date' => $uploadedCustomer->wef_date ?? null,
                 'tds_certificate_no' => $uploadedCustomer->tds_certificate_no ?? null,
-                'tds_tax_percentage' => $uploadedCustomer->tds_tax_percentage ?? null,
-                'tds_category' => $uploadedCustomer->tds_category ?? null,
-                'tds_value_cab' => $uploadedCustomer->tds_value_cab ?? null,
                 'tan_number' => $uploadedCustomer->tan_number ?? null,
                 'status' => 'active',
             ];

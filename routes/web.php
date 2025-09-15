@@ -2,6 +2,7 @@
 
 use App\Helpers\Helper;
 use App\Helpers\ConstantHelper;
+use App\Http\Controllers\ErpRgrDefectTypeController;
 use App\Http\Controllers\ErpTripPlanController;
 use App\Http\Controllers\PurchaseOrderImportController;
 use App\Models\DefectNotification;
@@ -46,6 +47,7 @@ use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\BookTypeController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\ConsigneeController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ErpShelfController;
 use App\Http\Controllers\ErpStoreController;
@@ -442,7 +444,7 @@ Route::middleware(['user.auth'])->group(function () {
         Route::delete('/address/{id}', 'deleteAddress')->name('vendor.address.delete');
         Route::get('/{vendorId}/compliance-by-country/{countryId}', 'getComplianceByCountry');
         Route::get('/compliance/{id}', 'getComplianceById');
-        Route::post('/get-uoms', 'getUOM')->name('send.uom');
+        Route::post('/get-uoms', 'getUOM')->name('send.vendor.uom');
         Route::get('/states/{country_id}', 'getStates')->name('vendor.get.states');
     });
 
@@ -493,6 +495,17 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('/cities/{state_id}', 'getCities');
         Route::get('/{customerId}/compliance-by-country/{countryId}', 'getComplianceByCountry');
         Route::get('/compliance/{id}', 'getComplianceById');
+    });
+
+     Route::prefix('consignees')->controller(ConsigneeController::class)->group(function () {
+        Route::get('/', 'index')->name('consignees.index');
+        Route::get('/create', 'create')->name('consignees.create');
+        Route::post('/', 'store')->name('consignees.store');
+        Route::get('/{id}', 'show')->name('consignees.show');
+        Route::get('/{id}/edit', 'edit')->name('consignees.edit');
+        Route::put('/{id}', 'update')->name('consignees.update');
+        Route::delete('/address/{id}', 'deleteAddress')->name('consignees.address.delete');
+        Route::delete('/{id}', 'destroy')->name('consignees.destroy');
     });
 
     // Route::prefix('pos')->controller(PurchaseOrderController::class)->group(function () {
@@ -2437,6 +2450,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('/trip-plan/posting/get', [ErpTripPlanController::class, 'getPostingDetails'])->name('trip-plan.posting.get');
     Route::post('/trip-plan/post', [ErpTripPlanController::class, 'postPL'])->name('trip-plan.post');
     Route::post('/trip-plan/import', [ErpTripPlanController::class, 'import'])->name('trip-plan.import');
+    Route::get('/trip-plan/get-trip-data', [ErpTripPlanController::class, 'getTripData'])->name('trip-plan.get-trip-data');
 
 
     //Driver
@@ -2958,6 +2972,11 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('/details/{id}', 'details')->name('finance.gstr.details');
         Route::get('/detail/csv/{id}', 'detailCsv')->name('finance.gstr.detail-csv');
     });
+    Route::controller(ErpRgrDefectTypeController::class)->prefix('rgr-defect-types')->group(function () {
+        Route::get('/', 'index')->name('rgrd.index');
+        Route::post('/store', 'store')->name('rgrd.store');
+    });
+
 
 
 

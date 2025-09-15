@@ -20,10 +20,13 @@
         <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
             <tr>
                 <td style="vertical-align: top;">
-                    @if (isset($orgLogo))
-                        <img src="{!! $orgLogo !!}" alt="" height="50px" />
-                    @else
-                        <img src="{{$imagePath}}" height="50px" alt="">
+                    @if (isset($orgLogo) && $orgLogo)
+                        @php
+                            $data = isset($orgLogo) && $orgLogo ? file_get_contents($orgLogo) : '';
+                            $imgType = pathinfo($orgLogo, PATHINFO_EXTENSION);
+                            $base64 = 'data:image/' . $imgType . ';base64,' . base64_encode($data);
+                        @endphp
+                        <img src="{!! $base64 !!}" alt="" height="50px" />
                     @endif
                 </td>
                 <td style="text-align: right; vertical-align: bottom; font-weight: bold; font-size: 18px;">

@@ -674,13 +674,13 @@ class RgrJobController extends Controller
             $items = $job->itemUniqueCodes;
 
             $data = [
-                'total_packets'   => $items->count(),
-                'ok_to_receive'   => $items->where('status', 'ok_to_receive')->count(),
-                'package_missing' => $items->where('status', 'package_missing')->count(),
-                'wrong_product'   => $items->where('status', 'wrong_product')->count(),
-                'missing_item'    => $items->where('status', 'missing_item')->count(),
-                'extra_item'      => $items->where('status', 'extra_item')->count(),
-                'transit_damage'  => $items->where('status', 'transit_damage')->count(),
+                ['total_packets'   => $items->count()],
+                ['ok_to_receive'   => $items->where('status', 'ok_to_receive')->count()],
+                ['package_missing' => $items->where('status', 'package_missing')->count()],
+                ['wrong_product'   => $items->where('status', 'wrong_product')->count()],
+                ['missing_item'    => $items->where('status', 'missing_item')->count()],
+                ['extra_item'      => $items->where('status', 'extra_item')->count()],
+                ['transit_damage'  => $items->where('status', 'transit_damage')->count()],
             ];
 
             return response()->json([
