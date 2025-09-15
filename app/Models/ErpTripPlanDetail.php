@@ -29,6 +29,7 @@ protected $fillable = [
         'uom_code',
         'order_qty',
         'planned_qty',
+        'picked_qty',
         'inventory_uom_id',
         'inventory_uom_code',
         'inventory_uom_qty',
@@ -37,6 +38,8 @@ protected $fillable = [
         'total_amount',
         'remarks',
     ];
+
+    protected $appends = ['balance_planned_qty'];
     public function bom()
     {
         return $this->belongsTo(Bom::class, 'bom_id');
@@ -46,7 +49,10 @@ protected $fillable = [
     {
         return $this->belongsTo(Item::class, 'item_id');
     }
-
+    public function soDelivery()
+    {
+        return $this->belongsTo(ErpSoItemDelivery::class,'order_item_delivery_id');
+    }
     public function inventoryUom()
     {
         return $this->belongsTo(Unit::class, 'inventory_uom_id');
@@ -108,5 +114,9 @@ protected $fillable = [
         }
         $stockBalanceQty = ItemHelper::convertToAltUom($this -> getAttribute(('item_id')), $this -> getAttribute('uom_id'), (float)$stockBalanceQty);
         return $stockBalanceQty;
+    }
+    public function getBalancePlannedQtyAttribute()
+    {
+        return $this->attributes['planned_qty'] - $this->attributes['picked_qty'];
     }
 }

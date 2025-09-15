@@ -306,6 +306,26 @@ class ErpInvoiceItem extends Model
         // return $stockBalanceQty;
         return $this -> getAttribute('order_qty');
     }
+
+    public function getAvailableStocks($storeId, $subStoreId)
+    {
+        $itemId = $this -> getAttribute('item_id');
+        $selectedAttributeIds = [];
+        $itemAttributes = $this -> item_attributes_array();
+        foreach ($itemAttributes as $itemAttr) {
+            foreach ($itemAttr['values_data'] as $valueData) {
+                if ($valueData['selected']) {
+                    array_push($selectedAttributeIds, $valueData['id']);
+                }
+            }
+        }
+        $stocks = InventoryHelper::totalInventoryAndStock($itemId, $selectedAttributeIds, $this -> getAttribute('uom_id'), $storeId, $subStoreId);
+        $stockBalanceQty = 0;
+        if (isset($stocks) && isset($stocks['confirmedStocks'])) {
+            $stockBalanceQty = $stocks['confirmedStocks'];
+        }
+        return $stockBalanceQty;
+    }
     
     public function hsn()
     {

@@ -946,30 +946,6 @@
 
                                                                 <div class="row align-items-center mb-1">
                                                                     <div class="col-md-4">
-                                                                        <label class="form-label">TDS Applicable</label>
-                                                                    </div>
-                                                                    <div class="col-md-6">
-                                                                        <div class="form-check form-check-primary mt-25 custom-checkbox">
-                                                                            <input type="checkbox" name="compliance[tds_applicable]" id="tdsApplicableIndia" 
-                                                                                class="form-check-input" 
-                                                                                @if($customer->compliances && $customer->compliances->tds_applicable) checked @endif>
-                                                                            <label class="form-check-label" for="tdsApplicableIndia">Yes/No</label>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="row align-items-center mb-1">
-                                                                    <div class="col-md-4">
-                                                                        <label class="form-label">Wef Date</label>
-                                                                    </div>
-                                                                    <div class="col-md-6">
-                                                                        <input type="date" name="compliance[wef_date]" class="form-control" 
-                                                                            value="{{ $customer->compliances->wef_date ?? '' }}">
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="row align-items-center mb-1">
-                                                                    <div class="col-md-4">
                                                                         <label class="form-label">TDS Certificate No.</label>
                                                                     </div>
                                                                     <div class="col-md-6">
@@ -980,41 +956,25 @@
 
                                                                 <div class="row align-items-center mb-1">
                                                                     <div class="col-md-4">
-                                                                        <label class="form-label">TDS Tax Percentage</label>
-                                                                    </div>
-                                                                    <div class="col-md-6">
-                                                                        <input type="text" name="compliance[tds_tax_percentage]" class="form-control" 
-                                                                            value="{{ $customer->compliances->tds_tax_percentage ?? '' }}">
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="row align-items-center mb-1">
-                                                                    <div class="col-md-4">
-                                                                        <label class="form-label">TDS Category</label>
-                                                                    </div>
-                                                                    <div class="col-md-6">
-                                                                        <input type="text" name="compliance[tds_category]" class="form-control" 
-                                                                            value="{{ $customer->compliances->tds_category ?? '' }}">
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="row align-items-center mb-1">
-                                                                    <div class="col-md-4">
-                                                                        <label class="form-label">TDS Value Cap</label>
-                                                                    </div>
-                                                                    <div class="col-md-6">
-                                                                        <input type="text" name="compliance[tds_value_cab]" class="form-control numberonly" 
-                                                                            value="{{ $customer->compliances->tds_value_cab ?? '' }}">
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="row align-items-center mb-1">
-                                                                    <div class="col-md-4">
                                                                         <label class="form-label">TAN Number</label>
                                                                     </div>
                                                                     <div class="col-md-6">
                                                                         <input type="text" name="compliance[tan_number]" class="form-control" 
                                                                             value="{{ $customer->compliances->tan_number ?? '' }}">
+                                                                    </div>
+                                                                </div>
+
+                                                                  <div class="row align-items-center mb-1">
+                                                                    <div class="col-md-4">
+                                                                        <label class="form-label">TCS Applicable</label>
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                        <div class="form-check form-check-primary mt-25 custom-checkbox">
+                                                                            <input type="checkbox" name="compliance[tds_applicable]" id="tdsApplicableIndia" 
+                                                                                class="form-check-input" 
+                                                                                @if($customer->compliances && $customer->compliances->tds_applicable) checked @endif>
+                                                                            <label class="form-check-label" for="tdsApplicableIndia">Yes/No</label>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>

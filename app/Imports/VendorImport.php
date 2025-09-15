@@ -159,6 +159,12 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                 if ($gstApplicable === 0) {
                     $gstinNo = null;
                 }
+
+                if ($gstApplicable === 1) {
+                    $isRcm = 0; 
+                } else {
+                    $isRcm = ($row['rcm_applicable'] ?? 'N') === 'Y' ? 1 : 0;
+                }
                 $uploadedVendor = UploadVendorMaster::create([
                     'company_name' => $row['vendor_name'] ?? null,
                     'vendor_initial'=>  $vendorInitials ?? null,
@@ -188,13 +194,10 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'credit_limit' => $row['credit_limit'] ?? null,
                     'credit_days' => $row['credit_days'] ?? null,
                     'gst_applicable' => $gstApplicable,
+                    'is_rcm' => $isRcm,
                     'gstin_no' => $gstinNo,
                     'tds_applicable' => ($row['tds_applicable'] ?? 'N') === 'Y' ? 1 : 0,
-                    'wef_date' =>  $tdsWefDatee,
                     'tds_certificate_no' => $row['tds_certificate_no'] ?? null,
-                    'tds_tax_percentage' => $row['tds_tax'] ?? null,
-                    'tds_category' => $row['tds_category'] ?? null,
-                    'tds_value_cab' => $row['tds_value_cap'] ?? null,
                     'tan_number' => $row['tan_no'] ?? null,
                     'msme_registered' => ($row['msme_registered'] ?? 'N') === 'Y' ? 1 : 0,
                     'msme_no' => $row['msme_no'] ?? null,
@@ -379,15 +382,12 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'company_id' => $uploadedVendor->company_id ?? null,
                     'organization_id' => null,
                     'gst_applicable' =>$uploadedVendor->gst_applicable ?? 0,
+                    'is_rcm' => $uploadedVendor->is_rcm ?? 0,
                     'gstin_no' => $uploadedVendor->gstin_no ?? null,
                     'gst_registered_name' => $uploadedVendor->gst_registered_name ?? null,
                     'gstin_registration_date' => $uploadedVendor->gstin_registration_date ?? null,
                     'tds_applicable' =>$uploadedVendor->tds_applicable ?? 0,
-                    'wef_date' => $uploadedVendor->wef_date ?? null,
                     'tds_certificate_no' => $uploadedVendor->tds_certificate_no ?? null,
-                    'tds_tax_percentage' => $uploadedVendor->tds_tax_percentage ?? null,
-                    'tds_category' => $uploadedVendor->tds_category ?? null,
-                    'tds_value_cab' => $uploadedVendor->tds_value_cab ?? null,
                     'tan_number' => $uploadedVendor->tan_number ?? null,
                     'msme_registered' =>$uploadedVendor->msme_registered ?? 0,
                     'msme_no' => $uploadedVendor->msme_no ?? null,
@@ -482,32 +482,10 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'gst_registered_name' => 'nullable|string|max:255',
                     'gstin_registration_date' => 'nullable|date',
                     'tds_applicable' => 'nullable',
-                    'wef_date' => [
-                        'nullable', 
-                        'date', 
-                        'required_if:tds_applicable,1'
-                    ],
                     'tds_certificate_no' => [
                         'nullable', 
                         'string', 
                         'max:255', 
-                        'required_if:tds_applicable,1'
-                    ],
-                    'tds_tax_percentage' => [
-                        'nullable', 
-                        'numeric', 
-                        'max:100', 
-                        'required_if:tds_applicable,1'
-                    ],
-                    'tds_category' => [
-                        'nullable', 
-                        'string', 
-                        'max:255', 
-                        'required_if:tds_applicable,1'
-                    ],
-                    'tds_value_cab' => [
-                        'nullable', 
-                        'numeric', 
                         'required_if:tds_applicable,1'
                     ],
                     'tan_number' => 'nullable|string|max:255',
@@ -601,23 +579,9 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                     
                     'tds_applicable' => 'TDS applicability must be specified.',
                     
-                    'wef_date.required_if' => 'The "Date of Effect" is required if TDS is applicable.',
-                    'wef_date.date' => 'Date of Effect must be a valid date.',
-                    
                     'tds_certificate_no.required_if' => 'TDS Certificate Number is required if TDS is applicable.',
                     'tds_certificate_no.string' => 'TDS Certificate Number must be a string.',
                     'tds_certificate_no.max' => 'TDS Certificate Number cannot exceed 255 characters.',
-                    
-                    'tds_tax_percentage.required_if' => 'TDS Tax Percentage is required if TDS is applicable.',
-                    'tds_tax_percentage.numeric' => 'TDS Tax Percentage must be a number.',
-                    'tds_tax_percentage.max' => 'TDS Tax Percentage cannot exceed 100.',
-                    
-                    'tds_category.required_if' => 'TDS Category is required if TDS is applicable.',
-                    'tds_category.string' => 'TDS Category must be a string.',
-                    'tds_category.max' => 'TDS Category should not exceed 255 characters.',
-                    
-                    'tds_value_cab.required_if' => 'TDS Value Cap is required if TDS is applicable.',
-                    'tds_value_cab.numeric' => 'TDS Value Cap must be a number.',
                     
                     'tan_number.string' => 'TAN number must be a string.',
                     'tan_number.max' => 'TAN number cannot exceed 255 characters.',
@@ -722,15 +686,12 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                 }
                $compliancesData = [
                     'gst_applicable' =>$uploadedVendor->gst_applicable ?? 0,
+                    'is_rcm' => $uploadedVendor->is_rcm ?? 0,
                     'gstin_no' => $uploadedVendor->gstin_no ?? null,
                     'gstin_registration_date' => $gstDetails ? ($gstDetails['DtReg'] ?? null) : null,
                     'gst_registered_name' => $gstDetails ? ($gstDetails['LegalName'] ?? null) : null,
                     'tds_applicable' =>$uploadedVendor->tds_applicable ?? 0,
-                    'wef_date' => $uploadedVendor->wef_date ?? null,
                     'tds_certificate_no' => $uploadedVendor->tds_certificate_no ?? null,
-                    'tds_tax_percentage' => $uploadedVendor->tds_tax_percentage ?? null,
-                    'tds_category' => $uploadedVendor->tds_category ?? null,
-                    'tds_value_cab' => $uploadedVendor->tds_value_cab ?? null,
                     'tan_number' => $uploadedVendor->tan_number ?? null,
                     'msme_registered' =>$uploadedVendor->msme_registered ?? 0,
                     'msme_no' => $uploadedVendor->msme_no ?? null,

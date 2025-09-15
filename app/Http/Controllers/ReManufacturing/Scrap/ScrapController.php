@@ -261,6 +261,8 @@ class ScrapController extends Controller
                     'qty' => $qty,
                     'rate' => $rate,
                     'total_cost' => $totalCost,
+                    'cost_center_name' => $component['cost_center'],
+                    'cost_center_id' => $component['cost_center_id'],
                     'remarks' => $component['remark'],
                 ]);
 
@@ -459,6 +461,8 @@ class ScrapController extends Controller
                     'qty' => $qty,
                     'rate' => $rate,
                     'total_cost' => $totalCost,
+                    'cost_center_name' => $component['cost_center'],
+                    'cost_center_id' => $component['cost_center_id'],
                     'remarks' => $component['remark'],
                 ]);
 

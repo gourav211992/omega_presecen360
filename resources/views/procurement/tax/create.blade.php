@@ -121,8 +121,10 @@
                                                             <th>Tax %age <span class="text-danger">*</span></th>
                                                             <th>Place of Supply <span class="text-danger">*</span></th>
                                                             <th width="200px">Transaction Type</th>
-                                                            <th width="200px">Ledger Name</th>
-                                                            <th width="200px">Ledger Group</th>
+                                                            <th width="200px">Forward Ledger Name</th>
+                                                            <th width="200px">Forward Ledger Group</th>
+                                                            <th width="200px">Reverse Ledger Name</th>
+                                                            <th width="200px">Reverse Ledger Group</th>
                                                             <th>Applicability Type <span class="text-danger">*</span></th>
                                                             <th>Action</th>
                                                         </tr>
@@ -162,6 +164,14 @@
                                                             </td>
                                                             <td>
                                                                 <select id="ledger_group_id_0" name="tax_details[0][ledger_group_id]" class="form-control mw-100 ledger-group-select">
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <input type="text" class="autocomplete-ledgr-reverse form-control mw-100" data-id="reverse_ledger_id_0" value="">
+                                                                <input type="hidden" id="reverse_ledger_id_0" name="tax_details[0][reverse_ledger_id]" value="">
+                                                            </td>
+                                                            <td>
+                                                                <select id="reverse_ledger_group_id_0" name="tax_details[0][reverse_ledger_group_id]" class="form-control mw-100 ledger-group-select-reverse">
                                                                 </select>
                                                             </td>
                                                             <td>
@@ -266,7 +276,11 @@
                 var rowId = $(this).data('id');
                 $('#' + hiddenInputId).val(ui.item.id);
                 var $row = $(this).closest('tr');
-                updateLedgerGroupDropdown(ui.item.id, $row.find('.ledger-group-select'));
+                if ($(this).hasClass('autocomplete-ledgr-reverse')) {
+                  updateLedgerGroupDropdown(ui.item.id, $row.find('.ledger-group-select-reverse'));
+                } else {
+                    updateLedgerGroupDropdown(ui.item.id, $row.find('.ledger-group-select'));
+                }
                 return false;
             },
             change: function(event, ui) {
@@ -285,6 +299,10 @@
 
     function initializeLedgerAutocomplete(selector, rowIndex) {
         initializeAutocomplete(selector, "{{ url('/taxes/search/ledger') }}", "ledger_id_" + rowIndex);
+    }
+
+    function initializeReverseLedgerAutocomplete(selector, rowIndex) {
+        initializeAutocomplete(selector, "{{ url('/taxes/search/ledger') }}", "reverse_ledger_id_" + rowIndex);
     }
         function fetchTaxPercentage($row) {
             var taxType = $row.find('select[name^="tax_details"][name*="[tax_type]"]').val(); 
@@ -386,6 +404,7 @@
             }
 
             initializeLedgerAutocomplete($(this).find(".autocomplete-ledgr"), index); 
+            initializeReverseLedgerAutocomplete($(this).find(".autocomplete-ledgr-reverse"), index);
         });
         handleTaxCategory(); 
     }
@@ -416,7 +435,7 @@
                 sectionList = Array.isArray(tcsSections) ? tcsSections : Object.entries(tcsSections);
             }
 
-            placeOfSupplyInput.prop('disabled', true);
+            placeOfSupplyInput.prop('disabled', true).val('');
 
             if (selectedUpperType) {
                 taxTypeDropdown.append(
@@ -433,65 +452,92 @@
     }
     // On tax category change
     $(document).on('change', '#tax_category', function () {
-        const selectedCategory = $(this).val();
-        const $upperTypeRow = $('#upper-tax-type-row');
-        const $upperTypeSelect = $('#upper_tax_type');
+            const selectedCategory = $(this).val();
+            const $upperTypeRow = $('#upper-tax-type-row');
+            const $upperTypeSelect = $('#upper_tax_type');
 
-        $upperTypeSelect.empty().append('<option value="">Select Tax Type</option>');
+            $upperTypeSelect.empty().append('<option value="">Select Tax Type</option>');
 
-        if (selectedCategory === 'GST') {
-            $upperTypeRow.hide();
-        } else {
-            $upperTypeRow.show();
-
-            let sectionList = [];
-            if (selectedCategory === 'TDS') {
-                sectionList = Array.isArray(tdsSections) ? tdsSections : Object.entries(tdsSections);
-            } else if (selectedCategory === 'TCS') {
-                sectionList = Array.isArray(tcsSections) ? tcsSections : Object.entries(tcsSections);
-            }
-
-            sectionList.forEach(function ([key, label]) {
-                $upperTypeSelect.append(
-                    $('<option></option>').val(key).text(label)
-                );
-            });
-        }
-
-        const selectedUpperType = $upperTypeSelect.val();  
-        const selectedUpperTypeLabel = $upperTypeSelect.find('option:selected').text();
-
-        $('#tax-details-body tr').each(function (index) {
-            updateTaxTypeDropdown(selectedCategory, index, selectedUpperType,selectedUpperTypeLabel);
-        });
-        
-        handleTaxCategory();
-    });
-    function handleTaxCategory() {
-        var selectedCategory = $('#tax_category').val();
-        var $rows = $('#tax-details-body tr');
-
-        $rows.each(function() {
-            var $row = $(this);
-            var deductionRadio = $row.find('input[value="deduction"].form-check-input');
-            var collectionRadio = $row.find('input[value="collection"].form-check-input');
-
-            deductionRadio.prop('checked', false).prop('disabled', false);
-            collectionRadio.prop('checked', false).prop('disabled', false);
-
-            if (selectedCategory === 'TDS') {
-                deductionRadio.prop('checked', true).prop('disabled', true);
-                collectionRadio.prop('disabled', true);
-            } else if (selectedCategory === 'TCS') {
-                collectionRadio.prop('checked', true).prop('disabled', true);
-                deductionRadio.prop('disabled', true);
-            } else if (selectedCategory === 'GST') {
-                collectionRadio.prop('checked', true).prop('disabled', true);
-                deductionRadio.prop('disabled', true);
+            if (selectedCategory === 'GST') {
+                $upperTypeRow.hide();
             } else {
-                collectionRadio.prop('checked', true); 
+                $upperTypeRow.show();
+
+                let sectionList = [];
+                if (selectedCategory === 'TDS') {
+                    sectionList = Array.isArray(tdsSections) ? tdsSections : Object.entries(tdsSections);
+                } else if (selectedCategory === 'TCS') {
+                    sectionList = Array.isArray(tcsSections) ? tcsSections : Object.entries(tcsSections);
+                }
+
+                sectionList.forEach(function ([key, label]) {
+                    $upperTypeSelect.append(
+                        $('<option></option>').val(key).text(label)
+                    );
+                });
             }
-        });
+
+            const selectedUpperType = $upperTypeSelect.val();  
+            const selectedUpperTypeLabel = $upperTypeSelect.find('option:selected').text();
+
+            $('#tax-details-body tr').each(function (index) {
+                updateTaxTypeDropdown(selectedCategory, index, selectedUpperType,selectedUpperTypeLabel);
+                var $row = $(this);
+                $row.find('.autocomplete-ledgr').val('');
+                $row.find('[name="tax_details[' + index + '][ledger_id]"]').val('');
+                $row.find('.ledger-group-select').empty();
+                initializeLedgerAutocomplete($row.find(".autocomplete-ledgr"), index);
+                $row.find('[name="tax_details[' + index + '][tax_percentage]"]').val('');
+
+                $row.find('.autocomplete-ledgr-reverse').val('');
+                $row.find('[name="tax_details[' + index + '][reverse_ledger_id]"]').val('');
+                $row.find('.ledger-group-select-reverse').empty();
+                initializeReverseLedgerAutocomplete($row.find(".autocomplete-ledgr-reverse"), index);
+            });   
+            if (selectedCategory === 'GST') {
+                $('.autocomplete-ledgr-reverse').prop('disabled', false).val('');
+                $('.ledger-group-select-reverse').prop('disabled', false).val('');
+            } else {
+                $('.autocomplete-ledgr-reverse').prop('disabled', true).val('');
+                $('.ledger-group-select-reverse').prop('disabled', true).val('');
+            }
+
+          handleTaxCategory();
+      });
+      function handleTaxCategory() {
+            var selectedCategory = $('#tax_category').val();
+            var $rows = $('#tax-details-body tr');
+
+            $rows.each(function() {
+                var $row = $(this);
+                var deductionRadio = $row.find('input[value="deduction"].form-check-input');
+                var collectionRadio = $row.find('input[value="collection"].form-check-input');
+
+                deductionRadio.prop('checked', false).prop('disabled', false);
+                collectionRadio.prop('checked', false).prop('disabled', false);
+
+                if (selectedCategory === 'TDS') {
+                    deductionRadio.prop('checked', true).prop('disabled', true);
+                    collectionRadio.prop('disabled', true);
+                    $row.find('input.autocomplete-ledgr-reverse').prop('disabled', true).val('');
+                    $row.find('select.ledger-group-select-reverse').prop('disabled', true).val('');
+                } else if (selectedCategory === 'TCS') {
+                    collectionRadio.prop('checked', true).prop('disabled', true);
+                    deductionRadio.prop('disabled', true);
+                    $row.find('input.autocomplete-ledgr-reverse').prop('disabled', true).val('');
+                    $row.find('select.ledger-group-select-reverse').prop('disabled', true).val('');
+                } else if (selectedCategory === 'GST') {
+                    collectionRadio.prop('checked', true).prop('disabled', true);
+                    deductionRadio.prop('disabled', true);
+                    $row.find('input.autocomplete-ledgr-reverse').prop('disabled', false);
+                    $row.find('select.ledger-group-select-reverse').prop('disabled', false).val('');
+                }
+                else {
+                    collectionRadio.prop('checked', true);
+                    $row.find('input.autocomplete-ledgr-reverse').prop('disabled', true).val('');
+                    $row.find('select.ledger-group-select-reverse').prop('disabled', true).val('');
+                }
+            });
     }
     function validateTaxPercentageConsistency($currentRow) {
         const $rows = $('#tax-details-body tr');
@@ -608,6 +654,15 @@
         const rowIndex = $rows.index($row);
         initializeLedgerAutocomplete(ledgerInput, rowIndex);
 
+        // --- Reverse Ledger ---
+        const reverseLedgerInput = $row.find('.autocomplete-ledgr-reverse');
+        const reverseLedgerIdInput = $row.find('input[name*="[reverse_ledger_id]"]');
+        const reverseLedgerGroupSelect = $row.find('.ledger-group-select-reverse');
+        reverseLedgerInput.val('');
+        reverseLedgerIdInput.val('');
+        reverseLedgerGroupSelect.empty();
+        initializeReverseLedgerAutocomplete(reverseLedgerInput, rowIndex);
+
         const isSale = $row.find('input[name$="[is_sale]"]').is(':checked');
         const isPurchase = $row.find('input[name$="[is_purchase]"]').is(':checked');
 
@@ -665,7 +720,12 @@
         $row.find('.autocomplete-ledgr').val('');
         $row.find('[name="tax_details[' + rowIndex + '][ledger_id]"]').val('');
         $row.find('.ledger-group-select').empty();
+
+        $row.find('.autocomplete-ledgr-reverse').val('');
+        $row.find('[name="tax_details[' + rowIndex + '][reverse_ledger_id]"]').val('');
+        $row.find('.ledger-group-select-reverse').empty();
         initializeLedgerAutocomplete($row.find(".autocomplete-ledgr"), rowIndex);
+        initializeReverseLedgerAutocomplete($row.find(".autocomplete-ledgr-reverse"), rowIndex);
     });
 
     $('#tax-details-body').on('blur', 'input[name*="[tax_percentage]"]', function () {
@@ -692,6 +752,7 @@
                 $(this).attr('id', id.replace(/\d+$/, rowCount));
             }
         });
+        newRow.attr('data-id', '');
         newRow.find('.demo-inline-spacingg').empty();
         applicationTypes.forEach(function(type, index) {
             var radioId = 'application_type_' + index + '_' + rowCount; 
@@ -711,6 +772,8 @@
         let selectedUpperTypeValue = $selectedUpperType.val();  
         let selectedUpperTypeLabel = $selectedUpperType.find('option:selected').text();  
         let currentTaxType = $('#tax-details-body tr:last select[name*="[tax_type]"]').val(); 
+        initializeLedgerAutocomplete(newRow.find(".autocomplete-ledgr"), rowCount);
+        initializeReverseLedgerAutocomplete(newRow.find(".autocomplete-ledgr-reverse"), rowCount); 
         updateTaxTypeDropdown(selectedCategory, rowCount, selectedUpperTypeValue, selectedUpperTypeLabel, currentTaxType);
         $('#tax-details-body').append(newRow);
         handleTaxCategory();
@@ -791,6 +854,28 @@
         }
     });
 
+     $('#tax-details-body').on("autocompleteselect", ".autocomplete-ledgr-reverse", function(event, ui) {
+        var ledgerId = ui.item.id;
+        var taxPercentage = ui.item.tax_percentage;
+        if (ledgerId) {
+          var $row = $(this).closest('tr');
+            $row.find(".ledger-group-select-reverse").empty();
+            updateLedgerGroupDropdown(ledgerId,  $row.find(".ledger-group-select-reverse"));
+        }
+    });
+
+    $('#tax-details-body').on("input", ".autocomplete-ledgr-reverse", function() {
+        var $row = $(this).closest('tr');
+        var ledgerGroupInput = $row.find(".ledger-group-select-reverse");
+        if ($(this).val() === "") {
+            ledgerGroupInput.val(""); 
+            fetchAllGroups(ledgerGroupInput);  
+        } else {
+            ledgerGroupInput.val(""); 
+            ledgerGroupInput.autocomplete("option", "source", []);  
+        }
+    });
+
     function fetchAllGroups(ledgerGroupInput) {
         $.ajax({
             url: '/search/group', 
@@ -816,10 +901,17 @@
 
     function initializeLedgerGroupsOnPageLoad() {
         $('#tax-details-body tr').each(function() {
-            var ledgerId = $(this).find('input[name^="tax_details"][name$="[ledger_id]"]').val();
+            var $row = $(this);
+            var ledgerId = $row.find('input[name^="tax_details"][name$="[ledger_id]"]').val();
             if (ledgerId) {
-                var ledgerGroupInput = $(this).find(".ledger-group-select");
+                var ledgerGroupInput = $row.find(".ledger-group-select");
                 updateLedgerGroupDropdown(ledgerId, ledgerGroupInput);
+            }
+
+            var reverseLedgerId = $row.find('input[name^="tax_details"][name$="[reverse_ledger_id]"]').val();
+            if (reverseLedgerId) {
+                var reverseLedgerGroupInput = $row.find(".ledger-group-select-reverse");
+                updateLedgerGroupDropdown(reverseLedgerId, reverseLedgerGroupInput);
             }
         });
     }

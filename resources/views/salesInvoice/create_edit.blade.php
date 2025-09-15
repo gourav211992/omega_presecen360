@@ -94,7 +94,7 @@
                                 @if($buttons['amend'])
                                     <button id = "amendShowButton" type="button" onclick = "openModal('amendmentconfirm')" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
                                 @endif
-                                @if(($buttons['post'] && $enableEinvoice && isset($einvoice)) || ($buttons['post'] && !$enableEinvoice))
+                                @if($buttons['post'])
                                     <button id = "postButton" onclick = "onPostVoucherOpen();" type = "button" class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                                         Post
@@ -3220,6 +3220,7 @@
 
         function onDiscountClick(elementId, itemRowIndex)
         {
+            renderIcons();
             const totalValue = document.getElementById(elementId).value;
             document.getElementById('discount_main_table').setAttribute('total-value', totalValue);
             document.getElementById('discount_main_table').setAttribute('item-row', elementId);
@@ -3250,7 +3251,7 @@
                 newData = `
                     <td>${index+1}</td>
                     <td>${previousHiddenNameFields[index].value}</td>
-                    <td>${previousHiddenPercentageFields[index].value ? parseFloat(previousHiddenPercentageFields[index].value).toFixed(2) : ''}</td>
+                    <td>${previousHiddenPercentageFields[index]?.value ? parseFloat(previousHiddenPercentageFields[index].value).toFixed(2) : ''}</td>
                     <td class = "dynamic_discount_val_${ItemRowIndexVal}">${parseFloat(previousHiddenValuesFields[index].value).toFixed(2)}</td>
                     <td>
                         <a href="#" class="text-danger" onclick = "removeDiscount(${index}, ${ItemRowIndexVal});"><i data-feather="trash-2"></i></a>
@@ -3588,8 +3589,6 @@
 
     initializeAutocompleteCustomer('customer_code_input');
 
-    editScript();
-
     function checkItemAddValidation()
     {
         let addRow = $('#series_id_input').val &&  $('#order_no_input').val && $('#order_date_input').val && $('#customer_code_input').val;
@@ -3797,9 +3796,9 @@
                         $("#current_billing_country_id").val(currentOrder.billing_address_details?.country_id);
                         $("#current_shipping_state_id").val(currentOrder.shipping_address_details?.state_id);
                         $("#current_billing_state_id").val(currentOrder.billing_address_details?.state_id);
-                        if (currentOrder?.customer_terms) {
-                            $('#summernote1').summernote('code', currentOrder?.customer_terms);
-                        }
+                        // if (currentOrder?.customer_terms) {
+                        //     $('#summernote1').summernote('code', currentOrder?.customer_terms);
+                        // }
                         // if (currentOrder?.customer_terms_id) {
                         //     $("#customer_terms_id").val(currentOrder?.customer_terms_id);
                         // }
@@ -3813,10 +3812,16 @@
                             $("#credit_days_input").val(0);
                         }
                         //General Detail
-                        // $("#transporter_name_input").val(currentOrder?.transporter_name);
+                        $("#transporter_name_input").val(currentOrder?.transporter_name);
                         // $("#transporter_mode_input").val(currentOrder?.transportation_mode);
                         $("#vehicle_no_input").val(currentOrder.vehicle_no);
-                        // $("#lr_number_input").val(currentOrder?.lr_number);
+                        $("#lr_number_input").val(currentOrder?.lr_number);
+                        let transporterModeInput = currentOrder?.transportation_mode;
+                        if (transporterModeInput) {
+                            $("#transporter_mode_input option")
+                            .filter(function() { return $(this).text() === transporterModeInput; })
+                            .prop("selected", true);
+                        }
 
                             const locationElement = document.getElementById('store_id_input');
                             if (locationElement) {
@@ -4813,7 +4818,7 @@ function onPostVoucherOpen(type = "not_posted")
                     <td>${voucherDetail.ledger_name ? voucherDetail.ledger_name : ''}</td>
                     <td class="text-end">${voucherDetail.debit_amount > 0 ? parseFloat(voucherDetail.debit_amount).toFixed(2) : ''}</td>
                     <td class="text-end">${voucherDetail.credit_amount > 0 ? parseFloat(voucherDetail.credit_amount).toFixed(2) : ''}</td>
-                    <td class="text-end">${voucherDetail.due_date ? moment(voucherDetail.due_date).format('D/M/Y') : ''}</td>
+                    <td>${voucherDetail.due_date ? moment(voucherDetail.due_date).format('D/M/Y') : ''}</td>
 					</tr>
                     `
                 });

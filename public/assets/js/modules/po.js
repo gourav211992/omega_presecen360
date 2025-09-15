@@ -251,6 +251,7 @@ function setTableCalculation() {
         /*Bind Item Discount*/
         let itemDiscount = 0;
         if ($(item).find("[name*='[dis_perc]']").length && itemValue) {
+
             $(item)
                 .find("[name*='[dis_perc]']")
                 .each(function (index, eachItem) {
@@ -262,6 +263,8 @@ function setTableCalculation() {
                                 }][hidden_dis_perc]"]`
                             ).val()
                         ) || 0;
+
+
                     let discPerc = hiddenPerc || Number($(eachItem).val());
                     let eachDiscAmount = 0;
                     if (discPerc) {
@@ -276,6 +279,8 @@ function setTableCalculation() {
                                 ).val()
                             ) || 0;
                     }
+
+
                     itemDiscount += eachDiscAmount;
                     $(
                         `[name="components[${rowCount}][discounts][${
@@ -1361,7 +1366,7 @@ $(document).on("click", "#add_new_item_dis", (e) => {
         <input type="hidden" value="${name}" name="components[${rowCount}][discounts][${
             index + 1
         }][dis_name]">
-        <input type="hidden" valuef_total_after_exp_rate="${perc}" name="components[${rowCount}][discounts][${
+        <input type="hidden" value="${perc}" name="components[${rowCount}][discounts][${
             index + 1
         }][dis_perc]">
         <input type="hidden" value="${amnt}" name="components[${rowCount}][discounts][${
@@ -1798,10 +1803,12 @@ function vendorOnChange(vendorId) {
 
                 if (data?.data?.vendor?.compliances?.gstin_no) {
                     $(".gstin_no_div").removeClass("d-none");
-                    $("#gstin_no").val(data?.data?.vendor?.compliances?.gstin_no);
+                    $("#gstin_no").val(
+                        data?.data?.vendor?.compliances?.gstin_no
+                    );
                 } else {
                     $(".gstin_no_div").addClass("d-none");
-                    $("#gstin_no").val('');
+                    $("#gstin_no").val("");
                 }
 
                 $("#vendor_id").val(data?.data?.vendor?.id);
@@ -2216,8 +2223,12 @@ function getTaxParams(el = null) {
         store_id: Number($("#store_id").val()) || 0,
         from_state: Number($("#state_id").val()) || 0,
         from_country: Number($("#country_id").val()) || 0,
-        party_country_id: Number($("#party_country_id").val()) || Number($("#hidden_country_id").val()),
-        party_state_id: Number($("#party_state_id").val()) || Number($("#hidden_state_id").val()),
+        party_country_id:
+            Number($("#party_country_id").val()) ||
+            Number($("#hidden_country_id").val()),
+        party_state_id:
+            Number($("#party_state_id").val()) ||
+            Number($("#hidden_state_id").val()),
         transaction_type: $("#transaction_type").val() || "purchase",
         date: "",
     };

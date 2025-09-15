@@ -185,7 +185,7 @@ class PoController extends Controller
         $applicableOrgIds = $user->organizations->pluck('id')->toArray();
         $serviceAlias = ConstantHelper::PO_SERVICE_ALIAS;
         $books = Helper::getBookSeriesNew($serviceAlias,$parentUrl)->get();
-        $vendors = Vendor::where('organization_id', $user->organization_id)->get();
+        $vendors = Vendor::where('status', 'active')->get();
         $locations = InventoryHelper::getAccessibleLocations();
         $applicableOrganizations = Organization::whereIn('id', $applicableOrgIds)
         ->where('status', ConstantHelper::ACTIVE)
@@ -242,7 +242,7 @@ class PoController extends Controller
             $companyStateId = $firstAddress->state_id;
         }
         $itemImportFile = asset('templates/PurchaseOrderImport.xlsx');
-        
+
         return view('procurement.po.create', [
             'fromState'=> $companyStateId,
             'fromCountry'=> $companyCountryId,
@@ -2077,7 +2077,7 @@ class PoController extends Controller
                 'total_tax' => $cgst + $sgst + $igst,
             ];
         });
-                
+
         $pdf = PDF::loadView($path, [
             'referenceText'       => $referenceText,
             'user'                => $user,
@@ -2164,7 +2164,7 @@ class PoController extends Controller
         $requesterId = $request->requester_id ?? null;
         $piItems = null;
         $applicableBookIds = ServiceParametersHelper::getBookCodesForReferenceFromParam($headerBookId);
-        $selected_pi_ids = json_decode($request->selected_pi_ids) ?? [];
+        $selected_pi_ids = json_decode(urldecode($request->selected_pi_ids), true) ?? [];
         $selectColumn = ['id','pi_id','so_id','item_id','item_code','item_name','uom_id','uom_code','vendor_id','indent_qty','order_qty','adjusted_qty','required_qty','remarks'];
         $piItems = PiItem::select($selectColumn)
                     ->where(function($query) use ($seriesId,$applicableBookIds,$vendorId, $departmentId, $selected_pi_ids, $itemSearch,$storeId,$subStoreId, $soId, $indentId,$requesterId,$poType) {
@@ -3097,7 +3097,7 @@ class PoController extends Controller
                 return $row -> po -> book -> book_code;
             })
             ->addColumn('indent', function ($row) {
-                return $row ?-> pi_item ?-> pi ?-> book_code."-".$row ?-> pi_item ?-> pi ?-> document_number;
+                return $row ?-> pi_item_mappings ?-> first() ?-> pi ?-> book_code."-".$row ?-> pi_item_mappings ?-> first() ?-> pi ?-> document_number;
             })
             ->addColumn('order', function ($row) {
                 return $row ?-> so ?-> book_code."-".$row ?-> so ?-> document_number;
@@ -3168,9 +3168,9 @@ class PoController extends Controller
             ->editColumn('total_item_amount', function ($row) {
                 return number_format(($row -> rate * $row->order_qty) - ($row -> header_discount_amount + $row -> item_discount_amount) + $row -> tax_amount, 2);
             })
-            // ->editColumn('pending_qty', function ($row) {
-            //     return number_format($row -> pending_qty, 2);
-            // })
+            ->editColumn('pending_qty', function ($row) {
+                return number_format(($row -> order_qty - ($row -> short_close_qty + $row -> grn_qty) ), 2);
+            })
             ->addColumn('item_attributes', function ($row) {
                 $attributesUi = '';
                 if (count($row -> attributes) > 0) {

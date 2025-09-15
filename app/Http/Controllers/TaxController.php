@@ -188,6 +188,8 @@ class TaxController extends Controller
                     'tax_id' => $tax->id,
                     'ledger_id' => isset($detail['ledger_id']) ? $detail['ledger_id'] : null,
                     'ledger_group_id' => isset($detail['ledger_group_id']) ? $detail['ledger_group_id'] : null,
+                    'reverse_ledger_id' => isset($detail['reverse_ledger_id']) ? $detail['reverse_ledger_id'] : null,
+                    'reverse_ledger_group_id' => isset($detail['reverse_ledger_group_id']) ? $detail['reverse_ledger_group_id'] : null,
                     'tax_type' => $detail['tax_type'],
                     'tax_percentage' => $detail['tax_percentage'],
                     'place_of_supply' => $detail['place_of_supply'],
@@ -360,6 +362,8 @@ class TaxController extends Controller
                             $taxDetail->update([
                                 'ledger_id' => isset($detailData['ledger_id']) ? $detailData['ledger_id'] : null,
                                 'ledger_group_id' => isset($detailData['ledger_group_id']) ? $detailData['ledger_group_id'] : null,
+                                'reverse_ledger_id' => isset($detailData['reverse_ledger_id']) ? $detailData['reverse_ledger_id'] : null,
+                                'reverse_ledger_group_id' => isset($detailData['reverse_ledger_group_id']) ? $detailData['reverse_ledger_group_id'] : null,
                                 'tax_type' => $detailData['tax_type'],
                                 'tax_percentage' => $detailData['tax_percentage'],
                                 'place_of_supply' => $detailData['place_of_supply'],

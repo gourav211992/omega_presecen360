@@ -80,6 +80,8 @@ class TaxRequest extends FormRequest
             'tax_details.*.status' => 'nullable|in:active,inactive',
             'tax_details.*.ledger_id' => 'nullable|exists:erp_ledgers,id',
             'tax_details.*.ledger_group_id' => 'nullable|exists:erp_groups,id',
+            'tax_details.*.reverse_ledger_id' => 'nullable|exists:erp_ledgers,id',
+            'tax_details.*.reverse_ledger_group_id' => 'nullable|exists:erp_groups,id',
         ];
     }
 

@@ -310,7 +310,7 @@
                                     <div class="col-md-4">
                                     <div class="mb-1">
                                         <label class="form-label">Upload Document</label>
-                                        <input type="file" name="attachment[]" class="form-control" onchange = "addFiles(this,'main_pi_preview')" multiple>
+                                        <input type="file" name="attachment[]" class="form-control" onchange = "addFiles(this,'main_pi_preview')" max_file_count = "5" multiple>
                                         <span class = "text-primary small">{{__("message.attachment_caption")}}</span>
                                     </div>
                                 </div>

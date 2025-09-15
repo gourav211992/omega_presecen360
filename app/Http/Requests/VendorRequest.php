@@ -250,6 +250,7 @@ class VendorRequest extends FormRequest
             'compliance.tds_value_cab' => 'nullable|numeric',
             'compliance.tan_number' => 'nullable|string|max:255',
             'compliance.gst_applicable' => 'nullable',
+            'compliance.is_rcm' => 'nullable',
              'compliance.gstin_no' => [
                 'nullable', 
                 'string', 

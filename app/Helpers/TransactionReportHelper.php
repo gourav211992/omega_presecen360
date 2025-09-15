@@ -2421,6 +2421,14 @@ class TransactionReportHelper
             'column_style' => '',
         ],
         [
+            'name' => 'Pending Qty',
+            'field' => 'pending_qty',
+            'header_class' => 'numeric-alignment',
+            'column_class' => 'text-end pe-2_5',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
             'name' => 'Currency',
             'field' => 'vendor_currency',
             'header_class' => '',
@@ -2502,6 +2510,16 @@ class TransactionReportHelper
             'id' => 'book_filter',
             'requestName' => 'book_id',
             'term' => 'report_so_book',
+            'value_key' => 'id',
+            'label_key' => 'book_code',
+            'type' => 'auto_complete'
+        ],
+        [
+            'colSpan' => 'auto',
+            'label' => 'Indent',
+            'id' => 'indent_filter',
+            'requestName' => 'indent_id',
+            'term' => 'pi_document_report',
             'value_key' => 'id',
             'label_key' => 'book_code',
             'type' => 'auto_complete'

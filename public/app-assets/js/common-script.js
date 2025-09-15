@@ -256,6 +256,7 @@ $(document).ready(function() {
             $('.cat_initials-id').val(''); 
         }
         $('.subcategory-autocomplete').val(''); 
+        $('.category-hierarchy').val(selectedItem.full_name || '');
         $('.subcategory-id').val('');
         if (selectedItem.hsn_id) {
             $('.hsn-id').val(selectedItem.hsn_id); 

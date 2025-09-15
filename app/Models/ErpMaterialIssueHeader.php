@@ -236,4 +236,12 @@ class ErpMaterialIssueHeader extends Model
     {
         return $this -> hasMany(ErpMiDynamicField::class, 'header_id');
     }
+    public function getTotalQuantityAttribute()
+    {
+        return $this->pickingItems->sum(function ($item) {
+            $qty = (int) $item->inventory_uom_qty;
+            $count = (int) optional($item->item)->storage_uom_count ?? 1;
+            return $qty * ($count ?: 1);
+        });
+    }
 }

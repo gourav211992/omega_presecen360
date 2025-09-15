@@ -678,7 +678,7 @@ function getSubStores(storeId, subStoreId = "") {
 
                 Swal.fire({
                     title: "Error!",
-                    text: "No sub store exists for this location.",
+                    text: "No scrap type sub store exists for this location.",
                     icon: "error",
                 });
                 enableDisableFormOnValidation("disable");

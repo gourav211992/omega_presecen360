@@ -2,20 +2,18 @@
 
 namespace App\Models\WHM;
 
-use App\Models\Attribute;
 use App\Models\Employee;
 use App\Models\ErpStore;
 use App\Models\ErpSubStore;
 use App\Models\ErpVendor;
 use App\Models\ErpRepMedia;
-use App\Models\ErpRgrItemSegregation;
 use App\Models\ErpTripPlanHeader;
+use App\Models\ErpRgrItemSegregation;
 use App\Models\Item;
-use App\Models\User;
-use App\Models\Vendor;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+
 use App\Traits\FileUploadTrait;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ErpItemUniqueCode extends Model
 {
@@ -116,7 +114,7 @@ class ErpItemUniqueCode extends Model
         return $this->belongsTo(ErpTripPlanHeader::class, 'trip_id');
     }
 
-    
+
     public function getItemAttributesAttribute($value)
     {
         // First decode stringified JSON to string or array
@@ -134,6 +132,7 @@ class ErpItemUniqueCode extends Model
     {
         return $this->morphMany(ErpRepMedia::class, 'model');
     }
+
     public function segregation()
     {
         return $this -> hasOne(ErpRgrItemSegregation::class, 'job_item_id', 'id');

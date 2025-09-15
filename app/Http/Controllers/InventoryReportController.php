@@ -57,7 +57,7 @@ class InventoryReportController extends Controller
         $user = Helper::getAuthenticatedUser();
 
         $categories = Category::where('parent_id', null)->get();
-        $sub_categories = Category::where('parent_id', '!=',null)->get();
+        $sub_categories = Category::where('parent_id', '!=', null)->get();
         $items = Item::orderBy('id', 'ASC')
             ->withDefaultGroupCompanyOrg()
             ->get();
@@ -71,7 +71,8 @@ class InventoryReportController extends Controller
             ->get();
         $subStoreLocType = ConstantHelper::ERP_SUB_STORE_LOCATION_TYPES;
         // return $records;
-        return view('procurement.inventory-report.report',
+        return view(
+            'procurement.inventory-report.report',
             compact(
                 'user',
                 'items',
@@ -125,8 +126,10 @@ class InventoryReportController extends Controller
         $day3Check = $request->query('day3_check');
         $day4Check = $request->query('day4_check');
         $day5Check = $request->query('day5_check');
-        if(!empty($attrGroup)) array_filter($attrGroup);
-        if(!empty($attrValue)) array_filter($attrValue);
+        if (!empty($attrGroup))
+            array_filter($attrGroup);
+        if (!empty($attrValue))
+            array_filter($attrValue);
 
         $query = StockLedger::query()
             ->withDefaultGroupCompanyOrg()
@@ -136,7 +139,7 @@ class InventoryReportController extends Controller
         $query->with(['item', 'item.category', 'item.subCategory', 'location', 'store', 'station', 'wipStation', 'inventoryUom']);
 
         // Item filters
-        $query->whereHas('item', function($q) use ($itemId, $categoryId, $subCategoryId, $mCategoryId, $mSubCategoryId) {
+        $query->whereHas('item', function ($q) use ($itemId, $categoryId, $subCategoryId, $mCategoryId, $mSubCategoryId) {
             if ($itemId) {
                 $q->where('id', $itemId);
             }
@@ -155,15 +158,31 @@ class InventoryReportController extends Controller
         });
 
         // Add filters for stores, racks, bins, etc.
-        if ($storeCheck) { $query->groupBy(['store_id']); }
-        if ($subLocationCheck) { $query->groupBy(['sub_store_id']); }
-        if ($stockTypeCheck) { $query->groupBy(['stock_type']); }
-        if ($stationCheck) { $query->groupBy(['station_id']); }
+        if ($storeCheck) {
+            $query->groupBy(['store_id']);
+        }
+        if ($subLocationCheck) {
+            $query->groupBy(['sub_store_id']);
+        }
+        if ($stockTypeCheck) {
+            $query->groupBy(['stock_type']);
+        }
+        if ($stationCheck) {
+            $query->groupBy(['station_id']);
+        }
 
-        if ($store) { $query->where('store_id', $store)->groupBy(['store_id']); }
-        if ($subStore) { $query->where('sub_store_id', $subStore)->groupBy(['sub_store_id']); }
-        if ($stockType) { $query->where('stock_type', $stockType)->groupBy(['stock_type']); }
-        if ($station) { $query->where('stock_type', $station)->groupBy(['station_id']); }
+        if ($store) {
+            $query->where('store_id', $store)->groupBy(['store_id']);
+        }
+        if ($subStore) {
+            $query->where('sub_store_id', $subStore)->groupBy(['sub_store_id']);
+        }
+        if ($stockType) {
+            $query->where('stock_type', $stockType)->groupBy(['stock_type']);
+        }
+        if ($station) {
+            $query->where('stock_type', $station)->groupBy(['station_id']);
+        }
         // Attribute filtering
         if (!empty($attrGroup) && !empty($attrValue)) {
             foreach ($attrGroup as $key => $group) {
@@ -184,7 +203,7 @@ class InventoryReportController extends Controller
                 switch ($period) {
                     case 'this-month':
                         $startDate = Carbon::now()->startOfMonth();
-           $endDate = Carbon::now()->endOfMonth();
+                        $endDate = Carbon::now()->endOfMonth();
                         break;
                     case 'last-month':
                         $startDate = Carbon::now()->subMonth()->startOfMonth();
@@ -199,18 +218,22 @@ class InventoryReportController extends Controller
             $query->whereBetween('created_at', [$startDate, $endDate]);
         }
         $query->select('stock_ledger.*')
-            ->selectRaw('SUM(CASE WHEN document_status IN (?, ?, ?) THEN (receipt_qty - reserved_qty) ELSE 0 END) as confirmed_stock',
+            ->selectRaw(
+                'SUM(CASE WHEN document_status IN (?, ?, ?) THEN (receipt_qty - reserved_qty) ELSE 0 END) as confirmed_stock',
                 ['approved', 'approval_not_required', 'posted']
             )
-            ->selectRaw('SUM(CASE WHEN document_status NOT IN (?, ?, ?) THEN receipt_qty ELSE 0 END) as unconfirmed_stock',
+            ->selectRaw(
+                'SUM(CASE WHEN document_status NOT IN (?, ?, ?) THEN receipt_qty ELSE 0 END) as unconfirmed_stock',
                 ['approved', 'approval_not_required', 'posted']
             )
-            ->selectRaw('SUM(putaway_pending_qty) as putaway_pending_qty')
-            ->selectRaw('SUM(reserved_qty) as reserved_qty')
-            ->selectRaw('SUM(CASE WHEN document_status IN (?, ?, ?) THEN org_currency_cost ELSE 0 END) as confirmed_stock_value',
+            ->selectRaw('SUM(putaway_pending_qty) as total_putaway_pending_qty')
+            ->selectRaw('SUM(reserved_qty) as total_reserved_qty')
+            ->selectRaw(
+                'SUM(CASE WHEN document_status IN (?, ?, ?) THEN org_currency_cost ELSE 0 END) as confirmed_stock_value',
                 ['approved', 'approval_not_required', 'posted']
             )
-            ->selectRaw('SUM(CASE WHEN document_status NOT IN (?, ?, ?) THEN org_currency_cost ELSE 0 END) as unconfirmed_stock_value',
+            ->selectRaw(
+                'SUM(CASE WHEN document_status NOT IN (?, ?, ?) THEN org_currency_cost ELSE 0 END) as unconfirmed_stock_value',
                 ['approved', 'approval_not_required', 'posted']
             )
             ->groupBy(['inventory_uom_id']);
@@ -222,25 +245,25 @@ class InventoryReportController extends Controller
 
         if ($day2Check) {
             $fifteenDaysAgo = $now->copy()->subDays($day2Check)->format('Y-m-d');
-            $fifteenDaysAgo2 = $now->copy()->subDays( ($day1Check+1))->format('Y-m-d');
+            $fifteenDaysAgo2 = $now->copy()->subDays(($day1Check + 1))->format('Y-m-d');
             $query->addSelect(DB::raw("SUM(CASE WHEN created_at >= '$fifteenDaysAgo' and created_at <= '$fifteenDaysAgo2'  THEN receipt_qty ELSE 0 END) as confirmed_stock_day2_days"));
         }
 
         if ($day3Check) {
             $twentyDaysAgo = $now->copy()->subDays($day3Check)->format('Y-m-d');
-            $twentyDaysAgo2 = $now->copy()->subDays(($day2Check+1))->format('Y-m-d');
+            $twentyDaysAgo2 = $now->copy()->subDays(($day2Check + 1))->format('Y-m-d');
             $query->addSelect(DB::raw("SUM(CASE WHEN created_at >= '$twentyDaysAgo' and created_at <= '$twentyDaysAgo2' THEN receipt_qty ELSE 0 END) as confirmed_stock_day3_days"));
         }
 
         if ($day4Check) {
             $fifteenDaysAgo = $now->copy()->subDays($day4Check)->format('Y-m-d');
-            $fifteenDaysAgo2 = $now->copy()->subDays( ($day3Check+1))->format('Y-m-d');
+            $fifteenDaysAgo2 = $now->copy()->subDays(($day3Check + 1))->format('Y-m-d');
             $query->addSelect(DB::raw("SUM(CASE WHEN created_at >= '$fifteenDaysAgo' and created_at <= '$fifteenDaysAgo2'  THEN receipt_qty ELSE 0 END) as confirmed_stock_day4_days"));
         }
 
         if ($day5Check) {
             $twentyDaysAgo = $now->copy()->subDays($day5Check)->format('Y-m-d');
-            $twentyDaysAgo2 = $now->copy()->subDays(($day4Check+1))->format('Y-m-d');
+            $twentyDaysAgo2 = $now->copy()->subDays(($day4Check + 1))->format('Y-m-d');
             $query->addSelect(DB::raw("SUM(CASE WHEN created_at >= '$twentyDaysAgo' and created_at <= '$twentyDaysAgo2' THEN receipt_qty ELSE 0 END) as confirmed_stock_day5_days"));
             $query->addSelect(DB::raw("SUM(CASE WHEN created_at < '$twentyDaysAgo' THEN receipt_qty ELSE 0 END) as confirmed_stock_more_than_day5_days"));
         }
@@ -248,7 +271,7 @@ class InventoryReportController extends Controller
         // Attributes Check
         $query->groupBy('item_id');
 
-        if($attributesCheck) {
+        if ($attributesCheck) {
             // Group by item ID
             $query->groupBy('item_attributes');
         }
@@ -266,7 +289,7 @@ class InventoryReportController extends Controller
         $user = Helper::getAuthenticatedUser();
         $attributeValues = array();
         $attributeGroup = ErpAttributeGroup::find($request->attribute_name);
-        if($attributeGroup){
+        if ($attributeGroup) {
             // Fetch attributeValues
             $attributeValues = ErpAttribute::where('attribute_group_id', $attributeGroup->id)
                 ->pluck('value', 'id');
@@ -282,15 +305,15 @@ class InventoryReportController extends Controller
         $attributeGroups = AttributeGroup::with('attributes')->where('status', ConstantHelper::ACTIVE)->get();
         $item = Item::find($request->item_id);
         $selectedAttr = [];
-        $html = view('procurement.inventory-report.partials.comp-attribute',compact('item','attributeGroups','selectedAttr'))->render();
+        $html = view('procurement.inventory-report.partials.comp-attribute', compact('item', 'attributeGroups', 'selectedAttr'))->render();
         $hiddenHtml = '';
         foreach ($item->itemAttributes as $attribute) {
-                $selected = '';
-                foreach ($attribute->attributes() as $value){
-                    if (in_array($value->id, $selectedAttr)){
-                        $selected = $value->id;
-                    }
+            $selected = '';
+            foreach ($attribute->attributes() as $value) {
+                if (in_array($value->id, $selectedAttr)) {
+                    $selected = $value->id;
                 }
+            }
             $hiddenHtml .= "<input type='hidden' name='[attr_group_id][$attribute->attribute_group_id][attr_name]' value=$selected>";
         }
         return response()->json(['data' => ['html' => $html, 'hiddenHtml' => $hiddenHtml], 'status' => 200, 'message' => 'fetched.']);
@@ -303,11 +326,12 @@ class InventoryReportController extends Controller
             ->where('status', ConstantHelper::ACTIVE)
             ->get();
         $query = StockLedger::query()
-                ->withDefaultGroupCompanyOrg()
-                ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
+            ->withDefaultGroupCompanyOrg()
+            ->whereNull('utilized_id')
+            ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
         $items = Item::orderBy('id', 'ASC')
-                ->withDefaultGroupCompanyOrg()
-                ->get();
+            ->withDefaultGroupCompanyOrg()
+            ->get();
         $erpStores = ErpStore::withDefaultGroupCompanyOrg()
             ->orderBy('id', 'DESC')
             ->get();
@@ -321,7 +345,7 @@ class InventoryReportController extends Controller
         $statusCss = ConstantHelper::DOCUMENT_STATUS_CSS_LIST;
 
         // Conditionally apply filters based on the request parameters
-        if($request->has('item') && !empty($request->item)) {
+        if ($request->has('item') && !empty($request->item)) {
             $query->where('item_id', $request->item);
             $selectedData = Item::where('id', $request->item)->first();
             $selectedItem = $selectedData->item_name;
@@ -333,43 +357,40 @@ class InventoryReportController extends Controller
             $hasFilters = true;
         }
 
-        if($request->has('store_id') && !empty($request->store_id)) {
+        if ($request->has('store_id') && !empty($request->store_id)) {
             $query->where('store_id', $request->store_id);
             $hasFilters = true;
         }
 
-        if($request->has('sub_store_id') && !empty($request->sub_store_id)) {
+        if ($request->has('sub_store_id') && !empty($request->sub_store_id)) {
             $query->where('sub_store_id', $request->sub_store_id);
             $hasFilters = true;
         }
 
-        if($request->has('station_id') && !empty($request->station_id)) {
+        if ($request->has('station_id') && !empty($request->station_id)) {
             $query->where('station_id', $request->station_id);
             $hasFilters = true;
         }
 
-        if($request->has('stock_type') && !empty($request->stock_type)) {
+        if ($request->has('stock_type') && !empty($request->stock_type)) {
             $query->where('stock_type', $request->stock_type);
             $hasFilters = true;
         }
 
-        if($request->has('bin_id') && !empty($request->bin_id)) {
+        if ($request->has('bin_id') && !empty($request->bin_id)) {
             $query->where('bin_id', $request->bin_id);
             $hasFilters = true;
         }
 
-        if($request->has('shelf_id') && !empty($request->shelf_id)) {
+        if ($request->has('shelf_id') && !empty($request->shelf_id)) {
             $query->where('shelf_id', $request->shelf_id);
             $hasFilters = true;
         }
 
         if ($request->has('type_of_stock_id') && !empty($request->type_of_stock_id)) {
-            if($request->type_of_stock_id == 'confirmed_stock')
-            {
+            if ($request->type_of_stock_id == 'confirmed_stock') {
                 $query->whereIn('document_status', ['approved', 'approval_not_required', 'posted']);
-            }
-            else
-            {
+            } else {
                 $query->whereNotIn('document_status', ['approved', 'approval_not_required', 'posted']);
             }
         }
@@ -377,8 +398,10 @@ class InventoryReportController extends Controller
         $attrGroup = $request->query('attribute_name');
         $attrValue = $request->query('attribute_value');
 
-        if(!empty($attrGroup)) array_filter($attrGroup);
-        if(!empty($attrValue)) array_filter($attrValue);
+        if (!empty($attrGroup))
+            array_filter($attrGroup);
+        if (!empty($attrValue))
+            array_filter($attrValue);
 
         if (!empty($attrGroup) && !empty($attrValue)) {
             foreach ($attrGroup as $key => $group) {
@@ -394,8 +417,7 @@ class InventoryReportController extends Controller
             }
         }
 
-        if($request->has('item_attributes') && !empty($request->item_attributes))
-        {
+        if ($request->has('item_attributes') && !empty($request->item_attributes)) {
             $attributeGroup = $request->item_attributes;
             // Check if the value is a JSON string and decode it if needed
             if (is_string($attributeGroup)) {
@@ -405,8 +427,8 @@ class InventoryReportController extends Controller
                 foreach ($attributeGroup as $key => $group) {
                     // Ensure index exists and handle type consistency
                     $query->whereJsonContains('item_attributes', [
-                        'attr_name' => (string)$group['attr_name'],
-                        'attr_value' => (string)$group['attr_value']
+                        'attr_name' => (string) $group['attr_name'],
+                        'attr_value' => (string) $group['attr_value']
                     ]);
                 }
                 $hasFilters = true;
@@ -453,12 +475,13 @@ class InventoryReportController extends Controller
             ->where('status', ConstantHelper::ACTIVE)
             ->get();
         $query = StockLedger::query()
-                ->withDefaultGroupCompanyOrg()
-                ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
+            ->withDefaultGroupCompanyOrg()
+            ->whereNull('utilized_id')
+            ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
         $bookTypes = StockLedger::distinct()->pluck('book_type');
         $items = Item::orderBy('id', 'ASC')
-                ->withDefaultGroupCompanyOrg()
-                ->get();
+            ->withDefaultGroupCompanyOrg()
+            ->get();
         $erpStores = ErpStore::withDefaultGroupCompanyOrg()
             ->orderBy('id', 'DESC')
             ->get();
@@ -493,18 +516,15 @@ class InventoryReportController extends Controller
             $query->where('stock_type', $request->stock_type);
         }
 
-        if($request->has('station_id') && !empty($request->station_id)) {
+        if ($request->has('station_id') && !empty($request->station_id)) {
             $query->where('station_id', $request->station_id);
             $hasFilters = true;
         }
 
         if ($request->has('type_of_stock_id') && !empty($request->type_of_stock_id)) {
-            if($request->type_of_stock_id == 'confirmed_stock')
-            {
+            if ($request->type_of_stock_id == 'confirmed_stock') {
                 $query->whereIn('document_status', ['approved', 'approval_not_required', 'posted']);
-            }
-            else
-            {
+            } else {
                 $query->whereNotIn('document_status', ['approved', 'approval_not_required', 'posted']);
             }
         }
@@ -512,8 +532,10 @@ class InventoryReportController extends Controller
         $attrGroup = $request->query('attribute_name');
         $attrValue = $request->query('attribute_value');
 
-        if (!empty($attrGroup)) array_filter($attrGroup);
-        if (!empty($attrValue)) array_filter($attrValue);
+        if (!empty($attrGroup))
+            array_filter($attrGroup);
+        if (!empty($attrValue))
+            array_filter($attrValue);
         if (!empty($attrGroup) && !empty($attrValue)) {
             foreach ($attrGroup as $key => $group) {
                 if (!empty($attrValue[$key])) {
@@ -572,11 +594,12 @@ class InventoryReportController extends Controller
             ->where('status', ConstantHelper::ACTIVE)
             ->get();
         $query = StockLedger::query()
-                ->withDefaultGroupCompanyOrg()
-                ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
+            ->withDefaultGroupCompanyOrg()
+            ->whereNull('utilized_id')
+            ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
         $items = Item::orderBy('id', 'ASC')
-                ->withDefaultGroupCompanyOrg()
-                ->get();
+            ->withDefaultGroupCompanyOrg()
+            ->get();
         $erpStores = ErpStore::withDefaultGroupCompanyOrg()
             ->orderBy('id', 'DESC')
             ->get();
@@ -588,7 +611,7 @@ class InventoryReportController extends Controller
         $statusCss = ConstantHelper::DOCUMENT_STATUS_CSS_LIST;
 
         // Conditionally apply filters based on the request parameters
-        if($request->has('item') && !empty($request->item)) {
+        if ($request->has('item') && !empty($request->item)) {
             $query->where('item_id', $request->item);
         }
 
@@ -596,34 +619,31 @@ class InventoryReportController extends Controller
             $query->where('document_number', 'like', '%' . $request->doc_no . '%');
         }
 
-        if($request->has('store_id') && !empty($request->store_id)) {
+        if ($request->has('store_id') && !empty($request->store_id)) {
             $query->where('store_id', $request->store_id);
         }
 
-        if($request->has('sub_store_id') && !empty($request->sub_store_id)) {
+        if ($request->has('sub_store_id') && !empty($request->sub_store_id)) {
             $query->where('sub_store_id', $request->sub_store_id);
         }
 
-        if($request->has('station_id') && !empty($request->station_id)) {
+        if ($request->has('station_id') && !empty($request->station_id)) {
             $query->where('station_id', $request->station_id);
             $hasFilters = true;
         }
 
-        if($request->has('stock_type') && !empty($request->stock_type)) {
+        if ($request->has('stock_type') && !empty($request->stock_type)) {
             $query->where('stock_type', $request->stock_type);
         }
 
-        if($request->has('book_type_id') && !empty($request->book_type_id)) {
+        if ($request->has('book_type_id') && !empty($request->book_type_id)) {
             $query->where('book_type', $request->book_type_id);
         }
 
         if ($request->has('type_of_stock_id') && !empty($request->type_of_stock_id)) {
-            if($request->type_of_stock_id == 'confirmed_stock')
-            {
+            if ($request->type_of_stock_id == 'confirmed_stock') {
                 $query->whereIn('document_status', ['approved', 'approval_not_required', 'posted']);
-            }
-            else
-            {
+            } else {
                 $query->whereNotIn('document_status', ['approved', 'approval_not_required', 'posted']);
             }
         }
@@ -632,8 +652,10 @@ class InventoryReportController extends Controller
         $attrGroup = $request->query('attribute_name');
         $attrValue = $request->query('attribute_value');
 
-        if(!empty($attrGroup)) array_filter($attrGroup);
-        if(!empty($attrValue)) array_filter($attrValue);
+        if (!empty($attrGroup))
+            array_filter($attrGroup);
+        if (!empty($attrValue))
+            array_filter($attrValue);
 
         if (!empty($attrGroup) && !empty($attrValue)) {
             foreach ($attrGroup as $key => $group) {
@@ -648,8 +670,7 @@ class InventoryReportController extends Controller
             }
         }
 
-        if($request->has('item_attributes') && !empty($request->item_attributes))
-        {
+        if ($request->has('item_attributes') && !empty($request->item_attributes)) {
             $attributeGroup = $request->item_attributes;
             if (is_string($attributeGroup)) {
                 $attributeGroup = json_decode($attributeGroup, true);
@@ -657,8 +678,8 @@ class InventoryReportController extends Controller
             if (!empty($attributeGroup)) {
                 foreach ($attributeGroup as $key => $group) {
                     $query->whereJsonContains('item_attributes', [
-                        'attr_name' => (string)$group['attr_name'],
-                        'attr_value' => (string)$group['attr_value']
+                        'attr_name' => (string) $group['attr_name'],
+                        'attr_value' => (string) $group['attr_value']
                     ]);
                 }
             }
@@ -697,11 +718,12 @@ class InventoryReportController extends Controller
             ->where('status', ConstantHelper::ACTIVE)
             ->get();
         $query = StockLedger::query()
-                ->withDefaultGroupCompanyOrg()
-                ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
+            ->withDefaultGroupCompanyOrg()
+            ->whereNull('utilized_id')
+            ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
         $items = Item::orderBy('id', 'ASC')
-                ->withDefaultGroupCompanyOrg()
-                ->get();
+            ->withDefaultGroupCompanyOrg()
+            ->get();
         $erpStores = ErpStore::withDefaultGroupCompanyOrg()
             ->orderBy('id', 'DESC')
             ->get();
@@ -728,12 +750,12 @@ class InventoryReportController extends Controller
             $query->where('sub_store_id', $request->sub_store_id);
         }
 
-        if($request->has('station_id') && !empty($request->station_id)) {
+        if ($request->has('station_id') && !empty($request->station_id)) {
             $query->where('station_id', $request->station_id);
             $hasFilters = true;
         }
 
-        if($request->has('book_type_id') && !empty($request->book_type_id)) {
+        if ($request->has('book_type_id') && !empty($request->book_type_id)) {
             $query->where('book_type', $request->book_type_id);
         }
 
@@ -742,12 +764,9 @@ class InventoryReportController extends Controller
         }
 
         if ($request->has('type_of_stock_id') && !empty($request->type_of_stock_id)) {
-            if($request->type_of_stock_id == 'confirmed_stock')
-            {
+            if ($request->type_of_stock_id == 'confirmed_stock') {
                 $query->whereIn('document_status', ['approved', 'approval_not_required', 'posted']);
-            }
-            else
-            {
+            } else {
                 $query->whereNotIn('document_status', ['approved', 'approval_not_required', 'posted']);
             }
         }
@@ -755,8 +774,10 @@ class InventoryReportController extends Controller
         $attrGroup = $request->query('attribute_name');
         $attrValue = $request->query('attribute_value');
 
-        if (!empty($attrGroup)) array_filter($attrGroup);
-        if (!empty($attrValue)) array_filter($attrValue);
+        if (!empty($attrGroup))
+            array_filter($attrGroup);
+        if (!empty($attrValue))
+            array_filter($attrValue);
         if (!empty($attrGroup) && !empty($attrValue)) {
             foreach ($attrGroup as $key => $group) {
                 if (!empty($attrValue[$key])) {
@@ -831,29 +852,32 @@ class InventoryReportController extends Controller
 
     public function addScheduler(Request $request)
     {
-        try{
-            $validator = Validator::make($request->all(), [
-                'email_to' => ['required', 'array', 'min:1'],
-                'email_to.*' => ['required', 'email'],
-                'email_cc' => ['nullable', 'array'],
-                'email_cc.*' => ['required_with:email_cc', 'email'],
-            ],
-            [
-                'email_to.required' => 'At least one recipient email is required.',
-                'email_to.array' => 'The recipient emails must be provided as an array.',
-                'email_to.min' => 'At least one email address must be specified in email_to.',
-                'email_to.*.required' => 'Each email address in email_to is required.',
-                'email_to.*.email' => 'Each email in email_to must be a valid email address.',
+        try {
+            $validator = Validator::make(
+                $request->all(),
+                [
+                    'email_to' => ['required', 'array', 'min:1'],
+                    'email_to.*' => ['required', 'email'],
+                    'email_cc' => ['nullable', 'array'],
+                    'email_cc.*' => ['required_with:email_cc', 'email'],
+                ],
+                [
+                    'email_to.required' => 'At least one recipient email is required.',
+                    'email_to.array' => 'The recipient emails must be provided as an array.',
+                    'email_to.min' => 'At least one email address must be specified in email_to.',
+                    'email_to.*.required' => 'Each email address in email_to is required.',
+                    'email_to.*.email' => 'Each email in email_to must be a valid email address.',
 
-                'email_cc.array' => 'The CC emails must be provided as an array.',
-                'email_cc.*.required_with' => 'Each email in email_cc is required if CC is present.',
-                'email_cc.*.email' => 'Each email in email_cc must be a valid email address.',
-            ]);
+                    'email_cc.array' => 'The CC emails must be provided as an array.',
+                    'email_cc.*.required_with' => 'Each email in email_cc is required if CC is present.',
+                    'email_cc.*.email' => 'Each email in email_cc must be a valid email address.',
+                ]
+            );
 
             if ($validator->fails()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => $validator -> messages() -> first()
+                    'message' => $validator->messages()->first()
                 ], 422);
             }
             $headers = $request->input('displayedHeaders');
@@ -869,13 +893,11 @@ class InventoryReportController extends Controller
             $endDate = new DateTime($request->input('end_date'));
             $formattedstartDate = $startDate->format('d-m-y');
             $formattedendDate = $endDate->format('d-m-y');
-            if ($request->filled('store_id'))
-            {
+            if ($request->filled('store_id')) {
                 $storeData = ErpStore::find($request->input('store_id'));
                 $storeName = optional($storeData)->store_name;
             }
-            if ($request->filled('sub_store_id'))
-            {
+            if ($request->filled('sub_store_id')) {
                 $subStoreData = ErpSubStore::find($request->input('sub_store_id'));
                 $subStoreName = optional($subStoreData)->name;
             }
@@ -899,7 +921,7 @@ class InventoryReportController extends Controller
             }
 
             $blankSpaces = count($headers) - 1;
-            $centerPosition = (int)floor($blankSpaces / 2);
+            $centerPosition = (int) floor($blankSpaces / 2);
             $filters = [
                 'Filters',
                 'Item: ' . $itemName,
@@ -908,36 +930,31 @@ class InventoryReportController extends Controller
                 'Stock Type: ' . $stockType,
             ];
 
-            if($reportType == 'report')
-            {
+            if ($reportType == 'report') {
                 $fileName = 'inventory_report.xlsx';
                 $filePath = storage_path('app/public/inventory-report/' . $fileName);
                 $directoryPath = storage_path('app/public/inventory-report');
                 $customHeader = array_merge(
                     array_fill(0, $centerPosition, ''),
-                    ['Inventory Report' ],
+                    ['Inventory Report'],
                     array_fill(0, $blankSpaces - $centerPosition, '')
                 );
-            }
-            else if($reportType == 'detailed')
-            {
+            } else if ($reportType == 'detailed') {
                 $fileName = 'detailed_report.xlsx';
                 $filePath = storage_path('app/public/detailed-report/' . $fileName);
                 $directoryPath = storage_path('app/public/detailed-report');
                 $customHeader = array_merge(
                     array_fill(0, $centerPosition, ''),
-                    ['Detailed Report(From '.$formattedstartDate.' to '.$formattedendDate.')' ],
+                    ['Detailed Report(From ' . $formattedstartDate . ' to ' . $formattedendDate . ')'],
                     array_fill(0, $blankSpaces - $centerPosition, '')
                 );
-            }
-            else if($reportType == 'summary')
-            {
+            } else if ($reportType == 'summary') {
                 $fileName = 'summary_report.xlsx';
                 $filePath = storage_path('app/public/summary-report/' . $fileName);
                 $directoryPath = storage_path('app/public/summary-report');
                 $customHeader = array_merge(
                     array_fill(0, $centerPosition, ''),
-                    ['Summarized Report(From '.$formattedstartDate.' to '.$formattedendDate.')' ],
+                    ['Summarized Report(From ' . $formattedstartDate . ' to ' . $formattedendDate . ')'],
                     array_fill(0, $blankSpaces - $centerPosition, '')
                 );
             }
@@ -957,29 +974,23 @@ class InventoryReportController extends Controller
             $email_to = $request->email_to ?? [];
             $email_cc = $request->email_cc ?? [];
 
-            foreach($email_to as $email)
-            {
+            foreach ($email_to as $email) {
                 $user = AuthUser::where('email', $email)
-                ->where('organization_id', Helper::getAuthenticatedUser()->organization_id)
-                ->where('status', ConstantHelper::ACTIVE)
-                ->get();
+                    ->where('organization_id', Helper::getAuthenticatedUser()->organization_id)
+                    ->where('status', ConstantHelper::ACTIVE)
+                    ->get();
 
                 if ($user->isEmpty()) {
                     $user = new AuthUser();
                     $user->email = $email;
                 }
-                if($reportType == 'report')
-                {
+                if ($reportType == 'report') {
                     $title = "Inventory Report Generated";
                     $heading = "Inventory Report";
-                }
-                else if($reportType == 'detailed')
-                {
+                } else if ($reportType == 'detailed') {
                     $title = "Detailed Report Generated";
                     $heading = "Detailed Report";
-                }
-                else if($reportType == 'summary')
-                {
+                } else if ($reportType == 'summary') {
                     $title = "Summarized Report Generated";
                     $heading = "Summarized Report";
                 }
@@ -1012,7 +1023,7 @@ class InventoryReportController extends Controller
                     </tr>
                 </table>
                 HTML;
-                self::sendMail($user,$title,$description,$cc,$bcc, $attachment,$mail_from,$mail_from_name);
+                self::sendMail($user, $title, $description, $cc, $bcc, $attachment, $mail_from, $mail_from_name);
             }
             return response()->json([
                 'status' => 'success',
@@ -1029,14 +1040,14 @@ class InventoryReportController extends Controller
 
 
     }
-    public function sendMail($receiver, $title, $description, $cc= null, $bcc= null, $attachment, $mail_from=null, $mail_from_name=null)
+    public function sendMail($receiver, $title, $description, $cc = null, $bcc = null, $attachment, $mail_from = null, $mail_from_name = null)
     {
         if (!$receiver || !isset($receiver->email)) {
             return "Error: Receiver details are missing or invalid.";
         }
 
-        dispatch(new SendEmailJob($receiver, $mail_from, $mail_from_name,$title,$description,$cc,$bcc, $attachment));
-        return response() -> json([
+        dispatch(new SendEmailJob($receiver, $mail_from, $mail_from_name, $title, $description, $cc, $bcc, $attachment));
+        return response()->json([
             'status' => 'success',
             'message' => 'Email request sent succesfully',
         ]);
@@ -1048,6 +1059,6 @@ class InventoryReportController extends Controller
         $items = Item::where('id', $request->item_id)
             ->withDefaultGroupCompanyOrg()
             ->get();
-        return $items ? ['name' => isset($items[0]) ? $items[0]->item_name: null] : response()->json(['error' => 'Not found'], 404);
+        return $items ? ['name' => isset($items[0]) ? $items[0]->item_name : null] : response()->json(['error' => 'Not found'], 404);
     }
 }

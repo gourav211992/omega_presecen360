@@ -7,6 +7,7 @@ use App\Helpers\ASN\Constants as ASNConstant;
 use App\Helpers\RGR\Constants as RGRConstant;
 use App\Models\Legal;
 
+
 class ConstantHelper
 {
     // Vendor Status
@@ -594,6 +595,7 @@ class ConstantHelper
     const STORE_MAPPING_SERVICE_ALIAS = 'store-mapping';
     const ITEM_BUNDLE_SERVICE_ALIAS = 'item-bundles';
     const ITEM_SERVICE_ALIAS = 'items';
+    const CONSIGNEE_SERVICE_ALIAS = 'consignees';
     const LEDGERS_SERVICE_ALIAS = 'ledgers';
     const LEDGER_GROUP_SERVICE_ALIAS = 'ledger-groups';
     const COST_CENTER_SERVICE_ALIAS = 'cost-center';
@@ -805,6 +807,7 @@ class ConstantHelper
         self::STORE_MAPPING_SERVICE_ALIAS => 'ErpStoreMapping',
         self::ITEM_BUNDLE_SERVICE_ALIAS => 'ErpItemBundle',
         self::ITEM_SERVICE_ALIAS => 'Item',
+        self::CONSIGNEE_SERVICE_ALIAS => 'ErpConsignee',
         self::LEDGERS_SERVICE_ALIAS => 'Ledger',
         self::HSN_SERVICE_ALIAS => 'Hsn',
         self::CATEGORY_SERVICE_ALIAS =>'Category',

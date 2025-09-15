@@ -16,6 +16,7 @@ window.pageData = {
 </script>
 <script>
     window.routes = {
+        tripRoute: "{{ route('trip-plan.get-trip-data') }}",
         docParams: "{{ route('book.get.doc_no_and_parameters') }}",
         serviceSeries: "{{ route('book.service-series.get') }}",
         revoke: "{{ route("$route_prefix.revoke") }}",

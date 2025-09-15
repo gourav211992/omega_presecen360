@@ -1205,6 +1205,15 @@ class ErpSaleInvoiceController extends Controller
                             if ($pullType === ConstantHelper::SO_SERVICE_ALIAS) {
                                 $qtItem = ErpSoItem::find($request -> quotation_item_ids[$itemDataKey]);
                                 if (isset($qtItem)) {
+                                    //Return Error if qty is already utilized
+                                    if (($qtItem -> dnote_pull_balance_qty + (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) < $itemDataValue['order_qty']) {
+                                        return response()->json([
+                                            'message' => '',
+                                            'errors' => array(
+                                                'item_qty.' . $itemDataKey => 'Not Enough Sale Order Qty remaining'
+                                            )
+                                        ], 422); 
+                                    }
                                     //If Order is pulled inside DN
                                     if ($saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS || $saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS || $saleInvoice -> document_type === ConstantHelper::SERVICE_INV_SERVICE_ALIAS) {
                                         $qtItem -> dnote_qty = ($qtItem -> dnote_qty - (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) + $itemDataValue['order_qty'];
@@ -1298,6 +1307,14 @@ class ErpSaleInvoiceController extends Controller
                             } else if ($pullType === ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS) {
                                 $qtItem = ErpInvoiceItem::find($request -> quotation_item_ids[$itemDataKey]);
                                 if (isset($qtItem)) {
+                                    if (($qtItem -> balance_qty + (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) < $itemDataValue['order_qty']) {
+                                        return response()->json([
+                                            'message' => '',
+                                            'errors' => array(
+                                                'item_qty.' . $itemDataKey => 'Not Enough Delivery Note Qty remaining'
+                                            )
+                                        ], 422); 
+                                    }
                                     $qtItem -> invoice_qty = ($qtItem -> invoice_qty - (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) + $itemDataValue['order_qty'];
                                     $soItem -> invoice_qty = ($soItem -> invoice_qty - (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) + $itemDataValue['order_qty'];
                                     //Check if sales order exists

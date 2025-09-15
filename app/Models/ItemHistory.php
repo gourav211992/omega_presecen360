@@ -34,6 +34,9 @@ class ItemHistory extends Model
         'storage_uom_count',
         'storage_type',
         'storage_weight',
+        'length_in_feet',
+        'breadth_in_feet',
+        'height_in_feet',
         'storage_volume',
         'cost_price',
         'cost_price_currency_id',
@@ -156,6 +159,10 @@ class ItemHistory extends Model
     public function specifications()
     {
         return $this->hasMany(ItemSpecificationHistory::class, 'item_id');
+    }
+     public function packagingDetails()
+    {
+        return $this->hasMany(ItemPackagingDetailHistory::class, 'item_id');
     }
 
     public function notes()

@@ -9,8 +9,7 @@
     </style>
 @endsection
 @section('content')
-    <form class="ajax-input-form" method="POST" data-module="po" action="{{ url(request()->route('type')) }}"
-        data-redirect="/{{ request()->route('type') }}" enctype="multipart/form-data">
+    <form class="ajax-input-form" method="POST" data-module="po" action="{{ url(request()->route('type')) }}" data-redirect="/{{ request()->route('type') }}" enctype="multipart/form-data">
         @csrf
         <input type="hidden" name="tax_required" id="tax_required">
         <input type="hidden" name="pi_item_ids" id="pi_item_ids">
@@ -30,13 +29,10 @@
                         <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
                             <div class="form-group breadcrumb-right">
                                 <input type="hidden" name="document_status" value="draft" id="document_status">
-                                <button type="button" onClick="javascript: history.go(-1)"
-                                    class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i>
+                                <button type="button" onClick="javascript: history.go(-1)" class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i>
                                     Back</button>
-                                <button type="submit" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button"
-                                    name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
-                                <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
-                                    value="submitted"><i data-feather="check-circle"></i> Submit</button>
+                                <button type="submit" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button" name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
+                                <button type="submit" class="btn btn-primary btn-sm submit-button" name="action" value="submitted"><i data-feather="check-circle"></i> Submit</button>
                             </div>
                         </div>
                     </div>
@@ -49,8 +45,7 @@
                                     <div class="card-body customernewsection-form">
                                         <div class="row">
                                             <div class="col-md-12">
-                                                <div
-                                                    class="newheader border-bottom mb-2 pb-25 d-flex flex-wrap justify-content-between">
+                                                <div class="newheader border-bottom mb-2 pb-25 d-flex flex-wrap justify-content-between">
                                                     <div>
                                                         <h4 class="card-title text-theme">Basic Information</h4>
                                                         <p class="card-text">Fill the details</p>
@@ -60,8 +55,7 @@
                                             <div class="col-md-8">
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">Series <span
-                                                                class="text-danger">*</span></label>
+                                                        <label class="form-label">Series <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
                                                         <select class="form-select" id="book_id" name="book_id">
@@ -75,39 +69,32 @@
                                                 </div>
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">{{ $short_title }} No <span
-                                                                class="text-danger">*</span></label>
+                                                        <label class="form-label">{{ $short_title }} No <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="text" name="document_number" class="form-control"
-                                                            id="document_number">
+                                                        <input type="text" name="document_number" class="form-control" id="document_number">
                                                     </div>
                                                 </div>
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">{{ $short_title }} Date <span
-                                                                class="text-danger">*</span></label>
+                                                        <label class="form-label">{{ $short_title }} Date <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="date" class="form-control"
-                                                            value="{{ date('Y-m-d') }}" name="document_date">
+                                                        <input type="date" class="form-control" value="{{ date('Y-m-d') }}" name="document_date">
                                                     </div>
                                                 </div>
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">{{ $short_title }} Procurement Type <span
-                                                                class="text-danger">*</span></label>
+                                                        <label class="form-label">{{ $short_title }} Procurement Type <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select class="form-select" name="procurement_type"
-                                                            id="procurement_type">
+                                                        <select class="form-select" name="procurement_type" id="procurement_type">
                                                         </select>
                                                     </div>
                                                 </div>
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">Location <span
-                                                                class="text-danger">*</span></label>
+                                                        <label class="form-label">Location <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
                                                         <select class="form-select" id="store_id" name="store_id">
@@ -123,9 +110,7 @@
                                                         <label class="form-label">Reference from</label>
                                                     </div>
                                                     <div class="col-md-5 action-button">
-                                                        <button type="button"
-                                                            class="btn btn-outline-primary btn-sm mb-0 prSelect"><i
-                                                                data-feather="plus-square"></i>
+                                                        <button type="button" class="btn btn-outline-primary btn-sm mb-0 prSelect"><i data-feather="plus-square"></i>
                                                             {{ $reference_from_title }}</button>
                                                     </div>
                                                 </div>
@@ -146,47 +131,32 @@
                                                 <div class="row">
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Vendor <span
-                                                                    class="text-danger">*</span></label>
-                                                            <input type="text" placeholder="Select"
-                                                                class="form-control mw-100 ledgerselecct" id="vendor_name"
-                                                                name="vendor_name" />
+                                                            <label class="form-label">Vendor <span class="text-danger">*</span></label>
+                                                            <input type="text" placeholder="Select" class="form-control mw-100 ledgerselecct" id="vendor_name" name="vendor_name" />
                                                             <input type="hidden" id="vendor_id" name="vendor_id" />
                                                             <input type="hidden" id="vendor_code" name="vendor_code" />
-                                                            <input type="hidden" id="vendor_address_id"
-                                                                name="vendor_address_id" />
-                                                            <input type="hidden" id="billing_address_id"
-                                                                name="billing_address_id" />
-                                                            <input type="hidden" id="delivery_address_id"
-                                                                name="delivery_address_id" />
-                                                            <input type="hidden" id="hidden_state_id"
-                                                                name="hidden_state_id" />
-                                                            <input type="hidden" id="hidden_country_id"
-                                                                name="hidden_country_id" />
-                                                            <input type="hidden" id="delivery_country_id"
-                                                                name="delivery_country_id" />
-                                                            <input type="hidden" id="delivery_state_id"
-                                                                name="delivery_state_id" />
-                                                            <input type="hidden" id="delivery_city_id"
-                                                                name="delivery_city_id" />
-                                                            <input type="hidden" id="delivery_pincode"
-                                                                name="delivery_pincode" />
-                                                            <input type="hidden" id="delivery_address"
-                                                                name="delivery_address" />
+                                                            <input type="hidden" id="vendor_address_id" name="vendor_address_id" />
+                                                            <input type="hidden" id="billing_address_id" name="billing_address_id" />
+                                                            <input type="hidden" id="delivery_address_id" name="delivery_address_id" />
+                                                            <input type="hidden" id="hidden_state_id" name="hidden_state_id" />
+                                                            <input type="hidden" id="hidden_country_id" name="hidden_country_id" />
+                                                            <input type="hidden" id="delivery_country_id" name="delivery_country_id" />
+                                                            <input type="hidden" id="delivery_state_id" name="delivery_state_id" />
+                                                            <input type="hidden" id="delivery_city_id" name="delivery_city_id" />
+                                                            <input type="hidden" id="delivery_pincode" name="delivery_pincode" />
+                                                            <input type="hidden" id="delivery_address" name="delivery_address" />
                                                         </div>
                                                     </div>
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Currency <span
-                                                                    class="text-danger">*</span></label>
+                                                            <label class="form-label">Currency <span class="text-danger">*</span></label>
                                                             <select class="form-select" name="currency_id">
                                                             </select>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Payment Terms <span
-                                                                    class="text-danger">*</span></label>
+                                                            <label class="form-label">Payment Terms <span class="text-danger">*</span></label>
                                                             <select class="form-select" name="payment_term_id">
                                                             </select>
                                                         </div>
@@ -194,37 +164,30 @@
 
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Credit Days <span
-                                                                    class="text-danger">*</span></label>
-                                                            <input type="text" class="form-control mw-100"
-                                                                id="credit_days" name="credit_days" />
+                                                            <label class="form-label">Credit Days <span class="text-danger">*</span></label>
+                                                            <input type="text" class="form-control mw-100" id="credit_days" name="credit_days" />
                                                         </div>
                                                     </div>
 
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Exchange Rate <span
-                                                                    class="text-danger">*</span></label>
-                                                            <input type="text"
-                                                                class="form-control mw-100 disabled-input"
-                                                                id="exchange_rate" name="exchange_rate" />
+                                                            <label class="form-label">Exchange Rate <span class="text-danger">*</span></label>
+                                                            <input type="text" class="form-control mw-100 disabled-input" id="exchange_rate" name="exchange_rate" />
                                                         </div>
                                                     </div>
 
                                                     <div class="col-md-3 gstin_no_div d-none">
                                                         <div class="mb-1">
                                                             <label class="form-label">GSTIN No. </label>
-                                                            <input type="text" class="form-control mw-100"
-                                                                id="gstin_no" disabled/>
+                                                            <input type="text" class="form-control mw-100" id="gstin_no" disabled />
                                                         </div>
                                                     </div>
 
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Consignee Name </label>
-                                                                {{-- <span class="text-danger">*</span></label> --}}
-                                                            <input type="text" class="form-control mw-100"
-                                                                id="consignee_name" name="consignee_name" />
+                                                            {{-- <span class="text-danger">*</span></label> --}}
+                                                            <input type="text" class="form-control mw-100" id="consignee_name" name="consignee_name" />
                                                         </div>
                                                     </div>
 
@@ -235,16 +198,10 @@
                                                             <p>Vendor Address</p>
                                                             <div class="bilnbody">
                                                                 <div class="genertedvariables genertedvariablesnone">
-                                                                    <input type="hidden" value=""
-                                                                        id="party_country_id" name="party_country_id" />
-                                                                    <input type="hidden" value=""
-                                                                        id="party_state_id" name="party_state_id" />
-                                                                    <label class="form-label w-100">Vendor Address <span
-                                                                            class="text-danger">*</span>
-                                                                        <a href="javascript:;"
-                                                                            class="float-end font-small-2 editAddressBtn d-none"
-                                                                            data-type="vendor_address"><i
-                                                                                data-feather='edit-3'></i> Edit</a>
+                                                                    <input type="hidden" value="" id="party_country_id" name="party_country_id" />
+                                                                    <input type="hidden" value="" id="party_state_id" name="party_state_id" />
+                                                                    <label class="form-label w-100">Vendor Address <span class="text-danger">*</span>
+                                                                        <a href="javascript:;" class="float-end font-small-2 editAddressBtn d-none" data-type="vendor_address"><i data-feather='edit-3'></i> Edit</a>
                                                                     </label>
                                                                     <div class="mrnaddedd-prim vendor_address">-</div>
                                                                 </div>
@@ -254,14 +211,11 @@
                                                     <div class="col-md-4">
                                                         <div class="customer-billing-section h-100">
                                                             <p>Billing Address</p>
-                                                            <input type="hidden" value="{{ $fromCountry }}"
-                                                                id="country_id" name="country_id" />
-                                                            <input type="hidden" value="{{ $fromState }}"
-                                                                id="state_id" name="state_id" />
+                                                            <input type="hidden" value="{{ $fromCountry }}" id="country_id" name="country_id" />
+                                                            <input type="hidden" value="{{ $fromState }}" id="state_id" name="state_id" />
                                                             <div class="bilnbody">
                                                                 <div class="genertedvariables genertedvariablesnone">
-                                                                    <label class="form-label w-100">Billing Address <span
-                                                                            class="text-danger">*</span>
+                                                                    <label class="form-label w-100">Billing Address <span class="text-danger">*</span>
                                                                     </label>
                                                                     <div class="mrnaddedd-prim billing_address">-</div>
                                                                 </div>
@@ -273,12 +227,8 @@
                                                             <p>Delivery Address</p>
                                                             <div class="bilnbody">
                                                                 <div class="genertedvariables genertedvariablesnone">
-                                                                    <label class="form-label w-100">Delivery Address <span
-                                                                            class="text-danger">*</span>
-                                                                        <a href="javascript:;"
-                                                                            class="float-end font-small-2 editAddressBtn d-done"
-                                                                            data-type="delivery_address"><i
-                                                                                data-feather='edit-3'></i> Edit</a>
+                                                                    <label class="form-label w-100">Delivery Address <span class="text-danger">*</span>
+                                                                        <a href="javascript:;" class="float-end font-small-2 editAddressBtn d-done" data-type="delivery_address"><i data-feather='edit-3'></i> Edit</a>
                                                                     </label>
                                                                     <div class="mrnaddedd-prim delivery_address">-</div>
                                                                 </div>
@@ -303,20 +253,15 @@
                                                     </div>
                                                 </div>
                                                 <div class="col-md-6 text-sm-end">
-                                                    <button type="button" id="importItem"
-                                                        class="mx-1 d-none btn btn-sm btn-outline-primary importItem"
-                                                        onclick="openImportItemModal('create')">
+                                                    <button type="button" id="importItem" class="mx-1 d-none btn btn-sm btn-outline-primary importItem" onclick="openImportItemModal('create')">
                                                         <i data-feather="upload"></i>
                                                         Import Item
                                                     </button>
-                                                    <a href="javascript:;" id="deleteBtn"
-                                                        class="btn btn-sm btn-outline-danger me-50">
+                                                    <a href="javascript:;" id="deleteBtn" class="btn btn-sm btn-outline-danger me-50">
                                                         <i data-feather="x-circle"></i> Delete</a>
-                                                    <a href="javascript:;" id="addNewItemBtn"
-                                                        class="btn btn-sm btn-outline-primary d-none">
+                                                    <a href="javascript:;" id="addNewItemBtn" class="btn btn-sm btn-outline-primary d-none">
                                                         <i data-feather="plus"></i> Add Item</a>
-                                                    <a href="#" onclick = "copyItemRow();" id = "copy_item_section"
-                                                        style = "display:none;" class="btn btn-sm btn-outline-primary">
+                                                    <a href="#" onclick = "copyItemRow();" id = "copy_item_section" style = "display:none;" class="btn btn-sm btn-outline-primary">
                                                         <i data-feather="copy"></i> Copy Item</a>
                                                 </div>
                                             </div>
@@ -324,19 +269,13 @@
                                         <div class="row">
                                             <div class="col-md-12">
                                                 <div class="table-responsive pomrnheadtffotsticky">
-                                                    <table id="itemTable"
-                                                        class="table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad"
-                                                        data-json-key="components_json"
-                                                        data-row-selector="tr[id^='row_']">
+                                                    <table id="itemTable" class="table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad" data-json-key="components_json" data-row-selector="tr[id^='row_']">
                                                         <thead>
                                                             <tr>
                                                                 <th class="customernewsection-form">
-                                                                    <div
-                                                                        class="form-check form-check-primary custom-checkbox">
-                                                                        <input type="checkbox" class="form-check-input"
-                                                                            id="Email">
-                                                                        <label class="form-check-label"
-                                                                            for="Email"></label>
+                                                                    <div class="form-check form-check-primary custom-checkbox">
+                                                                        <input type="checkbox" class="form-check-input" id="Email">
+                                                                        <label class="form-check-label" for="Email"></label>
                                                                     </div>
                                                                 </th>
                                                                 <th width="150px">Item Code</th>
@@ -369,8 +308,7 @@
                                                                         <tbody id="itemDetailDisplay">
                                                                             <tr>
                                                                                 <td class="p-0">
-                                                                                    <h6
-                                                                                        class="text-dark mb-0 bg-light-primary py-1 px-50">
+                                                                                    <h6 class="text-dark mb-0 bg-light-primary py-1 px-50">
                                                                                         <strong>Item Details</strong>
                                                                                     </h6>
                                                                                 </td>
@@ -392,21 +330,15 @@
                                                                     <table class="table border mrnsummarynewsty">
                                                                         <tr>
                                                                             <td colspan="2" class="p-0">
-                                                                                <h6
-                                                                                    class="text-dark mb-0 bg-light-primary py-1 px-50 d-flex justify-content-between">
+                                                                                <h6 class="text-dark mb-0 bg-light-primary py-1 px-50 d-flex justify-content-between">
                                                                                     <strong>{{ $short_title }}
                                                                                         Summary</strong>
                                                                                     <div class="addmendisexpbtn">
-                                                                                        <button type="button"
-                                                                                            class="btn p-25 btn-sm btn-outline-secondary summaryTaxBtn">{{-- <i data-feather="plus"></i> --}}
+                                                                                        <button type="button" class="btn p-25 btn-sm btn-outline-secondary summaryTaxBtn">{{-- <i data-feather="plus"></i> --}}
                                                                                             Tax</button>
-                                                                                        <button type="button"
-                                                                                            class="btn p-25 btn-sm btn-outline-secondary summaryDisBtn"><i
-                                                                                                data-feather="plus"></i>
+                                                                                        <button type="button" class="btn p-25 btn-sm btn-outline-secondary summaryDisBtn"><i data-feather="plus"></i>
                                                                                             Discount</button>
-                                                                                        <button type="button"
-                                                                                            class="btn p-25 btn-sm btn-outline-secondary summaryExpBtn"><i
-                                                                                                data-feather="plus"></i>
+                                                                                        <button type="button" class="btn p-25 btn-sm btn-outline-secondary summaryExpBtn"><i data-feather="plus"></i>
                                                                                             Expenses</button>
                                                                                     </div>
                                                                                 </h6>
@@ -430,8 +362,7 @@
                                                                         </tr>
                                                                         <tr class="totalsubheadpodetail">
                                                                             <td><strong>Taxable Value</strong></td>
-                                                                            <td class="text-end" id="f_taxable_value"
-                                                                                amount="">0.00</td>
+                                                                            <td class="text-end" id="f_taxable_value" amount="">0.00</td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td><strong>Tax</strong></td>
@@ -451,19 +382,16 @@
                                                                             <td class="text-primary"><strong>Grand
                                                                                     Total</strong></td>
                                                                             <td>
-                                                                                <div
-                                                                                    class="quottotal-bg justify-content-end">
+                                                                                <div class="quottotal-bg justify-content-end">
                                                                                     <h5 id="f_total_after_exp">0.00</h5>
                                                                                 </div>
                                                                             </td>
                                                                         </tr>
-                                                                        <tr class="voucher-tab-foot d-none"
-                                                                            id="exchangeDiv">
+                                                                        <tr class="voucher-tab-foot d-none" id="exchangeDiv">
                                                                             <td class="text-primary"><strong>Grand Total
                                                                                     ({{ $currencyName }})</strong></td>
                                                                             <td>
-                                                                                <div
-                                                                                    class="quottotal-bg justify-content-end">
+                                                                                <div class="quottotal-bg justify-content-end">
                                                                                     <h5 id="f_total_after_exp_rate">0.00
                                                                                     </h5>
                                                                                 </div>
@@ -481,22 +409,19 @@
                                                         <select class="form-select select2" name="term_id[]">
                                                             <option value="">Select</option>
                                                             @foreach ($termsAndConditions as $termsAndCondition)
-                                                                <option value="{{ $termsAndCondition->id }}"
-                                                                    data-detail="{{ $termsAndCondition->term_detail }}">
+                                                                <option value="{{ $termsAndCondition->id }}" data-detail="{{ $termsAndCondition->term_detail }}">
                                                                     {{ $termsAndCondition->term_name }}</option>
                                                             @endforeach
                                                         </select>
                                                     </div>
                                                 </div>
                                                 <div class="col-md-12">
-                                                    <textarea name="terms_data" id="summernote" class="form-control" placeholder="Enter Terms" maxlength="250"
-                                                        oninput="if(this.value.length > 250) this.value = this.value.slice(0, 250);">{{ $po->tnc ?? '' }}</textarea>
+                                                    <textarea name="terms_data" id="summernote" class="form-control" placeholder="Enter Terms" maxlength="250" oninput="if(this.value.length > 250) this.value = this.value.slice(0, 250);">{{ $po->tnc ?? '' }}</textarea>
                                                     <small class="text-muted d-block text-end">
                                                         <span id="termsCharCount">0</span>/250 characters
                                                     </small>
                                                     <input type="hidden" name="tnc" id="tnc">
-                                                    <input type="hidden" id="customer_terms_id" value=""
-                                                        name="terms_id" />
+                                                    <input type="hidden" id="customer_terms_id" value="" name="terms_id" />
                                                 </div>
                                                 <div class="row">
                                                     <div class="col-md-12">
@@ -504,12 +429,8 @@
                                                             <div class="col-md-4">
                                                                 <div class="mb-1">
                                                                     <label class="form-label">Upload Document</label>
-                                                                    <input type="file" name="attachment[]"
-                                                                        class="form-control"
-                                                                        onchange = "addFiles(this,'main_po_file_preview')"
-                                                                        multiple>
-                                                                    <span
-                                                                        class = "text-primary small">{{ __('message.attachment_caption') }}</span>
+                                                                    <input type="file" name="attachment[]" class="form-control" onchange = "addFiles(this,'main_po_file_preview')" multiple>
+                                                                    <span class = "text-primary small">{{ __('message.attachment_caption') }}</span>
                                                                 </div>
                                                             </div>
                                                             <div class = "col-md-6" style = "margin-top:19px;">
@@ -521,8 +442,7 @@
                                                     <div class="col-md-12">
                                                         <div class="mb-1">
                                                             <label class="form-label">Final Remarks</label>
-                                                            <textarea maxlength="250" type="text" rows="4" name="remarks" class="form-control"
-                                                                placeholder="Enter Remarks here..."></textarea>
+                                                            <textarea maxlength="250" type="text" rows="4" name="remarks" class="form-control" placeholder="Enter Remarks here..."></textarea>
 
                                                         </div>
                                                     </div>
@@ -579,16 +499,14 @@
                 </div>
                 <div class="modal-footer justify-content-center">
                     <button type="button" data-bs-dismiss="modal" class="btn btn-outline-secondary me-1">Cancel</button>
-                    <button type="button" {{-- data-bs-dismiss="modal" --}}
-                        class="btn btn-primary submitAttributeBtn">Select</button>
+                    <button type="button" {{-- data-bs-dismiss="modal" --}} class="btn btn-primary submitAttributeBtn">Select</button>
                 </div>
             </div>
         </div>
     </div>
 
     {{-- Add each row discount popup --}}
-    <div class="modal fade" id="itemRowDiscountModal" tabindex="-1" aria-labelledby="shareProjectTitle"
-        aria-hidden="true">
+    <div class="modal fade" id="itemRowDiscountModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
         <div class="modal-dialog  modal-dialog-centered" style="max-width: 700px">
             <div class="modal-content">
                 <div class="modal-header p-0 bg-transparent">
@@ -605,22 +523,18 @@
                                 <td>
                                 <td>
                                     <label class="form-label">Type<span class="text-danger">*</span></label>
-                                    <input type="text" id="new_item_dis_name_select" placeholder="Select"
-                                        class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off"
-                                        value="">
+                                    <input type="text" id="new_item_dis_name_select" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
                                     <input type = "hidden" id = "new_item_discount_id" />
                                     <input type = "hidden" id = "new_item_dis_name" />
                                 </td>
                                 </td>
                                 <td>
                                     <label class="form-label">Percentage <span class="text-danger">*</span></label>
-                                    <input step="any" type="number" id="new_item_dis_perc"
-                                        class="form-control mw-100" />
+                                    <input step="any" type="number" id="new_item_dis_perc" class="form-control mw-100" />
                                 </td>
                                 <td>
                                     <label class="form-label">Value <span class="text-danger">*</span></label>
-                                    <input step="any" type="number" id="new_item_dis_value"
-                                        class="form-control mw-100" />
+                                    <input step="any" type="number" id="new_item_dis_value" class="form-control mw-100" />
                                 </td>
                                 <td>
                                     <a href="javascript:;" id="add_new_item_dis" class="text-primary can_hide">
@@ -631,8 +545,7 @@
                         </thead>
                     </table>
                     <div class="table-responsive-md customernewsection-form">
-                        <table id="eachRowDiscountTable"
-                            class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail">
+                        <table id="eachRowDiscountTable" class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail">
                             <thead>
                                 <tr>
                                     <th>S.No</th>
@@ -663,8 +576,7 @@
     </div>
 
     {{-- Delivery schedule --}}
-    <div class="modal fade" id="deliveryScheduleModal" tabindex="-1" aria-labelledby="shareProjectTitle"
-        aria-hidden="true">
+    <div class="modal fade" id="deliveryScheduleModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
         <div class="modal-dialog  modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header p-0 bg-transparent">
@@ -674,13 +586,11 @@
                     <h1 class="text-center mb-1" id="shareProjectTitle">Delivery Schedule</h1>
                     {{-- <p class="text-center">Enter the details below.</p> --}}
 
-                    <div class="text-end"> <a href="javascript:;"
-                            class="text-primary add-contactpeontxt mt-50 addTaxItemRow"><i data-feather='plus'></i> Add
+                    <div class="text-end"> <a href="javascript:;" class="text-primary add-contactpeontxt mt-50 addTaxItemRow"><i data-feather='plus'></i> Add
                             Schedule</a></div>
 
                     <div class="table-responsive-md customernewsection-form">
-                        <table id="deliveryScheduleTable"
-                            class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail">
+                        <table id="deliveryScheduleTable" class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail">
                             <thead>
                                 <tr>
                                     <th>S.No</th>
@@ -735,14 +645,12 @@
         </div>
     </div>
     <!-- Import Item Modal (AJAX version, no form) -->
-    <div class="modal fade" id="importItemModal" tabindex="-1" aria-labelledby="importItemModalLabel"
-        aria-hidden="true">
+    <div class="modal fade" id="importItemModal" tabindex="-1" aria-labelledby="importItemModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content shadow-lg rounded">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title" id="importItemModalLabel">Import Items</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <!-- File Upload -->
@@ -751,8 +659,7 @@
                         <div class="border border-dashed border-2 border-primary rounded p-4 text-center dragdrop-area">
                             <p class="text-muted mb-2">Drag and drop your file here or click to upload</p>
                             <input type="file" id="fileUpload" name="attachment" class="form-control d-none">
-                            <button type="button" class="btn btn-outline-primary"
-                                onclick="$('#fileUpload').click();">Choose File</button>
+                            <button type="button" class="btn btn-outline-primary" onclick="$('#fileUpload').click();">Choose File</button>
                         </div>
 
                         <!-- Uploaded File Info -->
@@ -767,41 +674,33 @@
 
                     <!-- Progress Bar -->
                     <div class="progress mt-3 d-none" id="uploadProgress">
-                        <div class="progress-bar" id="uploadProgressBar" role="progressbar" style="width: 0%;"
-                            aria-valuemin="0" aria-valuemax="100">0%</div>
+                        <div class="progress-bar" id="uploadProgressBar" role="progressbar" style="width: 0%;" aria-valuemin="0" aria-valuemax="100">0%</div>
                     </div>
 
                     <!-- Action Buttons -->
                     <div class="mt-4 text-end">
                         <button type="button" class="btn btn-success" id="sampleBtn">Download Sample</button>
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
-                            id="cancelBtn">Cancel</button>
-                        <button type="button" class="btn btn-primary" id="proceedBtn"
-                            style="display:none;">Proceed</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancelBtn">Cancel</button>
+                        <button type="button" class="btn btn-primary" id="proceedBtn" style="display:none;">Proceed</button>
                     </div>
 
                     <!-- Parsed Preview Section -->
                     <div id="parsedPreview" class="mt-5 d-none">
                         <ul class="nav nav-tabs" id="importTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="valid-tab" data-bs-toggle="tab"
-                                    data-bs-target="#validTabPane" type="button" role="tab"
-                                    aria-controls="validTabPane" aria-selected="true">
+                                <button class="nav-link active" id="valid-tab" data-bs-toggle="tab" data-bs-target="#validTabPane" type="button" role="tab" aria-controls="validTabPane" aria-selected="true">
                                     Valid Items <span id="valid-count"></span>
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="invalid-tab" data-bs-toggle="tab"
-                                    data-bs-target="#invalidTabPane" type="button" role="tab"
-                                    aria-controls="invalidTabPane" aria-selected="false">
+                                <button class="nav-link" id="invalid-tab" data-bs-toggle="tab" data-bs-target="#invalidTabPane" type="button" role="tab" aria-controls="invalidTabPane" aria-selected="false">
                                     Invalid Items <span id="invalid-count"></span>
                                 </button>
                             </li>
                         </ul>
                         <button type="button" class="btn btn-primary mt-3 d-none" id="submitBtn">Import Items</button>
                         <div class="tab-content border border-top-0" id="importTabsContent">
-                            <div class="tab-pane fade show active" id="validTabPane" role="tabpanel"
-                                aria-labelledby="valid-tab">
+                            <div class="tab-pane fade show active" id="validTabPane" role="tabpanel" aria-labelledby="valid-tab">
                                 <div class="table-responsive">
                                     <table class="datatables-basic table myrequesttablecbox">
                                         <thead class="table-success">
@@ -811,8 +710,7 @@
                                     </table>
                                 </div>
                             </div>
-                            <div class="tab-pane fade" id="invalidTabPane" role="tabpanel"
-                                aria-labelledby="invalid-tab">
+                            <div class="tab-pane fade" id="invalidTabPane" role="tabpanel" aria-labelledby="invalid-tab">
                                 <div class="table-responsive">
                                     <table class="datatables-basic table myrequesttablecbox">
                                         <thead class="table-danger">
@@ -1595,7 +1493,6 @@
 
         /*Open Pr model*/
         let poOrderTable;
-
         $(document).on('click', '.prSelect', function(e) {
             $("#prModal").modal('show');
             $('#prModal').one('shown.bs.modal', function() {
@@ -1609,10 +1506,9 @@
                         getIndents();
                     }
                 }
-                $(".select2").select2();
+                $(tableSelector + " .vendor-select").select2();
             });
         });
-
 
         function openPurchaseRequest() {
             initializeAutocompleteQt("vendor_code_input_qt", "vendor_id_qt_val", "vendor_list", "vendor_code",
@@ -1691,8 +1587,7 @@
 
         function getDynamicParams() {
             let selectedPiIds = localStorage.getItem('selectedPiIds') ?? '[]';
-            selectedPiIds = JSON.parse(selectedPiIds);
-            selectedPiIds = encodeURIComponent(JSON.stringify(selectedPiIds));
+            selectedPiIds = JSON.stringify(JSON.parse(selectedPiIds));
             return {
                 document_date: $("[name='document_date']").val() || '',
                 header_book_id: $("#book_id").val() || '',
@@ -1849,12 +1744,24 @@
         $(document).on('keyup', '#item_name_search', (e) => {
             $('#prModal .po-order-detail').DataTable().ajax.reload();
         });
-        /*Checkbox for pi item list*/
+
+        /* Checkbox for pi item list */
         $(document).on('change', '.po-order-detail > thead .form-check-input', (e) => {
             if (e.target.checked) {
+                let $firstVendorInput = $('.pi_item_checkbox').first().closest('tr').find("[name='vend_name']");
+                let selectedVendorId = $firstVendorInput.val() || '';
+
+                if ($firstVendorInput.length && !selectedVendorId) {
+                    $firstVendorInput.addClass("is-invalid");
+                    if (!$firstVendorInput.next(".vendor-error").length) {
+                        $firstVendorInput.after('<div class="vendor-error text-danger">Please select vendor first</div>');
+                    }
+
+                    e.target.checked = false;
+                    return;
+                }
+
                 if ($('.pi_item_checkbox').first().closest('tr').find("[name='vend_name']").length) {
-                    let selectedVendorId = $('.pi_item_checkbox:checked').first().closest('tr').find(
-                        "[name='vend_name']").val() || '';
                     $("[name='vend_name']").each(function(itemIndex, vendorItem) {
                         if (!selectedVendorId) {
                             let firstVendor = $(vendorItem).val();
@@ -1867,7 +1774,7 @@
                         } else {
                             $(vendorItem).closest('tr').find('.form-check-input').prop('checked', false);
                         }
-                    })
+                    });
                 } else {
                     $(".po-order-detail > tbody .form-check-input").each(function() {
                         $(this).prop('checked', true);
@@ -1881,7 +1788,6 @@
             }
         });
 
-
         function getSelectedPiIDS() {
             let ids = [];
             $('.pi_item_checkbox:checked').each(function() {
@@ -1893,12 +1799,26 @@
         $(document).ready(function() {
             localStorage.removeItem('selectedVendorId');
         });
+
         $(document).on('change', '#prDataTable .pi_item_checkbox', function(e) {
+            let $row = $(this).closest('tr');
+            let $vendorInput = $row.find(".vendor-select"); // using vendor-select class
             let selectedVendorId = localStorage.getItem('selectedVendorId') || null;
-            let currentCheckedVendorId = $(this).closest('tr').find("[name='vend_name']").val();
+            let currentCheckedVendorId = $vendorInput.val();
+
+            // Reset previous error styles/messages
+            $vendorInput.removeClass("is-invalid");
+            $vendorInput.next(".vendor-error").remove();
 
             if (!currentCheckedVendorId) {
                 this.checked = false;
+
+                $vendorInput.addClass("is-invalid");
+                $vendorInput.after(
+                    `<span class="text-danger vendor-error">Please select vendor first</span>`
+                );
+                $(this).addClass("is-invalid");
+                $vendorInput.focus();
                 return;
             }
 
@@ -1911,7 +1831,7 @@
                 }
             } else {
                 let remainingChecked = $('.pi_item_checkbox:checked').filter(function() {
-                    return $(this).closest('tr').find("[name='vend_name']").val() === selectedVendorId;
+                    return $(this).closest('tr').find(".vendor-select").val() === selectedVendorId;
                 }).length;
 
                 if (remainingChecked === 0) {
@@ -1919,6 +1839,17 @@
                 }
             }
         });
+
+        $(document).on('change', '.vendor-select', function() {
+            if ($(this).val()) {
+                $(this).removeClass("is-invalid");
+                let $row = $(this).closest('tr');
+                let $checkbox = $row.find(".pi_item_checkbox");
+                $checkbox.removeClass("is-invalid");
+                $(this).next(".vendor-error").remove();
+            }
+        });
+
         $(document).on('click', '.prProcess', (e) => {
             let ids = getSelectedPiIDS();
             if (!ids.length) {
@@ -2354,9 +2285,14 @@
                 return response.json().then(data => {
                     if (data.status == 200) {
                         let cost = data?.data?.cost || 0;
-                        $(currentTr).find("input[name*='[rate]']").val(cost);
+                        let rateInput = $(currentTr).find("input[name*='[rate]']");
+                        let rate = rateInput.val();
+                        if (rate === undefined || rate === null || rate === '' || parseFloat(rate) <= 0) {
+                            rateInput.val(cost);
+                        }
                         setTableCalculation();
                     }
+
                 });
             });
         }
@@ -2533,12 +2469,9 @@
                 const validRows = window.lastParsedImport?.valid || [];
                 const headers = window.lastParsedImport?.headers || {};
                 const tbody = $('#item_header');
-                console.log('table', tbody);
                 tbody.empty(); // Clear existing rows
                 let currentIndex = tbody.find('tr').length;
-                console.log('validRows', validRows);
                 validRows.forEach((row, i) => {
-                    console.log('Processing row:', row);
                     const index = currentIndex + i;
                     const itemId = row.item_id || '';
                     const itemCode = row.item_code || '';

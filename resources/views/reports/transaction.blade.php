@@ -223,8 +223,8 @@
         columns.push({
             data : colData.field,
             name : colData.field,
-            orderable : colData.orderable,
-            searchable : colData.searchable,
+            orderable : colData?.orderable ? colData?.orderable : false,
+            searchable : colData.searchable ? colData.searchable : false,
             render : renderData,
             createdCell : function(td, cellData, rowData, row, col) {
                $(td).addClass(colData.column_class);

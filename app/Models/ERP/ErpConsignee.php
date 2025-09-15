@@ -5,6 +5,8 @@ use App\Models\ErpAddress;
 use App\Models\Organization;
 use App\Models\OrganizationCompany;
 use App\Models\OrganizationGroup;
+use App\Traits\Deletable;
+use App\Traits\UserStampTrait;
 // use App\Traits\DefaultGroupCompanyOrg;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -12,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class ErpConsignee extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes,Deletable,UserStampTrait;
 
     protected $table = 'erp_consignees';
 
@@ -59,6 +61,24 @@ class ErpConsignee extends Model
     public function organization()
     {
         return $this->belongsTo(Organization::class, 'organization_id');
+    }
+       public function createdBy()
+    {
+        return $this->belongsTo(AuthUser::class,'created_by','id');
+    }
+
+     public function updatedBy()
+    {
+        return $this->belongsTo(AuthUser::class, 'updated_by', 'id');
+    }
+
+    public function deletedBy()
+    {
+        return $this->belongsTo(AuthUser::class, 'deleted_by', 'id');
+    }
+
+     public function address() {
+        return $this->morphOne(ErpAddress::class, 'addressable');
     }
 }
 

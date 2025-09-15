@@ -46,7 +46,6 @@ function populateOrderTable(orders) {
     if (orders.length > 0) {
         const prevBalanceMap = new Map();
         orders.forEach((norder, index) => {
-            console.log('norder', norder);
             const isCheckboxEnabled = norder.avl_stock > 0;
             const row = `
                 <tr>
@@ -147,7 +146,7 @@ function populateOrderTable(orders) {
     } else {
         const noDataRow = `
             <tr>
-                <td colspan="15" class="text-center">No orders found for the selected location.</td>
+                <td colspan="17" class="text-center">No orders found for the selected location.</td>
             </tr>
         `;
         tableBody.append(noDataRow);
@@ -182,7 +181,8 @@ $('#delivery_date_filter, #so_document_no_input_qt, #document_date_filter, #cust
                 delivery_date: soBookCode,
                 so_document_no: soDocumentNo,
                 document_date: documentDate,
-                customer_code: customerCode
+                customer_code: customerCode,
+                header_book_id : $('#series_id_input').val(),
             },
             success: function (response) {
                 populateOrderTable(response.data);
