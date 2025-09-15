@@ -51,19 +51,19 @@
                                             <tr>
                                                 <td>{{ $index+1 }}</td>
                                                 <td class="fw-bolder text-dark text-nowrap">{{ $item->furbooks_code}}</td>
-                                                <td class="text-nowrap">{{ $item->location->name }}</td>
+                                                <td class="text-nowrap">{{ $item?->location?->name }}</td>
                                                 <td class="text-nowrap">{{ $item?->organization?->name }}</td>
-                                                <td class="text-nowrap">{{ $item->currency_code }}</td>
-                                                <td class="text-nowrap">{{ $item->cost_center }}</td>
-                                                <td class="text-nowrap">{{ $item->debit_amount}}</td>
-                                                <td class="text-nowrap">{{ $item->credit_amount}}</td>
-                                                <td class="text-nowrap">{{ $item->remark }}</td>
-                                                <td class="text-nowrap">{{ $item->final_remark }}</td>
-                                                <td class="text-nowrap">{{ $item->amount }}</td>
-                                                <td class="text-nowrap">{{ date('d-m-y',strtotime($item->document_date)) }}</td>
+                                                <td class="text-nowrap">{{ $item?->currency_code }}</td>
+                                                <td class="text-nowrap">{{ $item?->cost_center }}</td>
+                                                <td class="text-nowrap">{{ $item?->debit_amount}}</td>
+                                                <td class="text-nowrap">{{ $item?->credit_amount}}</td>
+                                                <td class="text-nowrap">{{ $item?->remark }}</td>
+                                                <td class="text-nowrap">{{ $item?->final_remark }}</td>
+                                                <td class="text-nowrap">{{ $item?->amount }}</td>
+                                                <td class="text-nowrap">{{ date('d-m-y',strtotime($item?->document_date)) }}</td>
                                                 
-                                                <td class="text-nowrap">{{ $item->remarks }}</td>
-                                                <td class="text-nowrap">{{ $item->status }}</td>
+                                                <td class="text-nowrap">{{ $item?->remarks }}</td>
+                                                <td class="text-nowrap">{{ $item?->status }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>
