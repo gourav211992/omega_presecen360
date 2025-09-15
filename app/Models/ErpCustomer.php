@@ -87,7 +87,7 @@ class ErpCustomer extends Model
     {
         return $this->belongsTo(Country::class);
     }
-    
+
     public function city()
     {
         return $this->belongsTo(City::class);
@@ -117,7 +117,7 @@ class ErpCustomer extends Model
     {
         return $this->hasMany(ErpLeadContacts::class,'customer_code','customer_code');
     }
-    
+
     public function compliances()
     {
         return $this->morphone(Compliance::class, 'morphable');

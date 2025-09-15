@@ -224,6 +224,14 @@ class ErpMaterialIssueHeader extends Model
     {
         return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'shipping');
     }
+    public function billing_address_details()
+    {
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'billing');
+    }
+    public function location_address_details()
+    {
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'location');
+    }
     public function dynamic_fields()
     {
         return $this -> hasMany(ErpMiDynamicField::class, 'header_id');

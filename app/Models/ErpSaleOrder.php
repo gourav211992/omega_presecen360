@@ -100,9 +100,10 @@ class ErpSaleOrder extends Model
     {
         return $this -> hasOne(Book::class, 'id', 'book_id');
     }
+
     public function customer()
     {
-        return $this -> hasOne(ErpCustomer::class, 'id', 'customer_id');
+        return $this->hasOne(ErpCustomer::class, 'id', 'customer_id');
     }
 
     public function currency()
@@ -155,15 +156,18 @@ class ErpSaleOrder extends Model
         }
         return $this->attributes['document_status'];
     }
+
     public function getDisplayStatusAttribute()
     {
         $status = str_replace('_', ' ', $this->document_status);
         return ucwords($status);
     }
+
     public function addresses()
     {
         return $this->morphMany(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id');
     }
+
     public function createdBy()
     {
         return $this->belongsTo(AuthUser::class,'created_by','id');

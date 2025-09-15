@@ -128,6 +128,7 @@ class RgrJobController extends Controller
             $rgr = $job->morphable;
 
             $scannedItems = ErpItemUniqueCode::where('job_id', $job_id)
+                ->with('segregation')
                 ->where('status', 'scanned')
                 ->orderBy('id', 'desc')
                 ->paginate(CommonHelper::PAGE_LENGTH_10);
@@ -143,6 +144,8 @@ class RgrJobController extends Controller
                     }
                 }
 
+                $rgrStatuses = $uniqueCode -> segregation ?-> segregation_status;
+
                 return [
                     'id'          => $uniqueCode->id ?? "",
                     'item_id'     => $uniqueCode->item_id ?? "",
@@ -152,6 +155,7 @@ class RgrJobController extends Controller
                     'uid'         => $uniqueCode->uid ?? "",
                     'item_uid'    => $uniqueCode->item_uid ?? "",
                     'status'      => $uniqueCode->status ?? "",
+                    'rgr_statuses'=> $rgrStatuses
                 ];
             });
 
@@ -529,7 +533,7 @@ class RgrJobController extends Controller
     }
 
 
-   public function storeUniqueItem(Request $request)
+    public function storeUniqueItem(Request $request)
     {
         DB::beginTransaction();
         try {
@@ -617,6 +621,43 @@ class RgrJobController extends Controller
         }
     }
 
+    public function getWrongItemDetails(Request $request)
+    {
+        DB::beginTransaction();
+        try {
+            $user = Helper::getAuthenticatedUser();
+
+            $validated = $request->validate([
+                'item_id'         => 'required|exists:erp_items,id',
+                'item_code'       => 'required|string|max:50',
+                'item_name'       => 'required|string|max:199',
+                'item_attributes' => 'nullable|array',
+            ]);
+
+            $item = Item::find($validated['item_id']);
+            if (!$item) {
+                throw ValidationException::withMessages(['item_id' => ['Item not found.']]);
+            }
+            $attributes = $request -> item_attributes;
+
+            DB::commit();
+
+            return [
+                'message' => 'item retrieved successfully.',
+                'data' => [
+                    'item_id'        => $item->id,
+                    'item_code'      => $item->item_code,
+                    'item_name'      => $item->item_name,
+                    'attributes'     => $attributes,
+                ],
+            ];
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw new ApiGenericException($e->getMessage());
+        }
+    }
+
 
     public function getJobItemStatus($jobId)
     {
@@ -655,11 +696,16 @@ class RgrJobController extends Controller
         }
     }
 
-    public function closeJob($jobId)
+    public function closeJob(Request $request)
     {
         try {
+
+            $validated = $request->validate([
+                'job_id' => 'required|numeric|integer',
+            ]);
+
             $authUser = Helper::getAuthenticatedUser();
-            $job = ErpWhmJob::where('morphable_type', ErpRgr::class)->with('itemUniqueCodes')->find($jobId);
+            $job = ErpWhmJob::where('morphable_type', ErpRgr::class)->with('itemUniqueCodes')->find($request -> job_id);
 
             if (!$job) {
                 return response()->json([
@@ -688,7 +734,7 @@ class RgrJobController extends Controller
             }
 
             return response()->json([
-                'message' => 'Data retrieved successfully.',
+                'message' => 'Job closed successfully.',
                 'data' => []
                 ], 200);
 

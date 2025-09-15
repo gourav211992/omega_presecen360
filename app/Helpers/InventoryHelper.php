@@ -1649,8 +1649,8 @@ class InventoryHelper
                                 $stockLedger->utilized_date = null;
                                 $stockLedger->save();
 
-                            } else {
-                                $newStockLedger = $untilizedStockLedger->replicate();
+                            } else{
+                                $newStockLedger = $stockLedger->replicate();
                                 $newStockLedger->reserved_qty = $adjustedQty;
                                 $newStockLedger->receipt_qty = $adjustedQty;
                                 $newStockLedger->issue_qty = 0.00;
@@ -1707,8 +1707,8 @@ class InventoryHelper
                                 $stockLedger->utilized_date = null;
                                 $stockLedger->save();
 
-                            } else {
-                                $newStockLedger = $untilizedStockLedger->replicate();
+                            } else{
+                                $newStockLedger = $stockLedger->replicate();
                                 $newStockLedger->receipt_qty = $adjustedQty;
                                 $newStockLedger->receipt_qty = $adjustedQty;
                                 $newStockLedger->issue_qty = 0.00;
@@ -2674,9 +2674,8 @@ class InventoryHelper
                         $stockLedger = new StockLedger();
                     }
                     $utilizedQty = 0;
-                    // $issueQty = $stockLedger->issue_qty;
-                    $issueQty = null;
-                    $invoiceLedger = self::insertStockLedger($stockLedger, $documentItemLocation, $bookType, $documentStatus, $transactionType, $utilizedQty);
+                    $issueQty = $stockLedger->issue_qty;
+                    $invoiceLedger = self::insertStockLedger($stockLedger, $documentItemLocation,  $bookType, $documentStatus, $transactionType, $utilizedQty);
                     $updatedInvoiceLedger = self::updateStockLedger($invoiceLedger, $documentItemLocation, $bookType, $documentStatus, $transactionType, $issueQty);
                 }
             }

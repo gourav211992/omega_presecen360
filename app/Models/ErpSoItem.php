@@ -44,6 +44,9 @@ class ErpSoItem extends Model
         'group_currency_id',
         'group_currency_exchange_rate',
         'remarks',
+        'consignee_id',
+        'sale_type',
+        'shipping_addressable_id',
     ];
     protected $appends = [
         'balance_qty',
@@ -142,7 +145,7 @@ class ErpSoItem extends Model
                         $attributeValueData -> selected = $isSelected ? true : false;
                         array_push($attributesArray, $attributeValueData);
                     }
-                
+
             }
            $attribute -> values_data = $attributesArray;
            $attribute = $attribute -> only(['id','group_name', 'short_name' ,'values_data', 'attribute_group_id']);
@@ -174,7 +177,7 @@ class ErpSoItem extends Model
             ->filter()
             ->values();
     }
-    
+
     public function discount_ted()
     {
         return $this -> hasMany(ErpSaleOrderTed::class, 'so_item_id', 'id') -> where('ted_level', 'D') -> where('ted_type', 'Discount');
@@ -260,8 +263,8 @@ class ErpSoItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'CGST')
             ->first();
-            
-        
+
+
         return [
             'rate' => @$tedRecord->taxDetail->tax_percentage,
             'value' => $tedRecords ?? 0.00
@@ -275,7 +278,7 @@ class ErpSoItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'SGST')
             ->sum('ted_amount');
-        
+
             $tedRecord = ErpSaleOrderTed::with(['taxDetail'])
             ->where('so_item_id', $this->id)
             ->where('sale_order_id', $this->sale_order_id)
@@ -283,8 +286,8 @@ class ErpSoItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'SGST')
             ->first();
-            
-        
+
+
         return [
             'rate' => @$tedRecord->taxDetail->tax_percentage,
             'value' => $tedRecords ?? 0.00
@@ -298,7 +301,7 @@ class ErpSoItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'IGST')
             ->sum('ted_amount');
-        
+
             $tedRecord = ErpSaleOrderTed::with(['taxDetail'])
             ->where('so_item_id', $this->id)
             ->where('sale_order_id', $this->sale_order_id)
@@ -306,8 +309,8 @@ class ErpSoItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'IGST')
             ->first();
-            
-        
+
+
         return [
             'rate' => @$tedRecord->taxDetail->tax_percentage,
             'value' => $tedRecords ?? 0.00
@@ -373,7 +376,7 @@ class ErpSoItem extends Model
     {
         $maxQty = $this->dnote_qty;
         $balance = max(($this->order_qty - $maxQty - $this->short_close_qty),0);
-        return $balance; 
+        return $balance;
     }
     public function getPendingQtyAttribute()
     {

@@ -111,7 +111,8 @@ Route::group(['middleware' => ['sso-api', 'apiresponse']], function () {
         Route::get('segregation/{uniqueItemId}', 'getSegregationByUniqueItemId')->name('segregation.details');
         Route::get('jobs/{jobId}/item-status','getJobItemStatus')->name('jobs.item-status');      
         Route::post('/segregate-item', 'createSegregation')->name('segregation.create-or-update'); 
-        Route::post('/unique-items/store', 'storeUniqueItem')->name('unique-items.create');    
+        Route::post('/unique-items/store', 'storeUniqueItem')->name('unique-items.create');  
+        Route::post('/wrong-item-detail/get', 'getWrongItemDetails')->name('wrong-item.get.detail');
         Route::delete('scanned-item/{uniqueItemId}', 'deleteScannedItem')->name('unique-items.delete');
     });
 

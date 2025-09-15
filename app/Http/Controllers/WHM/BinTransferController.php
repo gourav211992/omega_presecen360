@@ -100,6 +100,20 @@ class BinTransferController extends Controller
         $fromStoragePoint = $fromStoragePointDetail['data'];
         $toStoragePoint = $toStoragePointDetail['data'];
 
+        // Initialize weight & volume
+        $totalIncomingWeight = 0;
+        $totalIncomingVolume = 0;
+        $currentWeight = 0;
+        $currentVolume = 0;
+        $maxVolume = 0;
+        $maxWeight = 0;
+
+        $currentWeight = $toStoragePoint->current_weight ?? 0;
+        $maxWeight = $toStoragePoint->max_weight ?? null;
+
+        $currentVolume = $toStoragePoint->current_volume ?? 0;
+        $maxVolume = $toStoragePoint->max_volume ?? null;
+
         $items = ErpItemUniqueCode::where('storage_point_id',$fromStoragePoint->id)
             ->where('doc_type',CommonHelper::RECEIPT)
             ->whereIn('item_id',$request->item_ids)
@@ -111,31 +125,71 @@ class BinTransferController extends Controller
             throw ValidationException::withMessages([
                 'item_ids' => 'No valid items found for transfer.',
             ]);
-        }
+        }        
 
-        $itemIds = $items->pluck('item_id')->unique()->toArray();
-        foreach ($itemIds as $itemId) {
+        foreach ($items as $item) {
+            $itemWeight = StoragePointHelper::getItemWeight($item->item_id, $item->packet_no);
+            if($itemWeight['status'] == "error"){
+                throw ValidationException::withMessages([
+                    'packets' => $itemWeight['message'],
+                ]);
+            }
+
+            $packetWeight = $itemWeight['data']['packetWeight'];
+            $packetVolume = $itemWeight['data']['packetVolume'];
+
+            $totalIncomingWeight += $packetWeight;
+            $totalIncomingVolume += $packetVolume;
+
             $response = StoragePointHelper::getStoragePoints(
-                $itemId,
+                $item->item_id,
                 null,
                 $fromStoragePoint->store_id,
                 $fromStoragePoint->sub_store_id
             );
 
             $storageNumbers = $response['data']->pluck('storage_number')->toArray();
-            // dd($fromStoragePoint,$toStoragePoint, $items,$storageNumbers,$itemIds);
             if(!in_array($request->to_storage_number,$storageNumbers)){
                 throw ValidationException::withMessages([
-                    'to_storage_number' => "Storage point is not mapped to item ID: {$itemId}",
+                    'to_storage_number' => "Storage point is not mapped to item ID: {$item->item_name}",
                 ]);
 
             }
+        }
+
+        // Check if weight limits are exceeded
+        if (!is_null($maxWeight) && ($currentWeight + $totalIncomingWeight) > $maxWeight) {
+            throw ValidationException::withMessages([
+                'to_storage_number' => ["Storage point weight limit exceeded. Max: {$maxWeight}, Current: {$currentWeight}, Incoming: {$totalIncomingWeight}"],
+            ]);
+        }
+
+        // Check if volume limits are exceeded
+        if (!is_null($maxVolume) && ($currentVolume + $totalIncomingVolume) > $maxVolume) {
+            throw ValidationException::withMessages([
+                'to_storage_number' => ["Storage point volume limit exceeded. Max: {$maxVolume}, Current: {$currentVolume}, Incoming: {$totalIncomingVolume}"],
+            ]);
         }
 
         \DB::beginTransaction();
         try {
             $user = Helper::getAuthenticatedUser();
             (new WhmJob())->binTransfer($items, $toStoragePoint->id, $user->id);
+
+            $addResponse = StoragePointHelper::addStorageWeight($toStoragePoint->id, $totalIncomingWeight, $totalIncomingVolume);
+            if($addResponse['status'] == "error"){
+                throw ValidationException::withMessages([
+                    'to_storage_number' => $addResponse['message'],
+                ]);
+            }
+
+            $updateResponse = StoragePointHelper::updateStorageWeight($fromStoragePoint->id, $totalIncomingWeight, $totalIncomingVolume);
+            if($updateResponse['status'] == "error"){
+                throw ValidationException::withMessages([
+                    'to_storage_number' => $updateResponse['message'],
+                ]);
+            }
+
             \DB::commit();
             return [
                 'message' => 'Data transferred successfully.'
@@ -185,6 +239,20 @@ class BinTransferController extends Controller
         $fromStoragePoint = $fromStoragePointDetail['data'];
         $toStoragePoint = $toStoragePointDetail['data'];
 
+        // Initialize weight & volume
+        $totalIncomingWeight = 0;
+        $totalIncomingVolume = 0;
+        $currentWeight = 0;
+        $currentVolume = 0;
+        $maxVolume = 0;
+        $maxWeight = 0;
+
+        $currentWeight = $toStoragePoint->current_weight ?? 0;
+        $maxWeight = $toStoragePoint->max_weight ?? null;
+
+        $currentVolume = $toStoragePoint->current_volume ?? 0;
+        $maxVolume = $toStoragePoint->max_volume ?? null;
+
         $items = ErpItemUniqueCode::where('storage_point_id',$fromStoragePoint->id)
             ->where('doc_type',CommonHelper::RECEIPT)
             ->whereIn('item_uid',$request->packet_ids)
@@ -198,10 +266,23 @@ class BinTransferController extends Controller
             ]);
         }
 
-        $itemIds = $items->pluck('item_uid', 'item_id')->toArray();
-        foreach ($itemIds as $itemId => $packetId) {
+        // $itemIds = $items->pluck('item_uid', 'item_id')->toArray();
+        foreach ($items as $item) {
+            $itemWeight = StoragePointHelper::getItemWeight($item->item_id, $item->packet_no);
+            if($itemWeight['status'] == "error"){
+                throw ValidationException::withMessages([
+                    'packet_ids' => $itemWeight['message'],
+                ]);
+            }
+
+            $packetWeight = $itemWeight['data']['packetWeight'];
+            $packetVolume = $itemWeight['data']['packetVolume'];
+
+            $totalIncomingWeight += $packetWeight;
+            $totalIncomingVolume += $packetVolume;
+
             $response = StoragePointHelper::getStoragePoints(
-                $itemId,
+                $item->item_id,
                 null,
                 $fromStoragePoint->store_id,
                 $fromStoragePoint->sub_store_id
@@ -210,23 +291,24 @@ class BinTransferController extends Controller
             $storageNumbers = $response['data']->pluck('storage_number')->toArray();
             if(!in_array($request->to_storage_number,$storageNumbers)){
                 throw ValidationException::withMessages([
-                    'to_storage_number' => "Storage point is not mapped to packet ID: {$packetId}",
+                    'to_storage_number' => "Storage point is not mapped to packet ID: {$item->item_uid}",
                 ]);
 
             }
+        }
 
-            // $isMapped = StoragePointHelper::isStoragePointMappedToItem(
-            //     $itemId,
-            //     $toStoragePoint->id,
-            //     $toStoragePoint->store_id,
-            //     $toStoragePoint->sub_store_id
-            // );
+        // Check if weight limits are exceeded
+        if (!is_null($maxWeight) && ($currentWeight + $totalIncomingWeight) > $maxWeight) {
+            throw ValidationException::withMessages([
+                'to_storage_number' => ["Storage point weight limit exceeded. Max: {$maxWeight}, Current: {$currentWeight}, Incoming: {$totalIncomingWeight}"],
+            ]);
+        }
 
-            // if (!$isMapped) {
-            //     throw ValidationException::withMessages([
-            //         'to_storage_number' => "Storage point is not mapped to packet ID: {$packetId}",
-            //     ]);
-            // }
+        // Check if volume limits are exceeded
+        if (!is_null($maxVolume) && ($currentVolume + $totalIncomingVolume) > $maxVolume) {
+            throw ValidationException::withMessages([
+                'to_storage_number' => ["Storage point volume limit exceeded. Max: {$maxVolume}, Current: {$currentVolume}, Incoming: {$totalIncomingVolume}"],
+            ]);
         }
 
         \DB::beginTransaction();
@@ -234,6 +316,20 @@ class BinTransferController extends Controller
             $user = Helper::getAuthenticatedUser();
 
             (new WhmJob())->binTransfer($items, $toStoragePoint->id, $user->id);
+
+            $addResponse = StoragePointHelper::addStorageWeight($toStoragePoint->id, $totalIncomingWeight, $totalIncomingVolume);
+            if($addResponse['status'] == "error"){
+                throw ValidationException::withMessages([
+                    'to_storage_number' => $addResponse['message'],
+                ]);
+            }
+
+            $updateResponse = StoragePointHelper::updateStorageWeight($fromStoragePoint->id, $totalIncomingWeight, $totalIncomingVolume);
+            if($updateResponse['status'] == "error"){
+                throw ValidationException::withMessages([
+                    'to_storage_number' => $updateResponse['message'],
+                ]);
+            }
             
             \DB::commit();
             return [

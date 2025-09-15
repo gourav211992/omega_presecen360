@@ -26,11 +26,11 @@ class ConsigneeService
                 // Insert or update consignee
                 $consignee = ErpConsignee::updateOrCreate(
                     [
-                        'organization_id'  => $organization ? $organization->id : $organizationId,
+                        'company_id'     => $organization ? $organization->company_id : null,
                         'consignee_code'   => $consigneeData['consignee_code'],
                     ],
                     [
-                        'company_id'     => $organization ? $organization->company_id : null,
+                        'organization_id'  => $organization ? $organization->id : $organizationId,
                         'group_id'       => $organization ? $organization->group_id : null,
                         'is_customer'    => $consigneeData['is_customer'],
                         'is_vendor'      => $consigneeData['is_vendor'],
@@ -50,14 +50,14 @@ class ConsigneeService
                             'addressable_id'   => $consignee->id,
                             'addressable_type' => ErpConsignee::class,
                             'address'          => $consigneeData['address'] ?? null,
-                        ],
-                        [
                             'country_id'        => $consigneeData['country_id'] ?? null,
                             'state_id'          => $consigneeData['state_id'] ?? null,
                             'city_id'           => $consigneeData['city_id'] ?? null,
+                            'pincode'           => $consigneeData['pincode'] ?? null,
+                        ],
+                        [
                             'type'              => 'shipping',
                             'is_shipping'       => 1,
-                            'pincode'          =>  $consigneeData['pincode'] ?? null,
                             'line_1'            => $consigneeData['address'] ?? null,
                             'name'              => $consigneeData['consignee_name'],
                             'email'             => $consigneeData['email'] ?? null,

@@ -2094,7 +2094,7 @@ class Helper
     {
         $user = self::getAuthenticatedUser();
         $book = Book::where('id', $bookId)->first();
-        $bookTypeServiceAlias = $book?->service?->alias;
+        $bookTypeServiceAlias = $book?->master_service->alias;
 
         $docApproval = DocumentApproval::where('document_type', '=', "$bookTypeServiceAlias")
             ->where('document_id', $docId)
@@ -2667,7 +2667,6 @@ class Helper
 
     public static function getAuthenticatedUser()
     {
-
         $authUser = request()->user();
 
         $ck = "iam:{$authUser->group_id}:{$authUser->id}";
@@ -4558,6 +4557,7 @@ class Helper
     {
         $user = Helper::getAuthenticatedUser();
         $companies = $user?->access_rights_org;
+        
         $companies = ($companies && $companies->isNotEmpty())
             ? $companies
             : collect([$user]);

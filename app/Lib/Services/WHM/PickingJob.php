@@ -4,11 +4,13 @@ namespace App\Lib\Services\WHM;
 
 use App\Helpers\CommonHelper;
 use App\Helpers\ConstantHelper;
-use App\Models\InspectionDetail;
-use App\Models\MrnDetail;
+use App\Models\ErpMiItem;
+use App\Models\ErpPlItem;
+use App\Models\StockLedgerReservation;
 use App\Models\WHM\ErpItemUniqueCode;
 use App\Models\WHM\ErpWhmJob;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class PickingJob
 {
@@ -96,6 +98,7 @@ class PickingJob
                     'expiry_date' => $packet->expiry_date,
                     'serial_no' => $packet->serial_no,
                     'item_uid' => $packet->item_uid, 
+                    'trip_id' => $packet->trip_id, 
                     'storage_point_id' => Null, 
                     'type' => 'qr',
                     'qty' => 1,
@@ -110,5 +113,81 @@ class PickingJob
                 $packet->save();
             }
         }
+    }
+
+    public function reservedStock($job, $issueDetailId)
+    {
+        $reservedStock = StockLedgerReservation::where('issue_book_type', $job->trns_type)
+            ->where('issue_header_id', $job->morphable_id)
+            ->where('issue_detail_id', $issueDetailId);
+
+        $transType = $reservedStock->pluck('receipt_book_type')->toArray();
+        $mrnIds = $reservedStock->pluck('receipt_detail_id')->toArray();
+
+        return [
+            'transType' => $transType, 
+            'mrnIds' => $mrnIds
+        ];
+    }
+
+    public function getScannedPackets($jobId, $packetIds, $plItemId)
+    {
+        $packets = ErpItemUniqueCode::where('job_id', $jobId)
+            ->when($packetIds, function($q) use($packetIds){
+                $q->whereIn('item_uid', $packetIds);
+            })
+            ->where('status', CommonHelper::SCANNED)
+            ->where('job_type', CommonHelper::PICKING)
+            ->where('morphable_id', $plItemId)
+            ->get();
+
+        return [
+            'data' => $packets
+        ];
+    }
+
+    public function getPlItemDetail($trnsType, $plItemId)
+    {
+        if($trnsType == ConstantHelper::MATERIAL_ISSUE_SERVICE_ALIAS_NAME ){
+            $detail = ErpMiItem::find($plItemId);
+        }else{
+            $detail = ErpPlItem::find($plItemId);
+        }
+
+        if(!$detail){
+            throw ValidationException::withMessages([
+                'pl_item_id' => ['Item not found.'],
+            ]);
+        }
+
+        return $detail;
+    }
+
+    public function getMrnPackets($packetIds, $storagePointId, $itemId, $mrnIds, $transType)
+    {
+        $packets = ErpItemUniqueCode::whereIn('item_uid', $packetIds)
+            ->when($storagePointId, fn($q) => $q->where('storage_point_id', $storagePointId))
+            ->where('item_id', $itemId)
+            ->whereIn('morphable_id', $mrnIds)
+            ->whereIn('trns_type', $transType)
+            ->pluck('item_uid')
+            ->toArray();
+            
+        return $packets;
+    }
+
+    public function getJob($jobId)
+    {
+        $job = ErpWhmJob::where('id',$jobId)
+            ->where('type',CommonHelper::PICKING)
+            ->first();
+
+        if(!$job){
+            throw ValidationException::withMessages([
+                'job_id' => ['Job not found.'],
+            ]);
+        }
+
+        return $job;
     }
 }

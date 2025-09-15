@@ -63,18 +63,17 @@ Route::group(['middleware' => ['apiresponse']], function () {
             ];
         });
 
-
         /**
          * Furlenco Integration related APIs
          * Controller: FurlencoController
         */
+        Route::controller(FurlencoController::class)->group(function () {
+            Route::post('/consignees', 'consigneeStoreOrUpdate'); //Create or Update consignees
+            Route::post('/create/sale-orders', 'createSaleOrders'); //Trip/Sales Order Creation
 
-        // Create or Update consignees
-        Route::post('/consignees', [FurlencoController::class, 'consigneeStoreOrUpdate']);
-
-        // Trip/Sales Order Creation
-        Route::post('/create/sale-orders', [FurlencoController::class, 'createSaleOrders']);
-
+            Route::get('stock-report', 'stockReport')->name('integration.stock-report'); // Get Stock Report
+            Route::get('get-barcode-detail', 'getBarcodeDetail')->name('integration.get-barcode-detail'); // Get Barcode Detail
+        });
         /**
          * Book Module Routes
          * Prefix: book

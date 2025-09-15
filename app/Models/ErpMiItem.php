@@ -219,4 +219,8 @@ class ErpMiItem extends Model
     {
         return $this->hasMany(StockLedgerReservation::class, 'issue_detail_id','id');
     }
+    public function tax_ted()
+    {
+        return $this -> hasMany(ErpMaterialIssueTed::class, 'mi_item_id', 'id') -> where('ted_level', 'D') -> where('ted_type', 'Tax');
+    }
 }

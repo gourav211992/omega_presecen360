@@ -501,6 +501,7 @@ class WhmJob
                 'reference_type' => $referenceType,
                 'reference_detail_id' => $referenceDetailId,
                 'reference_no' => $referenceNo,
+                'trip_id' => isset($header->trip_id) ? $header->trip_id : NULL,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -631,6 +632,8 @@ class WhmJob
                 'type' => $item->type,
                 'qty' => $item->qty,
                 'status' => $item->status,
+                'packet_no' => $item->packet_no,
+                'total_packets' => $item->total_packets,
                 'storage_point_id' => $storagePointId,
                 'created_at' => now(),
                 'updated_at' => now(),
