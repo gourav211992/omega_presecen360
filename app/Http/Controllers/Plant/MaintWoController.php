@@ -357,6 +357,7 @@ class MaintWoController extends Controller
     public function store(Request $request)
     {
         
+        
         $rules = [
             'book_id' => 'required',
             'document_number' => 'required|string|max:100',
@@ -565,6 +566,14 @@ class MaintWoController extends Controller
 
         $firstService = $servicesBooks['services'][0];
         $series = Helper::getBookSeriesNew($firstService->alias, $parentURL)->get();
+
+         //defect notification series 
+         $parentURL = "plant_defect-noti";
+         $defectSeries = [];
+         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
+ 
+         $firstService = $servicesBooks['services'][0];
+         $defectSeries = Helper::getBookSeriesNew($firstService->alias, $parentURL)->get();
        
 
         $userType = Helper::userCheck();
@@ -704,12 +713,14 @@ class MaintWoController extends Controller
             'equipments',
             'maintenanceTypesByEquipment',
             'maintenanceBoms',
+            'defectSeries'
         ));
     }
 
     public function update(Request $request, string $id)
     {
-     
+        // dd($request->all());
+    
         $rules = [
             'book_id' => 'required',
             'document_number' => 'required|string|max:100',
@@ -775,6 +786,7 @@ class MaintWoController extends Controller
 
             // Prepare update data
             $updateData = $request->all();
+            
             
             // Only update checklist_data if it's not empty
             if (empty($request->checklist_data) || $request->checklist_data === 'null' || $request->checklist_data === '[]') {

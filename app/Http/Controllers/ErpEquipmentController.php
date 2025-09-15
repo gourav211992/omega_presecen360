@@ -28,26 +28,35 @@ class ErpEquipmentController extends Controller
     public function index()
     {
         $equipments = ErpEquipment::with(['organization', 'location', 'spareParts', 'maintenanceDetails.checklists'])->get();
-        $plantMainWo = PlantMaintWo::select('id','document_status','equipment_details','created_at','updated_at')->get();
-        
+    
+        $plantMainWo = PlantMaintWo::select('id','document_status','equipment_details','created_at','updated_at')
+            ->orderBy('created_at', 'DESC') 
+            ->get();
+    
         $equipments = $equipments->map(function($equipment) use ($plantMainWo) {
-          
+            
+           
             $matchingWorkOrder = $plantMainWo->filter(function($workOrder) use ($equipment) {
                 $equipmentDetails = json_decode($workOrder->equipment_details, true);
-                
-                return isset($equipmentDetails['equipment_id']) && 
-                       $equipmentDetails['equipment_id'] == $equipment->id;
-            })->first();
-            
+    
+                return isset($equipmentDetails['equipment_id'], $equipmentDetails['reference_type']) &&
+                       $equipmentDetails['equipment_id'] == $equipment->id &&
+                       $equipmentDetails['reference_type'] === 'equipment';
+            })->first(); 
+    
             if ($matchingWorkOrder) {
                 $equipment->equipment_status = $matchingWorkOrder->document_status;
-            } 
-            
+            } else {
+                $equipment->equipment_status = null;
+            }
+    
             return $equipment;
         });
-        
+    
         return view('equipment.index', compact('equipments'));
     }
+    
+
     public function create()
     {
         $parentURL = request()->segments()[0];
