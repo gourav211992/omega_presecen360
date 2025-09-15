@@ -31,6 +31,7 @@
                 </div>
             </div>
             <div class="content-body">
+
 				<section id="basic-datatable">
                     <div class="row">
                         <div class="col-12">
@@ -79,7 +80,7 @@
                 $first = $equipment->maintenanceDetails->sortBy('start_date')->first();
                
         
-                if ($equipment->equipment_status == 'approved') {
+                if ($equipment->equipment_status == 'approved' || $equipment->equipment_status == 'approval_not_required') {
                  
                     $approvedDetail = $equipment->maintenanceDetails->sortByDesc('start_date')->first();
                    
