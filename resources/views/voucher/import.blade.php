@@ -352,154 +352,154 @@
                         <div class="row">
                             <div class="col-md-12">
                             <div class="hide-this-section" style="display: none;">
-            <div class="content-body">
-                <!-- Import Summary Cards -->
-                <div class="row mb-2">
-                    <div class="col-lg-6 col-md-6 col-12">
-                        <div class="card border-left-success">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h3 class="fw-bolder mb-75 text-success" id="success-count">0</h3>
-                                        <p class="card-text" id="success-count-badge">Records Succeeded: 0</p>
-                                    </div>
-                                    <div class="avatar bg-light-success p-50 m-0">
-                                        <div class="avatar-content">
-                                            <i data-feather="check-circle" class="font-medium-5"></i>
+                                <div class="content-body">
+                                    <!-- Import Summary Cards -->
+                                   {{-- <div class="row mb-2">
+                                        <div class="col-lg-6 col-md-6 col-12">
+                                            <div class="card border-left-success">
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <h3 class="fw-bolder mb-75 text-success" id="success-count">0</h3>
+                                                            <p class="card-text" id="success-count-badge">Records Succeeded: 0</p>
+                                                        </div>
+                                                        <div class="avatar bg-light-success p-50 m-0">
+                                                            <div class="avatar-content">
+                                                                <i data-feather="check-circle" class="font-medium-5"></i>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-lg-6 col-md-6 col-12">
-                        <div class="card border-left-danger">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <h3 class="fw-bolder mb-75 text-danger" id="failed-count">0</h3>
-                                        <p class="card-text">Records Failed</p>
-                                    </div>
-                                    <div class="avatar bg-light-danger p-50 m-0">
-                                        <div class="avatar-content">
-                                            <i data-feather="x-circle" class="font-medium-5"></i>
+                                        <div class="col-lg-6 col-md-6 col-12">
+                                            <div class="card border-left-danger">
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <h3 class="fw-bolder mb-75 text-danger" id="failed-count">0</h3>
+                                                            <p class="card-text">Records Failed</p>
+                                                        </div>
+                                                        <div class="avatar bg-light-danger p-50 m-0">
+                                                            <div class="avatar-content">
+                                                                <i data-feather="x-circle" class="font-medium-5"></i>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                                    </div>--}}
 
-                <!-- Export Buttons -->
-                <!-- <div class="row mb-2">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <h4 class="card-title">Export Options</h4>
-                                    <div>
-                                        <form id="exportForm" method="GET" action="{{ route('vouchers.export.successful') }}">
-                                            @csrf
-                                            <button type="submit" class="btn btn-success btn-sm me-1 exportBtn">
-                                                <i data-feather="download"></i> Export Records
-                                            </button>
-                                        </form>
-                                        <form id="exportFailedForm" method="GET" action="{{ route('vouchers.export.failed') }}" style="display: none;">
-                                            @csrf
-                                            <button type="submit" class="btn btn-danger btn-sm">
-                                                <i data-feather="download"></i> Export Failed Records
-                                            </button>
-                                        </form>
+                                    <!-- Export Buttons -->
+                                    <!-- <div class="row mb-2">
+                                        <div class="col-12">
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <h4 class="card-title">Export Options</h4>
+                                                        <div>
+                                                            <form id="exportForm" method="GET" action="{{ route('vouchers.export.successful') }}">
+                                                                @csrf
+                                                                <button type="submit" class="btn btn-success btn-sm me-1 exportBtn">
+                                                                    <i data-feather="download"></i> Export Records
+                                                                </button>
+                                                            </form>
+                                                            <form id="exportFailedForm" method="GET" action="{{ route('vouchers.export.failed') }}" style="display: none;">
+                                                                @csrf
+                                                                <button type="submit" class="btn btn-danger btn-sm">
+                                                                    <i data-feather="download"></i> Export Failed Records
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div> -->
+
+                                    <!-- Results Tables with Tabs -->
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h4 class="card-title">Import Results</h4>
+                                                </div>
+                                                <div class="card-body">
+                                                    <!-- Nav tabs -->
+                                                    <ul class="nav nav-tabs border-bottom" role="tablist">
+                                                        <li class="nav-item">
+                                                            <a class="nav-link active" data-bs-toggle="tab" href="#successful-records">Records Succeeded &nbsp;<span id="success-count">(0)</span></a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a class="nav-link text-danger" data-bs-toggle="tab" href="#failed-records">Records Failed &nbsp;<span id="failed-count">(0)</span></a>
+                                                        </li>
+                                                    </ul>
+
+                                                    <!-- Tab content -->
+                                                    <div class="tab-content">
+                                                        <div class="tab-pane active" id="successful-records">
+                                                            <div class="text-end my-1">
+                                                                <a href="{{ route('vouchers.export.successful') }}" class="btn btn-success btn-sm mb-50 mb-sm-0 me-50 waves-effect" id="exportSuccessBtn" style="display: none;">
+                                                                    <i data-feather="download"></i> Export Successful Records
+                                                                </a>
+                                                            </div>
+                                                            <div class="table-responsive">
+                                                                <table class="datatables-basic1 datatables-success table myrequesttablecbox">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>#</th>
+                                                                            <th>Ledger Code</th>
+                                                                            <th>Ledger Name</th>
+                                                                            <th>Debit Amount</th>
+                                                                            <th>Credit Amount</th>
+                                                                            <th>Status</th>
+                                                                            <th>Remarks</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody id="success-table-body">
+                                                                        <tr>
+                                                                            <td colspan="7">No records found</td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                        <div class="tab-pane" id="failed-records">
+                                                            <div class="text-end my-1">
+                                                                <a href="{{ route('vouchers.export.failed') }}" class="btn btn-danger btn-sm mb-50 mb-sm-0 me-50 waves-effect" id="exportFailedBtn" style="display: none;">
+                                                                    <i data-feather="download"></i> Export Failed Records
+                                                                </a>
+                                                            </div>
+                                                            <div class="table-responsive">
+                                                                <table class="datatables-basic datatables-failed table myrequesttablecbox">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>#</th>
+                                                                            <th>Ledger Code</th>
+                                                                            <th>Ledger Name</th>
+                                                                            <th>Debit Amount</th>
+                                                                            <th>Credit Amount</th>
+                                                                            <th>Cost Center</th>
+                                                                            <th>Status</th>
+                                                                            <th>Remarks</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody id="failed-table-body">
+                                                                        <tr>
+                                                                            <td colspan="8">No records found</td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div> -->
-
-                <!-- Results Tables with Tabs -->
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <h4 class="card-title">Import Results</h4>
-                            </div>
-                            <div class="card-body">
-                                <!-- Nav tabs -->
-                                <ul class="nav nav-tabs border-bottom" role="tablist">
-                                    <li class="nav-item">
-                                        <a class="nav-link active" data-bs-toggle="tab" href="#successful-records">Records Succeeded &nbsp;<span id="success-count">(0)</span></a>
-                                    </li>
-                                    <li class="nav-item">
-                                        <a class="nav-link text-danger" data-bs-toggle="tab" href="#failed-records">Records Failed &nbsp;<span id="failed-count">(0)</span></a>
-                                    </li>
-                                </ul>
-
-                                <!-- Tab content -->
-                                <div class="tab-content">
-                                    <div class="tab-pane active" id="successful-records">
-                                        <div class="text-end my-1">
-                                            <a href="{{ route('vouchers.export.successful') }}" class="btn btn-success btn-sm mb-50 mb-sm-0 me-50 waves-effect" id="exportSuccessBtn" style="display: none;">
-                                                <i data-feather="download"></i> Export Successful Records
-                                            </a>
-                                        </div>
-                                        <div class="table-responsive">
-                                            <table class="datatables-basic1 datatables-success table myrequesttablecbox">
-                                                <thead>
-                                                    <tr>
-                                                        <th>#</th>
-                                                        <th>Ledger Code</th>
-                                                        <th>Ledger Name</th>
-                                                        <th>Debit Amount</th>
-                                                        <th>Credit Amount</th>
-                                                        <th>Status</th>
-                                                        <th>Remarks</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="success-table-body">
-                                                    <tr>
-                                                        <td colspan="7">No records found</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                    <div class="tab-pane" id="failed-records">
-                                        <div class="text-end my-1">
-                                            <a href="{{ route('vouchers.export.failed') }}" class="btn btn-danger btn-sm mb-50 mb-sm-0 me-50 waves-effect" id="exportFailedBtn" style="display: none;">
-                                                <i data-feather="download"></i> Export Failed Records
-                                            </a>
-                                        </div>
-                                        <div class="table-responsive">
-                                            <table class="datatables-basic datatables-failed table myrequesttablecbox">
-                                                <thead>
-                                                    <tr>
-                                                        <th>#</th>
-                                                        <th>Ledger Code</th>
-                                                        <th>Ledger Name</th>
-                                                        <th>Debit Amount</th>
-                                                        <th>Credit Amount</th>
-                                                        <th>Cost Center</th>
-                                                        <th>Status</th>
-                                                        <th>Remarks</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody id="failed-table-body">
-                                                    <tr>
-                                                        <td colspan="8">No records found</td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
                             </div>  
                         </div>  
                         

@@ -1409,6 +1409,7 @@ class VoucherController extends Controller
             } else return false;
         } else return false;
     }
+
     public function get_groups($allowedNames,$name=null)
         {
             $organizationId = Helper::getAuthenticatedUser()->organization_id;
@@ -1438,14 +1439,9 @@ class VoucherController extends Controller
     {
         $cost_centers = CostCenter::where('status', 'active')->where('organization_id', Helper::getAuthenticatedUser()->organization_id)->select('id as value', 'name as label')->get()->toArray();
         $parentUrl = 'vouchers';
-
         $serviceAlias = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         $fy_months = Helper::getCurrentFinancialYearMonths();
-      
-
-
         $bookTypes = $serviceAlias['services'];
-
         $bookTypes = collect($bookTypes)
             ->whereIn('alias', [
                 ConstantHelper::CONTRA_VOUCHER,
@@ -1455,12 +1451,7 @@ class VoucherController extends Controller
             ->unique('alias')  
             ->values() ?? [];
 
-        // $bookTypes = collect($bookTypes)->whereIn('alias', [ConstantHelper::CONTRA_VOUCHER,ConstantHelper::JOURNAL_VOUCHER,ConstantHelper::OPENING_BALANCE])->values()??[];
-       
-
-
         
-
         $lastVoucher = Voucher::where('organization_id', Helper::getAuthenticatedUser()->organization_id)->orderBy('id', 'desc')->select('book_type_id', 'book_id')->first();
         $currencies = Currency::where('status', ConstantHelper::ACTIVE)->select('id', 'name', 'short_name')->get();
         $orgCurrency = Organization::where('id', Helper::getAuthenticatedUser()->organization_id)->value('currency_id');
@@ -1469,10 +1460,11 @@ class VoucherController extends Controller
         $exlucdeJVGroups = Helper::getChildLedgerGroupsByNameArray(ConstantHelper::JV_EXCLUDE_GROUPS,'names');
         $cost_centers = Helper::getActiveCostCenters();
         $fyear = Helper::getFinancialYear(date('Y-m-d'));
-        // pass authenticate user's org locations
-     $locations = InventoryHelper::getAccessibleLocations();
+       
+        $locations = InventoryHelper::getAccessibleLocations();
          return view('voucher.import', compact('cost_centers','allledgers', 'currencies', 'orgCurrency', 'cost_centers', 'bookTypes', 'lastVoucher','allowedCVGroups','exlucdeJVGroups','locations','fyear','fy_months'));
     }
+
 
     //Import Work
     public function importSave(Request $request)
@@ -1500,6 +1492,7 @@ class VoucherController extends Controller
         
         $data = $exchangeData['data'];
         $bookResponse = BookHelper::fetchBookDocNoAndParameters($request->book_id, $request->date);
+        
        
         $docNumberType = $bookResponse['data']['doc']['type'];
         
@@ -1589,7 +1582,6 @@ class VoucherController extends Controller
         $voucher->group_currency_code = $data['group_currency_code'];
         $voucher->group_currency_exg_rate = $data['group_currency_exg_rate'];
         $voucher->currency_code = $data['org_currency_code'];
-        $voucher->document_status = $request->document_status ?? ConstantHelper::DRAFT;
         $voucher->amount = $uploads->sum('debit_amount');
         $voucher->created_by = $user->auth_user_id;
         $voucher->organization_id = $user->organization_id;
@@ -1766,7 +1758,6 @@ class VoucherController extends Controller
     {
         return $this->importError($request);
     }
-    
     /**
      * Generate valid/invalid UI for voucher import like other modules
      */
@@ -1822,10 +1813,4 @@ class VoucherController extends Controller
             'invalidUI' => $invalidUI
         ];
     }
-
-
-
-
-
-
 }
