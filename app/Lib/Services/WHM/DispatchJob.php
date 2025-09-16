@@ -65,6 +65,8 @@ class DispatchJob
                 'expiry_date' => $packet->expiry_date,
                 'serial_no' => $packet->serial_no,
                 'item_uid' => $packet->item_uid, 
+                'packet_no' => $packet->packet_no,
+                'total_packets' => $packet->total_packets,
                 'storage_point_id' => Null, 
                 'type' => 'qr',
                 'qty' => 1,

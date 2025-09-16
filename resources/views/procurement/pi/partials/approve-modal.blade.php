@@ -31,8 +31,8 @@
           </div>
       </div>
 
-         <div class="modal-footer justify-content-center">  
-            <button type="reset" data-bs-dismiss="modal" class="btn btn-outline-secondary me-1">Cancel</button> 
+         <div class="modal-footer justify-content-center">
+            <button type="reset" data-bs-dismiss="modal" class="btn btn-outline-secondary me-1">Cancel</button>
             <button type="submit" class="btn btn-primary">Submit</button>
          </div>
        </form>

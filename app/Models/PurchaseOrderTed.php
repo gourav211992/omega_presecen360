@@ -27,9 +27,9 @@ class PurchaseOrderTed extends Model
         'applicable_type',
     ];
 
-    protected $appends = [
-        'ted_name'
-    ];
+    // protected $appends = [
+    //     'ted_name'
+    // ];
 
     protected $casts = [
         'tax_breakup' => 'array',
@@ -45,32 +45,32 @@ class PurchaseOrderTed extends Model
         return json_decode($value, true);
     }
 
-    public function getTedNameAttribute()
-    {
-        $tedName = null;
-        $tedId = $this->ted_id ?? null;
-        if (!$tedId) {
-            return null;
-        }
-        switch ($this->ted_type ?? null) {
-            case 'Tax':
-                $tedName = TaxDetail::where('id', $tedId)->value('tax_type');
-                break;
+    // public function getTedNameAttribute()
+    // {
+    //     $tedName = null;
+    //     $tedId = $this->ted_id ?? null;
+    //     if (!$tedId) {
+    //         return null;
+    //     }
+    //     switch ($this->ted_type ?? null) {
+    //         case 'Tax':
+    //             $tedName = TaxDetail::where('id', $tedId)->value('tax_type');
+    //             break;
 
-            case 'Expense':
-                $tedName = ExpenseMaster::where('id', $tedId)->value('name');
-                break;
+    //         case 'Expense':
+    //             $tedName = ExpenseMaster::where('id', $tedId)->value('name');
+    //             break;
 
-            case 'Discount':
-                $tedName = DiscountMaster::where('id', $tedId)->value('name');
-                break;
+    //         case 'Discount':
+    //             $tedName = DiscountMaster::where('id', $tedId)->value('name');
+    //             break;
 
-            default:
-                $tedName = null;
-                break;
-        }
-        return $tedName;
-    }
+    //         default:
+    //             $tedName = null;
+    //             break;
+    //     }
+    //     return $tedName;
+    // }
 
     public function purchaseOrder()
     {

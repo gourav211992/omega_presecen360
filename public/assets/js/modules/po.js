@@ -412,6 +412,7 @@ function setTableCalculation() {
     /*Bind Tax*/
     const taxPromises = [];
     let isTax = $("#tax_required").val().trim().toLowerCase() === "yes";
+    let poId = $('#po_id').val(); // get the hidden input's value directly
     $("#itemTable [id*='row_']").each(function (index, item3) {
         let rowCount3 = Number($(item3).attr("data-index"));
         let qty3 = $(item3).find("[name*='[qty]']").val() || 0;
@@ -423,6 +424,7 @@ function setTableCalculation() {
             Number($(item3).find("[name*='[discount_amount_header]']").val()) ||
             0;
         let itemId = $(item3).find('[name*="[item_id]"]').val();
+        let poItemId = Number($(item3).find(".form-check-input").attr("data-id")) || '';
 
         let price = itemValue3 - itemDisc3 - itemHeaderDisc;
         if (price > 0 && itemId) {
@@ -435,6 +437,8 @@ function setTableCalculation() {
                 // Construct the query parameters
                 let queryParams = new URLSearchParams({
                     price: price,
+                    po_id: poId,
+                    po_item_id: poItemId,
                     item_id: itemId,
                     transaction_type: transactionType,
                     party_country_id: partyCountryId,
@@ -700,6 +704,7 @@ function setTableCalculation() {
     });
     updateTotalAfterExchangeRate();
 }
+
 /*Edit mode table calculation filled*/
 if ($("#itemTable .mrntableselectexcel tr").length) {
     setTimeout(() => {

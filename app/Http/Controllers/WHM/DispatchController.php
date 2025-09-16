@@ -104,7 +104,15 @@ class DispatchController extends Controller
                             'item_id',
                             'item_name',
                             'item_code',
-                            DB::raw('CAST(inventory_uom_qty AS UNSIGNED) as quanity'),
+                            // DB::raw('CAST(inventory_uom_qty AS UNSIGNED) as quanity'),
+                            DB::raw("(
+                                CAST(inventory_uom_qty AS UNSIGNED) * 
+                                (
+                                    SELECT IFNULL(storage_uom_count, 1)
+                                    FROM erp_items 
+                                    WHERE erp_items.id = erp_invoice_items.item_id
+                                )
+                            ) as quantity"),
                             DB::raw("(
                                 SELECT COUNT(*)
                                 FROM erp_item_unique_codes
@@ -125,6 +133,7 @@ class DispatchController extends Controller
         $validator = Validator::make($request->all(),[
             'job_id' => ['required'],
             'status' => ['nullable'],
+            'sale_invoice_item_id' => ['nullable'],
         ],[
             'job_id.required' => 'Job id is required'
         ]);
@@ -135,6 +144,9 @@ class DispatchController extends Controller
 
         $status = $request->status;
         $job = ErpWhmJob::find($request->job_id);
+
+        $item = ErpInvoiceItem::find($request->sale_invoice_item_id);
+        
         $plitemIds = ErpInvoiceItem::where('sale_invoice_id',$job->morphable_id)->pluck('pl_item_detail_id')->toArray();
 
         $scannedPacketsUids = ErpItemUniqueCode::where('job_id', $request->job_id)
@@ -226,7 +238,7 @@ class DispatchController extends Controller
         $packets = ErpItemUniqueCode::whereIn('morphable_id',$plitemIds)
             ->whereIn('item_uid', $request->packet_ids)
             ->where('job_type', CommonHelper::PICKING)
-            ->whereNull('utilized_id')
+            // ->whereNull('utilized_id')
             ->get();
 
         // Check invalid packets
@@ -240,18 +252,55 @@ class DispatchController extends Controller
         }
 
         // Filter already scanned packets from the result set
-        $alreadyScanned = ErpItemUniqueCode::where('job_id', $request->job_id)
-            ->whereIn('item_uid', $request->packet_ids)
+        $scannedPackets = ErpItemUniqueCode::where('job_id', $request->job_id)
             ->where('status', CommonHelper::SCANNED)
             ->where('job_type', CommonHelper::DISPATCH)
-            ->pluck('item_uid')
-            ->toArray();
+            ->get();
 
+        $alreadyScanned = $scannedPackets->whereIn('item_uid', $request->packet_ids)->pluck('item_uid')->toArray();
         if (!empty($alreadyScanned)) {
             throw ValidationException::withMessages([
                 'packet_ids' => ['Some packets are already scanned: ' . implode(', ', $alreadyScanned)],
             ]);
         }
+
+        $scannedPacketsUid = $scannedPackets->pluck('uid')->toArray();        
+        $packetData = ErpItemUniqueCode::where(function($q) use($request,$scannedPacketsUid){
+                $q->where(function($q1) use($request){
+                    $q1->whereIn('item_uid', $request->packet_ids)
+                    ->whereNull('utilized_id');
+                })->orWhereIn('utilized_id',$scannedPacketsUid);
+            })
+            ->whereIn('morphable_id',$plitemIds)
+            ->where('job_type', CommonHelper::PICKING)
+            ->where('doc_type', CommonHelper::RECEIPT)
+            ->get();
+
+        $invoiceItems = ErpInvoiceItem::where('sale_invoice_id', $job->morphable_id)
+            ->select('id', 'item_id', 'pl_item_detail_id', 'inventory_uom_qty')
+            ->get()
+            ->pluck('inventory_uom_qty', 'pl_item_detail_id')
+            ->toArray();
+
+        foreach ($packetData->groupBy('morphable_id') as $plItemId => $plItems) {
+            foreach ($plItems->groupBy('packet_no') as $packetNo => $qrs) {
+                $inventoryQty = $invoiceItems[$plItemId];
+
+                // Only consider QRs that are not already utilized (i.e. not scanned earlier)
+                $currentScanQrs = $qrs->filter(function ($qr) use ($scannedPacketsUid) {
+                    return in_array($qr->utilized_id, $scannedPacketsUid);
+                    // return is_null($qr->utilized_id) || !in_array($qr->utilized_id, $scannedPacketsUid);
+
+                });
+
+                if ($qrs->count() > $inventoryQty) {
+                    throw ValidationException::withMessages([
+                        'packet_data.' . $packetNo => "You can only scan $inventoryQty quantity per packet. Already scanned: " . $currentScanQrs->count(),
+                    ]);
+                }
+
+            }
+        };
 
         \DB::beginTransaction();
         try {

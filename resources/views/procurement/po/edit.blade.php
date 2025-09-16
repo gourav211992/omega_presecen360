@@ -15,6 +15,7 @@
             $pi_item_ids = $po->pi_item_mappings()->pluck('pi_item_id')->implode(',');
         @endphp
         <input type="hidden" name="tax_required" id="tax_required" value="">
+        <input type="hidden" name="po_id" id="po_id" value="{{ @$po->id }}">
         <input type="hidden" name="pi_item_ids" id="pi_item_ids" value="{{ $pi_item_ids }}">
         <input type="hidden" name="short_close_ids" id="short_close_ids">
         <input type="hidden" name="po_type" id="po_type" value="{{ $po->po_type }}">
@@ -3130,9 +3131,7 @@
                         let cost = data?.data?.cost || 0;
                         let rateInput = $(currentTr).find("input[name*='[rate]']");
                         let rate = rateInput.val();
-                        if (rate === undefined || rate === null || rate === '' || parseFloat(rate) <= 0) {
-                            rateInput.val(cost);
-                        }
+                        rateInput.val(cost);
                         setTableCalculation();
                     }
                 });

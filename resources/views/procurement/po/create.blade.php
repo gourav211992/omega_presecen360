@@ -2287,9 +2287,7 @@
                         let cost = data?.data?.cost || 0;
                         let rateInput = $(currentTr).find("input[name*='[rate]']");
                         let rate = rateInput.val();
-                        if (rate === undefined || rate === null || rate === '' || parseFloat(rate) <= 0) {
-                            rateInput.val(cost);
-                        }
+                        rateInput.val(cost);
                         setTableCalculation();
                     }
 

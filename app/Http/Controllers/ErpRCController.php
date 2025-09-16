@@ -464,7 +464,7 @@ class ErpRCController extends Controller
                                 'currency_id' => isset($request -> item_currency_id[$itemKey]) ? $request -> item_currency_id[$itemKey] : null,
                                 'currency_code' => isset($request -> item_currency_id[$itemKey]) ? $currency->short_name : null,
                                 'from_date' => isset($request -> effective_from[$itemKey]) ? $request -> effective_from[$itemKey] : null,
-                                'to_date' => isset($request -> effective_to[$itemKey]) ? $request -> effective_to[$itemKey] : null,
+                                'to_date' => isset($request -> effective_to[$itemKey]) ? $request -> effective_to[$itemKey] : (isset($request -> end_date) ? $request -> end_date : null),
                                 'remarks' => isset($request -> item_remarks[$itemKey]) ? $request -> item_remarks[$itemKey] : null,
                             ]);   
                         }
@@ -587,71 +587,117 @@ class ErpRCController extends Controller
                     // $rateContract->currency_code = isset($request -> currency_id) ? $currency->short_name : null;
                     if(($rateContract -> document_status == ConstantHelper::APPROVED || $rateContract -> document_status == ConstantHelper::APPROVAL_NOT_REQUIRED) && $actionType == 'amendment')
                     {
-                        //*amendmemnt document log*/
+                        //* amendment document log */
                         $revisionNumber = $rateContract->revision_number + 1;
                         $actionType = 'amendment';
-                        $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $amendRemarks, $amendAttachments, $currentLevel, $actionType, 0, $modelName);
+                        $totalValue = $rateContract->grand_total_amount ?? 0;
+
+                        $approveDocument = Helper::approveDocument(
+                                    $bookId,
+                                     $docId,
+                            $revisionNumber,
+                                   $amendRemarks,
+                               $amendAttachments,
+                              $currentLevel,
+                                $actionType,
+                                  $totalValue,
+                                 $modelName
+                        );
+
+                        if (isset($approveDocument['message']) && $approveDocument['message']) {
+                            DB::rollBack();
+                            return response()->json([
+                                'message' => $approveDocument['message'],
+                                'error'   => "",
+                            ], 422);
+                        }
+
                         $rateContract->revision_number = $revisionNumber;
-                        $rateContract->approval_level = 1;
-                        $rateContract->revision_date = now();
-                        $amendAfterStatus = $rateContract->document_status;
-                        // $checkAmendment = Helper::checkAfterAmendApprovalRequired($request->book_id);
-                        // if(isset($checkAmendment->approval_required) && $checkAmendment->approval_required) {
-                        //     $totalValue = $rateContract->grand_total_amount ?? 0;
-                        //     $amendAfterStatus = Helper::checkApprovalRequired($request->book_id,$totalValue);
-                        // } else {
-                        //     $actionType = 'approve';
-                        //     $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, 0, $modelName);
-                        // }
-                        // if ($amendAfterStatus == ConstantHelper::SUBMITTED) {
-                        //     $actionType = 'submit';
-                        //     $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, 0, $modelName);
-                        // }
+                        $rateContract->approval_level  = 1;
+                        $rateContract->revision_date   = now();
+                        $amendAfterStatus              = $approveDocument['approvalStatus'] ?? $rateContract->document_status;
                         $rateContract->document_status = $amendAfterStatus;
                         $rateContract->save();
 
                     } else {
                         if ($request->document_status == ConstantHelper::SUBMITTED) {
                             $revisionNumber = $rateContract->revision_number ?? 0;
-                            $actionType = 'submit';
-                            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, 0, $modelName);
+                            $actionType     = 'submit';
+                            $totalValue     = $rateContract->grand_total_amount ?? 0;
 
-                            $totalValue = $rateContract->grand_total_amount ?? 0;
-                            $document_status = Helper::checkApprovalRequired($request->book_id,$totalValue);
+                            $approveDocument = Helper::approveDocument(
+                                $bookId,
+                                $docId,
+                                $revisionNumber,
+                                $remarks,
+                                $attachments,
+                                $currentLevel,
+                                $actionType,
+                                $totalValue,
+                                $modelName
+                            );
+
+                            if (isset($approveDocument['message']) && $approveDocument['message']) {
+                                DB::rollBack();
+                                return response()->json([
+                                    'message' => $approveDocument['message'],
+                                    'error'   => "",
+                                ], 422);
+                            }
+
+                            $document_status             = $approveDocument['approvalStatus'] ?? $rateContract->document_status;
                             $rateContract->document_status = $document_status;
                         } else {
                             $rateContract->document_status = $request->document_status ?? ConstantHelper::DRAFT;
                         }
                     }
-                } else { //Create condition
-                    if ($request->document_status == ConstantHelper::SUBMITTED) {
-                        $bookId = $rateContract->book_id;
-                        $docId = $rateContract->id;
-                        $remarks = $rateContract->remarks;
-                        $attachments = $request->file('attachment');
-                        $currentLevel = $rateContract->approval_level;
-                        $revisionNumber = $rateContract->revision_number ?? 0;
-                        $actionType = 'submit'; // Approve // reject // submit
-                        $modelName = get_class($rateContract);
-                        $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, 0, $modelName);
+                    } else { // Create condition
+                        if ($request->document_status == ConstantHelper::SUBMITTED) {
+                            $bookId        = $rateContract->book_id;
+                            $docId         = $rateContract->id;
+                            $remarks       = $rateContract->remarks;
+                            $attachments   = $request->file('attachment');
+                            $currentLevel  = $rateContract->approval_level;
+                            $revisionNumber= $rateContract->revision_number ?? 0;
+                            $actionType    = 'submit'; // Approve // reject // submit
+                            $modelName     = get_class($rateContract);
+                            $totalValue    = $rateContract->total_amount ?? 0;
+
+                            $approveDocument = Helper::approveDocument(
+                                $bookId,
+                                $docId,
+                                $revisionNumber,
+                                $remarks,
+                                $attachments,
+                                $currentLevel,
+                                $actionType,
+                                $totalValue,
+                                $modelName
+                            );
+
+                            if (isset($approveDocument['message']) && $approveDocument['message']) {
+                                DB::rollBack();
+                                return response()->json([
+                                    'message' => $approveDocument['message'],
+                                    'error'   => "",
+                                ], 422);
+                            }
+
+                            $rateContract->document_status = $approveDocument['approvalStatus'] ?? $rateContract->document_status;
+                        }
+
+                        $rateContract->save();
                     }
 
-                    // if ($request->document_status == 'submitted') {
-                    //     $totalValue = $rateContract->total_amount ?? 0;
-                    //     $document_status = Helper::checkApprovalRequired($request->book_id,$totalValue);
-                    //     $rateContract->document_status = $document_status;
-                    // } else {
-                    //     $rateContract->document_status = $request->document_status ?? ConstantHelper::DRAFT;
-                    // }
-                    $rateContract -> save();
-                }
-                $rateContract -> save();
-                //Media
-                if ($request->hasFile('attachments')) {
-                    foreach ($request->file('attachments') as $singleFile) {
-                        $mediaFiles = $rateContract->uploadDocuments($singleFile, 'rate_contract', false);
+                    $rateContract->save();
+
+                    // Media
+                    if ($request->hasFile('attachments')) {
+                        foreach ($request->file('attachments') as $singleFile) {
+                            $mediaFiles = $rateContract->uploadDocuments($singleFile, 'rate_contract', false);
+                        }
                     }
-                }
+
                 // $status = self::maintainStockLedger($rateContract);
                 // if (!$status) {     
                 //     DB::rollBack();

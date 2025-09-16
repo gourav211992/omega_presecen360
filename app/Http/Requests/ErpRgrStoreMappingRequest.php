@@ -24,6 +24,7 @@ class ErpRgrStoreMappingRequest extends FormRequest
             'store_mappings.*.store_id'        => 'required|integer|exists:erp_stores,id',
             'store_mappings.*.sub_store_id'    => 'required|integer|exists:erp_sub_stores,id',
             'store_mappings.*.qc_sub_store_id' => 'nullable|integer|exists:erp_sub_stores,id',
+            'store_mappings.*.staging_store_id'=> 'nullable|integer|exists:erp_sub_stores,id',
 
             'store_mappings.*.organization_id' => 'nullable|integer|exists:organizations,id',
             'store_mappings.*.group_id'        => 'nullable|integer|exists:organization_groups,id',
@@ -82,6 +83,10 @@ class ErpRgrStoreMappingRequest extends FormRequest
             // QC Sub Store
             'store_mappings.*.qc_sub_store_id.integer' => 'QC-store ID must be a valid number.',
             'store_mappings.*.qc_sub_store_id.exists'  => 'The selected QC-store does not exist.',
+
+            // Staging Store
+            'store_mappings.*.staging_store_id.integer' => 'Staging store ID must be a valid number.',
+            'store_mappings.*.staging_store_id.exists'  => 'The selected staging store does not exist.',
 
               // Damage Mappings
             'damage_mappings.*.damage_type.required'  => 'Damage Type is required.',
