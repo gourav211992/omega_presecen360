@@ -53,7 +53,7 @@
                         <button type="button" class="btn btn-primary btn-sm" id="approved-button" name="action" value="approved"><i data-feather="check-circle"></i> Approve</button>
                     @endif
                     @if($buttons['amend'] && intval(request('amendment') ?? 0))
-                        <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i data-feather="check-circle"></i> Submit</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn" onclick="openAmendConfirmModal();"><i data-feather="check-circle"></i> Submit</button>
                     @else
                         @if($buttons['amend'])
                         <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
@@ -241,7 +241,7 @@
                                     </div>
                                 </div>
                                 <div class="col-md-6 text-sm-end">
-                                    @if($bom->document_status == ConstantHelper::DRAFT)
+                                    @if($bom->document_status == ConstantHelper::DRAFT || intval(request('amendment') ?? 0))
                                         <a href="javascript:;" class="btn btn-sm btn-outline-danger me-50" id="deleteBtn">
                                             <i data-feather="x-circle"></i> Delete</a>
                                     @endif
@@ -415,6 +415,7 @@
                                         <span class = "text-primary small">{{__("message.attachment_caption")}}</span>
                                     </div>
                                 </div>
+                                @include('partials.document-preview',['documents' => $bom->getDocuments(), 'document_status' => $bom->document_status,'elementKey' => 'main_bom_preview'])
                                 <div class = "col-md-6" style = "margin-top:19px;">
                                     <div class = "row" id = "main_bom_file_preview">
                                     </div>
@@ -437,8 +438,8 @@
       </div>
    </div>
 </div>
+{{-- @include('mfgOrder.partials.close-modal', ['id' => $bom->id]) --}}
 @include('mfgOrder.partials.amendment-modal', ['id' => $bom->id])
-@include('mfgOrder.partials.close-modal', ['id' => $bom->id])
 </form>
 
 {{-- Attribute popup --}}
@@ -520,6 +521,25 @@
     </div>
  </div>
 
+ {{-- ammendment confirmation popup --}}
+ <div class="modal fade text-start alertbackdropdisabled" id="amendmentconfirm" tabindex="-1" aria-labelledby="myModalLabel1" aria-hidden="true" data-bs-backdrop="false">
+  <div class="modal-dialog">
+      <div class="modal-content">
+          <div class="modal-header p-0 bg-transparent">
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body alertmsg text-center warning">
+              <i data-feather='alert-circle'></i>
+              <h2>Are you sure?</h2>
+              {{-- @dd(request() -> type); --}}
+              <p>Are you sure you want to <strong>Amend</strong> this <strong>Manufacturing Order</strong>?</p>
+              <button type="button" class="btn btn-secondary me-25" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" data-bs-dismiss="modal" onclick = "amendConfirm();" class="btn btn-primary">Confirm</button>
+          </div>
+      </div>
+  </div>
+</div>
+
 @endsection
 @section('scripts')
 <script>
@@ -548,7 +568,10 @@ setTimeout(() => {
 },0);
 
 @if($buttons['amend'] && intval(request('amendment') ?? 0))
-
+    setTimeout(() => {
+        let storeId = $("#store_id").val() || '';
+        locationOnChange(storeId);
+    }, 0);
 @else
    @if($bom->document_status != 'draft' && $bom->document_status != 'rejected' && $bom->document_status != 'closed' && $bom->document_status != 'posted')
    $(':input').prop('readonly', true);
@@ -1098,9 +1121,10 @@ function fetchItemDetails(currentTr) {
                     $("#itemDetailTable tbody tr:first").after(data.data.html);
 
 
-                     // Show Prodcut Component Details
-                    $("#componentDetails").html(data.data.mo_product_component_html);
-                    $("#componentDetails").show();
+                     // Show Prodcut Component Details  
+                     // Not Required on Edit Page
+                    //$("#componentDetails").html(data.data.mo_product_component_html);
+                    //$("#componentDetails").show();
                 }
             });
         });
@@ -1579,5 +1603,65 @@ $(document).on('click', '#revokeButton', (e) => {
         });
     });
 });
+
+function amendConfirm() {
+    let url = new URL(window.location.href);
+
+    // set or overwrite amendment parameter
+    url.searchParams.set("amendment", "1");
+
+    // redirect
+    window.location.href = url.toString();
+}
+function openAmendConfirmModal()
+{
+    $("#amendmentModal").modal("show");
+}
+var currentRevNo = $("#revisionNumber").val();
+
+$(document).on('change', '#revisionNumber', (e) => {
+    e.preventDefault();
+    let actionUrl = location.pathname + '?type=' + "{{request() -> type ?? 'so'}}" + '&revisionNumber=' + e.target.value;
+    $("#revisionNumber").val(currentRevNo);
+    window.open(actionUrl, '_blank'); 
+});
+
+
+function locationOnChange(storeId = '') {
+    let actionUrl = '{{route("mo.get.sub.store")}}'+'?store_id='+storeId;
+    fetch(actionUrl).then(response => {
+        return response.json().then(data => {
+            if (data.status == 200) {
+                if (data.data.length) {
+                    let subStore = ``;
+                    data.data.forEach(element => {
+                        subStore += `<option value="${element.id}" data-station-wise-consumption="${element.station_wise_consumption}">
+                                        ${element.name}
+                                    </option>`;
+                    });
+
+                    $("#sub_store_id")
+                        .prop('disabled', false)
+                        .empty()
+                        .append(subStore)
+                        .val("{{ $bom->sub_store_id }}");
+
+                    const stationWise = getStationWiseConsBySubStoreId();
+                    if (stationWise.includes('yes')) {
+                        $("#station_column").removeClass('d-none');
+                    } else {
+                        $("#station_column").addClass('d-none');
+                    }
+                } else {
+                    $("#sub_store_id")
+                        .prop('disabled', true)
+                        .empty()
+                        .append(`<option value="">No Sub Store</option>`);
+                }
+
+            }
+        });
+    });
+}
 </script>
 @endsection

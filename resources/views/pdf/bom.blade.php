@@ -479,6 +479,9 @@
                                 <td
                                     style="font-weight: bold; padding: 2px; border: 1px solid #000; border-top: none; border-left: none; background: #80808070; text-align: left;">
                                     Instruction
+                                </td> <td
+                                    style="font-weight: bold; padding: 2px; border: 1px solid #000; border-top: none; border-left: none; background: #80808070; text-align: left;">
+                                    Instruction
                                 </td>
                             </tr>
                             @foreach ($bom->bomInstructions as $key => $bomInstruction)
@@ -503,6 +506,33 @@
                                         style="vertical-align: top; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: left;">
                                         {!! $bomInstruction?->instructions !!}
                                     </td>
+                                      {{-- Media images --}}
+                                   @if ($bomInstruction?->getDocuments()?->count())
+                                    <td  style="vertical-align: top; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: left;">
+                                        @foreach ($bomInstruction->getDocuments() as $attachment)
+                                            @php
+                                    
+                                                // Get the local storage path instead of the public URL
+                                                $path = $attachment->getDocumentUrl($attachment);
+                                                $relativePath = str_replace('/storage/', '', $path);
+                                                $fullPath = storage_path('app/public/' . $relativePath);
+                                                // dd($fullPath);
+                                                $data = file_exists($fullPath) ? file_get_contents($fullPath) : '';
+                                                $imgType = pathinfo($path, PATHINFO_EXTENSION);
+                                                $base64 = $data ? 'data:image/' . $imgType . ';base64,' . base64_encode($data) : '';
+                                            @endphp
+
+                                            @if ($base64)
+                                                <img src="{{ substr($base64, 0, 50) !== 'data:image/;base64,' ? $base64 : '' }}"
+                                                    alt="Attachment: {{ $attachment->name }}"
+                                                    style="max-width:100px; margin-right:5px; border:1px solid #ccc; padding:2px;">
+                                            @else
+                                                <span style="color:red;">Image not found</span>
+                                            @endif
+                                        @endforeach
+                                    </td>
+                                @endif
+
                                 </tr>
                             @endforeach
                         </table>
@@ -604,5 +634,4 @@
         @endif
     </div>
 </body>
-
 </html>

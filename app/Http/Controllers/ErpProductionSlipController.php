@@ -1146,6 +1146,13 @@ class ErpProductionSlipController extends Controller
         try {
             $doc = ErpProductionSlip::find($request -> id);
             if (isset($doc)) {
+                if ($doc->revision_number > 0) {
+                    DB::rollBack();
+                    return response() -> json([
+                        'status' => 'error',
+                        'message' => 'Amended document cannot be revoked',
+                    ]);
+                }
                 $revoke = Helper::approveDocument($doc -> book_id, $doc -> id, $doc -> revision_number, '', [], 0, ConstantHelper::REVOKE, $doc -> total_amount, get_class($doc));
                 if ($revoke['message']) {
                     DB::rollBack();

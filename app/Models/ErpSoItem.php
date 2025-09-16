@@ -88,15 +88,9 @@ class ErpSoItem extends Model
         return $this->hasMany(ErpSaleOrderTed::class,'so_item_id');
     }
 
-
     public function item_attributes()
     {
         return $this -> hasMany(ErpSoItemAttribute::class, 'so_item_id');
-    }
-
-    public function itemAttributes()
-    {
-        return $this -> belongsTo(ErpSoItemAttribute::class, 'so_item_id');
     }
 
     public function attributes()
@@ -419,5 +413,10 @@ class ErpSoItem extends Model
 
         $maxQty = max([$pickedQty, $plistQty, $dnoteQty]);
         return ($orderQty - $shortCloseQty - $maxQty + $srnQty);
+    }
+
+    public function jobWorkItems()
+    {
+        return $this->hasMany(ErpSoJobWorkItem::class, 'so_item_id');
     }
 }

@@ -66,10 +66,10 @@
                         <button type="button" class="btn btn-primary btn-sm" id="approved-button" name="action" value="approved"><i data-feather="check-circle"></i> Approve</button>
                     @endif 
                     @if($buttons['amend'] && intval(request('amendment') ?? 0))
-                        <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i data-feather="check-circle"></i> Submit</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn" onclick="openAmendConfirmModal();"><i data-feather="check-circle"></i> Submit</button>
                     @else
                         @if($buttons['amend'])
-                        <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
+                        <button type="button" id="amendShowButton" data-bs-toggle="modal" data-bs-target="#amendmentconfirm" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
                         @endif
                     @endif
                     @if($buttons['revoke'])
@@ -342,7 +342,7 @@
       </div>
    </div>
 </div>
-{{-- @include('pwo.partials.amendment-modal', ['id' => $bom->id]) --}}
+@include('pwo.partials.amendment-modal', ['id' => $bom->id])
 {{-- @include('pwo.partials.close-modal', ['id' => $bom->id]) --}}
 </form>
 
@@ -400,6 +400,25 @@
        </div>
     </div>
  </div>
+
+ {{-- ammendment confirmation popup --}}
+ <div class="modal fade text-start alertbackdropdisabled" id="amendmentconfirm" tabindex="-1" aria-labelledby="myModalLabel1" aria-hidden="true" data-bs-backdrop="false">
+  <div class="modal-dialog">
+      <div class="modal-content">
+          <div class="modal-header p-0 bg-transparent">
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body alertmsg text-center warning">
+              <i data-feather='alert-circle'></i>
+              <h2>Are you sure?</h2>
+              {{-- @dd(request() -> type); --}}
+              <p>Are you sure you want to <strong>Amend</strong> this <strong>Production Work Order</strong>?</p>
+              <button type="button" class="btn btn-secondary me-25" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" data-bs-dismiss="modal" onclick = "amendConfirm();" class="btn btn-primary">Confirm</button>
+          </div>
+      </div>
+  </div>
+</div>
 
 @endsection
 @section('scripts')
@@ -1310,5 +1329,29 @@ $(document).on('click', '#revokeButton', (e) => {
         });
     }); 
 });
+
+function amendConfirm() {
+    let url = new URL(window.location.href);
+
+    // set or overwrite amendment parameter
+    url.searchParams.set("amendment", "1");
+
+    // redirect
+    window.location.href = url.toString();
+}
+function openAmendConfirmModal()
+{
+    $("#amendmentModal").modal("show");
+}
+
+var currentRevNo = $("#revisionNumber").val();
+
+$(document).on('change', '#revisionNumber', (e) => {
+    e.preventDefault();
+    let actionUrl = location.pathname + '?type=' + "{{request() -> type ?? 'pwo'}}" + '&revisionNumber=' + e.target.value;
+    $("#revisionNumber").val(currentRevNo);
+    window.open(actionUrl, '_blank'); // Opens in a new tab
+});
+
 </script>
 @endsection

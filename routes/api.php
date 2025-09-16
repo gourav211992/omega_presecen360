@@ -70,6 +70,7 @@ Route::group(['middleware' => ['apiresponse']], function () {
         Route::controller(FurlencoController::class)->group(function () {
             Route::post('/consignees', 'consigneeStoreOrUpdate'); //Create or Update consignees
             Route::post('/create/sale-orders', 'createSaleOrders'); //Trip/Sales Order Creation
+            Route::post('/update/sale-orders', 'updateSaleOrders'); //Trip/Sales Order Updation
 
             Route::get('stock-report', 'stockReport')->name('integration.stock-report'); // Get Stock Report
             Route::get('get-barcode-detail', 'getBarcodeDetail')->name('integration.get-barcode-detail'); // Get Barcode Detail

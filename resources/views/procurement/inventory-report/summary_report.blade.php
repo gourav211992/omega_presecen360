@@ -3,8 +3,9 @@
 @section('content')
     <style>
         .sidebar-filter {
-        -webkit-overflow-scrolling: touch; /* for smooth scroll on iOS */
-    }
+            -webkit-overflow-scrolling: touch;
+            /* for smooth scroll on iOS */
+        }
     </style>
     <!-- BEGIN: Content-->
     <div class="app-content content">
@@ -39,14 +40,16 @@
                                     </div>
                                     <div class="d-flex gap-1">
                                         <button class="btn btn-secondary" onclick="toggleFilterSidebar()">Filters</button>
-                                        <a href="/inventory-reports/get-stock-ledger-summary-reports" class="btn btn-danger">Clear</a>
+                                        <a href="/inventory-reports/get-stock-ledger-summary-reports"
+                                            class="btn btn-danger">Clear</a>
                                         <button type="button" onclick="sendMailTo();" class="btn btn-primary">
                                             <i data-feather="mail"></i> E-Mail
                                         </button>
                                     </div>
                                 </div>
                             </div>
-                            <div id="filterSidebar" class="sidebar-filter bg-white shadow p-3" style="width: 300px; position: fixed; top: 0; right: -300px; height: 100vh; overflow-y: auto; transition: all 0.3s; z-index: 1050;">
+                            <div id="filterSidebar" class="sidebar-filter bg-white shadow p-3"
+                                style="width: 300px; position: fixed; top: 0; right: -300px; height: 100vh; overflow-y: auto; transition: all 0.3s; z-index: 1050;">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h5>Filters</h5>
                                     <button class="btn-close" onclick="toggleFilterSidebar()"></button>
@@ -54,19 +57,24 @@
                                 <form action="/inventory-reports/get-stock-summary-filter" method="GET">
                                     <div class="mb-2">
                                         <label>Period</label>
-                                        <input type="text" name="Period" id="Custom" class="form-control flatpickr-input" readonly />
+                                        <input type="text" name="Period" id="Custom"
+                                            class="form-control flatpickr-input" readonly />
                                     </div>
                                     <div class="mb-2">
                                         <label class="form-label">Doc No.</label>
-                                        <input type="text" name="doc_no" id="doc_no" placeholder="Document No" class="form-control mw-100" autocomplete="off" value="">
+                                        <input type="text" name="doc_no" id="doc_no" placeholder="Document No"
+                                            class="form-control mw-100" autocomplete="off" value="">
                                     </div>
                                     <div class="mb-2">
                                         <label>Item</label>
-                                        <input type="text" placeholder="Select" class="form-control ledgerselecct inventory_items" id="item" name="item" />
+                                        <input type="text" placeholder="Select"
+                                            class="form-control ledgerselecct inventory_items" id="item"
+                                            name="item" />
                                     </div>
                                     <div class="mb-2">
                                         <label>Attributes</label>
-                                        <button type="button" class="btn btn-outline-secondary w-100 attributeBtn">Attributes</button>
+                                        <button type="button"
+                                            class="btn btn-outline-secondary w-100 attributeBtn">Attributes</button>
                                     </div>
                                     <div class="mb-2">
                                         <label>Location</label>
@@ -79,7 +87,8 @@
                                     </div>
                                     <div class="mb-2">
                                         <label>Store</label>
-                                        <select class="form-select select2 sub_store_code" name="sub_store_id" id="sub_store_id">
+                                        <select class="form-select select2 sub_store_code" name="sub_store_id"
+                                            id="sub_store_id">
                                             <option value="">Store</option>
                                         </select>
                                     </div>
@@ -94,7 +103,8 @@
                                     </div>
                                     <div class="mb-2">
                                         <label>Doc Type</label>
-                                        <select class="form-select select2 book_type_code" name="book_type_id" id="book_type_id">
+                                        <select class="form-select select2 book_type_code" name="book_type_id"
+                                            id="book_type_id">
                                             <option value="">Doc Type</option>
                                             @foreach ($bookTypes as $val)
                                                 <option value="{{ $val }}">{{ $val }}</option>
@@ -103,21 +113,24 @@
                                     </div>
                                     <div class="mb-2">
                                         <label>Status</label>
-                                        <select class="form-select select2 type_of_stock" name="type_of_stock_id" id="type_of_stock_id">
+                                        <select class="form-select select2 type_of_stock" name="type_of_stock_id"
+                                            id="type_of_stock_id">
                                             <option value="">Status</option>
                                             <option value="confirmed_stock">Confirmed</option>
                                             <option value="unconfirmed_stock">Unconfirmed</option>
                                         </select>
                                     </div>
                                     <div class="d-flex justify-content-between mt-3">
-                                        <button type="button" class="btn btn-secondary" onclick="toggleFilterSidebar()">Cancel</button>
+                                        <button type="button" class="btn btn-secondary"
+                                            onclick="toggleFilterSidebar()">Cancel</button>
                                         <button type="button" class="btn btn-primary" id="applyFiltersBtn">Apply</button>
                                     </div>
                                 </form>
                             </div>
 
                             <div class="col-md-12">
-                                <div class="table-responsive trailbalnewdesfinance po-reportnewdesign my-class"  style="min-height: 600px">
+                                <div class="table-responsive trailbalnewdesfinance po-reportnewdesign my-class"
+                                    style="min-height: 600px">
                                     <table class="my-table datatables-basic table myrequesttablecbox">
                                         <thead>
                                             <th class="no-wrap">S.No</th>
@@ -301,7 +314,7 @@
                             $('#store_id').val(paramObj[key]).select2();
                             var data = {
                                 store_id: paramObj[key],
-                                types : subStoreLocType,
+                                types: subStoreLocType,
                             };
                             $.ajax({
                                 type: 'GET',
@@ -314,7 +327,7 @@
                                     $.each(data.data, function(index, item) {
                                         $('#sub_store_id').append('<option value="' +
                                             item.id + '">' + item.name + '</option>'
-                                            );
+                                        );
                                     });
                                     $('#sub_store_id').trigger('change');
                                     if (subStoreId) {
@@ -336,7 +349,7 @@
 
                     if (key === 'stock_type') {
 
-                    $('.stock_types').val(paramObj[key]).trigger('change');
+                        $('.stock_types').val(paramObj[key]).trigger('change');
                     }
                 });
                 return paramObj;
@@ -398,7 +411,7 @@
                 });
             }
 
-            $('#applyFiltersBtn').on('click', function () {
+            $('#applyFiltersBtn').on('click', function() {
                 let filterData = {};
 
                 const itemId = $('#item').attr('data-id');
@@ -444,6 +457,7 @@
             function updateTable(recordsToDisplay, startDate, endDate) {
 
                 tbody.innerHTML = '';
+
                 function getBalanceColor(balance) {
                     return balance < 0 ? 'text-danger' : 'text-primary'; // Red if negative, blue if positive
                 }
@@ -507,7 +521,7 @@
                         `<td class="no-wrap">${report?.station?.name ?? ""}</td>`,
                         `<td class="no-wrap">${report?.inventory_uom?.name ?? ""}</td>`,
                         `<td class="no-wrap">${report?.stock_type === "R" ? "Regular" : report?.stock_type === "W" ? "WIP" : report?.stock_type === "S" ? "Sub Standard": report?.stock_type === "J" ? "Rejected": ""}</td>`,
-                        `<td class="no-wrap">${report?.so?.book_code ?? ""}-${report?.so?.document_number ?? ""}</td>`,
+                        `<td class="no-wrap">${report?.book_code ?? ""}-${report?.document_number ?? ""}</td>`,
                         `<td class="no-wrap">${report?.lot_number ?? ""}</td>`,
                         `<td class='no-wrap text-end'>${parseFloat(report?.org_currency_cost_per_unit) ?? 0.00}</td>`,
                         `<td class='no-wrap text-end'>${report?.receipt_qty ?? 0.00}</td>`,
@@ -525,22 +539,22 @@
                             ${report?.putaway_pending_qty ?? 0.00}
                         </td>`,
                         // `<td class="no-wrap">
-                        //     ${documentStatusCssList[report?.document_status ?? ""] ?
-                        //         `<span class='badge ${documentStatusCssList[report?.document_status ?? ""]}'>
+                    //     ${documentStatusCssList[report?.document_status ?? ""] ?
+                    //         `<span class='badge ${documentStatusCssList[report?.document_status ?? ""]}'>
                         //             ${report.document_status.charAt(0).toUpperCase() + report.document_status.slice(1).toLowerCase()}
                         //         </span>` :
-                        //         `<span class='badge default-status-class'>${report.document_status.charAt(0).toUpperCase() + report.document_status.slice(1).toLowerCase()}</span>`
-                        //     }
-                        // </td>`,
+                    //         `<span class='badge default-status-class'>${report.document_status.charAt(0).toUpperCase() + report.document_status.slice(1).toLowerCase()}</span>`
+                    //     }
+                    // </td>`,
                         `<td class="no-wrap">
                             ${report?.document_status ? (
                                 documentStatusCssList[report.document_status]
                                     ? `<span class='badge ${documentStatusCssList[report.document_status]}'>
-                                            ${report.document_status.charAt(0).toUpperCase() + report.document_status.slice(1).toLowerCase()}
-                                    </span>`
+                                                ${report.document_status.charAt(0).toUpperCase() + report.document_status.slice(1).toLowerCase()}
+                                        </span>`
                                     : `<span class='badge default-status-class'>
-                                            ${report.document_status.charAt(0).toUpperCase() + report.document_status.slice(1).toLowerCase()}
-                                    </span>`
+                                                ${report.document_status.charAt(0).toUpperCase() + report.document_status.slice(1).toLowerCase()}
+                                        </span>`
                             ) : (
                                 `<span class='badge default-status-class'>N/A</span>`
                             )}
@@ -845,7 +859,7 @@
                             },
                             error: function(xhr) {
                                 console.error('Error fetching item data:', xhr
-                                .responseText);
+                                    .responseText);
                             }
                         });
                     },
@@ -925,7 +939,9 @@
 
                 const displayedDataArray = [];
 
-                table.rows({ search: 'applied' }).nodes().each(function(row) {
+                table.rows({
+                    search: 'applied'
+                }).nodes().each(function(row) {
 
                     const rowValues = [];
                     $(row).find('td').each(function() {

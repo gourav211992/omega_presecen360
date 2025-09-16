@@ -58,6 +58,9 @@ use Illuminate\Support\Facades\Storage;
 use Yajra\DataTables\DataTables;
 use Illuminate\Http\Request;
 use App\Models\State;
+use App\Services\Sales\Order\SoAmend;
+use App\Services\Sales\Order\SoItemDelete;
+use App\Services\Sales\Order\SoItemUpdate;
 use Carbon\Carbon;
 use DB;
 use PDF;
@@ -267,19 +270,9 @@ class ErpSaleOrderController extends Controller
         }
         $firstService = $servicesBooks['services'][0];
         $user = Helper::getAuthenticatedUser();
-        $bookTypeAlias = ConstantHelper::SO_SERVICE_ALIAS;
-        if ($orderType == ConstantHelper::SO_SERVICE_ALIAS) {
-            $bookTypeAlias = ConstantHelper::SO_SERVICE_ALIAS;
-        } else {
-            $bookTypeAlias = ConstantHelper::SQ_SERVICE_ALIAS;
-        }
         $books = [];
         $countries = Country::select('id AS value', 'name AS label') -> where('status', ConstantHelper::ACTIVE) -> get();
         $stores = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCKK);
-        $organization = Organization::where('id', $user->organization_id)->first();
-        $departments = Department::where('organization_id', $organization->id)
-                        ->where('status', ConstantHelper::ACTIVE)
-                        ->get();
         $itemImportFile = asset('templates/SalesOrderItemImport.xlsx');
         $orderTypes = SaleModuleHelper::ORDER_TYPES;
         $data = [
@@ -288,7 +281,6 @@ class ErpSaleOrderController extends Controller
             'type' => $orderType,
             'user' => $user,
             'stores' => $stores,
-            'departments' => $departments,
             'services' => $servicesBooks['services'],
             'selectedService'  => $firstService ?-> id ?? null,
             'redirectUrl' => $redirectUrl,
@@ -340,33 +332,12 @@ class ErpSaleOrderController extends Controller
             $ogOrder = $order;
         }
         $stores = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCKK);
-        $organization = Organization::where('id', $user->organization_id)->first();
-        $departments = Department::where('organization_id', $organization->id)
-                        ->where('status', ConstantHelper::ACTIVE)
-                        ->get();
         $parentUrl = request() -> segments()[0];
-        $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl, $order -> book ?-> master_service ?-> alias);
+        $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl, $order -> book ?-> service ?-> alias);
         foreach ($order -> items as &$soItem) {
-            $referencedAmount = ErpSoItem::where('sq_item_id', $soItem -> id) -> sum('order_qty');
-            if (isset($referencedAmount) && $referencedAmount > 0) {
-                $soItem -> min_attribute = $referencedAmount;
-                $soItem -> is_editable = false;
-                $soItem -> restrict_delete = true;
-            }
-            else if ($soItem -> sq_item_id !== null) {
-                $pulled = ErpSoItem::find($soItem -> sq_item_id);
-                if (isset($pulled)) {
-                    $availableTotalQty = $soItem -> order_qty + $pulled -> balance_qty;
-                    $soItem -> max_attribute = $availableTotalQty;
-                    $soItem -> is_editable = false;
-                } else {
-                    $soItem -> max_attribute = 999999;
-                    $soItem -> is_editable = true;
-                }
-            } else {
-                $soItem->max_attribute = 999999;
-                $soItem->is_editable = true;
-            }
+            $soItem->max_attribute = 999999;
+            $soItem->is_editable = true;
+            $soItem->restrict_delete = false;
         }
         $revision_number = $order->revision_number;
         $totalValue = ($order -> total_item_value - $order -> total_discount_value) + $order -> total_tax_value + $order -> total_expense_value;
@@ -411,7 +382,6 @@ class ErpSaleOrderController extends Controller
             'approvalHistory' => $approvalHistory,
             'type' => $orderType,
             'stores' => $stores,
-            'departments' => $departments,
             'revision_number' => $revision_number,
             'docStatusClass' => $docStatusClass,
             'shortClose' => $shortClose,
@@ -428,6 +398,21 @@ class ErpSaleOrderController extends Controller
     public function store(ErpSaleOrderRequest $request)
     {
         try {
+            //ReIndexing
+            $request -> item_qty =  array_values($request -> item_qty ?? []);
+            $request -> item_id =  array_values($request -> item_id ?? []);
+            $request -> item_remarks =  array_values($request -> item_remarks ?? []);
+            $request -> uom_id =  array_values($request -> uom_id ?? []);
+            $request -> item_discount_value =  array_values($request -> item_discount_value ?? []);
+            $request -> item_rate =  array_values($request -> item_rate ?? []);
+            $request -> delivery_date =  array_values($request -> delivery_date ?? []);
+            $request -> item_delivery_schedule_qty =  array_values($request -> item_delivery_schedule_qty ?? []);
+            $request -> item_delivery_schedule_date =  array_values($request -> item_delivery_schedule_date ?? []);
+            $request -> item_delivery_schedule_id =  array_values($request -> item_delivery_schedule_id ?? []);
+            $request -> item_attributes =  array_values($request -> item_attributes ?? []);
+            $request -> item_bom_details =  array_values($request -> item_bom_details ?? []);
+            $request -> item_bom_id =  array_values($request -> item_bom_id ?? []);
+
             DB::beginTransaction();
             $user = Helper::getAuthenticatedUser();
             //Auth credentials
@@ -435,29 +420,30 @@ class ErpSaleOrderController extends Controller
             $organizationId = $organization ?-> id ?? null;
             $groupId = $organization ?-> group_id ?? null;
             $companyId = $organization ?-> company_id ?? null;
-            $store = ErpStore::find($request -> store_id);
+            $store = ErpStore::with('address')->find($request -> store_id);
             //Tax Country and State
             $firstAddress = $organization->addresses->first();
             $companyCountryId = null;
             $companyStateId = null;
-            $location = ErpStore::find($request -> store_id);
+            $location = $store;
             if ($location && isset($location -> address)) {
                 $companyCountryId = $location->address?->country_id??null;
                 $companyStateId = $location->address?->state_id??null;
             } else {
                 return response()->json([
-                    'message' => 'Please create an organization first'
+                    'message' => 'Please assign Location address first'
                 ], 422);
             }
+            //Currency Exchange
             $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($request -> currency_id, $request -> document_date);
             if ($currencyExchangeData['status'] == false) {
                 return response()->json([
                     'message' => $currencyExchangeData['message']
                 ], 422);
             }
-
             $itemTaxIds = [];
             $itemAttributeIds = [];
+            //Create Case - Check Doc Number
             if (!$request -> sale_order_id)
             {
                 $numberPatternData = Helper::generateDocumentNumberNew($request -> book_id, $request -> document_date);
@@ -552,20 +538,12 @@ class ErpSaleOrderController extends Controller
                 //Amend backup
                 if(($saleOrder -> document_status == ConstantHelper::APPROVED || $saleOrder -> document_status == ConstantHelper::APPROVAL_NOT_REQUIRED) && $actionType == 'amendment')
                 {
-                    $revisionData = [
-                        ['model_type' => 'header', 'model_name' => 'ErpSaleOrder', 'relation_column' => ''],
-                        ['model_type' => 'detail', 'model_name' => 'ErpSoDynamicField', 'relation_column' => 'header_id'],
-                        ['model_type' => 'detail', 'model_name' => 'ErpSoItem', 'relation_column' => 'sale_order_id'],
-                        ['model_type' => 'sub_detail', 'model_name' => 'ErpSoItemAttribute', 'relation_column' => 'so_item_id'],
-                        ['model_type' => 'sub_detail', 'model_name' => 'ErpSoItemDelivery', 'relation_column' => 'so_item_id'],
-                        ['model_type' => 'sub_detail', 'model_name' => 'ErpSaleOrderTed', 'relation_column' => 'so_item_id'],
-                        ['model_type' => 'sub_detail', 'model_name' => 'ErpSoItemBom', 'relation_column' => 'so_item_id']
-                    ];
-                    Helper::documentAmendment($revisionData, $saleOrder->id);
+                    $soAmendService = new SoAmend();
+                    $soAmendService -> amend($saleOrder -> id);
                 }
+                //Deleted entities
                 $keys = ['deletedItemDiscTedIds', 'deletedHeaderDiscTedIds', 'deletedHeaderExpTedIds', 'deletedSoItemIds', 'deletedDelivery', 'deletedAttachmentIds'];
                 $deletedData = [];
-
                 foreach ($keys as $key) {
                     $deletedData[$key] = json_decode($request->input($key, '[]'), true);
                 }
@@ -596,41 +574,20 @@ class ErpSaleOrderController extends Controller
                         $singleMedia -> delete();
                     }
                 }
-
+                //Delete Item Service Logic
                 if (count($deletedData['deletedSoItemIds'])) {
-                    $soItems = ErpSoItem::whereIn('id',$deletedData['deletedSoItemIds'])->get();
-                    foreach($soItems as $soItem) {
-                        if ($soItem -> sq_item_id) {
-                            $qtItem = ErpSoItem::find($soItem -> sq_item_id);
-                            if (isset($qtItem)) {
-                                $qtItem -> quotation_order_qty -= $soItem -> order_qty;
-                                $qtItem -> save();
-                            }
-                        }
-                        if ($soItem -> po_item_id) {
-                            $poItem = PoItem::find($soItem -> po_item_id);
-                            if (isset($poItem)) {
-                                $poItem -> inter_org_so_qty -= $soItem -> order_qty;
-                                $poItem -> save();
-                            }
-                        }
-                        if ($soItem -> jo_product_id) {
-                            $joProduct = JoProduct::find($soItem -> jo_product_id);
-                            if (isset($joProduct)) {
-                                $joProduct -> inter_org_so_qty -= $soItem -> order_qty;
-                                $joProduct -> save();
-                            }
-                        }
-                        $soItem->custom_bom_details()->delete();
-                        $soItem->teds()->delete();
-                        $soItem->item_deliveries()->delete();
-                        $soItem->attributes()->delete();
-                        $soItem->delete();
+                    $soItemDeleteService = new SoItemDelete();
+                    $deleteStatus = $soItemDeleteService -> deleteItem($deletedData['deletedSoItemIds']);
+                    if ($deleteStatus['status'] == 'error') {
+                        DB::rollback();
+                        return response() -> json([
+                            'message' => $deleteStatus['message'],
+                            'error' => ''
+                        ], 422);
                     }
                 }
 
             } else { //Create
-                $department = Department::find($request -> department_id);
                 $saleOrder = ErpSaleOrder::create([
                     'organization_id' => $organizationId,
                     'group_id' => $groupId,
@@ -651,8 +608,8 @@ class ErpSaleOrderController extends Controller
                     'reference_number' => $request -> reference_no,
                     'store_id' => $request -> store_id ?? null,
                     'store_code' => $store ?-> store_name ?? null,
-                    'department_id' => $request -> department_id ?? null,
-                    'department_code' => $department ?-> name ?? null,
+                    'department_id' => null,
+                    'department_code' => null,
                     'customer_id' => $request -> customer_id,
                     'customer_email' => $customerEmail,
                     'customer_phone_no' => $customerPhoneNo,
@@ -734,7 +691,7 @@ class ErpSaleOrderController extends Controller
                     ]);
                 }
                 //Location Address
-                $orgLocationAddress = ErpStore::with('address') -> find($request -> store_id);
+                $orgLocationAddress = $store;
                 if (!isset($orgLocationAddress) || !isset($orgLocationAddress -> address)) {
                     DB::rollBack();
                     return response() -> json([
@@ -947,73 +904,23 @@ class ErpSaleOrderController extends Controller
                                 }
                             }
                         }
-                        //Quotation
-                        if ($request -> quotation_item_ids && isset($request -> quotation_item_ids[$itemDataKey])) {
-                            $qtItem = ErpSoItem::find($request -> quotation_item_ids[$itemDataKey]);
-                            if (isset($qtItem)) {
-                                $qtItem -> quotation_order_qty = ($qtItem -> quotation_order_qty - (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) + $itemDataValue['order_qty'];
-                                $qtItem -> save();
-                                $soItem -> order_quotation_id = $qtItem -> header ?-> id;
-                                $soItem -> sq_item_id = $qtItem -> id;
-                                $soItem -> save();
-                            }
-                        }
-                        if ($request -> po_item_ids && isset($request -> po_item_ids[$itemDataKey])) {
-                            $poItem = PoItem::find($request -> po_item_ids[$itemDataKey]);
-                            if (isset($poItem)) {
-                                $poItem -> inter_org_so_qty = ($poItem -> inter_org_so_qty - (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) + $itemDataValue['order_qty'];
-                                $poItem -> save();
-                                $soItem -> po_item_id = $poItem -> id;
-                                $soItem -> save();
-                            }
-                        }
-                        if ($request -> jo_product_ids && isset($request -> jo_product_ids[$itemDataKey])) {
-                            $joProduct = JoProduct::find($request -> jo_product_ids[$itemDataKey]);
-                            if (isset($joProduct)) {
-                                $joProduct -> inter_org_so_qty = ($joProduct -> inter_org_so_qty - (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) + $itemDataValue['order_qty'];
-                                $joProduct -> save();
-                                $soItem -> jo_product_id = $joProduct -> id;
-                                $soItem -> save();
-                                //Save the item
-                                //Only Save in case of create
-                                if (!$request -> sale_order_id && $saleOrder -> order_type === SaleModuleHelper::ORDER_TYPE_SUB_CONTRACTING) {
-                                    $joBomMapping = JoBomMapping::where('jo_product_id', $joProduct -> id) -> get();
-                                    foreach ($joBomMapping as $joBomMapping) {
-                                        # code...
-                                        $jobWorkItem = ErpSoJobWorkItem::updateOrCreate([
-                                            'sale_order_id' => $saleOrder -> id,
-                                            'so_item_id' => $soItem -> id,
-                                            'jo_id' => $joBomMapping -> jo_id,
-                                            'bom_detail_id' => $joBomMapping -> bom_detail_id,
-                                            'station_id' => $joBomMapping -> station_id,
-                                            'rm_type' => $joBomMapping -> rm_type,
-                                            'item_id' => $joBomMapping -> item_id,
-                                            'item_code' => $joBomMapping -> item_code,
-                                            'uom_id' => $joBomMapping -> uom_id,
-                                            'qty' => $joBomMapping -> qty,
-                                            'inventory_uom_id' => $joBomMapping ?-> item ?-> uom_id,
-                                            'inventory_uom_code' => $joBomMapping ?-> item ?-> uom ?-> name,
-                                            'inventory_uom_qty' => ItemHelper::convertToBaseUom($joBomMapping -> item_id, $joBomMapping -> uom_id, $joBomMapping -> qty)
-                                        ]);
-                                        foreach ($joBomMapping -> attributes as $joBomMappingAttribute) {
-                                            $attribute = AttributeGroup::find($joBomMappingAttribute['attribute_name']);
-                                            $attributeValue = Attribute::find($joBomMappingAttribute['attribute_value']);
-                                            ErpSoJobWorkItemAttribute::updateOrCreate([
-                                                'sale_order_id' => $saleOrder -> id,
-                                                'job_work_item_id' => $jobWorkItem -> id,
-                                                'item_id' => $jobWorkItem -> item_id,
-                                                'item_code' => $jobWorkItem -> item_code,
-                                                'item_attribute_id' => $joBomMappingAttribute['attribute_id'],
-                                                'attribute_name' => $attribute ?-> name,
-                                                'attr_name' => $attribute ?-> id,
-                                                'attribute_value' => $attributeValue ?-> value,
-                                                'attr_value' => $attributeValue ?-> id
-                                            ]);
-                                        }
-                                    }
-                                }
-
-                            }
+                        //Back Update Logics
+                        $pullableIds = [
+                            'quotation_item_ids' => $request->input('quotation_item_ids', []),
+                            'po_item_ids'        => $request->input('po_item_ids', []),
+                            'jo_product_ids'     => $request->input('jo_product_ids', []),
+                            'sale_order_id'      => $request->input('sale_order_id', null),
+                        ];
+                        $soItemUpdateService = new SoItemUpdate();
+                        $updateStatus = $soItemUpdateService -> updateItem(isset($oldSoItem) ? $oldSoItem : null, $soItem, $saleOrder, (float) $itemDataValue['order_qty'], $pullableIds, $itemDataKey);
+                        if ($updateStatus['status'] == 'error') {
+                            DB::rollBack();
+                            return response() -> json([
+                                'message' => '',
+                                'errors' => array(
+                                    'item_name.' . $itemDataKey => $updateStatus['message']
+                                )
+                            ], 422);
                         }
                         //TED Data (DISCOUNT)
                         if (isset($request -> item_discount_value[$itemDataKey]))
@@ -1252,18 +1159,6 @@ class ErpSaleOrderController extends Controller
                         $saleOrder->approval_level = 1;
                         $saleOrder->revision_date = now();
                         $amendAfterStatus = $approveDocument['approvalStatus'] ?? $saleOrder -> document_status;
-                        // $checkAmendment = Helper::checkAfterAmendApprovalRequired($request->book_id);
-                        // if(isset($checkAmendment->approval_required) && $checkAmendment->approval_required) {
-                        //     $totalValue = $saleOrder->grand_total_amount ?? 0;
-                        //     $amendAfterStatus = Helper::checkApprovalRequired($request->book_id,$totalValue);
-                        // } else {
-                        //     $actionType = 'approve';
-                        //     $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, 0, $modelName);
-                        // }
-                        // if ($amendAfterStatus == ConstantHelper::SUBMITTED) {
-                        //     $actionType = 'submit';
-                        //     $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, 0, $modelName);
-                        // }
                         $saleOrder->document_status = $amendAfterStatus;
                         $saleOrder->save();
 
@@ -1300,38 +1195,9 @@ class ErpSaleOrderController extends Controller
                         $totalValue = $saleOrder->total_amount ?? 0;
                         $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
                         $saleOrder->document_status = $approveDocument['approvalStatus'] ?? $saleOrder->document_status;
-
                     }
-
-                    // if ($request->document_status == 'submitted') {
-                    //     $totalValue = $saleOrder->total_amount ?? 0;
-                    //     $document_status = Helper::checkApprovalRequired($request->book_id,$totalValue);
-                    //     $saleOrder->document_status = $document_status;
-                    // } else {
-                    //     $saleOrder->document_status = $request->document_status ?? ConstantHelper::DRAFT;
-                    // }
                     $saleOrder -> save();
                 }
-
-                // $bookId = $po->book_id;
-                // $docId = $po->id;
-                // $amendRemarks = $request->amend_remarks ?? null;
-                // $remarks = $po->remarks;
-                // $amendAttachments = $request->file('amend_attachment');
-                // $attachments = $request->file('attachment');
-                // $currentLevel = $po->approval_level;
-                // $modelName = get_class($po);
-                // if ($request->document_status == 'submitted') {
-                //     $revisionNumber = $saleOrder->revision_number ?? 0;
-                //     $actionType = 'submit'; // Approve // reject // submit
-                //     $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType);
-                //     $totalValue = $saleOrder -> total_amount;
-
-                //     $document_status = Helper::checkApprovalRequired($request->book_id);
-                //     $saleOrder->document_status = $document_status;
-                // } else {
-                //     $saleOrder->document_status = $request->document_status ?? ConstantHelper::DRAFT;
-                // }
                 $saleOrder -> save();
                 //Media
                 if ($request->hasFile('attachments')) {
@@ -1349,8 +1215,6 @@ class ErpSaleOrderController extends Controller
                     'redirect_url' => ($saleOrder -> document_type == ConstantHelper::SQ_SERVICE_ALIAS
                     ? route('sale.quotation.index') : route('sale.order.index'))
                 ]);
-
-
         } catch(Exception $ex) {
             DB::rollBack();
             return response()->json([
@@ -1358,53 +1222,6 @@ class ErpSaleOrderController extends Controller
                 'error' => 'Server Error',
                 'exception' => $ex -> getMessage()
             ], 500);
-        }
-    }
-
-    public function amendmentSubmit(Request $request, $id)
-    {
-        DB::beginTransaction();
-        try {
-
-            $saleOrder = ErpSaleOrder::where('id', $id)->first();
-            if (!$saleOrder) {
-                return response()->json(['data' => [], 'message' => "Sale Order not found.", 'status' => 404]);
-            }
-
-            $revisionData = [
-                ['model_type' => 'header', 'model_name' => 'ErpSaleOrder', 'relation_column' => ''],
-                ['model_type' => 'detail', 'model_name' => 'ErpSoItem', 'relation_column' => 'sale_order_id'],
-                ['model_type' => 'sub_detail', 'model_name' => 'ErpSoItemAttribute', 'relation_column' => 'so_item_id'],
-                ['model_type' => 'sub_detail', 'model_name' => 'ErpSoItemDelivery', 'relation_column' => 'so_item_id'],
-                ['model_type' => 'sub_detail', 'model_name' => 'ErpSaleOrderTed', 'relation_column' => 'so_item_id']
-            ];
-
-            $a = Helper::documentAmendment($revisionData, $id);
-            if ($a) {
-                //*amendmemnt document log*/
-                $bookId = $saleOrder->book_id;
-                $docId = $saleOrder->id;
-                $remarks = 'Amendment';
-                $attachments = $request->file('attachment');
-                $currentLevel = $saleOrder->approval_level;
-                $revisionNumber = $saleOrder->revision_number;
-                $actionType = 'amendment'; // Approve // reject // submit // amend
-                $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
-
-
-                $saleOrder->document_status = ConstantHelper::DRAFT;
-                $saleOrder->revision_number = $saleOrder->revision_number + 1;
-                $saleOrder->approval_level = 1;
-                $saleOrder->revision_date = now();
-                $saleOrder->save();
-            }
-
-            DB::commit();
-            return response()->json(['data' => [], 'message' => "Amendment done!", 'status' => 200]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            \Log::error('Amendment Submit Error: ' . $e->getMessage());
-            return response()->json(['data' => [], 'message' => "An unexpected error occurred. Please try again.", 'error' => $e->getMessage(), 'status' => 500]);
         }
     }
 
@@ -2050,6 +1867,13 @@ class ErpSaleOrderController extends Controller
         try {
             $saleDocument = ErpSaleOrder::find($request -> id);
             if (isset($saleDocument)) {
+                if ($saleDocument -> revision_number > 0) {
+                    DB::rollBack();
+                    return response() -> json([
+                        'status' => 'error',
+                        'message' => 'Amended document cannot be revoked',
+                    ]);
+                }
                 $revoke = Helper::approveDocument($saleDocument -> book_id, $saleDocument -> id, $saleDocument -> revision_number, '', [], 0, ConstantHelper::REVOKE, $saleDocument -> total_amount, get_class($saleDocument));
                 if ($revoke['message']) {
                     DB::rollBack();
@@ -2072,20 +1896,6 @@ class ErpSaleOrderController extends Controller
             }
         } catch(Exception $ex) {
             DB::rollBack();
-            throw new ApiGenericException($ex -> getMessage());
-        }
-    }
-
-    public function rePopulateStoresDropdown(Request $request)
-    {
-        try {
-            $storeId = $request -> store_id ?? null;
-            $stores = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCKK, $storeId);
-            return response() -> jsno([
-                'stores' => $stores,
-                'message' => 'Locations found !'
-            ]);
-        } catch(Exception $ex) {
             throw new ApiGenericException($ex -> getMessage());
         }
     }
@@ -2216,9 +2026,7 @@ class ErpSaleOrderController extends Controller
                     Helper::approveDocument($bookId, $docId, $revisionNumber , $amendRemarks, $amendAttachments, $currentLevel, $actionType, $totalValue, $modelName);
                 }
             }
-
             DB::commit();
-
             return response() -> json([
                 'status' => 'success',
                 'message' => 'Short Close Succesfully!',

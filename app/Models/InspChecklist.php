@@ -19,6 +19,7 @@ class InspChecklist extends Model
         'checklist_name',
         'checklist_detail_id',
         'name',
+        'description',
         'value',
         'type',
         'result'

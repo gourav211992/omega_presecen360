@@ -22,6 +22,43 @@ class MoProductHistory extends Model
         'order_id'
     ]; 
 
+    public function getPslipBalQtyAttribute()
+    {
+        // return $this->qty-$this->pslip_qty;
+        return $this->qty-$this->pslip_qty-($this->short_closed_qty ?? 0);
+    }
+
+    public function getCustomerCodeAttribute()
+    {
+        return $this?->customer?->customer_code ?? null;
+    }
+
+    public function getItemNameAttribute()
+    {
+        return $this?->item?->item_name ?? null;
+    }
+
+    public function mo()
+    {
+        return $this->belongsTo(MfgOrderHistory::class, 'mo_id');
+    }
+
+    public function machine()
+    {
+        return $this->belongsTo(ErpMachine::class, 'machine_id');
+    }
+
+    public function so()
+    {
+        return $this->belongsTo(ErpSaleOrder::class, 'so_id');
+    }
+
+    public function soItem()
+    {
+        return $this->belongsTo(ErpSoItem::class, 'so_item_id');
+    }
+
+
     public function uom()
     {
         return $this->belongsTo(Unit::class, 'uom_id');
@@ -36,9 +73,64 @@ class MoProductHistory extends Model
     {
         return $this->hasMany(MoProductAttributeHistory::class,'mo_product_id');
     }
+       public function item_attributes_array()
+    {
+        $itemId = $this->getAttribute('item_id');
+        if (!$itemId) {
+            return collect([]);
+        }
+        $itemAttributes = ItemAttribute::where('item_id', $itemId)->get();
+        $processedData = [];
+        $mappingAttributes = MoProductAttributeHistory::where('mo_product_id', $this->getAttribute('id'))
+        ->select(['item_attribute_id as attribute_id', 'attribute_value as attribute_value_id'])
+        ->get()
+        ->toArray();
+        foreach ($itemAttributes as $attribute) {
+            $attributeIds = is_array($attribute->attribute_id) ? $attribute->attribute_id : [$attribute->attribute_id];
+            $attribute->group_name = $attribute->group?->name;
+            $valuesData = [];
+            foreach ($attributeIds as $attributeValueId) {
+                $attributeValueData = ErpAttribute::where('id', $attributeValueId)
+                    ->where('status', 'active')
+                    ->select('id', 'value')
+                    ->first();
+                if ($attributeValueData) {
+                    $isSelected = collect($mappingAttributes)->contains(function ($itemAttr) use ($attribute, $attributeValueData) {
+                        return $itemAttr['attribute_id'] == $attribute->id &&
+                            $itemAttr['attribute_value_id'] == $attributeValueData->id;
+                    });
+                    $attributeValueData->selected = $isSelected;
+                    $valuesData[] = $attributeValueData;
+                }
+            }
+            $processedData[] = [
+                'id' => $attribute->id,
+                'group_name' => $attribute->group_name,
+                'values_data' => $valuesData,
+                'attribute_group_id' => $attribute->attribute_group_id,
+            ];
+        }
+        return collect($processedData);
+    }
 
     public function customer()
     {
         return $this->belongsTo(ErpCustomer::class, 'customer_id');
+    }
+
+    public function pwoMapping()
+    {
+        return $this->belongsTo(PwoSoMapping::class,'pwo_mapping_id');
+    }
+
+    public function consumptions()
+    {
+        return $this->hasMany(PwoBomMapping::class,'pwo_mapping_id','pwo_mapping_id')->where('station_id', $this->mo->station_id);
+    }
+
+
+    public function pwoStationConsumption()
+    {
+        return $this->belongsTo(PwoStationConsumption::class,'pwo_mapping_id','pwo_mapping_id')->where('station_id', $this->mo->station_id);
     }
 }
