@@ -309,6 +309,15 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/voucher/check-reference', [PaymentVoucherController::class, 'checkReference'])->name('voucher.checkReference');
 
 
+ 
+    //import routes for vouchers
+    Route::get('voucher-import', [VoucherController::class, 'import'])->name('vouchers.import');
+    Route::post('voucher-import-save', [VoucherController::class, 'importSave'])->name('vouchers.import.save');
+    Route::get('voucher-import-error', [VoucherController::class, 'importError'])->name('vouchers.import.error');
+    Route::get('voucher-import-success', [VoucherController::class, 'importSuccess'])->name('vouchers.import.success');
+    Route::get('voucher-export-successful', [VoucherController::class, 'exportSuccessful'])->name('vouchers.export.successful');
+    Route::get('voucher-export-failed', [VoucherController::class, 'exportFailed'])->name('vouchers.export.failed');
+    Route::get('voucher-download-sample', [VoucherController::class, 'downloadSample'])->name('vouchers.download.sample');
 
     Route::post('getLedgerVouchers', [VoucherController::class, 'getLedgerVouchers'])->name('getLedgerVouchers');
     Route::get('/voucher', [VoucherController::class, 'index']);
