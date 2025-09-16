@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers\API\Integration;
 
+use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Services\Integration\ConsigneeService;
 use App\Services\Integration\SaleOrderService;
 use App\Http\Requests\Integration\ConsigneeRequest;
-use App\Http\Requests\Integration\TripSaleOrderRequest;
 use App\Repositories\StockLedgerRepository;
-use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use App\Http\Requests\Integration\StoreFurlencoSaleOrderRequest;
+use App\Http\Requests\Integration\UpdateFurlencoSaleOrderRequest;
 use App\Http\Requests\Integration\WarehouseRequest as WmsValidator;
 use App\Http\Resources\Integration\BarCodeDetailResource;
 use App\Repositories\ItemUniqueCodeRepository;
@@ -35,9 +36,27 @@ class FurlencoController extends Controller
         ];
     }
 
-    public function createSaleOrders(TripSaleOrderRequest $request)
+    public function createSaleOrders(StoreFurlencoSaleOrderRequest $request)
     {
         $result = $this->saleOrderService->create($request,  $request->user());
+
+        if (!$result['status']) {
+            return response()->json([
+                'error'   => 'Server Error',
+                'message'=> $result['message'],
+                'exception' => 'Error occurred while creating the record.',
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => $result['message'],
+            'data' => $result['data'],
+        ]);
+    }
+
+    public function updateSaleOrders(UpdateFurlencoSaleOrderRequest $request)
+    {
+        $result = $this->saleOrderService->update($request,  $request->user());
 
         if (!$result['status']) {
             return response()->json([

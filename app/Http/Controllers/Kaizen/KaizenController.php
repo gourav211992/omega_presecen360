@@ -113,7 +113,7 @@ class KaizenController extends Controller
         try {
             $user = Helper::getAuthenticatedUser();
             $kaizenNo = $this->generateKaizenNo($user);
-
+            
             $kaizen = new ErpKaizen();
             $kaizen->fill($request->all());
 
@@ -359,18 +359,9 @@ class KaizenController extends Controller
         $today = now()->format('Ymd');
 
         // Find last kaizen no for today
-        $lastKaizen = ErpKaizen::where('kaizen_no', 'like', "{$unitCode}%{$today}")
-            ->orderBy('kaizen_no', 'desc')
-            ->first();
+        $lastKaizen = ErpKaizen::latest()->first();
 
-        $lastIncrement = 0;
-        if ($lastKaizen) {
-            preg_match('/' . $unitCode . '(\d+)' . $today . '/', $lastKaizen->kaizen_no, $matches);
-            $lastIncrement = isset($matches[1]) ? (int)$matches[1] : 0;
-        }
-
-        $nextIncrement = $lastIncrement + 1;
-        $kaizenNo = "{$unitCode}-{$nextIncrement}{$today}";
+        $kaizenNo = "{$unitCode}-{$today}-".$lastKaizen->id+1;
         return $kaizenNo;
 
     }

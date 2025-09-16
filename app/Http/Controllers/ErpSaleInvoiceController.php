@@ -1160,6 +1160,7 @@ class ErpSaleInvoiceController extends Controller
                             'uom_code' => $itemDataValue['uom_code'],
                             'order_qty' => $itemDataValue['order_qty'],
                             'invoice_qty' => $itemDataValue['invoice_qty'],
+                            'dnote_qty' => $itemDataValue['dnote_qty'],
                             'inventory_uom_id' => $itemDataValue['inventory_uom_id'],
                             'inventory_uom_code' => $itemDataValue['inventory_uom_code'],
                             'inventory_uom_qty' => $itemDataValue['inventory_uom_qty'],
@@ -2965,7 +2966,6 @@ class ErpSaleInvoiceController extends Controller
 
     private static function maintainStockLedger($saleInvoice, $enforceUicScan)
     {
-        $user = Helper::getAuthenticatedUser();
         $detailIds = $saleInvoice->items->pluck('id')->toArray();
 
         if ($enforceUicScan && strtolower($enforceUicScan->config_value) === 'yes')

@@ -185,7 +185,9 @@
                                 <b>ASN Date:</b>
                             </td>
                             <td style="font-weight: 900;">
-                                {{ $mrn->items[0]->vendorAsn ? date('d-M-y', strtotime(@$mrn->items[0]->vendorAsn->document_date)) : '' }}
+                                @if (isset($mrn->items[0]->vendorAsn))
+                                    {{ $mrn->items[0]->vendorAsn ? date('d-M-y', strtotime(@$mrn->items[0]->vendorAsn->document_date)) : '' }}
+                                @endif
                             </td>
                         </tr>
                         <tr>
@@ -204,7 +206,9 @@
                                 <b>GE Date:</b>
                             </td>
                             <td style="font-weight: 900;">
-                                {{ $mrn->items[0]->ge ? date('d-M-y', strtotime(@$mrn->items[0]->ge->document_date)) : '' }}
+                                @if (isset($mrn->items[0]->ge))
+                                    {{ $mrn->items[0]->ge ? date('d-M-y', strtotime(@$mrn->items[0]->ge->document_date)) : '' }}
+                                @endif
                             </td>
                         </tr>
                         <tr>

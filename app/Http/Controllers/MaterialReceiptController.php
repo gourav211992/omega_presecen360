@@ -3043,8 +3043,8 @@ class MaterialReceiptController extends Controller
                 $currentLevel = $mrnHeader->approval_level ?? 1;
                 $revisionNumber = $mrnHeader->revision_number ?? 0;
                 $actionType = 'submit'; // Approve // reject // submit
-                $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
-                $mrnHeader->document_status = $approveDocument['approvalStatus'];
+                // $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
+                // $mrnHeader->document_status = $approveDocument['approvalStatus'];
             }
             $mrnHeader->save();
 

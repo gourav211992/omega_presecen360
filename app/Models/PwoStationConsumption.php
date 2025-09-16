@@ -13,6 +13,7 @@ class PwoStationConsumption extends Model
 
     protected $fillable = [
         'mo_id',
+        'pwo_id',
         'pwo_mapping_id',
         'station_id',
         'mo_product_qty',

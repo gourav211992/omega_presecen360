@@ -1310,6 +1310,16 @@ class InventoryHelper
             $adjustedQty = 0;
             $reservedQty = 0;
             $message = '';
+            if (is_null($issueQty) || is_null($inventoryUomQty)) {
+                $message = "Issue Qty or Inventory UOM Qty can not be null";
+                $status = 'error';
+                $stockLedger = null;
+                return [
+                    'status' => $status,
+                    'message' => $message,
+                    'stockLedger' => $stockLedger
+                ];
+            }
             $itemCode = $invoiceLedger->item_code;
             if (!is_null($issueQty) && ($issueQty > $inventoryUomQty)) {
                 $balanceQty = $issueQty - $inventoryUomQty;
@@ -2625,7 +2635,7 @@ class InventoryHelper
             foreach ($documentItemLocations as $documentItemLocation) {
                 $utilizedQty = StockLedger::withDefaultGroupCompanyOrg()
                     ->where('document_header_id', $documentHeaderId)
-                    ->where('document_detail_id', $documentDetailId)
+                    ->where('document_detail_id', $documentItemLocation->sr_item_id)
                     ->where('book_type', '=', $bookType)
                     ->where('transaction_type', '=', $transactionType)
                     ->where('document_status', 'draft')
@@ -2666,15 +2676,18 @@ class InventoryHelper
                 foreach ($documentItemLocations as $documentItemLocation) {
                     $stockLedger = StockLedger::withDefaultGroupCompanyOrg()
                         ->where('document_header_id', $documentHeaderId)
-                        ->where('document_detail_id', $documentDetailId)
+                        ->where('document_detail_id', $documentItemLocation->id)
                         ->where('book_type', '=', $bookType)
                         ->first();
+                    $issueQty = $stockLedger->issue_qty ?? 0.00;
                     if (!$stockLedger) {
                         $stockLedger = new StockLedger();
                     }
                     $utilizedQty = 0;
-                    $issueQty = $stockLedger->issue_qty;
                     $invoiceLedger = self::insertStockLedger($stockLedger, $documentItemLocation,  $bookType, $documentStatus, $transactionType, $utilizedQty);
+                    if ($invoiceLedger['status'] == 'error') {
+                        return $invoiceLedger;
+                    }
                     $updatedInvoiceLedger = self::updateStockLedger($invoiceLedger, $documentItemLocation, $bookType, $documentStatus, $transactionType, $issueQty);
                 }
             }
@@ -2916,12 +2929,15 @@ class InventoryHelper
                             ->where('document_detail_id', $documentItem->id)
                             ->where('book_type', '=', $bookType)
                             ->first();
+                        $issueQty = $stockLedger->issue_qty ?? 0.00;
                         if (!$stockLedger) {
                             $stockLedger = new StockLedger();
                         }
-                        $utilizedQty = 0;
-                        $issueQty = $stockLedger->issue_qty;
+                        $utilizedQty = 0;      
                         $invoiceLedger = self::insertStockLedger($stockLedger, $documentItem, $bookType, $documentStatus, $transactionType, $utilizedQty);
+                        if ($invoiceLedger['status'] == 'error') {
+                            return $invoiceLedger;
+                        }
                         $updatedInvoiceLedger = self::updateStockLedger($invoiceLedger, $documentItem, $bookType, $documentStatus, $transactionType, $issueQty);
                     }
                 }
@@ -2951,12 +2967,15 @@ class InventoryHelper
                             ->where('document_detail_id', $documentItem->id)
                             ->where('book_type', '=', $bookType)
                             ->first();
+                        $issueQty = $stockLedger->issue_qty ?? 0.00;
                         if (!$stockLedger) {
                             $stockLedger = new StockLedger();
                         }
                         $utilizedQty = 0;
-                        $issueQty = $stockLedger->issue_qty;
                         $invoiceLedger = self::insertStockLedger($stockLedger, $documentItem, $bookType, $documentStatus, $transactionType, $utilizedQty);
+                        if ($invoiceLedger['status'] == 'error') {
+                            return $invoiceLedger;
+                        }
                         $updatedInvoiceLedger = self::updateStockLedger($invoiceLedger, $documentItem, $bookType, $documentStatus, $transactionType, $issueQty);
                     }
                 }
@@ -2992,13 +3011,16 @@ class InventoryHelper
                             ->where('document_detail_id', $documentItem->id)
                             ->where('book_type', '=', $bookType)
                             ->first();
+                        $issueQty = $stockLedger->issue_qty ?? 0.00;
                         if (!$stockLedger) {
                             $stockLedger = new StockLedger();
                         }
                         $utilizedQty = 0;
-                        $issueQty = $stockLedger->issue_qty;
                         $documentItem->inventory_uom_qty = ItemHelper::convertToBaseUom($documentItem->item_id, $documentItem->uom_id, abs($documentItem->adjusted_qty));
                         $invoiceLedger = self::insertStockLedger($stockLedger, $documentItem, $bookType, $documentStatus, $transactionType, $utilizedQty);
+                        if ($invoiceLedger['status'] == 'error') {
+                            return $invoiceLedger;
+                        }
                         $updatedInvoiceLedger = self::updateStockLedger($invoiceLedger, $documentItem, $bookType, $documentStatus, $transactionType, $issueQty);
                     }
                 }
@@ -3034,12 +3056,15 @@ class InventoryHelper
                             ->where('document_detail_id', $documentItem->id)
                             ->where('book_type', '=', $bookType)
                             ->first();
+                        $issueQty = $stockLedger->issue_qty ?? 0.00;
                         if (!$stockLedger) {
                             $stockLedger = new StockLedger();
                         }
                         $utilizedQty = 0;
-                        $issueQty = $stockLedger->issue_qty;
                         $invoiceLedger = self::insertStockLedger($stockLedger, $documentItem, $bookType, $documentStatus, $transactionType, $utilizedQty);
+                        if ($invoiceLedger['status'] == 'error') {
+                            return $invoiceLedger;
+                        }
                         $updatedInvoiceLedger = self::updateStockLedger($invoiceLedger, $documentItem, $bookType, $documentStatus, $transactionType, $issueQty);
                     }
                 }
@@ -3050,7 +3075,7 @@ class InventoryHelper
 
         }
         $message = 'success';
-        return $invoiceLedger;
+        return $updatedInvoiceLedger;
     }
 
     // Settlement For Material Issue For Receive
@@ -3389,11 +3414,11 @@ class InventoryHelper
                 ->where('book_type', '=', $bookType)
                 ->where('transaction_type', '=', $transactionType)
                 ->first();
+            $issueQty = $stockLedger->issue_qty ?? 0.00;
             if (!$stockLedger) {
                 $stockLedger = new StockLedger();
             }
             $utilizedQty = 0;
-            $issueQty = $stockLedger->issue_qty;
             $stockReservation = null;
             $invoiceLedger = self::insertStockLedger($stockLedger, $document, $bookType, $documentStatus, $transactionType, $utilizedQty, NULL, "R", $jobType);
             if ($invoiceLedger['status'] == 'error') {

@@ -91,6 +91,14 @@ class ErpProductionWorkOrderHistory extends Model
     {
         return $this->belongsTo(ErpProductionWorkOrder::class, 'source_id');
     }
+    public function mapping()
+    {
+        return $this->hasMany(PwoSoMappingHistory::class, 'pwo_id');
+    } 
+    public function items()
+    {
+        return $this->hasMany(ErpPwoItemHistory::class, 'pwo_id');
+    }
     public function book()
     {
         return $this->belongsTo(Book::class, 'book_id');

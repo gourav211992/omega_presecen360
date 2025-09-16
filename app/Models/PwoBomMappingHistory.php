@@ -35,4 +35,42 @@ class PwoBomMappingHistory extends Model
     {
         return $this->belongsTo(Item::class,'item_id');
     }
+
+     public function item_attributes_array()
+    {
+        $itemId = $this -> getAttribute('item_id');
+        if (isset($itemId)) {
+            $itemAttributes = ItemAttribute::where('item_id', $this -> item_id) -> get();
+        } else {
+            $itemAttributes = [];
+        }
+        $processedData = [];
+        foreach ($itemAttributes as $attribute) {
+            $attributesArray = array();
+            $attribute_ids = $attribute -> attribute_id ? ($attribute -> attribute_id) : [];
+            $attribute -> group_name = $attribute -> group ?-> name;
+            foreach ($attribute_ids as $attributeValue) {
+                    $attributeValueData = ErpAttribute::where('id', $attributeValue) -> select('id', 'value') -> where('status', 'active') -> first();
+                    if (isset($attributeValueData))
+                    {
+                        $mappingAttributes = $this->getAttribute('attributes');
+                        $isSelected = array_filter($mappingAttributes, function($itemAttr) use($attribute, $attributeValueData) {
+                            return ($itemAttr['attribute_id'] == $attribute -> id && $itemAttr['attribute_value'] == $attributeValueData -> value);
+                        });
+                        $attributeValueData -> selected = count($isSelected) ? true : false;
+                        array_push($attributesArray, $attributeValueData);
+                    }
+            }
+           $attribute -> values_data = $attributesArray;
+           $attribute = $attribute -> only(['id','group_name', 'values_data', 'attribute_group_id']);
+           array_push($processedData, ['id' => $attribute['id'], 'group_name' => $attribute['group_name'], 'values_data' => $attributesArray, 'attribute_group_id' => $attribute['attribute_group_id']]);
+        }
+        $processedData = collect($processedData);
+        return $processedData;
+    }
+
+        public function uom()
+    {
+        return $this->belongsTo(Unit::class,'uom_id');
+    }
 }

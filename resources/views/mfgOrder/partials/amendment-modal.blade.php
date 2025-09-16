@@ -31,7 +31,7 @@
          </div>
          <div class="modal-footer justify-content-center">  
             <button type="reset" data-bs-dismiss="modal" class="btn btn-outline-secondary me-1">Cancel</button> 
-            <button type="button" id="amendmentBtnSubmit" class="btn btn-primary">Submit</button>
+            <button type="submit" id="amendmentBtnSubmit" class="btn btn-primary">Submit</button>
          </div>
       </div>
    </div>

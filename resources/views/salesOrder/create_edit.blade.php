@@ -174,21 +174,6 @@
                                                         </div>
                                                     </div>
 
-                                                    <!-- <div class="row align-items-center mb-1">
-                                                        <div class="col-md-3">
-                                                            <label class="form-label">Department<span class="text-danger">*</span></label>
-                                                        </div>
-
-                                                        <div class="col-md-5">
-                                                            <select class="form-select" name = "department_id" id = "department_id_input">
-                                                                @foreach ($departments as $department)
-                                                                    <option value = "{{$department -> id}}" {{isset($order) ? ($order -> department_id == $department -> id ? 'selected' : '') : ''}}>{{$department -> name}}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </div>
-                                                    </div> -->
-
-
                                                     <div class="row align-items-center mb-1">
                                                         <div class="col-md-3">
                                                             <label class="form-label">Reference No </label>
@@ -2994,6 +2979,7 @@
             for (let index = 0; index < values.length; index++) {
                 expense += parseFloat(values[index].value ? values[index].value : 0);
             }
+            document.getElementById('total_order_expense').textContent = parseFloat(expense ? expense : 0);
             document.getElementById('all_items_total_expenses_summary').textContent = parseFloat(expense ? expense : 0);
             setAllTotalFields();
         }

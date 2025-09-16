@@ -73,6 +73,8 @@ $(document).on("click", ".inspectionChecklistBtn", function () {
             raw.detail_id ?? raw.checklist_detail_id ?? raw.parameter_item_id
         );
         const pname = norm(raw.parameter_name ?? raw.name);
+        const pdescription = norm(raw.parameter_description ?? raw.description);
+
         const pvalue = norm(raw.parameter_value ?? raw.value);
         const result = norm(raw.result).toLowerCase();
         const inspId = norm(raw.insp_checklist_id ?? raw.parameter_checkl_id);
@@ -81,6 +83,7 @@ $(document).on("click", ".inspectionChecklistBtn", function () {
             checklistId: cid,
             detailId: did,
             parameterName: pname,
+            parameterDscription: pdescription,
             parameterValue: pvalue,
             result,
             inspId,
@@ -114,7 +117,8 @@ $(document).on("click", ".inspectionChecklistBtn", function () {
                 <table class="table table-bordered po-order-detail myrequesttablecbox nowrap w-100 text-center align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th width="60%">Parameters</th>
+                            <th width="40%">Parameters Name</th>
+                            <th width="60%">Description</th>
                             <th>Values</th>
                             <th>Result</th>
                         </tr>
@@ -124,6 +128,8 @@ $(document).on("click", ".inspectionChecklistBtn", function () {
         (checklist.details || []).forEach((detail, index) => {
             const paramLabelRaw = detail.name || "";
             const paramLabel = escapeHTML(paramLabelRaw);
+            const paramDescRaw = detail.description || "";
+            const paramDesc = escapeHTML(paramDescRaw);
             const type = detail.data_type || "text";
             const requiredAttr = detail.mandatory ? "required" : "";
             const detailId = norm(detail.id);
@@ -132,6 +138,7 @@ $(document).on("click", ".inspectionChecklistBtn", function () {
             const paramIdField = `${namePrefix}[parameter_item_id]`;
             const paramChecklistIdField = `${namePrefix}[parameter_checkl_id]`;
             const paramNameField = `${namePrefix}[parameter_name]`;
+            const paramDescriptionField = `${namePrefix}[parameter_description]`;
             const paramValueField = `${namePrefix}[parameter_value]`;
             const resultField = `${namePrefix}[parameter_result]`;
 
@@ -160,6 +167,12 @@ $(document).on("click", ".inspectionChecklistBtn", function () {
                     <input type="hidden" name="${paramIdField}" value="${detailId}" />
                     <input type="hidden" name="${paramChecklistIdField}" value="${savedChecklistId}" />
                 </td>`;
+
+            html += `<tr>
+                <td class="text-start ps-3">
+                    ${paramDesc} ${
+                detail.mandatory ? '<span class="text-danger">*</span>' : ""
+            }</td>`;
 
             html += `<td>`;
             switch (type) {
@@ -282,6 +295,9 @@ $(document).on("click", ".submitChecklistBtn", function (e) {
         );
         const paramItemIdInput = $row.find(`[name*="[parameter_item_id]"]`);
         const paramNameInput = $row.find(`[name*="[parameter_name]"]`);
+        const paramDescriptionInput = $row.find(
+            `[name*="[parameter_description]"]`
+        );
         const paramValueInput = $row.find(`[name*="[parameter_value]"]`);
         const resultFieldName = $row
             .find(`[name*="[parameter_result]"]`)
@@ -293,6 +309,7 @@ $(document).on("click", ".submitChecklistBtn", function (e) {
         const paramInspChckId = paramInspChckIdInput.val();
         const paramItemId = paramItemIdInput.val();
         const paramName = paramNameInput.val();
+        const paramDescription = paramDescriptionInput.val();
         const paramValue = paramValueInput.val();
         const isParamRequired = paramValueInput.prop("required");
         const isResultRequired =
@@ -319,6 +336,7 @@ $(document).on("click", ".submitChecklistBtn", function (e) {
             checkList_name: checkListName,
             detail_id: paramItemId,
             parameter_name: paramName,
+            parameter_description: paramDescription,
             parameter_value: paramValue,
             result: resultValue || "", // fallback if not selected
         });
