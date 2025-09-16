@@ -46,17 +46,19 @@ class UpdateFurlencoSaleOrderRequest extends FormRequest
                 'exists:erp_items,item_code', // must exist in ERP items
             ],
 
-            'delivery_skus.*.item_qty' => Rule::when(
-                fn ($input) => in_array($input['action_type'] ?? null, ['add', 'update']),
-                ['required', 'integer', 'min:1'],
-                ['nullable']
-            ),
+            'delivery_skus.*.item_qty' => [
+                'required_if:delivery_skus.*.action_type,add,update',
+                'nullable',
+                'integer',
+                'min:1',
+            ],
 
-            'delivery_skus.*.item_rate' => Rule::when(
-                fn ($input) => in_array($input['action_type'] ?? null, ['add', 'update']),
-                ['required', 'numeric', 'min:0'],
-                ['nullable']
-            ),
+            'delivery_skus.*.item_rate' => [
+                'required_if:delivery_skus.*.action_type,add,update',
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
 
             'delivery_skus.*.consignee_id' => ['required', 'integer', 'exists:erp_consignees,id'],
         ];

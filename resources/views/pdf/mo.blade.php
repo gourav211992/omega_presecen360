@@ -169,12 +169,12 @@
                     @endphp
                 <tr>
                     <td colspan="{{ $colspan - 1 }}" style="padding: 6px; border-left: 1px solid #000; background: #80808070; text-align: left; font-weight: bold">
-                        So NO : {{ isset($order) ? $order->book_code . '-' . $order->document_number : '' }}<br>
-                        So Date : {{ $order?->document_date ? date('d-M-y', strtotime($order->document_date)) : '' }}
+                        So NO : {{ isset($order->last_so()->book_code) ? $order->last_so()->book_code . '-' . $order->last_so()->document_number : '' }}<br>
+                        So Date : {{ $order?->document_date ? date('d-M-y', strtotime($order->last_so()->document_date)) : '' }}
                     </td>
                     <td colspan="1" style="padding: 6px; border-right: 1px solid #000; background: #80808070; text-align: left; font-weight: bold">
                         Delivery Date : {{ isset($order?->soItem?->item_deliveries?->delivery_date) ? date('d-M-y', strtotime($order?->soItem?->item_deliveries?->delivery_date )) : '' }}<br>
-                        Party Order No:     {{ isset($val->so) ? strtoupper($val->so->reference_number) : " " }}
+                        Party Order No:     {{ isset($val->so->reference_number) ? strtoupper($val->so->reference_number) : " " }}
                     </td>
                 </tr>
 

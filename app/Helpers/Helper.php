@@ -2720,9 +2720,12 @@ class Helper
 
         $logoUrl = "";
         $organization = Organization::find($organizationId);
-        if ($organization && $organization->organization_logo) {
-            return $organization->organization_logo;
+        if ($organization && $organization->full_logo_path) {
+            return $organization->full_logo_path;
         }
+        // if ($organization && $organization->organization_logo) {
+        //     return $organization->organization_logo;
+        // }
 
 
         $orgMedia = Media::where('model_type', 'App\Models\Organization')
@@ -4371,7 +4374,7 @@ class Helper
 
                         $asset_code = self::generateAssetCode($category_id);
                         $existingAsset = FixedAssetRegistration::where('asset_code', $asset_code)->first();
-                        
+
                         $data = [
                         'organization_id' => $user->organization_id,
                         'group_id' => $organization->group_id,
@@ -4551,7 +4554,7 @@ class Helper
     {
         $user = Helper::getAuthenticatedUser();
         $companies = $user?->access_rights_org;
-        
+
         $companies = ($companies && $companies->isNotEmpty())
             ? $companies
             : collect([$user]);

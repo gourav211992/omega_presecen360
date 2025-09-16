@@ -474,7 +474,6 @@ class PaymentVoucherController extends Controller
                 // $voucher->ledger_group_id = $bank->ledger_group_id;
                 if (!$bank) {
                     Log::error("Bank not found for ID: $request->bank_id");
-                    continue; // skip this iteration
                 }
                 $voucher->bankCode = $bank->bank_code;
                 if ($request->account_id) {
@@ -558,7 +557,6 @@ class PaymentVoucherController extends Controller
                 $customer = Ledger::find($party);
                 if (!$customer) {
                     Log::error("Ledger not found for party ID: $party");
-                    continue; // skip this iteration
                 }
                 $details->ledger_id = $customer->id;
                 $details->ledger_group_id = $request->parent_ledger_id[$index];
