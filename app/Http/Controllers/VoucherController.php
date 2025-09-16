@@ -39,6 +39,14 @@ use App\Models\Group;
 use App\Models\Currency;
 use App\Models\Customer;
 use App\Models\Vendor;
+use App\Imports\VoucherImportData;
+use App\Models\ErpVoucherUpload;
+use App\Models\importSave;
+use App\Exports\VoucherImportErrorExport;
+use App\Exports\VoucherImportSuccessExport;
+use App\Http\Requests\VoucherImportRequest;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Helpers\BookHelper;
 
 
 
@@ -807,6 +815,7 @@ class VoucherController extends Controller
         $service = OrganizationService::find($id);
         return response()->json(Helper::getBookSeriesNew($service->alias, "vouchers")->get());
     }
+
     public function edit(Request $r, $id)
     {
         $currNumber = $r->revisionNumber;
@@ -1423,7 +1432,396 @@ class VoucherController extends Controller
 
             // Remove duplicate IDs
             return array_unique($allChildIds);
+    }
+
+    public function import()
+    {
+        $cost_centers = CostCenter::where('status', 'active')->where('organization_id', Helper::getAuthenticatedUser()->organization_id)->select('id as value', 'name as label')->get()->toArray();
+        $parentUrl = 'vouchers';
+
+        $serviceAlias = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
+        $fy_months = Helper::getCurrentFinancialYearMonths();
+      
+
+
+        $bookTypes = $serviceAlias['services'];
+
+        $bookTypes = collect($bookTypes)
+            ->whereIn('alias', [
+                ConstantHelper::CONTRA_VOUCHER,
+                ConstantHelper::JOURNAL_VOUCHER,
+                ConstantHelper::OPENING_BALANCE
+            ])
+            ->unique('alias')  
+            ->values() ?? [];
+
+        // $bookTypes = collect($bookTypes)->whereIn('alias', [ConstantHelper::CONTRA_VOUCHER,ConstantHelper::JOURNAL_VOUCHER,ConstantHelper::OPENING_BALANCE])->values()??[];
+       
+
+
+        
+
+        $lastVoucher = Voucher::where('organization_id', Helper::getAuthenticatedUser()->organization_id)->orderBy('id', 'desc')->select('book_type_id', 'book_id')->first();
+        $currencies = Currency::where('status', ConstantHelper::ACTIVE)->select('id', 'name', 'short_name')->get();
+        $orgCurrency = Organization::where('id', Helper::getAuthenticatedUser()->organization_id)->value('currency_id');
+        $allledgers = Ledger::get();
+        $allowedCVGroups = Helper::getChildLedgerGroupsByNameArray(ConstantHelper::CV_ALLOWED_GROUPS,'names');
+        $exlucdeJVGroups = Helper::getChildLedgerGroupsByNameArray(ConstantHelper::JV_EXCLUDE_GROUPS,'names');
+        $cost_centers = Helper::getActiveCostCenters();
+        $fyear = Helper::getFinancialYear(date('Y-m-d'));
+        // pass authenticate user's org locations
+     $locations = InventoryHelper::getAccessibleLocations();
+         return view('voucher.import', compact('cost_centers','allledgers', 'currencies', 'orgCurrency', 'cost_centers', 'bookTypes', 'lastVoucher','allowedCVGroups','exlucdeJVGroups','locations','fyear','fy_months'));
+    }
+
+    //Import Work
+    public function importSave(Request $request)
+    {
+        $organization = Helper::getAuthenticatedUser()->organization;
+        
+        DB::beginTransaction();
+        try {
+            $user = Helper::getAuthenticatedUser();
+            ErpVoucherUpload::where('created_by', $user->auth_user_id)->delete();
+                 
+            $exchangeData = app('App\Http\Controllers\ExchangeRateController')->getExchangeRate(
+                new \Illuminate\Http\Request([
+                    'date' => $request->date,
+                    'currency' => $request->currency_id
+                ])
+            );
+        
+            if (!$exchangeData['status']) {
+                return response()->json([
+                    'message' => 'Failed to get exchange rate: ' . $exchangeData['message'],
+                    'error' => true
+                ], 400);
+            }
+        
+        $data = $exchangeData['data'];
+        $bookResponse = BookHelper::fetchBookDocNoAndParameters($request->book_id, $request->date);
+       
+        $docNumberType = $bookResponse['data']['doc']['type'];
+        
+        //Import Data
+        $voucherImport = new VoucherImportData(
+            $request->book_id,
+            $request->book_type_id,
+            $request->date,
+            $request->location,
+            $request->currency_id,
+            $docNumberType,
+            $data['org_currency_exg_rate'],
+            $data['org_currency_id'],
+            $data['comp_currency_id'],
+            $data['group_currency_id'],
+            $data['org_currency_exg_rate'],
+            $data['comp_currency_exg_rate'],
+            $data['group_currency_exg_rate']
+        );
+           
+            
+        Excel::import($voucherImport, $request->file('import_file'));
+        $successfulVouchers = $voucherImport->getSuccessfulVouchers();
+        $failedVouchers = $voucherImport->getFailedVouchers();
+        
+        session([
+            'voucher_import_successful' => $successfulVouchers,
+            'voucher_import_failed' => $failedVouchers
+        ]);
+            
+        $errorRows = ErpVoucherUpload::where('created_by', $user->auth_user_id)
+            ->where('migrate_status', 1)
+            ->count();
+        
+        if ($errorRows > 0) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Import failed due to validation errors. Please download the error file to review them.',
+                'redirect_url' => route('vouchers.import.error'),
+                'error' => true
+            ]);
         }
+            
+        // Get ready-to-migrate records
+        $uploads = ErpVoucherUpload::where('created_by', $user->auth_user_id)
+            ->where('migrate_status', 0)
+            ->get();
+        
+        if ($uploads->isEmpty()) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'No valid records found to import.',
+                'error' => true
+            ]);
+        }
+
+        $userData = Helper::userCheck();
+        
+        
+        
+            
+        $docResetPattern = $bookResponse['data']['doc']['reset_pattern'];
+        $docPrefix = $bookResponse['data']['doc']['prefix'];
+        $docSuffix = $bookResponse['data']['doc']['suffix'];
+        
+        // Create voucher
+        $voucher = new Voucher();
+        $voucher->book_type_id = $request->book_type_id;
+        $voucher->book_id = $request->book_id;
+        $voucher->document_date = $request->date;
+        $voucher->location = $request->location;
+        $voucher->currency_id = $request->currency_id;
+        $voucher->doc_number_type = $docNumberType;
+        $voucher->doc_reset_pattern = $docResetPattern;
+        $voucher->doc_prefix = $docPrefix;
+        $voucher->doc_suffix = $docSuffix;
+        $voucher->voucher_name = $request->voucher_name;
+        $voucher->doc_no = $request->doc_no;
+        $voucher->voucher_no = $request->doc_no;
+        $voucher->org_currency_id = $data['org_currency_id'];
+        $voucher->org_currency_code = $data['org_currency_code'];
+        $voucher->org_currency_exg_rate = $data['org_currency_exg_rate'];
+        $voucher->comp_currency_id = $data['comp_currency_id'];
+        $voucher->comp_currency_code = $data['comp_currency_code'];
+        $voucher->comp_currency_exg_rate = $data['comp_currency_exg_rate'];
+        $voucher->group_currency_id = $data['group_currency_id'];
+        $voucher->group_currency_code = $data['group_currency_code'];
+        $voucher->group_currency_exg_rate = $data['group_currency_exg_rate'];
+        $voucher->currency_code = $data['org_currency_code'];
+        $voucher->document_status = $request->document_status ?? ConstantHelper::DRAFT;
+        $voucher->amount = $uploads->sum('debit_amount');
+        $voucher->created_by = $user->auth_user_id;
+        $voucher->organization_id = $user->organization_id;
+        $voucher->company_id = $organization->company_id;
+        $voucher->group_id = $organization->group_id;
+        $voucher->voucherable_type = $userData['user_type'];
+        $voucher->document_status = 'approved';
+        $voucher->approval_level = 1;
+        $voucher->date = $request->date ?? date('Y-m-d');
+        $voucher->voucherable_id = $userData['user_id'];
+        $voucher->save();
+        
+        // Create voucher items using ItemDetail model (same as store method)
+        foreach ($uploads as $upload) {
+            ItemDetail::create([
+                'voucher_id' => $voucher->id,
+                'ledger_id' => $upload->ledger_id,
+                'ledger_parent_id' => $upload->group_id,
+                'debit_amt' => $upload->debit_amount,
+                'credit_amt' => $upload->credit_amount,
+                'debit_amt_org' => $upload->debit_amount,
+                'credit_amt_org' => $upload->credit_amount,
+                'debit_amt_comp' => $upload->debit_amount,
+                'credit_amt_comp' => $upload->credit_amount,
+                'debit_amt_group' => $upload->debit_amount,
+                'credit_amt_group' => $upload->credit_amount,
+                'cost_center_id' => $upload->cost_center_id,
+                'remarks' => $upload->remark,
+                'date' => $request->date,
+                'organization_id' => $user->organization_id,
+                'group_id' => $user->organization->group_id ?? null,
+                'company_id' => $user->organization->company_id ?? null,
+            ]);
+        }
+        
+        // Handle document approval if submitted
+        if ($request->document_status == ConstantHelper::SUBMITTED) {
+            $modelName = get_class($voucher);
+            $totalValue = $voucher->amount ?? 0;
+            $approveDocument = Helper::approveDocument(
+                $voucher->book_id,
+                $voucher->id,
+                0, // revision_number
+                '', // remarks
+                $request->file('attachment'),
+                1, // approval_level
+                'submit',
+                $totalValue,
+                $modelName
+            );
+            $voucher->document_status = $approveDocument['approvalStatus'] ?? $request->document_status;
+            $voucher->save();
+        }
+            
+        // Mark uploads as migrated
+        ErpVoucherUpload::where('created_by', $user->auth_user_id)
+            ->where('migrate_status', 0)
+            ->update([
+                'migrate_status' => 2, // 2 = migrated successfully
+                'voucher_id' => $voucher->id
+            ]);
+        
+        DB::commit();
+        
+        // Get final counts from database
+        $finalSuccessfulCount = ErpVoucherUpload::where('created_by', $user->auth_user_id)
+            ->where('migrate_status', 2)
+            ->count();
+            
+        $finalFailedCount = ErpVoucherUpload::where('created_by', $user->auth_user_id)
+            ->where('migrate_status', 1)
+            ->count();
+            
+        // Generate structured UI data like other modules
+        $response = $this->generateValidInvalidUi($user->auth_user_id);
+        
+        return response()->json([
+            'message' => 'Voucher imported successfully',
+            'data' => $voucher,
+            'valid_records' => $finalSuccessfulCount,
+            'invalid_records' => $finalFailedCount,
+            'validUI' => $response['validUI'],
+            'invalidUI' => $response['invalidUI']
+        ]);
+            
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Error occurred while importing voucher: ' . $e->getMessage(),
+                'error' => true
+            ], 500);
+        }
+    }
+
+    # Download import error
+    public function importError(Request $request)
+    {
+        $user = Helper::getAuthenticatedUser();
+        $errorRows = ErpVoucherUpload::where('created_by', $user->auth_user_id)
+                    ->where('migrate_status', 1)
+                    ->get();
+                    
+        if ($errorRows->isEmpty()) {
+            return redirect()->back()->with('message', 'No import errors found.');
+        }
+        
+        $fileName = 'VOUCHER_IMPORT_ERRORS_' . now()->format('Ymd_His') . '.xlsx';
+        return Excel::download(new VoucherImportErrorExport($errorRows), $fileName);
+    }
+
+    public function importSuccess(Request $request)
+    {
+        $user = Helper::getAuthenticatedUser();
+        
+        // Get successful records (migrate_status = 2 means successfully migrated)
+        $successfulRecords = ErpVoucherUpload::where('created_by', $user->auth_user_id)
+            ->where('migrate_status', 2)
+            ->get();
+            
+        // Get failed records (migrate_status = 1 means validation errors)
+        $failedRecords = ErpVoucherUpload::where('created_by', $user->auth_user_id)
+            ->where('migrate_status', 1)
+            ->get();
+        
+        // Structure successful vouchers data for the view
+        $successfulVouchers = $successfulRecords->map(function ($record) {
+            return [
+                'row_number' => $record->row_number,
+                'ledger_code' => $record->ledger_code,
+                'ledger_name' => Ledger::where('code', $record->ledger_code)->first()->ledger_name,
+                'debit_amount' => $record->debit_amount,
+                'credit_amount' => $record->credit_amount,
+                'cost_center' => $record->cost_center_id,
+                'status' => 'Success',
+                'remarks' => $record->remark,
+            ];
+        })->toArray();
+        
+        // Structure failed vouchers data for the view
+        $failedVouchers = $failedRecords->map(function ($record) {
+            $errors = is_array($record->reason) ? implode(', ', $record->reason) : $record->reason;
+            return [
+                'row_number' => $record->row_number,
+                'ledger_code' => $record->ledger_code,
+                'ledger_name' => Ledger::where('code', $record->ledger_code)->first()->ledger_name,
+                'debit_amount' => $record->debit_amount,
+                'credit_amount' => $record->credit_amount,
+                'cost_center' => $record->cost_center_id,
+                'status' => 'Failed',
+                'remarks' => $errors ?: $record->remark
+            ];
+        })->toArray();
+        
+        return view('voucher.import_success', compact('successfulVouchers', 'failedVouchers'));
+    }
+
+    public function exportSuccessful(Request $request)
+    {
+        $user = Helper::getAuthenticatedUser();
+        $successRows = ErpVoucherUpload::where('created_by', $user->auth_user_id)
+                    ->where('migrate_status', 2) // Successfully migrated
+                    ->get();
+                    
+        if ($successRows->isEmpty()) {
+            return redirect()->back()->with('message', 'No successful import records found.');
+        }
+        
+        $fileName = 'VOUCHER_IMPORT_SUCCESS_' . now()->format('Ymd_His') . '.xlsx';
+      
+        return Excel::download(new VoucherImportSuccessExport($successRows), $fileName);
+    }
+
+    public function exportFailed(Request $request)
+    {
+        return $this->importError($request);
+    }
+    
+    /**
+     * Generate valid/invalid UI for voucher import like other modules
+     */
+    private function generateValidInvalidUi($userId)
+    {
+        // Get successful records (migrate_status = 2 means successfully migrated)
+        $successfulRecords = ErpVoucherUpload::where('created_by', $userId)
+            ->where('migrate_status', 2)
+            ->get();
+            
+        // Get failed records (migrate_status = 1 means validation errors)
+        $failedRecords = ErpVoucherUpload::where('created_by', $userId)
+            ->where('migrate_status', 1)
+            ->get();
+        
+        $validUI = "";
+        $invalidUI = "";
+        
+        // Generate valid records HTML
+        foreach ($successfulRecords as $record) {
+            $validUI .= "
+                <tr>
+                    <td class='no-wrap'>{$record->row_number}</td>
+                    <td class='no-wrap'>{$record->ledger_code}</td>
+                    <td class='no-wrap'>{$record->ledger_name}</td>
+                    <td class='numeric-alignment'>" . number_format($record->debit_amount, 2) . "</td>
+                    <td class='numeric-alignment'>" . number_format($record->credit_amount, 2) . "</td>
+                    <td class='no-wrap'>{$record->cost_center_id}</td>
+                    <td class='no-wrap'>{$record->remark}</td>
+                </tr>
+            ";
+        }
+        
+        // Generate invalid records HTML
+        foreach ($failedRecords as $record) {
+            $errors = is_array($record->reason) ? implode(', ', $record->reason) : $record->reason;
+            $invalidUI .= "
+                <tr>
+                    <td class='no-wrap'>{$record->row_number}</td>
+                    <td class='no-wrap'>{$record->ledger_code}</td>
+                    <td class='no-wrap'>{$record->ledger_name}</td>
+                    <td class='numeric-alignment'>" . number_format($record->debit_amount, 2) . "</td>
+                    <td class='numeric-alignment'>" . number_format($record->credit_amount, 2) . "</td>
+                    <td class='no-wrap'>{$record->cost_center_id}</td>
+                    <td class='no-wrap'>{$record->remark}</td>
+                    <td class='no-wrap text-danger'>{$errors}</td>
+                </tr>
+            ";
+        }
+        
+        return [
+            'validUI' => $validUI,
+            'invalidUI' => $invalidUI
+        ];
+    }
 
 
 
