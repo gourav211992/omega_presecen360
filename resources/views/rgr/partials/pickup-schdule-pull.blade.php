@@ -104,6 +104,7 @@
     </td>
 
     <!-- Hidden fields -->
+    <input type="hidden" name="rgr_items[{{ $index }}][pickup_item_id]" value="{{ $item['pickup_item_id'] ?? '' }}">
     <input type="hidden" name="rgr_items[{{ $index }}][sub_store_id]" value="{{ $item['sub_store_id'] }}">
     <input type="hidden" name="rgr_items[{{ $index }}][category_id]" value="{{ $item['category_id'] }}">
     <input type="hidden" name="rgr_items[{{ $index }}][hsn_id]" value="{{ $item['hsn_id'] }}">

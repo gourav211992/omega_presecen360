@@ -111,7 +111,7 @@ Route::group(['middleware' => ['sso-api', 'apiresponse']], function () {
         Route::get('segregation/{uniqueItemId}', 'getSegregationByUniqueItemId')->name('segregation.details');
         Route::get('jobs/{jobId}/item-status','getJobItemStatus')->name('jobs.item-status');      
         Route::post('/segregate-item', 'createSegregation')->name('segregation.create-or-update'); 
-        Route::post('/unique-items/store', 'storeUniqueItem')->name('unique-items.create');  
+        Route::post('/unique-items/store', 'fetchManualItem')->name('unique-items.create');  
         Route::post('/wrong-item-detail/get', 'getWrongItemDetails')->name('wrong-item.get.detail');
         Route::delete('scanned-item/{uniqueItemId}', 'deleteScannedItem')->name('unique-items.delete');
     });
@@ -124,6 +124,15 @@ Route::group(['middleware' => ['sso-api', 'apiresponse']], function () {
         Route::get('/get-vendors', 'getVendors')->name('vendors.get');
         Route::get('get-repair-defects-count/{store_id}', 'getDefectStatusCounts')->name('repair-orders.defects.counts');
         Route::post('/repair-action', 'repairAction')->name('repair.action');
+    });
+
+
+    Route::controller(RepairQcJobController::class)->prefix('repair-qc')->group(function () {
+        Route::get('jobs/{store_id}', 'getRepairQc')->name('repair-qc.jobs');
+        Route::get('job-details/{job_id}', 'getRepairQcJobDetails')->name('repair-qc.job-details');
+        Route::get('actions', 'getQcAction')->name('repair-qc.actions');
+     Route::post('close-job',  'closeRepairQcJob')->name('repair-qc.close-job');
+
     });
      
 });

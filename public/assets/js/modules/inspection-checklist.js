@@ -164,15 +164,13 @@ $(document).on("click", ".inspectionChecklistBtn", function () {
                 detail.mandatory ? '<span class="text-danger">*</span>' : ""
             }
                     <input type="hidden" name="${paramNameField}" value="${paramLabel}" />
+                    <input type="hidden" name="${paramDescriptionField}" value="${paramDesc}" />
                     <input type="hidden" name="${paramIdField}" value="${detailId}" />
                     <input type="hidden" name="${paramChecklistIdField}" value="${savedChecklistId}" />
                 </td>`;
 
-            html += `<tr>
-                <td class="text-start ps-3">
-                    ${paramDesc} ${
-                detail.mandatory ? '<span class="text-danger">*</span>' : ""
-            }</td>`;
+            html += `<td class="text-start ps-3">
+                    ${paramDesc}</td>`;
 
             html += `<td>`;
             switch (type) {

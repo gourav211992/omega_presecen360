@@ -80,6 +80,7 @@ class ErpRgrStoreMappingController extends Controller
                                 'store_id'         => $mapData['store_id'] ?? null,
                                 'sub_store_id'     => $mapData['sub_store_id'] ?? null,
                                 'qc_sub_store_id'  => $mapData['qc_sub_store_id'] ?? null,
+                                'staging_store_id' => $mapData['staging_store_id'] ?? null,
                                 'updated_by'       => $user->id,
                                 'group_id'         => $defaultData['group_id'],
                                 'company_id'       => $defaultData['company_id'],
@@ -94,6 +95,7 @@ class ErpRgrStoreMappingController extends Controller
                         'store_id'         => $mapData['store_id'] ?? null,
                         'sub_store_id'     => $mapData['sub_store_id'] ?? null,
                         'qc_sub_store_id'  => $mapData['qc_sub_store_id'] ?? null,
+                        'staging_store_id' => $mapData['staging_store_id'] ?? null, 
                         'created_by'       => $user->id,
                         'group_id'         => $defaultData['group_id'],
                         'company_id'       => $defaultData['company_id'],
@@ -149,7 +151,7 @@ class ErpRgrStoreMappingController extends Controller
         }
     }
    // Category from Item (subcategory_id)
-    public function categories(Request $request)
+   public function categories(Request $request)
     {
         $term = $request->get('term');
 
@@ -161,7 +163,7 @@ class ErpRgrStoreMappingController extends Controller
             });
         }
 
-        $items = $query->get()->pluck('subCategory')->unique('id')->take(10);
+        $items = $query->get()->pluck('subCategory')->filter()->unique('id')->take(10);
 
         if ($items->isEmpty()) {
             return response()->json([
@@ -215,7 +217,7 @@ class ErpRgrStoreMappingController extends Controller
 
         return response()->json(['status' => true, 'data' => $data]);
     }
-    // SubStores (RGR & QC Store)
+    // SubStores (RGR & QC Store & Staging Store)
     public function substores(Request $request)
     {
         $term = $request->get('term');

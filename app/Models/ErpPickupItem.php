@@ -23,6 +23,7 @@ class ErpPickupItem extends Model
         'customer_phone',
         'type',
         'delivery_cancelled',
+        'replacement_item',
         'qty',
         'remarks',
         'created_by',

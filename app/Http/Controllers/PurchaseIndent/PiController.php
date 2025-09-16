@@ -10,6 +10,7 @@ use App\Models\Bom;
 use App\Models\Item;
 use App\Models\Unit;
 use App\Models\PiItem;
+use App\Models\PoItem;
 use App\Models\Vendor;
 use App\Helpers\Helper;
 use App\Models\Address;
@@ -19,6 +20,7 @@ use App\Models\ErpSoItem;
 use App\Helpers\BookHelper;
 use App\Helpers\ItemHelper;
 use App\Helpers\UserHelper;
+use App\Models\PiPoMapping;
 use App\Models\PiSoMapping;
 use App\Models\ErpSaleOrder;
 use App\Models\ErpSoItemBom;
@@ -719,7 +721,6 @@ class PiController extends Controller
             if ($currentStatus == ConstantHelper::APPROVED && $actionType == 'amendment') {
                 //*amendmemnt document log*/
                 $revisionNumber = $pi->revision_number + 1;
-                $actionType = 'amendment';
                 $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $amendRemarks, $amendAttachments, $currentLevel, $actionType, 0, $modelName);
                 $pi->revision_number = $revisionNumber;
                 $pi->approval_level = 1;
@@ -1336,6 +1337,8 @@ class PiController extends Controller
                     $requiredQty += $requiredQty * $bufferPerc / 100;
                 }
 
+                $requiredQty = ceil($requiredQty);
+
                 if (!in_array($checkBomExist['sub_type'], ['Expense'])) {
                     $mappingData = [
                         'so_id' => $soId,
@@ -1718,9 +1721,7 @@ class PiController extends Controller
             })->pluck('id')->toArray();
         }
 
-        $soItems = ErpSoItem::whereIn('id', $ids)->get();
-        $soItemIds = $soItems->pluck('id')->toArray();
-
+        $soItemIds = ErpSoItem::whereIn('id', $ids)->pluck('id')->toArray();
         $bomService = new BomService;
         $femifishedItems = $bomService->getRawMaterialBreakdown($soItemIds, 'semi');
 
@@ -1796,45 +1797,77 @@ class PiController extends Controller
         $soItemIdArr = [];
         $createdBy = $user?->auth_user_id;
 
+        $html = '';
         $service =  new PiService;
 
-        $html = '';
-        DB::beginTransaction();
         if ($procurementType === 'rm') {
-            foreach ($items as $item) {
-                $soId       = $item['so_id'] ?? null;
-                $soItemId  = $item['so_item_id'] ?? [];
-                $soItemIds  = $item['so_item_ids'] ?? [];
-                $itemId     = $item['item_id'] ?? null;
-                $reqQty     = floatval($item['req_qty'] ?? 0);
-                $main_so_item       = $item['main_so_item'] ?? null;
-                $level       = $item['level'] ?? null;
+            DB::beginTransaction();
+            try {
+                foreach ($items as $item) {
+                    $soId       = $item['so_id'] ?? null;
+                    $soItemId  = $item['so_item_id'] ?? [];
+                    $soItemIds  = $item['so_item_ids'] ?? [];
+                    $itemId     = $item['item_id'] ?? null;
+                    $reqQty     = floatval($item['req_qty'] ?? 0);
+                    $main_so_item = $item['main_so_item'] ?? null;
+                    $level       = $item['level'] ?? null;
 
-                if ($reqQty <= 0) {
-                    continue;
-                }
+                    if ($reqQty <= 0) {
+                        continue;
+                    }
 
-                if (count($soItemIds) && $main_so_item && $level == 0) {
-                    foreach ($soItemIds as $soItemId) {
-                        $soItemIdArr[] = $soItemId;
+                    if (count($soItemIds) && $main_so_item && $level == 0) {
+                        foreach ($soItemIds as $soItemId) {
+                            $soItem = ErpSoItem::find($soItemId);
+                            if ($soItem) {
+                                $soItemIdArr[] = $soItemId;
+                                $soAttributes = $soItem?->attributes->map(fn($attr) => [
+                                    'attribute_id'   => $attr->item_attribute_id,
+                                    'attribute_value' => intval($attr->attr_value)
+                                ])->toArray() ?? [];
+                                $res = $service->syncPiSoMapping($soId, $soItemId, $itemId, $soAttributes, $reqQty, $createdBy, $soItem->order_qty);
+                                if ($res['status'] == 422) {
+                                    DB::rollBack();
+                                    return response()->json([
+                                        'data' => ['pos' => ''],
+                                        'status' => 422,
+                                        'message' => $res['message']
+                                    ]);
+                                }
+                            }
+                        }
+                    } else {
                         $soItem = ErpSoItem::find($soItemId);
-                        $soAttributes = $soItem?->attributes->map(fn($attr) => [
-                            'attribute_id'   => $attr->item_attribute_id,
-                            'attribute_value' => intval($attr->attr_value)
-                        ])->toArray() ?? [];
-                        $res = $service->syncPiSoMapping($soId, $soItemId, $itemId, $soAttributes, $reqQty, $createdBy, $soItem->order_qty);
-                        if ($res['status'] == 422) {
-                            DB::rollBack();
-                            return response()->json([
-                                'data' => ['pos' => ''],
-                                'status' => 422,
-                                'message' => $res['message']
-                            ]);
+                        if ($soItem) {
+                            $soItemIdArr[] = $soItemId;
+                            $soAttributes = $soItem?->attributes->map(fn($attr) => [
+                                'attribute_id'   => $attr->item_attribute_id,
+                                'attribute_value' => intval($attr->attr_value)
+                            ])->toArray() ?? [];
+                            $res = $service->syncPiSoMapping($soId, $soItemId, $itemId, $soAttributes, $reqQty, $createdBy, $soItem->order_qty);
+                            if ($res['status'] == 422) {
+                                DB::rollBack();
+                                return response()->json([
+                                    'data' => ['pos' => ''],
+                                    'status' => 422,
+                                    'message' => $res['message']
+                                ]);
+                            }
                         }
                     }
                 }
+
+                DB::commit();
+            } catch (\Throwable $th) {
+                DB::rollBack();
+                return response()->json([
+                    'data' => ['pos' => ''],
+                    'status' => 422,
+                    'message' => $th->getMessage()
+                ]);
             }
 
+            $soItemIdArr = array_unique($soItemIdArr);
             $soTracking = $request?->so_tracking_required ?? 'no';
             if ($soTracking === 'yes') {
                 $soProcessItems = PiSoMapping::whereIn('so_item_id', $soItemIdArr)
@@ -1878,12 +1911,53 @@ class PiController extends Controller
             ])->render();
         }
 
-        DB::commit();
-
         return response()->json([
             'data' => ['pos' => $html, 'procurement_type' => $procurementType],
             'status' => 200,
             'message' => "fetched!"
+        ]);
+    }
+
+    public function checkPoUtilizedItem(Request $request)
+    {
+        $piItemId = $request->pi_item_id;
+
+        $piPoConsumed = PiPoMapping::where('pi_item_id', $piItemId)
+            ->whereHas('po', function ($q) {
+                $q->whereIn('document_status', [
+                    ConstantHelper::APPROVED,
+                    ConstantHelper::APPROVAL_NOT_REQUIRED
+                ]);
+            })
+            ->with([
+                'po:id,document_number',
+                'po_item:id,po_id,order_qty'
+            ])
+            ->get();
+
+        if ($piPoConsumed->count()) {
+            $totalUtilized = $piPoConsumed->sum('po_qty');
+
+            return response()->json([
+                'data' => [
+                    'total_utilized_qty' => $totalUtilized,
+                    'po_list' => $piPoConsumed->map(function ($map) {
+                        return [
+                            'po_id'          => $map->po_id,
+                            'document_number' => $map->po->document_number ?? null,
+                            'po_qty'         => $map->po_qty,
+                        ];
+                    }),
+                ],
+                'status' => 422,
+                'message' => "Item already utilized in PO(s)!",
+            ]);
+        }
+
+        return response()->json([
+            'data' => null,
+            'status' => 200,
+            'message' => "Item free to delete!",
         ]);
     }
 }

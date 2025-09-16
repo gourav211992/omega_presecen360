@@ -45,13 +45,10 @@
         <table style="width: 100%; margin-bottom: 10px;" cellspacing="0" cellpadding="0">
             <tr>
                 <td style="text-align: left;">
-                    @if (isset($orgLogo) && $orgLogo)
-                        @php
-                            $data = isset($orgLogo) && $orgLogo ? file_get_contents($orgLogo) : '';
-                            $imgType = pathinfo($orgLogo, PATHINFO_EXTENSION);
-                            $base64 = 'data:image/' . $imgType . ';base64,' . base64_encode($data);
-                        @endphp
-                        <img src="{!! $base64 !!}" alt="" height="50px" />
+                     @if (isset($orgLogo) && $orgLogo)
+                        <img src="{!! $orgLogo !!}" alt="" height="50px" />
+                    @else
+                        <img src="{{ $imagePath }}" height="50px" alt="">
                     @endif
                 </td>
                 <td style="align-content: center; font-weight: bold; font-size: 22px;">

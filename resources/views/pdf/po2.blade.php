@@ -491,7 +491,7 @@
                                 {{ number_format($totalTaxableValue, 2) }}
                             </td>
                         </tr>
-                        @foreach($taxes as $tax)
+                        @foreach($taxes as $value => $tax)
                             <tr>
                                 <td style="text-align: right; padding-top: 3px;">
                                     <b>{{ $tax->ted_name }} @ {{  number_format($tax->ted_perc, 2)}}%:</b>

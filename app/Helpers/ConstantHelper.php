@@ -5,6 +5,7 @@ namespace App\Helpers;
 use App\Helpers\PackingList\Constants as PackingListConstants;
 use App\Helpers\ASN\Constants as ASNConstant;
 use App\Helpers\RGR\Constants as RGRConstant;
+use App\Helpers\ReManufacturing\RepairOrder\Constants as REPConstant;
 use App\Models\Legal;
 
 
@@ -852,6 +853,7 @@ class ConstantHelper
         PackingListConstants::SERVICE_ALIAS => 'PackingList',
         ASNConstant::SERVICE_ALIAS => 'VendorAsn',
         RgrConstant::SERVICE_ALIAS => 'ErpRgr',
+        RepConstant::SERVICE_ALIAS => 'ErpRepairOrder',
     ];
     const CV_ALLOWED_GROUPS=['Cash-in-Hand', 'Bank Accounts', 'Bank OD A/c', 'Bank OCC A/c'];
     const JV_EXCLUDE_GROUPS=[
@@ -1191,5 +1193,11 @@ class ConstantHelper
         ['label' => 'Send to Vendor', 'value' => 'send_to_vendor'],
         ['label' => 'Scrap', 'value' => 'scrap'],
         ['label' => 'Repair', 'value' => 'repair'],
+    ];
+
+    const QC_ACTION = [
+        ['label' => 'Reject', 'value' => 'reject'],
+        ['label' => 'Approved with Deviation', 'value' => 'approved_with_deviation'],
+        ['label' => 'Approve', 'value' => 'approve'],
     ];
 }

@@ -255,4 +255,13 @@ class ErpSaleInvoice extends Model
     {
         return $this -> hasMany(ErpInvoicePaymentTerm::class, 'invoice_header_id');
     }
+
+    public function getTotalQuantityAttribute()
+    {
+        return $this->items->sum(function ($item) {
+            $qty = (int) $item->inventory_uom_qty;
+            $count = (int) optional($item->item)->storage_uom_count ?? 1;
+            return $qty * ($count ?: 1);
+        });
+    }
 }

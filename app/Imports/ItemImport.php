@@ -211,6 +211,7 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
                     }
                 }
                 $subCategoryInitials = '';
+                $itemInitials = '';
                 $itemName = $row['item_name'] ?? '';
                 $cleanedItemName = preg_replace('/[^a-zA-Z0-9\s]/', '', $itemName);
                 $words = preg_split('/\s+/', trim($cleanedItemName));

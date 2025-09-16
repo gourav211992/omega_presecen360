@@ -631,6 +631,22 @@
                         },
                         success: function(data) {
                             response($.map(data, function(item) {
+
+                                console.log({
+                                    id: item.id,
+                                    label: `${item.item_name} (${item.item_code})`,
+                                    code: item.item_code || '',
+                                    item_id: item.id,
+                                    item_name: item.item_name,
+                                    uom_name: item.uom?.name,
+                                    uom_id: item.uom_id,
+                                    hsn_id: item.hsn?.id,
+                                    hsn_code: item.hsn?.code,
+                                    alternate_u_o_ms: item.alternate_u_o_ms,
+                                    is_attr: item.item_attributes_count,
+
+                                });
+
                                 return {
                                     id: item.id,
                                     label: `${item.item_name} (${item.item_code})`,
@@ -1752,8 +1768,8 @@
                         </td>
                         <td>
                             ${typeof soTrackingRequired !== 'undefined' && soTrackingRequired ? `
-                                                                                                                                            <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />
-                                                                                                                                        ` : ''}
+                                                                                                                                                <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />
+                                                                                                                                            ` : ''}
                         </td>
                         <td>
                             <input type="text" name="components[${index}][remark]" class="form-control mw-100 mb-25" value="${remarks}"/>
