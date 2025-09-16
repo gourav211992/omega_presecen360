@@ -472,6 +472,10 @@ class PaymentVoucherController extends Controller
                 $bank = Bank::find($request->bank_id);
                 // $voucher->ledger_id = $bank->ledger_id;
                 // $voucher->ledger_group_id = $bank->ledger_group_id;
+                if (!$bank) {
+                    Log::error("Bank not found for ID: $request->bank_id");
+                    continue; // skip this iteration
+                }
                 $voucher->bankCode = $bank->bank_code;
                 if ($request->account_id) {
                     $account = BankDetail::find($request->account_id);
@@ -552,6 +556,10 @@ class PaymentVoucherController extends Controller
                 }
                 $details->payment_voucher_id = $voucher->id;
                 $customer = Ledger::find($party);
+                if (!$customer) {
+                    Log::error("Ledger not found for party ID: $party");
+                    continue; // skip this iteration
+                }
                 $details->ledger_id = $customer->id;
                 $details->ledger_group_id = $request->parent_ledger_id[$index];
                 $details->partyCode = $customer->code;
@@ -561,9 +569,13 @@ class PaymentVoucherController extends Controller
                 $details->orgAmount = $request->amount_exc[$index];
                 $details->reference = $request->reference[$index];
                 $details->save();
-
+                Log::error('Reference index : ' . ($request->reference[$index] ?? 'N/A'));
                 if ($request->reference[$index] == "Invoice") {
                     foreach (json_decode($request->party_vouchers[$index]) as $reference) {
+                        Log::error('Reference amount : ' . ($reference->amount ?? 0));
+            Log::error('Reference voucher_id : ' . ($reference->voucher_id ?? 'N/A'));
+            Log::error('Reference document_type : ' . ($reference->document_type ?? 'N/A'));
+
                         $blnc = self::getVoucherBalance($reference->amount, $reference->voucher_id, $request->document_type, $details->ledger_id, $details->ledger_group_id);
                         if ($blnc < 0) {
                             $voucher = Voucher::find($reference->voucher_id)?->voucher_no;
@@ -1427,7 +1439,7 @@ class PaymentVoucherController extends Controller
 
         return Response::json(['success' => 'Email Send Succesfully!']);
     }
-    public function getVoucherBalance($settle, $voucher_id, $doc_type, $ledger, $group, $id = null, $dt = null)
+   public function getVoucherBalance($settle, $voucher_id, $doc_type, $ledger, $group, $id = null, $dt = null)
     {
         $request = new \Illuminate\Http\Request();
         $request->merge([
@@ -1438,11 +1450,26 @@ class PaymentVoucherController extends Controller
             'voucher_id' => $voucher_id,
             'details_id' => $dt
         ]);
+
+        // Get ledger vouchers
         $data = VoucherController::getLedgerVouchers($request);
-        $voucher = collect($data->getData()->data)->where('id', $voucher_id)->first();
-        $diff = round($voucher->balance, 2) - round($settle, 2);
+
+        // Convert to collection
+        $voucherCollection = collect($data->getData()->data ?? []);
+
+        // Find voucher by ID
+        $voucher = $voucherCollection->firstWhere('id', $voucher_id);
+
+        // Log for debugging
+        Log::info('Voucher Data:', ['all' => $voucherCollection->toArray()]);
+        Log::info('Voucher Detail:', ['voucher' => $voucher]);
+
+        // Calculate diff safely
+        $diff = round($voucher->balance ?? 0, 2) - round($settle, 2);
+
         return $diff;
     }
+
     static function getVoucherBalance2($settle, $voucher_id, $doc_type, $ledger, $group, $id = null)
     {
 
