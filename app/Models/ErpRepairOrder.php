@@ -86,4 +86,20 @@ class ErpRepairOrder extends Model
     {
         return $this->belongsTo(ErpRgr::class, 'rgr_id', 'id');
     }
+
+    
+      public function createdBy()
+    {
+        return $this->belongsTo(AuthUser::class, 'created_by','id');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(AuthUser::class, 'updated_by','id');
+    }
+
+    public function deletedBy()
+    {
+        return $this->belongsTo(AuthUser::class, 'deleted_by','id');
+    }
 }

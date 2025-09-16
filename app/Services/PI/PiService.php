@@ -74,6 +74,8 @@ class PiService
                 $requiredQty += $requiredQty * $bufferPerc / 100;
             }
 
+            $requiredQty = ceil($requiredQty);
+
             if (!in_array($checkBomExist['sub_type'], ['Expense'])) {
                 $mappingData = [
                     'so_id'        => $soId,

@@ -1599,7 +1599,7 @@ class PurchaseBillController extends Controller
         $location = ErpStore::find($request->location_id ?? null);
         $organization = $user->organization;
         $firstAddress = $location?->address ?? null;
-        if(!$firstAddress) {
+        if (!$firstAddress) {
             $firstAddress = $organization?->addresses->first();
         }
         if ($firstAddress) {
@@ -2885,6 +2885,13 @@ class PurchaseBillController extends Controller
         try {
             $mrn = PbHeader::find($request->id);
             if (isset($mrn)) {
+                if ($mrn->revision_number > 0) {
+                    \DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'You cannot revoke amended document.',
+                    ]);
+                }
                 $revoke = Helper::approveDocument($mrn->book_id, $mrn->id, $mrn->revision_number, '', [], 0, ConstantHelper::REVOKE, $mrn->total_amount, get_class($mrn));
                 if ($revoke['message']) {
                     DB::rollBack();

@@ -17,7 +17,6 @@ class DispatchResource extends JsonResource
     {
         $morphable = $this->whenLoaded('morphable'); // ensure it's loaded safely
         $items = $morphable && isset($morphable->items) ? $morphable->items : collect();
-        // $itemUniqueCodes = $this->whenLoaded('itemUniqueCodes');
 
         return [
             'id' => $this->id,
@@ -35,7 +34,7 @@ class DispatchResource extends JsonResource
             'book_id' => optional($morphable)->book_id,
             'series' => optional(optional($morphable)->book)->book_code,
             'total_item' => $items ? $items->count() : 0,
-            'total_packets' => $items ? $items->sum('inventory_uom_qty') : 0,
+            'total_packets' => $this->morphable->total_quantity,
         ];
     }
 }

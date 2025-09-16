@@ -29,7 +29,7 @@ class SoItemUpdate
                 $pulledQty = $oldSoItem -> pslip_qty;
                 return SuccessErrorArrayResponse::errorResponse("Production Slip of qty - $pulledQty has been generated");
             }
-            //Check if Pslip qty is there
+            //Check if Plist qty is there
             if ($oldSoItem -> plist_qty > $currentQty) {
                 $pulledQty = $oldSoItem -> plist_qty;
                 return SuccessErrorArrayResponse::errorResponse("Packing List of qty - $pulledQty has been generated");

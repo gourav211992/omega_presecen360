@@ -1,4 +1,4 @@
-<?php  
+<?php
 namespace App\Services\Inspection;
 
 use DB;
@@ -54,24 +54,24 @@ class InspectionService
             // ---------- normalize input, gather ids ----------
             $createRows = [];
             $updateRows = [];
-            $updateIds  = [];
-            $mrnIds     = [];
+            $updateIds = [];
+            $mrnIds = [];
 
             // First pass: normalize values, keep raw rows for later
             $norm = [];
             foreach ($batchDetails as $val) {
                 $inspId = Arr::get($val, 'id');
-                $mrnId  = (int) Arr::get($val, 'mrn_batch_detail_id');
-                $bn     = trim((string) Arr::get($val, 'batch_number', ''));
+                $mrnId = (int) Arr::get($val, 'mrn_batch_detail_id');
+                $bn = trim((string) Arr::get($val, 'batch_number', ''));
 
-                $mfg    = Arr::get($val, 'manufacturing_year');
+                $mfg = Arr::get($val, 'manufacturing_year');
                 $expRaw = Arr::get($val, 'expiry_date');
-                $exp    = $expRaw ? Carbon::parse($expRaw)->format('Y-m-d') : null;
+                $exp = $expRaw ? Carbon::parse($expRaw)->format('Y-m-d') : null;
 
-                $rec    = (float) Arr::get($val, 'mrn_qty', 0);
-                $insp   = Arr::get($val, 'inspection_qty', null);
-                $acc    = Arr::get($val, 'accepted_qty',   null);
-                $rej    = Arr::get($val, 'rejected_qty',   null);
+                $rec = (float) Arr::get($val, 'mrn_qty', 0);
+                $insp = Arr::get($val, 'inspection_qty', null);
+                $acc = Arr::get($val, 'accepted_qty', null);
+                $rej = Arr::get($val, 'rejected_qty', null);
 
                 // Basic required checks
                 if ($mrnId <= 0 || $bn === '' || $rec <= 0) {
@@ -91,18 +91,19 @@ class InspectionService
                 }
 
                 $norm[] = [
-                    'insp_id'     => $inspId ? (int)$inspId : null,
-                    'mrn_id'      => $mrnId,
-                    'batch_no'    => $bn,
-                    'mfg'         => $mfg ?: null,
-                    'exp'         => $exp,
-                    'rec'         => (float)$rec,
-                    'insp'        => (float)$insp,
-                    'acc'         => (float)$acc,
-                    'rej'         => (float)$rej,
+                    'insp_id' => $inspId ? (int) $inspId : null,
+                    'mrn_id' => $mrnId,
+                    'batch_no' => $bn,
+                    'mfg' => $mfg ?: null,
+                    'exp' => $exp,
+                    'rec' => (float) $rec,
+                    'insp' => (float) $insp,
+                    'acc' => (float) $acc,
+                    'rej' => (float) $rej,
                 ];
 
-                if ($inspId) $updateIds[] = (int)$inspId;
+                if ($inspId)
+                    $updateIds[] = (int) $inspId;
                 $mrnIds[] = $mrnId;
             }
 
@@ -116,7 +117,7 @@ class InspectionService
             $mrnRows = MrnBatchDetail::whereIn('id', $mrnIds)->get()->keyBy('id');
             $remainingByMrn = [];
             foreach ($mrnRows as $mrn) {
-                $remainingByMrn[$mrn->id] = max(0.0, (float)$mrn->quantity - (float)($mrn->inspection_qty ?? 0.0));
+                $remainingByMrn[$mrn->id] = max(0.0, (float) $mrn->quantity - (float) ($mrn->inspection_qty ?? 0.0));
             }
 
             // Will accumulate deltas to update MRN at the end
@@ -125,7 +126,7 @@ class InspectionService
             // ---------- per-row balance check against running remaining ----------
             foreach ($norm as $row) {
                 $mrnId = $row['mrn_id'];
-                $bn    = $row['batch_no'];
+                $bn = $row['batch_no'];
 
                 $mrn = $mrnRows->get($mrnId);
                 if (!$mrn) {
@@ -133,21 +134,21 @@ class InspectionService
                 }
 
                 // Old insp qty for this insp row (0 if insert)
-                $oldInsp    = 0.0;
+                $oldInsp = 0.0;
                 $oldInspInv = 0.0;
                 if ($row['insp_id']) {
                     $ex = $existingById->get($row['insp_id']);
                     if (!$ex) {
                         return self::errorResponse("Invalid inspection-batch id [{$row['insp_id']}].");
                     }
-                    if ((int)$ex->batch_detail_id !== $mrnId) {
+                    if ((int) $ex->batch_detail_id !== $mrnId) {
                         return self::errorResponse("Batch mapping cannot be changed for batch [{$bn}].");
                     }
-                    $oldInsp    = (float)$ex->inspection_qty;
-                    $oldInspInv = (float)$ex->inspection_inv_uom_qty;
+                    $oldInsp = (float) $ex->inspection_qty;
+                    $oldInspInv = (float) $ex->inspection_inv_uom_qty;
                 }
 
-                $deltaInsp    = $row['insp'] - $oldInsp;
+                $deltaInsp = $row['insp'] - $oldInsp;
                 $deltaInspInv = $toBase($row['insp']) - $oldInspInv;
 
                 if ($deltaInsp > 0) {
@@ -165,32 +166,32 @@ class InspectionService
                 if (!isset($deltaByMrn[$mrnId])) {
                     $deltaByMrn[$mrnId] = ['insp' => 0.0, 'insp_inv' => 0.0, 'bn' => $bn];
                 }
-                $deltaByMrn[$mrnId]['insp']    += $deltaInsp;
-                $deltaByMrn[$mrnId]['insp_inv']+= $deltaInspInv;
+                $deltaByMrn[$mrnId]['insp'] += $deltaInsp;
+                $deltaByMrn[$mrnId]['insp_inv'] += $deltaInspInv;
 
                 // build row payload for insert/upsert
                 $payload = [
-                    'header_id'              => $inspection->id,
-                    'detail_id'              => $inspectionDetail->id,
-                    'batch_detail_id'        => $mrnId,
-                    'item_id'                => $inspectionDetail->item_id,
-                    'batch_number'           => $row['batch_no'],
-                    'manufacturing_year'     => $row['mfg'],
-                    'expiry_date'            => $row['exp'],
-                    'quantity'               => $row['rec'],
-                    'inspection_qty'         => $row['insp'],
-                    'accepted_qty'           => $row['acc'],
-                    'rejected_qty'           => $row['rej'],
-                    'inventory_uom_qty'      => $toBase($row['rec']),
+                    'header_id' => $inspection->id,
+                    'detail_id' => $inspectionDetail->id,
+                    'batch_detail_id' => $mrnId,
+                    'item_id' => $inspectionDetail->item_id,
+                    'batch_number' => $row['batch_no'],
+                    'manufacturing_year' => $row['mfg'],
+                    'expiry_date' => $row['exp'],
+                    'quantity' => $row['rec'],
+                    'inspection_qty' => $row['insp'],
+                    'accepted_qty' => $row['acc'],
+                    'rejected_qty' => $row['rej'],
+                    'inventory_uom_qty' => $toBase($row['rec']),
                     'inspection_inv_uom_qty' => $toBase($row['insp']),
-                    'accepted_inv_uom_qty'   => $toBase($row['acc']),
-                    'rejected_inv_uom_qty'   => $toBase($row['rej']),
-                    'updated_at'             => $now,
+                    'accepted_inv_uom_qty' => $toBase($row['acc']),
+                    'rejected_inv_uom_qty' => $toBase($row['rej']),
+                    'updated_at' => $now,
                 ];
 
                 if ($row['insp_id']) {
                     $payload['id'] = $row['insp_id'];
-                    $updateRows[]  = $payload;
+                    $updateRows[] = $payload;
                 } else {
                     $payload['created_at'] = $now;
                     $createRows[] = $payload;
@@ -206,10 +207,17 @@ class InspectionService
                     $updateRows,
                     ['id'],
                     [
-                        'batch_number','manufacturing_year','expiry_date',
-                        'quantity','inspection_qty','accepted_qty','rejected_qty',
-                        'inventory_uom_qty','inspection_inv_uom_qty',
-                        'accepted_inv_uom_qty','rejected_inv_uom_qty',
+                        'batch_number',
+                        'manufacturing_year',
+                        'expiry_date',
+                        'quantity',
+                        'inspection_qty',
+                        'accepted_qty',
+                        'rejected_qty',
+                        'inventory_uom_qty',
+                        'inspection_inv_uom_qty',
+                        'accepted_inv_uom_qty',
+                        'rejected_inv_uom_qty',
                         'updated_at'
                     ]
                 );
@@ -217,13 +225,13 @@ class InspectionService
 
             // ---------- reflect deltas into MRN (atomic math; no transaction) ----------
             foreach ($deltaByMrn as $mrnId => $d) {
-                $Δinsp    = (float) $d['insp'];      // may be negative
+                $Δinsp = (float) $d['insp'];      // may be negative
                 $ΔinspInv = (float) $d['insp_inv'];
 
                 MrnBatchDetail::where('id', $mrnId)->update([
-                    'inspection_qty'         => DB::raw('GREATEST(0, IFNULL(inspection_qty,0) + ' . $Δinsp    . ')'),
+                    'inspection_qty' => DB::raw('GREATEST(0, IFNULL(inspection_qty,0) + ' . $Δinsp . ')'),
                     'inspection_inv_uom_qty' => DB::raw('GREATEST(0, IFNULL(inspection_inv_uom_qty,0) + ' . $ΔinspInv . ')'),
-                    'updated_at'             => $now,
+                    'updated_at' => $now,
                 ]);
             }
 
@@ -243,22 +251,23 @@ class InspectionService
                 return self::successResponse('No item checklists to save.');
             }
 
-            $now         = now();
-            $insertRows  = [];
-            $updateRows  = [];
+            $now = now();
+            $insertRows = [];
+            $updateRows = [];
 
             foreach ($itemChecklists as $val) {
                 // normalize inputs
                 $row = [
-                    'header_id'           => $inspection->id,
-                    'detail_id'           => $inspectionDetail->id,
-                    'item_id'             => $inspectionDetail->item_id,
-                    'checklist_id'        => Arr::get($val, 'checkList_id'),
-                    'checklist_name'      => Arr::get($val, 'checkList_name'),
+                    'header_id' => $inspection->id,
+                    'detail_id' => $inspectionDetail->id,
+                    'item_id' => $inspectionDetail->item_id,
+                    'checklist_id' => Arr::get($val, 'checkList_id'),
+                    'checklist_name' => Arr::get($val, 'checkList_name'),
                     'checklist_detail_id' => Arr::get($val, 'detail_id'),
-                    'name'                => Arr::get($val, 'parameter_name'),
-                    'value'               => Arr::get($val, 'parameter_value'),
-                    'result'              => Arr::get($val, 'result'),
+                    'name' => Arr::get($val, 'parameter_name'),
+                    'description' => Arr::get($val, 'parameter_description'),
+                    'value' => Arr::get($val, 'parameter_value'),
+                    'result' => Arr::get($val, 'result'),
                 ];
 
                 $id = Arr::get($val, 'insp_checklist_id');
@@ -266,7 +275,7 @@ class InspectionService
                 if ($id) {
                     // UPDATE path
                     $updateRows[] = array_merge($row, [
-                        'id'         => (int) $id,
+                        'id' => (int) $id,
                         'updated_at' => $now,
                     ]);
                 } else {
@@ -297,6 +306,7 @@ class InspectionService
                         'checklist_name',
                         'checklist_detail_id',
                         'name',
+                        'description',
                         'value',
                         'result',
                         'updated_at',
@@ -318,22 +328,22 @@ class InspectionService
     private static function errorResponse(string $message): array
     {
         return [
-            'status'  => 'error',
-            'code'    => 500,
+            'status' => 'error',
+            'code' => 500,
             'message' => $message,
-            'data'    => null,
+            'data' => null,
         ];
     }
 
     private static function successResponse(string $message, $data = null): array
     {
         return [
-            'status'  => 'success',
-            'code'    => 200,
+            'status' => 'success',
+            'code' => 200,
             'message' => $message,
-            'data'    => $data,
+            'data' => $data,
         ];
     }
 
-    
+
 }

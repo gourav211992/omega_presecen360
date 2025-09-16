@@ -104,10 +104,10 @@ class PurchaseReturnController extends Controller
      */
     public function index()
     {
-        $parentUrl = request() -> segments()[0];
+        $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         $orderType = ConstantHelper::PURCHASE_RETURN_SERVICE_ALIAS;
-        request() -> merge(['type' => $orderType]);
+        request()->merge(['type' => $orderType]);
         if (request()->ajax()) {
             $user = Helper::getAuthenticatedUser();
             $organization = Organization::where('id', $user->organization_id)->first();
@@ -121,10 +121,10 @@ class PurchaseReturnController extends Controller
                     'currency'
                 ]
             )
-            ->withDefaultGroupCompanyOrg()
-            ->withDraftListingLogic()
-            ->bookViewAccess($parentUrl)
-            ->latest();
+                ->withDefaultGroupCompanyOrg()
+                ->withDraftListingLogic()
+                ->bookViewAccess($parentUrl)
+                ->latest();
             return DataTables::of($records)
                 ->addIndexColumn()
                 ->editColumn('document_status', function ($row) {
@@ -198,7 +198,7 @@ class PurchaseReturnController extends Controller
                 ->make(true);
         }
         return view('procurement.purchase-return.index', [
-            'servicesBooks'=>$servicesBooks,
+            'servicesBooks' => $servicesBooks,
         ]);
     }
 
@@ -215,7 +215,7 @@ class PurchaseReturnController extends Controller
             return redirect()->back();
         }
         $serviceAlias = $servicesBooks['services'][0]->alias ?? ConstantHelper::PURCHASE_RETURN_SERVICE_ALIAS;
-        $books = Helper::getBookSeriesNew($serviceAlias,$parentUrl)->get();
+        $books = Helper::getBookSeriesNew($serviceAlias, $parentUrl)->get();
         $vendors = Vendor::where('status', ConstantHelper::ACTIVE)
             ->withDefaultGroupCompanyOrg()
             ->get();
@@ -232,8 +232,8 @@ class PurchaseReturnController extends Controller
         return view('procurement.purchase-return.create', [
             'books' => $books,
             'vendors' => $vendors,
-            'locations' =>$locations,
-            'servicesBooks'=>$servicesBooks,
+            'locations' => $locations,
+            'servicesBooks' => $servicesBooks,
             'materialReceipts' => $materialReceipts,
             'transportationModes' => $transportationModes
         ]);
@@ -386,9 +386,8 @@ class PurchaseReturnController extends Controller
                 $shippingAddress->save();
             }
             # Store location address
-            if($pb?->erpStore)
-            {
-                $storeAddress  = $pb?->erpStore->address;
+            if ($pb?->erpStore) {
+                $storeAddress = $pb?->erpStore->address;
                 $storeLocation = $pb->store_address()->firstOrNew();
                 $storeLocation->fill([
                     'type' => 'location',
@@ -402,7 +401,7 @@ class PurchaseReturnController extends Controller
                 ]);
                 $storeLocation->save();
             }
-            $pb -> gst_invoice_type = EInvoiceHelper::getGstInvoiceType($request -> vendor_id, $billingAddress -> country_id, $storeLocation -> country_id, 'vendor');
+            $pb->gst_invoice_type = EInvoiceHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
 
             $totalItemValue = 0.00;
             $totalTaxValue = 0.00;
@@ -443,7 +442,7 @@ class PurchaseReturnController extends Controller
                             $inputQty = floatval($component['accepted_qty']);
 
                             $isRejected = $pb->qty_return_type === 'rejected';
-                            $mrnQty      = $isRejected ? $mrnDetail->rejected_qty : $mrnDetail->accepted_qty;
+                            $mrnQty = $isRejected ? $mrnDetail->rejected_qty : $mrnDetail->accepted_qty;
                             $processedQty = $isRejected ? ($mrnDetail->pr_rejected_qty ?? 0.00) : ($mrnDetail->pr_qty ?? 0.00);
 
                             $balanceQty = $mrnQty - $processedQty;
@@ -471,8 +470,8 @@ class PurchaseReturnController extends Controller
                     $inventoryUom = Unit::find($item->uom_id ?? null);
                     $inventory_uom_id = $inventoryUom->id;
                     $inventory_uom_code = $inventoryUom->name;
-                    if(@$component['uom_id'] == $item->uom_id) {
-                        $inventory_uom_qty = floatval($component['accepted_qty']) ?? 0.00 ;
+                    if (@$component['uom_id'] == $item->uom_id) {
+                        $inventory_uom_qty = floatval($component['accepted_qty']) ?? 0.00;
                     } else {
                         $alUom = $item->alternateUOMs()->where('uom_id', $component['uom_id'])->first();
                         if ($alUom) {
@@ -497,7 +496,7 @@ class PurchaseReturnController extends Controller
                         'item_code' => $component['item_code'] ?? null,
                         'hsn_id' => $component['hsn_id'] ?? null,
                         'hsn_code' => $component['hsn_code'] ?? null,
-                        'uom_id' =>  $component['uom_id'] ?? null,
+                        'uom_id' => $component['uom_id'] ?? null,
                         'uom_code' => $uom->name ?? null,
                         'store_id' => $pb->store_id ?? null,
                         'store_code' => $pb?->erpStore?->store_code ?? null,
@@ -675,13 +674,13 @@ class PurchaseReturnController extends Controller
                 if (isset($request->all()['exp_summary'])) {
                     foreach ($request->all()['exp_summary'] as $dis) {
                         if (isset($dis['e_amnt']) && $dis['e_amnt']) {
-                            $totalAfterTax =   $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount - $totalTax;
+                            $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount - $totalTax;
                             $ted = new PRTed;
                             $ted->header_id = $pb->id;
                             $ted->detail_id = null;
                             $ted->hsn_id = $dis['hsn_id'] ?? null;
                             $ted->tax_amount = $dis['tax_amount'] ?? 0.00;
-                            $ted->tax_breakup  =  $dis['tax_breakup'] ?? null;
+                            $ted->tax_breakup = $dis['tax_breakup'] ?? null;
                             $ted->ted_type = 'Expense';
                             $ted->ted_level = 'H';
                             $ted->ted_id = $dis['ted_e_id'] ?? null;
@@ -699,7 +698,7 @@ class PurchaseReturnController extends Controller
                 /*Update total in main header PR*/
                 $pb->total_item_amount = $itemTotalValue ?? 0.00;
                 $totalDiscValue = ($itemTotalHeaderDiscount + $itemTotalDiscount) ?? 0.00;
-                if($itemTotalValue < $totalDiscValue){
+                if ($itemTotalValue < $totalDiscValue) {
                     DB::rollBack();
                     return response()->json([
                         'message' => 'Negative value not allowed'
@@ -754,10 +753,10 @@ class PurchaseReturnController extends Controller
                 $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
                 if ($approveDocument['message']) {
                     DB::rollBack();
-                    return response() -> json([
+                    return response()->json([
                         'status' => 'error',
                         'message' => $approveDocument['message'],
-                    ],422);
+                    ], 422);
                 }
             }
 
@@ -774,9 +773,9 @@ class PurchaseReturnController extends Controller
                 $mediaFiles = $pb->uploadDocuments($request->file('attachment'), 'pb', false);
             }
             $pb->save();
-            if($pb && ($pb->items)){
+            if ($pb && ($pb->items)) {
                 $invoiceLedger = self::maintainStockLedger($pb);
-                if($invoiceLedger['status'] == 'error') {
+                if ($invoiceLedger['status'] == 'error') {
                     DB::rollBack();
                     return response()->json([
                         'message' => $invoiceLedger['message'],
@@ -786,9 +785,9 @@ class PurchaseReturnController extends Controller
             }
 
             $redirectUrl = '';
-            if(($pb->document_status == ConstantHelper::POSTED)) {
-                $gstInvoiceType = EInvoiceHelper::getGstInvoiceType($request -> vendor_id, $billingAddress -> country_id, $storeLocation -> country_id, 'vendor');
-                if ($pb -> document_status === ConstantHelper::POSTED){
+            if (($pb->document_status == ConstantHelper::POSTED)) {
+                $gstInvoiceType = EInvoiceHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
+                if ($pb->document_status === ConstantHelper::POSTED) {
                     if ($gstInvoiceType === EInvoiceHelper::B2B_INVOICE_TYPE) {
                         $data = EInvoiceHelper::saveGstIn($pb);
                         if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
@@ -800,26 +799,26 @@ class PurchaseReturnController extends Controller
                         }
                     }
                 }
-                $parentUrl = request() -> segments()[0];
-                $redirectUrl = url($parentUrl. '/' . $pb->id . '/pdf');
+                $parentUrl = request()->segments()[0];
+                $redirectUrl = url($parentUrl . '/' . $pb->id . '/pdf');
             }
-            $status = DynamicFieldHelper::saveDynamicFields(ErpPrDynamicField::class, $pb -> id, $request -> dynamic_field ?? []);
-            if ($status && !$status['status'] ) {
+            $status = DynamicFieldHelper::saveDynamicFields(ErpPrDynamicField::class, $pb->id, $request->dynamic_field ?? []);
+            if ($status && !$status['status']) {
                 DB::rollBack();
-                return response() -> json([
+                return response()->json([
                     'message' => $status['message'],
                     'error' => ''
                 ], 422);
             }
 
             // Purchase Return Summary
-            if(in_array($pb->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)){
+            if (in_array($pb->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)) {
                 // PR Purchase Summary
-                $fy = Helper::getFinancialYear($pb -> document_date);
+                $fy = Helper::getFinancialYear($pb->document_date);
                 $fyYear = ErpFinancialYear::find($fy['id']);
-                if ((int)$revisionNumber > 0) {
-                    $oldMrn = PRHeaderHistory::where('header_id', $pb -> id)
-                        -> where('revision_number', $pb -> revision_number - 1) -> first();
+                if ((int) $revisionNumber > 0) {
+                    $oldMrn = PRHeaderHistory::where('header_id', $pb->id)
+                        ->where('revision_number', $pb->revision_number - 1)->first();
                     if ($oldMrn) {
                         MrnModuleHelper::buildVendorPurchaseReturnSummary($pb, $fyYear, $oldMrn);
                     }
@@ -934,7 +933,7 @@ class PurchaseReturnController extends Controller
         $erpStores = ErpStore::withDefaultGroupCompanyOrg()
             ->orderBy('id', 'DESC')
             ->get();
-        $dynamicFieldsUI = $pb -> dynamicfieldsUi();
+        $dynamicFieldsUI = $pb->dynamicfieldsUi();
 
         return view($view, [
             'mrn' => $pb,
@@ -944,15 +943,15 @@ class PurchaseReturnController extends Controller
             'buttons' => $buttons,
             'vendors' => $vendors,
             'eInvoice' => $eInvoice,
-            'headerIds'=> $headerIds,
+            'headerIds' => $headerIds,
             'erpStores' => $erpStores,
             'locations' => $locations,
-            'orgAddress'=> $orgAddress,
-            'detailsIds'=> $detailsIds,
+            'orgAddress' => $orgAddress,
+            'detailsIds' => $detailsIds,
             'subStoreCount' => $subStoreCount,
             'totalItemValue' => $totalItemValue,
             'docStatusClass' => $docStatusClass,
-            'deliveryAddress'=> $deliveryAddress,
+            'deliveryAddress' => $deliveryAddress,
             'dynamicFieldsUI' => $dynamicFieldsUI,
             'revision_number' => $revision_number,
             'approvalHistory' => $approvalHistory,
@@ -1072,9 +1071,8 @@ class PurchaseReturnController extends Controller
                 $shippingAddress->save();
             }
             # Store location address
-            if($pb?->erpStore)
-            {
-                $storeAddress  = $pb?->erpStore->address;
+            if ($pb?->erpStore) {
+                $storeAddress = $pb?->erpStore->address;
                 $storeLocation = $pb->store_address()->firstOrNew();
                 $storeLocation->fill([
                     'type' => 'location',
@@ -1136,19 +1134,19 @@ class PurchaseReturnController extends Controller
                             ], 422);
                         }
                         if ($mrnDetail) {
-                            if($pb->qty_return_type == 'accepted'){
+                            if ($pb->qty_return_type == 'accepted') {
                                 $orderQty = floatval(@$mrnDetail->accepted_qty) ?? 0.00;
                                 $componentQty = floatval($component['accepted_qty']);
                                 $qtyDifference = $componentQty - $orderQty;
-                                if($qtyDifference) {
+                                if ($qtyDifference) {
                                     $mrnDetail->pr_qty += $qtyDifference;
                                 }
                                 // $mrnDetail->pr_qty += floatval($component['accepted_qty']);
-                            } else{
+                            } else {
                                 $orderQty = floatval(@$mrnDetail->pr_rejected_qty) ?? 0.00;
                                 $componentQty = floatval($component['accepted_qty']);
                                 $qtyDifference = $componentQty - $orderQty;
-                                if($qtyDifference) {
+                                if ($qtyDifference) {
                                     $mrnDetail->pr_rejected_qty += $qtyDifference;
                                 }
                                 // $mrnDetail->pr_rejected_qty += floatval($component['accepted_qty']);
@@ -1162,8 +1160,8 @@ class PurchaseReturnController extends Controller
                     $inventoryUom = Unit::find($item->uom_id ?? null);
                     $inventory_uom_id = $inventoryUom->id;
                     $inventory_uom_code = $inventoryUom->name;
-                    if(@$component['uom_id'] == $item->uom_id) {
-                        $inventory_uom_qty = floatval($component['accepted_qty']) ?? 0.00 ;
+                    if (@$component['uom_id'] == $item->uom_id) {
+                        $inventory_uom_qty = floatval($component['accepted_qty']) ?? 0.00;
                     } else {
                         $alUom = $item->alternateUOMs()->where('uom_id', $component['uom_id'])->first();
                         if ($alUom) {
@@ -1186,7 +1184,7 @@ class PurchaseReturnController extends Controller
                         'item_code' => $component['item_code'] ?? null,
                         'hsn_id' => $component['hsn_id'] ?? null,
                         'hsn_code' => $component['hsn_code'] ?? null,
-                        'uom_id' =>  $component['uom_id'] ?? null,
+                        'uom_id' => $component['uom_id'] ?? null,
                         'uom_code' => $uom->name ?? null,
                         'store_id' => $pb->store_id ?? null,
                         'store_code' => $pb?->erpStore?->store_code ?? null,
@@ -1253,7 +1251,7 @@ class PurchaseReturnController extends Controller
                     $pbDetail = PRDetail::find($component['pr_dtl_id'] ?? null) ?? new PRDetail;
 
                     $isNewItem = false;
-                    if(isset($pbDetail->item_id) && $pbDetail->item_id) {
+                    if (isset($pbDetail->item_id) && $pbDetail->item_id) {
                         $isNewItem = $pbDetail->item_id != ($pbItem['item_id'] ?? null);
                     }
 
@@ -1287,7 +1285,7 @@ class PurchaseReturnController extends Controller
                         PRItemAttribute::where('detail_id', $pbDetail->id)
                             ->delete();
                     }
-                    foreach($pbDetail->item->itemAttributes as $itemAttribute) {
+                    foreach ($pbDetail->item->itemAttributes as $itemAttribute) {
                         if (isset($component['attr_group_id'][$itemAttribute->attribute_group_id])) {
                             $pbAttrId = @$component['attr_group_id'][$itemAttribute->attribute_group_id]['attr_id'];
                             $pbAttrName = @$component['attr_group_id'][$itemAttribute->attribute_group_id]['attr_name'];
@@ -1381,7 +1379,7 @@ class PurchaseReturnController extends Controller
                             $ted->detail_id = null;
                             $ted->hsn_id = $dis['hsn_id'] ?? null;
                             $ted->tax_amount = $dis['tax_amount'] ?? 0.00;
-                            $ted->tax_breakup  =  $dis['tax_breakup'] ?? null;
+                            $ted->tax_breakup = $dis['tax_breakup'] ?? null;
                             $ted->ted_type = 'Expense';
                             $ted->ted_level = 'H';
                             $ted->ted_id = $dis['ted_e_id'] ?? null;
@@ -1399,7 +1397,7 @@ class PurchaseReturnController extends Controller
                 /*Update total in main header PR*/
                 $pb->total_item_amount = $itemTotalValue ?? 0.00;
                 $totalDiscValue = ($itemTotalHeaderDiscount + $itemTotalDiscount) ?? 0.00;
-                if($itemTotalValue < $totalDiscValue){
+                if ($itemTotalValue < $totalDiscValue) {
                     DB::rollBack();
                     return response()->json([
                         'message' => 'Negative value not allowed'
@@ -1414,13 +1412,13 @@ class PurchaseReturnController extends Controller
                 $pb->total_amount = $totalAmount ?? 0.00;
                 $pb->save();
             } else {
-                if($request->document_status == ConstantHelper::SUBMITTED) {
+                if ($request->document_status == ConstantHelper::SUBMITTED) {
                     DB::rollBack();
                     return response()->json([
                         'message' => 'Please add atleast one row in component table.',
                         'error' => "",
                     ], 422);
-                } else{
+                } else {
                     // No items left — reset all values
                     $pb->total_discount = 0.00;
                     $pb->taxable_amount = 0.00;
@@ -1498,9 +1496,9 @@ class PurchaseReturnController extends Controller
             }
 
             $pb->save();
-            if(($pb->items) && (count($pb->items) >= 1)){
+            if (($pb->items) && (count($pb->items) >= 1)) {
                 $invoiceLedger = self::maintainStockLedger($pb);
-                if($invoiceLedger['status'] == 'error') {
+                if ($invoiceLedger['status'] == 'error') {
                     DB::rollBack();
                     return response()->json([
                         'message' => $invoiceLedger['message'],
@@ -1510,9 +1508,9 @@ class PurchaseReturnController extends Controller
             }
 
             $redirectUrl = '';
-            if(($pb->document_status == ConstantHelper::POSTED)) {
-                $gstInvoiceType = EInvoiceHelper::getGstInvoiceType($request -> vendor_id, $shippingAddress -> country_id, $storeLocation -> country_id, 'vendor');
-                if ($pb -> document_status === ConstantHelper::POSTED){
+            if (($pb->document_status == ConstantHelper::POSTED)) {
+                $gstInvoiceType = EInvoiceHelper::getGstInvoiceType($request->vendor_id, $shippingAddress->country_id, $storeLocation->country_id, 'vendor');
+                if ($pb->document_status === ConstantHelper::POSTED) {
                     if ($gstInvoiceType === EInvoiceHelper::B2B_INVOICE_TYPE) {
                         $data = EInvoiceHelper::saveGstIn($pb);
                         if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
@@ -1524,27 +1522,27 @@ class PurchaseReturnController extends Controller
                         }
                     }
                 }
-                $parentUrl = request() -> segments()[0];
-                $redirectUrl = url($parentUrl. '/' . $pb->id . '/pdf');
+                $parentUrl = request()->segments()[0];
+                $redirectUrl = url($parentUrl . '/' . $pb->id . '/pdf');
             }
 
-            $status = DynamicFieldHelper::saveDynamicFields(ErpPrDynamicField::class, $pb -> id, $request -> dynamic_field ?? []);
-            if ($status && !$status['status'] ) {
+            $status = DynamicFieldHelper::saveDynamicFields(ErpPrDynamicField::class, $pb->id, $request->dynamic_field ?? []);
+            if ($status && !$status['status']) {
                 DB::rollBack();
-                return response() -> json([
+                return response()->json([
                     'message' => $status['message'],
                     'error' => ''
                 ], 422);
             }
 
             // Purchase Return Summary
-            if(in_array($pb->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)){
+            if (in_array($pb->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)) {
                 // PR Purchase Summary
-                $fy = Helper::getFinancialYear($pb -> document_date);
+                $fy = Helper::getFinancialYear($pb->document_date);
                 $fyYear = ErpFinancialYear::find($fy['id']);
-                if ((int)$revisionNumber > 0) {
-                    $oldMrn = PRHeaderHistory::where('header_id', $pb -> id)
-                        -> where('revision_number', $pb -> revision_number - 1) -> first();
+                if ((int) $revisionNumber > 0) {
+                    $oldMrn = PRHeaderHistory::where('header_id', $pb->id)
+                        ->where('revision_number', $pb->revision_number - 1)->first();
                     if ($oldMrn) {
                         MrnModuleHelper::buildVendorPurchaseReturnSummary($pb, $fyYear, $oldMrn);
                     }
@@ -1661,7 +1659,7 @@ class PurchaseReturnController extends Controller
             $itemAttributes = $item?->itemAttributes;
             $itemAttributeArray = $item->item_attributes_array();
         }
-        $html = view('procurement.purchase-return.partials.comp-attribute', compact('item', 'attributeGroups', 'rowCount', 'selectedAttr','itemAttributes'))->render();
+        $html = view('procurement.purchase-return.partials.comp-attribute', compact('item', 'attributeGroups', 'rowCount', 'selectedAttr', 'itemAttributes'))->render();
         $hiddenHtml = '';
         foreach ($itemAttributes as $attribute) {
             $selected = '';
@@ -1704,7 +1702,7 @@ class PurchaseReturnController extends Controller
         $location = ErpStore::find($request->location_id ?? null);
         $organization = $user->organization;
         $firstAddress = $location?->address ?? null;
-        if(!$firstAddress) {
+        if (!$firstAddress) {
             $firstAddress = $organization?->addresses->first();
         }
         if ($firstAddress) {
@@ -1714,11 +1712,11 @@ class PurchaseReturnController extends Controller
             return response()->json(['error' => 'No address found for the organization.'], 404);
         }
         $price = $request->input('price', 6000);
-        $document_date =$request->document_date ?? date('Y-m-d');
+        $document_date = $request->document_date ?? date('Y-m-d');
         $hsnId = null;
-        $item = Item::find($request -> item_id);
+        $item = Item::find($request->item_id);
         if (isset($item)) {
-            $hsnId = $item -> hsn_id;
+            $hsnId = $item->hsn_id;
         } else {
             return response()->json(['error' => 'Invalid Item'], 500);
         }
@@ -1735,7 +1733,7 @@ class PurchaseReturnController extends Controller
             $upToState = $companyStateId;
         }
         try {
-            $taxDetails = TaxHelper::calculateTax($hsnId, $price, $fromCountry, $fromState, $upToCountry, $upToState, $transactionType,$document_date);
+            $taxDetails = TaxHelper::calculateTax($hsnId, $price, $fromCountry, $fromState, $upToCountry, $upToState, $transactionType, $document_date);
             $rowCount = intval($request->rowCount) ?? 1;
             $itemPrice = floatval($request->price) ?? 0;
             $html = view('procurement.purchase-return.partials.item-tax', compact('taxDetails', 'rowCount', 'itemPrice'))->render();
@@ -1754,7 +1752,7 @@ class PurchaseReturnController extends Controller
         $typeId = $request?->typeId ?? null;
 
         $vendor = Vendor::withDefaultGroupCompanyOrg()
-        ->with(['currency:id,name', 'paymentTerms:id,name'])->find($vendorId);
+            ->with(['currency:id,name', 'paymentTerms:id,name'])->find($vendorId);
 
         $moduleTypeId = match ($type) {
             'mrn' => $typeId,
@@ -1778,29 +1776,29 @@ class PurchaseReturnController extends Controller
         $vendorAddress = match ($type) {
             'mrn' => $typeData?->latestBillingAddress() ?? $typeData?->bill_address,
             default => ErpAddress::where('addressable_id', $moduleTypeId)
-            ->where('addressable_type', Vendor::class)
-            ->latest()
-            ->first(),
+                ->where('addressable_type', Vendor::class)
+                ->latest()
+                ->first(),
         };
 
         if (!$vendorAddress) {
-            return response() -> json([
+            return response()->json([
                 'data' => array(
-                    'error_message' => 'Address not found for '. $vendor?->company_name
+                    'error_message' => 'Address not found for ' . $vendor?->company_name
                 )
             ]);
         }
         if (!isset($typeData->currency_id)) {
-            return response() -> json([
+            return response()->json([
                 'data' => array(
-                    'error_message' => 'Currency not found for '. $vendor?->company_name
+                    'error_message' => 'Currency not found for ' . $vendor?->company_name
                 )
             ]);
         }
         if (!isset($paymentTerm)) {
-            return response() -> json([
+            return response()->json([
                 'data' => array(
-                    'error_message' => 'Payment Terms not found for '. $vendor?->company_name
+                    'error_message' => 'Payment Terms not found for ' . $vendor?->company_name
                 )
             ]);
         }
@@ -1821,7 +1819,7 @@ class PurchaseReturnController extends Controller
             [
                 'data' => [
                     'status' => 200,
-                    'vendor' =>$vendor,
+                    'vendor' => $vendor,
                     'message' => 'fetched',
                     'currency' => $currency,
                     'org_address' => $orgAddress,
@@ -1837,53 +1835,53 @@ class PurchaseReturnController extends Controller
     public function getAddress1(Request $request)
     {
         $vendor = Vendor::withDefaultGroupCompanyOrg()
-        ->with(['currency:id,name', 'paymentTerms:id,name'])->find($request->id);
+            ->with(['currency:id,name', 'paymentTerms:id,name'])->find($request->id);
         $currency = $vendor->currency;
         $paymentTerm = $vendor->paymentTerms;
-        $shipping = $vendor->addresses()->where(function($query) {
-                        $query->where('type', 'shipping')->orWhere('type', 'both');
-                    })->latest()->first();
-        $billing = $vendor->addresses()->where(function($query) {
-                    $query->where('type', 'billing')->orWhere('type', 'both');
-                })->latest()->first();
+        $shipping = $vendor->addresses()->where(function ($query) {
+            $query->where('type', 'shipping')->orWhere('type', 'both');
+        })->latest()->first();
+        $billing = $vendor->addresses()->where(function ($query) {
+            $query->where('type', 'billing')->orWhere('type', 'both');
+        })->latest()->first();
 
         $vendorId = $vendor->id;
         $documentDate = $request->document_date;
-        $billingAddresses = ErpAddress::where('addressable_id', $vendorId) -> where('addressable_type', Vendor::class) -> whereIn('type', ['billing', 'both'])-> get();
-        $shippingAddresses = ErpAddress::where('addressable_id', $vendorId) -> where('addressable_type', Vendor::class) -> whereIn('type', ['shipping','both'])-> get();
+        $billingAddresses = ErpAddress::where('addressable_id', $vendorId)->where('addressable_type', Vendor::class)->whereIn('type', ['billing', 'both'])->get();
+        $shippingAddresses = ErpAddress::where('addressable_id', $vendorId)->where('addressable_type', Vendor::class)->whereIn('type', ['shipping', 'both'])->get();
         foreach ($billingAddresses as $billingAddress) {
-            $billingAddress -> value = $billingAddress -> id;
-            $billingAddress -> label = $billingAddress -> display_address;
+            $billingAddress->value = $billingAddress->id;
+            $billingAddress->label = $billingAddress->display_address;
         }
         foreach ($shippingAddresses as $shippingAddress) {
-            $shippingAddress -> value = $shippingAddress -> id;
-            $shippingAddress -> label = $shippingAddress -> display_address;
+            $shippingAddress->value = $shippingAddress->id;
+            $shippingAddress->label = $shippingAddress->display_address;
         }
         if (count($shippingAddresses) == 0) {
-            return response() -> json([
+            return response()->json([
                 'data' => array(
-                    'error_message' => 'Shipping Address not found for '. $vendor ?-> company_name
+                    'error_message' => 'Shipping Address not found for ' . $vendor?->company_name
                 )
             ]);
         }
         if (count($billingAddresses) == 0) {
-            return response() -> json([
+            return response()->json([
                 'data' => array(
-                    'error_message' => 'Billing Address not found for '. $vendor ?-> company_name
+                    'error_message' => 'Billing Address not found for ' . $vendor?->company_name
                 )
             ]);
         }
         if (!isset($vendor->currency_id)) {
-            return response() -> json([
+            return response()->json([
                 'data' => array(
-                    'error_message' => 'Currency not found for '. $vendor ?-> company_name
+                    'error_message' => 'Currency not found for ' . $vendor?->company_name
                 )
             ]);
         }
         if (!isset($vendor->payment_terms_id)) {
-            return response() -> json([
+            return response()->json([
                 'data' => array(
-                    'error_message' => 'Payment Terms not found for '. $vendor ?-> company_name
+                    'error_message' => 'Payment Terms not found for ' . $vendor?->company_name
                 )
             ]);
         }
@@ -1899,7 +1897,7 @@ class PurchaseReturnController extends Controller
             ->where('addressable_type', Organization::class)
             ->first();
         $orgAddress = $organizationAddress?->display_address;
-        return response()->json(['data' => ['org_address' => $orgAddress,'delivery_address' => $deliveryAddress, 'vendor' =>$vendor, 'shipping' => $shipping,'billing' => $billing, 'paymentTerm' => $paymentTerm, 'currency' => $currency, 'currency_exchange' => $currencyData], 'status' => 200, 'message' => 'fetched']);
+        return response()->json(['data' => ['org_address' => $orgAddress, 'delivery_address' => $deliveryAddress, 'vendor' => $vendor, 'shipping' => $shipping, 'billing' => $billing, 'paymentTerm' => $paymentTerm, 'currency' => $currency, 'currency_exchange' => $currencyData], 'status' => 200, 'message' => 'fetched']);
     }
 
     # Get edit address modal
@@ -2049,8 +2047,8 @@ class PurchaseReturnController extends Controller
         $remark = $request->remark ?? null;
         $mrn = MrnHeader::find($request->mrn_header_id);
         $specifications = $item?->specifications()->whereNotNull('value')->get() ?? [];
-        $totalStockData = InventoryHelper::totalInventoryAndStock($itemId, $selectedAttr,  $uomId, $storeId, $subStoreId);
-        $detailedStocks = InventoryHelper::fetchStockSummary($itemId, $selectedAttr,  $uomId, $qty, $storeId, $subStoreId);
+        $totalStockData = InventoryHelper::totalInventoryAndStock($itemId, $selectedAttr, $uomId, $storeId, $subStoreId);
+        $detailedStocks = InventoryHelper::fetchStockSummary($itemId, $selectedAttr, $uomId, $qty, $storeId, $subStoreId);
         $html = view(
             'procurement.purchase-return.partials.comp-item-detail',
             compact(
@@ -2070,7 +2068,7 @@ class PurchaseReturnController extends Controller
                 'attributes'
             )
         )
-        ->render();
+            ->render();
         $storeHtml = view('procurement.purchase-return.partials.item-location-modal', compact('detailedStocks'))->render();
         return response()->json(['data' => ['html' => $html, 'detailedStocks' => $detailedStocks], 'status' => 200, 'message' => 'fetched.']);
     }
@@ -2099,13 +2097,13 @@ class PurchaseReturnController extends Controller
         $totalExpense = $purchaseReturn->expense_amount ?? 0.00;
         $totalAmount = ($totalAfterTax + $totalExpense);
         $amountInWords = NumberHelper::convertAmountToWords($purchaseReturn->total_amount);
-        $approvedBy = Helper::getDocStatusUser(get_class($purchaseReturn), $purchaseReturn -> id, $purchaseReturn -> document_status);
+        $approvedBy = Helper::getDocStatusUser(get_class($purchaseReturn), $purchaseReturn->id, $purchaseReturn->document_status);
         // Path to your image (ensure the file exists and is accessible)
         $imagePath = public_path('assets/css/midc-logo.jpg'); // Store the image in the public directory
         $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$purchaseReturn->document_status] ?? '';
         $taxes = PRTed::where('header_id', $purchaseReturn->id)
             ->where('ted_type', 'Tax')
-            ->select('ted_type','ted_id','ted_name', 'ted_percentage', DB::raw('SUM(ted_amount) as total_amount'),DB::raw('SUM(assesment_amount) as total_assesment_amount'))
+            ->select('ted_type', 'ted_id', 'ted_name', 'ted_percentage', DB::raw('SUM(ted_amount) as total_amount'), DB::raw('SUM(assesment_amount) as total_assesment_amount'))
             ->groupBy('ted_name', 'ted_percentage')
             ->get();
         $sellerShippingAddress = $purchaseReturn->latestShippingAddress();
@@ -2120,28 +2118,29 @@ class PurchaseReturnController extends Controller
         $options->set('defaultFont', 'Helvetica');
         $dompdf = new Dompdf($options);
 
-        $html = view('pdf.purchase-return',
-        [
-            'pb' => $purchaseReturn,
-            'user' => $user,
-            'shippingAddress' => $shippingAddress,
-            'buyerAddress' => $buyerAddress,
-            'billingAddress' => $billingAddress,
-            'organization' => $organization,
-            'amountInWords' => $amountInWords,
-            'organizationAddress' => $organizationAddress,
-            'totalItemValue' => $totalItemValue,
-            'totalDiscount' => $totalDiscount,
-            'totalTaxes' => $totalTaxes,
-            'totalTaxableValue' => $totalTaxableValue,
-            'totalAfterTax' => $totalAfterTax,
-            'totalExpense' => $totalExpense,
-            'totalAmount' => $totalAmount,
-            'imagePath' => $imagePath,
-            'eInvoice' => $eInvoice,
-            'approvedBy' => $approvedBy,
-            'qrCodeBase64' => $qrCodeBase64
-        ]
+        $html = view(
+            'pdf.purchase-return',
+            [
+                'pb' => $purchaseReturn,
+                'user' => $user,
+                'shippingAddress' => $shippingAddress,
+                'buyerAddress' => $buyerAddress,
+                'billingAddress' => $billingAddress,
+                'organization' => $organization,
+                'amountInWords' => $amountInWords,
+                'organizationAddress' => $organizationAddress,
+                'totalItemValue' => $totalItemValue,
+                'totalDiscount' => $totalDiscount,
+                'totalTaxes' => $totalTaxes,
+                'totalTaxableValue' => $totalTaxableValue,
+                'totalAfterTax' => $totalAfterTax,
+                'totalExpense' => $totalExpense,
+                'totalAmount' => $totalAmount,
+                'imagePath' => $imagePath,
+                'eInvoice' => $eInvoice,
+                'approvedBy' => $approvedBy,
+                'qrCodeBase64' => $qrCodeBase64
+            ]
         )->render();
 
 
@@ -2519,13 +2518,13 @@ class PurchaseReturnController extends Controller
     private static function validateQuantityBackend($component, $refType, $returnType, $mrnHeaderId)
     {
         $inputData = [
-            'item_id'            => $component['item_id'] ?? null,
-            'mrn_header_id'      => $mrnHeaderId,
-            'mrn_detail_id'      => $component['mrn_detail_id'] ?? null,
-            'detail_id'          => $component['pr_dtl_id'] ?? null,
-            'qty'                => $component['accepted_qty'],
-            'type'               => $refType,
-            'return_type'        => $returnType,
+            'item_id' => $component['item_id'] ?? null,
+            'mrn_header_id' => $mrnHeaderId,
+            'mrn_detail_id' => $component['mrn_detail_id'] ?? null,
+            'detail_id' => $component['pr_dtl_id'] ?? null,
+            'qty' => $component['accepted_qty'],
+            'type' => $refType,
+            'return_type' => $returnType,
         ];
 
         $checkService = new PRCheckAndUpdateService();
@@ -2537,12 +2536,12 @@ class PurchaseReturnController extends Controller
     public function validateQuantity(Request $request)
     {
         $inputData = [
-            'item_id'            => $request->item_id,
-            'mrn_detail_id'      => $request->mrn_detail_id,
-            'detail_id'         => $request->pr_dtl_id,
-            'qty'                => $request->qty,
-            'type'               => $request->type,
-            'return_type'        => $request->return_type,
+            'item_id' => $request->item_id,
+            'mrn_detail_id' => $request->mrn_detail_id,
+            'detail_id' => $request->pr_dtl_id,
+            'qty' => $request->qty,
+            'type' => $request->type,
+            'return_type' => $request->return_type,
         ];
 
         $checkService = new PRCheckAndUpdateService();
@@ -2563,22 +2562,22 @@ class PurchaseReturnController extends Controller
         $availableQty = 0.00;
 
         $mrnDetail = MrnDetail::find($request->mrnDetailId);
-        if($mrnDetail){
+        if ($mrnDetail) {
             $mrnQty = ($request->returnType == 'rejected') ? $mrnDetail->rejected_qty : $mrnDetail->accepted_qty;
             $prQty = ($request->returnType == 'rejected') ? $mrnDetail->pr_rejected_qty : $mrnDetail->pr_qty;
-            if($mrnQty < $inputQty){
-                return response() -> json([
+            if ($mrnQty < $inputQty) {
+                return response()->json([
                     'data' => array(
                         'error_message' => "Qty can not be greater than mrn quantity."
                     )
                 ]);
             }
             $actualQtyDifference = ($mrnQty - $prQty);
-            if($actualQtyDifference < $inputQty){
+            if ($actualQtyDifference < $inputQty) {
                 $availableQty = $actualQtyDifference;
-                return response() -> json([
+                return response()->json([
                     'data' => array(
-                        'error_message' => "You can add ".number_format($availableQty,2)." quantity as ".number_format($prQty,2)." quantity already used in mrn. and mrn quantity is ".number_format($mrnQty,2)."."
+                        'error_message' => "You can add " . number_format($availableQty, 2) . " quantity as " . number_format($prQty, 2) . " quantity already used in mrn. and mrn quantity is " . number_format($mrnQty, 2) . "."
                     )
                 ]);
             }
@@ -2617,28 +2616,44 @@ class PurchaseReturnController extends Controller
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
                         </div>";
             })
-            ->addColumn('vendor', fn($row) =>
+            ->addColumn(
+                'vendor',
+                fn($row) =>
                 $row?->mrnHeader?->vendor?->company_name ?? 'NA'
             )
-            ->addColumn('doc_no', fn($row) =>
+            ->addColumn(
+                'doc_no',
+                fn($row) =>
                 ($row?->mrnHeader?->book?->book_code ?? 'NA') . ' - ' . ($row?->mrnHeader?->document_number ?? 'NA')
             )
-            ->addColumn('doc_date', fn($row) =>
+            ->addColumn(
+                'doc_date',
+                fn($row) =>
                 $row?->mrnHeader?->getFormattedDate('document_date') ?? ''
             )
-            ->addColumn('lot_number', fn($row) =>
+            ->addColumn(
+                'lot_number',
+                fn($row) =>
                 $row?->mrnHeader?->lot_number ?? 'NA'
             )
-            ->addColumn('item_code', fn($row) =>
+            ->addColumn(
+                'item_code',
+                fn($row) =>
                 $row?->item_code ?? 'NA'
             )
-            ->addColumn('item_name', fn($row) =>
+            ->addColumn(
+                'item_name',
+                fn($row) =>
                 $row?->item?->item_name ?? ''
             )
-            ->addColumn('attributes', fn($row) =>
+            ->addColumn(
+                'attributes',
+                fn($row) =>
                 app(\App\View\Components\PR\Attribute::class, ['row' => $row])->resolveView()->render()
             )
-            ->addColumn('order_qty', fn($row) =>
+            ->addColumn(
+                'order_qty',
+                fn($row) =>
                 number_format((float) $row?->order_qty ?? 0, 2)
             )
             ->addColumn('accepted_qty', function ($row) use ($qtyTypeRequired) {
@@ -2664,12 +2679,14 @@ class PurchaseReturnController extends Controller
                     (float) $row->available_qty ?? 0
                 );
                 $prQty = $qtyTypeRequired === 'rejected'
-                ? ((float) $row?->pr_rejected_qty ?? 0)
-                : ((float) $row?->pr_qty ?? 0);
+                    ? ((float) $row?->pr_rejected_qty ?? 0)
+                    : ((float) $row?->pr_qty ?? 0);
 
                 return number_format($convertedQty, 2);
             })
-            ->addColumn('rate', fn($row) =>
+            ->addColumn(
+                'rate',
+                fn($row) =>
                 number_format((float) $row?->rate ?? 0, 2)
             )
             ->addColumn('amount', function ($row) use ($qtyTypeRequired) {
@@ -2682,15 +2699,19 @@ class PurchaseReturnController extends Controller
                 // $prQty = $qtyTypeRequired === 'rejected'
                 //     ? ((float) $row?->pr_rejected_qty ?? 0)
                 //     : ((float) $row?->pr_qty ?? 0);
-
+    
                 // $qty = ($convertedQty - $prQty);
-
+    
                 return number_format(($convertedQty ?? 0) * ($row->rate ?? 0), 2);
             })
-            ->addColumn('uom', fn($row) =>
+            ->addColumn(
+                'uom',
+                fn($row) =>
                 $row?->uom?->name ?? ''
             )
-            ->addColumn('remark', fn($row) =>
+            ->addColumn(
+                'remark',
+                fn($row) =>
                 $row?->remark ?? ''
             )
             ->rawColumns([
@@ -2768,8 +2789,8 @@ class PurchaseReturnController extends Controller
         // Apply quantity logic
         $mrnItems->whereRaw(
             $qtyTypeRequired === 'rejected'
-                ? 'erp_mrn_details.rejected_qty > IFNULL(erp_mrn_details.pr_rejected_qty, 0)'
-                : 'erp_mrn_details.accepted_qty > IFNULL(erp_mrn_details.pr_qty, 0)'
+            ? 'erp_mrn_details.rejected_qty > IFNULL(erp_mrn_details.pr_rejected_qty, 0)'
+            : 'erp_mrn_details.accepted_qty > IFNULL(erp_mrn_details.pr_qty, 0)'
         );
 
         // Stock ledger status filter
@@ -2854,7 +2875,7 @@ class PurchaseReturnController extends Controller
             ->distinct()
             ->pluck('mrn_header_id')
             ->toArray();
-        if(count($uniqueMrnIds) > 1) {
+        if (count($uniqueMrnIds) > 1) {
             return response()->json(['data' => ['pos' => ''], 'status' => 422, 'message' => "Purchase Return can be created from one MRN at a time."]);
         }
 
@@ -2883,8 +2904,8 @@ class PurchaseReturnController extends Controller
             })
             ->whereRaw(
                 $qtyTypeRequired === 'rejected'
-                    ? 'erp_mrn_details.rejected_qty > IFNULL(erp_mrn_details.pr_rejected_qty, 0)'
-                    : 'erp_mrn_details.accepted_qty > IFNULL(erp_mrn_details.pr_qty, 0)'
+                ? 'erp_mrn_details.rejected_qty > IFNULL(erp_mrn_details.pr_rejected_qty, 0)'
+                : 'erp_mrn_details.accepted_qty > IFNULL(erp_mrn_details.pr_qty, 0)'
             )
             ->whereIn('stock_ledger.document_status', [
                 ConstantHelper::APPROVED,
@@ -3017,10 +3038,17 @@ class PurchaseReturnController extends Controller
         try {
             $mrn = PRHeader::find($request->id);
             if (isset($mrn)) {
+                if ($mrn->revision_number > 0) {
+                    \DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'You cannot revoke amended document.',
+                    ]);
+                }
                 $revoke = Helper::approveDocument($mrn->book_id, $mrn->id, $mrn->revision_number, '', [], 0, ConstantHelper::REVOKE, $mrn->total_amount, get_class($mrn));
                 if ($revoke['message']) {
                     DB::rollBack();
-                    return response() -> json([
+                    return response()->json([
                         'status' => 'error',
                         'message' => $revoke['message'],
                     ]);
@@ -3028,7 +3056,7 @@ class PurchaseReturnController extends Controller
                     $mrn->document_status = $revoke['approvalStatus'];
                     $mrn->save();
                     DB::commit();
-                    return response() -> json([
+                    return response()->json([
                         'status' => 'success',
                         'message' => 'Revoked succesfully',
                     ]);
@@ -3037,9 +3065,9 @@ class PurchaseReturnController extends Controller
                 DB::rollBack();
                 throw new ApiGenericException("No Document found");
             }
-        } catch(\Exception $ex) {
+        } catch (\Exception $ex) {
             DB::rollBack();
-            throw new ApiGenericException($ex -> getMessage());
+            throw new ApiGenericException($ex->getMessage());
         }
     }
 
@@ -3049,13 +3077,13 @@ class PurchaseReturnController extends Controller
         $user = Helper::getAuthenticatedUser();
         $detailIds = $pr->items->pluck('id')->toArray();
         $data = InventoryHelper::settlementOfInventoryAndStock($pr->id, $detailIds, ConstantHelper::PURCHASE_RETURN_SERVICE_ALIAS, $pr->document_status);
-        if($data['status'] == 'success'){
-            if(!empty($data['records'])){
+        if ($data['status'] == 'success') {
+            if (!empty($data['records'])) {
                 $itemLocations = PRItemLocation::where('header_id', $pr->id)
                     ->whereIn('detail_id', $detailIds)
                     ->delete();
 
-                foreach($data['records'] as $key => $val){
+                foreach ($data['records'] as $key => $val) {
                     $itemLocation = new PRItemLocation;
                     $itemLocation->header_id = @$val->issuedBy->document_header_id;
                     $itemLocation->detail_id = @$val->issuedBy->document_detail_id;
@@ -3078,7 +3106,7 @@ class PurchaseReturnController extends Controller
     {
         $user = Helper::getAuthenticatedUser();
 
-        try{
+        try {
             $documentHeader = PRHeader::find($request->id);
             $shippingAddress = $documentHeader->billingAddress;
             $storeAddress = $documentHeader->store_address;
@@ -3086,7 +3114,7 @@ class PurchaseReturnController extends Controller
             // $gstInvoiceType = EInvoiceHelper::getGstInvoiceType($documentHeader -> vendor_id, $shippingAddress -> country_id, $storeAddress -> country_id, 'vendor');
             // if ($gstInvoiceType === EInvoiceHelper::B2B_INVOICE_TYPE) {
             //     $data = EInvoiceHelper::saveGstIn($documentHeader);
-            $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($documentHeader -> vendor_id, $shippingAddress -> country_id, $storeAddress -> country_id, 'vendor');
+            $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($documentHeader->vendor_id, $shippingAddress->country_id, $storeAddress->country_id, 'vendor');
             if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
                 $data = MasterIndiaHelper::saveGstIn($documentHeader, $user);
                 if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
@@ -3095,24 +3123,24 @@ class PurchaseReturnController extends Controller
                         'error' => 'error',
                         'message' => $data['message'],
                     ], 500);
-                } else{
-                    return response() -> json([
+                } else {
+                    return response()->json([
                         'status' => 'success',
                         'results' => $data,
                         'message' => 'E-Invoice generated succesfully',
                     ]);
                 }
-            } else{
+            } else {
                 return response()->json([
                     'error' => 'error',
-                    'message' => 'Not valid for '.$gstInvoiceType,
+                    'message' => 'Not valid for ' . $gstInvoiceType,
                 ], 500);
             }
 
-        } catch(\Exception $ex) {
-            return response() -> json([
+        } catch (\Exception $ex) {
+            return response()->json([
                 'status' => 'error',
-                'message' => $ex -> getMessage(),
+                'message' => $ex->getMessage(),
             ]);
         }
     }
@@ -3120,7 +3148,7 @@ class PurchaseReturnController extends Controller
     // Cancel EInvoice
     public function cancelEInvoice(Request $request)
     {
-        try{
+        try {
             $user = Helper::getAuthenticatedUser();
             $organization = Organization::find($user->organization_id);
             $eInvoiceData = ErpEinvoice::find($request->eInvoice_id)->first();
@@ -3137,23 +3165,23 @@ class PurchaseReturnController extends Controller
                     'error' => 'error',
                     'message' => $data['message'],
                 ], 500);
-            } else{
+            } else {
                 $existingData = ErpEinvoice::where('irn_number', $eInvoiceData->irn_number)->first();
                 $existingData->cancel_date = date('Y-m-d H:i:s', strtotime($data['results']['CancelDate']));
                 $existingData->status = ConstantHelper::CANCELLED;
                 $existingData->save();
                 MasterIndiaHelper::generateEinvoiceHistoryLog($existingData);
-                return response() -> json([
+                return response()->json([
                     'status' => 'success',
                     'results' => $data,
                     'message' => 'E-Invoice generated succesfully',
                 ]);
             }
 
-        } catch(\Exception $ex) {
-            return response() -> json([
+        } catch (\Exception $ex) {
+            return response()->json([
                 'status' => 'error',
-                'message' => $ex -> getMessage(),
+                'message' => $ex->getMessage(),
             ]);
         }
     }
@@ -3162,7 +3190,7 @@ class PurchaseReturnController extends Controller
     {
         $user = Helper::getAuthenticatedUser();
 
-        try{
+        try {
             $documentHeader = PRHeader::find($request->id);
             $data = MasterIndiaHelper::generateEwayBill($documentHeader, $user);
             if (isset($data) && (isset($data['results']) && ($data['results']['status'] != 'Success'))) {
@@ -3171,7 +3199,7 @@ class PurchaseReturnController extends Controller
                     'error' => 'error',
                     'message' => $data['results']['message'],
                 ], 500);
-            } else{
+            } else {
                 $message = $data['results']['message'];
 
                 $originalEwbDate = $message['ewayBillDate'];
@@ -3188,17 +3216,17 @@ class PurchaseReturnController extends Controller
                     'type' => 'Direct Eway Bill'
                 ]);
                 MasterIndiaHelper::generateEinvoiceHistoryLog($documentHeader->irnDetail());
-                return response() -> json([
+                return response()->json([
                     'status' => 'success',
                     'results' => $data,
                     'message' => 'E-Way bill generated succesfully',
                 ]);
             }
 
-        } catch(\Exception $ex) {
-            return response() -> json([
+        } catch (\Exception $ex) {
+            return response()->json([
                 'status' => 'error',
-                'message' => $ex -> getMessage(),
+                'message' => $ex->getMessage(),
             ]);
         }
     }
@@ -3206,10 +3234,10 @@ class PurchaseReturnController extends Controller
     public function prMail(Request $request)
     {
         $request->validate([
-            'email_to'  => 'required|email',
+            'email_to' => 'required|email',
         ], [
             'email_to.required' => 'Recipient email is required.',
-            'email_to.email'    => 'Please enter a valid email address.',
+            'email_to.email' => 'Please enter a valid email address.',
         ]);
         $po = PRHeader::with(['vendor'])->find($request->id);
         $vendor = $po->vendor;
@@ -3224,7 +3252,7 @@ class PurchaseReturnController extends Controller
         $bcc = null;
         $attachment = $request->file('attachments') ?? null;
         $name = $vendor->company_name; // Assuming vendor is already defined
-        $viewLink = route('purchase-return.generate-pdf', ['id'=>$request->id]);
+        $viewLink = route('purchase-return.generate-pdf', ['id' => $request->id]);
         $description = <<<HTML
         <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; padding: 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-family: Arial, sans-serif;">
             <tr>
@@ -3246,15 +3274,15 @@ class PurchaseReturnController extends Controller
             </tr>
         </table>
         HTML;
-        self::sendMail($vendor,$title,$description,$cc,$bcc,$attachment,$mail_from,$mail_from_name);
+        self::sendMail($vendor, $title, $description, $cc, $bcc, $attachment, $mail_from, $mail_from_name);
     }
-    public function sendMail($receiver, $title, $description, $cc = null, $bcc= null, $attachment, $mail_from=null, $mail_from_name=null)
+    public function sendMail($receiver, $title, $description, $cc = null, $bcc = null, $attachment, $mail_from = null, $mail_from_name = null)
     {
         if (!$receiver || !isset($receiver->email)) {
             return "Error: Receiver details are missing or invalid.";
         }
-        dispatch(new SendEmailJob($receiver, $mail_from, $mail_from_name,$title,$description,$cc,$bcc, $attachment));
-        return response() -> json([
+        dispatch(new SendEmailJob($receiver, $mail_from, $mail_from_name, $title, $description, $cc, $bcc, $attachment));
+        return response()->json([
             'status' => 'success',
             'message' => 'Email request sent succesfully',
         ]);
@@ -3266,7 +3294,7 @@ class PurchaseReturnController extends Controller
     {
         $user = Helper::getAuthenticatedUser();
         $categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', null)->get();
-        $sub_categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', '!=',null)->get();
+        $sub_categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', '!=', null)->get();
         $items = Item::withDefaultGroupCompanyOrg()->get();
         $vendors = Vendor::withDefaultGroupCompanyOrg()->get();
         $employees = Employee::where('organization_id', $user->organization_id)->get();
@@ -3275,14 +3303,14 @@ class PurchaseReturnController extends Controller
             ->get();
         $attribute_groups = AttributeGroup::withDefaultGroupCompanyOrg()->get();
         $MRNHeaderIds = PRHeader::withDefaultGroupCompanyOrg()
-                            ->distinct()
-                            ->pluck('mrn_header_id');
+            ->distinct()
+            ->pluck('mrn_header_id');
         $MRNHeaders = MrnHeader::whereIn('id', $MRNHeaderIds)->get();
         $soIds = PRDetail::whereHas('header', function ($query) {
-                    $query->withDefaultGroupCompanyOrg();
-                })
-                ->distinct()
-                ->pluck('so_id');
+            $query->withDefaultGroupCompanyOrg();
+        })
+            ->distinct()
+            ->pluck('so_id');
 
         $so = ErpSaleOrder::whereIn('id', $soIds)->get();
         $statusCss = ConstantHelper::DOCUMENT_STATUS_CSS_LIST;
@@ -3306,31 +3334,36 @@ class PurchaseReturnController extends Controller
         $mAttributeValue = $request->query('m_attributeValue');
 
         $query = PRHeader::query()
-        ->withDefaultGroupCompanyOrg();
+            ->withDefaultGroupCompanyOrg();
 
         if ($mrnId) {
             $query->where('mrn_header_id', $mrnId);
         }
 
         $query->with([
-            'items' => function($query) use ($itemId, $soId, $mCategoryId, $mSubCategoryId) {
-            $query->whereHas('item', function($q) use ($itemId, $soId, $mCategoryId, $mSubCategoryId) {
-                if ($itemId) {
-                    $q->where('id', $itemId);
-                }
-                if ($soId) {
-                    $q->where('so_id', $soId);
-                }
-                if ($mCategoryId) {
-                    $q->where('category_id', $mCategoryId);
-                }
-                if ($mSubCategoryId) {
-                    $q->where('subcategory_id', $mSubCategoryId);
-                }
-            });
-        },
-        'items.item', 'items.item.category', 'items.item.subCategory', 'vendor',
-        'items.so', 'mrn']);
+            'items' => function ($query) use ($itemId, $soId, $mCategoryId, $mSubCategoryId) {
+                $query->whereHas('item', function ($q) use ($itemId, $soId, $mCategoryId, $mSubCategoryId) {
+                    if ($itemId) {
+                        $q->where('id', $itemId);
+                    }
+                    if ($soId) {
+                        $q->where('so_id', $soId);
+                    }
+                    if ($mCategoryId) {
+                        $q->where('category_id', $mCategoryId);
+                    }
+                    if ($mSubCategoryId) {
+                        $q->where('subcategory_id', $mSubCategoryId);
+                    }
+                });
+            },
+            'items.item',
+            'items.item.category',
+            'items.item.subCategory',
+            'vendor',
+            'items.so',
+            'mrn'
+        ]);
 
         // Date Filtering
         if (($startDate && $endDate) || $period) {
@@ -3377,7 +3410,7 @@ class PurchaseReturnController extends Controller
 
     public function addScheduler(Request $request)
     {
-        try{
+        try {
             $headers = $request->input('displayedHeaders');
             $data = $request->input('displayedData');
             $itemName = '';
@@ -3422,49 +3455,42 @@ class PurchaseReturnController extends Controller
                 $formattedendDate = $endDate->format('d-m-y');
             }
 
-            if ($request->filled('mrn_no'))
-            {
+            if ($request->filled('mrn_no')) {
                 $mrnData = MrnHeader::find($request->input('mrn_no'));
                 $mrnNo = optional($mrnData)->document_number;
             }
 
-            if ($request->filled('so_no'))
-            {
+            if ($request->filled('so_no')) {
                 $soData = ErpSaleOrder::find($request->input('so_no'));
                 $soNo = optional($soData)->document_number;
             }
 
-            if ($request->filled('status'))
-            {
+            if ($request->filled('status')) {
                 $status = $request->input('status');
             }
 
-            if ($request->filled('m_category'))
-            {
+            if ($request->filled('m_category')) {
                 $categories = Category::find($request->input('m_category'));
                 $categoryName = optional($categories)->name;
             }
 
-            if ($request->filled('m_subCategory'))
-            {
+            if ($request->filled('m_subCategory')) {
                 $subCategories = Category::find($request->input('m_subCategory'));
                 $subCategoriesName = optional($subCategories)->name;
             }
 
-            if ($request->filled('item'))
-            {
+            if ($request->filled('item')) {
                 $itemData = ErpItem::find($request->input('item'));
                 $itemName = optional($itemData)->item_name;
             }
 
-            if ($request->filled('vendor'))
-            {
+            if ($request->filled('vendor')) {
                 $vendorData = ErpVendor::find($request->input('vendor'));
                 $vendorName = optional($vendorData)->company_name;
             }
 
             $blankSpaces = count($headers) - 1;
-            $centerPosition = (int)floor($blankSpaces / 2);
+            $centerPosition = (int) floor($blankSpaces / 2);
             $filters = [
                 'Filters',
                 'Item: ' . $itemName,
@@ -3479,18 +3505,16 @@ class PurchaseReturnController extends Controller
             $fileName = 'purchase-return.xlsx';
             $filePath = storage_path('app/public/purchase-return/' . $fileName);
             $directoryPath = storage_path('app/public/purchase-return');
-            if($formattedstartDate && $formattedendDate)
-            {
+            if ($formattedstartDate && $formattedendDate) {
                 $customHeader = array_merge(
                     array_fill(0, $centerPosition, ''),
-                    ['Purchase Return Report(From '.$formattedstartDate.' to '.$formattedendDate.')' ],
+                    ['Purchase Return Report(From ' . $formattedstartDate . ' to ' . $formattedendDate . ')'],
                     array_fill(0, $blankSpaces - $centerPosition, '')
                 );
-            }
-            else{
+            } else {
                 $customHeader = array_merge(
                     array_fill(0, $centerPosition, ''),
-                    ['Purchase Return Report' ],
+                    ['Purchase Return Report'],
                     array_fill(0, $blankSpaces - $centerPosition, '')
                 );
             }
@@ -3511,12 +3535,11 @@ class PurchaseReturnController extends Controller
             $email_to = $request->email_to ?? [];
             $email_cc = $request->email_cc ?? [];
 
-            foreach($email_to as $email)
-            {
+            foreach ($email_to as $email) {
                 $user = AuthUser::where('email', $email)
-                ->where('organization_id', Helper::getAuthenticatedUser()->organization_id)
-                ->where('status', ConstantHelper::ACTIVE)
-                ->get();
+                    ->where('organization_id', Helper::getAuthenticatedUser()->organization_id)
+                    ->where('status', ConstantHelper::ACTIVE)
+                    ->get();
 
                 if ($user->isEmpty()) {
                     $user = new AuthUser();
@@ -3554,7 +3577,7 @@ class PurchaseReturnController extends Controller
                     </tr>
                 </table>
                 HTML;
-                self::sendMail($user,$title,$description,$cc,$bcc, $attachment,$mail_from,$mail_from_name);
+                self::sendMail($user, $title, $description, $cc, $bcc, $attachment, $mail_from, $mail_from_name);
             }
             return response()->json([
                 'status' => 'success',
@@ -3674,22 +3697,22 @@ class PurchaseReturnController extends Controller
                 $reportRow->document_number = $header->document_number;
                 $reportRow->document_date = $header->document_date;
                 $reportRow->mrn_no = !empty($header->mrn?->book_code) && !empty($header->mrn?->document_number)
-                                    ? $header->mrn?->book_code . ' - ' . $header->mrn?->document_number
-                                    : '';
+                    ? $header->mrn?->book_code . ' - ' . $header->mrn?->document_number
+                    : '';
                 $reportRow->ge_no = $header->gate_entry_no;
                 $reportRow->so_no = !empty($header->so?->book_code) && !empty($header->so?->document_number)
-                                    ? $header->so?->book_code . ' - ' . $header->so?->document_number
-                                    : '';
+                    ? $header->so?->book_code . ' - ' . $header->so?->document_number
+                    : '';
                 $reportRow->lot_no = $header->lot_no;
-                $reportRow->vendor_name = $header->vendor ?-> company_name;
+                $reportRow->vendor_name = $header->vendor?->company_name;
                 $reportRow->vendor_rating = null;
-                $reportRow->category_name = $prItem->item ?->category ?-> name;
-                $reportRow->sub_category_name = $prItem->item ?->category ?-> name;
-                $reportRow->item_type = $prItem->item ?->type;
+                $reportRow->category_name = $prItem->item?->category?->name;
+                $reportRow->sub_category_name = $prItem->item?->category?->name;
+                $reportRow->item_type = $prItem->item?->type;
                 $reportRow->sub_type = null;
-                $reportRow->item_name = $prItem->item ?->item_name;
-                $reportRow->item_code = $prItem->item ?->item_code;
-                $reportRow->qty_return_type = $header ->qty_return_type;
+                $reportRow->item_name = $prItem->item?->item_name;
+                $reportRow->item_code = $prItem->item?->item_code;
+                $reportRow->qty_return_type = $header->qty_return_type;
 
                 // Amount Details
                 $reportRow->receipt_qty = number_format($prItem->order_qty, 2);

@@ -572,7 +572,7 @@ class PaymentVoucherController extends Controller
                     foreach (json_decode($request->party_vouchers[$index]) as $reference) {
                         Log::error('Reference amount : ' . ($reference->amount ?? 0));
             Log::error('Reference voucher_id : ' . ($reference->voucher_id ?? 'N/A'));
-            Log::error('Reference document_type : ' . ($reference->document_type ?? 'N/A'));
+            Log::error('Reference document_type : ' . ($request->document_type ?? 'N/A'));
 
                         $blnc = self::getVoucherBalance($reference->amount, $reference->voucher_id, $request->document_type, $details->ledger_id, $details->ledger_group_id);
                         if ($blnc < 0) {

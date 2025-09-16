@@ -300,11 +300,10 @@ class MoController extends Controller
                                     $pwoStation->mo_product_qty += $moProdDetail->qty;
                                     $pwoStation->mo_id = $mo->id;
                                     $pwoStation->save();
-                                } else {
+                                }
                                     $moProdDetail->pwoMapping->mo_id = $mo->id;
                                     $moProdDetail->pwoMapping->mo_product_qty += $moProdDetail->qty;
-                                    $moProdDetail->pwoMapping->save();
-                                }
+                                    $moProdDetail->pwoMapping->save();   
                             }
 
                             # Mo Item Store
@@ -462,11 +461,6 @@ class MoController extends Controller
                 $mo->save();
             }
 
-            foreach($request->all()['components'] as $component){
-                $pwoMapping=PwoSoMapping::whereId($component['pwo_mapping_id'])->first();
-                $pwoMapping->mo_product_qty+=$component['qty'];
-                $pwoMapping->save();
-            }
             DB::commit();
             return response()->json([
                 'message' => 'Record created successfully',

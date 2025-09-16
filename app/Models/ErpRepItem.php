@@ -36,6 +36,7 @@ class ErpRepItem extends Model
         'rejuvenate_item_name',
         'rejuvenate_item_attributes',
         'repair_remarks',
+        'repair_qc_remarks',
     ];
 
      // Relations

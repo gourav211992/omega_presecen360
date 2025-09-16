@@ -22,6 +22,7 @@ use App\Models\Item;
 use App\Models\ErpRepMedia;
 use Illuminate\Support\Facades\DB;
 use App\Exceptions\ApiGenericException;
+use Illuminate\Support\Str;
 
 class RepairOrderJobController extends Controller
 {
@@ -181,7 +182,7 @@ class RepairOrderJobController extends Controller
 
             $scannedItems = ErpItemUniqueCode::where('job_id', $job_id)
                 ->where('status', 'scanned')
-                ->orderBy('id', 'desc')
+                ->orderBy('updated_at', 'desc')
                 ->paginate(CommonHelper::PAGE_LENGTH_10);
 
             $formattedScannedItems = $scannedItems->map(function ($uniqueCode) use ($repairOrder) {
@@ -196,17 +197,15 @@ class RepairOrderJobController extends Controller
                 }
 
                 $repItem = ErpRepItem::where('repair_order_id', $repairOrder->id)
-                    ->where('rgr_job_detail_id', $uniqueCode->id)
-                    ->first();
+                 ->first();
 
                 $defectDetails = [];
-
                 if ($repItem) {
                     $segregation = ErpRgrItemSegregation::where('rgr_id', $repairOrder->rgr_id)
                         ->where('rgr_item_id', $repItem->rgr_item_id)
-                        ->where('job_item_id', $uniqueCode->id)
+                        ->where('job_item_id', $repItem->rgr_job_detail_id)
                         ->first();
-
+    
                     if ($segregation) {
                         $defectDetails = [
                             'segregation_id' => $segregation->id,               
@@ -216,6 +215,11 @@ class RepairOrderJobController extends Controller
                             'remarks'         => $segregation->remarks,
                         ];
                     }
+                }
+
+                $item_image_urls = [];
+                foreach ($uniqueCode->media as $media) {  
+                     $item_image_urls[] = asset('storage/' . $media->file_name);
                 }
 
                 return [
@@ -228,6 +232,7 @@ class RepairOrderJobController extends Controller
                     'item_uid'      => $uniqueCode->item_uid ?? "",
                     'status'        => $uniqueCode->status ?? "",
                     'defect_detail' => $defectDetails ?? [],
+                    'item_image_urls' => $item_image_urls,
                 ];
             });
 
@@ -360,7 +365,7 @@ class RepairOrderJobController extends Controller
 
    public function repairAction(Request $request)
     {
-        DB::beginTransaction(); 
+        DB::beginTransaction();
         try {
             $title = $request->input('title');
             $remark = $request->input('remark');
@@ -391,6 +396,7 @@ class RepairOrderJobController extends Controller
                 throw ValidationException::withMessages(['unique_item_id' => ['Item has already been scanned.']]);
             }
 
+
             $repItem = $uniqueItem->morphable;
             if (!$repItem || !$repItem instanceof ErpRepItem) {
                 throw ValidationException::withMessages(['unique_item_id' => ['Unique item not linked to a valid repair job.']]);
@@ -400,6 +406,7 @@ class RepairOrderJobController extends Controller
             if (!$repairOrder) {
                 throw ValidationException::withMessages(['repair_order' => ['Repair order not found for this job.']]);
             }
+
 
             $repairOrder->type = $title;
             if ($title === 'send_to_vendor' && $request->vendor_id) {
@@ -419,7 +426,6 @@ class RepairOrderJobController extends Controller
                 }
             }
 
-
             if ($title === 'send_to_vendor' && $request->service_item_id) {
                 $serviceItem = Item::find($request->service_item_id);
                 if ($serviceItem) {
@@ -431,7 +437,6 @@ class RepairOrderJobController extends Controller
 
             $uniqueItem->status = 'scanned';
             $uniqueItem->save();
-
 
             if ($request->hasFile('files')) {
                 $uniqueItem->uploadDocuments($request->file('files'), 'images');
@@ -462,6 +467,46 @@ class RepairOrderJobController extends Controller
                 }
             }
 
+            if ($title === 'repair' && !$request->has('rejuvenate_item_id')) {
+                $whmJob = ErpWhmJob::find($uniqueItem->job_id);
+
+                if ($whmJob) {
+                    $newJob = $whmJob->replicate(['id', 'job_closed_at']);
+                    $newJob->type = 'repair-qc';
+                    $newJob->status = 'pending';
+                    $newJob->job_closed_at = null;
+                    $newJob->save();
+
+                    foreach ($whmJob->itemUniqueCodes as $uniqueCode) {
+                        $newUnique = $uniqueCode->replicate(['id', 'action_by', 'action_at']);
+                        $newUnique->uid = (new WhmJob())->generateUniqueUid();
+                        $newUnique->job_id = $newJob->id;
+                        $newUnique->job_type = 'repair-qc';
+                        $newUnique->status = 'pending';
+                        $newUnique->save();
+
+                        foreach ($uniqueCode->media as $media) {
+                              $newUnique->media()->create([
+                                'uuid' => (string) Str::uuid(), 
+                                'model_name' => $media->model_name,
+                                'collection_name' => $media->collection_name,
+                                'name' => $media->name,
+                                'file_name' => $media->file_name, 
+                                'mime_type' => $media->mime_type,
+                                'disk' => $media->disk,
+                                'size' => $media->size,
+                                'manipulations' => $media->manipulations,
+                                'custom_properties' => $media->custom_properties,
+                                'generated_conversions' => $media->generated_conversions,
+                                'responsive_images' => $media->responsive_images,
+                            ]);
+                        }
+                    }
+                    $repairOrder->document_status = 'approval_not_required';
+                    $repairOrder->save();
+                }
+            }
+
             DB::commit();
 
             return [
@@ -473,6 +518,7 @@ class RepairOrderJobController extends Controller
             throw new ApiGenericException($e->getMessage());
         }
     }
+
     
 }
 

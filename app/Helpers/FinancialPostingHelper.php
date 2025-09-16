@@ -101,6 +101,8 @@ class FinancialPostingHelper
     const DEPRECIATION = 'Depreciation';
     const SUPPLIER_ACCOUNT = 'Supplier';
     const TAX_ACCOUNT = 'Tax';
+    const RCM_TAX_ACCOUNT = 'RCM';
+
     const CGST_TAX_ACCOUNT = 'CGST Tax';
     const IGST_TAX_ACCOUNT = 'IGST Tax';
     const SGST_TAX_ACCOUNT = 'SGST Tax';
@@ -3425,14 +3427,14 @@ class FinancialPostingHelper
 
 
 
-        if(!isset($BankLedger)){
+        if (!isset($BankLedger)) {
             return array(
                 'status' => false,
                 'message' => 'Bank Ledger not setup',
                 'data' => []
             );
         }
-        if(!isset($BankLedgerGroup)){
+        if (!isset($BankLedgerGroup)) {
             return array(
                 'status' => false,
                 'message' => 'Bank Ledger Group not found',
@@ -5735,6 +5737,7 @@ class FinancialPostingHelper
         $postingArray = array(
             self::STOCK_ACCOUNT => [],
             self::TAX_ACCOUNT => [],
+            self::RCM_TAX_ACCOUNT => [],
             self::EXPENSE_ACCOUNT => [],
             self::DISCOUNT_ACCOUNT => [],
             self::GRIR_ACCOUNT => [],
@@ -5914,7 +5917,39 @@ class FinancialPostingHelper
                     ]);
                 }
                 //Tax for SUPPLIER ACCOUNT
-                $supplierAccountCredit += $tax->ted_amount;
+                $vendorGstAppicable = $document->vendor?->compliances?->gst_applicable ?? '0';
+                $vendorRCMAppicable = $document->vendor?->compliances?->is_rcm ?? '0';
+                if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1) {
+                    $revTaxLedgerId = $taxDetail->reverse_ledger_id ?? null; //MAKE IT DYNAMIC
+                    $revTaxLedgerGroupId = $taxDetail->reverse_ledger_group_id ?? null; //MAKE IT DYNAMIC
+                    $revTaxLedger = Ledger::find($revTaxLedgerId);
+                    $revTaxLedgerGroup = Group::find($revTaxLedgerGroupId);
+                    if (!isset($taxLedger) || !isset($taxLedgerGroup)) {
+                        $ledgerErrorStatus = self::ERROR_PREFIX . 'Reverse Tax Account not setup';
+                        break;
+                    }
+                    //Reverse Charge Mechanism - Tax Debit to Vendor
+                    $existingRevTaxLedger = array_filter($postingArray[self::RCM_TAX_ACCOUNT], function ($posting) use ($revTaxLedgerId, $revTaxLedgerGroupId) {
+                        return $posting['ledger_id'] == $revTaxLedgerId && $posting['ledger_group_id'] === $revTaxLedgerGroupId;
+                    });
+                    //Ledger found
+                    if (count($existingRevTaxLedger) > 0) {
+                        $postingArray[self::RCM_TAX_ACCOUNT][0]['debit_amount'] += $tax->ted_amount;
+                    } else { //Assign a new ledger
+                        array_push($postingArray[self::RCM_TAX_ACCOUNT], [
+                            'ledger_id' => $revTaxLedgerId,
+                            'ledger_group_id' => $revTaxLedgerGroupId,
+                            'ledger_code' => $revTaxLedger?->code,
+                            'ledger_name' => $revTaxLedger?->name,
+                            'ledger_group_code' => $revTaxLedgerGroup?->name,
+                            'credit_amount' => $tax->ted_amount,
+                            'debit_amount' => 0,
+                        ]);
+                    }
+                } else {
+                    //Normal Tax Credit to Vendor
+                    $supplierAccountCredit += $tax->ted_amount;
+                }
             }
 
             //EXPENSES
@@ -6999,7 +7034,7 @@ class FinancialPostingHelper
             $BankLedgerGroup = Group::find($BankLedgerGroupId);
         }
 
-        if(!isset($BankLedger)){
+        if (!isset($BankLedger)) {
             return array(
                 'status' => false,
                 'message' => 'Bank Ledger not setup',
@@ -7007,7 +7042,7 @@ class FinancialPostingHelper
             );
         }
 
-        if(!isset($BankLedgerGroup)){
+        if (!isset($BankLedgerGroup)) {
             return array(
                 'status' => false,
                 'message' => 'Bank Ledger Group not found',
@@ -7290,14 +7325,14 @@ class FinancialPostingHelper
             }
 
             if (!isset($BankLedger) || !isset($BankLedgerGroup)) {
-                if(!isset($BankLedger)){
+                if (!isset($BankLedger)) {
                     return array(
                         'status' => false,
                         'message' => 'Bank Ledger not setup',
                         'data' => []
                     );
                 }
-                if(!isset($BankLedgerGroup)){
+                if (!isset($BankLedgerGroup)) {
                     return array(
                         'status' => false,
                         'message' => 'Bank Ledger Group not found',
@@ -7607,15 +7642,15 @@ class FinancialPostingHelper
             $BankLedgerGroup = Group::find($BankLedgerGroupId);
         }
 
-        if(!isset($BankLedger)){
-                return array(
-                    'status' => false,
-                    'message' => 'Bank Ledger not setup',
-                    'data' => []
-                );
+        if (!isset($BankLedger)) {
+            return array(
+                'status' => false,
+                'message' => 'Bank Ledger not setup',
+                'data' => []
+            );
         }
 
-        if(!isset($BankLedgerGroup)){
+        if (!isset($BankLedgerGroup)) {
             return array(
                 'status' => false,
                 'message' => 'Bank Ledger Group not found',

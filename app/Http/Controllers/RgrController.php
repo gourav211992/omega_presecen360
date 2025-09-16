@@ -216,6 +216,7 @@ class RgrController extends Controller
 
                     $rgrItem = new ErpRgrItem;
                     $rgrItem->rgr_id = $rgr->id;
+                    $rgrItem->pickup_item_id = $itemData['pickup_item_id'];
                     $rgrItem->item_id = $itemData['item_id'];
                     $rgrItem->hsn_id = $itemData['hsn_id'] ?? null;
                     $rgrItem->category_id = $itemData['category_id'] ?? null;
@@ -426,6 +427,7 @@ class RgrController extends Controller
                         // Update existing item
                         $rgrItem = ErpRgrItem::find($itemData['id']);
                         if ($rgrItem) {
+                            $rgrItem->pickup_item_id = $itemData['pickup_item_id'];
                             $rgrItem->item_id = $itemData['item_id'];
                             $rgrItem->hsn_id = $itemData['hsn_id'] ?? null;
                             $rgrItem->category_id = $itemData['category_id'] ?? null;
@@ -461,6 +463,7 @@ class RgrController extends Controller
                         // Create a new item
                         $rgrItem = new ErpRgrItem;
                         $rgrItem->rgr_id = $rgr->id;
+                        $rgrItem->pickup_item_id = $itemData['pickup_item_id'];
                         $rgrItem->item_id = $itemData['item_id'];
                         $rgrItem->hsn_id = $itemData['hsn_id'] ?? null;
                         $rgrItem->category_id = $itemData['category_id'] ?? null;
@@ -663,6 +666,7 @@ class RgrController extends Controller
                      $erpItem = Item::with('hsn')->find($relatedItem->item_id);
 
                     $extendedPickupItems[] = [
+                        'pickup_item_id' => $relatedItem->id, 
                         'pickup_schedule_id' => $relatedItem->pickup_schedule_id, 
                         'item_id'      => $relatedItem->item_id,
                         'item_code'    => $relatedItem->item_code,

@@ -21,6 +21,7 @@ class ErpRgrStoreMapping extends Model
         'store_id',
         'sub_store_id',
         'qc_sub_store_id',
+        'staging_store_id',
         'created_by',
         'updated_by',
         'deleted_by',
@@ -36,7 +37,8 @@ class ErpRgrStoreMapping extends Model
         'category' => 'category_id',
         'store' => 'store_id',
         'subStore' => 'sub_store_id',
-        'qcSubStore' => 'qc_sub_store_id'
+        'qcSubStore' => 'qc_sub_store_id',
+        'stagingStore' => 'staging_store_id', 
     ];
 
     
@@ -73,6 +75,11 @@ class ErpRgrStoreMapping extends Model
     public function qcSubStore()
     {
         return $this->belongsTo(ErpSubStore::class, 'qc_sub_store_id');
+    }
+
+    public function stagingStore()
+    {
+        return $this->belongsTo(ErpSubStore::class, 'staging_store_id');
     }
 
       public function auth_user()

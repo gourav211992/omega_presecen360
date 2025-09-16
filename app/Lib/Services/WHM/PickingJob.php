@@ -100,6 +100,8 @@ class PickingJob
                     'item_uid' => $packet->item_uid, 
                     'trip_id' => $packet->trip_id, 
                     'storage_point_id' => Null, 
+                    'packet_no' => $packet->packet_no,
+                    'total_packets' => $packet->total_packets,
                     'type' => 'qr',
                     'qty' => 1,
                     'status' => CommonHelper::SCANNED,
