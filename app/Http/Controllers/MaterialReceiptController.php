@@ -210,7 +210,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-
+    
                         return $joReferences ?: 'N/A';
                     } elseif ($row->reference_type === 'po') {
                         // Multiple POs from related items
@@ -223,7 +223,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-
+    
                         return $joReferences ?: 'N/A';
                     } else {
                         return '';
@@ -3406,7 +3406,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-
+    
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     });
@@ -3969,7 +3969,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-
+    
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     })
@@ -4282,7 +4282,7 @@ class MaterialReceiptController extends Controller
                     ? ($request->selected_so_ids[0] ?? 'null')
                     : 'null';
                 // $disabled = ($dataExistingPo !== 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-
+    
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input so_item_checkbox' type='checkbox' name='so_item_check' value='{$row->id}' data-module='{$this->moduleType}' data-current-so='{$dataCurrentSo}' data-existing-so='{$dataExistingSo}'>
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -4683,8 +4683,7 @@ class MaterialReceiptController extends Controller
             DB::beginTransaction();
             // Asset Registration
             $existData = MrnHeader::where('id', $request->document_id)->first();
-            if($existData && ($existData->bill_to_follow != ConstantHelper::YES))
-            {
+            if ($existData && ($existData->bill_to_follow != ConstantHelper::YES)) {
                 $assetData = Helper::mrnAssetRegister($request->document_id ?? 0, ConstantHelper::MRN_SERVICE_ALIAS);
                 if ($assetData['status'] === false) {
                     DB::rollBack();
@@ -4721,6 +4720,13 @@ class MaterialReceiptController extends Controller
         try {
             $mrn = MrnHeader::find($request->id);
             if (isset($mrn)) {
+                if ($mrn->revision_number > 0) {
+                    \DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'You cannot revoke amended document.',
+                    ]);
+                }
                 $revoke = Helper::approveDocument($mrn->book_id, $mrn->id, $mrn->revision_number, '', [], 0, ConstantHelper::REVOKE, $mrn->total_amount, get_class($mrn));
                 if ($revoke['message']) {
                     \DB::rollBack();
@@ -5844,6 +5850,8 @@ class MaterialReceiptController extends Controller
     private static function processWithGateEntry($ge, $model, $item, $inputQty, $type)
     {
         $remaining = (float) $ge->accepted_qty - (float) $ge->mrn_qty;
+        $qtyDifference = (float) $ge->mrn_qty - (float) $ge->accepted_qty;
+
 
         if ($inputQty > $remaining) {
             // Your original overwrite behavior when exceeding remaining
@@ -5864,6 +5872,72 @@ class MaterialReceiptController extends Controller
         if ($data['status'] === 'error') {
             \DB::rollBack();
             return self::notFoundResponse($data['message']);
+        }
+
+        // // Back-update related
+        // $updatedAsnQty = (float) $ge->asnItem->ge_qty + (float) $qtyDifference;
+        // $updatedPoQty = (float) $ge->poItem->ge_qty + (float) $qtyDifference;
+        // $updatedJoQty = (float) $ge->joProduct->ge_qty + (float) $qtyDifference;
+        // if (($updatedAsnQty > $ge?->asnItem?->supplied_qty) || ($updatedPoQty > $ge?->poItem?->order_qty) || ($updatedJoQty > $ge?->joProduct?->order_qty)) {
+        //     \DB::rollBack();
+        //     return self::notFoundResponse('Quantity mismatch error during back-update.');
+        // }
+
+        // Back-update related
+        $qtyDifference = (float) $qtyDifference; // ensure numeric
+        $asnItem = $ge->asnItem;    // may be null
+        $poItem = $ge->poItem;     // may be null
+        $joProduct = $ge->joProduct;  // may be null
+
+        $updatedAsnQty = (float) ($ge->asnItem->ge_qty ?? 0) + $qtyDifference;
+        $updatedPoQty = (float) ($ge->poItem->ge_qty ?? 0) + $qtyDifference;
+        $updatedJoQty = (float) ($ge->joProduct->ge_qty ?? 0) + $qtyDifference;
+
+        // Small epsilon for float comparison
+        $eps = 1e-6;
+        $fmt = fn($n) => rtrim(rtrim(number_format((float) $n, 6, '.', ''), '0'), '.'); // neat formatting
+
+        // ASN validation: updatedAsnQty must not exceed asn->supplied_qty
+        if ($asnItem) {
+            $asnLimit = (float) $asnItem->supplied_qty;
+            if ($updatedAsnQty > $asnLimit + $eps) {
+                \DB::rollBack();
+                return self::notFoundResponse(
+                    'ASN quantity exceeds limit: updatedAsnQty = ' . $fmt($updatedAsnQty) .
+                    ', ASNQty = ' . $fmt($asnLimit)
+                );
+            }
+        }
+
+        // PO validation: updatedPoQty must not exceed po->order_qty
+        if ($poItem) {
+            $poLimit = (float) $poItem->order_qty;
+            if ($updatedPoQty > $poLimit + $eps) {
+                \DB::rollBack();
+                return self::notFoundResponse(
+                    'PO quantity exceeds limit: updatedPoQty = ' . $fmt($updatedPoQty) .
+                    ', PoQty = ' . $fmt($poLimit)
+                );
+            }
+        }
+
+        // JO validation: updatedJoQty must not exceed jo->order_qty
+        if ($joProduct) {
+            $joLimit = (float) $joProduct->order_qty;
+            if ($updatedJoQty > $joLimit + $eps) {
+                \DB::rollBack();
+                return self::notFoundResponse(
+                    'JO quantity exceeds limit: updatedJoQty = ' . $fmt($updatedJoQty) .
+                    ', JoQty = ' . $fmt($joLimit)
+                );
+            }
+        }
+
+        $ge?->asnItem?->increament(['ge_qty', $qtyDifference]);
+        if ($ge?->po?->reference_type === 'po') {
+            $ge?->poItem?->increament(['ge_qty', $qtyDifference]);
+        } elseif ($ge?->jo?->reference_type === 'jo') {
+            $ge?->joProduct?->increament(['ge_qty', $qtyDifference]);
         }
 
         // Update PO/JO quantities etc.

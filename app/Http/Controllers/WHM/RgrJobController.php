@@ -17,6 +17,7 @@ use App\Models\ItemAttribute;
 use App\Models\Attribute;
 use App\Models\ErpRgrItemSegregation;
 use App\Models\ErpRgrDefectType;
+use App\Models\ErpPickupItem;
 use App\Models\ErpRgrDefectTypeDetail;
 use App\Helpers\ConstantHelper;
 use App\Helpers\RGR\Constants as RGRConstants;
@@ -130,7 +131,7 @@ class RgrJobController extends Controller
             $scannedItems = ErpItemUniqueCode::where('job_id', $job_id)
                 ->with('segregation')
                 ->where('status', 'scanned')
-                ->orderBy('id', 'desc')
+                ->orderBy('updated_at', 'desc')
                 ->paginate(CommonHelper::PAGE_LENGTH_10);
 
             $formattedScannedItems = $scannedItems->map(function ($uniqueCode) {
@@ -373,42 +374,72 @@ class RgrJobController extends Controller
     }
 
 
-  public function scanItem($item_uid, $job_id)
+   public function scanItem($item_uid, $job_id)
     {
         try {
-            $uniqueItem = ErpItemUniqueCode::where('item_uid', $item_uid)->where('job_id', $job_id)->first();
+            $job = ErpWhmJob::where('id', $job_id)
+                ->where('morphable_type', ErpRgr::class)
+                ->with('morphable') 
+                ->first();
+
+            if (!$job || !$job->morphable) {
+                throw ValidationException::withMessages([
+                    'job' => ['Job or associated RGR not found.']
+                ]);
+            }
+
+            $rgr = $job->morphable;
+
+            $uniqueItem = ErpItemUniqueCode::where('item_uid', $item_uid)
+                ->where('job_id', $job_id)
+                ->first();
 
             if (!$uniqueItem) {
-                throw ValidationException::withMessages(['item' => ['Item not found.']]);
+                throw ValidationException::withMessages([
+                    'item' => ['Item not found.']
+                ]);
             }
 
             if ($uniqueItem->status === 'scanned') {
-                throw ValidationException::withMessages(['item' => ['Item already scanned.']]);
+                throw ValidationException::withMessages([
+                    'item' => ['Item already scanned.']
+                ]);
             }
 
             $attributes = [];
             if ($uniqueItem->item_attributes) {
-                if (is_string($uniqueItem->item_attributes)) {
-                    $attributes = json_decode($uniqueItem->item_attributes, true) ?? [];
-                } elseif (is_array($uniqueItem->item_attributes)) {
-                    $attributes = $uniqueItem->item_attributes;
+                $attributes = is_string($uniqueItem->item_attributes) 
+                    ? json_decode($uniqueItem->item_attributes, true) ?? [] 
+                    : (array) $uniqueItem->item_attributes;
+            }
+
+            $delivery_cancel = false;
+            $replacement_item = false;
+
+            $rgrItem = ErpRgrItem::find($uniqueItem->morphable_id);
+            if ($rgrItem && $rgrItem->pickup_item_id) {
+                $pickupItem = ErpPickupItem::find($rgrItem->pickup_item_id);
+                if ($pickupItem) {
+                    $delivery_cancel  = strtolower($pickupItem->delivery_cancelled ?? '') === 'yes';
+                    $replacement_item = strtolower($pickupItem->replacement_item ?? '') === 'yes';
                 }
             }
 
             return [
                 'message' => 'Data retrieved successfully.',
                 'data' => [
-                    'id'              => $uniqueItem->id,
-                    'item_id'         => $uniqueItem->item_id,
-                    'item_code'       => $uniqueItem->item_code,
-                    'item_name'       => $uniqueItem->item_name,
-                    'item_uid'        => $uniqueItem->item_uid,
-                    'uid'             => $uniqueItem->uid,
-                    'status'          => $uniqueItem->status,
-                    'attributes'      => $attributes,
-                    'label_status'    => true,
-                    'delivery_cancel' => false,
-                    'packing_status'  => true,
+                    'id'               => $uniqueItem->id,
+                    'item_id'          => $uniqueItem->item_id,
+                    'item_code'        => $uniqueItem->item_code,
+                    'item_name'        => $uniqueItem->item_name,
+                    'item_uid'         => $uniqueItem->item_uid,
+                    'uid'              => $uniqueItem->uid,
+                    'status'           => $uniqueItem->status,
+                    'attributes'       => $attributes,
+                    'label_status'     => true,
+                    'delivery_cancel'  => $delivery_cancel,
+                    'packing_status'   => true,
+                    'replacement_item' => $replacement_item,
                 ],
             ];
 
@@ -416,16 +447,16 @@ class RgrJobController extends Controller
             throw new ApiGenericException($e->getMessage());
         }
     }
-
-
-  public function createSegregation(Request $request)
+    public function createSegregation(Request $request)
     {
         DB::beginTransaction();
         try {
-
             $validated = $request->validate([
                 'id' => 'nullable|exists:erp_rgr_item_segregations,id',
-                'unique_item_id' => 'required|exists:erp_item_unique_codes,id',
+                'unique_item_id' => 'nullable|exists:erp_item_unique_codes,id',
+                'job_id' => 'required_without:unique_item_id|exists:erp_whm_jobs,id',
+                'item_id' => 'required_without:unique_item_id|exists:erp_items,id',
+                'item_attributes' => 'nullable|array',
                 'label_status' => 'nullable|boolean',
                 'delivery_cancel' => 'nullable|boolean',
                 'packing_status' => 'nullable|boolean',
@@ -439,57 +470,73 @@ class RgrJobController extends Controller
                 'files.*' => 'file|mimes:png,jpeg,jpg,svg,webp|max:2048',
             ]);
 
-            $uniqueItem = ErpItemUniqueCode::find($validated['unique_item_id']);
-            if (!$uniqueItem) {
-                throw ValidationException::withMessages(['unique_item_id' => ['Item not found.']]);
+            if ($request->filled('unique_item_id')) {
+                $uniqueItem = ErpItemUniqueCode::find($request->unique_item_id);
+                if (!$uniqueItem) {
+                    throw ValidationException::withMessages(['unique_item_id' => ['Item not found.']]);
+                }
+
+                if (!$request->id && $uniqueItem->status === 'scanned') {
+                    throw ValidationException::withMessages(['unique_item_id' => ['Item has already been scanned.']]);
+                }
+
+                $job = ErpWhmJob::find($uniqueItem->job_id);
+                if (!$job) {
+                    throw ValidationException::withMessages(['job' => ['Job not found for this unique item.']]);
+                }
+
+            } else {
+                $job = ErpWhmJob::where('id', $request->job_id)
+                    ->where('morphable_type', ErpRgr::class)
+                    ->first();
+                if (!$job) throw ValidationException::withMessages(['job' => ['Job not found for this item.']]);
+
+                $item = Item::find($request->item_id);
+                if (!$item) throw ValidationException::withMessages(['item_id'=>['Item not found.']]);
+
+                $rgr = ErpRgr::find($job->morphable_id);
+
+                if (!$rgr) throw ValidationException::withMessages(['job_id'=>['RGR not found for this job.']]);
+
+                $itemAttributes = $request->has('item_attributes') && is_array($request->input('item_attributes'))
+                    ? json_encode($request->input('item_attributes'), JSON_THROW_ON_ERROR)
+                    : null;
+
+                $uniqueItem = ErpItemUniqueCode::create([
+                    'job_id' => $job->id,
+                    'item_id' => $item->id,
+                    'item_code' => $item->item_code,
+                    'item_name' => $item->item_name,
+                    'item_attributes' => $itemAttributes,
+                    'status' => 'pending',
+                    'store_id' => $rgr->store_id,
+                    'book_id' => $rgr->book_id,
+                    'book_code' => $rgr->book_code,
+                    'group_id' => $rgr->group_id,
+                    'company_id' => $rgr->company_id,
+                    'organization_id' => $rgr->organization_id,
+                    'doc_no' => $rgr->document_number,
+                    'doc_date' => $rgr->document_date,
+                    'trns_type' => $job->trns_type,
+                    'job_type' => $job->type,
+                    'doc_type' => 'receipt',
+                    'type' => 'qr',
+                    'uid' => (new WhmJob())->generateUniqueUid(),
+                ]);
             }
 
-            if (!$request->id && $uniqueItem->status === 'scanned') {
-                throw ValidationException::withMessages(['unique_item_id' => ['Item has already been scanned.']]);
-            }
-
-            $job = ErpWhmJob::where('id', $uniqueItem->job_id)
-                ->where('morphable_type', ErpRgr::class)
-                ->first();
-
-            if (!$job) {
-                throw ValidationException::withMessages(['job' => ['Job not found for this item.']]);
-            }
-
+        
             $newItem = $request->new_item_id ? Item::find($request->new_item_id) : null;
 
-            // --- UPDATE existing segregation ---
-            if ($request->id) {
-                $segregation = ErpRgrItemSegregation::find($request->id);
-                if (!$segregation) {
-                    throw ValidationException::withMessages(['id' => ['Segregation not found.']]);
-                }
+            $segregation = $request->id 
+                ? ErpRgrItemSegregation::find($request->id) 
+                : ErpRgrItemSegregation::where('job_item_id', $uniqueItem->id)->first();
 
-                $segregation->update([
-                    'label_status' => $request->input('label_status', $segregation->label_status),
-                    'delivery_cancel' => $request->input('delivery_cancel', $segregation->delivery_cancel),
-                    'packing_status' => $request->input('packing_status', $segregation->packing_status),
-                    'defect_severity' => $request->input('defect_severity', $segregation->defect_severity),
-                    'defect_type' => $request->input('defect_type', $segregation->defect_type),
-                    'damage_nature' => $request->input('damage_nature', $segregation->damage_nature),
-                    'remarks' => $request->input('remarks', $segregation->remarks),
-                    'new_item_id' => $newItem?->id,
-                    'new_item_code' => $newItem?->item_code,
-                    'new_item_name' => $newItem?->item_name,
-                    'new_item_attributes' => $request->input('new_item_attributes') 
-                        ? json_encode($request->input('new_item_attributes')) 
-                        : $segregation->new_item_attributes,
-                ]);
+            $newItemAttributes = $request->has('new_item_attributes') && is_array($request->input('new_item_attributes')) 
+                ? json_encode($request->input('new_item_attributes'), JSON_THROW_ON_ERROR) 
+                : null;
 
-                $message = 'Segregation updated successfully.';
-            }
-            // --- CREATE new segregation ---
-            else {
-                $existingSegregation = ErpRgrItemSegregation::where('job_item_id', $uniqueItem->id)->first();
-                if ($existingSegregation) {
-                    throw ValidationException::withMessages(['unique_item_id' => ['Segregation for this item already exists.']]);
-                }
-
+            if (!$segregation) {
                 $segregation = ErpRgrItemSegregation::create([
                     'rgr_id' => $job->morphable_id,
                     'rgr_item_id' => $uniqueItem->morphable_id,
@@ -505,12 +552,24 @@ class RgrJobController extends Controller
                     'new_item_id' => $newItem?->id,
                     'new_item_code' => $newItem?->item_code,
                     'new_item_name' => $newItem?->item_name,
-                    'new_item_attributes' => $request->input('new_item_attributes') 
-                        ? json_encode($request->input('new_item_attributes')) 
-                        : null,
+                    'new_item_attributes' => $newItemAttributes,
                 ]);
-
                 $message = 'Segregation created successfully.';
+            } else {
+                $segregation->update([
+                    'label_status' => $request->input('label_status', $segregation->label_status),
+                    'delivery_cancel' => $request->input('delivery_cancel', $segregation->delivery_cancel),
+                    'packing_status' => $request->input('packing_status', $segregation->packing_status),
+                    'defect_severity' => $request->input('defect_severity', $segregation->defect_severity),
+                    'defect_type' => $request->input('defect_type', $segregation->defect_type),
+                    'damage_nature' => $request->input('damage_nature', $segregation->damage_nature),
+                    'remarks' => $request->input('remarks', $segregation->remarks),
+                    'new_item_id' => $newItem?->id,
+                    'new_item_code' => $newItem?->item_code,
+                    'new_item_name' => $newItem?->item_name,
+                    'new_item_attributes' => $newItemAttributes ?? $segregation->new_item_attributes,
+                ]);
+                $message = 'Segregation updated successfully.';
             }
 
             if ($request->hasFile('files')) {
@@ -524,6 +583,19 @@ class RgrJobController extends Controller
 
             return [
                 'message' => $message,
+                'data' => [
+                    'segregation_id' => $segregation->id,
+                    'unique_item' => [
+                        $uniqueItem->item_id => [
+                            'id' => $uniqueItem->id,
+                            'item_code' => $uniqueItem->item_code,
+                            'item_name' => $uniqueItem->item_name,
+                            'uid' => $uniqueItem->uid,
+                            'status' => $uniqueItem->status,
+                            'item_attributes' => $uniqueItem->item_attributes,
+                        ]
+                    ]
+                ]
             ];
 
         } catch (\Throwable $e) {
@@ -532,91 +604,33 @@ class RgrJobController extends Controller
         }
     }
 
-
-    public function storeUniqueItem(Request $request)
+    public function fetchManualItem(Request $request)
     {
-        DB::beginTransaction();
         try {
-            $user = Helper::getAuthenticatedUser();
-
             $validated = $request->validate([
-                'job_id'          => 'required|exists:erp_whm_jobs,id',
+                'job_id'          => 'required|exists:erp_whm_jobs,id',  
                 'item_id'         => 'required|exists:erp_items,id',
-                'item_code'       => 'required|string|max:50',
-                'item_name'       => 'required|string|max:199',
                 'item_attributes' => 'nullable|array',
             ]);
-
-            $job = ErpWhmJob::find($validated['job_id']);
-            if (!$job) {
-                throw ValidationException::withMessages(['job_id' => ['Job not found.']]);
-            }
-
-            $rgr = ErpRgr::find($job->morphable_id);
-            if (!$rgr) {
-                throw ValidationException::withMessages(['job_id' => ['RGR not found for this job.']]);
-            }
 
             $item = Item::find($validated['item_id']);
             if (!$item) {
                 throw ValidationException::withMessages(['item_id' => ['Item not found.']]);
             }
 
-            $uniqueItem = new ErpItemUniqueCode();
-            $uniqueItem->job_id          = $job->id;
-            $uniqueItem->item_id         = $item->id;
-            $uniqueItem->item_code       = $item->item_code;
-            $uniqueItem->item_name       = $item->item_name;
-            $uniqueItem->item_attributes = $validated['item_attributes'] ? json_encode($validated['item_attributes'], JSON_THROW_ON_ERROR) : null;
-            $uniqueItem->status          = 'pending';
-
-            $uniqueItem->store_id        = $rgr->store_id;
-            $uniqueItem->book_id         = $rgr->book_id;
-            $uniqueItem->book_code       = $rgr->book_code;
-            $uniqueItem->group_id        = $rgr->group_id;
-            $uniqueItem->company_id      = $rgr->company_id;
-            $uniqueItem->organization_id = $rgr->organization_id;
-            $uniqueItem->doc_no          = $rgr->document_number;
-            $uniqueItem->doc_date        = $rgr->document_date;
-
-            $uniqueItem->trns_type  = $job->trns_type;
-            $uniqueItem->job_type   = $job->type;
-            $uniqueItem->doc_type   = 'receipt';
-            $uniqueItem->type       = 'qr';
-            $uniqueItem->uid        = (new WhmJob())->generateUniqueUid();
-
-            $uniqueItem->save();
-
-            $attributes = [];
-            if ($uniqueItem->item_attributes) {
-                if (is_string($uniqueItem->item_attributes)) {
-                    $attributes = json_decode($uniqueItem->item_attributes, true);
-                } elseif (is_array($uniqueItem->item_attributes)) {
-                    $attributes = $uniqueItem->item_attributes;
-                }
-            }
-
-            DB::commit();
+            $attributes = $validated['item_attributes'] ?? json_decode($item->item_attributes ?? '[]', true);
 
             return [
-                'message' => 'Unique item created successfully.',
+                'message' => 'Item data retrieved successfully.',
                 'data' => [
-                    'id'             => $uniqueItem->id,
-                    'item_id'        => $uniqueItem->item_id,
-                    'item_code'      => $uniqueItem->item_code,
-                    'item_name'      => $uniqueItem->item_name,
-                    'item_uid'       => $uniqueItem->item_uid,
-                    'uid'            => $uniqueItem->uid,
-                    'status'         => $uniqueItem->status,
-                    'attributes'     => $attributes,
-                    'label_status'   => false,
-                    'delivery_cancel'=> false,
-                    'packing_status' => true,
+                    'job_id'           => $validated['job_id'],  
+                    'item_id'          => $item->id,
+                    'item_code'        => $item->item_code,
+                    'item_name'        => $item->item_name,
+                    'attributes'       => $attributes,
                 ],
             ];
-
         } catch (\Throwable $e) {
-            DB::rollBack();
             throw new ApiGenericException($e->getMessage());
         }
     }
@@ -768,6 +782,10 @@ class RgrJobController extends Controller
             ? json_decode($segregation->new_item_attributes, true) 
             : null;
 
+        $image_urls = $segregation->media->map(function($media) {
+            return asset('storage/' . $media->file_name);
+        })->toArray();
+
         return [
             'message' => 'Segregation details retrieved successfully',
             'data' => [
@@ -787,6 +805,7 @@ class RgrJobController extends Controller
                 'new_item_code'       => $segregation->new_item_code,
                 'new_item_name'       => $segregation->new_item_name,
                 'new_item_attributes' => $newItemAttributes,
+                'image_urls'          => $image_urls,
             ]
         ];
     }

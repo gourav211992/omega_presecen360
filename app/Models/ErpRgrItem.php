@@ -15,6 +15,7 @@ class ErpRgrItem extends Model
 
     protected $fillable = [
         'rgr_id',
+        'pickup_item_id', 
         'item_id',
         'hsn_id',
         'category_id',

@@ -585,8 +585,10 @@ class ErpPlController extends Controller
                             {
                                 $item->picked_qty +=$request->picked_qty[$Dkey];
                                 $item->save();
-                                $trip->picked_qty +=$request->picked_qty[$Dkey];
-                                $trip->save();
+                                if($trip){
+                                    $trip->picked_qty +=$request->picked_qty[$Dkey];
+                                    $trip->save();
+                                }
                             }
                             if (method_exists($item, 'item_attributes_array') && is_callable([$item, 'item_attributes_array'])) {
                                 $attributesArray = json_decode(json_encode($item->item_attributes_array()), true);

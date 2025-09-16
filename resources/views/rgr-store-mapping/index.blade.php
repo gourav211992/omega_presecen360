@@ -61,6 +61,7 @@
                                                                             <th>Location<span class="text-danger">*</span></th>
                                                                             <th>RGR Store<span class="text-danger">*</span></th>
                                                                             <th>QC Store</th>
+                                                                            <th>Staging Store</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody id="wipRows">
@@ -73,23 +74,27 @@
                                                                                     </div>
                                                                                 </td>
                                                                                 <td class="poprod-decpt">
-                                                                                    <input type="text" placeholder="Select Category"class="form-control mw-100 ledgerselecct mb-25 item-category-autocomplete" value="{{ $mapping->category?->name }}" data-id="{{ $mapping->category_id }}">
+                                                                                    <input type="text" placeholder="Select Category"class="form-control mw-100  mb-25 item-category-autocomplete" value="{{ $mapping->category?->name }}" data-id="{{ $mapping->category_id }}">
                                                                                     <input type="hidden" name="store_mappings[{{ $index }}][category_id]" value="{{ $mapping->category_id }}" class="category-id-hidden">
                                                                                 </td>
                                                                                <td class="poprod-decpt">
-                                                                                    <input type="text" placeholder="Select Location" class="form-control mw-100 ledgerselecct mb-25 store-autocomplete"
+                                                                                    <input type="text" placeholder="Select Location" class="form-control mw-100  mb-25 store-autocomplete"
                                                                                         value="{{ $mapping->store?->store_name ?? '' }}" data-id="{{ $mapping->store_id }}">
                                                                                     <input type="hidden" name="store_mappings[{{ $index }}][store_id]" value="{{ $mapping->store_id }}" class="store-id-hidden">
                                                                                 </td>
                                                                                 <td class="poprod-decpt">
-                                                                                    <input type="text" placeholder="Select RGR Store" class="form-control mw-100 ledgerselecct mb-25 substore-autocomplete"
+                                                                                    <input type="text" placeholder="Select RGR Store" class="form-control mw-100  mb-25 substore-autocomplete"
                                                                                         value="{{ $mapping->subStore?->name ?? '' }}" data-id="{{ $mapping->sub_store_id }}">
                                                                                     <input type="hidden" name="store_mappings[{{ $index }}][sub_store_id]" value="{{ $mapping->sub_store_id }}" class="substore-id-hidden">
                                                                                 </td>
                                                                                 <td class="poprod-decpt">
-                                                                                    <input type="text" placeholder="Select QC Store" class="form-control mw-100 ledgerselecct mb-25 qcsubstore-autocomplete"
+                                                                                    <input type="text" placeholder="Select QC Store" class="form-control mw-100  mb-25 qcsubstore-autocomplete"
                                                                                         value="{{ $mapping->qcSubStore?->name ?? '' }}" data-id="{{ $mapping->qc_sub_store_id }}">
                                                                                     <input type="hidden" name="store_mappings[{{ $index }}][qc_sub_store_id]" value="{{ $mapping->qc_sub_store_id }}" class="qcsubstore-id-hidden">
+                                                                                </td>
+                                                                                <td class="poprod-decpt">
+                                                                                    <input type="text" placeholder="Select Staging Store" class="form-control mw-100  mb-25 stagingstore-autocomplete" value="{{ $mapping->stagingStore?->name ?? '' }}" data-id="{{ $mapping->staging_store_id }}">
+                                                                                    <input type="hidden" name="store_mappings[{{ $index }}][staging_store_id]" value="{{ $mapping->staging_store_id }}" class="stagingstore-id-hidden">
                                                                                 </td>
                                                                                 <input type="hidden" name="store_mappings[{{ $index }}][id]" value="{{ $mapping->id }}">
                                                                             </tr>
@@ -124,16 +129,16 @@
                                                                                 <td class="fw-bolder text-dark">{{ $index + 1 }}</td>
                                                                                 <input type="hidden" name="damage_mappings[{{ $index }}][id]" value="{{ $existing?->id }}">
                                                                                 <td class="poprod-decpt">
-                                                                                    <input type="text" value="{{ $nature['label'] }}" disabled class="form-control mw-100 ledgerselecct mb-25" />
+                                                                                    <input type="text" value="{{ $nature['label'] }}" disabled class="form-control mw-100  mb-25" />
                                                                                     <input type="hidden" name="damage_mappings[{{ $index }}][damage_type]"  value="{{ $nature['value'] }}">
                                                                                 </td>
                                                                                <td class="poprod-decpt">
-                                                                                    <input type="text" placeholder="Select Location" class="form-control mw-100 ledgerselecct mb-25 damage-location-autocomplete" value="{{ $existing?->store?->store_name ?? '' }}" data-id="{{ $existing?->store_id }}">
+                                                                                    <input type="text" placeholder="Select Location" class="form-control mw-100  mb-25 damage-location-autocomplete" value="{{ $existing?->store?->store_name ?? '' }}" data-id="{{ $existing?->store_id }}">
                                                                                     <input type="hidden" name="damage_mappings[{{ $index }}][store_id]" value="{{ $existing?->store_id }}" class="damage-store-id-hidden">
                                                                                 </td>
 
                                                                                 <td class="poprod-decpt">
-                                                                                    <input type="text" placeholder="Select Store" class="form-control mw-100 ledgerselecct mb-25 damage-substore-autocomplete" value="{{ $existing?->subStore?->name ?? '' }}" data-id="{{ $existing?->sub_store_id }}">
+                                                                                    <input type="text" placeholder="Select Store" class="form-control mw-100  mb-25 damage-substore-autocomplete" value="{{ $existing?->subStore?->name ?? '' }}" data-id="{{ $existing?->sub_store_id }}">
                                                                                     <input type="hidden" name="damage_mappings[{{ $index }}][sub_store_id]"  value="{{ $existing?->sub_store_id }}" class="damage-substore-id-hidden">
                                                                                 </td>
                                                                             </tr>
@@ -244,6 +249,9 @@ initAutocomplete('.substore-autocomplete', "{{ route('autocomplete.substores') }
 initAutocomplete('.qcsubstore-autocomplete', "{{ route('autocomplete.substores') }}", function($input){
     return {store_id: $input.closest('tr').find('.store-autocomplete').attr('data-id')};
 });
+initAutocomplete('.stagingstore-autocomplete', "{{ route('autocomplete.substores') }}", function($input){
+    return {store_id: $input.closest('tr').find('.store-autocomplete').attr('data-id')};
+});
 
 // ------------------ DAMAGE AUTOCOMPLETE ------------------
 initAutocomplete('.damage-location-autocomplete', "{{ route('autocomplete.stores') }}");
@@ -261,20 +269,24 @@ $('#addRow').on('click', function () {
             </div>
         </td>
         <td class="poprod-decpt">
-            <input type="text" placeholder="Select Category" class="form-control mw-100 ledgerselecct mb-25 item-category-autocomplete" data-id="">
+            <input type="text" placeholder="Select Category" class="form-control mw-100  mb-25 item-category-autocomplete" data-id="">
             <input type="hidden" name="store_mappings[${wipRowIdx}][category_id]" value="" class="category-id-hidden">
         </td>
         <td class="poprod-decpt">
-            <input type="text" placeholder="Select Location" class="form-control mw-100 ledgerselecct mb-25 store-autocomplete" data-id="">
+            <input type="text" placeholder="Select Location" class="form-control mw-100 mb-25 store-autocomplete" data-id="">
             <input type="hidden" name="store_mappings[${wipRowIdx}][store_id]" value="" class="store-id-hidden">
         </td>
         <td class="poprod-decpt">
-            <input type="text" placeholder="Select RGR Store" class="form-control mw-100 ledgerselecct mb-25 substore-autocomplete" data-id="">
+            <input type="text" placeholder="Select RGR Store" class="form-control mw-100 mb-25 substore-autocomplete" data-id="">
             <input type="hidden" name="store_mappings[${wipRowIdx}][sub_store_id]" value="" class="substore-id-hidden">
         </td>
         <td class="poprod-decpt">
-            <input type="text" placeholder="Select QC Store" class="form-control mw-100 ledgerselecct mb-25 qcsubstore-autocomplete" data-id="">
+            <input type="text" placeholder="Select QC Store" class="form-control mw-100  mb-25 qcsubstore-autocomplete" data-id="">
             <input type="hidden" name="store_mappings[${wipRowIdx}][qc_sub_store_id]" value="" class="qcsubstore-id-hidden">
+        </td>
+         <td class="poprod-decpt">
+            <input type="text" placeholder="Select Staging Store" class="form-control mw-100  mb-25 stagingstore-autocomplete" data-id="">
+            <input type="hidden" name="store_mappings[${wipRowIdx}][staging_store_id]" value="" class="stagingstore-id-hidden">
         </td>
         <input type="hidden" name="store_mappings[${wipRowIdx}][id]" value="">
     </tr>`;
@@ -368,6 +380,9 @@ $(document).on('change keyup', '.store-autocomplete', function () {
 
     $row.find('.qcsubstore-autocomplete').val('').attr('data-id', '');
     $row.find('.qcsubstore-id-hidden').val('');
+    
+    $row.find('.stagingstore-autocomplete').val('').attr('data-id', '');
+    $row.find('.stagingstore-id-hidden').val('');
 });
 // ------------------ RESET DAMAGE FIELDS ON LOCATION CHANGE ------------------
 $(document).on('change keyup', '.damage-location-autocomplete', function () {

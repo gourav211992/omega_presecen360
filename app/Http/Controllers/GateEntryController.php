@@ -155,7 +155,7 @@ class GateEntryController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-
+    
                         return $joReferences ?: 'N/A';
                     } elseif ($row->reference_type === 'po') {
                         // Multiple POs from related items
@@ -168,7 +168,7 @@ class GateEntryController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-
+    
                         return $poReferences ?: 'N/A';
                     } else {
                         return '';
@@ -2442,7 +2442,7 @@ class GateEntryController extends Controller
                     : 'null';
 
                 // $disabled = ($dataExistingPo != 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-
+    
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input po_item_checkbox' type='checkbox' name='po_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-po='{$dataCurrentPo}' data-current-asn='{$dataCurrentAsn}' data-current-asn-item='{$dataCurrentAsnItem}' data-existing-po='{$dataExistingPo}' >
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -2833,7 +2833,7 @@ class GateEntryController extends Controller
                     : 'null';
 
                 // $disabled = ($dataExistingPo != 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-
+    
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input jo_item_checkbox' type='checkbox' name='jo_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-jo='{$dataCurrentJo}' data-current-asn='{$dataCurrentAsn}' data-current-asn-item='{$dataCurrentAsnItem}' data-existing-jo='{$dataExistingJo}' >
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -3208,7 +3208,7 @@ class GateEntryController extends Controller
                     : 'null';
 
                 // $disabled = ($dataExistingPo != 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-
+    
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input so_item_checkbox' type='checkbox' name='so_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-jo='{$dataCurrentJo}' data-current-asn='{$dataCurrentAsn}' data-current-asn-item='{$dataCurrentAsnItem}' data-existing-jo='{$dataExistingSo}' >
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -3573,6 +3573,13 @@ class GateEntryController extends Controller
         try {
             $mrn = GateEntryHeader::find($request->id);
             if (isset($mrn)) {
+                if ($mrn->revision_number > 0) {
+                    \DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'You cannot revoke amended document.',
+                    ]);
+                }
                 $revoke = Helper::approveDocument($mrn->book_id, $mrn->id, $mrn->revision_number, '', [], 0, ConstantHelper::REVOKE, $mrn->total_amount, get_class($mrn));
                 if ($revoke['message']) {
                     DB::rollBack();
@@ -4184,11 +4191,11 @@ class GateEntryController extends Controller
         $headerBookId = $request->header_book_id;
         $applicableBookIds = ServiceParametersHelper::getBookCodesForReferenceFromParam($headerBookId);
         if (!$applicableBookIds) {
-                return response()->json([
-                    'status' => 404,
-                    'message' => 'No Book Mapped with this Series.'
-                ]);
-            }
+            return response()->json([
+                'status' => 404,
+                'message' => 'No Book Mapped with this Series.'
+            ]);
+        }
         $asnData = VendorAsn::where('id', $asnNumber)->first();
         if (!$asnData) {
             return response()->json([
@@ -4204,22 +4211,22 @@ class GateEntryController extends Controller
             'po_item.po',
             'jo_item.jo',
         ])
-        ->where('vendor_asn_id', $asnData->id)
-        ->whereRaw('(supplied_qty > ge_qty)');
+            ->where('vendor_asn_id', $asnData->id)
+            ->whereRaw('(supplied_qty > ge_qty)');
         // ->get();
 
-        if($asnData->asn_for == 'po'){
+        if ($asnData->asn_for == 'po') {
             $asnItems = $asnItems->whereHas('po_item.po', function ($query) use ($applicableBookIds, $locationId) {
                 $query->whereIn('book_id', $applicableBookIds)
-                ->where('store_id', $locationId);
+                    ->where('store_id', $locationId);
 
             });
             $ids = $asnItems->pluck('po_item_id')->filter()->unique()->values()->toArray();
         }
-        if($asnData->asn_for == 'jo'){
+        if ($asnData->asn_for == 'jo') {
             $asnItems = $asnItems->whereHas('jo_item.jo', function ($query) use ($applicableBookIds, $locationId) {
                 $query->whereIn('book_id', $applicableBookIds)
-                ->where('store_id', $locationId);
+                    ->where('store_id', $locationId);
             });
             $ids = $asnItems->pluck('jo_prod_id')->filter()->unique()->values()->toArray();
         }

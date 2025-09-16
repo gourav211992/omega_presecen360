@@ -2167,20 +2167,41 @@ class ErpSaleOrderController extends Controller
             ->editColumn('mi_qty', function ($row) {
                 return number_format($row -> mi_qty, 2);
             })
+            ->editColumn('balance_mi_qty', function ($row) {
+                return number_format($row -> order_qty -  $row -> mi_qty, 2);
+            })
             ->editColumn('pwo_qty', function ($row) {
                 return number_format($row -> pwo_qty, 2);
+            })
+            ->editColumn('balance_pwo_qty', function ($row) {
+                return number_format($row -> order_qty - $row -> pwo_qty, 2);
             })
             ->editColumn('pslip_qty', function ($row) {
                 return number_format($row -> pslip_qty, 2);
             })
+            ->editColumn('balance_pslip_qty', function ($row) {
+                return number_format($row -> order_qty - $row -> pslip_qty, 2);
+            })
+            ->editColumn('dnote_qty', function ($row) {
+                return number_format($row -> dnote_qty, 2);
+            })
+            ->editColumn('balance_dnote_qty', function ($row) {
+                return number_format($row -> order_qty - $row -> dnote_qty, 2);
+            })
             ->editColumn('invoice_qty', function ($row) {
                 return number_format($row -> invoice_qty, 2);
+            })
+            ->editColumn('balance_invoice_qty', function ($row) {
+                return number_format($row -> dnote_qty - $row -> invoice_qty, 2);
             })
             ->editColumn('srn_qty', function ($row) {
                 return number_format($row -> srn_qty, 2);
             })
+            ->editColumn('balance_srn_qty', function ($row) {
+                return number_format($row -> invoice_qty - $row -> srn_qty, 2);
+            })
             ->editColumn('rate', function ($row) {
-                return number_format($row -> srn_qty, 2);
+                return number_format($row -> rate, 2);
             })
             ->addColumn('total_discount_amount', function ($row) {
                 return number_format($row -> header_discount_amount + $row -> item_discount_amount, 2);
@@ -2198,7 +2219,7 @@ class ErpSaleOrderController extends Controller
                 return number_format($row -> short_close_qty, 2);
             })
             ->editColumn('pending_qty', function ($row) {
-                return number_format($row -> pending_qty, 2);
+                return number_format(($row -> order_qty - ($row -> short_close_qty + $row -> dnote_qty) + $row -> srn_qty), 2);
             })
             ->addColumn('delivery_schedule', function ($row) {
                 $deliveryHtml = '';
@@ -2424,7 +2445,7 @@ class ErpSaleOrderController extends Controller
                 return number_format($row -> short_close_qty, 2);
             })
             ->editColumn('pending_qty', function ($row) {
-                return number_format(((($row -> order_qty - $row -> short_close_qty) - $row -> invoice_qty) + $row -> srn_qty), 2);
+                return number_format(((($row -> order_qty - $row -> short_close_qty) - $row -> dnote_qty) + $row -> srn_qty), 2);
             })
             ->addColumn('doc_remarks', function ($row) {
                 return $row -> header -> remarks;

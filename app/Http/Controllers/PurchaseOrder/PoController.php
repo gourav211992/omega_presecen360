@@ -340,7 +340,7 @@ class PoController extends Controller
 
         $organization = $user->organization;
         $firstAddress = $location?->address ?? null;
-        if(!$firstAddress) {
+        if (!$firstAddress) {
             $firstAddress = $organization?->addresses->first();
         }
         if ($firstAddress) {
@@ -352,9 +352,9 @@ class PoController extends Controller
         $price = $request->input('price', 6000);
         $document_date = $request->document_date ?? date('Y-m-d');
         $hsnId = null;
-        $item = Item::find($request -> item_id);
+        $item = Item::find($request->item_id);
         if (isset($item)) {
-            $hsnId = $item -> hsn_id;
+            $hsnId = $item->hsn_id;
         } else {
             return response()->json(['error' => 'Invalid Item'], 500);
         }
@@ -370,12 +370,41 @@ class PoController extends Controller
             $upToCountry = $companyCountryId;
             $upToState = $companyStateId;
         }
-        try {
 
-            $taxDetails = TaxHelper::calculateTax( $hsnId,$price,$fromCountry,$fromState,$upToCountry,$upToState,$transactionType,$document_date);
-            $rowCount = intval($request->rowCount) ?? 1;
-            $itemPrice = floatval($request->price) ?? 0;
-            $html = view('procurement.po.partials.item-tax',compact('taxDetails','rowCount','itemPrice'))->render();
+        $rowCount = intval($request->rowCount) ?? 1;
+        $itemPrice = floatval($request->price) ?? 0;
+
+        if ($request->po_id && $request->po_item_id) {
+            $taxDetails = PurchaseOrderTed::where('purchase_order_id', $request->po_id)
+                ->where('po_item_id', $request->po_item_id)
+                ->where('ted_type', 'Tax')
+                ->where('ted_level', 'D')
+                ->get()
+                ->map(function ($row) {
+                    return [
+                        "id"                => $row->ted_id,
+                        "applicability_type"=> $row->applicable_type ?? '',
+                        "tax_percentage"    => $row->ted_perc ?? '',
+                        "tax_type"          => $row->ted_type ?? '',
+                        "tax_group"         => $row?->taxDetail?->erpTax?->tax_group ?? '',
+                        "tax_id"            => $row?->taxDetail?->tax_id ?? '',
+                        "tax_code"          => $row->ted_type ?? '',
+                    ];
+                })
+                ->toArray();
+
+
+            $html = view('procurement.po.partials.item-tax', compact('taxDetails', 'rowCount', 'itemPrice'))->render();
+            return response()->json([
+                'data' => ['html' => $html, 'rowCount' => $rowCount],
+                'message' => 'fetched',
+                'status' => 200
+            ]);
+        }
+
+        try {
+            $taxDetails = TaxHelper::calculateTax($hsnId, $price, $fromCountry, $fromState, $upToCountry, $upToState, $transactionType, $document_date);
+            $html = view('procurement.po.partials.item-tax', compact('taxDetails', 'rowCount', 'itemPrice'))->render();
             return response()->json(['data' => ['html' => $html, 'rowCount' => $rowCount], 'message' => 'fetched', 'status' => 200]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -2012,12 +2041,11 @@ class PoController extends Controller
         // ✅ Taxable Value
         $totalTaxableValue = ($totalItemValue - ($totalItemDiscount + $totalHeaderDiscount));
 
-        // ✅ Get grouped tax TEDs
+        // ✅ Get grouped tax TEDs (fixed grouping)
         $taxes = PurchaseOrderTed::where('purchase_order_id', $po->id)
             ->where('ted_type', 'Tax')
             ->select(
-                'ted_type',
-                'ted_id',
+                'id',
                 'ted_name',
                 'ted_perc',
                 DB::raw('SUM(ted_amount) as total_amount'),
@@ -2025,9 +2053,10 @@ class PoController extends Controller
             )
             ->groupBy('ted_name', 'ted_perc')
             ->get();
+        
+        $taxes2 = clone $taxes;
+        $totalTaxes = $taxes2->sum('total_amount');
 
-        // ✅ Sum tax amount
-        $totalTaxes = $taxes->sum('total_amount');
 
         // ✅ After tax
         $totalAfterTax = $totalTaxableValue + $totalTaxes;
@@ -2063,49 +2092,54 @@ class PoController extends Controller
         $sellerBillingAddress  = $po->latestBillingAddress();
         $buyerAddress          = $po->latestDeliveryAddress();
 
+        // ✅ Fixed HSN summary (proper summation)
         $hsnSummary = $po->po_items->groupBy(fn($item) => $item->hsn?->code)->map(function($items, $hsn) {
-            $taxableValue = $items->sum(fn($i) => ($i->order_qty * $i->rate) - $i->item_discount_amount - $i->header_discount_amount);
-            $cgst = $items->sum(fn($i) => $i->cgst_value['value']);
-            $sgst = $items->sum(fn($i) => $i->sgst_value['value']);
-            $igst = $items->sum(fn($i) => $i->igst_value['value']);
+            $taxableValue = $items->sum(fn($i) =>
+                ($i->order_qty * $i->rate) - $i->item_discount_amount - $i->header_discount_amount
+            );
+            $cgst = $items->sum(fn($i) => floatval($i->cgst_value['value'] ?? 0));
+            $sgst = $items->sum(fn($i) => floatval($i->sgst_value['value'] ?? 0));
+            $igst = $items->sum(fn($i) => floatval($i->igst_value['value'] ?? 0));
+
             return [
-                'hsn' => $hsn,
+                'hsn'           => $hsn,
                 'taxable_value' => $taxableValue,
-                'cgst' => $cgst,
-                'sgst' => $sgst,
-                'igst' => $igst,
-                'total_tax' => $cgst + $sgst + $igst,
+                'cgst'          => $cgst,
+                'sgst'          => $sgst,
+                'igst'          => $igst,
+                'total_tax'     => $cgst + $sgst + $igst,
             ];
         });
 
         $pdf = PDF::loadView($path, [
-            'referenceText'       => $referenceText,
-            'user'                => $user,
-            'po'                  => $po,
-            'organization'        => $organization,
-            'organizationAddress' => $organizationAddress,
-            'totalItemValue'      => $totalItemValue,
-            'totalItemDiscount'   => $totalItemDiscount,
-            'totalHeaderDiscount' => $totalHeaderDiscount,
-            'totalTaxes'          => $totalTaxes,
-            'totalTaxableValue'   => $totalTaxableValue,
-            'totalAfterTax'       => $totalAfterTax,
-            'totalExpenses'       => $totalExpenses,
-            'totalAmount'         => $totalAmount,
-            'amountInWords'       => $amountInWords,
-            'imagePath'           => $imagePath,
-            'docStatusClass'      => $docStatusClass,
-            'taxes'               => $taxes,
+            'referenceText'        => $referenceText,
+            'user'                 => $user,
+            'po'                   => $po,
+            'organization'         => $organization,
+            'organizationAddress'  => $organizationAddress,
+            'totalItemValue'       => $totalItemValue,
+            'totalItemDiscount'    => $totalItemDiscount,
+            'totalHeaderDiscount'  => $totalHeaderDiscount,
+            'totalTaxes'           => $totalTaxes,
+            'totalTaxableValue'    => $totalTaxableValue,
+            'totalAfterTax'        => $totalAfterTax,
+            'totalExpenses'        => $totalExpenses,
+            'totalAmount'          => $totalAmount,
+            'amountInWords'        => $amountInWords,
+            'imagePath'            => $imagePath,
+            'docStatusClass'       => $docStatusClass,
+            'taxes'                => $taxes,
             'sellerShippingAddress'=> $sellerShippingAddress,
             'sellerBillingAddress' => $sellerBillingAddress,
-            'buyerAddress'        => $buyerAddress,
-            'hsnSummary'          => $hsnSummary,
-            'soTracking'          => $soTracking,
-            'isDifferentCurrency' => $isDifferentCurrency,
+            'buyerAddress'         => $buyerAddress,
+            'hsnSummary'           => $hsnSummary,
+            'soTracking'           => $soTracking,
+            'isDifferentCurrency'  => $isDifferentCurrency,
         ]);
 
         return $pdf->stream($fileName);
     }
+
 # Get PI Item List
     public function getPi(Request $request)
     {

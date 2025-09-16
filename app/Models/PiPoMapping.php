@@ -21,10 +21,20 @@ class PiPoMapping extends Model
     ];
 
     public $timestamps = false;
-    
+
     public function pi_item()
     {
         return $this->belongsTo(PiItem::class,'pi_item_id');
+    }
+
+    public function po()
+    {
+        return $this->belongsTo(PurchaseOrder::class,'po_id');
+    }
+
+    public function po_item()
+    {
+        return $this->belongsTo(PoItem::class,'po_item_id');
     }
 
     public function pi()

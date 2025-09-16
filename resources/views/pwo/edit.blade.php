@@ -155,7 +155,7 @@
                                     <div class="col-md-5"> 
                                         <select disabled class="form-select" id="store_id" name="store_id">
                                         @foreach($locations as $location)
-                                            <option value="{{$location->id}}" {{$bom->store_id == $location->id ? 'selected' : ''}}>{{ $location?->store_name }}</option>
+                                            <option value="{{$location->id}}" {{$bom->location_id == $location->id ? 'selected' : ''}}>{{ $location?->store_name }}</option>
                                         @endforeach 
                                     </select> 
                                     </div> 

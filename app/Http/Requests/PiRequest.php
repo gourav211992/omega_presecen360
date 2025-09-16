@@ -2,17 +2,19 @@
 
 namespace App\Http\Requests;
 
-use App\Helpers\BookHelper;
+use App\Models\Item;
+use App\Models\PiItem;
 use App\Helpers\Helper;
 use App\Models\ErpSoItem;
-use App\Models\Item;
-use App\Models\NumberPattern;
-use App\Models\PiItem;
-use App\Models\ItemAttribute;
+use App\Helpers\BookHelper;
+use App\Models\PiPoMapping;
 use App\Models\PiSoMapping;
+use App\Models\ItemAttribute;
+use App\Models\NumberPattern;
+use App\Helpers\ConstantHelper;
 use App\Models\PiSoMappingItem;
-use Illuminate\Foundation\Http\FormRequest;
 use App\Traits\ProcessesComponentJson;
+use Illuminate\Foundation\Http\FormRequest;
 
 class PiRequest extends FormRequest
 {
@@ -49,7 +51,7 @@ class PiRequest extends FormRequest
         //Requester Type
         $requesterType = @$parameters['requester_type'] ?? 'Department';
         if ($requesterType && is_array($requesterType) && count($requesterType) > 0) {
-            $this -> merge(['requester_type' => $requesterType[0]]);
+            $this->merge(['requester_type' => $requesterType[0]]);
         }
 
         $rules = [
@@ -86,21 +88,21 @@ class PiRequest extends FormRequest
                 $isPast = false;
             }
         }
-        if($isFeature && $isPast) {
+        if ($isFeature && $isPast) {
             $rules['document_date'] = "required|date";
         }
-        
+
         // Check the condition only if book_id is present
         if ($this->filled('book_id')) {
             $user = Helper::getAuthenticatedUser();
             $numPattern = NumberPattern::where('organization_id', $user->organization_id)
-                        ->where('book_id', $this->book_id)
-                        ->orderBy('id', 'DESC')
-                        ->first();
+                ->where('book_id', $this->book_id)
+                ->orderBy('id', 'DESC')
+                ->first();
 
             // Update document_number rule based on the condition
             if ($numPattern && $numPattern->series_numbering == 'Manually') {
-                if($poId) {
+                if ($poId) {
                     $rules['document_number'] = 'required|unique:erp_purchase_orders,document_number,' . $poId;
                 } else {
                     $rules['document_number'] = 'required|unique:erp_purchase_orders,document_number';
@@ -143,7 +145,6 @@ class PiRequest extends FormRequest
             'document_date.after_or_equal' => 'The document date cannot be in the past.',
             'document_date.before_or_equal' => 'The document date cannot be in the future.',
         ];
- 
     }
 
     /**
@@ -210,10 +211,10 @@ class PiRequest extends FormRequest
                 $items[] = $currentItem;
             }
         });
-        
+
 
         $piId = $this->route('id');
-        if($piId) {
+        if ($piId) {
             $validator->after(function ($validator) {
                 foreach ($this->input('components', []) as $key => $component) {
                     $piItemId = $component['pi_item_id'] ?? null;
@@ -222,66 +223,82 @@ class PiRequest extends FormRequest
                         $piItem = PiItem::with('po_items')->find($piItemId);
                         if ($piItem && $piItem->po_items->count()) {
                             $minOrderQty = $piItem->po_items->sum('order_qty');
-                            if (round($inputQty,2) < round($minOrderQty,2)) {
+                            if (round($inputQty, 2) < round($minOrderQty, 2)) {
                                 $validator->errors()->add("components.$key.qty", "Quantity can't be less than PO.");
                             }
                         }
-                    }
-                    $poSiMappingIds = PiSoMappingItem::where('pi_item_id', $piItemId)
-                                    ->pluck('pi_so_mapping_id')
-                                    ->toArray();
 
-                    if(count($poSiMappingIds)) {
-                        $avlQty = PiSoMapping::whereIn('id', $poSiMappingIds)
-                                ->sum('qty');
-                        if (round($inputQty,2) > round($avlQty,2)) {
-                            $validator->errors()->add("components.$key.qty", "Quantity can't be grater than avl Qty.");
+                        $utilizedQty = PiPoMapping::where('pi_item_id', $piItemId)
+                            ->whereHas('po', function ($q) {
+                                $q->whereIn('document_status', [
+                                    ConstantHelper::APPROVED,
+                                    ConstantHelper::APPROVAL_NOT_REQUIRED,
+                                ]);
+                            })
+                            ->sum('po_qty');
+
+                        if (round($inputQty, 2) < round($utilizedQty, 2)) {
+                            $validator->errors()->add(
+                                "components.$key.qty",
+                                "Quantity cannot be less than already utilized qty ($utilizedQty) in PO(s)."
+                            );
                         }
                     }
 
+                    $poSiMappingIds = PiSoMappingItem::where('pi_item_id', $piItemId)
+                        ->pluck('pi_so_mapping_id')
+                        ->toArray();
+
+                    if (count($poSiMappingIds)) {
+                        $avlQty = PiSoMapping::whereIn('id', $poSiMappingIds)
+                            ->sum('qty');
+                        if (round($inputQty, 2) > round($avlQty, 2)) {
+                            $validator->errors()->add("components.$key.qty", "Quantity can't be grater than avl Qty.");
+                        }
+                    }
                 }
             });
         } else {
             # Create Case
             $validator->after(function ($validator) {
                 $showAttribute = intval($this->show_attribute) ? true : false;
-                $so_item_ids = $this->so_item_ids ? explode(',',$this->so_item_ids) : [];
-                if(!$showAttribute) {
-                    $itemIds = $this->item_ids ? explode(',',$this->item_ids) : [];
+                $so_item_ids = $this->so_item_ids ? explode(',', $this->so_item_ids) : [];
+                if (!$showAttribute) {
+                    $itemIds = $this->item_ids ? explode(',', $this->item_ids) : [];
                     $so_item_ids = ErpSoItem::whereIn('sale_order_id', $so_item_ids)
-                            ->whereIn('item_id', $itemIds)
-                            ->pluck('id')
-                            ->toArray();
+                        ->whereIn('item_id', $itemIds)
+                        ->pluck('id')
+                        ->toArray();
                 }
-                if(count($so_item_ids)) {
+                if (count($so_item_ids)) {
                     foreach ($this->input('components', []) as $key => $component) {
                         $itemId = $component['item_id'] ?? null;
                         $inputQty = floatval($component['qty']) ?? 0.00;
                         $vendorId = floatval($component['vendor_id']) ?? 0.00;
                         $attributes = [];
-                        foreach($component['attr_group_id'] ?? [] as $groupId => $attrName) {
+                        foreach ($component['attr_group_id'] ?? [] as $groupId => $attrName) {
                             $itemAttr = ItemAttribute::where('attribute_group_id', $groupId)
-                                        ->where('item_id', $itemId)
-                                        ->first();
+                                ->where('item_id', $itemId)
+                                ->first();
                             $attributes[] = ['attribute_id' => $itemAttr->id, 'attribute_value' => intval($attrName['attr_name'])];
                         }
                         $qty = PiSoMapping::where('item_id', $itemId)
-                                            ->whereIn('so_item_id',$so_item_ids)
-                                            ->when($vendorId, function ($query) use ($vendorId) {
-                                                return $query->where('vendor_id', $vendorId);
-                                            })
-                                            ->whereJsonContains('attributes', $attributes)
-                                            ->sum('qty');
-                        
-                        $pi_item_qty =  PiSoMapping::where('item_id', $itemId)
-                        ->whereIn('so_item_id',$so_item_ids)
-                        ->when($vendorId, function ($query) use ($vendorId) {
-                            return $query->where('vendor_id', $vendorId);
-                        })
-                        ->whereJsonContains('attributes', $attributes)
-                        ->sum('pi_item_qty');
+                            ->whereIn('so_item_id', $so_item_ids)
+                            ->when($vendorId, function ($query) use ($vendorId) {
+                                return $query->where('vendor_id', $vendorId);
+                            })
+                            ->whereJsonContains('attributes', $attributes)
+                            ->sum('qty');
 
-                        if ($qty > 0 && round(($inputQty + $pi_item_qty), 2) > round($qty,2)) {
+                        $pi_item_qty =  PiSoMapping::where('item_id', $itemId)
+                            ->whereIn('so_item_id', $so_item_ids)
+                            ->when($vendorId, function ($query) use ($vendorId) {
+                                return $query->where('vendor_id', $vendorId);
+                            })
+                            ->whereJsonContains('attributes', $attributes)
+                            ->sum('pi_item_qty');
+
+                        if ($qty > 0 && round(($inputQty + $pi_item_qty), 2) > round($qty, 2)) {
                             $validator->errors()->add("components.$key.qty", "Quantity can't be grater than avl Qty.");
                         }
                     }

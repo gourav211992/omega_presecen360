@@ -676,6 +676,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('process-analyzed-bom-item', 'processAnalyzedBomItem')->name('process.analyzed.bom-item');
             Route::post('process-so-item-submit', 'processSoItemSubmit')->name('process.so-item.submit');
             Route::get('get-selected-department', 'getSelectedDepartment')->name('get.selected.department');
+            Route::get('check-po-consumed-qty', 'checkPoUtilizedItem')->name('check-po-consumed-qty');
             Route::get('report', 'piReport')->name('report');
             Route::get('amend', 'piAmend')->name('amend');
         });
