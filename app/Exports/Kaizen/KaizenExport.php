@@ -41,10 +41,10 @@ class KaizenExport implements FromCollection, WithHeadings, WithMapping, WithSty
             'productivity:id,description'
         ])
         ->where('organization_id', $user->organization_id)
-        ->where(function ($q) use ($user) {
-            $q->where('created_by', $user->id)
-            ->orWhere('approver_id', $user->id);
-        })
+        // ->where(function ($q) use ($user) {
+        //     $q->where('created_by', $user->id)
+        //     ->orWhere('approver_id', $user->id);
+        // })
         // ->whereBetween('created_at', [$this->fromDate, $this->toDate])
         ->get();
     }

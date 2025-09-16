@@ -405,6 +405,7 @@
                                                                 <th class="text-end">Recpt Qty</th>
                                                                 <th class="text-end">Acpt. Qty</th>
                                                                 <th class="text-end">Rej. Qty</th>
+                                                                <th class="text-end">Foc Qty</th>
                                                                 <th class="text-end" id="rateHeader">Rate</th>
                                                                 <th class="text-end">Value</th>
                                                                 <th>Discount</th>

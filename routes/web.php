@@ -1460,6 +1460,7 @@ Route::middleware(['user.auth'])->group(function () {
         ->name('document.approval.')
         ->controller(DocumentApprovalController::class)
         ->group(function () {
+            Route::post('pwo', 'pwo')->name('pwo');
             Route::post('mfgOrder', 'mfgOrder')->name('mfgOrder');
             Route::post('bom', 'bom')->name('bom');
             Route::post('saleOrder', 'saleOrder')->name('so');
@@ -1905,7 +1906,7 @@ Route::middleware(['user.auth'])->group(function () {
             // Route::post('location-listing', 'locationListing')->name('get.locations');
             // Route::post('sub-location-listing', 'subLocationListing')->name('get.sub-locations');
             // Route::post('mrn-listing', 'mrnListing')->name('get.mrn-listing');
-
+    
             /*Remove data*/
             Route::delete('remove-dis-item-level', 'removeDisItemLevel')->name('remove.item.dis');
             Route::delete('remove-dis-header-level', 'removeDisHeaderLevel')->name('remove.header.dis');
@@ -2587,7 +2588,7 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('/store-wise', 'getSubStoresOfStore')->name('get.from.stores');
     });
 
-   Route::prefix('rgr-store-mappings')->controller(ErpRgrStoreMappingController::class)->group(function () {
+    Route::prefix('rgr-store-mappings')->controller(ErpRgrStoreMappingController::class)->group(function () {
         Route::get('/', 'index')->name('store-mappings.index');
         Route::post('/', 'store')->name('store-mappings.store');
         Route::get('/create', 'create')->name('store-mappings.create');
@@ -2720,7 +2721,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::post('/loan-return', 'loanReturn')->name('loan-return');
             Route::post('/loan-reject', 'loanReject')->name('loan-reject');
             // Route::post('/assessment-proceed', 'assessmentProceed')->name('assessment-proceed');
-
+    
         });
 
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -2851,9 +2852,9 @@ Route::middleware(['user.auth'])->group(function () {
         'index' => 'finance.fixed-asset.it.dep.index',
     ]);
     Route::post('fixed-asset-rdv-val', [ITDepreciationController::class, 'getFixedAssetRDV'])
-    ->name('fixed-asset-rdv');
+        ->name('fixed-asset-rdv');
     Route::post('get-fixed-asset-rdv-response', [ITDepreciationController::class, 'getFixedAssetRDVResponse'])
-    ->name('get-fixed-asset-rdv-response');
+        ->name('get-fixed-asset-rdv-response');
 
 
     Route::resource('fixed-asset/split', SplitController::class)->names([

@@ -41,6 +41,10 @@ class ErpSaleOrderHistory extends Model
     {
         return $this -> hasOne(Customer::class, 'id', 'customer_id');
     }
+    public function book()
+    {
+        return $this -> hasOne(Book::class, 'id', 'book_id');
+    }
     public function customer()
     {
         return $this -> hasOne(ErpCustomer::class, 'id', 'customer_id');

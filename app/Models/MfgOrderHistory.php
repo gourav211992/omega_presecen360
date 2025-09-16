@@ -19,7 +19,7 @@ class MfgOrderHistory extends Model
     protected $fillable = [
         'source_id',
         'production_bom_id',
-        // 'production_route_id',
+        'production_route_id',
         'store_id',
         'station_id',
         'item_id',
@@ -41,9 +41,12 @@ class MfgOrderHistory extends Model
         'revision_date', 
         'remarks', 
         'approval_level',
-        'is_last_station'
+        'is_last_station',
+        'machine_id'
     ];
-
+    protected $appends = [
+        'so_tracking_required'
+    ];
     public static function boot()
     {
         parent::boot();
@@ -96,6 +99,19 @@ class MfgOrderHistory extends Model
         return $this->belongsTo(ErpStore::class, 'store_id', 'id');
     }
 
+    public function getSoTrackingRequiredAttribute()
+    {
+        $soTrackingRequired = 'no';
+        $firstMoProd = $this->moProducts->first();
+        if(isset($firstMoProd) && $firstMoProd?->pwoMapping?->pwo?->so_tracking_required) {
+            $soTrackingRequired = $firstMoProd?->pwoMapping?->pwo?->so_tracking_required ?? 'no';
+        }
+        return $soTrackingRequired;
+    }
+    public function sub_store()
+    {
+        return $this->belongsTo(ErpSubStore::class, 'sub_store_id');
+    }
     public function station()
     {
         return $this->belongsTo(Station::class, 'station_id', 'id');
@@ -116,7 +132,11 @@ class MfgOrderHistory extends Model
     {
         return $this->belongsTo(Book::class, 'book_id');
     }
-
+    public function getDisplayProductionTypeAttribute()
+    {
+        $t = str_replace('-', ' ', $this->production_type);
+        return ucwords($t);
+    }
     public function getDocumentStatusAttribute()
     {
         if ($this->attributes['document_status'] == ConstantHelper::APPROVAL_NOT_REQUIRED) {
@@ -127,9 +147,20 @@ class MfgOrderHistory extends Model
 
     public function moProducts()
     {
-        return $this->hasMany(MoProductHistory::class, 'mo_product_id');
+        return $this->hasMany(MoProductHistory::class, 'mo_id');
     }
-    
+       public function moItems()
+    {
+        return $this->hasMany(MoItemHistory::class, 'mo_id');
+    }
+        public function last_so()
+    {
+        $moProduct = $this->moProducts?->count() ? $this->moProducts()->whereNotNull('so_id')->first() : null;
+        if($moProduct) {
+            return $moProduct?->so;
+        }
+        return null;
+    }
     public function createdBy()
     {
         return $this->belongsTo(AuthUser::class, 'created_by');

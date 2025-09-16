@@ -1781,23 +1781,30 @@ background-image: linear-gradient(90deg, #2372B5 50%, transparent 50%, transpare
 .myatteandance-leave span { width: 8px; height: 8px}
 
 .hr-dashemplname { max-width: 200px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden}
-.tableactionnew .dropdown-menu {
-  border: none;
-  border-radius: 10px;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 25%); }
-
-.tableactionnew .dropdown-item {
-  border: 0;
-  clear: both;
-  color: #666;
-  display: block;
-  font-weight: 500;
-  padding: 8px 15px;
-font-size: 12px;
+.tableactionnew .dropdown-menu, td .dropdown .dropdown-menu {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 25%);
+    margin:2px 0 0 !important;
+    min-width: 112px;
+    padding: 4px 0;
 }
 
-.tableactionnew .feather { color: #666}
+.tableactionnew .dropdown-menu.show, td .dropdown .dropdown-menu.show { transform: translate(-120px, -8px) !important;}
+
+.tableactionnew .dropdown-item, td .dropdown .dropdown-item {
+    border: 0;
+    clear: both;
+    color: #666;
+    display: block;
+    font-weight: 500;
+    padding: 3px 13px;
+    font-size: 12px;
+}
+
+.tableactionnew .feather, td .dropdown  .feather { color: #666}
 .tableactionnew .dropdown-item:hover, .tableactionnew .dropdown-item:hover .feather  {color: #6B12B7 }
+td .dropdown .dropdown-item:hover, td .dropdown .dropdown-item:hover .feather  {color: #6B12B7 }
 .namefont-sizenewmodal { font-size: 16px}
 
 .modal-slide-in .modal-header .btn-close  { transform: translate(18px, -10px); margin-top: -24px }

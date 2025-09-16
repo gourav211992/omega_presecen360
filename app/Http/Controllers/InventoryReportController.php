@@ -89,7 +89,6 @@ class InventoryReportController extends Controller
     // Report Filter
     public function getReportFilter(Request $request)
     {
-        // dd($request->all());
         $user = Helper::getAuthenticatedUser();
 
         $period = $request->query('period');
@@ -327,7 +326,7 @@ class InventoryReportController extends Controller
             ->get();
         $query = StockLedger::query()
             ->withDefaultGroupCompanyOrg()
-            ->whereNull('utilized_id')
+            // ->whereNull('utilized_id')
             ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
         $items = Item::orderBy('id', 'ASC')
             ->withDefaultGroupCompanyOrg()
@@ -476,7 +475,7 @@ class InventoryReportController extends Controller
             ->get();
         $query = StockLedger::query()
             ->withDefaultGroupCompanyOrg()
-            ->whereNull('utilized_id')
+            // ->whereNull('utilized_id')
             ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
         $bookTypes = StockLedger::distinct()->pluck('book_type');
         $items = Item::orderBy('id', 'ASC')
@@ -595,7 +594,7 @@ class InventoryReportController extends Controller
             ->get();
         $query = StockLedger::query()
             ->withDefaultGroupCompanyOrg()
-            ->whereNull('utilized_id')
+            // ->whereNull('utilized_id')
             ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
         $items = Item::orderBy('id', 'ASC')
             ->withDefaultGroupCompanyOrg()
@@ -712,14 +711,13 @@ class InventoryReportController extends Controller
 
     public function summaryReportFilter(Request $request)
     {
-        // dd($request->all());
         $user = Helper::getAuthenticatedUser();
         $users = AuthUser::where('organization_id', Helper::getAuthenticatedUser()->organization_id)
             ->where('status', ConstantHelper::ACTIVE)
             ->get();
         $query = StockLedger::query()
             ->withDefaultGroupCompanyOrg()
-            ->whereNull('utilized_id')
+            // ->whereNull('utilized_id')
             ->with(['book', 'item', 'location', 'store', 'so', 'station', 'wipStation', 'inventoryUom']);
         $items = Item::orderBy('id', 'ASC')
             ->withDefaultGroupCompanyOrg()

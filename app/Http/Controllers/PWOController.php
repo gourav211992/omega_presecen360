@@ -26,6 +26,7 @@ use App\Http\Requests\MoRequest;
 use App\Http\Requests\PwoRequest;
 use App\Models\BomDetail;
 use App\Models\ErpProductionWorkOrder;
+use App\Models\ErpProductionWorkOrderHistory;
 use App\Models\ErpSoItem;
 use App\Models\MoBomMapping;
 use App\Models\MoItemAttribute;
@@ -47,8 +48,9 @@ use App\Models\SubType;
 use App\Models\Unit;
 use App\Services\BomService;
 use Yajra\DataTables\DataTables;
-use DB;
-use PDF;
+use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf; 
+use Exception;
 use Illuminate\Support\Facades\Storage;
 use NumberToWords\Legacy\Numbers\Words\Locale\Es;
 
@@ -635,10 +637,13 @@ class PWOController extends Controller
          $approvalHistory = Helper::getApprovalHistory($bom->book_id, $bom->id, $revNo, $docValue, $createdBy);
          $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$bom->document_status] ?? '';
          $view = 'pwo.edit';
- 
+
          if($request->has('revisionNumber') && $request->revisionNumber != $bom->revision_number) {
-             $bom = $bom->source()->where('revision_number', $request->revisionNumber)->first();
-             $view = 'pwo.view';
+            $bom=ErpProductionWorkOrderHistory::where('revision_number',$request->revisionNumber) 
+                -> where('source_id', $id)->firstOrFail();
+            $bom = $bom->with('source')->first();
+            $buttons['amend']=false;
+            //  $view = 'pwo.view';
          }
 
          $locations = InventoryHelper::getAccessibleLocations();
@@ -670,19 +675,21 @@ class PWOController extends Controller
  
              $currentStatus = $mo->document_status;
              $actionType = $request->action_type;
-             if($currentStatus == ConstantHelper::APPROVED && $actionType == 'amendment')
-             {
-                //  $revisionData = [
-                //      ['model_type' => 'header', 'model_name' => 'ErpProductionWorkOrder', 'relation_column' => ''],
-                //      ['model_type' => 'detail', 'model_name' => 'MoProduct', 'relation_column' => 'pwo_id'],
-                //      ['model_type' => 'detail', 'model_name' => 'MoItem', 'relation_column' => 'pwo_id'],
-                //      ['model_type' => 'detail', 'model_name' => 'MoBomMapping', 'relation_column' => 'pwo_id'],
-                //      ['model_type' => 'sub_detail', 'model_name' => 'MoItemAttribute', 'relation_column' => 'pwo_id'],
-                //      ['model_type' => 'sub_detail', 'model_name' => 'MoAttribute', 'relation_column' => 'pwo_item_id'],
-                //  ];
-                //  $a = Helper::documentAmendment($revisionData, $id);
-             }
  
+            if(($currentStatus == ConstantHelper::APPROVED || $currentStatus == ConstantHelper::APPROVAL_NOT_REQUIRED) && $actionType == 'amendment')
+             {
+               $revisionData = [
+                    ['model_type' => 'header', 'model_name' => 'ErpProductionWorkOrder', 'relation_column' => ''],
+                    ['model_type' => 'detail', 'model_name' => 'ErpPwoDynamicField', 'relation_column' => 'header_id'],
+                    ['model_type' => 'detail', 'model_name' => 'ErpPwoItem', 'relation_column' => 'pwo_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'ErpPwoItemAttribute', 'relation_column' => 'pwo_item_id'],
+                    ['model_type' => 'detail', 'model_name' => 'PwoSoMapping', 'relation_column' => 'pwo_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'PwoStationConsumption', 'relation_column' => 'pwo_mapping_id'],
+                    ['model_type' => 'detail', 'model_name' => 'PwoBomMapping', 'relation_column' => 'pwo_id'],
+                 ];
+                 Helper::documentAmendment($revisionData, $id);
+            }
+
              $keys = ['deletedBomItemIds', 'deletedAttachmentIds'];
              $deletedData = [];
  
@@ -725,19 +732,17 @@ class PWOController extends Controller
                     $groupedItems = $pwoSoMapping->pwoBomMapping()->groupBy('pwo_id','item_id','attributes','uom_id')->selectRaw('pwo_id, item_id, attributes, uom_id, SUM(qty) as total_qty')->get();
                     foreach($groupedItems as $groupedItem) {
                        $pwoItem = ErpPwoItem::where('pwo_id', $groupedItem->pwo_id)
-                                ->where('item_id', $groupedItem->item_id)
-                                ->where('uom_id', $groupedItem->uom_id)
-                                ->where(function($query) use($groupedItem) {
-                                    if(count($groupedItem->attributes)) {
-                                        $query->whereHas('attributes', function($pwoItemAttrQuery) use($groupedItem) {
-                                            foreach($groupedItem->attributes as $attribute) {
-                                                $pwoItemAttrQuery->where('item_attribute_id', $attribute['attribute_id'])
-                                                ->where('attribute_id', $attribute['attribute_value']);
-                                            }
-                                        });
-                                    }
-                                })
-                                ->first();
+                            ->where('item_id', $groupedItem->item_id)
+                            ->where('uom_id', $groupedItem->uom_id)
+                            ->when(count($groupedItem->attributes), function ($query) use ($groupedItem) {
+                                foreach ($groupedItem->attributes as $attribute) {
+                                    $query->whereHas('attributes', function ($pwoItemAttrQuery) use ($attribute) {
+                                        $pwoItemAttrQuery->where('item_attribute_id', $attribute['attribute_id'])
+                                                        ->where('attribute_id', $attribute['attribute_value']);
+                                    });
+                                }
+                            })
+                            ->first();
 
                         if($groupedItem->total_qty < $pwoItem->mi_qty) {
                             DB::rollBack();
@@ -766,7 +771,7 @@ class PWOController extends Controller
                  }
              }
  
-             $mo->document_status = $request->document_status ?? ConstantHelper::DRAFT;
+            //  $mo->document_status = $request->document_status ?? ConstantHelper::DRAFT;
              $mo->remarks = $request->remarks;
             
             $parameters = [];
@@ -1013,7 +1018,7 @@ class PWOController extends Controller
                     } else {
                         $pwoItem = new ErpPwoItem;
                         $pwoItem->pwo_id = $mo->id;
-                        $pwoItem->so_id = $groupedData->id;
+                        $pwoItem->so_id = $groupedData->so_id;
                         $pwoItem->item_id = $groupedData->item_id;
                         $pwoItem->item_code = $groupedData->item_code;
                         $pwoItem->item_name = $groupedData?->item?->item_name;
@@ -1072,17 +1077,17 @@ class PWOController extends Controller
              $currentLevel = $mo->approval_level;
              $modelName = get_class($mo);
              $totalValue = 0;
-             if($currentStatus == ConstantHelper::APPROVED && $actionType == 'amendment')
+             if(($currentStatus == ConstantHelper::APPROVED || $currentStatus == ConstantHelper::APPROVAL_NOT_REQUIRED) && $actionType == 'amendment')
              {
                  //*amendmemnt document log*/
                  $revisionNumber = $mo->revision_number + 1;
                  $actionType = 'amendment';
                  $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $amendRemarks, $amendAttachments, $currentLevel, $actionType, $totalValue, $modelName);
-                 $mo->revision_number = $revisionNumber;
                  $mo->approval_level = 1;
                  $mo->revision_date = now();
                  $amendAfterStatus = $approveDocument['approvalStatus'] ??  $mo->document_status;
                  $mo->document_status = $amendAfterStatus;
+                 $mo->revision_number = $revisionNumber;
                  $mo->save();
              } else {
                  if ($request->document_status == ConstantHelper::SUBMITTED) {
@@ -1120,7 +1125,7 @@ class PWOController extends Controller
             ->where('addressable_id', $user->organization_id)
             ->where('addressable_type', Organization::class)
             ->first();
-        $pwo = ErpProductionworkorder::findOrFail($id);
+        $pwo = ErpProductionWorkOrder::findOrFail($id);
         $specifications = collect();
         $products = collect();
         $items = collect();
@@ -1168,7 +1173,15 @@ class PWOController extends Controller
          DB::beginTransaction();
          try {
              $bom = ErpProductionWorkOrder::find($request->id);
+             
              if (isset($bom)) {
+                 if ($bom->revision_number > 0) {
+                    DB::rollBack();
+                    return response() -> json([
+                        'status' => 'error',
+                        'message' => 'Amended document cannot be revoked',
+                    ]);
+                }
                  $revoke = Helper::approveDocument($bom->book_id, $bom->id, $bom->revision_number, '', [], 0, ConstantHelper::REVOKE, 0, get_class($bom));
                  if ($revoke['message']) {
                      DB::rollBack();
@@ -1380,7 +1393,7 @@ class PWOController extends Controller
                         'SUM(pwo_qty) as pwo_qty'
                     ])));
         }
-        $soItems = $soItems->get();
+        $soItems = $soItems->orderBy('id','desc')->get();
 
          $html = view('pwo.partials.so-item-list', ['soItems' => $soItems, 'isAttribute' => $isAttribute])->render();
          return response()->json(['data' => ['pis' => $html, 'isAttribute' => $isAttribute], 'status' => 200, 'message' => "fetched!"]);

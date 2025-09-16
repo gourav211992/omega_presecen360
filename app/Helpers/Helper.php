@@ -1319,12 +1319,12 @@ class Helper
                 $approve = true;
             }
             //Creator of document cannot approve
-            // if ($user->auth_user_id === $createdBy && self::userCheck()['type'] == $creatorType) {
-
-            // dd($user->auth_user_id, $createdBy);
             if ($user->auth_user_id === $createdBy) {
                 $approve = false;
-                $revoke = true;
+                //Show revoke only in case of new document (without any amendments)
+                if ($revisionNumber == 0) {
+                    $revoke = true;
+                }
             }
         }
         if ($docStatus == ConstantHelper::APPROVED || $docStatus == ConstantHelper::APPROVAL_NOT_REQUIRED) {
@@ -1367,15 +1367,7 @@ class Helper
                 ->orderByDesc('min_value')
                 ->first();
             if ($approvalWorkflow) {
-                // $docApproval = DocumentApproval::where('document_type', '=', "$bookTypeServiceAlias")
-                //                 ->where('document_id', $docId)
-                //                 ->where('user_id', $user->id)
-                //                 ->where('user_type', $currUser['type'])
-                //                 ->where('revision_number', $revisionNumber)
-                //                 ->where('approval_type', 'approve')
-                //                 ->first();
                 $checkApproved = self::checkApprovedHistory($bookTypeServiceAlias, $docId, $revisionNumber, [$user->auth_user_id]);
-
                 if (!count($checkApproved)) {
                     if ($approvalWorkflow->level == $docApprLevel) {
                         $approve = true;
@@ -1400,9 +1392,6 @@ class Helper
             $voucher = true;
             $print = true;
         }
-
-        // $amend=true;
-
         return [
             'draft' => $draft,
             'submit' => $submit,
@@ -2669,26 +2658,31 @@ class Helper
     {
         $authUser = request()->user();
 
-        $ck = "iam:{$authUser->group_id}:{$authUser->id}";
-        $ttl = 1200; // 20 minutes; adjust or use forever with manual busting
+        // $ck = "iam:{$authUser->group_id}:{$authUser->id}";
+        // $ttl = 0; // 20 minutes; adjust or use forever with manual busting
 
-        $user = app(TagCacheInterface::class)->remember(
-            key: $ck . ':get-authenticated-user',
-            ttl: $ttl,
-            callback: function () use ($authUser) {
-                $user = $authUser->authUser();
-                $user->authenticable_type = $authUser->authenticable_type;
-                $user->auth_user_id = $authUser->id;
-                $user->db_name = $authUser->db_name;
-                // $user->current_organization_id = $authUser->organization_id;
-                return $user;
-            },
-            tags: [
-                'get-authenticated-user',
-                "group:{$authUser->group_id}",
-                "user:{$authUser->id}",
-            ]
-        );
+        // $user = app(TagCacheInterface::class)->remember(
+        //     key: $ck . ':get-authenticated-user',
+        //     ttl: $ttl,
+        //     callback: function () use ($authUser) {
+        //         $user = $authUser->authUser();
+        //         $user->authenticable_type = $authUser->authenticable_type;
+        //         $user->auth_user_id = $authUser->id;
+        //         $user->db_name = $authUser->db_name;
+        //         // $user->current_organization_id = $authUser->organization_id;
+        //         return $user;
+        //     },
+        //     tags: [
+        //         'get-authenticated-user',
+        //         "group:{$authUser->group_id}",
+        //         "user:{$authUser->id}",
+        //     ]
+        // );
+
+        $user = $authUser->authUser();
+        $user->authenticable_type = $authUser->authenticable_type;
+        $user->auth_user_id = $authUser->id;
+        $user->db_name = $authUser->db_name;
 
         return $user;
     }

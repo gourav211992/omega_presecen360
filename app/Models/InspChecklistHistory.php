@@ -19,6 +19,7 @@ class InspChecklistHistory extends Model
         'checklist_id',
         'checklist_detail_id',
         'name',
+        'description',
         'value',
         'type',
     ];

@@ -8,7 +8,6 @@ $(".mrntableselectexcel tr").each(function () {
         levelCounter2 = index;
     }
 });
-
 levelCounter = levelCounter2 + 1; // Start from the next index
 
 /*Check filled all basic detail*/
@@ -76,6 +75,61 @@ function capitalizeFirst(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
+/* =========================
+   CATEGORY HIERARCHY HELPERS
+   ========================= */
+const categoryHierarchyCache = {};
+
+// Fetch breadcrumb using your getSubCategories controller with single leaf id
+function fetchCategoryHierarchy(leafId) {
+    if (!leafId) return Promise.resolve("");
+    if (categoryHierarchyCache[leafId]) {
+        return Promise.resolve(categoryHierarchyCache[leafId]);
+    }
+    return $.ajax({
+        type: "GET",
+        url: "/warehouse-item-mappings/get-sub-categories",
+        data: { parent_id: leafId },
+    })
+        .then((res) => {
+            if (res?.status === 200) {
+                const crumb = res?.breadcrumb_full || "";
+                categoryHierarchyCache[leafId] = crumb;
+                return crumb;
+            }
+            return "";
+        })
+        .catch(() => "");
+}
+
+// Ensure only 1 category per row (keep last chosen if multiple are present)
+function enforceSingleCategoryForRow($row) {
+    const $sel = $row.find(".category-select");
+    let vals = $sel.val() || [];
+    if (vals.length > 1) {
+        const keep = vals[vals.length - 1];
+        $sel.val([keep]);
+    }
+}
+
+// Render breadcrumb under the category select (assumes we've enforced single category)
+function renderCategoryBreadcrumbForRow($row) {
+    const $crumb = $row.find(".category-breadcrumb");
+    const selected = $row.find(".category-select").val() || [];
+    const leafId = selected.length ? selected[selected.length - 1] : null;
+
+    if (!leafId) {
+        $crumb.text("");
+        return;
+    }
+    fetchCategoryHierarchy(leafId).then((crumb) => {
+        $crumb.text(crumb || "");
+    });
+}
+
+/* =========================
+   EXISTING DETAILS
+   ========================= */
 function getDetails(subStoreId) {
     const storeId = $("[name='store_id']").val();
 
@@ -100,7 +154,6 @@ function getDetails(subStoreId) {
                     const categories = Array.isArray(mapping.categories)
                         ? mapping.categories
                         : [];
-                    // const subCategories = Array.isArray(mapping.sub_categories) ? mapping.sub_categories : [];
                     const items = Array.isArray(mapping.items)
                         ? mapping.items
                         : [];
@@ -117,10 +170,6 @@ function getDetails(subStoreId) {
                                 }>${cat.name}</option>`
                         )
                         .join("");
-
-                    // let subCategoryOptions = subCategories.map(sub =>
-                    //     `<option value="${sub.id}" ${sub.selected ? 'selected' : ''}>${sub.name}</option>`
-                    // ).join('');
 
                     let itemOptions = items
                         .map(
@@ -144,10 +193,10 @@ function getDetails(subStoreId) {
                             .join("");
 
                         structureHtml += `
-                            <div class="form-group me-2"  style="min-width: 220px; display: flex; align-items: center;">
-                                <label class="form-label" style="font-weight: bold; padding-right:10px;  margin-bottom: 4px;">${
-                                    structure.name
-                                }</label>
+                            <div class="form-group me-2" style="min-width: 220px; display: flex; align-items: center;">
+                                <label class="form-label" style="font-weight: bold; padding-right:10px; margin-bottom: 4px;">
+                                    ${structure.name}
+                                </label>
                                 <select class="form-select select2 child-dropdown"
                                         data-level-index="${levelIndex}"
                                         data-level-name="${levelName}"
@@ -171,21 +220,24 @@ function getDetails(subStoreId) {
                                     index + 1
                                 }][detail_id]" value="${detail_id}">
                             </td>
+
                             <td>
-                                <div class="d-flex align-items-center">
-                                    <div class="form-group me-2"  style="min-width: 420px; display: flex; align-items: center;">
+                                <div class="d-flex align-items-start flex-column">
+                                    <div class="form-group me-2" style="min-width: 420px; display: flex; align-items: center;">
                                         <select class="form-select select2 category-select" name="details[${
                                             index + 1
                                         }][category_id][]" multiple>
                                             ${categoryOptions}
                                         </select>
                                     </div>
+                                    <!-- Breadcrumb -->
+                                    <div class="category-breadcrumb text-muted small" style="margin-top: 4px;"></div>
                                 </div>
                             </td>
 
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <div class="form-group me-2"  style="min-width: 220px; display: flex; align-items: center;">
+                                    <div class="form-group me-2" style="min-width: 220px; display: flex; align-items: center;">
                                         <select class="form-select select2 item-select" name="details[${
                                             index + 1
                                         }][item_id][]" multiple>
@@ -194,19 +246,34 @@ function getDetails(subStoreId) {
                                     </div>
                                 </div>
                             </td>
+
                             <td>
-                              <div class="d-flex align-items-center">
-                                 ${structureHtml}
-                              </div>
+                                <div class="d-flex align-items-center">
+                                    ${structureHtml}
+                                </div>
                             </td>
                         </tr>
                     `;
 
                     $(".mrntableselectexcel").append(rowHtml);
-                    updateUniqueSelectOptions();
+
+                    // Enforce single category per row BEFORE select2 init
+                    const $justAddedRow = $(
+                        ".mrntableselectexcel tr.item-row"
+                    ).last();
+                    enforceSingleCategoryForRow($justAddedRow);
                 });
 
+                // Initialize Select2 after all rows appended
                 $(".select2").select2({ width: "100%" });
+
+                // Render breadcrumbs for all existing rows
+                $(".mrntableselectexcel tr.item-row").each(function () {
+                    renderCategoryBreadcrumbForRow($(this));
+                });
+
+                // Restrict duplicate items across rows
+                updateUniqueSelectOptions();
             } else {
                 $(".mrntableselectexcel").html("");
             }
@@ -260,19 +327,19 @@ $(document).on("click", ".addNewItemBtn", (e) => {
                     ? data.structures
                     : [];
 
-                // Generate categories from the response data
+                // Generate categories
                 let categoryOptions = ``;
                 categories.forEach((category) => {
                     categoryOptions += `<option value="${category.id}">${category.name}</option>`;
                 });
 
-                // Generate structures from the response data
+                // Generate structures (we keep for first dropdown options)
                 let structureOptions = ``;
                 structures.forEach((structure) => {
                     structureOptions += `<option value="${structure.id}">${structure.name}</option>`;
                 });
 
-                // Now build rowHtml using the parentOptions
+                // Build rowHtml
                 let rowHtml = `
                     <tr class="item-row">
                         <td class="customernewsection-form">
@@ -281,15 +348,19 @@ $(document).on("click", ".addNewItemBtn", (e) => {
                                 <label class="form-check-label"></label>
                             </div>
                         </td>
+
                         <td>
-                            <div class="d-flex align-items-center">
-                                <div class="form-group me-2"  style="min-width: 420px; display: flex; align-items: center;">
+                            <div class="d-flex align-items-start flex-column">
+                                <div class="form-group me-2" style="min-width: 420px; display: flex; align-items: center;">
                                     <select class="form-select select2 category-select" multiple>
                                         ${categoryOptions}
                                     </select>
                                 </div>
+                                <!-- Breadcrumb -->
+                                <div class="category-breadcrumb text-muted small" style="margin-top: 4px;"></div>
                             </div>
                         </td>
+
                         <!--  <td>
                              <div class="d-flex align-items-center">
                                  <div class="form-group me-2"  style="min-width: 220px; display: flex; align-items: center;">
@@ -299,6 +370,7 @@ $(document).on("click", ".addNewItemBtn", (e) => {
                                  </div>
                              </div>
                          </td> -->
+
                         <td>
                             <div class="d-flex align-items-center">
                                 <div class="form-group me-2"  style="min-width: 220px; display: flex; align-items: center;">
@@ -322,8 +394,8 @@ $(document).on("click", ".addNewItemBtn", (e) => {
                     let isFirst = index === 0;
 
                     rowHtml += `
-                        <div class="form-group me-2"  style="min-width: 220px; display: flex; align-items: center;">
-                            <label class="form-label" style="font-weight: bold; padding-right:10px;  margin-bottom: 4px;">
+                        <div class="form-group me-2" style="min-width: 220px; display: flex; align-items: center;">
+                            <label class="form-label" style="font-weight: bold; padding-right:10px; margin-bottom: 4px;">
                                 ${level.name}
                             </label>
                             <select class="form-select select2 child-dropdown"
@@ -362,17 +434,22 @@ $(document).on("click", ".addNewItemBtn", (e) => {
         },
     });
 
+    // Assign name attributes for all rows (including the newly added one)
     $(".mrntableselectexcel tr").each(function (levelCounter) {
-        // Update 'name' for name input
+        // Category
         $(this)
             .find("select.category-select")
             .attr("name", `details[${levelCounter + 1}][category_id][]`);
+
+        // Sub-category (if present)
         // $(this).find("select.sub-category-select").attr("name", `details[${levelCounter + 1}][sub_category_id][]`);
+
+        // Item
         $(this)
             .find("select.item-select")
             .attr("name", `details[${levelCounter + 1}][item_id][]`);
 
-        // For each row, find all child-dropdowns
+        // Structure child dropdowns
         $(this)
             .find("select.child-dropdown")
             .each(function (levelIndex) {
@@ -386,89 +463,117 @@ $(document).on("click", ".addNewItemBtn", (e) => {
     });
 });
 
-$(document).on("change", ".category-select", function () {
-    let selectedIds = $(this).val(); // from current select
-    let row = $(this).closest(".item-row"); // adjust to your row wrapper class
-
-    let subCatSelect = row.find(".sub-category-select");
-    let itemSelect = row.find(".item-select");
-
-    if (selectedIds && selectedIds.length > 0) {
-        $.ajax({
-            type: "GET",
-            url: "/warehouse-item-mappings/get-sub-categories",
-            data: { "parent_ids[]": selectedIds },
-            traditional: true,
-            success: function (response) {
-                if (response.status == 200) {
-                    let existingSubCatIds = new Set();
-                    subCatSelect.find("option").each(function () {
-                        existingSubCatIds.add($(this).val());
-                    });
-
-                    let existingItemIds = new Set();
-                    itemSelect.find("option").each(function () {
-                        existingItemIds.add($(this).val());
-                    });
-
-                    // Append new sub-categories
-                    response.data.forEach(function (subCat) {
-                        if (!existingSubCatIds.has(subCat.id.toString())) {
-                            subCatSelect.append(
-                                `<option value="${subCat.id}">${subCat.name}</option>`
-                            );
-                        }
-                    });
-
-                    // Append new items
-                    response.items.forEach(function (item) {
-                        if (!existingItemIds.has(item.id.toString())) {
-                            itemSelect.append(
-                                `<option value="${item.id}">${item.item_code}</option>`
-                            );
-                        }
-                    });
-                }
-            },
-        });
+// --- Single-category enforcement without event loops ---
+function setSingleCategory($select, idOrNull) {
+    if ($select.data("enforcing")) return; // guard against recursion
+    $select.data("enforcing", true);
+    if (idOrNull) {
+        $select.val([String(idOrNull)]).trigger("change.select2");
     } else {
-        subCatSelect.empty();
-        itemSelect.empty();
+        $select.val([]).trigger("change.select2");
     }
+    $select.data("enforcing", false);
+}
+
+// Fetch subcats/items for the current row (rebuilds options fresh)
+function fetchSubcatsAndItems($row, selectedIds) {
+    const subCatSelect = $row.find(".sub-category-select");
+    const itemSelect = $row.find(".item-select");
+
+    if (!selectedIds || selectedIds.length === 0) {
+        subCatSelect.empty().trigger("change.select2");
+        itemSelect.empty().trigger("change.select2");
+        return;
+    }
+
+    $.ajax({
+        type: "GET",
+        url: "/warehouse-item-mappings/get-sub-categories",
+        data: { "parent_ids[]": selectedIds },
+        traditional: true,
+        success: function (response) {
+            if (response.status == 200) {
+                subCatSelect.empty();
+                itemSelect.empty();
+
+                // (response.data || []).forEach(function (subCat) {
+                //     subCatSelect.append(
+                //         `<option value="${subCat.id}">${subCat.name}</option>`
+                //     );
+                // });
+                console.log("response.items", response);
+
+                (response.items || []).forEach(function (item) {
+                    itemSelect.append(
+                        `<option value="${item.id}">${item.item_code}</option>`
+                    );
+                });
+
+                subCatSelect.trigger("change.select2");
+                itemSelect.trigger("change.select2");
+                updateUniqueSelectOptions();
+            }
+        },
+    });
+}
+
+// A) When a category is selected: keep only that one, refresh children, show breadcrumb
+$(document).on("select2:select", ".category-select", function (e) {
+    const $select = $(this);
+    const $row = $select.closest(".item-row");
+    const pickedId = e.params?.data?.id;
+
+    // Enforce single category without loops
+    setSingleCategory($select, pickedId);
+
+    // Fetch/refresh subcats & items, show breadcrumb
+    fetchSubcatsAndItems($row, [pickedId]);
+    renderCategoryBreadcrumbForRow($row);
 });
 
-// Get Items based on category + subcategory
-$(document).on("change", ".sub-category-select", function () {
-    let row = $(this).closest(".item-row");
+// B) When a category is unselected: either keep the last remaining one or clear all
+$(document).on("select2:unselect", ".category-select", function () {
+    const $select = $(this);
+    const $row = $select.closest(".item-row");
+    const vals = $select.val() || [];
+    const keep = vals.length ? vals[vals.length - 1] : null;
 
-    let selectedCatIds = row.find(".category-select").val();
-    let selectedSubCatIds = $(this).val();
-    let itemSelect = row.find(".item-select");
+    setSingleCategory($select, keep);
 
-    itemSelect.empty();
-
-    if (selectedCatIds && selectedCatIds.length > 0) {
-        $.ajax({
-            type: "GET",
-            url: "/warehouse-item-mappings/get-items",
-            data: {
-                "category_ids[]": selectedCatIds,
-                // 'sub_category_ids[]': selectedSubCatIds
-            },
-            traditional: true,
-            success: function (response) {
-                if (response.status == 200) {
-                    response.items.forEach(function (item) {
-                        itemSelect.append(
-                            `<option value="${item.id}">${item.item_code}</option>`
-                        );
-                    });
-                    itemSelect.trigger("change.select2");
-                }
-            },
-        });
+    if (keep) {
+        fetchSubcatsAndItems($row, [keep]);
+    } else {
+        fetchSubcatsAndItems($row, []); // clears
     }
+    renderCategoryBreadcrumbForRow($row);
 });
+
+// C) Safety net: if something triggers a generic change, normalize to single category
+$(document).on("change", ".category-select", function () {
+    const $select = $(this);
+    if ($select.data("enforcing")) return; // skip if we're in a programmatic set
+    const $row = $select.closest(".item-row");
+    let vals = $select.val() || [];
+    if (vals.length > 1) {
+        const keep = vals[vals.length - 1];
+        setSingleCategory($select, keep);
+        fetchSubcatsAndItems($row, [keep]);
+    } else {
+        fetchSubcatsAndItems($row, vals);
+    }
+    renderCategoryBreadcrumbForRow($row);
+});
+
+const $newRow = $(".mrntableselectexcel tr.item-row").last();
+const $cat = $newRow.find(".category-select");
+
+if ($cat.length) {
+    const vals = $cat.val() || [];
+    const keep = vals.length ? vals[vals.length - 1] : null;
+    setSingleCategory($cat, keep);
+    if (keep) fetchSubcatsAndItems($newRow, [keep]);
+    renderCategoryBreadcrumbForRow($newRow);
+}
 
 // Child Dropdowns
 $(document).on("change", ".child-dropdown", function () {
@@ -532,6 +637,7 @@ $(document).on("click", ".deleteBtn", (e) => {
             }
         }
     });
+
     Swal.fire({
         title: "Are you sure?",
         text: "You won't be able to revert this!",
@@ -540,67 +646,9 @@ $(document).on("click", ".deleteBtn", (e) => {
         confirmButtonText: "Yes, delete it!",
         cancelButtonText: "Cancel",
     }).then((result) => {
-        if (result.isConfirmed) {
-            // If there are IDs to delete in DB
-            if (itemIdsToDelete.length > 0) {
-                $.ajax({
-                    url: "/warehouse-item-mappings/delete-details",
-                    type: "POST",
-                    data: {
-                        _token: $('meta[name="csrf-token"]').attr("content"),
-                        ids: itemIdsToDelete,
-                    },
-                    success: function (response) {
-                        if (response.status == "success") {
-                        }
+        if (!result.isConfirmed) return;
 
-                        // DOM cleanup if not redirected
-                        $(".mrntableselectexcel tr").each(function () {
-                            let checkbox = $(this).find(
-                                "td:first-child .form-check-input"
-                            );
-                            if (checkbox.is(":checked")) {
-                                $(this).remove();
-                            }
-                        });
-
-                        $(".mrntableselectexcel tr").each(function (index) {
-                            $(this)
-                                .find("input[name^='details']")
-                                .each(function () {
-                                    let nameAttr = $(this).attr("name");
-                                    if (nameAttr) {
-                                        let updatedName = nameAttr.replace(
-                                            /\[\d+\]/,
-                                            `[${index + 1}]`
-                                        );
-                                        $(this).attr("name", updatedName);
-                                    }
-                                });
-                        });
-
-                        if ($(".mrntableselectexcel tr").length === 0) {
-                            $(".level_id").prop("disabled", false);
-                            $(".sub_store_id").prop("disabled", false);
-                        }
-
-                        Swal.fire(
-                            "Deleted!",
-                            "Selected rows have been deleted.",
-                            "success"
-                        );
-                    },
-                    error: function () {
-                        Swal.fire(
-                            "Error",
-                            "Failed to delete from database",
-                            "error"
-                        );
-                    },
-                });
-            }
-
-            // Remove rows from the DOM
+        const removeCheckedRowsFromDOM = () => {
             $(".mrntableselectexcel tr").each(function () {
                 let checkbox = $(this).find("td:first-child .form-check-input");
                 if (checkbox.is(":checked")) {
@@ -608,10 +656,10 @@ $(document).on("click", ".deleteBtn", (e) => {
                 }
             });
 
-            // Re-index the remaining rows
+            // Re-index remaining rows' name attributes
             $(".mrntableselectexcel tr").each(function (index) {
                 $(this)
-                    .find("input[name^='details']")
+                    .find("input[name^='details'], select[name^='details']")
                     .each(function () {
                         let nameAttr = $(this).attr("name");
                         if (nameAttr) {
@@ -624,11 +672,49 @@ $(document).on("click", ".deleteBtn", (e) => {
                     });
             });
 
-            Swal.fire({
-                title: "Deleted!",
-                text: "Selected rows have been deleted.",
-                icon: "success",
+            if ($(".mrntableselectexcel tr").length === 0) {
+                $(".level_id").prop("disabled", false);
+                $(".sub_store_id").prop("disabled", false);
+            }
+
+            // Update duplicate item restrictions
+            updateUniqueSelectOptions();
+        };
+
+        // If there are IDs to delete in DB
+        if (itemIdsToDelete.length > 0) {
+            $.ajax({
+                url: "/warehouse-item-mappings/delete-details",
+                type: "POST",
+                data: {
+                    _token: $('meta[name="csrf-token"]').attr("content"),
+                    ids: itemIdsToDelete,
+                },
+                success: function (response) {
+                    // DOM cleanup regardless of response content
+                    removeCheckedRowsFromDOM();
+                    Swal.fire(
+                        "Deleted!",
+                        "Selected rows have been deleted.",
+                        "success"
+                    );
+                },
+                error: function () {
+                    Swal.fire(
+                        "Error",
+                        "Failed to delete from database",
+                        "error"
+                    );
+                },
             });
+        } else {
+            // No DB ids; just remove from DOM
+            removeCheckedRowsFromDOM();
+            Swal.fire(
+                "Deleted!",
+                "Selected rows have been deleted.",
+                "success"
+            );
         }
     });
 });
@@ -641,27 +727,16 @@ $(document).on(
     }
 );
 
+/* =========================
+   UNIQUE ITEMS (ACROSS ROWS)
+   ========================= */
 function updateUniqueSelectOptions() {
-    // Step 1: Collect selected values from all rows
-    let usedCategories = new Map();
-    let usedSubCategories = new Map();
+    // Step 1: Collect selected values for ITEMS ONLY
     let usedItems = new Map();
 
     $(".mrntableselectexcel tr").each(function () {
         const $row = $(this);
         const rowEl = $row.get(0);
-
-        ($row.find(".category-select").val() || []).forEach((val) => {
-            val = String(val);
-            if (!usedCategories.has(val)) usedCategories.set(val, []);
-            usedCategories.get(val).push(rowEl);
-        });
-
-        ($row.find(".sub-category-select").val() || []).forEach((val) => {
-            val = String(val);
-            if (!usedSubCategories.has(val)) usedSubCategories.set(val, []);
-            usedSubCategories.get(val).push(rowEl);
-        });
 
         ($row.find(".item-select").val() || []).forEach((val) => {
             val = String(val);
@@ -670,42 +745,11 @@ function updateUniqueSelectOptions() {
         });
     });
 
-    // Step 2: Disable reused options in other rows
+    // Step 2: Disable reused item options in other rows
     $(".mrntableselectexcel tr").each(function () {
         const $row = $(this);
         const rowEl = $row.get(0);
 
-        // CATEGORY
-        $row.find(".category-select option").each(function () {
-            const val = String($(this).attr("value"));
-            const owners = usedCategories.get(val) || [];
-            const selectedHere = $row.find(".category-select").val() || [];
-
-            if (
-                owners.length > 0 &&
-                !selectedHere.includes(val) &&
-                owners.some((r) => r !== rowEl)
-            ) {
-                $(this).prop("disabled", true);
-            } else {
-                $(this).prop("disabled", false);
-            }
-        });
-
-        // SUB CATEGORY
-        // $row.find(".sub-category-select option").each(function () {
-        //     const val = String($(this).attr("value"));
-        //     const owners = usedSubCategories.get(val) || [];
-        //     const selectedHere = $row.find(".sub-category-select").val() || [];
-
-        //     if (owners.length > 0 && !selectedHere.includes(val) && owners.some(r => r !== rowEl)) {
-        //         $(this).prop("disabled", true);
-        //     } else {
-        //         $(this).prop("disabled", false);
-        //     }
-        // });
-
-        // ITEM
         $row.find(".item-select option").each(function () {
             const val = String($(this).attr("value"));
             const owners = usedItems.get(val) || [];
@@ -724,7 +768,7 @@ function updateUniqueSelectOptions() {
     });
 
     // Step 3: Refresh select2
-    $(".category-select, .sub-category-select, .item-select").each(function () {
+    $(".item-select").each(function () {
         $(this).trigger("change.select2");
     });
 }

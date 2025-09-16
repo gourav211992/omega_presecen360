@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Traits\Deletable;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -40,7 +41,7 @@ class WarehouseItemMappingController extends Controller
         $user = Helper::getAuthenticatedUser();
 
 
-        $records  = WhItemMapping::get()->toArray();
+        $records = WhItemMapping::get()->toArray();
         $stores = ErpStore::withDefaultGroupCompanyOrg()
             ->get();
         $status = ConstantHelper::STATUS;
@@ -110,6 +111,104 @@ class WarehouseItemMappingController extends Controller
         ]);
     }
 
+    // Get Sub Categories
+
+    public function getSubCategories(Request $request)
+    {
+        // 1) Normalize possible inputs: parent_id, parent_id[], parent_ids, parent_ids[]
+        //    We "wrap" everything into an array, keep only numeric > 0, and take the LAST one.
+        $candidates = [];
+
+        // parent_id (can be scalar or array)
+        $pid = $request->input('parent_id', null);
+        if (!is_null($pid)) {
+            $candidates = array_merge($candidates, Arr::wrap($pid));
+        }
+
+        // parent_ids / parent_ids[] (array or scalar)
+        $pids = $request->input('parent_ids', null);
+        if (!is_null($pids)) {
+            $candidates = array_merge($candidates, Arr::wrap($pids));
+        }
+
+        // Keep only numeric positive ids (as strings or ints)
+        $candidates = array_values(array_filter($candidates, function ($v) {
+            return is_numeric($v) && (int) $v > 0;
+        }));
+
+        // Take the last provided id (common pattern when UI keeps the latest pick)
+        $leafId = count($candidates) ? (int) end($candidates) : 0;
+
+        // 2) If still nothing, return a QUIET empty payload (no error)
+        if ($leafId <= 0) {
+            return response()->json([
+                'status' => 200,
+                'message' => 'No parent ID provided, returning empty data.',
+                'items' => [],
+                'data' => [],
+                'hierarchy' => [],
+                'breadcrumb_full' => '',
+                'parent_name' => null,
+                'breadcrumb_parents' => '',
+                'leaf' => null,
+                'parent' => null,
+            ]);
+        }
+
+        // 3) Fetch the leaf node
+        $leaf = Category::select('id', 'name', 'parent_id')->find($leafId);
+        if (!$leaf) {
+            return response()->json([
+                'status' => 404,
+                'message' => 'Category not found.',
+            ], 404);
+        }
+
+        // 4) Build hierarchy (root → … → immediate parent)
+        $parent = $leaf->parent_id
+            ? Category::select('id', 'name', 'parent_id')->find($leaf->parent_id)
+            : null;
+
+        $chain = [];
+        $node = $parent;
+        while ($node) {
+            $chain[] = ['id' => $node->id, 'name' => $node->name];
+            $node = $node->parent_id
+                ? Category::select('id', 'name', 'parent_id')->find($node->parent_id)
+                : null;
+        }
+        $hierarchy = array_reverse($chain);
+
+        // 5) Breadcrumbs
+        $breadcrumbParentsOnly = implode(' > ', array_column($hierarchy, 'name'));
+        $breadcrumbFull = trim($breadcrumbParentsOnly . ($breadcrumbParentsOnly ? ' > ' : '') . $leaf->name);
+
+        // 6) Children + items under this leaf
+        $subCategories = Category::where('parent_id', $leaf->id)
+            ->select('id', 'name')
+            ->orderBy('name')
+            ->get();
+
+        $items = Item::where('subcategory_id', $leaf->id)
+            ->select('id', 'item_name', 'item_code')
+            ->orderBy('item_code')
+            ->get();
+
+        return response()->json([
+            'status' => 200,
+            'message' => 'Hierarchy fetched.',
+            'items' => $items,
+            'data' => $subCategories,
+            'hierarchy' => $hierarchy,
+            'breadcrumb_full' => $breadcrumbFull,
+            'parent_name' => $parent->name ?? null,
+            'breadcrumb_parents' => $breadcrumbParentsOnly,
+            'leaf' => ['id' => $leaf->id, 'name' => $leaf->name],
+            'parent' => $parent ? ['id' => $parent->id, 'name' => $parent->name] : null,
+        ]);
+    }
+
+
     public function store(WhItemMappingRequest $request)
     {
         $user = Helper::getAuthenticatedUser();
@@ -141,8 +240,8 @@ class WarehouseItemMappingController extends Controller
                     foreach ($levelNames as $slug => $meta) {
                         if (!empty($detail[$slug])) {
                             $structureDetails[] = [
-                                'level-id'     => $meta['id'],
-                                'level-name'   => $meta['name'],
+                                'level-id' => $meta['id'],
+                                'level-name' => $meta['name'],
                                 'level-values' => $detail[$slug],
                             ];
                         }
@@ -154,12 +253,12 @@ class WarehouseItemMappingController extends Controller
 
                         if ($mapping) {
                             $mapping->update([
-                                'store_id'         => $request->store_id,
-                                'sub_store_id'     => $request->sub_store_id,
-                                'status'           => $request->status ?? 'active',
-                                'category_id'      => $detail['category_id'] ?? [],
-                                'sub_category_id'  => $detail['sub_category_id'] ?? [],
-                                'item_id'          => $detail['item_id'] ?? [],
+                                'store_id' => $request->store_id,
+                                'sub_store_id' => $request->sub_store_id,
+                                'status' => $request->status ?? 'active',
+                                'category_id' => $detail['category_id'] ?? [],
+                                'sub_category_id' => $detail['sub_category_id'] ?? [],
+                                'item_id' => $detail['item_id'] ?? [],
                                 'structure_details' => $structureDetails,
                             ]);
 
@@ -167,12 +266,12 @@ class WarehouseItemMappingController extends Controller
                         }
                     } else {
                         $new = WhItemMapping::create([
-                            'store_id'         => $request->store_id,
-                            'sub_store_id'     => $request->sub_store_id,
-                            'status'           => $request->status ?? 'active',
-                            'category_id'      => $detail['category_id'] ?? [],
-                            'sub_category_id'  => $detail['sub_category_id'] ?? [],
-                            'item_id'          => $detail['item_id'] ?? [],
+                            'store_id' => $request->store_id,
+                            'sub_store_id' => $request->sub_store_id,
+                            'status' => $request->status ?? 'active',
+                            'category_id' => $detail['category_id'] ?? [],
+                            'sub_category_id' => $detail['sub_category_id'] ?? [],
+                            'item_id' => $detail['item_id'] ?? [],
                             'structure_details' => $structureDetails,
                         ]);
 
@@ -187,46 +286,6 @@ class WarehouseItemMappingController extends Controller
                     ->delete();
             }
 
-            // if ($request->has('details')) {
-            //     // Get ordered structure levels (zone, bay, rack, etc.)
-            //     $levelNames = WhLevel::where('store_id', $request->store_id)
-            //         ->where('sub_store_id', $request->sub_store_id)
-            //         ->orderBy('level') // or your actual sort column
-            //         ->get(['id', 'name'])
-            //         ->mapWithKeys(function ($level) {
-            //             $slug = \Str::slug($level->name, '_'); // e.g., "Zone" => "zone"
-            //             return [$slug => ['id' => $level->id, 'name' => $level->name]];
-            //         })
-            //         ->toArray();
-
-            //     foreach ($request->details as $detail) {
-            //         // Build structure_details associative array in the correct order
-            //         $structureDetails = [];
-
-            //         foreach ($levelNames as $slug => $meta) {
-            //             if (!empty($detail[$slug])) {
-            //                 $structureDetails[] = [
-            //                     'level-id'     => $meta['id'],
-            //                     'level-name'   => $meta['name'],
-            //                     'level-values' => $detail[$slug],
-            //                 ];
-            //             }
-            //         }
-
-            //         // Create record
-            //         WhItemMapping::create([
-            //             'wh_structure_id'  => $whStructure?->id,
-            //             'store_id'         => $request->store_id,
-            //             'sub_store_id'     => $request->sub_store_id,
-            //             'status'           => $request->status ?? 'active',
-            //             'category_id'      => $detail['category_id'] ?? [],
-            //             'sub_category_id'  => $detail['sub_category_id'] ?? [],
-            //             'item_id'          => $detail['item_id'] ?? [],
-            //             'structure_details'=> $structureDetails,
-            //         ]);
-            //     }
-            // }
-
             DB::commit();
             return response()->json([
                 'message' => 'Mappings saved successfully',
@@ -235,7 +294,7 @@ class WarehouseItemMappingController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Error while saving mappings',
-                'error'   => $e->getMessage(),
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -254,9 +313,11 @@ class WarehouseItemMappingController extends Controller
     {
         $user = Helper::getAuthenticatedUser();
         $stores = ErpSubStoreParent::withDefaultGroupCompanyOrg()
-            ->with(['sub_store' => function ($query) {
-                $query->where('status', 'active');
-            }])
+            ->with([
+                'sub_store' => function ($query) {
+                    $query->where('status', 'active');
+                }
+            ])
             ->get();
 
         return response()->json(['data' => $stores, 'status' => 200, 'message' => 'fetched.']);
@@ -296,7 +357,6 @@ class WarehouseItemMappingController extends Controller
     public function getDetails(Request $request)
     {
         $user = Helper::getAuthenticatedUser();
-
         $categories = array();
         $structures = array();
 
@@ -320,37 +380,6 @@ class WarehouseItemMappingController extends Controller
                 'structures' => $structures,
             ]
         );
-    }
-
-    // Get Sub Categories
-    public function getSubCategories(Request $request)
-    {
-        $parentIds = $request->input('parent_ids', []);
-        if (empty($parentIds)) {
-            return response()->json([
-                'status' => 400,
-                'message' => 'No valid parent IDs provided.',
-            ]);
-        }
-
-        // Fetch subcategories that belong to any of the selected parent IDs
-        $subCategories = Category::whereIn('parent_id', $parentIds)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get();
-
-        // Fetch items that belong to any of the selected parent IDs
-        $items = Item::whereIn('subcategory_id', $parentIds)
-            ->select('id', 'item_code')
-            ->orderBy('item_code')
-            ->get();
-
-        return response()->json([
-            'status' => 200,
-            'message' => 'fetched.',
-            'items' => $items,
-            'data' => $subCategories,
-        ]);
     }
 
     // Get Items
@@ -432,7 +461,7 @@ class WarehouseItemMappingController extends Controller
         })->get(); // Main categories
         $allSubCategories = Category::whereNotNull('parent_id')->get(); // All subcategories
         $allItems = Item::select('id', 'item_code as name', 'category_id', 'subcategory_id')->get();
-        
+
         $mappingsData = [];
 
         foreach ($mappings as $mapping) {
@@ -496,7 +525,7 @@ class WarehouseItemMappingController extends Controller
             ];
 
         }
-        
+
         return response()->json([
             'status' => 200,
             'is_exist' => $isExist,
