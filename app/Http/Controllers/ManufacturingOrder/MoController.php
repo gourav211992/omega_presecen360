@@ -43,9 +43,9 @@ use App\Models\ErpMachineDetail;
 use App\Models\ErpSubStore;
 use App\Models\PwoBomMapping;
 use Yajra\DataTables\DataTables;
-use DB;
-use PDF;
-
+use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf; 
+use Exception;
 class MoController extends Controller
 {
     # Bill of material list
@@ -328,7 +328,7 @@ class MoController extends Controller
                                 $moBomMapping->attributes = $bomDetail->attributes;
                                 $moBomMapping->uom_id = $bomDetail->uom_id;
                                 $moBomMapping->bom_qty = $bomDetail->bom_qty;
-                                $moBomMapping->consumption_qty = $bomDetail->qty;
+                                $moBomMapping->consumption_qty = ($bomDetail->bom_qty*$moProdDetail->qty);
                                 $moBomMapping->station_id = $bomDetail->station_id;
                                 $moBomMapping->section_id = $bomDetail->section_id;
                                 $moBomMapping->sub_section_id = $bomDetail->sub_section_id;
@@ -688,7 +688,8 @@ class MoController extends Controller
 
         if($request->has('revisionNumber') && $request->revisionNumber != $bom->revision_number) {
             $bom = $bom->source()->where('revision_number', $request->revisionNumber)->first();
-            $view = 'mfgOrder.view';
+            $buttons['amend']=false;
+            // $view = 'mfgOrder.view';
         }
 
         $stations = Station::where('status', ConstantHelper::ACTIVE)
@@ -748,19 +749,22 @@ class MoController extends Controller
             $mo = MfgOrder::find($id);
             $currentStatus = $mo->document_status;
             $actionType = $request->action_type;
-            // if($currentStatus == ConstantHelper::APPROVED && $actionType == 'amendment')
-            // {
-            //     $revisionData = [
-            //         ['model_type' => 'header', 'model_name' => 'MfgOrder', 'relation_column' => ''],
-            //         ['model_type' => 'detail', 'model_name' => 'MoProduct', 'relation_column' => 'mo_id'],
-            //         ['model_type' => 'detail', 'model_name' => 'MoItem', 'relation_column' => 'mo_id'],
-            //         ['model_type' => 'detail', 'model_name' => 'MoBomMapping', 'relation_column' => 'mo_id'],
-            //         ['model_type' => 'sub_detail', 'model_name' => 'MoItemAttribute', 'relation_column' => 'mo_id'],
-            //         ['model_type' => 'sub_detail', 'model_name' => 'MoAttribute', 'relation_column' => 'mo_item_id'],
-            //     ];
-            //     $a = Helper::documentAmendment($revisionData, $id);
-            // }
 
+            if(($currentStatus == ConstantHelper::APPROVED || $currentStatus == ConstantHelper::APPROVAL_NOT_REQUIRED) && $actionType == 'amendment')
+            {
+              //*amendmemnt document log*/
+                  $revisionData = [
+                    ['model_type' => 'header', 'model_name' => 'MfgOrder', 'relation_column' => ''],
+                    ['model_type' => 'detail', 'model_name' => 'ErpMoDynamicField', 'relation_column' => 'header_id'],
+                    ['model_type' => 'detail', 'model_name' => 'MoProduct', 'relation_column' => 'mo_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'MoProductAttribute', 'relation_column' => 'mo_product_id'],
+                    ['model_type' => 'detail', 'model_name' => 'MoItem', 'relation_column' => 'mo_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'MoItemAttribute', 'relation_column' => 'mo_item_id'],
+                    ['model_type' => 'detail', 'model_name' => 'MoBomMapping', 'relation_column' => 'mo_id'],
+                ];
+                Helper::documentAmendment($revisionData, $id);
+            }
+            
             $keys = ['deletedPiItemIds', 'deletedAttachmentIds'];
             $deletedData = [];
 
@@ -807,7 +811,7 @@ class MoController extends Controller
                 $ctr++;
             }
 
-            $mo->document_status = $request->document_status ?? ConstantHelper::DRAFT;
+            // $mo->document_status = $request->document_status ?? ConstantHelper::DRAFT;
             $mo->remarks = $request->remarks;
             # Extra Column
             $mo->save();
@@ -899,7 +903,7 @@ class MoController extends Controller
                             $moBomMapping->attributes = $bomDetail->attributes;
                             $moBomMapping->uom_id = $bomDetail->uom_id;
                             $moBomMapping->bom_qty = $bomDetail->bom_qty;
-                            $moBomMapping->consumption_qty = $bomDetail->qty;
+                            $moBomMapping->consumption_qty = $bomDetail->bom_qty*$moProdDetail->qty;
                             $moBomMapping->station_id = $bomDetail->station_id;
                             $moBomMapping->section_id = $bomDetail->section_id;
                             $moBomMapping->sub_section_id = $bomDetail->sub_section_id;
@@ -1030,18 +1034,21 @@ class MoController extends Controller
             $currentLevel = $mo->approval_level;
             $modelName = get_class($mo);
             $totalValue = 0;
-            if($currentStatus == ConstantHelper::APPROVED && $actionType == 'amendment')
+            if(($currentStatus == ConstantHelper::APPROVED || $currentStatus == ConstantHelper::APPROVAL_NOT_REQUIRED) && $actionType == 'amendment')
             {
-                //*amendmemnt document log*/
+              
                 $revisionNumber = $mo->revision_number + 1;
+                $mo->revision_number = $revisionNumber;
                 $actionType = 'amendment';
                 $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $amendRemarks, $amendAttachments, $currentLevel, $actionType, $totalValue, $modelName);
-                $mo->revision_number = $revisionNumber;
+               
                 $mo->approval_level = 1;
                 $mo->revision_date = now();
                 $amendAfterStatus = $approveDocument['approvalStatus'] ??  $mo->document_status;
                 $mo->document_status = $amendAfterStatus;
+                $mo->sub_store_id=$request->sub_store_id;
                 $mo->save();
+                
             } else {
                 if ($request->document_status == ConstantHelper::SUBMITTED) {
                     $revisionNumber = $mo->revision_number ?? 0;
@@ -1129,7 +1136,15 @@ class MoController extends Controller
         DB::beginTransaction();
         try {
             $bom = MfgOrder::find($request->id);
+
             if (isset($bom)) {
+                if ($bom->revision_number > 0) {
+                    DB::rollBack();
+                    return response() -> json([
+                        'status' => 'error',
+                        'message' => 'Amended document cannot be revoked',
+                    ]);
+                }
                 $revoke = Helper::approveDocument($bom->book_id, $bom->id, $bom->revision_number, '', [], 0, ConstantHelper::REVOKE, 0, get_class($bom));
                 if ($revoke['message']) {
                     DB::rollBack();

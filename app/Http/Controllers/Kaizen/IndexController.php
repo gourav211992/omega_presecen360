@@ -26,8 +26,8 @@ class IndexController extends Controller
         $currentYear = Carbon::now()->year;
 
         // 1) Monthly chart data (organization wise)
-        $rawData = ErpKaizen::selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as total")
-            ->whereYear('created_at', $currentYear)
+        $rawData = ErpKaizen::selectRaw("DATE_FORMAT(kaizen_date, '%Y-%m') as month, COUNT(*) as total")
+            ->whereYear('kaizen_date', $currentYear)
             ->where('organization_id', $user->organization_id)
             ->groupBy('month')
             ->orderBy('month')

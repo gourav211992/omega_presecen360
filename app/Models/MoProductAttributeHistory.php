@@ -19,4 +19,28 @@ class MoProductAttributeHistory extends Model
         'attribute_name',
         'attribute_value'
     ];
+     protected $appends = [
+        'dis_attribute_name',
+        'dis_attribute_value'
+    ];
+
+    public function getDisAttributeNameAttribute()
+    {
+        return $this->headerAttribute?->name ?? null;
+    }
+    
+    public function getDisAttributeValueAttribute()
+    {
+        return $this->headerAttributeValue?->value ?? null;
+    }
+    
+    public function headerAttribute()
+    {
+        return $this->belongsTo(AttributeGroup::class, 'attribute_name');
+    }
+
+    public function headerAttributeValue()
+    {
+        return $this->belongsTo(Attribute::class, 'attribute_value');
+    }
 }

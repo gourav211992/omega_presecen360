@@ -312,8 +312,8 @@ class BomController extends Controller
                         if (!empty($uploadedFiles)) {
                             $mediaFiles = $bomInstruction->uploadDocuments($uploadedFiles, 'bom_instruction', false);
                         }
-                    } elseif (!empty($instruction['instruction_id'])) {
-                        $oldInstruction = BomInstruction::find($instruction['instruction_id']);
+                    } elseif (!empty($instruction['id'])) {
+                        $oldInstruction = BomInstruction::find($instruction['id']);
                         if ($oldInstruction) {
                             $oldAttachments = $oldInstruction->media;
                             foreach ($oldAttachments as $media) {
@@ -1542,6 +1542,13 @@ class BomController extends Controller
         try {
             $bom = Bom::findOrFail($request->id);
             if (isset($bom)) {
+                if ($bom->revision_number > 0) {
+                    DB::rollBack();
+                    return response() -> json([
+                        'status' => 'error',
+                        'message' => 'Amended document cannot be revoked',
+                    ]);
+                }
                 $revoke = Helper::approveDocument($bom->book_id, $bom->id, $bom->revision_number, '', [], 0, ConstantHelper::REVOKE, $bom->total_value, get_class($bom));
                 if ($revoke['message']) {
                     DB::rollBack();

@@ -1,7 +1,7 @@
 <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
    <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
-        <form class="ajax-input-form" method="POST" action="{{ route('document.approval.bom') }}" data-redirect="{{ route('pwo.index') }}" enctype='multipart/form-data'>
+        <form class="ajax-input-form" method="POST" action="{{ route('document.approval.pwo') }}" data-redirect="{{ route('pwo.index') }}" enctype='multipart/form-data'>
           @csrf
           <input type="hidden" name="action_type" id="action_type">
           <input type="hidden" name="id" value="{{$id ?? ''}}">
@@ -16,7 +16,7 @@
                <div class="col-md-12">
                   <div class="mb-2">
                      <label class="form-label">Remarks <span class="text-danger">*</span></label>
-                     <textarea maxlength="250" name="remarks" class="form-control"></textarea>
+                     <textarea maxlength="250" name="remarks" class="form-control" required></textarea>
                   </div>
                   <div class="mb-2">
                      <label class="form-label">Upload Document</label>

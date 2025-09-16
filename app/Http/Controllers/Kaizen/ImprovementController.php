@@ -21,10 +21,10 @@ class ImprovementController extends Controller
         $user = Helper::getAuthenticatedUser();
         $organizationId = $user?->organization_id ?? null;
         $groupId = $user->organization ? $user->organization->group_id : null; 
-        // ErpKaizenImprovement::query()->update(['group_id' => $groupId]);
+        ErpKaizenImprovement::query()->update(['group_id' => $groupId]);
 
         if ($request->ajax()) {
-            $erpKaizenImprovements = ErpKaizenImprovement::where('organization_id', $organizationId)
+            $erpKaizenImprovements = ErpKaizenImprovement::where('group_id', $groupId)
                 ->orderBy('id', 'desc');
                 return DataTables::of($erpKaizenImprovements)
                     ->addIndexColumn()
@@ -162,6 +162,7 @@ class ImprovementController extends Controller
     public function pdfView(Request $request){
         $user = Helper::getAuthenticatedUser();
         $organizationId = $user?->organization_id ?? null;
+        $groupId = $user->organization ? $user->organization->group_id : null; 
 
         $types = ErpKaizenImprovement::select('type')->distinct()->pluck('type');
         $selects = ['marks'];
@@ -170,7 +171,7 @@ class ImprovementController extends Controller
             $selects[] = DB::raw("MAX(CASE WHEN type = '{$type}' THEN description END) AS `{$type}`");
         }
 
-        $data = ErpKaizenImprovement::select($selects)->where('marks', '!=', 0)->where('organization_id', $organizationId)
+        $data = ErpKaizenImprovement::select($selects)->where('marks', '!=', 0)->where('group_id', $groupId)
             ->groupBy('marks')
             ->orderBy('marks')
             ->get();

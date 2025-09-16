@@ -48,11 +48,27 @@ class ErpSaleOrderRequest extends FormRequest
 
     protected function withValidator($validator)
     {
+        $this -> item_qty =  array_values($this -> item_qty ?? []);
+        $this -> item_id =  array_values($this -> item_id ?? []);
+        $this -> item_remarks =  array_values($this -> item_remarks ?? []);
+        $this -> uom_id =  array_values($this -> uom_id ?? []);
+        $this -> item_discount_value =  array_values($this -> item_discount_value ?? []);
+        $this -> item_rate =  array_values($this -> item_rate ?? []);
+        $this -> delivery_date =  array_values($this -> delivery_date ?? []);
+        $this -> item_delivery_schedule_qty =  array_values($this -> item_delivery_schedule_qty ?? []);
+        $this -> item_delivery_schedule_date =  array_values($this -> item_delivery_schedule_date ?? []);
+        $this -> item_delivery_schedule_id =  array_values($this -> item_delivery_schedule_id ?? []);
+        $this -> item_attributes =  array_values($this -> item_attributes ?? []);
+        $this -> item_bom_details =  array_values($this -> item_bom_details ?? []);
+        $this -> item_bom_id =  array_values($this -> item_bom_id ?? []);
+
         $validator->after(function ($validator) {
             //Check atleast one item exists
             $itemIds = $this -> input('item_id', []);
             $itemsQty = $this -> input('item_qty', []);
             $itemRate = $this -> input('item_id', []);
+
+            $itemsQty = array_values($itemsQty);
 
             if (empty($itemIds) || empty($itemsQty) || empty($itemRate))
             {
@@ -111,7 +127,7 @@ class ErpSaleOrderRequest extends FormRequest
                             ]);
                         }
                     }
-                    $itemQty = $this -> item_qty[$itemKey];
+                    $itemQty = $itemsQty[$itemKey];
                     $totalDeliveryQty = 0;
                     $deliverySchedule = isset($this -> item_delivery_schedule_qty[$itemKey]) ? $this -> item_delivery_schedule_qty[$itemKey] : [];
                     foreach ($deliverySchedule as $delvSchedule) {

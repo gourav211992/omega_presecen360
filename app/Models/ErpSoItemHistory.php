@@ -217,4 +217,8 @@ class ErpSoItemHistory extends Model
     {
         return $this -> hasMany(ErpSoItemBomHistory::class,'so_item_id');
     }
+    public function jobWorkItems()
+    {
+        return $this->hasMany(ErpSoJobWorkItemHistory::class, 'so_item_id');
+    }
 }

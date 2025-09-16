@@ -1,3 +1,4 @@
+{{-- @dd($bom->items); --}}
 @foreach($bom->items as $key => $moItem)
 @php
    $rowCount = $key + 1;
