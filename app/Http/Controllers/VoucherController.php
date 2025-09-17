@@ -48,6 +48,7 @@ class VoucherController extends Controller
 {
     public static function getLedgerVouchers(Request $request)
     {
+        dd($request->user());
         $type = $request->type == ConstantHelper::RECEIPTS_SERVICE_ALIAS ? 'customer' : 'vendor';
 
 
@@ -62,11 +63,13 @@ class VoucherController extends Controller
                
                 // $orgsFromAccess = collect(optional($user)->accessrightsorg)->pluck('organization_id');
                
-               if ($user->authenticable_type == 'employee') {
-                    $orgsFromAccess = EmployeeOrganizationMapping::where('employee_id', $user->id)->pluck('organization_id');
-                } else {
-                    $orgsFromAccess = UserOrganizationMapping::where('user_id', $user->id)->pluck('organization_id');
-                }
+            //    if ($user->authenticable_type == 'employee') {
+            //         $orgsFromAccess = EmployeeOrganizationMapping::where('employee_id', $user->id)->pluck('organization_id');
+            //     } else {
+            //         $orgsFromAccess = UserOrganizationMapping::where('user_id', $user->id)->pluck('organization_id');
+            //     }
+            dd($request->user());
+            $orgsFromAccess = $request->user();
         
                 $orgs = $orgsFromAccess->isEmpty()
                             ? [optional($user)->organization_id]
