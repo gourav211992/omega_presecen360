@@ -1081,32 +1081,56 @@ class PaymentVoucherController extends Controller
         DB::beginTransaction();
         try {
             $po = PaymentVoucher::find($request->id);
-            if (isset($po)) {
-                $revoke = Helper::approveDocument($po->book_id, $po->id, $po->revision_number, '', null, 1, ConstantHelper::REVOKE, $po->amount, get_class($po));
-                if ($revoke['message']) {
-                    DB::rollBack();
-                    return response()->json([
-                        'status' => 'error',
-                        'message' => $revoke['message'],
-                    ]);
-                } else {
-                    $po->document_status = $revoke['approvalStatus'];
-                    $po->save();
-                    DB::commit();
-                    return response()->json([
-                        'status' => 'success',
-                        'message' => 'Revoked succesfully',
-                    ]);
-                }
-            } else {
+    
+            if (!$po) {
                 DB::rollBack();
                 throw new ApiGenericException("No Document found");
             }
+    
+            // ✅ Strict validation: once amended, cannot be revoked
+            if ($po->revision_number > 0) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'This document has already been amended and cannot be revoked.',
+                ]);
+            }
+    
+            $revoke = Helper::approveDocument(
+                $po->book_id,
+                $po->id,
+                $po->revision_number,
+                '',
+                null,
+                1,
+                ConstantHelper::REVOKE,
+                $po->amount,
+                get_class($po)
+            );
+    
+            if ($revoke['message']) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => $revoke['message'],
+                ]);
+            }
+    
+            $po->document_status = $revoke['approvalStatus'];
+            $po->save();
+    
+            DB::commit();
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Revoked successfully',
+            ]);
+    
         } catch (Exception $ex) {
             DB::rollBack();
             throw new ApiGenericException($ex->getMessage());
         }
     }
+    
     public function cancelDocument(Request $request)
     {
         DB::beginTransaction();

@@ -970,18 +970,141 @@ class MaintWoController extends Controller
 
             $equipmentData = $query->get();
             //Need to optimize this query acording to only requied field for each relation
+          
+            // foreach ($equipmentData as $eqpt) {
+            //     $plantMaintWo = PlantMaintWo::where('equipment_details->equipment_id',$eqpt->erp_equipment_id)->where('equipment_details->maintenance_type_id',$eqpt->maintenance_type_id)->where('equipment_details->reference_type','equipment')->orderBy('id','DESC')->first();
+                
+            //     // dd($plantMaintWo);
+            //     $dueDate = null;
+            //     $base =null;
+            //     if ($plantMaintWo && in_array($plantMaintWo->document_status, ['approved', 'approval_not_required'])) {
+            //         $equipmentDetails = json_decode($plantMaintWo->equipment_details, true);
+            //         $dueDate = $equipmentDetails['due_date'] ?? null;
+            //         if($dueDate){
+            //             $base = Carbon::parse($dueDate);
+            //         }
+                   
+            //         if ($base) {
+            //             $freqType = $eqpt->frequency ?? '';
+            
+            //             switch ($freqType) {
+            //                 case 'Daily':
+            //                     $dueDate = $base->copy()->addDay();
+            //                     break;
+            //                 case 'Weekly':
+            //                     $dueDate = $base->copy()->addWeek();
+            //                     break;
+            //                 case 'Monthly':
+            //                     $dueDate = $base->copy()->addMonth();
+            //                     break;
+            //                 case 'Quarterly':
+            //                     $dueDate = $base->copy()->addMonths(3);
+            //                     break;
+            //                 case 'Semi-Annually':
+            //                     $dueDate = $base->copy()->addMonths(6);
+            //                     break;
+            //                 case 'Annually':
+            //                     $dueDate = $base->copy()->addYear();
+            //                     break;
+            //                 case 'Yearly':
+            //                     $dueDate = $base->copy()->addYear();
+            //                     break;
+            //                 default:
+            //                     $dueDate = $base;
+            //             }
+                       
+            //         }
+            //     } else {
+            //         $dueDate = $eqpt->start_date ? Carbon::parse($eqpt->start_date) : null;
+            //     }
+            
+            //     $eqpt->due_date = $dueDate ? $dueDate->format('d-m-Y') : null;
+
+            //     $maintenance_type_id = $eqpt->maintenance_type_id;
+
+            //     $maintenanceChecklists = ErpEquipMaintenanceChecklist::where('erp_equip_maintenance_id', $eqpt->id)
+            //         ->select('checklist_detail', 'name')
+            //         ->get();
+
+            //     $checklistsData = [];
+
+            //     foreach ($maintenanceChecklists as $maintenanceChecklist) {
+            //         // checklist_detail JSON ko array me convert karna
+            //         $detailsArray = json_decode($maintenanceChecklist->checklist_detail, true);
+                   
+
+            //         // agar single object mila ho to usko array bana do
+            //         if (isset($detailsArray['checklist_detail_id'])) {
+            //             $detailsArray = [$detailsArray];
+            //         }
+                    
+            //         foreach ($detailsArray as $detailObj) {
+            //             if (empty($detailObj['main_checklist_name']) || empty($detailObj['checklist_detail_id'])) {
+            //                 continue;
+            //             }
+            //             $inspectionChecklist = \App\Models\InspectionChecklist::where('name', $detailObj['main_checklist_name'])->first();
+                    
+            //             if ($inspectionChecklist) {
+            //                 $detail = \App\Models\InspectionChecklistDetail::where('header_id', $inspectionChecklist->id)
+            //                     ->where('id', $detailObj['checklist_detail_id'])
+            //                     ->select('id', 'name', 'data_type', 'description', 'mandatory')
+            //                     ->first();
+                    
+            //                 $detailsWithValues = [];
+                    
+            //                 if ($detail) {
+            //                     $detailValues = \App\Models\InspectionChecklistDetailValue::where('inspection_checklist_detail_id', $detail->id)
+            //                         ->pluck('value')
+            //                         ->toArray();
+                    
+            //                     $detailData = [
+            //                         'id'          => $detail->id,
+            //                         'name'        => $detail->name,
+            //                         'data_type'   => $detail->data_type,
+            //                         'description' => $detail->description,
+            //                         'mandatory'   => $detail->mandatory,
+            //                         'value'       => !empty($detailValues) ? $detailValues[0] : '',
+            //                     ];
+                    
+            //                     if ($detail->data_type === 'list') {
+            //                         $detailData['values'] = $detailValues;
+            //                     }
+                    
+            //                     $detailsWithValues[] = $detailData;
+            //                 }
+                    
+            //                 $checklistsData[] = [
+            //                     'main_name' => $detailObj['main_checklist_name'],
+            //                     'checklist' => $detailsWithValues,
+            //                 ];
+            //             }
+            //         }
+                    
+            //     }
+
+
+            //     $eqpt->checklistsData = $checklistsData;
+            //     $eqpt->checklistsIdsName = $maintenanceChecklists;
+            // }
 
             foreach ($equipmentData as $eqpt) {
-                $plantMaintWo = PlantMaintWo::where('equipment_details->equipment_id',$eqpt->erp_equipment_id)->where('equipment_details->reference_type','equipment')->orderBy('id','DESC')->first();
+                $plantMaintWo = PlantMaintWo::where('equipment_details->equipment_id', $eqpt->erp_equipment_id)
+                    ->where('equipment_details->maintenance_type_id', $eqpt->maintenance_type_id)
+                    ->where('equipment_details->reference_type', 'equipment')
+                    ->orderBy('id', 'DESC')
+                    ->first();
+            
                 $dueDate = null;
-                $base =null;
+                $base = null;
+            
                 if ($plantMaintWo && in_array($plantMaintWo->document_status, ['approved', 'approval_not_required'])) {
                     $equipmentDetails = json_decode($plantMaintWo->equipment_details, true);
                     $dueDate = $equipmentDetails['due_date'] ?? null;
-                    if($dueDate){
-                        $base = Carbon::parse($dueDate);
+            
+                    if ($dueDate) {
+                        $base = Carbon::parse($dueDate, 'UTC')->setTimezone('Asia/Kolkata'); // ✅ timezone fix
                     }
-                   
+            
                     if ($base) {
                         $freqType = $eqpt->frequency ?? '';
             
@@ -1002,8 +1125,6 @@ class MaintWoController extends Controller
                                 $dueDate = $base->copy()->addMonths(6);
                                 break;
                             case 'Annually':
-                                $dueDate = $base->copy()->addYear();
-                                break;
                             case 'Yearly':
                                 $dueDate = $base->copy()->addYear();
                                 break;
@@ -1012,48 +1133,49 @@ class MaintWoController extends Controller
                         }
                     }
                 } else {
-                    $dueDate = $eqpt->start_date ? Carbon::parse($eqpt->start_date) : null;
+                    $dueDate = $eqpt->start_date 
+                        ? Carbon::parse($eqpt->start_date, 'UTC')->setTimezone('Asia/Kolkata') // ✅ timezone fix
+                        : null;
                 }
             
+                // ✅ Always return formatted IST date
                 $eqpt->due_date = $dueDate ? $dueDate->format('d-m-Y') : null;
-
+            
                 $maintenance_type_id = $eqpt->maintenance_type_id;
-
+            
                 $maintenanceChecklists = ErpEquipMaintenanceChecklist::where('erp_equip_maintenance_id', $eqpt->id)
                     ->select('checklist_detail', 'name')
                     ->get();
-
+            
                 $checklistsData = [];
-
+            
                 foreach ($maintenanceChecklists as $maintenanceChecklist) {
-                    // checklist_detail JSON ko array me convert karna
                     $detailsArray = json_decode($maintenanceChecklist->checklist_detail, true);
-                   
-
-                    // agar single object mila ho to usko array bana do
+            
                     if (isset($detailsArray['checklist_detail_id'])) {
                         $detailsArray = [$detailsArray];
                     }
-                    
+            
                     foreach ($detailsArray as $detailObj) {
                         if (empty($detailObj['main_checklist_name']) || empty($detailObj['checklist_detail_id'])) {
                             continue;
                         }
+            
                         $inspectionChecklist = \App\Models\InspectionChecklist::where('name', $detailObj['main_checklist_name'])->first();
-                    
+            
                         if ($inspectionChecklist) {
                             $detail = \App\Models\InspectionChecklistDetail::where('header_id', $inspectionChecklist->id)
                                 ->where('id', $detailObj['checklist_detail_id'])
                                 ->select('id', 'name', 'data_type', 'description', 'mandatory')
                                 ->first();
-                    
+            
                             $detailsWithValues = [];
-                    
+            
                             if ($detail) {
                                 $detailValues = \App\Models\InspectionChecklistDetailValue::where('inspection_checklist_detail_id', $detail->id)
                                     ->pluck('value')
                                     ->toArray();
-                    
+            
                                 $detailData = [
                                     'id'          => $detail->id,
                                     'name'        => $detail->name,
@@ -1062,27 +1184,26 @@ class MaintWoController extends Controller
                                     'mandatory'   => $detail->mandatory,
                                     'value'       => !empty($detailValues) ? $detailValues[0] : '',
                                 ];
-                    
+            
                                 if ($detail->data_type === 'list') {
                                     $detailData['values'] = $detailValues;
                                 }
-                    
+            
                                 $detailsWithValues[] = $detailData;
                             }
-                    
+            
                             $checklistsData[] = [
                                 'main_name' => $detailObj['main_checklist_name'],
                                 'checklist' => $detailsWithValues,
                             ];
                         }
                     }
-                    
                 }
-
-
+            
                 $eqpt->checklistsData = $checklistsData;
                 $eqpt->checklistsIdsName = $maintenanceChecklists;
             }
+            
            
          
             
@@ -1092,23 +1213,27 @@ class MaintWoController extends Controller
             foreach ($equipmentData as $detail) {
                 if ($detail->equipment) {
                     $checklistsData = isset($detail->checklistsData) ? $detail->checklistsData : [];
-
+            
                     $equipment = $detail->equipment;
                     $equipment->checklists_data = $checklistsData;
-                    $equipment->due_date = date('d-m-Y', strtotime($detail->due_date));
-
+            
+                    // ✅ fix due_date as string
+                    $equipment->due_date = $detail->due_date
+                        ? Carbon::parse($detail->due_date)->format('d-m-Y')
+                        : null;
+            
+                    // Convert to array before adding into $data
                     $data[] = [
-                        'equipment' => $equipment,
-                        'maintenance_type' => $detail->maintenanceType,
-                        'bom' => $detail->bom,
-                        'maintenance_detail_id' => $detail->id,
+                        'equipment'            => $equipment->toArray(),
+                        'maintenance_type'     => $detail->maintenanceType,
+                        'bom'                  => $detail->bom,
+                        'maintenance_detail_id'=> $detail->id,
                     ];
                 }
             }
         }
-
         
-        
+     
         return response()->json($data);
     }
 
@@ -1346,6 +1471,7 @@ class MaintWoController extends Controller
                     ")
                     ->where('item_code', $sparePart['item_code']) // yaha fix kiya
                     ->value('confirmed_stock');
+                  
                     
                     $sparePartData = [
                         'item_id' => $sparePart['item_id'],
