@@ -80,6 +80,11 @@ return [
             'lock_connection' => 'default',
         ],
 
+        'redis_p360' => [
+            'driver'     => 'redis',
+            'connection' => 'p360'
+        ],
+
         'dynamodb' => [
             'driver' => 'dynamodb',
             'key' => env('AWS_ACCESS_KEY_ID'),

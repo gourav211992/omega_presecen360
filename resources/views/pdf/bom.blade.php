@@ -481,7 +481,7 @@
                                     Instruction
                                 </td> <td
                                     style="font-weight: bold; padding: 2px; border: 1px solid #000; border-top: none; border-left: none; background: #80808070; text-align: left;">
-                                    Instruction
+                                    Image
                                 </td>
                             </tr>
                             @foreach ($bom->bomInstructions as $key => $bomInstruction)
