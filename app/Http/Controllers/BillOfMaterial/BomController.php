@@ -1531,8 +1531,10 @@ class BomController extends Controller
                 'user' => $user
             ]
         );
-
-        $pdf->setOption('isHtml5ParserEnabled', true);
+        $pdf->setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true, 
+        ]);
         return $pdf->stream(str_replace(' ', '', $title) . '-' . date('Y-m-d') . '.pdf');
     }
 

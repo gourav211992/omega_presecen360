@@ -639,11 +639,11 @@ class PWOController extends Controller
          $view = 'pwo.edit';
 
          if($request->has('revisionNumber') && $request->revisionNumber != $bom->revision_number) {
-            $bom=ErpProductionWorkOrderHistory::where('revision_number',$request->revisionNumber) 
-                -> where('source_id', $id)->firstOrFail();
-            $bom = $bom->with('source')->first();
+           $bom = ErpProductionWorkOrderHistory::with('source')
+                ->where('revision_number', $request->revisionNumber)
+                ->where('source_id', $id)
+                ->firstOrFail();
             $buttons['amend']=false;
-            //  $view = 'pwo.view';
          }
 
          $locations = InventoryHelper::getAccessibleLocations();
@@ -672,7 +672,7 @@ class PWOController extends Controller
         DB::beginTransaction();
          try {
              $mo = ErpProductionWorkOrder::find($id);
- 
+
              $currentStatus = $mo->document_status;
              $actionType = $request->action_type;
  
@@ -1108,7 +1108,7 @@ class PWOController extends Controller
              ]);   
          } catch (Exception $e) {
              DB::rollBack();
-             dd($e->getLine());
+             dd($e);
              return response()->json([
                  'message' => 'Error occurred while updating the record.',
                  'error' => $e->getMessage(),

@@ -1621,7 +1621,7 @@ var currentRevNo = $("#revisionNumber").val();
 
 $(document).on('change', '#revisionNumber', (e) => {
     e.preventDefault();
-    let actionUrl = location.pathname + '?type=' + "{{request() -> type ?? 'so'}}" + '&revisionNumber=' + e.target.value;
+    let actionUrl = location.pathname + '?type=' + "{{request() -> type ?? 'mo'}}" + '&revisionNumber=' + e.target.value;
     $("#revisionNumber").val(currentRevNo);
     window.open(actionUrl, '_blank'); 
 });
