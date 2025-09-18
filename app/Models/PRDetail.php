@@ -53,7 +53,8 @@ class PRDetail extends Model
     protected $appends = [
         'cgst_value',
         'sgst_value',
-        'igst_value'
+        'igst_value',
+        'cess_value'
     ];
 
     public function header()
@@ -129,18 +130,18 @@ class PRDetail extends Model
 
     public function itemDiscount()
     {
-        return $this->hasMany(PRTed::class, 'detail_id')->where('ted_level', 'D')->where('ted_type','Discount');
+        return $this->hasMany(PRTed::class, 'detail_id')->where('ted_level', 'D')->where('ted_type', 'Discount');
     }
 
     /*Header Level Discount*/
     public function headerDiscount()
     {
-        return $this->hasMany(PRTed::class, 'detail_id')->where('ted_level', 'H')->where('ted_type','Discount');
+        return $this->hasMany(PRTed::class, 'detail_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
     }
 
     public function taxes()
     {
-        return $this->hasMany(PRTed::class, 'detail_id')->where('ted_type','Tax');
+        return $this->hasMany(PRTed::class, 'detail_id')->where('ted_type', 'Tax');
     }
 
     public function getCgstValueAttribute()
@@ -175,7 +176,7 @@ class PRDetail extends Model
             ->where('ted_code', '=', 'SGST')
             ->sum('ted_amount');
 
-            $tedRecord = PRTed::with(['taxDetail'])
+        $tedRecord = PRTed::with(['taxDetail'])
             ->where('detail_id', $this->id)
             ->where('header_id', $this->header_id)
             ->where('ted_type', '=', 'Tax')
@@ -183,6 +184,28 @@ class PRDetail extends Model
             ->where('ted_code', '=', 'SGST')
             ->first();
 
+
+        return [
+            'rate' => @$tedRecord->taxDetail->tax_percentage,
+            'value' => $tedRecords ?? 0.00
+        ];
+    }
+
+    public function getCessValueAttribute()
+    {
+        $tedRecords = PRTed::where('detail_id', $this->id)
+            ->where('ted_type', '=', 'Tax')
+            ->where('ted_level', '=', 'D')
+            ->where('ted_code', '=', 'CESS')
+            ->sum('ted_amount');
+
+        $tedRecord = PRTed::with(['taxDetail'])
+            ->where('detail_id', $this->id)
+            ->where('header_id', $this->header_id)
+            ->where('ted_type', '=', 'Tax')
+            ->where('ted_level', '=', 'D')
+            ->where('ted_code', '=', 'CESS')
+            ->first();
 
         return [
             'rate' => @$tedRecord->taxDetail->tax_percentage,
@@ -198,7 +221,7 @@ class PRDetail extends Model
             ->where('ted_code', '=', 'IGST')
             ->sum('ted_amount');
 
-            $tedRecord = PRTed::with(['taxDetail'])
+        $tedRecord = PRTed::with(['taxDetail'])
             ->where('detail_id', $this->id)
             ->where('header_id', $this->header_id)
             ->where('ted_type', '=', 'Tax')
@@ -215,7 +238,7 @@ class PRDetail extends Model
 
     public function ted_tax()
     {
-        return $this->hasOne(PRTed::class,'detail_id')->where('ted_type','Tax')->latest();
+        return $this->hasOne(PRTed::class, 'detail_id')->where('ted_type', 'Tax')->latest();
     }
 
     // public function item_attributes_array()
@@ -268,9 +291,9 @@ class PRDetail extends Model
         $itemAttributes = ItemAttribute::where('item_id', $itemId)->get();
         $processedData = [];
         $mappingAttributes = PRItemAttribute::where('detail_id', $this->getAttribute('id'))
-        ->select(['item_attribute_id as attribute_id', 'attr_value as attribute_value_id'])
-        ->get()
-        ->toArray();
+            ->select(['item_attribute_id as attribute_id', 'attr_value as attribute_value_id'])
+            ->get()
+            ->toArray();
         foreach ($itemAttributes as $attribute) {
             $attributeIds = is_array($attribute->attribute_id) ? $attribute->attribute_id : [$attribute->attribute_id];
             $attribute->group_name = $attribute->group?->name;

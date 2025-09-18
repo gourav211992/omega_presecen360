@@ -27,9 +27,11 @@
     <script src="{{ url('/app-assets/js/core/app.js') }}"></script>
     <script src="{{ url('/app-assets/js/ajax-script.js') }}"></script>
     <script src="{{ url('/app-assets/js/vendor-customer-script.js') }}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> -->
+    <script src="{{url('/vendor/p360/app-assets/vendors/js/sweet-alert/sweetalert.js')}}"></script>
+
     <script src="{{ url('/app-assets/js/jquery-ui.js') }}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script> -->
 
     <!-- END: Theme JS-->
 
@@ -42,78 +44,28 @@
 
 
     <script src="{{ url('/app-assets/js/scripts/forms/pickers/form-pickers.js') }}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script> -->
     <script src="{{ url('/app-assets/vendors/js/forms/select/select2.full.min.js') }}"></script>
     <script src="{{ url('/app-assets/js/scripts/forms/form-select2.js') }}"></script>
     <script src="{{ url('/app-assets/js/common-script.js') }}"></script>
-    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- <script src="https://unpkg.com/feather-icons"></script> -->
+         <script src="{{url('/vendor/p360/app-assets/vendors/js/feather-icons/feather.min.js')}}"></script>
 
-    <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+
+    <!-- <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script> -->
+    <script src="{{url('/vendor/p360/app-assets/vendors/js/pusher/pusher.min.js')}}"></script>
+
 
     <!-- Then, include Laravel Echo -->
-    <script src="https://cdn.jsdelivr.net/npm/laravel-echo@1.15.0/dist/echo.iife.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/laravel-echo@1.15.0/dist/echo.iife.js"></script> -->
+    <script src="{{url('/vendor/p360/app-assets/vendors/js/pusher/echo.iife.js')}}"></script>
 
     <!-- Other Pusher Beams scripts -->
-    <script src="https://js.pusher.com/beams/service-worker.js"></script>
-    <script src="https://js.pusher.com/beams/1.0/push-notifications-cdn.js"></script>
+    <!-- <script src="https://js.pusher.com/beams/service-worker.js"></script>
+    <script src="https://js.pusher.com/beams/1.0/push-notifications-cdn.js"></script> -->
 
     <script src="{{ asset('app-assets/summernote/summernote-lite.min.js') }}"></script>
 
-
-    {{-- Pusher Notification --}}
-    {{-- <script defer>
-        Pusher.logToConsole = false; // For debugging, enable Pusher logs
-
-        window.addEventListener('DOMContentLoaded', () => {
-            Pass authenticated user ID from backend to JavaScript
-            var userId = @json(\App\Helpers\Helper::getAuthenticatedUser()->id);
-            var type = @json(get_class(\App\Helpers\Helper::getAuthenticatedUser()));
-
-            window.Echo = new Echo({
-                broadcaster: 'pusher',
-                key: '10c23c19df9643f9a945',  // Replace with your actual Pusher key
-                cluster: 'mt1',  // Replace with your actual Pusher cluster
-                encrypted: true
-            });
-
-            // Log Pusher connection state changes (optional for debugging)
-            window.Echo.connector.pusher.connection.bind('state_change', (state) => {
-                // console.log('Pusher connection state:', state);
-            });
-
-            window.Echo.private(`user.${userId}`).notification((notification) => {
-
-                // Prepare the notification HTML
-                let notificationHtml = `
-                <a class="d-flex"
-                    href="{{route('notification.read','')}}+${notification.id}">
-                    <div
-                        class="list-item d-flex align-items-start unread-notification">
-                        <div class="me-1">
-                            <div class="avatar">
-                                <img src="{{ url('app-assets/images/portrait/small/avatar-s-3.jpg') }}"
-                                        alt="avatar" width="32" height="32">
-                            </div>
-                        </div>
-                        <div class="list-item-body flex-grow-1">
-                            <p class="media-heading">
-                                <span class="fw-bolder">${notification.title}</span><br>
-                                ${notification.description || notification.message}
-                            </p>
-                            <small class="notification-text">${moment(notification.created_at).fromNow()}</small>
-                        </div>
-                    </div>
-                </a>
-                `;
-
-                if(notification.notifiable_type === type){
-                    $('#list_noti').prepend(notificationHtml); // Prepend it to show at the top
-                    $('.count').text(parseFloat($('.count').text())+1);
-                    $('.count2').text(parseFloat($('.count').text()));
-                }
-            });
-        })
-    </script> --}}
 
     <script>
         @if (session('error'))

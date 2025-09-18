@@ -1318,7 +1318,9 @@ function viewModeScript(disable = true)
                 if (disable) {
                     element.setAttribute('readonly', true);
                 } else {
-                    element.removeAttribute('readonly');
+                    if (!element.classList.contains('backend_lock')) {
+                        element.removeAttribute('readonly');
+                    }
                 }
             }
         });

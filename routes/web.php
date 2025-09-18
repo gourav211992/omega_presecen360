@@ -2329,6 +2329,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/rate-contract/store', [ErpRCController::class, 'store'])->name('rate.contract.store');
     Route::post('/rate-contract/revoke', [ErpRCController::class, 'revoke'])->name('rate.contract.revoke');
     Route::get('/rate-contract/check', [ErpRCController::class, 'checkExistingRateContract'])->name('rate.contract.check');
+    Route::get('/rate-contract/report', [ErpRCController::class, 'RateContractReport'])->name('rateContract.report');
 
     //Transport invoice
     Route::get('/transporter-invoices', [TransporterInvoiceController::class, 'index'])->name('sale.transporterInvoice.index');

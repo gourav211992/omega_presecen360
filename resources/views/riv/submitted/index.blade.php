@@ -20,9 +20,9 @@
                 </div>
             </div>
             <div class="content-header-right text-sm-end col-md-7 mb-50 mb-sm-0">
-                <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="">
+                {{-- <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="">
                     <i data-feather="filter"></i> Filter
-                </button>
+                </button>  --}}
             </div>
         </div>
         <div class="content-body">

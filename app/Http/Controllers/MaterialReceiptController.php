@@ -3398,6 +3398,7 @@ class MaterialReceiptController extends Controller
             if ($poItem->gate_entry_required === 'yes') {
                 $geItemsQuery = GateEntryDetail::where('purchase_order_item_id', $poItem->id)
                     ->whereRaw('(accepted_qty > mrn_qty)')
+                    ->where('mrn_qty', '<', 1)
                     ->with(['gateEntryHeader', 'po_item']) // ensure po_item is loaded
                     ->whereHas('gateEntryHeader', function ($query) {
                         $query->whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::POSTED]);
@@ -5850,37 +5851,23 @@ class MaterialReceiptController extends Controller
     private static function processWithGateEntry($ge, $model, $item, $inputQty, $type)
     {
         $remaining = (float) $ge->accepted_qty - (float) $ge->mrn_qty;
-        $qtyDifference = (float) $ge->mrn_qty - (float) $ge->accepted_qty;
-
-
+        $qtyDifference = (float) $inputQty - (float) $ge->accepted_qty;
         if ($inputQty > $remaining) {
             // Your original overwrite behavior when exceeding remaining
             $ge->mrn_qty = (float) $inputQty;
-            $ge->accepted_qty = (float) $inputQty;
+            // $ge->accepted_qty = (float) $inputQty;
             $ge->save();
-
-            // Rrecalc after quantity increase
-
         } else {
             $ge->mrn_qty = (float) $inputQty;
-            $ge->accepted_qty = (float) $inputQty;
+            // $ge->accepted_qty = (float) $inputQty;
             $ge->save();
         }
 
-        $calculateService = new TransactionCalculationService();
-        $data = $calculateService->updateGECalculation($ge);
-        if ($data['status'] === 'error') {
-            \DB::rollBack();
-            return self::notFoundResponse($data['message']);
-        }
-
-        // // Back-update related
-        // $updatedAsnQty = (float) $ge->asnItem->ge_qty + (float) $qtyDifference;
-        // $updatedPoQty = (float) $ge->poItem->ge_qty + (float) $qtyDifference;
-        // $updatedJoQty = (float) $ge->joProduct->ge_qty + (float) $qtyDifference;
-        // if (($updatedAsnQty > $ge?->asnItem?->supplied_qty) || ($updatedPoQty > $ge?->poItem?->order_qty) || ($updatedJoQty > $ge?->joProduct?->order_qty)) {
+        // $calculateService = new TransactionCalculationService();
+        // $data = $calculateService->updateGECalculation($ge);
+        // if ($data['status'] === 'error') {
         //     \DB::rollBack();
-        //     return self::notFoundResponse('Quantity mismatch error during back-update.');
+        //     return self::notFoundResponse($data['message']);
         // }
 
         // Back-update related
@@ -5933,11 +5920,26 @@ class MaterialReceiptController extends Controller
             }
         }
 
-        $ge?->asnItem?->increament(['ge_qty', $qtyDifference]);
-        if ($ge?->po?->reference_type === 'po') {
-            $ge?->poItem?->increament(['ge_qty', $qtyDifference]);
-        } elseif ($ge?->jo?->reference_type === 'jo') {
-            $ge?->joProduct?->increament(['ge_qty', $qtyDifference]);
+        // $ge?->asnItem?->increament('ge_qty', $qtyDifference);
+        $asnItem = VendorAsnItem::find($ge->vendor_asn_item_id);
+        if ($asnItem) {
+            $asnItem->ge_qty = (float) ($asnItem->ge_qty ?? 0) + $qtyDifference;
+            $asnItem->save();
+        }
+        if ($ge?->po_id && $ge?->gateEntryHeader?->reference_type === 'po') {
+            // $ge?->poItem?->increament('ge_qty', $qtyDifference);
+            $poItem = PoItem::find($ge->purchase_order_item_id);
+            if ($poItem) {
+                $poItem->ge_qty = (float) ($poItem->ge_qty ?? 0) + $qtyDifference;
+                $poItem->save();
+            }
+        } elseif ($ge?->jo_id && $ge?->gateEntryHeader?->reference_type === 'jo') {
+            // $ge?->joProduct?->increament('ge_qty', $qtyDifference);
+            $joProduct = JoProduct::find($ge->job_order_item_id);
+            if ($joProduct) {
+                $joProduct->ge_qty = (float) ($joProduct->ge_qty ?? 0) + $qtyDifference;
+                $joProduct->save();
+            }
         }
 
         // Update PO/JO quantities etc.

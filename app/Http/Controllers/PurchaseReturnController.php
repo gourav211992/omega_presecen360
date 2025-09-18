@@ -2999,16 +2999,16 @@ class PurchaseReturnController extends Controller
     public function postPR(Request $request)
     {
         $purchaseReturn = PRHeader::find($request->document_id);
-        $eInvoice = $purchaseReturn?->irnDetail()->first();
-        if (!$eInvoice) {
-            $data = [
-                'message' => 'Please generate IRN First.',
-            ];
-            return response()->json([
-                'status' => 'error',
-                'data' => $data
-            ]);
-        }
+        // $eInvoice = $purchaseReturn?->irnDetail()->first();
+        // if (!$eInvoice) {
+        //     $data = [
+        //         'message' => 'Please generate IRN First.',
+        //     ];
+        //     return response()->json([
+        //         'status' => 'error',
+        //         'data' => $data
+        //     ]);
+        // }
         try {
             DB::beginTransaction();
             $data = FinancialPostingHelper::financeVoucherPosting($request->book_id ?? 0, $request->document_id ?? 0, 'post');
