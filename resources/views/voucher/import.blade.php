@@ -480,14 +480,13 @@
                                                                             <th>Ledger Name</th>
                                                                             <th>Debit Amount</th>
                                                                             <th>Credit Amount</th>
-                                                                            <th>Cost Center</th>
                                                                             <th>Status</th>
                                                                             <th>Remarks</th>
                                                                         </tr>
                                                                     </thead>
                                                                     <tbody id="failed-table-body">
                                                                         <tr>
-                                                                            <td colspan="8">No records found</td>
+                                                                            <td colspan="7">No records found</td>
                                                                         </tr>
                                                                     </tbody>
                                                                 </table>
@@ -2000,79 +1999,48 @@
                     $('.preloader').hide();
                     $('#draft').attr('disabled', false);
                     $('#submitted').attr('disabled', false);
-                    
+
                     if (response.error) {
-                        Swal.fire({
-                            title: 'Import Failed!',
-                            text: response.message,
-                            icon: 'error',
-                        });
-                        if (response.redirect_url) {
-                            setTimeout(function() {
-                                window.location.href = response.redirect_url;
-                            }, 2000);
+                        Swal.fire({ title: 'Import Failed!', text: response.message, icon: 'error' });
+
+                        if (response.failed_records) {
+                            populateVoucherTable('#failed-table-body', response.failed_records);
+                            $('#failed-count').text(`(${response.failed_records.length})`);
+                            $('.hide-this-section').show();
                         }
                     } else {
-                        Swal.fire({
-                            title: 'Import Successful!',
-                            text: response.message,
-                            icon: 'success',
-                        });
-                        
-                        // Get success/failed data from session via AJAX
-                        $.ajax({
-                            url: '{{ route("vouchers.import.success") }}',
-                            type: 'GET',
-                            success: function(successResponse) {
-                                // Parse the response to extract data
-                                const parser = new DOMParser();
-                                const doc = parser.parseFromString(successResponse, 'text/html');
-                                
-                                // Extract successful and failed vouchers data from the response
-                                const successfulVouchers = @json(session('voucher_import_successful', []));
-                                const failedVouchers = @json(session('voucher_import_failed', []));
-                                
-                                // Populate tables with results
-                                populateVoucherTable('#success-table-body', successfulVouchers);
-                                populateVoucherTable('#failed-table-body', failedVouchers);
-                                
-                                // Update counts
-                                $('#success-count-badge').text(`Records Succeeded: ${successfulVouchers.length}`);
-                                $('#success-count').text(`(${successfulVouchers.length})`);
-                                $('#failed-count').text(`(${failedVouchers.length})`);
-                                
-                                $('.hide-this-section').show();
-                                
-                                // Show/hide export buttons based on results
-                                if (failedVouchers.length > 0) {
-                                    $('.editbtnNew').show();
-                                } else {
-                                    $('.editbtnNew').hide();
-                                }
-                                
-                                // Setup export button handlers
-                                // $('.exportBtn').off('click').on('click', function() {
-                                //     const activeTab = $('.nav-link.active').attr('aria-controls');
-                                //     if (activeTab === 'successful-records') {
-                                //         window.location.href = '{{ route("vouchers.export.successful") }}';
-                                //     } else if (activeTab === 'failed-records') {
-                                //         window.location.href = '{{ route("vouchers.export.failed") }}';
-                                //     }
-                                // });
-                            }
-                        });
+                        Swal.fire({ title: 'Import Successful!', text: response.message, icon: 'success' });
+
+                        populateVoucherTable('#success-table-body', response.success || []);
+                        populateVoucherTable('#failed-table-body', response.failed || []);
+
+                        $('#success-count').text(`(${response.success ? response.success.length : 0})`);
+                        $('#failed-count').text(`(${response.failed ? response.failed.length : 0})`);
+                        $('.hide-this-section').show();
                     }
                 },
                 error: function(xhr) {
                     $('.preloader').hide();
                     $('#draft').attr('disabled', false);
                     $('#submitted').attr('disabled', false);
-                    
-                    var errorMessage = 'An error occurred while importing voucher';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMessage = xhr.responseJSON.message;
+
+                    if (xhr.status === 422 && xhr.responseJSON) {
+                        // Validation failed case
+                        Swal.fire({ title: 'Import Failed!', text: xhr.responseJSON.message, icon: 'error' });
+
+                        if (xhr.responseJSON.failed_records) {
+                            populateVoucherTable('#failed-table-body', xhr.responseJSON.failed_records);
+                            $('#failed-count').text(`(${xhr.responseJSON.failed_records.length})`);
+                            $('.hide-this-section').show();
+                        }
+                    } else {
+                        // Generic error
+                        var errorMessage = 'An error occurred while importing voucher';
+                        if (xhr.responseJSON && xhr.responseJSON.message) {
+                            errorMessage = xhr.responseJSON.message;
+                        }
+                        showToast('error', errorMessage);
                     }
-                    showToast('error', errorMessage);
                 }
             });
         }
@@ -2084,6 +2052,9 @@
 
             if (vouchers.length > 0) {
                 vouchers.forEach((voucher, index) => {
+                    // ✅ Ab remarks already plain string hai, no need to parse
+                    let remarks = voucher.remarks || '';
+
                     const row = `
                         <tr>
                             <td>${index + 1}</td>
@@ -2092,10 +2063,10 @@
                             <td>${voucher.debit_amount || 0}</td>
                             <td>${voucher.credit_amount || 0}</td>
                             <td class="${voucher.status === 'success' ? 'text-success' : 'text-danger'}">
-                                ${voucher.status === 'success' ? 'Success' : (voucher.status === 'failed' ? 'Failed' : voucher.status)}
+                                ${voucher.status === 'success' ? 'Success' : (voucher.status === 'failed' ? 'Failed' : (voucher.status || 'N/A'))}
                             </td>
-                            <td class="${voucher.remarks && voucher.status === 'failed' ? 'text-danger' : 'text-success'}">
-                                ${voucher.remarks || 'Successfully processed'}
+                            <td class="${remarks && voucher.status === 'failed' ? 'text-danger' : 'text-success'}">
+                                ${remarks || 'Successfully processed'}
                             </td>
                         </tr>
                     `;
@@ -2106,6 +2077,8 @@
                 tableBody.append(noDataRow);
             }
         }
+
+
 
         function populateCostCenterDropdowns() {
             let selectedLocationIds = $('#locations').val();
