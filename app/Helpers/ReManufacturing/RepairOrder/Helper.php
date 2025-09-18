@@ -44,25 +44,16 @@ class Helper
                 'message' => 'RGR Header reference not found'
             ];
         }
-        //Check the Repair Order Type exists in service param or not
-        $serviceParam = property_exists(ServiceParametersHelper::class, $repairOrderType)
-            ? ServiceParametersHelper::${$repairOrderType} : '';
-        if (!$serviceParam) {
-            return [
-                'status' => 'error',
-                'message' => 'Invalid Repair Order Type specified'
-            ];
-        }
         //Check RGR Book Param to get Ok To Receive Book
-        $okToReceiveParam = ServiceParametersHelper::getBookLevelParameterValue($serviceParam, $rgrHeader -> book_id);
-        if (!$okToReceiveParam || count($okToReceiveParam) <= 0) {
+        $okToReceiveParam = ServiceParametersHelper::getBookLevelParameterValue($repairOrderType, $rgrHeader -> book_id);
+        if ($okToReceiveParam['status'] == false || count($okToReceiveParam['data']) == 0) {
             return [
                 'status' => 'error',
                 'message' => 'Ok to receive Book Param not specified'
             ];
         }
         //Get the Repair Order books
-        $okToReceiveParamValue = $okToReceiveParam[0];
+        $okToReceiveParamValue = $okToReceiveParam['data'][0];
         $okToReceiveRepBook = Book::find($okToReceiveParamValue);
         if (!$okToReceiveRepBook) {
             return [
@@ -114,6 +105,8 @@ class Helper
             'book_code' => $okToReceiveRepBook -> book_code,
             'store_id' => $rgrHeader -> store_id,
             'store_name' => $rgrHeader -> store_name,
+            'rgr_sub_store_id' => $rgrItem -> sub_store_id,
+            'qc_sub_store_id' => $rgrItem -> sub_store_id,
             'vendor_id' => null,
             'type' => null,
             'defect_status' => $rgrSegregation -> defect_severity,
@@ -136,23 +129,24 @@ class Helper
         $repItem = ErpRepItem::create([
             'repair_order_id' => $repairOrder -> id,
             'rgr_item_id' => $rgrItem -> id,
+            'rgr_job_detail_id' => $rgrSegregation -> job_item_id,
             'item_id' => $rgrItem -> item_id,
             'item_code' => $rgrItem -> item_code,
             'item_name' => $rgrItem -> item_name,
-            'item_uid' => $rgrItemUniqueCode -> uid,
+            'item_uid' => $rgrItemUniqueCode -> item_uid,
             'uom_id' => $rgrItem -> uom_id,
-            'uom_code' => $rgrItem -> uom_code,
+            'uom_code' => $rgrItem -> uom_name,
             'qty' => $rgrItemUniqueCode -> qty,
-            'inventory_uom_id' => $rgrItemUniqueCode -> inventory_uom_id,
+            'inventory_uom_id' => $rgrItem -> inventory_uom_id,
             'inventory_uom_code' => $rgrItem -> inventory_uom_code,
             'inventory_uom_qty' => $rgrItemUniqueCode -> qty,
             'service_item_id' => null,
             'service_item_code' => null,
             'service_item_name' => null,
-            'rgr_sub_store_id' => null, //NEED TO DISCUSS
-            'rgr_sub_store_name' => null,//NEED TO DISCUSS
-            'qc_sub_store_id' => null,//NEED TO DISCUSS
-            'qc_sub_store_name' => null,//NEED TO DISCUSS
+            'rgr_sub_store_id' => $rgrItem -> sub_store_id, //NEED TO DISCUSS
+            'rgr_sub_store_name' => $rgrItem ?-> subStore ?-> name,//NEED TO DISCUSS
+            'qc_sub_store_id' => $rgrItem -> sub_store_id,//NEED TO DISCUSS
+            'qc_sub_store_name' => $rgrItem -> subStore ?-> name,//NEED TO DISCUSS
             'rejuvenate_item_id' => null,
             'rejuvenate_item_code' => null,
             'rejuvenate_item_name' => null,
@@ -165,7 +159,7 @@ class Helper
                 'repair_order_id' => $repairOrder -> id,
                 'rep_item_id' => $repItem -> id,
                 'item_attribute_id' => $rgrItemAttribute -> item_attribute_id,
-                'item_code' => $rgrItemAttribute -> item_code,
+                'item_code' => $rgrItemAttribute -> rgrItem -> item_code,
                 'attribute_name' => $rgrItemAttribute -> attribute_name,
                 'attr_name' => $rgrItemAttribute -> attr_name,
                 'attribute_value' => $rgrItemAttribute -> attribute_value,

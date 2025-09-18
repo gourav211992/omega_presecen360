@@ -40,10 +40,8 @@ class ErpRgrItemSegregation extends Model
         $defectType = $this -> defect_type;
         $damageNature = $this -> damage_nature;
         $isWrongProduct = isset($this -> new_item_id) ? true : false;
-        if ($defectSeverity == RgrConstants::DEFECT_SEVERITY_MINOR) {
+        if (!$isWrongProduct) {
             $statuses[] = RgrConstants::RGR_SEGREGATION_OK_TO_RECIEVE;
-        } else {
-            $statuses[] = $damageNature;
         }
         //Packing Status
         if ($packingStatus == 0) {

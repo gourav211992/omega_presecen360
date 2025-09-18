@@ -89,6 +89,116 @@ class FurbooksController
     }
 
     private function transferToVoucher($processedData)
+{
+    $i = 0;
+    $total = count($processedData);
+
+    while ($i < $total) {
+        $current = $processedData[$i];
+        $next = $processedData[$i + 1] ?? null;
+
+        // Last row aur uska pair missing hai
+        if (!$next) {
+            $current->update([
+                'status' => 'Failed',
+                'remarks' => 'Debit and credit amount not fetch in query',
+                'updated_at' => now(),
+            ]);
+            break; // loop close
+        }
+
+        // Pair check: ek debit > 0 aur ek credit > 0 hona chahiye
+        $isPair = (
+            ($current->debit_amount > 0 && $next->credit_amount > 0) ||
+            ($current->credit_amount > 0 && $next->debit_amount > 0)
+        );
+
+        if ($isPair) {
+            // ✅ Dono rows ka pair bana → dono transfer
+            try {
+                $this->processSingleTransfer($current);
+                $this->processSingleTransfer($next);
+            } catch (\Exception $ex) {
+                $this->handleTransferError($current, $ex);
+                $this->handleTransferError($next, $ex);
+            }
+
+            $i += 2; // dono consume
+        } else {
+            // ❌ Pair nahi bana → current row failed
+            $current->update([
+                'status' => 'Failed',
+                'remarks' => 'Debit and credit amount not fetch in query',
+                'updated_at' => now(),
+            ]);
+
+            $i += 1; // sirf current consume
+        }
+    }
+}
+// Helper: ek single row ka transfer
+private function processSingleTransfer($furbook)
+{
+    try {
+        $matchedData = $this->findFurbookMatch($furbook->furbooks_code);
+        if (!$matchedData) {
+            throw new \Exception('No matching furbook found for code: ' . $furbook->furbooks_code);
+        }
+
+        $documentDate = $furbook->document_date ?? now()->format('Y-m-d');
+        
+        $userLogin = AuthUser::where('organization_id', $furbook->organization_id)
+            ->where('user_type', 'IAM-SUPER')
+            ->firstOrFail();
+
+        Auth::guard('web')->login($userLogin);
+
+        $numberPatternData = Helper::generateDocumentNumberNew($matchedData['book_id'], $documentDate);
+        if (!$numberPatternData) {
+            throw new \Exception('Failed to generate document number.');
+        }
+
+        $currency = ErpCurrency::where('short_name', $furbook->currency_code)->firstOrFail();
+        $exchangeRates = CurrencyHelper::getCurrencyExchangeRates($currency->id, $documentDate);
+
+        $user = Helper::getAuthenticatedUser();
+        $organization = $user->organization;
+        $book = Book::findOrFail($matchedData['book_id']);
+
+        $voucher = Voucher::withoutGlobalScopes()
+            ->where('voucher_no', trim($numberPatternData['document_number']))
+            ->where('organization_id', (int)$furbook->organization_id)
+            ->where('group_id', (int)$organization->group_id)
+            ->first();
+
+        $ledgerData = Ledger::findOrFail($matchedData['ledger_id']);
+
+        if (!$voucher) {
+            $voucher = $this->createVoucher(
+                $numberPatternData,
+                $book,
+                $currency,
+                $exchangeRates,
+                $furbook,
+                $organization,
+                $userLogin
+            );
+        }
+
+        $this->createItemDetail($voucher->id, $matchedData, $furbook, $organization, $ledgerData, $documentDate);
+
+        $furbook->update([
+            'status' => 'Transferred',
+            'updated_at' => now(),
+        ]);
+
+    } catch (\Exception $ex) {
+                $this->handleTransferError($furbook, $ex);
+                // No rollback here — will roll back the outer transaction
+            }
+}
+
+    private function oldtransferToVoucher($processedData)
     {
         foreach ($processedData as $furbook) {
             try {

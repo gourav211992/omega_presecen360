@@ -504,20 +504,31 @@ class TaxController extends Controller
         return response()->json(['tax_percentage' => $taxPercentage]);
     }
 
-    public function deleteTaxDetail($id)
+   public function deleteTaxDetail($id)
     {
         DB::beginTransaction();
 
         try {
             $taxDetail = TaxDetail::findOrFail($id);
-            $result = $taxDetail->deleteWithReferences();
+
+            $extraReferenceTables = [
+                'erp_purchase_order_ted' => 'ted_id',   
+                'erp_sale_order_ted' => 'ted_id',       
+                'erp_mrn_extra_amounts' => 'ted_id',   
+                'erp_mi_ted' => 'ted_id',               
+                'erp_sale_invoice_ted' => 'ted_id',     
+            ];
+            $result = $taxDetail->deleteWithReferences([], [], $extraReferenceTables);
+
             if (!$result['status']) {
+                DB::rollBack();
                 return response()->json([
                     'status' => false,
                     'message' => $result['message'],
                     'referenced_tables' => $result['referenced_tables'] ?? []
                 ], 400);
             }
+
             DB::commit();
 
             return response()->json([
@@ -532,9 +543,9 @@ class TaxController extends Controller
                 'message' => 'An error occurred while deleting the record: ' . $e->getMessage(),
             ], 500);
         }
-    }
+  }
 
-    public function destroy($id)
+   public function destroy($id)
     {
         DB::beginTransaction();
 
@@ -542,17 +553,29 @@ class TaxController extends Controller
             $tax = Tax::findOrFail($id);
 
             $referenceTables = [
-                'erp_tax_details' => ['tax_id'],
+                'erp_tax_details' => ['id'], 
+            ];
+            $extraReferenceTables = [
+                'erp_purchase_order_ted' => 'ted_id',   
+                'erp_sale_order_ted' => 'ted_id',       
+                'erp_mrn_extra_amounts' => 'ted_id',   
+                'erp_mi_ted' => 'ted_id',               
+                'erp_sale_invoice_ted' => 'ted_id',    
             ];
 
-            $result = $tax->deleteWithReferences($referenceTables);
+            $taxDetailIds = $tax->taxDetails()->pluck('id')->toArray(); 
 
-            if (!$result['status']) {
-                return response()->json([
-                    'status' => false,
-                    'message' => $result['message'],
-                    'referenced_tables' => $result['referenced_tables'] ?? []
-                ], 400);
+            foreach ($taxDetailIds as $taxDetailId) {
+                $result = $tax->deleteWithReferences($referenceTables, [], $extraReferenceTables, $taxDetailId);
+
+                if (!$result['status']) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $result['message'],
+                        'referenced_tables' => $result['referenced_tables'] ?? []
+                    ], 400);
+                }
             }
 
             DB::commit();

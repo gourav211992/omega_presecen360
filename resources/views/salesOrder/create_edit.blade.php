@@ -277,7 +277,7 @@
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Customer <span class="text-danger">*</span></label>
-                                                        <input type="text" id = "customer_code_input" disabled placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input disable_on_edit" autocomplete="off" value = "{{isset($order) ? $order -> customer_code : ''}}" onblur = "onChangeCustomer('customer_code_input', true);">
+                                                        <input type="text" id = "customer_code_input" disabled placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input disable_on_edit" autocomplete="off" value = "{{isset($order) ? $order -> customer ?-> company_name : ''}}" onblur = "onChangeCustomer('customer_code_input', true);">
                                                         <input type = "hidden" name = "customer_id" id = "customer_id_input" value = "{{isset($order) ? $order -> customer_id : ''}}"></input>
                                                         <input type = "hidden" name = "customer_code" id = "customer_code_input_hidden" value = "{{isset($order) ? $order -> customer_code : ''}}"></input>
                                                         </div>
@@ -492,7 +492,7 @@
                                                                        @if (isset($order))
                                                                            @foreach ($order -> items as $orderItemIndex => $orderItem)
                                                                                <tr id = "item_row_{{$orderItemIndex}}" class = "item_header_rows" data-id = "{{$orderItem -> id}}" onclick = "onItemClick('{{$orderItemIndex}}');" data-index = "{{$orderItemIndex}}">
-                                                                               <input type = 'hidden' name = "so_item_id[]" value = "{{$orderItem -> id}}" {{$orderItem -> is_editable ? '' : 'readonly'}}>
+                                                                               <input type = 'hidden' name = "so_item_id[]" value = "{{$orderItem -> id}}">
                                                                                 <td class="customernewsection-form">
                                                                                    <div class="form-check form-check-primary custom-checkbox">
                                                                                        <input {{$orderItem -> restrict_delete ? 'disabled' : ''}} type="checkbox" class="form-check-input item_row_checks cannot_disable" id="item_checkbox_{{$orderItemIndex}}" del-index = "{{$orderItemIndex}}">
@@ -519,23 +519,23 @@
                                                                                    <input type = "hidden" id = "po_item_ids_{{$orderItemIndex}}" value = "{{$orderItem -> po_item_id}}" name = "po_item_ids[]"/>
                                                                                    @endif
 
-                                                                                   <input type="text" id = "items_dropdown_{{$orderItemIndex}}" name="item_code[{{$orderItemIndex}}]" placeholder="Select" class="form-control mw-100 ledgerselecct comp_item_code ui-autocomplete-input {{$orderItem -> is_editable ? '' : 'restrict'}}" autocomplete="off" data-name="{{$orderItem -> item ?-> item_name}}" data-code="{{$orderItem -> item ?-> item_code}}" data-id="{{$orderItem -> item ?-> id}}" hsn_code = "{{$orderItem -> item ?-> hsn ?-> code}}" item-name = "{{$orderItem -> item ?-> item_name}}" specs = "{{$orderItem -> item ?-> specifications}}" attribute-array = "{{$orderItem -> item_attributes_array()}}"  value = "{{$orderItem -> item ?-> item_code}}" readonly>
+                                                                                   <input type="text" id = "items_dropdown_{{$orderItemIndex}}" name="item_code[{{$orderItemIndex}}]" placeholder="Select" class="form-control mw-100 ledgerselecct comp_item_code ui-autocomplete-input {{$orderItem -> item_editable ? '' : 'restrict backend_lock'}}" autocomplete="off" data-name="{{$orderItem -> item ?-> item_name}}" data-code="{{$orderItem -> item ?-> item_code}}" data-id="{{$orderItem -> item ?-> id}}" hsn_code = "{{$orderItem -> item ?-> hsn ?-> code}}" item-name = "{{$orderItem -> item ?-> item_name}}" specs = "{{$orderItem -> item ?-> specifications}}" attribute-array = "{{$orderItem -> item_attributes_array()}}"  value = "{{$orderItem -> item ?-> item_code}}" readonly>
                                                                                    <input type = "hidden" name = "item_id[]" id = "items_dropdown_{{$orderItemIndex}}_value" value = "{{$orderItem -> item_id}}"></input>
                                                                                </td>
                                                                                <td class="poprod-decpt">
-                                                                                   <input type="text" id = "items_name_{{$orderItemIndex}}" name = "item_name[{{$orderItemIndex}}]" class="form-control mw-100"   value = "{{$orderItem -> item ?-> item_name}}" readonly>
+                                                                                   <input type="text" id = "items_name_{{$orderItemIndex}}" name = "item_name[{{$orderItemIndex}}]" class="form-control mw-100 backend_lock"   value = "{{$orderItem -> item ?-> item_name}}" readonly>
                                                                                </td>
-                                                                               <td class="poprod-decpt" id = "attribute_section_{{$orderItemIndex}}">
-                                                                                   <button id = "attribute_button_{{$orderItemIndex}}" type = "button" data-bs-toggle="modal" onclick="setItemAttributes('items_dropdown_{{$orderItemIndex}}', '{{$orderItemIndex}}', {{ json_encode(!$orderItem->is_editable) }});" data-bs-target="#attribute" class="btn p-25 btn-sm btn-outline-secondary" style="font-size: 10px">Attributes</button>
+                                                                               <td class="poprod-decpt" id = "attribute_section_{{$orderItemIndex}}" backend-lock = "{{ $orderItem -> attributes_editable ? 'no' : 'yes' }}">
+                                                                                   <button id = "attribute_button_{{$orderItemIndex}}" type = "button" data-bs-toggle="modal" onclick="setItemAttributes('items_dropdown_{{$orderItemIndex}}', '{{$orderItemIndex}}', {{ json_encode(!$orderItem->attributes_editable) }});" data-bs-target="#attribute" class="btn p-25 btn-sm btn-outline-secondary" style="font-size: 10px">Attributes</button>
                                                                                    <input type = "hidden" name = "attribute_value_{{$orderItemIndex}}" />
                                                                                 </td>
                                                                                <td>
-                                                                                   <select class="form-select" name = "uom_id[]" id = "uom_dropdown_{{$orderItemIndex}}">
+                                                                                   <select class="form-select {{$orderItem -> uom_editable ? '' : 'backend_lock'}}" name = "uom_id[]" id = "uom_dropdown_{{$orderItemIndex}}" {{ $orderItem -> uom_editable ? '' : 'readonly' }}>
 
                                                                                    </select>
                                                                                </td>
                                                                                <td><input type="text" id = "item_qty_{{$orderItemIndex}}" name = "item_qty[{{$orderItemIndex}}]" data-index = '{{$orderItemIndex}}' oninput = "changeItemQty(this, '{{$orderItemIndex}}');" onchange = "itemQtyChange(this, '{{$orderItemIndex}}')" value = "{{$orderItem -> order_qty}}" class="form-control mw-100 text-end item_qty_input" onblur = "setFormattedNumericValue(this);" min = "{{$orderItem -> min_attribute}}" max = "{{$orderItem -> max_attribute}}"/></td>
-                                                                              <td><input type="text" id = "item_rate_{{$orderItemIndex}}" onkeydown = "openDeliveryScheduleFromTab('{{$orderItemIndex}}');" name = "item_rate[{{$orderItemIndex}}]" oninput = "changeItemRate(this, '{{$orderItemIndex}}');" value = "{{$orderItem -> rate}}" class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);" /></td>
+                                                                              <td><input type="text" id = "item_rate_{{$orderItemIndex}}" onkeydown = "openDeliveryScheduleFromTab('{{$orderItemIndex}}');" name = "item_rate[{{$orderItemIndex}}]" oninput = "changeItemRate(this, '{{$orderItemIndex}}');"  value = "{{$orderItem -> rate}}" {{ $orderItem -> rate_editable ? '' : 'readonly' }} class="form-control mw-100 text-end {{$orderItem -> rate_editable ? '' : 'backend_lock'}}" onblur = "setFormattedNumericValue(this);" /></td>
                                                                                <td><input type="text" id = "item_value_{{$orderItemIndex}}" disabled class="form-control mw-100 text-end item_values_input" value = "{{$orderItem -> order_qty * $orderItem -> rate}}" /></td>
                                                                                <input type = "hidden" id = "header_discount_{{$orderItemIndex}}" value = "{{$orderItem -> header_discount_amount}}" ></input>
                                                                                <input type = "hidden" id = "header_expense_{{$orderItemIndex}}" value = "{{$orderItem -> header_expense_amount}}"></input>
@@ -543,7 +543,7 @@
                                                                                    <div class="position-relative d-flex align-items-center">
                                                                                        <input type="text" id = "item_discount_{{$orderItemIndex}}" disabled class="form-control mw-100 text-end item_discounts_input" style="width: 70px" value = "{{$orderItem -> item_discount_amount}}"/>
                                                                                        <div class="ms-50">
-                                                                                           <button type = "button" onclick = "onDiscountClick('item_value_{{$orderItemIndex}}', '{{$orderItemIndex}}')" class="btn p-25 btn-sm btn-outline-secondary" style="font-size: 10px">Add</button>
+                                                                                           <button type = "button" {{ $orderItem -> discount_editable ? '' : 'disabled' }} onclick = "onDiscountClick('item_value_{{$orderItemIndex}}', '{{$orderItemIndex}}')" class="btn p-25 btn-sm btn-outline-secondary {{$orderItem -> discount_editable ? '' : 'backend_lock'}}" style="font-size: 10px">Add</button>
                                                                                        </div>
                                                                                    </div>
                                                                                </td>
@@ -557,7 +557,7 @@
                                                                                     <div class="d-flex">
                                                                                        @if (request() -> type === 'so')
                                                                                            <div class="me-50 cursor-pointer" onclick = "openDeliverySchedule('{{$orderItemIndex}}');">    <span data-bs-toggle="tooltip" data-bs-placement="top" title="Delivery Schedule" class="text-primary"><i data-feather="calendar"></i></span></div>
-                                                                                           <div class="me-50 cursor-pointer dynamic_bom_div" id = "dynamic_bom_div_{{$orderItemIndex}}" style = "display:none;" onclick = "getCustomizableBOM({{$orderItemIndex}}, {{ json_encode(!$orderItem->is_editable) }})"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="BOM" class="text-primary"><i data-feather="table"></i></span></div>
+                                                                                           <div class="me-50 cursor-pointer dynamic_bom_div" id = "dynamic_bom_div_{{$orderItemIndex}}" style = "display:none;" onclick = "getCustomizableBOM({{$orderItemIndex}}, {{ json_encode(!$orderItem->bom_editable) }})"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="BOM" class="text-primary"><i data-feather="table"></i></span></div>
                                                                                        @endif
                                                                                        <div class="me-50 cursor-pointer" onclick = "setViewDetailedStocks('{{$orderItemIndex}}');"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="Stocks" class="text-primary"><i data-feather="layers"></i></span></div>
                                                                                         <div class="me-50 cursor-pointer" data-bs-toggle="modal" data-bs-target="#Remarks" onclick = "setItemRemarks('item_remarks_{{$orderItemIndex}}');">        <span data-bs-toggle="tooltip" data-bs-placement="top" title="Remarks" class="text-primary"><i data-feather="file-text"></i></span></div>
@@ -4062,11 +4062,10 @@
         const currentOrder = @json(isset($order) ? $order : null);
         if (currentOrder) {
             currentOrder.items.forEach((item, index) => {
-                document.getElementById('item_checkbox_' + index).disabled = item.is_editable ? false : true;
-                document.getElementById('items_dropdown_' + index).readonly = item.is_editable ? false : true;
+                document.getElementById('items_dropdown_' + index).readonly = item.item_editable ? false : true;
                 let currentAttributeButton = document.getElementById('attribute_button_' + index);
                 if (currentAttributeButton) {
-                    currentAttributeButton.disabled = item.is_editable ? false : true;
+                    currentAttributeButton.disabled = item.attribute_editable ? false : true;
                 }
             });
         }
@@ -4866,9 +4865,9 @@
                         if (currentOrder) { //Set all data
                         //Disable Header
                         //Basic Details
-                        $("#customer_code_input").val(currentOrder.customer_code);
+                        $("#customer_code_input").val(currentOrder.customer?.display_name);
                         $("#customer_id_input").val(currentOrder.customer_id);
-                        $("#customer_code_input_hidden").val(currentOrder.customer_code);
+                        $("#customer_code_input_hidden").val(currentOrder.customer?.display_name);
                         $("#consignee_name_input").val(currentOrder.consignee_name);
                         $("#customer_phone_no_input").val(currentOrder.customer_phone_no);
                         $("#customer_email_input").val(currentOrder.customer_email);
@@ -5532,7 +5531,9 @@ function viewModeScript(disable = true)
                 if (disable) {
                     element.setAttribute('readonly', true);
                 } else {
-                    element.removeAttribute('readonly');
+                    if (!element.classList.contains('backend_lock')) {
+                        element.removeAttribute('readonly');
+                    }
                 }
             }
         });
@@ -6332,7 +6333,10 @@ $('#attribute').on('hidden.bs.modal', function () {
         if (attributesArray.length == 0) {
             return;
         }
-        let attributeUI = `<div data-bs-toggle="modal" onclick = "setItemAttributes('items_dropdown_${currentItemIndex}', ${currentItemIndex});" data-bs-target="#attribute" style = "white-space:nowrap; cursor:pointer;">`;
+        let attributeSection = document.getElementById('attribute_section_' + currentItemIndex);
+        let backendValidation = attributeSection?.getAttribute('backend-lock');
+
+        let attributeUI = `<div data-bs-toggle="modal" onclick = "setItemAttributes('items_dropdown_${currentItemIndex}', ${currentItemIndex}, ${backendValidation == 'yes' ? true : false});" data-bs-target="#attribute" style = "white-space:nowrap; cursor:pointer;">`;
         let maxCharLimit = 15;
         let attrTotalChar = 0;
         let total_selected = 0;
@@ -6380,7 +6384,6 @@ $('#attribute').on('hidden.bs.modal', function () {
             }
             attrTotalChar += Number(currentStringLength);
         });
-        let attributeSection = document.getElementById('attribute_section_' + currentItemIndex);
         if (attributeSection) {
             attributeSection.innerHTML = attributeUI + '</div>';
         }

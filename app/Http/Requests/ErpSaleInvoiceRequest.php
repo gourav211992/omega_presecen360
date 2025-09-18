@@ -51,6 +51,9 @@ class ErpSaleInvoiceRequest extends FormRequest
             'final_remarks' => 'nullable|string|max:255',
             'customer_phone_no' => 'nullable|string|regex:/^[0-9]{10}$/',
             'customer_email' => 'nullable|email',
+            'ewb_number'   => 'nullable|digits:12',
+            'ewb_date'     => 'nullable|required_with:ewb_number|date|after_or_equal:today',
+            'ewb_validity' => 'nullable|required_with:ewb_number|date|after:ewb_date',
             // 'customer_gstin' => 'nullable|string|size:15|regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/'
         ];
 

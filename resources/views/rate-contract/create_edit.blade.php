@@ -1777,7 +1777,7 @@
             elementId.setAttribute('attribute-array', JSON.stringify(attributesJSON));
         }
 
-        function addItemRow(type=null)
+        async function addItemRow(type=null)
         {
             var docType = $("#service_id_input").val();
             var invoiceToFollow = $("#service_id_input").val() == "yes";
@@ -1922,7 +1922,27 @@
                     });
                     return;
                 }
+                //vendorId, orgId, itemId, uomId, attributes, startDate, endDate
 
+                const partyId = $('#customer_id').val() ? $('#customer_id').val() : $('#vendor_id').val();
+                const orgId = $('#organization_id_input').val() ? $('#organization_id_input').val() : null;
+                const itemId = $('#items_dropdown_' + (newIndex - 1) + '_value').val() ? $('#items_dropdown_' + (newIndex - 1) + '_value').val() : null;
+                const uomId = $('#uom_dropdown_' + (newIndex - 1)).val() ? $('#uom_dropdown_' + (newIndex - 1)).val() : null;
+                const attributes = $('#items_dropdown_' + (newIndex - 1)).attr('attribute-array') ? $('#items_dropdown_' + (newIndex - 1)).attr('attribute-array') : null;
+                const startDate = $('#effective_from_' + (newIndex - 1)).val() ? $('#effective_from_' + (newIndex - 1)).val() : null;
+                const endDate = $('#effective_to_' + (newIndex - 1)).val() ? $('#effective_to_' + (newIndex - 1)).val() : null;
+                const fromQty = $('#from_item_qty_' + (newIndex - 1)).val() ? parseFloat($('#from_item_qty_' + (newIndex - 1)).val()) : 0;
+                const toQty = $('#to_item_qty_' + (newIndex - 1)).val() ? parseFloat($('#to_item_qty_' + (newIndex - 1)).val()) : 0; 
+                const partyType = $('#customer_id').val() ? 'customer' : 'vendor';
+                const isValid = await checkDuplicateItem(partyId, orgId, itemId, uomId, attributes, startDate, endDate, partyType, fromQty, toQty);
+                if (!isValid) {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'Duplicate item detected. Row not added.',
+                        icon: 'error',
+                    });
+                    return; // 🚫 exit — do not add new row
+                }
             }
             const newItemRow = document.createElement('tr');
             newItemRow.className = 'item_header_rows';
@@ -2024,13 +2044,10 @@
         function setDateDefaults(index=null) {
             const startDate = document.getElementById('start_date_input');
             const endDate = document.getElementById('end_date_input');
-            console.log("index", index);
             if(index!=null)
             {
                 const fromInput = document.getElementById(`effective_from_${index}`);
                 const toInput = document.getElementById(`effective_to_${index}`);
-                console.log("fromInput", fromInput);
-                console.log("toInput", toInput);
                 if (startDate.value) {
                     fromInput.min = startDate.value;
                     fromInput.value = startDate.value;
@@ -2074,7 +2091,6 @@
             const itemRowElement = document.getElementById('item_row_' + currentSelectedItemIndex);
             const currentItemDropdown = document.getElementById('items_dropdown_' + currentSelectedItemIndex);
             const currentItemIdElement = document.getElementById('items_dropdown_' + currentSelectedItemIndex + '_value');
-            console.log(currentItemIdElement.value);
             if (!currentItemIdElement.value) {
                 Swal.fire({
                     title: 'Warning!',
@@ -2088,7 +2104,6 @@
             const currentItemRequesterElement = document.getElementsByClassName(`requester_name_${currentSelectedItemIndex}`);
             const miItemElement = document.getElementById(`mi_id_${currentSelectedItemIndex}`);
             const mi_item_id = miItemElement ? miItemElement.value : null;
-            console.log(currentItemRequesterElement);
             const miRequesterElement = document.getElementById("mi_requester_type_"+currentSelectedItemIndex);
             const currentRequesterType = miRequesterElement ? miRequesterElement.value.toLowerCase() : ($("#requester_type_input").length ? $("#requester_type_input").val().toLowerCase() : null);
             const currentItemQtyElement = document.getElementById('from_item_qty_' + currentSelectedItemIndex);
@@ -2153,7 +2168,6 @@
                 onItemClick(newIndex);
             };
             let options = "";
-            console.log(Array.isArray(currentItemObj.additemRequester) && !mi_item_id);
             // Ensure requesterData exists and is an array
             // Get selected value **before** mapping options
             const selectedValue = $("#"+currentRequesterType+"_id_"+currentSelectedItemIndex).val();
@@ -2167,7 +2181,6 @@
                 options = `<option value="${currentItemObj.requester_id}" selected>${currentItemObj.requester_name}</option>`;
             }
 
-            console.log(options);
 
             // Default select and input fields
             let content = `
@@ -2177,7 +2190,6 @@
             // Wrap in <td> only if mi_item_id exists
             const finalHtml = currentRequesterType ? content : "";
 
-            console.log(finalHtml);
 
 
             newItemRow.innerHTML = `
@@ -2810,7 +2822,6 @@
                     var itemName = ui.item.value;
                     var itemId = ui.item.item_id;
                     var itemMoq = ui.item.item_moq;
-                    console.log('Selected Item:', itemName, itemCode, itemId, itemMoq);
                     $input.attr('data-name', itemName);
                     $input.attr('data-code', itemCode);
                     $input.attr('data-id', itemId);
@@ -2826,7 +2837,6 @@
                         var selected = false;
                         ui.item.alternateUoms.forEach((saleUom) => {
                             if (saleUom.is_purchase) {
-                                console.log('check purchase');
                                 uomInnerHTML += `<option value = '${saleUom.uom?.id}' ${selected == false ? "selected" : ""}>${saleUom.uom?.alias}</option>`;
                                 selected = true;
                             }
@@ -3499,7 +3509,6 @@
                     currentOrders.forEach((currentOrder) => {
                         if (currentOrder) { //Set all data
                         //Disable Header
-                        console.log(currentOrder);
                             disableHeader();
                             //Basic Details
                             const mainTableItem = document.getElementById('item_header');
@@ -3512,7 +3521,6 @@
                             if (true) {
                                 currentOrder.items.forEach((item, itemIndex) => {
                                     // item.balance_qty = item.mi_balance_qty;
-                                    console.log(item);
                                     item.mr_balance_qty = parseFloat(item.issue_qty) - parseFloat(item.mr_qty);
                                     if (currentOrder.issue_type !== 'Consumption') {
                                         item.mr_balance_qty = Math.min(parseFloat(item.mr_balance_qty), parseFloat(item.avl_stock));
@@ -4084,7 +4092,6 @@ function initializeAutocompleteV(selector, type) {
                 },
                 success: function(data) {
                     response($.map(data, function(item) {
-                        console.log(item);
                         return {
                             id: item.id,
                             label: item.company_name.trim() + ' - ' + (item.vendor_code ? item.vendor_code.trim() : item.customer_code.trim()),
@@ -4103,7 +4110,6 @@ function initializeAutocompleteV(selector, type) {
             });
         },
         select: function(event, ui) {
-            console.log(ui , 'ui');
             var $input = $(this);
             var itemName = ui.item.value;
             var itemId = ui.item.id;
@@ -4126,7 +4132,6 @@ function initializeAutocompleteV(selector, type) {
             return false;
         },
         change: function(event, ui) {
-            console.log("changess!");
             if (!ui.item) {
                 $(this).val("");
                 $(this).attr('data-name', '');
@@ -4178,7 +4183,6 @@ function setCurrencyAndPaymentTerms(currency_id, currency_name, payment_terms_id
 function vendorOnChange(currency_id, currency_name, payment_terms_id, payment_terms_name)
 {
     type = $("#party_type").val();
-    console.log('type' , type);
     vendorId = $("#"+type+"_id").val();
     setCurrencyAndPaymentTerms(currency_id, currency_name, payment_terms_id, payment_terms_name);
 
@@ -4874,7 +4878,6 @@ function checkVendorContracts(elementToReset = null) {
             }
             let short = false;
             total_atts += 1;
-            console.log(attrArr);
             if(attrArr?.short_name?.length > 0)
             {
                 short = true;
@@ -4964,6 +4967,44 @@ function checkVendorContracts(elementToReset = null) {
         form.find('input[name="store_id"], input[name="type"], input[name="psv_header_id"]').remove();
         form.append(`<input type="hidden" name="type" value="${type}">`);
         form.append(`<input type="hidden" name="psv_header_id" value="${psvHeaderId ?? ''}">`);
+    }
+    function checkDuplicateItem(partyId, orgId, itemId, uomId, attributes, startDate, endDate, partyType, fromQty = null, toQty = null) {
+        return $.ajax({
+            url: '{{ route("rate.contract.checkDuplicate") }}',
+            type: 'POST',
+            data: {
+                organization_id: orgId,
+                party_id: partyId,
+                party_type: partyType,
+                item_id: itemId,
+                uom_id: uomId,
+                attributes: JSON.stringify(attributes), // send as JSON
+                start_date: startDate,
+                end_date: endDate,
+                from_qty: fromQty,
+                to_qty: toQty,
+                _token: $('meta[name="csrf-token"]').attr('content')
+            },
+            success: function (response) {
+                if (response.duplicate) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Duplicate Found',
+                        text: response.message,
+                        confirmButtonColor: '#d33'
+                    });
+                    throw new Error("Duplicate rate contract found, aborting flow."); 
+                }
+            },
+            error: function (xhr) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Something went wrong while checking duplicates.'
+                });
+                console.error(xhr.responseText);
+            }
+        });
     }
 
 $(function() {
@@ -5092,7 +5133,6 @@ $(function() {
             const itemCode      = row.item_code      || '';
             const itemName      = row.item_name      || '';
             const attribute     = row.attribute      || '';
-            console.log(row.item_attribute_array);
             const attrArray = row.item_attribute_array 
                 ? JSON.stringify(row.item_attribute_array) 
                 : '[]';

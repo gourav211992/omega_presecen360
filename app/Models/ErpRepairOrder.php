@@ -24,6 +24,8 @@ class ErpRepairOrder extends Model
         'book_id',
         'book_code',
         'store_id',
+        'rgr_sub_store_id',
+        'qc_sub_store_id',
         'store_name',
         'vendor_id',
         'type',

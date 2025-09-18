@@ -43,11 +43,16 @@
                                         <i data-feather="check-circle"></i> Generate Eway Bill
                                     </a>
                                 @endif
+                                @if((isset($order) && $order -> document_type == App\Helpers\ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS && $order -> document_status != App\Helpers\ConstantHelper::DRAFT && $order -> document_status != App\Helpers\ConstantHelper::SUBMITTED) && !isset($einvoice))
+                                    <a type="button" class="btn btn-warning btn-sm" id="eWayBillBtnManual" href="#" onclick = "openGenerateEwayBillPopup({{ $order -> id }});">
+                                        <i data-feather="check-circle"></i> Update EWB
+                                    </a>
+                                @endif
                                 @if($order->document_status != App\Helpers\ConstantHelper::DRAFT)
 
                                 <button type = "button" data-target = "#sendMail" onclick = "sendMailTo();" data-toggle = "modal" class="btn btn-primary btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i data-feather="mail"></i> E-Mail</button>
                                 @endif
-                                @if(isset($order) && $order->delivery_status == 0)
+                                @if(isset($order) && $order->delivery_status == 0 && ($order -> document_type !== App\Helpers\ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS || App\Helpers\ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS ))
                                 <button type = "button" data-bs-toggle="modal" data-bs-target="#podModal" onclick = "setPOD();" class="btn btn-success btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i class="fa-solid fa-truck-fast"></i> POD</button>
                                 @endif
                                 @endif
@@ -394,7 +399,7 @@
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Customer <span class="text-danger">*</span></label>
-                                                        <input type="text" id = "customer_code_input" disabled placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input disable_on_edit" autocomplete="off" value = "{{isset($order) ? $order -> customer_code : ''}}" onblur = "onChangeCustomer('customer_code_input', true)" >
+                                                        <input type="text" id = "customer_code_input" disabled placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input disable_on_edit" autocomplete="off" value = "{{isset($order) ? $order -> customer ?-> company_name : ''}}" onblur = "onChangeCustomer('customer_code_input', true)" >
                                                         <input type = "hidden" name = "customer_id" id = "customer_id_input" value = "{{isset($order) ? $order -> customer_id : ''}}"></input>
                                                         <input type = "hidden" name = "customer_code" id = "customer_code_input_hidden" value = "{{isset($order) ? $order -> customer_code : ''}}"></input>
                                                         </div>
@@ -554,7 +559,7 @@
                                                         </div>
                                                 </div>
 
-                                                <div class="col-md-2">
+                                                <div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Transport Mode<span class="text-danger">*</span></label>
                                                             <select class="form-control {{isset($editTransporterFields) && $editTransporterFields ? 'cannot_disable' : ''}}" id = "transporter_mode_input" name = "transporter_mode" value = "{{isset($order) ? $order -> vehicle_no : ''}}" >
@@ -567,7 +572,7 @@
                                                         </div>
                                                 </div>
 
-                                                <div class="col-md-2">
+                                                <div class="col-md-3">
                                                     <div class="mb-1">
                                                         <label class="form-label">
                                                                 Vehicle No.
@@ -581,7 +586,7 @@
                                                     </div>
                                                 </div>
 
-                                                <div class="col-md-2">
+                                                <div class="col-md-3">
                                                     <div class="mb-1">
                                                         <label class="form-label">
                                                                 Lorry Receipt No.
@@ -593,7 +598,21 @@
                                                 <div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">E-Way Bill No.</label>
-                                                            <input type="text" class="form-control" id = "eway_bill_no_input" disabled value = "{{isset($order) && isset($einvoice) ? $einvoice -> ewb_no : ''}}" />
+                                                            <input type="text" class="form-control" name = "ewb_number" id = "eway_bill_no_input" value = "{{isset($order) && isset($einvoice) ? $einvoice -> ewb_no : ''}}" />
+                                                        </div>
+                                                </div>
+
+                                                <div class="col-md-3">
+                                                        <div class="mb-1">
+                                                            <label class="form-label">E-Way Bill Date</label>
+                                                            <input type="datetime-local" class="form-control" name = "ewb_date" id = "eway_bill_date_input" value = "{{isset($order) && isset($einvoice) ? $einvoice -> ewb_date : ''}}" />
+                                                        </div>
+                                                </div>
+
+                                                <div class="col-md-3">
+                                                        <div class="mb-1">
+                                                            <label class="form-label">E-Way Bill Validity</label>
+                                                            <input type="datetime-local" class="form-control" name = "ewb_validity" id = "eway_bill_validity_input" value = "{{isset($order) && isset($einvoice) ? $einvoice -> ewb_valid_till : ''}}" />
                                                         </div>
                                                 </div>
 
@@ -620,7 +639,7 @@
                                                             </div>
                                                         </div>
                                                         <div class="col-md-6 text-sm-end" id = "add_delete_item_section">
-                                                            <a href="#" onclick = "deleteItemRows();" class="btn btn-sm btn-outline-danger me-50">
+                                                            <a href="#" onclick = "deleteItemRows();" id = "delete_item_section" class="btn btn-sm btn-outline-danger me-50">
                                                                 <i data-feather="x-circle"></i> Delete</a>
                                                             <a href="#" onclick = "addItemRow();" id = "add_item_section" style = "display:none;" class="btn btn-sm btn-outline-primary">
                                                                 <i data-feather="plus"></i> Add Item</a>
@@ -731,13 +750,13 @@
 
 
 
-                                                                            <input type="text" id = "items_dropdown_{{$orderItemIndex}}" name="item_code[{{$orderItemIndex}}]" placeholder="Select" class="form-control mw-100 ledgerselecct comp_item_code ui-autocomplete-input {{$orderItem -> is_editable ? '' : 'restrict'}}" autocomplete="off" data-name="{{$orderItem -> item ?-> item_name}}" data-code="{{$orderItem -> item ?-> item_code}}" data-id="{{$orderItem -> item ?-> id}}" hsn_code = "{{$orderItem -> item ?-> hsn ?-> code}}" item-name = "{{$orderItem -> item ?-> item_name}}" specs = "{{$orderItem -> item ?-> specifications}}" attribute-array = "{{$orderItem -> item_attributes_array()}}"  value = "{{$orderItem -> item ?-> item_code}}" {{$orderItem -> is_editable ? '' : 'readonly'}} item-location = "[]">
+                                                                            <input type="text" id = "items_dropdown_{{$orderItemIndex}}" name="item_code[{{$orderItemIndex}}]" placeholder="Select" class="form-control mw-100 ledgerselecct comp_item_code ui-autocomplete-input backend_lock {{$orderItem -> is_editable ? '' : 'restrict'}}" autocomplete="off" data-name="{{$orderItem -> item ?-> item_name}}" data-code="{{$orderItem -> item ?-> item_code}}" data-id="{{$orderItem -> item ?-> id}}" hsn_code = "{{$orderItem -> item ?-> hsn ?-> code}}" item-name = "{{$orderItem -> item ?-> item_name}}" specs = "{{$orderItem -> item ?-> specifications}}" attribute-array = "{{$orderItem -> item_attributes_array()}}"  value = "{{$orderItem -> item ?-> item_code}}" {{$orderItem -> is_editable ? '' : 'readonly'}} item-location = "[]">
                                                                             <input type = "hidden" name = "item_id[]" id = "items_dropdown_{{$orderItemIndex}}_value" value = "{{$orderItem -> item_id}}"></input>
                                                                         </td>
                                                                         <td class="poprod-decpt">
-                                                                            <input type="text" id = "items_name_{{$orderItemIndex}}" class="form-control mw-100"   value = "{{$orderItem -> item ?-> item_name}}" name = "item_name[{{$orderItemIndex}}]" readonly>
+                                                                            <input type="text" id = "items_name_{{$orderItemIndex}}" class="form-control mw-100 backend_lock"   value = "{{$orderItem -> item ?-> item_name}}" name = "item_name[{{$orderItemIndex}}]" readonly>
                                                                         </td>
-                                                                        <td class="poprod-decpt" id='attribute_section_{{$orderItemIndex}}'>
+                                                                        <td class="poprod-decpt" id='attribute_section_{{$orderItemIndex}}' >
                                                                             <button id = "attribute_button_{{$orderItemIndex}}" {{count($orderItem -> item_attributes_array()) > 0 ? '' : 'disabled'}} type = "button" data-bs-toggle="modal" onclick = "setItemAttributes('items_dropdown_{{$orderItemIndex}}', '{{$orderItemIndex}}', {{ json_encode(!$orderItem->is_editable) }});" data-bs-target="#attribute" class="btn p-25 btn-sm btn-outline-secondary" style="font-size: 10px">Attributes</button>
                                                                             <input type = "hidden" name = "attribute_value_{{$orderItemIndex}}" />
 
@@ -750,7 +769,7 @@
 
                                                                         <input type = "hidden" value = "{{$orderItem -> store_id}}" name = "item_store[{{$orderItemIndex}}]" />
                                                                         <td><input {{$orderItem -> disable_qty ? 'readonly' : ''}} type="text" id = "item_qty_{{$orderItemIndex}}" name = "item_qty[{{$orderItemIndex}}]" oninput = "changeItemQty(this, '{{$orderItemIndex}}');" value = "{{$orderItem -> order_qty}}" class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);" max = "{{($orderItem -> max_attribute)}}" /></td>
-                                                                       <td><input type="text" id = "item_rate_{{$orderItemIndex}}" name = "item_rate[]" {{$docType == 'dnote' ? 'readonly' : ''}} oninput = "changeItemRate(this, '{{$orderItemIndex}}');" value = "{{$orderItem -> rate}}" class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);" /></td>
+                                                                       <td><input type="text" id = "item_rate_{{$orderItemIndex}}" name = "item_rate[]" {{ $order -> document_type == 'dnote' ? 'readonly' : ''}} oninput = "changeItemRate(this, '{{$orderItemIndex}}');" value = "{{$orderItem -> rate}}" class="form-control mw-100 text-end {{ $order -> document_type == 'dnote' ? 'backend_lock' : ''}}" onblur = "setFormattedNumericValue(this);" /></td>
                                                                         <td><input type="text" id = "item_value_{{$orderItemIndex}}" disabled class="form-control mw-100 text-end item_values_input" value = "{{$orderItem -> order_qty * $orderItem -> rate}}" /></td>
                                                                         <input type = "hidden" id = "header_discount_{{$orderItemIndex}}" value = "{{$orderItem -> header_discount_amount}}" ></input>
                                                                         <input type = "hidden" id = "header_expense_{{$orderItemIndex}}" value = "{{$orderItem -> header_expense_amount}}"></input>
@@ -2601,6 +2620,53 @@
 		</div>
 	</div>
 
+<div class="modal fade" id="manualEwayBill" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
+   <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form class="ajax-submit-2" method="POST" action="{{ route('sale.invoice.generate.ewayBill.manual') }}" data-redirect="{{ $redirect_url }}" enctype='multipart/form-data'>
+          @csrf
+          <input type="hidden" name="id" id="manual_ewb_dn_id">
+         <div class="modal-header">
+            <div>
+               <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal">
+                Update E Way Bill
+               </h4>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+         </div>
+         <div class="modal-body pb-2">
+            <div class="row mt-1">
+               <div class="col-md-12">
+                  <div class="mb-1">
+                     <label class="form-label">EWB Number</label>
+                     <input type = "text" name="ewb_number" class="form-control cannot_disable"></input>
+                  </div>
+                  <div class="row">
+                    <div class = "col-md-6">
+                        <div class="mb-1">
+                            <label class="form-label">EWB Date</label>
+                            <input type="datetime-local" name = "ewb_date" class="form-control cannot_disable" />
+                        </div>
+                    </div>
+                    <div class = "col-md-6">
+                        <div class="mb-1">
+                            <label class="form-label">EWB Validity</label>
+                            <input type="datetime-local" name = "ewb_validity" class="form-control cannot_disable" />
+                        </div>
+                    </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+         <div class="modal-footer justify-content-center">
+            <button type="reset" class="btn btn-outline-secondary me-1" onclick = "closeModal('manualEwayBill');">Cancel</button>
+            <button type="submit" class="btn btn-primary">Submit</button>
+         </div>
+       </form>
+      </div>
+   </div>
+</div>
+
 
 
 @section('scripts')
@@ -3767,9 +3833,9 @@
                             //Basic Details
                             //Disable Header
                         //Basic Details
-                        $("#customer_code_input").val(currentOrder.customer_code);
+                        $("#customer_code_input").val(currentOrder.customer?.company_name);
                         $("#customer_id_input").val(currentOrder.customer_id);
-                        $("#customer_code_input_hidden").val(currentOrder.customer_code);
+                        $("#customer_code_input_hidden").val(currentOrder.customer?.company_name);
                         $("#consignee_name_input").val(currentOrder.consignee_name);
                         $("#customer_phone_no_input").val(currentOrder.customer_phone_no);
                         $("#customer_email_input").val(currentOrder.customer_email);
@@ -4097,6 +4163,18 @@
                         }
                     }
                     reEnableSelectedPullType(openPullType);
+
+                    if (openPullType == 'dnote') {
+                        //Disable add and delete buttons
+                        let deleteButton = document.getElementById('delete_item_section');
+                        let addButton = document.getElementById('add_item_section');
+                        if (deleteButton) {
+                            deleteButton.style.display = "none";
+                        }
+                        if (addButton) {
+                            addButton.style.display = "none";
+                        }
+                    }
                 },
                 error: function(xhr) {
                     console.error('Error fetching customer data:', xhr.responseText);
@@ -5701,6 +5779,12 @@ function initializeAutocompleteTed(selector, idSelector, type, percentageVal) {
             }
         });
 
+    }
+
+    function openGenerateEwayBillPopup(saleInvoiceId)
+    {
+        $("#manual_ewb_dn_id").val(saleInvoiceId);
+        openModal('manualEwayBill');
     }
 
 </script>

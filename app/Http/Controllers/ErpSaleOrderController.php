@@ -335,6 +335,23 @@ class ErpSaleOrderController extends Controller
         $parentUrl = request() -> segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl, $order -> book ?-> service ?-> alias);
         foreach ($order -> items as &$soItem) {
+            $soItem->item_editable = false;
+            $soItem->attributes_editable = false;
+            $soItem->uom_editable=false;
+
+            $soItem->rate_editable=true;
+            $soItem->discount_editable=true;
+            $soItem->bom_editable=true;
+
+            if ($soItem -> pwo_qty || $soItem -> pslip_qty || $soItem -> plist_qty || $soItem -> invoice_qty || 
+            $soItem -> dnote_qty || $soItem -> srn_qty || $soItem -> expense_advise_qty || $soItem -> picked_qty || $soItem -> planned_qty) {
+                $soItem->rate_editable=false;
+                $soItem->bom_editable=false;
+            }
+            //Disable Discount if full qty is utilized
+            if ($soItem -> order_qty <= $soItem -> dnote_qty) {
+                $soItem->discount_editable=false;
+            }
             $soItem->max_attribute = 999999;
             $soItem->is_editable = true;
             $soItem->restrict_delete = false;

@@ -1391,6 +1391,7 @@ class Helper
         if ($docStatus == ConstantHelper::POSTED) {
             $voucher = true;
             $print = true;
+            $amend = false; // Disable Amend in case document has been posted (Fully lock the document)
         }
         return [
             'draft' => $draft,
@@ -2042,6 +2043,7 @@ class Helper
             if (isset($approvalRequired->approval_required) && $approvalRequired->approval_required) {
                 $approvalWorkflow = ApprovalWorkflow::where('book_id', $book->id)
                     ->where('organization_id', $user->organization_id)
+                    ->where('user_id', '!=', $createdBy)
                     ->whereHas('level')->get();
                 if (count($approvalWorkflow) == 0) {
                     $approvalStatus = ConstantHelper::APPROVAL_NOT_REQUIRED;

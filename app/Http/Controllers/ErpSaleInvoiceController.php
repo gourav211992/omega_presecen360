@@ -77,6 +77,7 @@ use Dompdf\Options;
 use App\Models\CashCustomerDetail;
 use App\Models\Configuration;
 use App\Services\Sales\DeliveryNoteDelete;
+use App\Services\Sales\DeliveryNoteUpdate;
 use Http;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -445,10 +446,6 @@ class ErpSaleInvoiceController extends Controller
         $organization = Organization::where('id', $user->organization_id)->first();
             $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl,$order -> book ?-> service ?-> alias);
             foreach ($order -> items as &$siItem) {
-                if ($order -> book ?-> master_service ?-> type != ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS) {
-                    $siItem -> invoice_qty = 0;
-                    $siItem -> save();
-                }
                 if (count($siItem -> bundles) > 0) {
                     $siItem -> disable_qty = true;
                 } else {
@@ -998,6 +995,32 @@ class ErpSaleInvoiceController extends Controller
                 ]);
                 $saleInvoice -> gst_invoice_type = EInvoiceHelper::getGstInvoiceType($request -> customer_id, $saleInvoice -> shipping_address_details -> country_id, $saleInvoice ?->  location_address_details ?-> country_id);
             }
+            //Manual E-Way Bill
+            //Get all the required data
+            $originalEwbDate = $request -> ewb_date;
+            $originalValidUpto = $request -> ewb_validity;
+            $originalEwbNo = $request -> ewb_number;
+
+            if ($saleInvoice -> document_type == ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS 
+                && $originalEwbDate && $originalValidUpto && $originalEwbNo) {
+                
+                $eInvoice = $saleInvoice?->irnDetail()?->first();
+                if ($eInvoice) {
+                    $eInvoice->ewb_no = $originalEwbNo;
+                    $eInvoice->ewb_date = $originalEwbDate;
+                    $eInvoice->ewb_valid_till = $originalEwbDate;
+                    $eInvoice->save();
+                } else {
+                    $saleInvoice->irnDetail()->create([
+                        'ewb_no' => $originalEwbNo,
+                        'ewb_date' => $originalEwbDate,
+                        'ewb_valid_till' => $originalValidUpto,
+                        'status' => 'ACT',
+                        'type' => 'Manual E-Way Bill'
+                    ]);
+                }
+                $saleInvoice -> is_ewb_generated = 1;
+            }
             //Dynamic Fields
             $status = DynamicFieldHelper::saveDynamicFields(ErpSiDynamicField::class, $saleInvoice -> id, $request -> dynamic_field ?? []);
             if ($status && !$status['status'] ) {
@@ -1201,6 +1224,17 @@ class ErpSaleInvoiceController extends Controller
                             }
                         }
                         //Order Pulling condition
+                        $soInvoiceUpdateService = new DeliveryNoteUpdate();
+                        $updateStatus = $soInvoiceUpdateService -> updateItem(isset($oldSoItem) ? $oldSoItem : null, $soItem, $saleInvoice, (float) $itemDataValue['order_qty'], $itemDataKey);
+                        if ($updateStatus['status'] == 'error') {
+                            DB::rollBack();
+                            return response() -> json([
+                                'message' => '',
+                                'errors' => array(
+                                    'item_name.' . $itemDataKey => $updateStatus['message']
+                                )
+                            ], 422);
+                        }
                         if (isset($request -> quotation_item_type[$itemDataKey])) {
                             $pullType = $request -> quotation_item_type[$itemDataKey];
                             if ($pullType === ConstantHelper::SO_SERVICE_ALIAS) {
@@ -1828,7 +1862,6 @@ class ErpSaleInvoiceController extends Controller
 
             if ($request->doc_type === ConstantHelper::SO_SERVICE_ALIAS) {
                 $referedHeaderId = ErpSoItem::whereIn('id', $selectedIds)->first()?->header?->id;
-
                 $query = ErpSoItem::with(['attributes', 'uom', 'header.customer', 'header.shipping_address_details'])
                     ->whereHas('header', function ($subQuery) use ($request, $applicableBookIds, $referedHeaderId) {
                         $subQuery->withDefaultGroupCompanyOrg()
@@ -1842,12 +1875,15 @@ class ErpSaleInvoiceController extends Controller
                             ->when($request->document_id, fn($q) => $q->where('id', $request->document_id));
                     })
                     ->whereRaw('((order_qty - short_close_qty - GREATEST(picked_qty, plist_qty, dnote_qty)) + srn_qty) > 0')
+                    ->where('sale_type', 'sale')
                     ->when(count($selectedIds) > 0, fn($q) => $q->whereNotIn('id', $selectedIds));
 
             } elseif (in_array($request->doc_type, [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS])) {
+                $referedHeaderId = ErpInvoiceItem::whereIn('id', $selectedIds)->first()?->header?->id;
                 $query = ErpInvoiceItem::with(['attributes', 'uom', 'header.customer', 'header.shipping_address_details'])
-                    ->whereHas('header', function ($subQuery) use ($request, $applicableBookIds) {
+                    ->whereHas('header', function ($subQuery) use ($request, $applicableBookIds, $referedHeaderId) {
                         $subQuery->withDefaultGroupCompanyOrg()
+                            ->when($referedHeaderId, fn($q) => $q->where('id', $referedHeaderId))
                             ->whereIn('document_type', [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS])
                             ->whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::POSTED])
                             ->whereIn('book_id', $applicableBookIds)
@@ -1855,7 +1891,9 @@ class ErpSaleInvoiceController extends Controller
                             ->when($request->book_id, fn($q) => $q->where('book_id', $request->book_id))
                             ->when($request->document_id, fn($q) => $q->where('id', $request->document_id));
                     })
-                    ->whereColumn('invoice_qty', '<', 'order_qty');
+                    ->whereColumn('invoice_qty', '<', 'order_qty')
+                    ->when(count($selectedIds) > 0, fn($q) => $q->whereNotIn('id', $selectedIds));
+
 
             } elseif ($request->doc_type === PackingListConstants::SERVICE_ALIAS) {
                 $query = PackingListDetail::withWhereHas('header', function ($subQuery) use($request, $applicableBookIds) {
@@ -2820,7 +2858,7 @@ class ErpSaleInvoiceController extends Controller
         
         $eInvoice = $order->irnDetail()->first();
         $qrCodeBase64 = null;
-        if (isset($eInvoice)) {
+        if (isset($eInvoice) && isset($eInvoice->signed_qr_code)) {
             $qrCodeBase64 = EInvoiceHelper::generateQRCodeBase64($eInvoice->signed_qr_code);
         }
 
@@ -3319,6 +3357,76 @@ class ErpSaleInvoiceController extends Controller
                 'message' => "Error occurred while Updating POD of the document.",
                 'error' => $e->getMessage(),
             ], 500);
+        }
+    }
+
+    public function manualEwayBillGenerate(Request $request)
+    {
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'ewb_number'   => ['nullable|digits:12'],
+                'ewb_date'     => ['nullable|required_with:ewb_number|date|after_or_equal:today'],
+                'ewb_validity' => ['nullable|required_with:ewb_number|date|after:ewb_date'],
+                'id' => ['required']
+            ],
+            [
+                'ewb_number.required' => 'EWB number is required.',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validator->messages()->first(),
+            ], 422);
+        }
+        try{
+            $documentHeader = ErpSaleInvoice::find($request->id);
+            if (!$documentHeader) {
+                return response()->json([
+                    'status' => 'error',
+                    'error' => 'error',
+                    'message' => 'Delivery Not Found',
+                ], 500);
+            }
+            //Get all the required data
+            $originalEwbDate = $request -> ewb_date;
+            $originalValidUpto = $request -> ewb_validity;
+            $originalEwbNo = $request -> ewb_number;
+
+            $eInvoice = $documentHeader?->irnDetail()?->first();
+            if ($eInvoice) {
+                return response()->json([
+                    'status' => 'error',
+                    'error' => 'error',
+                    'message' => 'EWB Already generated',
+                ], 500);
+            }
+            $documentHeader->irnDetail()->create([
+                'group_id' => $documentHeader -> group_id,
+                'company_id' => $documentHeader -> company_id,
+                'organization_id' => $documentHeader -> organization_id,
+                'ewb_no' => $originalEwbNo,
+                'ewb_date' => $originalEwbDate,
+                'ewb_valid_till' => $originalValidUpto,
+                'status' => 'ACT',
+                'type' => 'Direct E-Way Bill'
+            ]);
+
+            $documentHeader -> is_ewb_generated = 1;
+            $documentHeader -> save();
+
+            return response() -> json([
+                'status' => 'success',
+                'results' => null,
+                'message' => 'E-Way bill saved succesfully',
+            ]);            
+        } catch(Exception $ex) {
+            return response() -> json([
+                'status' => 'error',
+                'message' => $ex -> getMessage(),
+            ]);
         }
     }
 

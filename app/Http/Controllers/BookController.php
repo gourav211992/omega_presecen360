@@ -724,9 +724,9 @@ class BookController extends Controller
                         $orgService = ErpOrganizationService::where('alias', RepConstants::SERVICE_ALIAS) -> first();
                         $books = Book::select('id', 'book_code', 'book_name') -> where('org_service_id', $orgService ?-> id) 
                             -> where('status', ConstantHelper::ACTIVE) -> get();
-                        foreach ($books as $book) {
-                            $label = strtoupper($book->book_code);
-                            $value = $book->id;
+                        foreach ($books as $bk) {
+                            $label = strtoupper($bk->book_code);
+                            $value = $bk->id;
 
                             if (in_array($value, $bookParam->parameter_value)) {
                                 $selectOptions .= "<option value = '$value' selected >$label</option>";
