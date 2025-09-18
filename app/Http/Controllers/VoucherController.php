@@ -48,6 +48,7 @@ class VoucherController extends Controller
 {
     public static function getLedgerVouchers(Request $request)
     {
+       
         $type = $request->type == ConstantHelper::RECEIPTS_SERVICE_ALIAS ? 'customer' : 'vendor';
 
 
@@ -60,14 +61,7 @@ class VoucherController extends Controller
             if ($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS) 
             {
                
-                // $orgsFromAccess = collect(optional($user)->accessrightsorg)->pluck('organization_id');
-               
-               if ($user->authenticable_type == 'employee') {
-                    $orgsFromAccess = EmployeeOrganizationMapping::where('employee_id', $user->id)->pluck('organization_id');
-                } else {
-                    $orgsFromAccess = UserOrganizationMapping::where('user_id', $user->id)->pluck('organization_id');
-                }
-        
+                $orgsFromAccess = collect(optional($user)->organizations)->pluck('id');
                 $orgs = $orgsFromAccess->isEmpty()
                             ? [optional($user)->organization_id]
                             : $orgsFromAccess->all();
@@ -75,8 +69,8 @@ class VoucherController extends Controller
            } 
            else 
            {
-            $orgs = [optional($user)->organization_id];
-          }
+                $orgs = [optional($user)->organization_id];
+           }
          
             $data = Voucher::when($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,function ($query){
                 $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
