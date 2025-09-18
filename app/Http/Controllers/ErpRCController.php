@@ -279,6 +279,7 @@ class ErpRCController extends Controller
     public function store(ErpRateContractRequest $request)
     {
         try {
+            $duplicheck = [];
             $party = null;
             if ($request->filled("party_type") && $request->party_type == 'vendor') {
                 $party = Vendor::find($request->party_id);
@@ -428,25 +429,83 @@ class ErpRCController extends Controller
                 $itemsData = array();
                 if ($request -> item_id && count($request -> item_id) > 0) {
                     //Items
-                    foreach ($request -> item_id as $itemKey => $itemId) {
+                    foreach ($request->item_id as $itemKey => $itemId) {
                         $item = Item::find($itemId);
-                        if (isset($item))
-                        {
-                            
-                            $inventoryUomQty = isset($request -> from_item_qty[$itemKey]) ? $request -> from_item_qty[$itemKey] : 0;
-                            $requestUomId = isset($request -> uom_id[$itemKey]) ? $request -> uom_id[$itemKey] : null;
-                            if($requestUomId != $item->uom_id) {
-                                $alUom = $item->alternateUOMs()->where('uom_id',$requestUomId)->first();
-                                if($alUom) {
-                                    $inventoryUomQty= intval(isset($request -> from_item_qty[$itemKey]) ? $request -> from_item_qty[$itemKey] : 0) * $alUom->conversion_to_inventory;
+                        if (isset($item)) {
+                            $inventoryUomQty = isset($request->from_item_qty[$itemKey]) ? $request->from_item_qty[$itemKey] : 0;
+                            $requestUomId = isset($request->uom_id[$itemKey]) ? $request->uom_id[$itemKey] : null;
+                            if ($requestUomId != $item->uom_id) {
+                                $alUom = $item->alternateUOMs()->where('uom_id', $requestUomId)->first();
+                                if ($alUom) {
+                                    $inventoryUomQty = intval(isset($request->from_item_qty[$itemKey]) ? $request->from_item_qty[$itemKey] : 0) * $alUom->conversion_to_inventory;
                                 }
                             }
-                            $uom = Unit::find($request -> uom_id[$itemKey] ?? null);
-                            $rcItem = ErpRateContractItem::find($request ?-> mi_item_id[$itemKey] ?? NULL); 
-                            $user = AuthUser::find($request ?-> user_id[$itemKey] ?? NULL);
-                            if(isset($request->item_currency_id[$itemKey])) {
+                            $uom = Unit::find($request->uom_id[$itemKey] ?? null);
+                            $rcItem = ErpRateContractItem::find($request?->mi_item_id[$itemKey] ?? NULL);
+                            $user = AuthUser::find($request?->user_id[$itemKey] ?? NULL);
+                            if (isset($request->item_currency_id[$itemKey])) {
                                 $currency = Currency::find($request->item_currency_id[$itemKey]);
-                            } 
+                            }
+
+                            // 🔍 build attributes array
+                            $attributesArray = [];
+                            if (isset($request->item_attributes[$itemKey])) {
+                                $decoded = json_decode($request->item_attributes[$itemKey], true);
+                                if (json_last_error() === JSON_ERROR_NONE) {
+                                    foreach ($decoded as $attr) {
+                                        foreach ($attr['values_data'] as $valData) {
+                                            if ($valData['selected']) {
+                                                $attributesArray[] = [
+                                                    'id' => $attr['id'],
+                                                    'selected_value_id' => $valData['id']
+                                                ];
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            $attributes = null;
+                            if ($request->filled('item_attributes') && isset($request->item_attributes[$itemKey])) {
+                                    // get actual string
+                                    $rawAttributes = $request->item_attributes[$itemKey];
+
+                                    // first decode (remove extra quotes/backslashes)
+                                    $decodedOnce = json_decode($rawAttributes, true);
+
+                                    // if still a string (double encoded), decode again
+                                    if (is_string($decodedOnce)) {
+                                        $decodedOnce = json_decode($decodedOnce, true);
+                                    }
+
+                                    if (json_last_error() === JSON_ERROR_NONE && is_array($decodedOnce)) {
+                                        $attributes = $decodedOnce;
+                                    }
+                                }
+                            $dupCheck = $this->isDuplicateItem(
+                                $request -> organization_id,
+                                Helper::getAuthenticatedUser()->organization_id,
+                                        $request->customer_id??$request->vendor_id,
+                                        $request->party_type,
+                                        $item->id,
+                                            $requestUomId,
+                                        $request->effective_from[$itemKey] ?? $request->start_date,
+                                        $request->effective_to[$itemKey] ?? $request->end_date,
+                                    $attributes ?? null,
+                                        $rateContract->id ?? null,
+                                        $request->from_item_qty[$itemKey] ?? 0,
+                                        $request->to_item_qty[$itemKey] ?? 0
+                            );
+                            // 🔍 duplicate check using public method
+                            if ($dupCheck instanceof \Illuminate\Database\Eloquent\Builder) {
+                                $duplicateItem = $dupCheck->first();
+                                if ($duplicateItem && $duplicateItem?->rateContract) {
+                                    $duplicate = $duplicateItem?->rateContract;
+                                    $message = "Contract {$duplicate->book_code}-{$duplicate->document_number} already exists";
+                                    $duplicheck['item_name.' . $itemKey] = $message;
+                                }
+                            }
+                            // ✅ only push if not duplicate
                             array_push($itemsData, [
                                 'rate_contract_id' => $rateContract -> id,
                                 'item_id' => $item -> id,
@@ -470,6 +529,7 @@ class ErpRCController extends Controller
                             ]);   
                         }
                     }
+
                     foreach ($itemsData as $itemDataKey => $itemDataValue) {
                         //Update or create
                         $itemRowData = [
@@ -563,6 +623,10 @@ class ErpRCController extends Controller
                         'message' => 'Please select Items',
                         'error' => "",
                     ], 422);
+                }
+                if(count($duplicheck)) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'Rate Contract Exists','errors' => $duplicheck], 422);
                 }
                 ErpRateContractItemAttribute::where([
                     'rate_contract_id' => $rateContract -> id,
@@ -729,6 +793,9 @@ class ErpRCController extends Controller
             ], 500);
         }
     }
+
+  
+
     public function amend()
     {
         
@@ -828,7 +895,173 @@ class ErpRCController extends Controller
             'message' => 'No existing Rate Contract found for this vendor in the selected date range.',
         ]);
     }
-     public function RateContractReport(Request $request)
+    public function isDuplicateItem(array $organizationIds,$organizationId,$partyId,$partyType,$itemId,$uomId,$fromDate,$toDate,$attributes = [],$excludeRateContractId = null,$fromQty = 0,$toQty = 0) {
+        $query = ErpRateContractItem::whereHas('rateContract', function ($q) use ($organizationIds,$organizationId,$partyId,$partyType,$excludeRateContractId,$fromDate,$toDate,$fromQty,$toQty
+        ) {
+            // check main organization_id + applicable orgs
+            $q->where(function ($orgQ) use ($organizationId, $organizationIds) {
+                $orgQ->where('organization_id', $organizationId)
+                    ->orWhere(function ($subQ) use ($organizationIds) {
+                        foreach ($organizationIds as $orgId) {
+                            $subQ->orWhereJsonContains('applicable_organizations', $orgId);
+                        }
+                    });
+            });
+
+            // vendor or customer
+            if ($partyType === 'vendor') {
+                $q->where('vendor_id', $partyId);
+            } else {
+                $q->where('customer_id', $partyId);
+            }
+
+            // exclude current contract (edit mode)
+            if ($excludeRateContractId) {
+                $q->where('id', '!=', $excludeRateContractId);
+            }
+
+            // header-level date overlap
+            // $q->where(function ($dateQ) use ($fromDate, $toDate) {
+            //     $dateQ->where(function ($subQ) use ($fromDate, $toDate) {
+            //         $subQ->where('start_date', '<=', $toDate)
+            //             ->where(function ($innerQ) use ($fromDate) {
+            //                 $innerQ->where('end_date', '>=', $fromDate)
+            //                         ->orWhereNull('end_date'); // treat NULL as open-ended
+            //             });
+            //     });
+            // });
+        })
+        ->where('item_id', $itemId)
+        ->where('uom_id', $uomId)
+        ->whereNot(function ($q) use ($fromDate, $toDate) {
+            $q->where(function ($subQ) use ($fromDate, $toDate) {
+                // existing completely before new
+                $subQ->whereNotNull('to_date')
+                    ->where('to_date', '<', $fromDate);
+            })
+            ->orWhere(function ($subQ) use ($toDate) {
+                // existing completely after new
+                if ($toDate) {
+                    $subQ->where('from_date', '>', $toDate);
+                }
+            });
+        // })
+
+            // QTY overlap check
+            // ->where(function ($qtyQ) use ($fromQty, $toQty) {
+            //     $qtyQ->where('from_qty', '<=', $toQty) // new end vs existing start
+            //         ->where(function ($innerQ) use ($fromQty) {
+            //             $innerQ->where('to_qty', '>=', $fromQty) // new start vs existing end
+            //                     ->orWhereNull('to_qty'); // treat NULL as infinity
+            //         });
+            // });
+        });
+
+
+        // attributes strict match
+        if (!empty($attributes)) {
+            // collect all selected values across attributes
+            $selectedAttributes = [];
+
+            foreach ($attributes as $attr) {
+                if (!isset($attr['id'], $attr['values_data'])) {
+                    continue;
+                }
+
+                $selectedValues = collect($attr['values_data'])
+                    ->where('selected', true)
+                    ->pluck('id')
+                    ->toArray();
+
+                if (!empty($selectedValues)) {
+                    $selectedAttributes[] = [
+                        'id' => $attr['id'],
+                        'values' => $selectedValues
+                    ];
+                }
+            }
+
+            // only apply filter if something was actually selected
+            if (!empty($selectedAttributes)) {
+                foreach ($selectedAttributes as $attr) {
+                    $query->whereHas('item_attributes', function ($q) use ($attr) {
+                        $q->where('item_attribute_id', $attr['id'])
+                        ->whereIn('attr_value', $attr['values']);
+                    });
+                }
+            }
+        }
+
+
+        return $query;
+    }
+
+
+    public function checkDuplicateItem(Request $request)
+    {
+        $organizationId = Helper::getAuthenticatedUser()->organization_id;
+        $organizationids = $request->organization_id ?? [];
+        $partyType = $request->party_type;
+        $partyId   = $request->party_id ?? null;
+        $itemId    = $request->item_id;
+        $uomId     = $request->uom_id;
+        $fromDate  = $request->start_date;
+        $toDate    = $request->end_date;
+        $fromQty   = $request->from_qty ?? 0;
+        $toQty     = $request->to_qty ?? 0;
+        $attributes = [];
+        if ($request->filled('attributes')) {
+            // get actual string
+            $rawAttributes = $request->input('attributes');
+
+            // first decode (remove extra quotes/backslashes)
+            $decodedOnce = json_decode($rawAttributes, true);
+
+            // if still a string (double encoded), decode again
+            if (is_string($decodedOnce)) {
+                $decodedOnce = json_decode($decodedOnce, true);
+            }
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedOnce)) {
+                $attributes = $decodedOnce;
+            }
+        }
+        $excludeId  = $request->exclude_rate_contract_id ?? null;
+
+        $duplicateQuery = $this->isDuplicateItem(
+            $organizationids,
+            $organizationId,
+            $partyId,
+            $partyType,
+            $itemId,
+            $uomId,
+            $fromDate,
+            $toDate,
+            $attributes,
+            $excludeId,
+            $fromQty,
+            $toQty
+        );
+
+        $exists   = false;
+        $message  = "No duplicate found.";
+
+        if ($duplicateQuery instanceof \Illuminate\Database\Eloquent\Builder) {
+            $duplicate = $duplicateQuery?->first()?->rateContract; // only need one match
+            if ($duplicate) {
+                $item    = Item::find($itemId);
+                $exists  = true;
+                $message = "Duplicate Rate Contract {$duplicate->book_code}-{$duplicate->document_number} exists for item {$item->item_name}";
+            }
+        }
+
+        return response()->json([
+            'duplicate' => $exists,
+            'message'   => $message,
+        ]);
+
+    }
+    public function RateContractReport(Request $request)
     {
         $pathUrl = route('rate.contract.index');
         $orderType = ConstantHelper::RC_SERVICE_ALIAS;
@@ -1040,7 +1273,4 @@ class ErpRCController extends Controller
             ->make(true);
             return $datatables;
     }
-
-
-
 }

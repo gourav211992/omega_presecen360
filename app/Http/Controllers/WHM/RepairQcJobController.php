@@ -19,7 +19,7 @@ use App\Helpers\ConstantHelper;
 
 class RepairQcJobController extends Controller
 {
-  public function getRepairQc(Request $request, $store_id)
+   public function getRepairQc(Request $request, $store_id)
     {
         if (!is_numeric($store_id)) {
             throw ValidationException::withMessages(['store_id' => ['Invalid store ID.']]);
@@ -33,31 +33,40 @@ class RepairQcJobController extends Controller
         try {
             $search = $request->get('search');
             $defectStatus = $request->get('defect_status');
+            $subStoreId = $request->get('sub_store_id');
 
-            $jobs = ErpWhmJob::with(['morphable', 'itemUniqueCodes'])
-                ->where('store_id', $store_id)
-                ->where('type', 'repair-qc')
-                ->when($search, function ($query) use ($search) {
-                    $query->whereHas('morphable', function ($q) use ($search) {
-                        $q->where('book_code', 'like', "%{$search}%")
-                        ->orWhere('document_number', 'like', "%{$search}%")
-                        ->orWhere('store_name', 'like', "%{$search}%");
-                    });
-                })
-                ->when($defectStatus && strtolower($defectStatus) !== 'all', function ($query) use ($defectStatus) {
-                    $query->whereHas('morphable', function ($q) use ($defectStatus) {
-                        $q->where('defect_status', $defectStatus);
-                    });
-                })
-                ->orderBy('id', 'desc')
+            $repairOrderQuery = ErpRepairOrder::where('store_id', $store_id);
+
+            if ($subStoreId) {
+                $repairOrderQuery->where('qc_sub_store_id', $subStoreId);
+            }
+
+            if ($search) {
+                $repairOrderQuery->where(function ($q) use ($search) {
+                    $q->where('book_code', 'like', "%{$search}%")
+                    ->orWhere('document_number', 'like', "%{$search}%")
+                    ->orWhere('store_name', 'like', "%{$search}%");
+                });
+            }
+
+            if ($defectStatus && strtolower($defectStatus) !== 'all') {
+                $repairOrderQuery->where('defect_status', $defectStatus);
+            }
+
+            $repairOrders = $repairOrderQuery->orderBy('id', 'desc')
                 ->paginate(CommonHelper::PAGE_LENGTH_10);
 
-            // Transform data
-            $result = $jobs->map(function ($job) {
-                $repairOrder = $job->morphable;
+
+            $result = $repairOrders->map(function ($repairOrder) {
+
+                $job = ErpWhmJob::where('morphable_type', ErpRepairOrder::class)
+                    ->where('morphable_id', $repairOrder->id)
+                    ->where('type', 'repair-qc')
+                    ->latest()
+                    ->first();
 
                 $items = [];
-                if ($job->itemUniqueCodes) {
+                if ($job && $job->itemUniqueCodes) {
                     foreach ($job->itemUniqueCodes as $unique) {
                         $attributes = [];
                         if ($unique->item_attributes) {
@@ -79,18 +88,17 @@ class RepairQcJobController extends Controller
                 }
 
                 return [
-                    'id'            => $job->id,
-                    'repair_order_id'=> $repairOrder->id ?? null,
+                    'id'            => $job?->id,
                     'document_no'   => ($repairOrder->book_code ?? '') . '-' . ($repairOrder->document_number ?? ''),
                     'store_name'    => $repairOrder->store_name ?? "",
                     'defect_status' => $repairOrder->defect_status ?? "",
                     'total_items'   => count($items),
                     'items'         => $items,
-                    'job' => [
+                    'job' => $job ? [
                         'total_packets' => $job->itemUniqueCodes->count(),
                         'job_status'    => $job->status ?? "",
                         'created_at'    => $job->created_at?->format('Y-m-d') ?? "",
-                    ]
+                    ] : null,
                 ];
             });
 
@@ -99,12 +107,12 @@ class RepairQcJobController extends Controller
                 'data' => [
                     'records' => $result,
                     'pagination' => [
-                        'current_page' => $jobs->currentPage(),
-                        'last_page'    => $jobs->lastPage(),
-                        'per_page'     => $jobs->perPage(),
-                        'total'        => $jobs->total(),
-                        'from'         => $jobs->firstItem(),
-                        'to'           => $jobs->lastItem(),
+                        'current_page' => $repairOrders->currentPage(),
+                        'last_page'    => $repairOrders->lastPage(),
+                        'per_page'     => $repairOrders->perPage(),
+                        'total'        => $repairOrders->total(),
+                        'from'         => $repairOrders->firstItem(),
+                        'to'           => $repairOrders->lastItem(),
                     ]
                 ]
             ];
@@ -112,7 +120,8 @@ class RepairQcJobController extends Controller
         } catch (\Exception $e) {
             throw new ApiGenericException($e->getMessage());
         }
- }
+  }
+
   public function getRepairQcJobDetails($job_id)
     {
         if (!is_numeric($job_id)) {

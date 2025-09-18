@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Traits\Deletable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TaxDetail extends Model
 {
-    use HasFactory,Deletable;
+    use HasFactory,SoftDeletes,Deletable;
 
     protected $table = 'erp_tax_details';
 

@@ -79,7 +79,7 @@ trait Deletable
         return ['status' => true];
     }
 
-    public function deleteWithReferences(array $referenceTables = [], array $ignoreTables = [])
+    public function deleteWithReferences(array $referenceTables = [], array $ignoreTables = [], array $extraReferenceTables = [])
     {
         $id = $this->getKey(); 
         $table = $this->getTable(); 
@@ -120,6 +120,20 @@ trait Deletable
                 }
             }
     
+        }
+
+        foreach ($extraReferenceTables as $refTable => $columns) {
+            $columns = (array) $columns;
+            foreach ($columns as $column) {
+                $exists = DB::table($refTable)->where($column, $id)->exists();
+                if ($exists) {
+                    return [
+                        'status' => false,
+                        'message' => "Record cannot be deleted because it is already in use.",
+                        'referenced_tables' => [$refTable]
+                    ];
+                }
+            }
         }
         
         # Code by shobhit

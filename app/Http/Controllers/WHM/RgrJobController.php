@@ -47,21 +47,22 @@ class RgrJobController extends Controller
             $search = $request->get('search'); 
 
             $rgrs = ErpRgr::with(['items', 'job.itemUniqueCodes'])
-                ->whereHas('job', function ($query) use ($store_id) {
-                    $query->where('store_id', $store_id)
-                        ->where('status', '!=', 'closed'); 
-                })
-                ->when($search, function ($query) use ($search) {
-                    $query->where(function ($q) use ($search) {
-                        $q->where('book_code', 'like', "%{$search}%")
-                        ->orWhere('document_number', 'like', "%{$search}%")
-                        ->orWhere('trip_no', 'like', "%{$search}%")
-                        ->orWhere('vehicle_no', 'like', "%{$search}%")
-                        ->orWhere('store_name', 'like', "%{$search}%");
-                    });
-                })
-                ->orderBy('id','desc')
-                ->paginate(CommonHelper::PAGE_LENGTH_10);
+            ->whereHas('job', function ($query) use ($store_id) {
+                $query->where('store_id', $store_id)
+                    ->where('status', '!=', 'closed')
+                    ->where('morphable_type', ErpRgr::class); 
+            })
+            ->when($search, function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('book_code', 'like', "%{$search}%")
+                    ->orWhere('document_number', 'like', "%{$search}%")
+                    ->orWhere('trip_no', 'like', "%{$search}%")
+                    ->orWhere('vehicle_no', 'like', "%{$search}%")
+                    ->orWhere('store_name', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('id','desc')
+            ->paginate(CommonHelper::PAGE_LENGTH_10);
 
             if ($rgrs->isEmpty()) {
                 throw ValidationException::withMessages(['rgrs' => ['No records found.']]);
@@ -713,7 +714,7 @@ class RgrJobController extends Controller
     public function closeJob(Request $request)
     {
         try {
-
+            DB::beginTransaction();
             $validated = $request->validate([
                 'job_id' => 'required|numeric|integer',
             ]);
@@ -738,25 +739,21 @@ class RgrJobController extends Controller
                         //Generate Repair Orders
                         $status = RepHelper::generateRepFromRgrItem($item, ServiceParametersHelper::OK_TO_RECIEVE_BOOK_PARAM, $authUser, true);
                         if ($status['status'] == 'error') {
-                            return response()->json([
-                                'message' => $status['message'],
-                                'error' => $status['message']
-                            ], 500);
+                            DB::rollBack();
+                            throw ValidationException::withMessages(['job_id' => [$status['message']]]);
                         }
                     }
                 }
             }
-
+            DB::commit();
             return response()->json([
                 'message' => 'Job closed successfully.',
                 'data' => []
                 ], 200);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Something went wrong.',
-                'error'   => $e->getMessage(),
-            ], 500);
+            DB::rollBack();
+            throw new ApiGenericException($e -> getMessage());
         }
     }
     

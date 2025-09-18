@@ -114,6 +114,7 @@ Route::group(['middleware' => ['sso-api', 'apiresponse']], function () {
         Route::post('/unique-items/store', 'fetchManualItem')->name('unique-items.create');  
         Route::post('/wrong-item-detail/get', 'getWrongItemDetails')->name('wrong-item.get.detail');
         Route::delete('scanned-item/{uniqueItemId}', 'deleteScannedItem')->name('unique-items.delete');
+        Route::post('rgr/close-job', 'closeJob')->name('rgr.close.job');
     });
 
     Route::controller(RepairOrderJobController::class)->group(function () {

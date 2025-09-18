@@ -24,7 +24,7 @@
                 <td style="vertical-align: top;">
                     @if (isset($orgLogo) && $orgLogo)
                         @php
-                            $data = isset($orgLogo) && $orgLogo ? file_get_contents($orgLogo) : '';
+                            $data = isset($orgLogo) && $orgLogo ? @file_get_contents($orgLogo) : '';
                             $imgType = pathinfo($orgLogo, PATHINFO_EXTENSION);
                             $base64 = 'data:image/' . $imgType . ';base64,' . base64_encode($data);
                         @endphp
@@ -209,7 +209,7 @@
                 </table>
             </td>
             <td
-                style="border: 1px solid #000; padding: 3px; border-left: none; vertical-align: top; width: 35%; border-top: none;">
+                style="border: 1px solid #000; padding: 3px; border-left: none; vertical-align: top; width: 35%;">
                     <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
                         <tr>
                             <td>
@@ -252,6 +252,37 @@
                             @endif
                         </tr>
                     </table>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="3" style="border: 1px solid #000; padding: 10px 3px; vertical-align: top; text-align: left;">
+                    @if(isset($eInvoice->irn_number))
+                        <b>IRN : </b>{{ $eInvoice->irn_number ?? '' }}<br>
+                    @endif
+                    @if(isset($eInvoice->ack_no))
+                        <b>Acknowledgment No : </b>{{ $eInvoice->ack_no ?? '' }}<br>
+                    @endif
+                    @if(isset($eInvoice->ewb_no))
+                        <b>EWB Number: </b>
+                        {{ $eInvoice->ewb_no ?? '' }},
+
+                        <b>EWB Date: </b>
+                        {{ Carbon\Carbon::parse($eInvoice->ewb_date) -> format('d-m-Y h:i A') ?? '' }},
+
+                        <b>EWB Validity: </b>
+                        {{ Carbon\Carbon::parse($eInvoice->ewb_valid_till) -> format('d-m-Y h:i A') ?? '' }}<br>
+                    @endif
+                    @if(isset($order->transportation_mode))
+                        <b>Mode of Transport: </b>
+                        {{ $order->transportation_mode ?? '' }},
+                    @endif
+                    @if(isset($order->transporter_name))
+                        <b>Transporter Name: </b>{{ $order->transporter_name ?? '' }},
+                    @endif
+                    @if(isset($order->vehicle_no))
+                        <b>Vehicle No:  </b>
+                        {{ $order->vehicle_no ?? '' }}
+                    @endif
                 </td>
             </tr>
         </table>

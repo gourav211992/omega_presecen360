@@ -2284,6 +2284,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('/sales-invoices/report', [ErpSaleInvoiceController::class, 'salesInvoiceReport'])->name('sale.invoice.report');
 
     Route::post('/sale-invoices/generate/e-way-bill', [ErpSaleInvoiceController::class, 'generateEwayBill'])->name('sale.invoice.generate.ewayBill');
+    Route::post('/sale-invoices/generate/e-way-bill-manual', [ErpSaleInvoiceController::class, 'manualEwayBillGenerate'])->name('sale.invoice.generate.ewayBill.manual');
 
     //Sale Return
     Route::get('/sale-returns', [ErpSaleReturnController::class, 'index'])->name('sale.return.index');
@@ -2329,6 +2330,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/rate-contract/store', [ErpRCController::class, 'store'])->name('rate.contract.store');
     Route::post('/rate-contract/revoke', [ErpRCController::class, 'revoke'])->name('rate.contract.revoke');
     Route::get('/rate-contract/check', [ErpRCController::class, 'checkExistingRateContract'])->name('rate.contract.check');
+    Route::post('/rate-contract/check-duplicate', [ErpRCController::class, 'checkDuplicateItem'])->name('rate.contract.checkDuplicate');
     Route::get('/rate-contract/report', [ErpRCController::class, 'RateContractReport'])->name('rateContract.report');
 
     //Transport invoice

@@ -70,9 +70,13 @@ class RepairOrderJobController extends Controller
             try {
                 $search = $request->get('search');
                 $defectStatus = $request->get('defect_status');
+                $subStoreId = $request->get('sub_store_id');
 
                 $repairOrders = ErpRepairOrder::with(['job.itemUniqueCodes','store','company','group','organization'])
                     ->where('store_id', $store_id)
+                    ->when($subStoreId, function ($query) use ($subStoreId) {
+                        $query->where('rgr_sub_store_id', $subStoreId);
+                    })
                     ->when($search, function ($query) use ($search) {
                         $query->where(function ($q) use ($search) {
                             $q->where('book_code', 'like', "%{$search}%")
@@ -107,6 +111,7 @@ class RepairOrderJobController extends Controller
                             }
 
                             $items[] = [
+                                'unique_item_id'    => $firstItem->id,
                                 'item_id'    => $firstItem->item_id,
                                 'uid'        => $firstItem->uid,
                                 'item_uid'   => $firstItem->item_uid ?? "",
@@ -120,7 +125,7 @@ class RepairOrderJobController extends Controller
                     return [
                         'id'            => $job?->id,
                         'document_no'   => ($order->book_code ?? '') . '-' . ($order->document_number ?? ''),
-                        'store_name'    => $order->store_name ?? "",
+                        'store_name' => $order->store->store_name ?? "",
                         'defect_status' => $order->defect_status ?? "", 
                         'total_items'   => count($items),
                         'items'         => $items,
@@ -363,48 +368,65 @@ class RepairOrderJobController extends Controller
         }
     }
 
-   public function repairAction(Request $request)
-    {
-        DB::beginTransaction();
-        try {
-            $title = $request->input('title');
-            $remark = $request->input('remark');
+ public function repairAction(Request $request)
+{
+    DB::beginTransaction();
 
-            $validated = $request->validate([
-                'title' => 'required|string|in:scrap,repair,send_to_vendor,change_defect_severity',
-                'remark' => 'nullable|string',
-                'unique_item_id' => 'required|exists:erp_item_unique_codes,id',
-                'rejuvenate_item_id' => 'nullable|exists:erp_items,id',
-                'rejuvenate_item_attributes' => 'nullable|array',
-                'vendor_id' => 'nullable|exists:erp_vendors,id',
-                'service_item_id' => 'nullable|exists:erp_items,id',
-                'files' => 'nullable|array|max:5', 
-                'files.*' => 'file|mimes:png,jpeg,jpg,svg,webp|max:2048', 
-                'defect_files' => 'nullable|array|max:5', 
-                'defect_files.*' => 'file|mimes:png,jpeg,jpg,svg,webp|max:2048', 
-            ]);
+    try {
+        $title = $request->input('title');
+        $remark = $request->input('remark');
 
-            $uniqueItem = ErpItemUniqueCode::where('id', $request->unique_item_id)
+        $validated = $request->validate([
+            'title' => 'required|string|in:scrap,repair,send_to_vendor,change_defect_severity',
+            'remark' => 'nullable|string',
+            'unique_item_id' => 'required', 
+            'rejuvenate_item_id' => 'nullable|exists:erp_items,id',
+            'rejuvenate_item_attributes' => 'nullable|array',
+            'vendor_id' => 'nullable|exists:erp_vendors,id',
+            'service_item_id' => 'nullable|exists:erp_items,id',
+            'files' => 'nullable|array|max:5', 
+            'files.*' => 'file|mimes:png,jpeg,jpg,svg,webp|max:2048', 
+            'defect_files' => 'nullable|array|max:5', 
+            'defect_files.*' => 'file|mimes:png,jpeg,jpg,svg,webp|max:2048', 
+        ]);
+
+        $uniqueItemIds = $request->input('unique_item_id');
+        if (!is_array($uniqueItemIds)) {
+            $uniqueItemIds = [$uniqueItemIds];
+        }
+
+        $processedJobIds = []; 
+
+        foreach ($uniqueItemIds as $uniqueItemId) {
+
+            $uniqueItem = ErpItemUniqueCode::where('id', $uniqueItemId)
                 ->where('morphable_type', ErpRepItem::class)
                 ->first();
 
             if (!$uniqueItem) {
-                throw ValidationException::withMessages(['unique_item_id' => ['Unique item not found.']]);
+                throw ValidationException::withMessages([
+                    'unique_item_id' => ["Unique item ID {$uniqueItemId} not found."]
+                ]);
             }
 
             if ($uniqueItem->status === 'scanned') {
-                throw ValidationException::withMessages(['unique_item_id' => ['Item has already been scanned.']]);
+                throw ValidationException::withMessages([
+                    'unique_item_id' => ["Item ID {$uniqueItemId} has already been scanned."]
+                ]);
             }
-
 
             $repItem = $uniqueItem->morphable;
             if (!$repItem || !$repItem instanceof ErpRepItem) {
-                throw ValidationException::withMessages(['unique_item_id' => ['Unique item not linked to a valid repair job.']]);
+                throw ValidationException::withMessages([
+                    'unique_item_id' => ["Unique item ID {$uniqueItemId} not linked to a valid repair job."]
+                ]);
             }
 
             $repairOrder = $repItem->repairOrder;
             if (!$repairOrder) {
-                throw ValidationException::withMessages(['repair_order' => ['Repair order not found for this job.']]);
+                throw ValidationException::withMessages([
+                    'repair_order' => ["Repair order not found for item ID {$uniqueItemId}."]
+                ]);
             }
 
 
@@ -464,61 +486,60 @@ class RepairOrderJobController extends Controller
                 if ($whmJob) {
                     $whmJob->status = 'closed';
                     $whmJob->save();
-                }
-            }
 
-            if ($title === 'repair' && !$request->has('rejuvenate_item_id')) {
-                $whmJob = ErpWhmJob::find($uniqueItem->job_id);
+                    if ($title === 'repair' && !$request->has('rejuvenate_item_id') && !in_array($whmJob->id, $processedJobIds)) {
+                        $newJob = $whmJob->replicate(['id', 'job_closed_at']);
+                        $newJob->type = 'repair-qc';
+                        $newJob->status = 'pending';
+                        $newJob->job_closed_at = null;
+                        $newJob->save();
 
-                if ($whmJob) {
-                    $newJob = $whmJob->replicate(['id', 'job_closed_at']);
-                    $newJob->type = 'repair-qc';
-                    $newJob->status = 'pending';
-                    $newJob->job_closed_at = null;
-                    $newJob->save();
+                        foreach ($whmJob->itemUniqueCodes as $uniqueCode) {
+                            $newUnique = $uniqueCode->replicate(['id', 'action_by', 'action_at']);
+                            $newUnique->uid = (new WhmJob())->generateUniqueUid();
+                            $newUnique->job_id = $newJob->id;
+                            $newUnique->job_type = 'repair-qc';
+                            $newUnique->status = 'pending';
+                            $newUnique->save();
 
-                    foreach ($whmJob->itemUniqueCodes as $uniqueCode) {
-                        $newUnique = $uniqueCode->replicate(['id', 'action_by', 'action_at']);
-                        $newUnique->uid = (new WhmJob())->generateUniqueUid();
-                        $newUnique->job_id = $newJob->id;
-                        $newUnique->job_type = 'repair-qc';
-                        $newUnique->status = 'pending';
-                        $newUnique->save();
-
-                        foreach ($uniqueCode->media as $media) {
-                              $newUnique->media()->create([
-                                'uuid' => (string) Str::uuid(), 
-                                'model_name' => $media->model_name,
-                                'collection_name' => $media->collection_name,
-                                'name' => $media->name,
-                                'file_name' => $media->file_name, 
-                                'mime_type' => $media->mime_type,
-                                'disk' => $media->disk,
-                                'size' => $media->size,
-                                'manipulations' => $media->manipulations,
-                                'custom_properties' => $media->custom_properties,
-                                'generated_conversions' => $media->generated_conversions,
-                                'responsive_images' => $media->responsive_images,
-                            ]);
+                            foreach ($uniqueCode->media as $media) {
+                                $newUnique->media()->create([
+                                    'uuid' => (string) Str::uuid(),
+                                    'model_name' => $media->model_name,
+                                    'collection_name' => $media->collection_name,
+                                    'name' => $media->name,
+                                    'file_name' => $media->file_name,
+                                    'mime_type' => $media->mime_type,
+                                    'disk' => $media->disk,
+                                    'size' => $media->size,
+                                    'manipulations' => $media->manipulations,
+                                    'custom_properties' => $media->custom_properties,
+                                    'generated_conversions' => $media->generated_conversions,
+                                    'responsive_images' => $media->responsive_images,
+                                ]);
+                            }
                         }
+
+                        $repairOrder->document_status = 'approval_not_required';
+                        $repairOrder->save();
+
+                        $processedJobIds[] = $whmJob->id; 
                     }
-                    $repairOrder->document_status = 'approval_not_required';
-                    $repairOrder->save();
                 }
             }
-
-            DB::commit();
-
-            return [
-                'message' => 'Action processed successfully.'
-            ];
-
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            throw new ApiGenericException($e->getMessage());
         }
-    }
 
-    
+        DB::commit();
+
+        return [
+            'message' => 'Action processed successfully.'
+        ];
+
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        throw new ApiGenericException($e->getMessage());
+    }
+}
+
 }
 

@@ -29,7 +29,7 @@
                 <td style="border: 1px solid #000;  border-bottom: none; padding: 3px; width: 30%; vertical-align: top;">
                     @if (isset($orgLogo) && $orgLogo)
                         @php
-                            $data = isset($orgLogo) && $orgLogo ? file_get_contents($orgLogo) : '';
+                            $data = isset($orgLogo) && $orgLogo ? @file_get_contents($orgLogo) : '';
                             $imgType = pathinfo($orgLogo, PATHINFO_EXTENSION);
                             $base64 = 'data:image/' . $imgType . ';base64,' . base64_encode($data);
                         @endphp
@@ -250,7 +250,13 @@
                     @endif
                     @if(isset($eInvoice->ewb_no))
                         <b>EWB Number: </b>
-                        {{ $eInvoice->ewb_no ?? '' }}<br>
+                        {{ $eInvoice->ewb_no ?? '' }},
+
+                        <b>EWB Date: </b>
+                        {{ Carbon\Carbon::parse($eInvoice->ewb_date) -> format('d-m-Y h:i A') ?? '' }},
+
+                        <b>EWB Validity: </b>
+                        {{ Carbon\Carbon::parse($eInvoice->ewb_valid_till) -> format('d-m-Y h:i A') ?? '' }}<br>
                     @endif
                     @if(isset($order->transportation_mode))
                         <b>Mode of Transport: </b>
