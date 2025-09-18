@@ -47,8 +47,13 @@ class FurbooksController extends Controller
             $organization = $user->organization;
             
             // Get policy data from service (following standard pattern)
-            $parentUrl = 'furbooks'; // or appropriate service alias
+            $parentUrl = 'vouchers'; // or appropriate service alias
             $services = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
+           
+
+            \Log::warning('Service Data:', [
+                'services' => $services
+            ]);
             
            if ($services && isset($services['services']) && !empty($services['services'])) {
                 $firstService = $services['services']->first();
@@ -799,6 +804,9 @@ class FurbooksController extends Controller
             // Get location_id from first staging record or use accessible locations
             $locationId = $staging_ids->location_id;
             $services = Helper::getAccessibleServicesFromMenuAlias('vouchers');
+            \Log::warning('Service Data in transfer voucher:', [
+                'services' => $services
+            ]);
             if ($services && isset($services['services']) && !empty($services['services'])) {
                 $firstService = $services['services']->first();
                 $serviceId = $firstService->service_id;

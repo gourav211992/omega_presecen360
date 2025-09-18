@@ -1,11 +1,11 @@
-<?php
+@php
     use App\Helpers\ConstantHelper;
-?>
+@endphp
+@extends('layouts.app')
 
-
-<?php $__env->startSection('styles'); ?>
-    <link rel="stylesheet" type="text/css" href="<?php echo e(url('/app-assets/css/core/menu/menu-types/vertical-menu.css')); ?>">
-    <link rel="stylesheet" href="<?php echo e(url('/app-assets/js/jquery-ui.css')); ?>">
+@section('styles')
+    <link rel="stylesheet" type="text/css" href="{{ url('/app-assets/css/core/menu/menu-types/vertical-menu.css') }}">
+    <link rel="stylesheet" href="{{ url('/app-assets/js/jquery-ui.css') }}">
     <style>
         .badge-light-primary span {
             font-weight: bold;
@@ -14,22 +14,22 @@
             /* Sets the text color to blue (you can change this to any color) */
         }
     </style>
-<?php $__env->stopSection(); ?>
+@endsection
 
-<?php $__env->startSection('content'); ?>
-      <?php
+@section('content')
+      @php
         $unauthorizedMonths = [];
         foreach ($fy_months as $month) {
             if (!$month['authorized']) {
                 $unauthorizedMonths[] = $month['fy_month'];
             }
         }
-    ?>
+    @endphp
     
     <script>
-        const locationCostCentersMap = <?php echo json_encode($cost_centers, 15, 512) ?>;
-        const unauthorizedMonths = <?php echo json_encode($unauthorizedMonths, 15, 512) ?>;
-        const fy = <?php echo json_encode($fy_months, 15, 512) ?>;
+        const locationCostCentersMap = @json($cost_centers);
+        const unauthorizedMonths = @json($unauthorizedMonths);
+        const fy = @json($fy_months);
         console.log("fy",fy);
         console.log("unauthorizedMonths",unauthorizedMonths);
         
@@ -40,9 +40,8 @@
         <div class="header-navbar-shadow"></div>
         <div class="content-wrapper container-xxl p-0">
 
-            <form id="voucherForm" action="<?php echo e(route('vouchers.store')); ?>" method="POST" enctype="multipart/form-data"
-                onsubmit="return check_amount()">
-                <?php echo csrf_field(); ?>
+            <form id="voucherForm" action="{{ route('vouchers.import.save') }}" method="POST" enctype="multipart/form-data">
+                @csrf
                 <input type="hidden" name="doc_number_type" id="doc_number_type">
                 <input type="hidden" name="doc_reset_pattern" id="doc_reset_pattern">
                 <input type="hidden" name="doc_prefix" id="doc_prefix">
@@ -61,7 +60,7 @@
                 <input type="hidden" name="group_currency_exg_rate" id="group_currency_exg_rate">
 
                 <input type="hidden" name="currency_code" id="currency_code">
-
+                <input type="hidden" name="document_status" id="document_status" value="draft">
 
                 <input type="hidden" name="status" id="status">
 
@@ -70,11 +69,11 @@
                         <div class="content-header-left col-md-6 col-6 mb-2">
                             <div class="row breadcrumbs-top">
                                 <div class="col-12">
-                                    <h2 class="content-header-title float-start mb-0">New Voucher</h2>
+                                    <h2 class="content-header-title float-start mb-0">Voucher Import</h2>
                                     <div class="breadcrumb-wrapper">
                                         <ol class="breadcrumb">
-                                            <li class="breadcrumb-item"><a href="<?php echo e(route('/')); ?>">Home</a></li>
-                                            <li class="breadcrumb-item"><a href="<?php echo e(route('vouchers.index')); ?>">Vouchers
+                                            <li class="breadcrumb-item"><a href="{{ route('/') }}">Home</a></li>
+                                            <li class="breadcrumb-item"><a href="{{ route('vouchers.index') }}">Vouchers
                                                     List</a></li>
                                             <li class="breadcrumb-item active">Add New</li>
                                         </ol>
@@ -100,41 +99,48 @@
                 </div>
 
                 <div class="content-body">
-                    <?php if(session('success')): ?>
+                    @if (session('success'))
                         <div class="alert alert-success">
-                            <?php echo e(session('success')); ?>
-
+                            {{ session('success') }}
                         </div>
-                    <?php endif; ?>
+                    @endif
 
-                    <?php if($errors->any()): ?>
+                    @if ($errors->any())
                         <div class="alert alert-danger">
                             <ul>
-                                <?php $__currentLoopData = $errors->all(); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $error): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                    <li><?php echo e($error); ?></li>
-                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
                             </ul>
                         </div>
-                    <?php endif; ?>
+                    @endif
 
 
                     <section id="basic-datatable">
                         <div class="row">
                             <div class="col-12">
-
                                 <div class="card">
                                     <div class="card-body customernewsection-form">
-
-                                        <div class="row">
-                                            <div class="col-md-12">
-                                                <div class="newheader  border-bottom mb-2 pb-25">
-                                                    <h4 class="card-title text-theme">Basic Information</h4>
-                                                    <p class="card-text">Fill the details</p>
+                                        <div class="border-bottom mb-2 pb-25">
+                                            <div class="row align-items-center">
+                                                <div class="col-md-6">
+                                                    <div class="newheader">
+                                                        <h4 class="card-title text-theme">Basic Information</h4>
+                                                        <p class="card-text">Fill the details</p>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 d-flex align-items-center justify-content-end">
+                                                    <a href="{{route('vouchers.download.sample')}}"
+                                                        class="btn btn-outline-primary waves-effect">
+                                                        <i class="fas fa-download me-1"></i> Download Sample
+                                                    </a>
+                                                    <a class="d-none btn btn-outline-danger waves-effect download-error-file-url mx-1"
+                                                        href="#">
+                                                        <i class="fas fa-download me-1"></i> Dowload Error File
+                                                    </a>
                                                 </div>
                                             </div>
                                         </div>
-
-
                                         <div class="row">
                                             <div class="col-md-12">
 
@@ -147,14 +153,13 @@
                                                     <div class="col-md-4">
                                                         <select class="form-select" name="book_type_id"
                                                             id="book_type_id" required onchange="getBooks()">
-                                                            <?php $__currentLoopData = $bookTypes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $bookType): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                                                <option value="<?php echo e($bookType->id); ?>"
-                                                                    data-alias="<?php echo e($bookType->alias); ?>"
-                                                                    <?php if($lastVoucher): ?> <?php if($lastVoucher->book_type_id == $bookType->id): ?> selected <?php endif; ?>
-                                                                    <?php endif; ?>><?php echo e($bookType->name); ?>
-
+                                                            @foreach ($bookTypes as $bookType)
+                                                                <option value="{{ $bookType->id }}"
+                                                                    data-alias="{{ $bookType->alias }}"
+                                                                    @if ($lastVoucher) @if ($lastVoucher->book_type_id == $bookType->id) selected @endif
+                                                                    @endif>{{ $bookType->name }}
                                                                 </option>
-                                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                                                            @endforeach
                                                         </select>
                                                     </div>
                                                 </div>
@@ -181,18 +186,11 @@
 
                                                     <div class="col-md-4">
                                                         <input type="text" class="form-control" name="voucher_name"
-                                                            id="voucher_name" required value="<?php echo e(old('voucher_name')); ?>"
+                                                            id="voucher_name" required value="{{ old('voucher_name') }}"
                                                             readonly />
-                                                        <?php $__errorArgs = ['voucher_name'];
-$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
-if ($__bag->has($__errorArgs[0])) :
-if (isset($message)) { $__messageOriginal = $message; }
-$message = $__bag->first($__errorArgs[0]); ?>
-                                                            <span class="text-danger" style="font-size:12px"><?php echo e($message); ?></span>
-                                                        <?php unset($message);
-if (isset($__messageOriginal)) { $message = $__messageOriginal; }
-endif;
-unset($__errorArgs, $__bag); ?>
+                                                        @error('voucher_name')
+                                                            <span class="text-danger" style="font-size:12px">{{ $message }}</span>
+                                                        @enderror
                                                     </div>
                                                 </div>
 
@@ -204,18 +202,11 @@ unset($__errorArgs, $__bag); ?>
 
                                                     <div class="col-md-4">
                                                         <input type="text" class="form-control" id="voucher_no"
-                                                            name="voucher_no" required value="<?php echo e(old('voucher_no')); ?>"
+                                                            name="voucher_no" required value="{{ old('voucher_no') }}"
                                                             readonly />
-                                                        <?php $__errorArgs = ['voucher_no'];
-$__bag = $errors->getBag($__errorArgs[1] ?? 'default');
-if ($__bag->has($__errorArgs[0])) :
-if (isset($message)) { $__messageOriginal = $message; }
-$message = $__bag->first($__errorArgs[0]); ?>
-                                                            <span class="text-danger" style="font-size:12px"><?php echo e($message); ?></span>
-                                                        <?php unset($message);
-if (isset($__messageOriginal)) { $message = $__messageOriginal; }
-endif;
-unset($__errorArgs, $__bag); ?>
+                                                        @error('voucher_no')
+                                                            <span class="text-danger" style="font-size:12px">{{ $message }}</span>
+                                                        @enderror
                                                     </div>
 
                                                 </div>
@@ -228,8 +219,8 @@ unset($__errorArgs, $__bag); ?>
                                                     </div>
                                                     <div class="col-md-4">
                                                         <input type="date" class="form-control" id="date"
-                                                            name="date" required value="<?php echo e(date('Y-m-d')); ?>"
-                                                            max="<?php echo e(date('Y-m-d')); ?>" />
+                                                            name="date" required value="{{ date('Y-m-d') }}"
+                                                            max="{{ date('Y-m-d') }}" />
                                                     </div>
                                                 </div>
                                                 <div class="row align-items-center mb-1">
@@ -241,10 +232,10 @@ unset($__errorArgs, $__bag); ?>
                                                     <div class="col-md-4">
                                                         <select id="locations" class="form-select"
                                                             name="location" data-row="${rowCount + 1}" required>
-                                                            <?php $__currentLoopData = $locations; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $location): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                                                <option value="<?php echo e($location->id); ?>">
-                                                                    <?php echo e($location->store_name); ?></option>
-                                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                                                            @foreach ($locations as $location)
+                                                                <option value="{{ $location->id }}">
+                                                                    {{ $location->store_name }}</option>
+                                                            @endforeach
                                                         </select>
                                                     </div>
 
@@ -258,14 +249,13 @@ unset($__errorArgs, $__bag); ?>
                                                     <div class="col-md-4">
                                                         <select class="form-control select2" name="currency_id"
                                                             id="currency_id" onchange="getExchangeRate()">
-                                                            <option value="" <?php if($orgCurrency==null): ?> selected <?php endif; ?>>Select Currency</option>
-                                                            <?php $__currentLoopData = $currencies; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $currency): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                                                                <option value="<?php echo e($currency->id); ?>"
-                                                                    <?php if($orgCurrency == $currency->id): ?> selected <?php endif; ?>>
-                                                                    <?php echo e($currency->name . ' (' . $currency->short_name . ')'); ?>
-
+                                                            <option value="" @if($orgCurrency==null) selected @endif>Select Currency</option>
+                                                            @foreach ($currencies as $currency)
+                                                                <option value="{{ $currency->id }}"
+                                                                    @if ($orgCurrency == $currency->id) selected @endif>
+                                                                    {{ $currency->name . ' (' . $currency->short_name . ')' }}
                                                                 </option>
-                                                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                                                            @endforeach
                                                         </select>
                                                     </div>
                                                 </div>
@@ -325,6 +315,8 @@ unset($__errorArgs, $__bag); ?>
                                                                     </div>
                                                                     <label class="form-label">Group</label>
                                                                 </div>
+
+                                                               
                                                             </div>
 
 
@@ -333,251 +325,22 @@ unset($__errorArgs, $__bag); ?>
                                                     </div>
 
                                                 </div>
-
-
-
-                                                <div
-                                                    class="newheader d-flex justify-content-between align-items-end mt-2 border-top pt-2">
-                                                    <div class="header-left">
-                                                        <h4 class="card-title text-theme">Item Wise Detail</h4>
-                                                        <p class="card-text">Fill the details</p>
-                                                    </div>
-                                                    <div class="header-right">
-                                                        <a href="<?php echo e(route('ledgers.create')); ?>"
-                                                            class="btn btn-outline-primary btn-sm" target="_blank"><i
-                                                                data-feather="plus"></i> Add Ledger</a>
-                                                    </div>
-                                                </div>
-
-
-
-                                                <div class="table-responsive pomrnheadtffotsticky mt-1">
-                                                    <table
-                                                        class="table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad">
-                                                        <thead>
-                                                            <tr>
-                                                                <th>#</th>
-                                                                <th width="200px">Ledger Name</th>
-                                                                <th>Group</th>
-                                                                <th width="150px" class="text-end">Debit Amt</th>
-                                                                <th width="150px" class="text-end">Credit Amt</th>
-                                                                <th width="200px">Cost Center</th>
-                                                                <th>Remarks</th>
-                                                                <th width="60px">Action</th>
-                                                            </tr>
-                                                        </thead>
-
-                                                        <tbody class="mrntableselectexcel" id="item-details-body">
-                                                            <tr id="1">
-                                                                <td class="number">1</td>
-                                                                <td class="poprod-decpt">
-                                                                    <input type="text"
-                                                                        class="form-control mw-100 ledgerselect"
-                                                                        placeholder="Select Ledger" name="ledger_name1"
-                                                                        id="ledger_name1" required data-id="1" />
-                                                                    <input type="hidden" name="ledger_id[]"
-                                                                        type="hidden" id="ledger_id1" class="ledgers" />
-                                                                    <!--<input placeholder="Line Notes" type="text"
-                                                                                                                                                                                                    class="form-control mw-100 mt-50"
-                                                                                                                                                                                                    name="notes1" />-->
-                                                                </td>
-                                                                <td>
-                                                                    <select required id="groupSelect1"
-                                                                        name="parent_ledger_id[]" data-id="1"
-                                                                        class="ledgerGroup form-select mw-100">
-                                                                    </select>
-                                                                </td>
-                                                                <input type="hidden" name="group_debit_amt[]"
-                                                                    id="group_debit_amt_1" value="0">
-                                                                <input type="hidden" name="comp_debit_amt[]"
-                                                                    id="comp_debit_amt_1" value="0">
-                                                                <input type="hidden" name="group_credit_amt[]"
-                                                                    id="group_credit_amt_1" value="0">
-                                                                <input type="hidden" name="comp_credit_amt[]"
-                                                                    id="comp_credit_amt_1" value="0">
-                                                                <input type="hidden" class="dbt_amt_inr debt_inr_1"
-                                                                    name="org_debit_amt[]" id="dept_inr_1" />
-                                                                <input type="hidden" class="crd_amt_inr crd_inr_1"
-                                                                    name="org_credit_amt[]" id="crd_inr_1" />
-
-                                                                <td><input type="number"
-                                                                        class="form-control mw-100 dbt_amt debt_1 text-end"
-                                                                        onfocus="focusInput(this)" name="debit_amt[]"
-                                                                        id="dept_1" min="0" step="0.01"
-                                                                        value="0" />
-                                                                </td>
-
-                                                                <td><input type="number"
-                                                                        class="form-control mw-100 crd_amt crd_1 text-end"
-                                                                        onfocus="focusInput(this)" name="credit_amt[]"
-                                                                        id="crd_1" min="0" step="0.01"
-                                                                        value="0" />
-                                                                </td>
-
-                                                                <td>
-                                                                    <select class="costCenter form-select mw-100"
-                                                                        name="cost_center_id[]" id="cost_center_id1">
-                                                                    </select>
-                                                                </td>
-                                                                <td>
-                                                                    <input type="text"
-                                                                        class="form-control mw-100 remarks_"
-                                                                        placeholder="Enter Remarks" id="hiddenRemarks_1"
-                                                                        name="item_remarks[]" value="">
-                                                                </td>
-                                                                <td>
-                                                                    <div class="d-flex">
-                                                                        <div hidden class="me-50 cursor-pointer remark-btn"
-                                                                            data-row-id="1" data-bs-toggle="modal"
-                                                                            data-bs-target="#remarksModal"><span
-                                                                                data-bs-toggle="tooltip"
-                                                                                data-bs-placement="top" title="Remarks"
-                                                                                class="text-primary"><i
-                                                                                    data-feather="file-text"></i></span>
-                                                                        </div>
-                                                                        <div class="me-50 cursor-pointer"><span
-                                                                                data-bs-toggle="tooltip"
-                                                                                data-bs-placement="top" title="Delete"
-                                                                                class="text-danger remove-item"><i
-                                                                                    data-feather="trash-2"></i></span>
-                                                                        </div>
-                                                                    </div>
-
-                                                                </td>
-                                                            </tr>
-                                                        </tbody>
-                                                        <tfoot>
-                                                            <tr class="totalsubheadpodetail voucher-tab-foot">
-                                                                <td colspan="3"></td>
-                                                                <td class="text-end">
-                                                                    <h5 id="dbt_total">0.00</h5>
-                                                                    <input type="hidden" name="amount" id="amount">
-                                                                </td>
-                                                                <td hidden class="text-end">
-                                                                    <h5 id="dbt_total_inr">0.00</h5>
-                                                                </td>
-                                                                <td class="text-end">
-                                                                    <h5 id="crd_total">0.00</h5>
-                                                                </td>
-                                                                <td hidden class="text-end">
-                                                                    <h5 id="crd_total_inr">0.00</h5>
-                                                                </td>
-                                                                <td colspan="3" class="text-end">
-                                                                    <a href="#"
-                                                                        class="text-primary add-contactpeontxt mt-0 add-item-row"
-                                                                        id="addnew"><i data-feather='plus'></i> Add New
-                                                                        Item</a>
-                                                                </td>
-
-                                                            </tr>
-                                                            <tr valign="top" class="voucher_details"
-                                                                id="voucher-details-row">
-                                                                <td colspan="9" rowspan="10">
-                                                                    <table class="table border">
-                                                                        <tr>
-                                                                            <td class="p-0">
-                                                                                <h6
-                                                                                    class="text-dark mb-0 bg-light-primary py-1 px-50">
-                                                                                    <strong>Voucher Details</strong>
-                                                                                </h6>
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td class="poprod-decpt"><span class="poitemtxt mw-100"><strong>Ledger Name:</strong><span id="ledger_name_details">-</span></span>
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td class="poprod-decpt">
-                                                                                <span
-                                                                                    class="badge rounded-pill badge-light-primary"><strong>Base
-                                                                                        Currency:</strong> <span
-                                                                                        id="base-currency"
-                                                                                        class="text-uppercase">-</span></span>
-                                                                                <span
-                                                                                    class="badge rounded-pill badge-light-primary"><strong>Debit
-                                                                                        Amt:</strong> <span
-                                                                                        id="base-debit">-</span></span>
-                                                                                <span
-                                                                                    class="badge rounded-pill badge-light-primary"><strong>Credit
-                                                                                        Amt:</strong> <span
-                                                                                        id="base-credit">-</span></span>
-                                                                            </td>
-                                                                        </tr>
-
-                                                                        <tr>
-                                                                            <td class="poprod-decpt">
-                                                                                <span
-                                                                                    class="badge rounded-pill badge-light-primary"><strong>Company
-                                                                                        Currency:</strong> <span
-                                                                                        id="company-currency"
-                                                                                        class="text-uppercase">-</span></span>
-                                                                                <span
-                                                                                    class="badge rounded-pill badge-light-primary"><strong>Debit
-                                                                                        Amt:</strong> <span
-                                                                                        id="company-debit">-</span></span>
-                                                                                <span
-                                                                                    class="badge rounded-pill badge-light-primary"><strong>Credit
-                                                                                        Amt:</strong> <span
-                                                                                        id="company-credit">-</span></span>
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td class="poprod-decpt">
-                                                                                <span
-                                                                                    class="badge rounded-pill badge-light-primary"><strong>Group
-                                                                                        Currency:</strong> <span
-                                                                                        id="group-currency"
-                                                                                        class="text-uppercase">-</span></span>
-                                                                                <span
-                                                                                    class="badge rounded-pill badge-light-primary"><strong>Debit
-                                                                                        Amt:</strong> <span
-                                                                                        id="group-debit">-</span></span>
-                                                                                <span
-                                                                                    class="badge rounded-pill badge-light-primary"><strong>Credit
-                                                                                        Amt:</strong> <span
-                                                                                        id="group-credit">-</span></span>
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td class="poprod-decpt">
-                                                                                <span
-                                                                                    class="badge rounded-pill badge-light-secondary"><strong>Remarks:</strong>
-                                                                                    <span id="remarks" style="font-size:12px">Description will
-                                                                                        come here for items...</span></span>
-                                                                            </td>
-                                                                        </tr>
-                                                                    </table>
-                                                                </td>
-                                                            </tr>
-                                                        </tfoot>
-                                                    </table>
-                                                </div>
-
-
-
-                                                <div class="row mt-2">
-
-                                                    <div class="col-md-4 mb-1">
-                                                        <label class="form-label">Document</label>
-                                                        <input type="file" multiple
-                                                            onchange="checkFileTypeandSize(event)" class="form-control"
-                                                            name="document[]" id="document" />
-
+                                                <div class="row align-items-center mb-1">
+                                                    <div class="col-md-2">
+                                                        <label class="form-label">Import File <span
+                                                                class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-4">
-                                                        <label class="form-label"></label>
-                                                        <div id="preview"></div>
-
+                                                        <input type="file" accept=".xlsx, .xls, .csv"
+                                                            name="import_file" class="form-control"
+                                                            onchange = "addFiles(this,'voucher_file_preview')">
+                                                        <span
+                                                            class="text-primary small">{{ __('(Allowed formats: .xlsx, .xls, .csv)') }}</span>
                                                     </div>
-
-                                                    <div class="col-md-12">
-                                                        <div class="mb-1">
-                                                            <label class="form-label">Final Remarks</label>
-                                                            <textarea type="text" rows="4" class="form-control" placeholder="Enter Remarks here..." name="remarks"></textarea>
-
+                                                    <div class="col-md-2">
+                                                        <div class="row" id="voucher_file_preview">
                                                         </div>
                                                     </div>
-
                                                 </div>
                                             </div>
                                         </div>
@@ -585,45 +348,173 @@ unset($__errorArgs, $__bag); ?>
                                 </div>
                             </div>
                         </div>
-                        <!-- Modal to add new record -->
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                            <div class="hide-this-section" style="display: none;">
+                                <div class="content-body">
+                                    <!-- Import Summary Cards -->
+                                   {{-- <div class="row mb-2">
+                                        <div class="col-lg-6 col-md-6 col-12">
+                                            <div class="card border-left-success">
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <h3 class="fw-bolder mb-75 text-success" id="success-count">0</h3>
+                                                            <p class="card-text" id="success-count-badge">Records Succeeded: 0</p>
+                                                        </div>
+                                                        <div class="avatar bg-light-success p-50 m-0">
+                                                            <div class="avatar-content">
+                                                                <i data-feather="check-circle" class="font-medium-5"></i>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-lg-6 col-md-6 col-12">
+                                            <div class="card border-left-danger">
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <h3 class="fw-bolder mb-75 text-danger" id="failed-count">0</h3>
+                                                            <p class="card-text">Records Failed</p>
+                                                        </div>
+                                                        <div class="avatar bg-light-danger p-50 m-0">
+                                                            <div class="avatar-content">
+                                                                <i data-feather="x-circle" class="font-medium-5"></i>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>--}}
 
+                                    <!-- Export Buttons -->
+                                    <!-- <div class="row mb-2">
+                                        <div class="col-12">
+                                            <div class="card">
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <h4 class="card-title">Export Options</h4>
+                                                        <div>
+                                                            <form id="exportForm" method="GET" action="{{ route('vouchers.export.successful') }}">
+                                                                @csrf
+                                                                <button type="submit" class="btn btn-success btn-sm me-1 exportBtn">
+                                                                    <i data-feather="download"></i> Export Records
+                                                                </button>
+                                                            </form>
+                                                            <form id="exportFailedForm" method="GET" action="{{ route('vouchers.export.failed') }}" style="display: none;">
+                                                                @csrf
+                                                                <button type="submit" class="btn btn-danger btn-sm">
+                                                                    <i data-feather="download"></i> Export Failed Records
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div> -->
+
+                                    <!-- Results Tables with Tabs -->
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <div class="card">
+                                                <div class="card-header">
+                                                    <h4 class="card-title">Import Results</h4>
+                                                </div>
+                                                <div class="card-body">
+                                                    <!-- Nav tabs -->
+                                                    <ul class="nav nav-tabs border-bottom" role="tablist">
+                                                        <li class="nav-item">
+                                                            <a class="nav-link active" data-bs-toggle="tab" href="#successful-records">Records Succeeded &nbsp;<span id="success-count">(0)</span></a>
+                                                        </li>
+                                                        <li class="nav-item">
+                                                            <a class="nav-link text-danger" data-bs-toggle="tab" href="#failed-records">Records Failed &nbsp;<span id="failed-count">(0)</span></a>
+                                                        </li>
+                                                    </ul>
+
+                                                    <!-- Tab content -->
+                                                    <div class="tab-content">
+                                                        <div class="tab-pane active" id="successful-records">
+                                                            <div class="text-end my-1">
+                                                                <a href="{{ route('vouchers.export.successful') }}" class="btn btn-success btn-sm mb-50 mb-sm-0 me-50 waves-effect" id="exportSuccessBtn" style="display: none;">
+                                                                    <i data-feather="download"></i> Export Successful Records
+                                                                </a>
+                                                            </div>
+                                                            <div class="table-responsive">
+                                                                <table class="datatables-basic1 datatables-success table myrequesttablecbox">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>#</th>
+                                                                            <th>Ledger Code</th>
+                                                                            <th>Ledger Name</th>
+                                                                            <th>Debit Amount</th>
+                                                                            <th>Credit Amount</th>
+                                                                            <th>Status</th>
+                                                                            <th>Remarks</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody id="success-table-body">
+                                                                        <tr>
+                                                                            <td colspan="7">No records found</td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                        <div class="tab-pane" id="failed-records">
+                                                            <div class="text-end my-1">
+                                                                <a href="{{ route('vouchers.export.failed') }}" class="btn btn-danger btn-sm mb-50 mb-sm-0 me-50 waves-effect" id="exportFailedBtn" style="display: none;">
+                                                                    <i data-feather="download"></i> Export Failed Records
+                                                                </a>
+                                                            </div>
+                                                            <div class="table-responsive">
+                                                                <table class="datatables-basic datatables-failed table myrequesttablecbox">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>#</th>
+                                                                            <th>Ledger Code</th>
+                                                                            <th>Ledger Name</th>
+                                                                            <th>Debit Amount</th>
+                                                                            <th>Credit Amount</th>
+                                                                            <th>Cost Center</th>
+                                                                            <th>Status</th>
+                                                                            <th>Remarks</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody id="failed-table-body">
+                                                                        <tr>
+                                                                            <td colspan="8">No records found</td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            </div>  
+                        </div>  
+                        
                     </section>
-
                 </div>
             </form>
 
         </div>
     </div>
-    <!-- END: Content-->
-    <div class="modal fade" id="remarksModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header p-0 bg-transparent">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body px-sm-2 mx-50 pb-2">
-                    <h1 class="text-center mb-1" id="shareProjectTitle">Add/Edit Remarks</h1>
-                    <p class="text-center">Enter the details below.</p>
-                    <div class="row mt-2">
-                        <div class="col-md-12 mb-1">
-                            <label class="form-label">Remarks <span class="text-danger">*</span></label>
-                            <textarea class="form-control" id="remarksInput" placeholder="Enter Remarks"></textarea>
-                        </div>
-                    </div>
-                    <!-- Hidden field to store the current row ID -->
-                    <input type="hidden" id="currentRowId">
-                </div>
-                <div class="modal-footer justify-content-center">
-                    <button type="reset" class="btn btn-outline-secondary me-1" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="submitRemarks">Submit</button>
-                </div>
-            </div>
-        </div>
-    </div>
-<?php $__env->stopSection(); ?>
 
-<?php $__env->startSection('scripts'); ?>
-    <script src="<?php echo e(url('/app-assets/js/jquery-ui.js')); ?>"></script>
+@endsection
+
+@section('scripts')
+    <script src="{{ url('/app-assets/js/jquery-ui.js') }}"></script>
+    <script type="text/javascript" src="{{ asset('app-assets/js/file-uploader.js') }}"></script>
     <script>
         function getMonthName(ym) {
             // ym = '2024-07'
@@ -687,8 +578,8 @@ unset($__errorArgs, $__bag); ?>
             }
         });
         
-        var currencies = <?php echo json_encode($currencies); ?>;
-        var orgCurrency = <?php echo e($orgCurrency); ?>;
+        var currencies = {!! json_encode($currencies) !!};
+        var orgCurrency = {{ $orgCurrency }};
         var orgCurrencyName = '';
 
 
@@ -743,41 +634,7 @@ unset($__errorArgs, $__bag); ?>
 
 
         });
-        /*
-                $(document).on('change', '.ledgerselect', function() {
-                    let ledgerId = $(this).val(); // The value of the selected ledger
-                    let rowId = $(this).data('id'); // The unique ID for the row
-
-                    console.log(`Selected Ledger ID: ${ledgerId}, Row ID: ${rowId}`);
-
-                    // Use rowId to target the corresponding group dropdown
-                    let groupDropdown = $(`#groupSelect${rowId}`);
-
-                    if (ledgerId) {
-                        $.ajax({
-                            url: '<?php echo e(route('voucher.getLedgerGroups')); ?>',
-                            method: 'POST',
-                            data: {
-                                ledger_id: ledgerId,
-                                _token: $('meta[name="csrf-token"]').attr('content') // CSRF token
-                            },
-                            success: function(response) {
-                                groupDropdown.empty(); // Clear previous options
-                                groupDropdown.append('<option>Select</option>'); // Default option
-
-                                response.forEach(item => {
-                                    groupDropdown.append(
-                                        `<option value="${item.id}">${item.name}</option>`);
-                                });
-                            },
-                            error: function() {
-                                showToast("error",'Error fetching group items.');
-                            }
-                        });
-                    }
-                });
-        */
-
+   
         function getExchangeRate() {
             $('#item-details-body tr').removeClass('trselected');
             $('.voucher_details').hide();
@@ -791,12 +648,12 @@ unset($__errorArgs, $__bag); ?>
                         headers: {
                             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                         },
-                        url: '<?php echo e(route('getExchangeRate')); ?>',
+                        url: '{{ route('getExchangeRate') }}',
                         type: 'POST',
                         dataType: 'json',
                         data: {
                             date: $('#date').val(),
-                            '_token': '<?php echo csrf_token(); ?>',
+                            '_token': '{!! csrf_token() !!}',
                             currency: currency
                         },
                         success: function(response) {
@@ -889,9 +746,9 @@ unset($__errorArgs, $__bag); ?>
         }
 
 
-        var costcenters = <?php echo json_encode($cost_centers); ?>;
-        var bookTypes = <?php echo json_encode($bookTypes); ?>;
-        var lastVoucher = <?php echo json_encode($lastVoucher); ?>;
+        var costcenters = {!! json_encode($cost_centers) !!};
+        var bookTypes = {!! json_encode($bookTypes) !!};
+        var lastVoucher = {!! json_encode($lastVoucher) !!};
 
         $(function() {
             $(".ledgerselect").autocomplete({
@@ -913,14 +770,14 @@ unset($__errorArgs, $__bag); ?>
                                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr(
                                     'content')
                             },
-                            url: '<?php echo e(route('ledgers.search')); ?>',
+                            url: '{{ route('ledgers.search') }}',
                             type: "POST",
                             dataType: "json",
                             data: {
                                 keyword: request.term,
                                 series: $('#book_type_id').val(),
                                 ids: preLedgers,
-                                '_token': '<?php echo csrf_token(); ?>'
+                                '_token': '{!! csrf_token() !!}'
                             },
                             success: function(data) {
                                 response(
@@ -967,7 +824,7 @@ unset($__errorArgs, $__bag); ?>
 
                     if (ledgerId) {
                         $.ajax({
-                            url: '<?php echo e(route('voucher.getLedgerGroups')); ?>',
+                            url: '{{ route('voucher.getLedgerGroups') }}',
                             method: 'GET',
                             data: {
                                 ledger_id: ledgerId,
@@ -1089,7 +946,7 @@ unset($__errorArgs, $__bag); ?>
 
             //             if (ledgerId) {
             //                 $.ajax({
-            //                     url: '<?php echo e(route('voucher.getLedgerGroups')); ?>',
+            //                     url: '{{ route('voucher.getLedgerGroups') }}',
             //                     method: 'GET',
             //                     data: {
             //                         ledger_id: ledgerId,
@@ -1148,78 +1005,7 @@ unset($__errorArgs, $__bag); ?>
             document.getElementById('addnew').click();
         });
 
-        function check_amount() {
-
-            $('#draft').attr('disabled', true);
-            $('#submitted').attr('disabled', true);
-            $('.preloader').show();
-
-            let seen = new Set(); // Create a Set to track unique combinations
-            let duplicateFound = false; // Flag to track duplicates
-
-            $('.ledgerGroup').each(function(index) {
-                let ledgerGroup = $(this).val(); // Get the selected value
-                let ledger_id = $(this).data('ledger'); // Get ledger ID from data attribute
-
-                let key = ledger_id + '-' + ledgerGroup; // Create a unique key for comparison
-
-                if (seen.has(key)) {
-                    duplicateFound = true; // Set flag if duplicate found
-                    return false; // Break out of .each loop early
-                }
-
-                seen.add(key); // Add key to Set
-            });
-
-            if (duplicateFound) {
-                $('.preloader').hide();
-                showToast("error", "Duplicate ledger groups found. Please correct and try again.");
-                return false;
-            }
-            let stop = false;
-
-
-            let rowCount = document.querySelectorAll('#item-details-body tr').length;
-            $('#item-details-body tr').each(function() {
-                let debAmount = parseFloat(removeCommas($(this).find('.dbt_amt').val())) || 0;
-                let crdAmount = parseFloat(removeCommas($(this).find('.crd_amt').val())) || 0;
-
-                // Check if both the credit and debit amounts are 0
-                if (debAmount == 0 && crdAmount == 0) {
-                    $('.preloader').hide();
-                    $('#draft').attr('disabled', false);
-                    $('#submitted').attr('disabled', false);
-                    showToast('error', 'Can not save ledgers with Credit and Debit amount both being 0');
-
-
-                    stop = true;
-                    return false; // Stop the loop and return false
-                }
-            });
-            if (stop)
-                return false;
-
-
-            if (parseFloat(removeCommas($('#crd_total').text())) == 0 || parseFloat(removeCommas($('#dbt_total').text())) ==
-                0) {
-                    $('.preloader').hide();
-                $('#draft').attr('disabled', false);
-                $('#submitted').attr('disabled', false);
-                showToast("error", 'Debit and credit amount should be greater than 0');
-
-                return false;
-            }
-            if (parseFloat(removeCommas($('#crd_total').text())) == parseFloat(removeCommas($('#dbt_total').text()))) {
-                return true;
-            } else {
-                $('.preloader').hide();
-                $('#draft').attr('disabled', false);
-                $('#submitted').attr('disabled', false);
-                showToast("error", 'Debit and credit amount total should be same!!');
-
-                return false;
-            }
-        }
+      
 
         $(document).on('input', '.dbt_amt, .crd_amt, .dbt_amt_inr, .crd_amt_inr,.remarks_', function() {
             const inVal = parseFloat(removeCommas($(this).val())) || 0;
@@ -1526,14 +1312,14 @@ unset($__errorArgs, $__bag); ?>
                                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr(
                                     'content')
                             },
-                            url: '<?php echo e(route('ledgers.search')); ?>',
+                            url: '{{ route('ledgers.search') }}',
                             type: "POST",
                             dataType: "json",
                             data: {
                                 keyword: request.term,
                                 series: $('#book_type_id').val(),
                                 ids: preLedgers,
-                                '_token': '<?php echo csrf_token(); ?>'
+                                '_token': '{!! csrf_token() !!}'
                             },
                             success: function(data) {
                                 response(
@@ -1580,7 +1366,7 @@ unset($__errorArgs, $__bag); ?>
 
                         if (ledgerId) {
                             $.ajax({
-                                url: '<?php echo e(route('voucher.getLedgerGroups')); ?>',
+                                url: '{{ route('voucher.getLedgerGroups') }}',
                                 method: 'GET',
                                 data: {
                                     ledger_id: ledgerId,
@@ -1699,7 +1485,7 @@ unset($__errorArgs, $__bag); ?>
 
                 //                 if (ledgerId) {
                 //                     $.ajax({
-                //                         url: '<?php echo e(route('voucher.getLedgerGroups')); ?>',
+                //                         url: '{{ route('voucher.getLedgerGroups') }}',
                 //                         method: 'GET',
                 //                         data: {
                 //                             ids: preGroups,
@@ -1762,7 +1548,7 @@ unset($__errorArgs, $__bag); ?>
             $('#voucher_no').val('');
             //$('#book_id').prepend('<option disabled selected value="">Select Series</option>');
             $.ajax({
-                url: '<?php echo e(route('get_voucher_series', ['placeholder'])); ?>'.replace('placeholder', $('#book_type_id')
+                url: '{{ route('get_voucher_series', ['placeholder']) }}'.replace('placeholder', $('#book_type_id')
                     .val()),
                 type: 'GET',
                 success: function(books) {
@@ -1775,10 +1561,10 @@ unset($__errorArgs, $__bag); ?>
                 }
             });
             let selectedOption = $('#book_type_id').find('option:selected');
-            let cv = <?php echo json_encode(ConstantHelper::CONTRA_VOUCHER, 15, 512) ?>;
-            let allowedNames = <?php echo json_encode($allowedCVGroups, 15, 512) ?>;
-            let jv = <?php echo json_encode(ConstantHelper::JOURNAL_VOUCHER, 15, 512) ?>;
-            let excludeNames = <?php echo json_encode($exlucdeJVGroups, 15, 512) ?>;
+            let cv = @json(ConstantHelper::CONTRA_VOUCHER);
+            let allowedNames = @json($allowedCVGroups);
+            let jv = @json(ConstantHelper::JOURNAL_VOUCHER);
+            let excludeNames = @json($exlucdeJVGroups);
 
             // Check if selected option's data-alias is equal to contra_alias (e.g., 'cv')
             if (selectedOption.data('alias') === cv) {
@@ -1823,7 +1609,7 @@ unset($__errorArgs, $__bag); ?>
             });
 
             $.ajax({
-                url: '<?php echo e(url('get_voucher_no')); ?>/' + $('#book_id').val(),
+                url: '{{ url('get_voucher_no') }}/' + $('#book_id').val(),
                 type: 'GET',
                 success: function(data) {
                     if (data.type == "Auto") {
@@ -1865,8 +1651,8 @@ unset($__errorArgs, $__bag); ?>
 
             // Determine the max and min values for the date input
             const today = moment().format("YYYY-MM-DD");
-            const fyearStartDate = "<?php echo e($fyear['start_date']); ?>";
-            const fyearEndDate = "<?php echo e($fyear['end_date']); ?>";
+            const fyearStartDate = "{{ $fyear['start_date'] }}";
+            const fyearEndDate = "{{ $fyear['end_date'] }}";
             // console.log('here',1,fyearStartDate, fyearEndDate);
 
             if (backDateAllowed && futureDateAllowed) {
@@ -1895,7 +1681,7 @@ unset($__errorArgs, $__bag); ?>
             let currentDate = new Date().toISOString().split('T')[0];
             let bookId = $('#book_id').val();
             let document_date = $('#date').val();
-            let actionUrl = '<?php echo e(route('book.get.doc_no_and_parameters')); ?>' + '?book_id=' + bookId +
+            let actionUrl = '{{ route('book.get.doc_no_and_parameters') }}' + '?book_id=' + bookId +
                 "&document_date=" +
                 document_date;
             fetch(actionUrl).then(response => {
@@ -2154,7 +1940,190 @@ unset($__errorArgs, $__bag); ?>
         $('#locations').on('change', function() {
             populateCostCenterDropdowns();
         });
-    </script>
-<?php $__env->stopSection(); ?>
 
-<?php echo $__env->make('layouts.app', \Illuminate\Support\Arr::except(get_defined_vars(), ['__data', '__path']))->render(); ?><?php /**PATH /var/www/html/erp_presence360/resources/views/voucher/create_voucher.blade.php ENDPATH**/ ?>
+        function submitForm(status) {
+            var dateInput = document.getElementById('date');
+            if (dateInput && !isDateAuthorized(dateInput.value)) {
+                dateInput.value = '';
+                dateInput.focus();
+                return false;
+            }
+            
+            // Validate required fields
+            if (!$('#book_type_id').val()) {
+                showToast('error', 'Please select voucher type');
+                return false;
+            }
+            
+            if (!$('#book_id').val()) {
+                showToast('error', 'Please select series');
+                return false;
+            }
+            
+            if (!$('#date').val()) {
+                showToast('error', 'Please select date');
+                return false;
+            }
+            
+            if (!$('#locations').val()) {
+                showToast('error', 'Please select location');
+                return false;
+            }
+            
+            if (!$('#currency_id').val()) {
+                showToast('error', 'Please select currency');
+                return false;
+            }
+            
+            if (!$('input[name="import_file"]')[0].files.length) {
+                showToast('error', 'Please select import file');
+                return false;
+            }
+
+            $('#document_status').val(status);
+            $('#draft').attr('disabled', true);
+            $('#submitted').attr('disabled', true);
+            
+            // Show loading
+            $('.preloader').show();
+            
+            // Submit form via AJAX
+            var formData = new FormData($('#voucherForm')[0]);
+            
+            $.ajax({
+                url: $('#voucherForm').attr('action'),
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    $('.preloader').hide();
+                    $('#draft').attr('disabled', false);
+                    $('#submitted').attr('disabled', false);
+                    
+                    if (response.error) {
+                        Swal.fire({
+                            title: 'Import Failed!',
+                            text: response.message,
+                            icon: 'error',
+                        });
+                        if (response.redirect_url) {
+                            setTimeout(function() {
+                                window.location.href = response.redirect_url;
+                            }, 2000);
+                        }
+                    } else {
+                        Swal.fire({
+                            title: 'Import Successful!',
+                            text: response.message,
+                            icon: 'success',
+                        });
+                        
+                        // Get success/failed data from session via AJAX
+                        $.ajax({
+                            url: '{{ route("vouchers.import.success") }}',
+                            type: 'GET',
+                            success: function(successResponse) {
+                                // Parse the response to extract data
+                                const parser = new DOMParser();
+                                const doc = parser.parseFromString(successResponse, 'text/html');
+                                
+                                // Extract successful and failed vouchers data from the response
+                                const successfulVouchers = @json(session('voucher_import_successful', []));
+                                const failedVouchers = @json(session('voucher_import_failed', []));
+                                
+                                // Populate tables with results
+                                populateVoucherTable('#success-table-body', successfulVouchers);
+                                populateVoucherTable('#failed-table-body', failedVouchers);
+                                
+                                // Update counts
+                                $('#success-count-badge').text(`Records Succeeded: ${successfulVouchers.length}`);
+                                $('#success-count').text(`(${successfulVouchers.length})`);
+                                $('#failed-count').text(`(${failedVouchers.length})`);
+                                
+                                $('.hide-this-section').show();
+                                
+                                // Show/hide export buttons based on results
+                                if (failedVouchers.length > 0) {
+                                    $('.editbtnNew').show();
+                                } else {
+                                    $('.editbtnNew').hide();
+                                }
+                                
+                                // Setup export button handlers
+                                // $('.exportBtn').off('click').on('click', function() {
+                                //     const activeTab = $('.nav-link.active').attr('aria-controls');
+                                //     if (activeTab === 'successful-records') {
+                                //         window.location.href = '{{ route("vouchers.export.successful") }}';
+                                //     } else if (activeTab === 'failed-records') {
+                                //         window.location.href = '{{ route("vouchers.export.failed") }}';
+                                //     }
+                                // });
+                            }
+                        });
+                    }
+                },
+                error: function(xhr) {
+                    $('.preloader').hide();
+                    $('#draft').attr('disabled', false);
+                    $('#submitted').attr('disabled', false);
+                    
+                    var errorMessage = 'An error occurred while importing voucher';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    }
+                    showToast('error', errorMessage);
+                }
+            });
+        }
+
+        function populateVoucherTable(tableBodySelector, vouchers) {
+            console.log('Populating table:', tableBodySelector, vouchers);
+            const tableBody = $(tableBodySelector);
+            tableBody.empty();
+
+            if (vouchers.length > 0) {
+                vouchers.forEach((voucher, index) => {
+                    const row = `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td class="fw-bolder text-dark">${voucher.ledger_code || 'N/A'}</td>
+                            <td>${voucher.ledger_name || 'N/A'}</td>
+                            <td>${voucher.debit_amount || 0}</td>
+                            <td>${voucher.credit_amount || 0}</td>
+                            <td class="${voucher.status === 'success' ? 'text-success' : 'text-danger'}">
+                                ${voucher.status === 'success' ? 'Success' : (voucher.status === 'failed' ? 'Failed' : voucher.status)}
+                            </td>
+                            <td class="${voucher.remarks && voucher.status === 'failed' ? 'text-danger' : 'text-success'}">
+                                ${voucher.remarks || 'Successfully processed'}
+                            </td>
+                        </tr>
+                    `;
+                    tableBody.append(row);
+                });
+            } else {
+                const noDataRow = `<tr><td colspan="8" class="text-center">No records found</td></tr>`;
+                tableBody.append(noDataRow);
+            }
+        }
+
+        function populateCostCenterDropdowns() {
+            let selectedLocationIds = $('#locations').val();
+            const costCenterSet = locationCostCentersMap.filter(center => {
+                if (!center.location) return false;
+                const locationArray = Array.isArray(center.location)
+                    ? center.location.flatMap(loc => loc.split(','))
+                    : [];
+                return locationArray.includes(String(selectedLocationIds));
+            });
+
+            $('.costCenter').each(function() {
+                let $dropdown = $(this);
+                $dropdown.empty();
+                costCenterSet.forEach((center) => {
+                    $dropdown.append(`<option value="${center.id}">${center.name}</option>`);
+                });
+            });
+        }
+    </script>
+@endsection
