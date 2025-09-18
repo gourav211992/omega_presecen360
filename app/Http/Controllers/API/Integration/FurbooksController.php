@@ -88,7 +88,7 @@ class FurbooksController
         }
     }
 
-    private function transferToVoucher($processedData)
+  private function transferToVoucher($processedData)
 {
     $i = 0;
     $total = count($processedData);
@@ -97,24 +97,35 @@ class FurbooksController
         $current = $processedData[$i];
         $next = $processedData[$i + 1] ?? null;
 
-        // Last row aur uska pair missing hai
+        // ✅ Last row aur uska pair missing hai
         if (!$next) {
             $current->update([
                 'status' => 'Failed',
-                'remarks' => 'Debit and credit amount not fetch in query',
+                'remarks' => 'No pair row found (debit/credit missing)',
                 'updated_at' => now(),
             ]);
             break; // loop close
         }
 
-        // Pair check: ek debit > 0 aur ek credit > 0 hona chahiye
-        $isPair = (
-            ($current->debit_amount > 0 && $next->credit_amount > 0) ||
-            ($current->credit_amount > 0 && $next->debit_amount > 0)
-        );
+        // ✅ Type nikaal lo
+        $currDebit = (float) $current->debit_amount;
+        $currCredit = (float) $current->credit_amount;
+        $nextDebit = (float) $next->debit_amount;
+        $nextCredit = (float) $next->credit_amount;
+
+        $currType = $currDebit > 0 ? 'debit' : 'credit';
+        $nextType = $nextDebit > 0 ? 'debit' : 'credit';
+
+        $currAmt = $currType === 'debit' ? $currDebit : $currCredit;
+        $nextAmt = $nextType === 'debit' ? $nextDebit : $nextCredit;
+
+        // ✅ Pair valid tab hoga:
+        // 1. Types opposite hone chahiye
+        // 2. Amounts same hone chahiye
+        $isPair = ($currType !== $nextType) && ($currAmt == $nextAmt);
 
         if ($isPair) {
-            // ✅ Dono rows ka pair bana → dono transfer
+            // ✅ Dono rows ka valid pair bana → dono transfer
             try {
                 $this->processSingleTransfer($current);
                 $this->processSingleTransfer($next);
@@ -125,17 +136,21 @@ class FurbooksController
 
             $i += 2; // dono consume
         } else {
-            // ❌ Pair nahi bana → current row failed
+            // ❌ Pair galat hai → dono rows ko fail mark karo
             $current->update([
                 'status' => 'Failed',
-                'remarks' => 'Debit and credit amount not fetch in query',
+                'remarks' => 'Invalid debit-credit pair or mismatch amount',
                 'updated_at' => now(),
             ]);
 
-            $i += 1; // sirf current consume
+            $i += 1; // dono consume kar liye
         }
     }
 }
+
+
+
+
 // Helper: ek single row ka transfer
 private function processSingleTransfer($furbook)
 {
