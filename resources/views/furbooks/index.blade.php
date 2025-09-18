@@ -57,7 +57,7 @@
                                                 <label class="form-label">JV Series <span class="text-danger">*</span></label>  
                                             </div>  
                                             <div class="col-md-3">  
-                                                <select class="form-select" id="book_id" name="book_type_id"></select>
+                                                <select class="form-select" id="book_id" name="book_type_id" onChange="loadSavedData()"></select>
                                             </div>
                                         </div>
                                         
@@ -141,6 +141,7 @@
                     } else {
                         $('#book_id').append('<option disabled selected>No Books Found</option>');
                     }
+                    loadSavedData();
                 },
                 error: function () {
                     $('#book_id').append('<option disabled selected>Error loading books</option>');
@@ -158,8 +159,7 @@
             initializeLedgerAutocomplete();
 
             // Load saved data into form rows
-            loadSavedData();
-
+          
             // Initialize furbook code validation for existing rows
             initializeFurbookCodeValidation();
 
@@ -666,8 +666,9 @@
         function loadSavedData() {
            
             const savedData = @json($processedFurbooks ?? []);
-            console.log("check the savedData", savedData);
-            
+
+            const book_id = $('#book_id').val();
+  
             if (savedData.length > 0) {
                 // Clear existing rows first
                 $('#ledgerTableBody').empty();
@@ -676,7 +677,8 @@
                     const rowId = index + 1;
                     rowCounter = rowId;
                     
-                    const newRow = `
+                    if(book_id == item.book_id){
+                        const newRow = `
                         <tr id="row_${rowId}" data-saved-id="${item.id}">
                             <td class="customernewsection-form">
                                 <div class="form-check form-check-primary custom-checkbox">
@@ -706,6 +708,7 @@
                         </tr>`;
                     
                     $('#ledgerTableBody').append(newRow);
+                    }
                 });
                 
                 // Add one empty row for new entries
