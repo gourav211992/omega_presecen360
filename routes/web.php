@@ -195,7 +195,6 @@ use App\Http\Controllers\LoanManagement\LoanDisbursementReportController;
 use App\Http\Controllers\ErpItemBundleController;
 use App\Http\Controllers\RgrController;
 use App\Http\Controllers\PrintBarcodeController;
-use App\Http\Controllers\FurbooksController;
 
 
 
@@ -310,15 +309,6 @@ Route::middleware(['user.auth'])->group(function () {
 
 
  
-    //import routes for vouchers
-    Route::get('voucher-import', [VoucherController::class, 'import'])->name('vouchers.import');
-    Route::post('voucher-import-save', [VoucherController::class, 'importSave'])->name('vouchers.import.save');
-    Route::get('voucher-import-error', [VoucherController::class, 'importError'])->name('vouchers.import.error');
-    Route::get('voucher-import-success', [VoucherController::class, 'importSuccess'])->name('vouchers.import.success');
-    Route::get('voucher-export-successful', [VoucherController::class, 'exportSuccessful'])->name('vouchers.export.successful');
-    Route::get('voucher-export-failed', [VoucherController::class, 'exportFailed'])->name('vouchers.export.failed');
-    Route::get('voucher-download-sample', [VoucherController::class, 'downloadSample'])->name('vouchers.download.sample');
-
     Route::post('getLedgerVouchers', [VoucherController::class, 'getLedgerVouchers'])->name('getLedgerVouchers');
     Route::get('/voucher', [VoucherController::class, 'index']);
     Route::post('/vouchers', [VoucherController::class, 'store'])->name('vouchers.store');
@@ -3253,17 +3243,5 @@ Route::middleware(['user.auth'])->group(function () {
     //         dd($status['message']);
     //     }
     // });
-    Route::prefix('furbooks')->group(function () {
-        Route::get('/', [FurbooksController::class, 'index'])->name('furbooks.index');
-        Route::post('/', [FurbooksController::class, 'store'])->name('furbooks.store');
-        Route::delete('/{id}', [FurbooksController::class, 'destroy'])->name('furbooks.destroy');
-        Route::post('furbook-ledger-search', [FurbooksController::class, 'furbook_ledgers_search'])->name('furbook-ledger-search');
-        Route::get('/get-series', [FurbooksController::class, 'getSeries'])->name('furbooks.get-series');
-        // Route::get('/import', [FurbooksController::class, 'showImportForm'])->name('furbooks.import');
-        // Route::post('/import', [FurbooksController::class, 'import'])->name('furbooks.import.post');
-        // Route::get('/export-successful', [FurbooksController::class, 'exportSuccessful'])->name('furbooks.export.successful');
-        // Route::get('/export-failed', [FurbooksController::class, 'exportFailed'])->name('furbooks.export.failed');
-        Route::get('/data', [FurbooksController::class, 'furbookdata'])->name('furbooks.data');
-        Route::get('/transfer-to-voucher', [FurbooksController::class, 'transferToVoucher'])->name('furbooks.transfer.voucher');
-    });
+  
 });
