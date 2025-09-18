@@ -1825,7 +1825,7 @@ class PiController extends Controller
                                     'attribute_id'   => $attr->item_attribute_id,
                                     'attribute_value' => intval($attr->attr_value)
                                 ])->toArray() ?? [];
-                                $res = $service->syncPiSoMapping($soId, $soItemId, $itemId, $soAttributes, $reqQty, $createdBy, $soItem->order_qty);
+                                $res = $service->syncPiSoMapping($soItem->sale_order_id, $soItemId, $itemId, $soAttributes, $reqQty, $createdBy, $soItem->order_qty);
                                 if ($res['status'] == 422) {
                                     DB::rollBack();
                                     return response()->json([
@@ -1844,7 +1844,7 @@ class PiController extends Controller
                                 'attribute_id'   => $attr->item_attribute_id,
                                 'attribute_value' => intval($attr->attr_value)
                             ])->toArray() ?? [];
-                            $res = $service->syncPiSoMapping($soId, $soItemId, $itemId, $soAttributes, $reqQty, $createdBy, $soItem->order_qty);
+                            $res = $service->syncPiSoMapping($soItem->sale_order_id, $soItemId, $itemId, $soAttributes, $reqQty, $createdBy, $soItem->order_qty);
                             if ($res['status'] == 422) {
                                 DB::rollBack();
                                 return response()->json([

@@ -29,6 +29,7 @@ use App\Models\PaymentTerm;
 use App\Models\TermsAndCondition;
 use App\Models\Unit;
 use App\Models\Vendor;
+use Carbon\Carbon;
 use DB;
 use Exception;
 use Illuminate\Http\Request;
@@ -827,6 +828,219 @@ class ErpRCController extends Controller
             'message' => 'No existing Rate Contract found for this vendor in the selected date range.',
         ]);
     }
+     public function RateContractReport(Request $request)
+    {
+        $pathUrl = route('rate.contract.index');
+        $orderType = ConstantHelper::RC_SERVICE_ALIAS;
+        $soItems = ErpRateContractItem::whereHas('rateContract', function ($headerQuery) use($orderType, $pathUrl, $request) {
+            $headerQuery -> where('document_type', $orderType)-> withDefaultGroupCompanyOrg() -> withDraftListingLogic();
+            //Customer Filter
+            $headerQuery = $headerQuery -> when($request -> party_id, function ($custQuery) use($request) {
+                $custQuery -> when($request->type === 'customer', function ($custTypeQuery) use ($request) {
+                    $custTypeQuery->where('customer_id', $request->party_id);
+                });
+                $custQuery -> when($request->type === 'vendor', function ($custTypeQuery) use ($request) {
+                    $custTypeQuery->where('vendor_id', $request->party_id);
+                });
+            });
+            //Book Filter
+            $headerQuery = $headerQuery -> when($request -> book_id, function ($bookQuery) use($request) {
+                $bookQuery -> where('book_id', $request -> book_id);
+            });
+            //Document Id Filter
+            $headerQuery = $headerQuery -> when($request -> document_number, function ($docQuery) use($request) {
+                $docQuery -> where('document_number', 'LIKE', '%' . $request -> document_number . '%');
+            });
+            //Organization Filter
+            $headerQuery = $headerQuery -> when($request -> organization_id, function ($docQuery) use($request) {
+                $docQuery -> where('organization_id', $request -> organization_id);
+            });
+            //From Qty Filter
+            $headerQuery = $headerQuery -> when($request -> from_qty, function ($docQuery) use($request) {
+                $docQuery -> where('from_qty', $request -> from_qty);
+            });
+            //To Qty Filter
+            $headerQuery = $headerQuery -> when($request -> to_qty, function ($docQuery) use($request) {
+                $docQuery -> where('to_qty', $request -> to_qty);
+            });
+            //Effective Date Filter
+            $headerQuery = $headerQuery->when($request->effective_date, function ($docQuery) use ($request) {
+                // Check if effective_date is a range (contains 'to')
+                if (strpos($request->effective_date, 'to') !== false) {
+                    $dates = explode('to', $request->effective_date);
+                    if (count($dates) == 2) {
+                        $fromDate = Carbon::parse(trim($dates[0]))->format('Y-m-d');
+                        $toDate = Carbon::parse(trim($dates[1]))->format('Y-m-d');
+                        $docQuery
+                            ->where('from_date', '<=', $toDate)
+                            ->where(function ($q) use ($fromDate) {
+                                $q->where('to_date', '>=', $fromDate)
+                                  ->orWhereNull('to_date');
+                            });
+                    }
+                } else {
+                    // Single date
+                    $docQuery
+                        ->where('from_date', '<=', $request->effective_date)
+                        ->where(function ($q) use ($request) {
+                            $q->where('to_date', '>=', $request->effective_date)
+                              ->orWhereNull('to_date');
+                        });
+                }
+            });
+            //Document Status Filter
+            $headerQuery = $headerQuery -> when($request -> doc_status, function ($docStatusQuery) use($request) {
+                $searchDocStatus = [];
+                if ($request -> doc_status === ConstantHelper::DRAFT) {
+                    $searchDocStatus = [ConstantHelper::DRAFT];
+                } else if ($searchDocStatus === ConstantHelper::SUBMITTED) {
+                    $searchDocStatus = [ConstantHelper::SUBMITTED, ConstantHelper::PARTIALLY_APPROVED];
+                } else {
+                    $searchDocStatus = [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED];
+                }
+                $docStatusQuery -> whereIn('document_status', $searchDocStatus);
+            });
+            //Date Filters
+            $dateRange = $request -> date_range ??  Carbon::now()->startOfMonth()->format('Y-m-d') . " to " . Carbon::now()->endOfMonth()->format('Y-m-d');
+            $headerQuery = $headerQuery -> when($dateRange, function ($dateRangeQuery) use($request, $dateRange) {
+            $dateRanges = explode('to', $dateRange);
+            if (count($dateRanges) == 2) {
+                    $fromDate = Carbon::parse(trim($dateRanges[0])) -> format('Y-m-d');
+                    $toDate = Carbon::parse(trim($dateRanges[1])) -> format('Y-m-d');
+                    $dateRangeQuery -> whereDate('document_date', ">=" , $fromDate) -> where('document_date', '<=', $toDate);
+            }
+            else{
+                $fromDate = Carbon::parse(trim($dateRanges[0])) -> format('Y-m-d');
+                $dateRangeQuery -> whereDate('document_date', $fromDate);
+            }
+            });
+            //Item Id Filter
+            $headerQuery = $headerQuery -> when($request -> item_id, function ($itemQuery) use($request) {
+                $itemQuery -> withWhereHas('items', function ($itemSubQuery) use($request) {
+                    $itemSubQuery -> where('item_id', $request -> item_id)
+                    //Compare Item Category
+                    -> when($request -> item_category_id, function ($itemCatQuery) use($request) {
+                        $itemCatQuery -> whereHas('item', function ($itemRelationQuery) use($request) {
+                            $itemRelationQuery -> where('category_id', $request -> category_id)
+                            //Compare Item Sub Category
+                            -> when($request -> item_sub_category_id, function ($itemSubCatQuery) use($request) {
+                                $itemSubCatQuery -> where('subcategory_id', $request -> item_sub_category_id);
+                            });
+                        });
+                    });
+                });
+            });
+        }) -> orderByDesc('id');
+            $dynamicFields = DynamicFieldHelper::getServiceDynamicFields(ConstantHelper::RC_SERVICE_ALIAS);
+            $datatables = DataTables::of($soItems) ->addIndexColumn()
+            ->editColumn('status', function ($row) use($orderType) {
+                $statusClasss = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$row-> rateContract ->document_status ?? ConstantHelper::DRAFT];
+                $displayStatus = ucfirst($row -> rateContract -> document_status);
+                $editRoute = null;
+                if ($orderType == ConstantHelper::RC_SERVICE_ALIAS) {
+                    $editRoute = route('rate.contract.edit', ['id' => $row-> rateContract ->id]);
+                }
+                return "
+                <div style='text-align:right;'>
+                    <span class='badge rounded-pill $statusClasss badgeborder-radius'>$displayStatus</span>
+                        <a href='" . $editRoute . "'>
+                            <i class='cursor-pointer' data-feather='eye'></i>
+                        </a>
+                </div>
+            ";
+            })
+            ->editColumn('applicable_orgs', function ($row) use($orderType) {
+                $org_ids = Organization::whereIn('id', json_decode($row-> rateContract ->applicable_organizations ?? '[]'))->pluck('name')->toArray();
+                $text = ' ';
+                foreach($org_ids as $key => $org_name) {
+                    $text .= "<span class='badge rounded-pill badge-light-primary me-1'>$org_name</span>";
+                }
+                return $text;
+            })
+            ->addColumn('book_code', function ($row) {
+                return $row-> rateContract ->book_code ?? '';
+            })
+            ->addColumn('document_number', function ($row) {
+                return $row-> rateContract ->document_number ?? '';
+            })
+            ->addColumn('document_date', function ($row) {
+                return $row-> rateContract ->document_date ?? '';
+            })
+            ->addColumn('party_type', function ($row) {
+                return $row-> rateContract ->vendor_id ? 'Vendor' : ($row-> rateContract ->customer_id ? 'Customer' : '');
+            })
+            ->addColumn('party_name', function ($row) {
+                return $row-> rateContract ->vendor?->company_name ?? $row-> rateContract ->customer?->company_name ?? '';
+            })
+            ->addColumn('category_name', function ($row) {
+                return $row->item?->category?->name ?? '';
+            })
+            ->addColumn('item_type', function ($row) {
+                return $row->item?->type ?? '';
+            })
+            ->addColumn('item_name', function ($row) {
+                return $row->item_name ?? '';
+            })
+            ->addColumn('item_code', function ($row) {
+                return $row->item_code ?? '';
+            })
+            ->addColumn('uom', function ($row) {
+                return $row->uom?->name ?? '';
+            })
+            ->addColumn('item_attributes', function ($row) {
+                $attributesUi = '';
+                if (count($row->item_attributes) > 0) {
+                    foreach ($row->item_attributes as $attr) {
+                        $attrName = $attr->attribute_name;
+                        $attrValue = $attr->attribute_value;
+                        $attributesUi .= "<span class='badge rounded-pill badge-light-primary'>$attrName : $attrValue</span>";
+                    }
+                } else {
+                    $attributesUi = 'N/A';
+                }
+                return $attributesUi;
+            })
+            ->addColumn('moq', function ($row) {
+                return number_format($row->moq ?? 0, 2);
+            })
+            ->addColumn('from_qty', function ($row) {
+                return number_format($row->from_qty ?? 0, 2);
+            })
+            ->addColumn('to_qty', function ($row) {
+                return number_format($row->to_qty ?? 0, 2);
+            })
+            ->addColumn('rate', function ($row) {
+                return number_format($row->rate ?? 0, 2);
+            })
+            ->addColumn('lead_time', function ($row) {
+                return $row->lead_time ?? '';
+            })
+            ->addColumn('effective_from', function ($row) {
+                return $row->from_date ?? '';
+            })
+            ->addColumn('effective_to', function ($row) {
+                return $row->to_date ?? '';
+            });
+            // Status column already exists above in your code
+            
+            foreach ($dynamicFields as $field) {
+                $datatables = $datatables->addColumn($field -> name, function ($row) use ($field) {
+                    $value = '';
+                    $actualDynamicFields = $row -> header ?-> dynamic_fields;
+                    foreach ($actualDynamicFields as $actualDynamicField) {
+                        if ($field -> id == $actualDynamicField -> dynamic_field_detail_id) {
+                            $value = $actualDynamicField -> value;
+                            return $value;
+                        }
+                    }
+                });
+            }
+            $datatables = $datatables
+            ->rawColumns(['item_attributes','applicable_orgs','delivery_schedule','status'])
+            ->make(true);
+            return $datatables;
+    }
+
 
 
 }

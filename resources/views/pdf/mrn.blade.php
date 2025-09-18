@@ -489,6 +489,9 @@
                             $shortCloseQty = $val?->joItem?->short_close_qty ?? 0.0;
                             $grnQty = $val?->joItem?->grn_qty ?? 0.0;
                             $balanceQty = ($poQty ?? 0.0) - $shortCloseQty - $grnQty;
+                        } else{
+                            $grnQty = $val?->order_qty ?? 0.0;
+                            $balanceQty = ($poQty ?? 0.0) - $shortCloseQty - $grnQty;
                         }
                     @endphp
                     <td

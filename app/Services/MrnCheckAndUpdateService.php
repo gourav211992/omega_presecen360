@@ -129,15 +129,6 @@ class MrnCheckAndUpdateService
                 $asnValidated = true;
             }
 
-            // // Step 4: Fallback check — If not ASN or GE validated, ensure PO exists and GRN < PO
-            // if (!$geValidated && !$asnValidated && !empty($poDetail)) {
-            //     if (($poDetail->order_qty - $poDetail->grn_qty) < $inputQty) {
-            //         return self::errorResponse("Order qty exceeds PO quantity.", [
-            //             'order_qty' => number_format((float) $poDetail->order_qty, 2)
-            //         ]);
-            //     }
-            // }
-
             // Step 5: Tolerance check (if tolerance configured)
             if ($poDetail) {
                 $grnQty = floatval($poDetail->grn_qty ?? 0);
@@ -156,11 +147,12 @@ class MrnCheckAndUpdateService
                             'order_qty' => (float) $orderQty ?? 0.00
                         ]);
                     }
-
-                    if ($totalQty < $minAllowed) {
-                        return self::errorResponse("Order qty is below allowed negative tolerance.", [
-                            'order_qty' => (float) $orderQty ?? 0.00
-                        ]);
+                    if (empty($inputData['ge_detail_id'])) {
+                        if ($totalQty < $minAllowed) {
+                            return self::errorResponse("Order qty is below allowed negative tolerance.", [
+                                'order_qty' => (float) $orderQty ?? 0.00
+                            ]);
+                        }
                     }
                 } elseif ($totalQty > $orderQty) {
                     return self::errorResponse("Order qty cannot be greater than po qty.", [

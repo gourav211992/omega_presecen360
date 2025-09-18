@@ -25,7 +25,7 @@
     <link rel="stylesheet" type="text/css" href="{{url('app-assets/css/core/menu/menu-types/vertical-menu.css')}}">
       <link rel="stylesheet" type="text/css" href="{{url('app-assets/js/jquery-ui.css')}}">
     <link rel="stylesheet" type="text/css" href="{{url('app-assets/css/pages/app-email.css')}}">
-    <link href="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.css" rel="stylesheet">
+    <!-- <link href="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.css" rel="stylesheet"> -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <!-- END: Page CSS-->
 

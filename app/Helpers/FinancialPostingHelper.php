@@ -5924,7 +5924,7 @@ class FinancialPostingHelper
                     $revTaxLedgerGroupId = $taxDetail->reverse_ledger_group_id ?? null; //MAKE IT DYNAMIC
                     $revTaxLedger = Ledger::find($revTaxLedgerId);
                     $revTaxLedgerGroup = Group::find($revTaxLedgerGroupId);
-                    if (!isset($taxLedger) || !isset($taxLedgerGroup)) {
+                    if (!isset($revTaxLedger) || !isset($revTaxLedgerGroup)) {
                         $ledgerErrorStatus = self::ERROR_PREFIX . 'Reverse Tax Account not setup';
                         break;
                     }
@@ -6317,6 +6317,7 @@ class FinancialPostingHelper
         $postingArray = array(
             self::GRIR_ACCOUNT => [],
             self::TAX_ACCOUNT => [],
+            self::RCM_TAX_ACCOUNT => [],
             self::EXPENSE_ACCOUNT => [],
             self::DISCOUNT_ACCOUNT => [],
             self::PV_ACCOUNT => [],
@@ -6480,7 +6481,39 @@ class FinancialPostingHelper
                 ]);
             }
             //Tax for SUPPLIER ACCOUNT
-            $totalsupplierCredit += $tax->ted_amount;
+            $vendorGstAppicable = $document->vendor?->compliances?->gst_applicable ?? '0';
+            $vendorRCMAppicable = $document->vendor?->compliances?->is_rcm ?? '0';
+            if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1) {
+                $revTaxLedgerId = $taxDetail->reverse_ledger_id ?? null; //MAKE IT DYNAMIC
+                $revTaxLedgerGroupId = $taxDetail->reverse_ledger_group_id ?? null; //MAKE IT DYNAMIC
+                $revTaxLedger = Ledger::find($revTaxLedgerId);
+                $revTaxLedgerGroup = Group::find($revTaxLedgerGroupId);
+                if (!isset($revTaxLedger) || !isset($revTaxLedgerGroup)) {
+                    $ledgerErrorStatus = self::ERROR_PREFIX . 'Reverse Tax Account not setup';
+                    break;
+                }
+                //Reverse Charge Mechanism - Tax Debit to Vendor
+                $existingRevTaxLedger = array_filter($postingArray[self::RCM_TAX_ACCOUNT], function ($posting) use ($revTaxLedgerId, $revTaxLedgerGroupId) {
+                    return $posting['ledger_id'] == $revTaxLedgerId && $posting['ledger_group_id'] === $revTaxLedgerGroupId;
+                });
+                //Ledger found
+                if (count($existingRevTaxLedger) > 0) {
+                    $postingArray[self::RCM_TAX_ACCOUNT][0]['debit_amount'] += $tax->ted_amount;
+                } else { //Assign a new ledger
+                    array_push($postingArray[self::RCM_TAX_ACCOUNT], [
+                        'ledger_id' => $revTaxLedgerId,
+                        'ledger_group_id' => $revTaxLedgerGroupId,
+                        'ledger_code' => $revTaxLedger?->code,
+                        'ledger_name' => $revTaxLedger?->name,
+                        'ledger_group_code' => $revTaxLedgerGroup?->name,
+                        'credit_amount' => $tax->ted_amount,
+                        'debit_amount' => 0,
+                    ]);
+                }
+            } else {
+                //Normal Tax Credit to Vendor
+                $totalsupplierCredit += $tax->ted_amount;
+            }
         }
         //EXPENSES
         $expenses = PbTed::where('header_id', $document->id)->where('ted_type', "Expense")->get();
@@ -6673,6 +6706,7 @@ class FinancialPostingHelper
         $postingArray = array(
             self::SERVICE_ACCOUNT => [],
             self::TAX_ACCOUNT => [],
+            self::RCM_TAX_ACCOUNT => [],
             self::EXPENSE_ACCOUNT => [],
             self::DISCOUNT_ACCOUNT => [],
             self::GRIR_ACCOUNT => [],
@@ -6698,13 +6732,7 @@ class FinancialPostingHelper
             );
         }
 
-        // $discountPostingParam = OrganizationBookParameter::where('book_id', $document -> book_id)
-        // -> where('parameter_name', ServiceParametersHelper::GL_SEPERATE_DISCOUNT_PARAM) -> first();
-        // if (isset($discountPostingParam)) {
-        //     $discountSeperatePosting = $discountPostingParam -> parameter_value[0] === "yes" ? true : false;
-        // } else {
         $discountSeperatePosting = false;
-        // }
 
         //Status to check if all ledger entries were properly set
         $ledgerErrorStatus = null;
@@ -6816,7 +6844,38 @@ class FinancialPostingHelper
                 if (trim(strtolower($taxDetail->applicability_type)) === ConstantHelper::DEDUCTION) {
                     $postingArray[self::SUPPLIER_ACCOUNT][0]['credit_amount'] -= $tax->ted_amount;
                 } else {
-                    $postingArray[self::SUPPLIER_ACCOUNT][0]['credit_amount'] += $tax->ted_amount;
+                    $vendorGstAppicable = $document->vendor?->compliances?->gst_applicable ?? '0';
+                    $vendorRCMAppicable = $document->vendor?->compliances?->is_rcm ?? '0';
+                    if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1) {
+                        $revTaxLedgerId = $taxDetail->reverse_ledger_id ?? null; //MAKE IT DYNAMIC
+                        $revTaxLedgerGroupId = $taxDetail->reverse_ledger_group_id ?? null; //MAKE IT DYNAMIC
+                        $revTaxLedger = Ledger::find($revTaxLedgerId);
+                        $revTaxLedgerGroup = Group::find($revTaxLedgerGroupId);
+                        if (!isset($revTaxLedger) || !isset($revTaxLedgerGroup)) {
+                            $ledgerErrorStatus = self::ERROR_PREFIX . 'Reverse Tax Account not setup';
+                            break;
+                        }
+                        //Reverse Charge Mechanism - Tax Debit to Vendor
+                        $existingRevTaxLedger = array_filter($postingArray[self::RCM_TAX_ACCOUNT], function ($posting) use ($revTaxLedgerId, $revTaxLedgerGroupId) {
+                            return $posting['ledger_id'] == $revTaxLedgerId && $posting['ledger_group_id'] === $revTaxLedgerGroupId;
+                        });
+                        //Ledger found
+                        if (count($existingRevTaxLedger) > 0) {
+                            $postingArray[self::RCM_TAX_ACCOUNT][0]['credit_amount'] += $tax->ted_amount;
+                        } else { //Assign a new ledger
+                            array_push($postingArray[self::RCM_TAX_ACCOUNT], [
+                                'ledger_id' => $revTaxLedgerId,
+                                'ledger_group_id' => $revTaxLedgerGroupId,
+                                'ledger_code' => $revTaxLedger?->code,
+                                'ledger_name' => $revTaxLedger?->name,
+                                'ledger_group_code' => $revTaxLedgerGroup?->name,
+                                'credit_amount' => $tax->ted_amount,
+                                'debit_amount' => 0,
+                            ]);
+                        }
+                    } else {
+                        $postingArray[self::SUPPLIER_ACCOUNT][0]['credit_amount'] += $tax->ted_amount;
+                    }
                 }
             } else { //Assign new ledger
                 array_push($postingArray[self::SUPPLIER_ACCOUNT], [
@@ -6927,14 +6986,6 @@ class FinancialPostingHelper
                 $totalDebitAmount += $postingValue['debit_amount'];
             }
         }
-        //Balance does not match
-        // if (round($totalDebitAmount,6) !== round($totalCreditAmount,6)) {
-        //     return array(
-        //         'status' => false,
-        //         'message' => self::ERROR_PREFIX.'Credit Amount does not match Debit Amount',
-        //         'data' => []
-        //     );
-        // }
         //Get Header Details
         $book = Book::find($document->book_id);
         $glPostingBookParam = OrganizationBookParameter::where('book_id', $book->id)->where('parameter_name', ServiceParametersHelper::GL_POSTING_SERIES_PARAM)->first();
@@ -8173,6 +8224,7 @@ class FinancialPostingHelper
         $postingArray = array(
             self::SUPPLIER_ACCOUNT => [],
             self::TAX_ACCOUNT => [],
+            self::RCM_TAX_ACCOUNT => [],
             self::EXPENSE_ACCOUNT => [],
             self::DISCOUNT_ACCOUNT => [],
             self::STOCK_ACCOUNT => [],
@@ -8282,7 +8334,6 @@ class FinancialPostingHelper
             }
 
 
-
             //Stock for SUPPLIER ACCOUNT
             $existingVendorLedger = array_filter($postingArray[self::SUPPLIER_ACCOUNT], function ($posting) use ($vendorLedgerId, $vendorLedgerGroupId) {
                 return $posting['ledger_id'] == $vendorLedgerId && $posting['ledger_group_id'] === $vendorLedgerGroupId;
@@ -8332,22 +8383,54 @@ class FinancialPostingHelper
                 ]);
             }
             //Tax for SUPPLIER ACCOUNT
-            $existingVendorLedger = array_filter($postingArray[self::SUPPLIER_ACCOUNT], function ($posting) use ($vendorLedgerId, $vendorLedgerGroupId) {
-                return $posting['ledger_id'] == $vendorLedgerId && $posting['ledger_group_id'] === $vendorLedgerGroupId;
-            });
-            //Ledger found
-            if (count($existingVendorLedger) > 0) {
-                $postingArray[self::SUPPLIER_ACCOUNT][0]['debit_amount'] += $tax->ted_amount;
-            } else { //Assign new ledger
-                array_push($postingArray[self::SUPPLIER_ACCOUNT], [
-                    'ledger_id' => $vendorLedgerId,
-                    'ledger_group_id' => $vendorLedgerGroupId,
-                    'ledger_code' => $vendorLedger?->code,
-                    'ledger_name' => $vendorLedger?->name,
-                    'ledger_group_code' => $vendorLedgerGroup?->name,
-                    'credit_amount' => 0,
-                    'debit_amount' => $tax->ted_amount,
-                ]);
+            $vendorGstAppicable = $document->vendor?->compliances?->gst_applicable ?? '0';
+            $vendorRCMAppicable = $document->vendor?->compliances?->is_rcm ?? '0';
+            if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1) {
+                $revTaxLedgerId = $taxDetail->reverse_ledger_id ?? null; //MAKE IT DYNAMIC
+                $revTaxLedgerGroupId = $taxDetail->reverse_ledger_group_id ?? null; //MAKE IT DYNAMIC
+                $revTaxLedger = Ledger::find($revTaxLedgerId);
+                $revTaxLedgerGroup = Group::find($revTaxLedgerGroupId);
+                if (!isset($revTaxLedger) || !isset($revTaxLedgerGroup)) {
+                    $ledgerErrorStatus = self::ERROR_PREFIX . 'Reverse Tax Account not setup';
+                    break;
+                }
+                //Reverse Charge Mechanism - Tax Debit to Vendor
+                $existingRevTaxLedger = array_filter($postingArray[self::RCM_TAX_ACCOUNT], function ($posting) use ($revTaxLedgerId, $revTaxLedgerGroupId) {
+                    return $posting['ledger_id'] == $revTaxLedgerId && $posting['ledger_group_id'] === $revTaxLedgerGroupId;
+                });
+                //Ledger found
+                if (count($existingRevTaxLedger) > 0) {
+                    $postingArray[self::RCM_TAX_ACCOUNT][0]['debit_amount'] += $tax->ted_amount;
+                } else { //Assign a new ledger
+                    array_push($postingArray[self::RCM_TAX_ACCOUNT], [
+                        'ledger_id' => $revTaxLedgerId,
+                        'ledger_group_id' => $revTaxLedgerGroupId,
+                        'ledger_code' => $revTaxLedger?->code,
+                        'ledger_name' => $revTaxLedger?->name,
+                        'ledger_group_code' => $revTaxLedgerGroup?->name,
+                        'credit_amount' => 0,
+                        'debit_amount' => $tax->ted_amount,
+                    ]);
+                }
+            } else {
+                //Tax for SUPPLIER ACCOUNT
+                $existingVendorLedger = array_filter($postingArray[self::SUPPLIER_ACCOUNT], function ($posting) use ($vendorLedgerId, $vendorLedgerGroupId) {
+                    return $posting['ledger_id'] == $vendorLedgerId && $posting['ledger_group_id'] === $vendorLedgerGroupId;
+                });
+                //Ledger found
+                if (count($existingVendorLedger) > 0) {
+                    $postingArray[self::SUPPLIER_ACCOUNT][0]['debit_amount'] += $tax->ted_amount;
+                } else { //Assign new ledger
+                    array_push($postingArray[self::SUPPLIER_ACCOUNT], [
+                        'ledger_id' => $vendorLedgerId,
+                        'ledger_group_id' => $vendorLedgerGroupId,
+                        'ledger_code' => $vendorLedger?->code,
+                        'ledger_name' => $vendorLedger?->name,
+                        'ledger_group_code' => $vendorLedgerGroup?->name,
+                        'credit_amount' => 0,
+                        'debit_amount' => $tax->ted_amount,
+                    ]);
+                }
             }
         }
 

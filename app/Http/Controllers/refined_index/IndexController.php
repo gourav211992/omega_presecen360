@@ -26,6 +26,16 @@ class IndexController extends Controller
                     ->from('erp_book_levels')
                     ->join('erp_approval_workflows', 'erp_approval_workflows.book_level_id', '=', 'erp_book_levels.id')
                     ->whereColumn('erp_book_levels.organization_id', 'erp_transactions.organization_id')
+                    ->where(function ($q) {
+                        $q->whereNotNull('erp_transactions.company_id')
+                        ->whereColumn('erp_book_levels.company_id', 'erp_transactions.company_id')
+                        ->orWhereNull('erp_transactions.company_id');
+                    })
+                    ->where(function ($q) {
+                        $q->whereNotNull('erp_transactions.organization_id')
+                        ->whereColumn('erp_book_levels.organization_id', 'erp_transactions.organization_id')
+                        ->orWhereNull('erp_transactions.organization_id');
+                    })
                     ->whereColumn('erp_book_levels.book_id', 'erp_transactions.book_id')
                     ->whereColumn('erp_book_levels.level', 'erp_transactions.approval_level')
                     ->where('erp_approval_workflows.user_id', $user->auth_user_id)
@@ -106,7 +116,7 @@ class IndexController extends Controller
                         $rowCount++;
                         $id = "Email_{$rowCount}";
                         return "<div class=\"form-check form-check-primary custom-checkbox\">
-                                    <input type=\"checkbox\" class=\"form-check-input transaction-select-checkbox\" id=\"{$row->document_id}\" alias=\"{$row->book->service->service->alias}\" data-id=\"{$row->id}\">
+                                    <input type=\"checkbox\" class=\"form-check-input transaction-select-checkbox\" id=\"{$row->document_id}\" alias=\"{$row->book->service->service->alias}\" docType=\"{$row->doc_type}\" data-id=\"{$row->id}\">
                                     <label class=\"form-check-label\" ></label>
                                 </div>";
                     });
@@ -144,13 +154,7 @@ class IndexController extends Controller
         $documentType = $row->document_type === 'po' ? 'purchase-order' : $row->document_type;
 
         // All available route params
-        $allRouteParams = [
-            'id' => $row->document_id,
-            'type' => $documentType,
-            'payment' => $row->document_id,
-            'voucher' => $row->document_id,
-            'receipt' => $row->document_id,
-        ];
+        $allRouteParams = array_fill_keys(['id','type','payment','voucher','receipt','ledger'], $row->document_id) + ['type' => $documentType];
 
         // Get required parameter names for this route
         $route = Route::getRoutes()->getByName($routeName);
@@ -193,8 +197,8 @@ class IndexController extends Controller
         $selectedIds = $request->input('ids', []);
         $results = [];
         $modelCheck = [];
-        foreach ($selectedIds as $item) {
-            if (!isset($item['document_id'], $item['alias'])) {
+        foreach ($selectedIds as $index => $item) {
+            if (!isset($item['document_id'], $item['alias'], $item['docType'])) {
                 continue;
             }
             $baseNamespace = 'App\Models\\';
@@ -202,25 +206,54 @@ class IndexController extends Controller
             $modelClass = $baseNamespace . $className;
 
             if ($modelClass && class_exists($modelClass)) {
-                $data = $modelClass::find($item['document_id']);
-                $approveDocument = Helper::approveDocument($data?->book?->id ?? $data->book_id, $item['document_id'], $data->revision_number , '', [], $data->approval_level, $request -> actionType , 0, $modelClass);
-                if ($approveDocument['message']) {
-                    $results[] = [
-                        'document_id' => $item['document_id'],
-                        'message' => $approveDocument['message'],
-                        'status' => 'error'
-                    ];
-                } else {
-                    $results[] = [
-                        'document_id' => $item['document_id'],
-                        'message' => 'Document approved successfully',
-                        'status' => 'success'
-                    ];
-                    $document_status = $approveDocument['approvalStatus'] ?? $data -> document_status;
-                    $data->document_status = $document_status;
+                $docType= $item['docType'] ?? null;
+                if($docType == 'transaction')
+                {
+
+                    $data = $modelClass::find($item['document_id']);
+                    $approveDocument = Helper::approveDocument($data?->book?->id ?? $data->book_id, $item['document_id'], $data->revision_number , '', [], $data->approval_level, $request -> actionType , 0, $modelClass);
+                    if ($approveDocument['message']) {
+                        $results[] = [
+                            'document_id' => $item['document_id'],
+                            'message' => $approveDocument['message'],
+                            'status' => 'error'
+                        ];
+                    } else {
+                        $results[] = [
+                            'document_id' => $item['document_id'],
+                            'message' => 'Document approved successfully',
+                            'status' => 'success'
+                        ];
+                        $document_status = $approveDocument['approvalStatus'] ?? $data -> document_status;
+                        $data->document_status = $document_status;
+                    }
+                    $data -> save();
                 }
-                $data -> save();
-            }
+                else if($docType == 'master')
+                {
+                    $data = $modelClass::find($item['document_id']);
+                    $approveDocument = Helper::approveDocument($data?->book?->id ?? $data->book_id, $item['document_id'], $data->revision_number , '', [], $data->approval_level, $request -> actionType , 0, $modelClass);
+
+                    if ($data) {
+                        if (property_exists($data, 'status')) {
+                            $data->status = $request->actionType == 'approve' ? 'active' : 'inactive';
+                        }
+                        $data->save();
+                        $results[] = [
+                            'document_id' => $item['document_id'],
+                            'message' => 'Master record ' . ($request->actionType == 'approve' ? 'activated' : 'deactivated') . ' successfully',
+                            'status' => 'success'
+                        ];
+                    } else {
+                        $results[] = [
+                            'document_id' => $item['document_id'],
+                            'message' => 'Master record not found',
+                            'status' => 'error'
+                        ];
+                    }
+                    $data -> save();
+                }
+            }                    
         }
         return response()->json(['data' => $results]);
     }

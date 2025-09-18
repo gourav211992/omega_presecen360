@@ -28,6 +28,8 @@
 						<a class="btn btn-primary btn-sm mb-50 mb-sm-0" href="{{route('rate.contract.create')}}"><i data-feather="plus-circle"></i>
                         {{'Create ' . $typeName}}
                         </a> 
+                        <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('transactions.report', ['serviceAlias' => 'rc']) }}"><i data-feather="bar-chart-2"></i>Report</a>
+
                     </div>
                 </div>
             </div>

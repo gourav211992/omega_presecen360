@@ -514,7 +514,12 @@ class ConstantHelper
         self::PQ_SERVICE_ALIAS => "Purchase Quotation",
         self::PQC_SERVICE_ALIAS => "Purchase Quotation Comparison",
         self::PDS_SERVICE_ALIAS => "Pickup Dropoff Schedule",
-        self::TRIP_SERVICE_ALIAS => "Trip PLanning",
+        self::TRIP_SERVICE_ALIAS => "Trip Planning",
+        self::RC_SERVICE_ALIAS => "Rate Contract",
+        self::CUSTOMER_SERVICE_ALIAS => "Customer",
+        self::VENDOR_SERVICE_ALIAS => "Vendor",
+        self::ITEM_SERVICE_ALIAS => "Item",
+        self::LEDGERS_SERVICE_ALIAS => "Ledger",
         PackingListConstants::SERVICE_ALIAS => "Packing List",
         RgrConstant::SERVICE_ALIAS => "Return Goods Receipt"];
 
@@ -903,6 +908,12 @@ class ConstantHelper
         self::RC_SERVICE_ALIAS => 'rate.contract.edit',
         self::PSV_SERVICE_ALIAS => 'psv.edit',
         self::PL_SERVICE_ALIAS => 'PL.layout',
+        self::TRIP_SERVICE_ALIAS => 'trip-plan.layout',
+        self::CUSTOMER_SERVICE_ALIAS => 'customer.edit',
+        self::VENDOR_SERVICE_ALIAS => 'vendor.edit',
+        PackingListConstants::SERVICE_ALIAS => 'packingList.edit',
+        RgrConstant::SERVICE_ALIAS => 'rgr.edit',
+        self::ITEM_SERVICE_ALIAS => 'item.edit',
         self::FIXED_ASSET_SPLIT=>'finance.fixed-asset.split.show',
         self::FIXED_ASSET_MERGER=>'finance.fixed-asset.merger.show',
         self::FIXED_ASSET_REV_IMP=>'finance.fixed-asset.revaluation-impairement.show',
@@ -914,6 +925,7 @@ class ConstantHelper
         self::JOURNAL_VOUCHER => 'vouchers.edit',
         self::PURCHASE_VOUCHER => 'vouchers.edit',
         self::VOUCHERS => 'vouchers.edit',
+        self::LEDGERS_SERVICE_ALIAS => 'ledgers.edit',
     ];
     const PWO_DOC_TYPES = [self::PWO_SERVICE_ALIAS];
     const SALE_INVOICE_DOC_TYPES = [self::SI_SERVICE_ALIAS, self::LEASE_INVOICE_SERVICE_ALIAS, self::DELIVERY_CHALLAN_SERVICE_ALIAS, self::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS, self::SERVICE_INV_SERVICE_ALIAS];

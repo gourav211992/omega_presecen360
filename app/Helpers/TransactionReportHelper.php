@@ -12,6 +12,7 @@ use App\Helpers\TransactionReport\plReportHelper;
 use App\Helpers\TransactionReport\bomReportHelper;
 use App\Helpers\TransactionReport\moReportHelper;
 use App\Helpers\TransactionReport\rfqReportHelper;
+use App\Helpers\TransactionReport\rcReportHelper;
 
 class TransactionReportHelper
 {
@@ -38,6 +39,7 @@ class TransactionReportHelper
         ConstantHelper::BOM_SERVICE_ALIAS => 'bill.of.material.report',
         ConstantHelper::RFQ_SERVICE_ALIAS => 'rfq.report',
         ConstantHelper::PQ_SERVICE_ALIAS => 'pq.report',
+        ConstantHelper::RC_SERVICE_ALIAS => 'rateContract.report',
     ];
     const INDEX_ROUTES = [
         ConstantHelper::SO_SERVICE_ALIAS => 'sale.order.index',
@@ -53,6 +55,7 @@ class TransactionReportHelper
         ConstantHelper::BOM_SERVICE_ALIAS => 'bom.index',
         ConstantHelper::RFQ_SERVICE_ALIAS => 'rfq.index',
         ConstantHelper::PQ_SERVICE_ALIAS => 'pq.index',
+        ConstantHelper::RC_SERVICE_ALIAS => 'rate.contract.index',
     ];
     const SO_TABLE_HEADERS = [
         [
@@ -2930,6 +2933,7 @@ class TransactionReportHelper
         ConstantHelper::BOM_SERVICE_ALIAS => bomReportHelper::BOM_FILTERS,
         ConstantHelper::RFQ_SERVICE_ALIAS => rfqReportHelper::RFQ_FILTERS,
         ConstantHelper::PQ_SERVICE_ALIAS => pqReportHelper::PQ_FILTERS,
+        ConstantHelper::RC_SERVICE_ALIAS => rcReportHelper::RC_FILTERS,
 
     ];
     public static function initialize(): void
@@ -2954,6 +2958,7 @@ class TransactionReportHelper
             ConstantHelper::BOM_SERVICE_ALIAS => bomReportHelper::getBomTableHeaders('bill-of-material'),
             ConstantHelper::RFQ_SERVICE_ALIAS => rfqReportHelper::RFQ_TABLE_HEADERS,
             ConstantHelper::PQ_SERVICE_ALIAS => pqReportHelper::PQ_TABLE_HEADERS,
+            ConstantHelper::RC_SERVICE_ALIAS => rcReportHelper::RC_TABLE_HEADERS, 
         ];
     }
     const DYNAMIC_FIELDS_SEPERATION_INDEX = [

@@ -21,7 +21,7 @@
             <div class="content-header-right text-sm-end col-md-7 mb-50 mb-sm-0">
                 <button class="btn btn-primary btn-sm mb-50 mb-sm-0" onclick ='BulkAction("approve");' ><i data-feather = 'layers'></i> Bulk Approval</button> 
                 <button class="btn btn-danger btn-sm mb-50 mb-sm-0" onclick ='BulkAction("reject");' ><i data-feather = 'x-circle'></i> Bulk Reject</button> 
-                <button class="btn btn-warning btn-sm mb-50 mb-sm-0" onclick ='openFiltersModal();' ><i data-feather="filter"></i> Filter</button> 
+                {{--  <button class="btn btn-warning btn-sm mb-50 mb-sm-0" onclick ='openFiltersModal();' ><i data-feather="filter"></i> Filter</button>   --}}
             </div>
         </div>
         <div class="content-body">
@@ -145,11 +145,15 @@ $('#select-all-checkbox').on('change', function() {
 
 function BulkAction(actionType) {
     var selectedIds = [];
+    var docType = [];
+
     $('.myrequesttablecbox input.transaction-select-checkbox:checked').each(function() {
         selectedIds.push({
             document_id: $(this).attr('id'),
-            alias: $(this).attr('alias')
+            alias: $(this).attr('alias'),
+            docType: $(this).attr('docType')
         });
+        docType.push($(this).attr('docType'));
     });
     if (selectedIds.length === 0) {
         alert("Please select at least one item for bulk action.");
