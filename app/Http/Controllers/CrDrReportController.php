@@ -684,15 +684,493 @@ class CrDrReportController extends Controller
         return response()->json(['data' => $all_ledgers, 'status' => 200, 'message' => 'fetched']);
     }
 
-    public static function get_overdue($type, $ages_all, $doc_types, $cus_type, $vouchers, $credit_days, $group, $ledger, $details = null, $start, $end, $sum_column = 'overdue',$due_date="invoice")
-    {
-        $amount = $type . '_amt_org';
-        $ages0 = $ages_all[0];
-        $ages1 = $ages_all[1];
-        $ages2 = $ages_all[2];
-        $ages3 = $ages_all[3];
-        $ages4 = $ages_all[4];
+    // public static function get_overdue($type, $ages_all, $doc_types, $cus_type, $vouchers, $credit_days, $group, $ledger, $details = null, $start, $end, $sum_column = 'overdue',$due_date="invoice")
+    // {
+    //     $amount = $type . '_amt_org';
+    //     $ages0 = $ages_all[0];
+    //     $ages1 = $ages_all[1];
+    //     $ages2 = $ages_all[2];
+    //     $ages3 = $ages_all[3];
+    //     $ages4 = $ages_all[4];
 
+    //     $vendors = ItemDetail::whereIn('voucher_id', $vouchers)
+    //         ->where('ledger_id', $ledger)
+    //         ->where($amount, '>', 0)
+    //         ->withWhereHas('voucher', function ($query) {
+    //             $query->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED);
+    //             $query->orderBy('document_date', 'asc');
+    //             $query->orderBy('created_at', 'asc');
+    //         })->get()
+    //         ->groupBy('voucher_id')
+    //         ->map(function ($items) use ($ages0, $ages1, $ages2, $ages3, $ages4, $amount,$due_date) {
+    //             $totals = (object) [
+    //                 'id' => '',
+    //                 'ledger_parent_id' => '',
+    //                 'ledger_id' => '',
+    //                 'days_0_30' => 0,
+    //                 'days_30_60' => 0,
+    //                 'days_60_90' => 0,
+    //                 'days_90_120' => 0,
+    //                 'days_120_180' => 0,
+    //                 'days_above_180' => 0,
+    //                 'total_outstanding' => 0,
+    //                 'invoice_amount' => 0,
+    //                 'document_date' => "",
+    //                 'days_diff' => 0,
+    //                 'due_date'=>''
+    //             ];
+    //             foreach ($items as $item) {
+    //                 $d_date = ($due_date =="invoice" || empty($item->due_date)) 
+    //                 ? Voucher::find($item->voucher_id)->document_date:$item->due_date;
+    //                 $totals->document_date = $d_date;
+    //                 $totals->due_date = $item->due_date;
+    //                 $totals->ledger_parent_id = $item->ledger_parent_id;
+    //                 $totals->ledger_id = $item->ledger_id;
+
+    //                 $documentDate = \Carbon\Carbon::parse($d_date)->format('Y-m-d');
+    //                 $totals->id = $item->voucher_id;
+    //                 $days_diff = $documentDate ? now()->diffInDays(\Carbon\Carbon::createFromFormat('Y-m-d', $documentDate)) : 0;
+
+    //                 if ($days_diff <= $ages0) {
+    //                     $totals->days_0_30 += $item->$amount;
+    //                 } elseif ($days_diff <= $ages1) {
+    //                     $totals->days_30_60 += $item->$amount;
+    //                 } elseif ($days_diff <= $ages2) {
+    //                     $totals->days_60_90 += $item->$amount;
+    //                 } elseif ($days_diff <= $ages3) {
+    //                     $totals->days_90_120 += $item->$amount;
+    //                 } elseif ($days_diff <= $ages4) {
+    //                     $totals->days_120_180 += $item->$amount;
+    //                 } else {
+    //                     $totals->days_above_180 += $item->$amount;
+    //                 }
+    //                 $totals->invoice_amount += $item->$amount;
+    //                 $totals->total_outstanding += $item->$amount;
+    //                 $totals->days_diff = $days_diff;
+    //             }
+    //             return $totals;
+    //         })->values();
+
+
+    //     $result = [];
+
+    //     // dd($vendors);
+
+
+    //     foreach ($vendors as $vendor) {
+    //         $ages = self::getAgedReceipts([$vendor->id], $ages_all, $doc_types, $start, $end);
+    //         $voucher = Voucher::find($vendor->id);
+    //         $bill_no = "";
+    //         $invoice_amount = "";
+    //         $view_route = "";
+    //         if ($voucher->reference_service != null) {
+    //             $model = Helper::getModelFromServiceAlias($voucher->reference_service);
+    //             if ($model != null) {
+
+    //                 $referenceDoc = $model::find($voucher->reference_doc_id);
+    //                 if ($referenceDoc)
+    //                     $bill_no = trim(
+    //                         ($referenceDoc->doc_prefix ? $referenceDoc->doc_prefix . '-' : '') .
+    //                         $referenceDoc->doc_no .
+    //                         ($referenceDoc->doc_suffix ? '-' . $referenceDoc->doc_suffix : ''),
+    //                         '-'
+    //                     );
+    //                 $invoice_amount = $vendor->invoice_amount;
+    //                 $view_route = Helper::getRouteNameFromServiceAlias($voucher->reference_service, $voucher->reference_doc_id);
+    //             }
+    //         }
+    //         $vs = $voucher->reference_service ? strtoupper($voucher->reference_service) . "-" : "";
+    //         $result[] = [
+    //             'id' => $voucher->id,
+    //             'ledger_parent_id' => $vendor->ledger_parent_id,
+    //             'ledger_id' => $vendor->ledger_id,
+    //             'due_date'=>$vendor->due_date,
+    //             'bill_no' => $vs . $bill_no,
+    //             'view_route' => $view_route,
+    //             'created_at' => $voucher?->created_at,
+    //             'voucher_no' => $voucher?->series?->book_code . "-" . $voucher->voucher_no,
+    //             'document_date' => date('d-m-Y', strtotime($vendor->document_date)),
+    //             'total_outstanding' => $vendor->total_outstanding - $ages[6],
+    //             'days_0_30' => $vendor->days_0_30 - $ages[0],
+    //             'days_30_60' => $vendor->days_30_60 - $ages[1],
+    //             'days_60_90' => $vendor->days_60_90 - $ages[2],
+    //             'days_90_120' => $vendor->days_90_120 - $ages[3],
+    //             'days_120_180' => $vendor->days_120_180 - $ages[4],
+    //             'days_above_180' => $vendor->days_above_180 - $ages[5],
+    //             'overdue' => 0,
+    //             'overdue_days' => 0,
+    //             'diff_days' => $vendor->days_diff,
+    //             'invoice_amount' => $invoice_amount,
+
+    //         ];
+    //     }
+
+    //     $lastIndex = count($result) - 1; // Get last index of result
+    //     usort($result, function ($a, $b) {
+    //         return strtotime($a['document_date']) <=> strtotime($b['document_date']);
+    //     });
+    //     if ($ledger == null) {
+
+    //         $advanceData = [];
+
+    //         // Step 1: Collect unique ledger/parent combinations from $result
+    //         $uniqueLedgerPairs = collect($result)->map(function ($res) {
+    //             return [
+    //                 'ledger_id' => $res['ledger_id'],
+    //                 'ledger_parent_id' => $res['ledger_parent_id']
+    //             ];
+    //         })->unique()->values();
+
+    //         // Step 2: Precompute advance for each unique combination
+    //         foreach ($uniqueLedgerPairs as $pair) {
+    //             $key = 'ledger' . $pair['ledger_id'] . '_parent' . $pair['ledger_parent_id'];
+
+    //             $advance = self::getAdvanceOnAccountType(
+    //                 $cus_type,
+    //                 $pair['ledger_parent_id'],
+    //                 $pair['ledger_id'],
+    //                 $start,
+    //                 $end,
+    //                 'On Account'
+    //             );
+
+    //             $sum = (clone $advance)->sum('orgAmount');
+    //             $latest = (clone $advance)->sortByDesc('document_date')->first();
+
+    //             $advanceData[$key] = [
+    //                 'remaining' => $sum,
+    //                 'ageBucket' => $latest
+    //                     ? self::get_bucket_ages(now()->diffInDays($latest->document_date), $ages_all)
+    //                     : null,
+    //                 'lastIndex' => null,
+    //             ];
+    //         }
+
+    //         // Step 3: Deduct advance in the loop
+    //         foreach ($result as $index => &$res) {
+    //             $key = 'ledger' . $res['ledger_id'] . '_parent' . $res['ledger_parent_id'];
+
+    //             if (!isset($advanceData[$key]) || $advanceData[$key]['remaining'] <= 0) {
+    //                 continue;
+    //             }
+
+    //             $bucket = self::get_bucket_ages($res['diff_days'], $ages_all);
+    //             $deduct = min($advanceData[$key]['remaining'], $res[$bucket]);
+
+    //             $res[$bucket] -= $deduct;
+    //             $res['total_outstanding'] -= $deduct;
+    //             $advanceData[$key]['remaining'] -= $deduct;
+    //             $advanceData[$key]['lastIndex'] = $index;
+    //         }
+
+    //         // Step 4: Apply remaining advance to last row per group
+    //         foreach ($advanceData as $key => $groupl) {
+    //             if ($groupl['remaining'] > 0 && $groupl['ageBucket'] && $groupl['lastIndex'] !== null) {
+    //                 $idx = $groupl['lastIndex'];
+    //                 $bucket = $groupl['ageBucket'];
+
+    //                 if (isset($result[$idx][$bucket])) {
+    //                     $result[$idx][$bucket] -= $groupl['remaining'];
+    //                     $result[$idx]['total_outstanding'] -= $groupl['remaining'];
+    //                 }
+    //             }
+    //         }
+
+
+    //         //calculate advance
+    //         // First, get unique pairs based on ledger_id and ledger_parent_id
+    //         $uniquePairs = collect($result)->map(function ($res) {
+    //             return [
+    //                 'ledger_id' => $res['ledger_id'],
+    //                 'ledger_parent_id' => $res['ledger_parent_id']
+    //             ];
+    //         })->unique();
+
+    //         // Now, loop through each unique pair and apply the advance sum
+    //         foreach ($uniquePairs as $pair) {
+    //             // Get the advance items based on the current ledger_id and ledger_parent_id
+    //             $advanceItems = self::getAdvanceOnAccountType($cus_type, $pair['ledger_parent_id'], $pair['ledger_id'], $start, $end, 'Advance');
+    //             $remainingAdvanceAmount = $advanceItems->sum('orgAmount'); // Get total advance amount for the pair
+
+    //             // If there is any advance amount, apply it to the result
+    //             if ($remainingAdvanceAmount > 0) {
+    //                 // Loop through the result set to apply the advance to each corresponding ledger
+    //                 foreach ($result as &$res) {
+    //                     if ($res['ledger_id'] == $pair['ledger_id'] && $res['ledger_parent_id'] == $pair['ledger_parent_id']) {
+    //                         // Loop through each advance item for this ledger/parent pair
+    //                         foreach ($advanceItems as $advanceItem) {
+    //                             // Check if the advance's voucher document_date is earlier than res['document_date']
+    //                             // For voucher document date (assumed format: Y-m-d)
+    //                             $voucherDate = $advanceItem->voucher->document_date;         // Format: Y-m-d
+    //                             $voucherCreatedAt = $advanceItem->voucher->created_at;       // Format: Y-m-d H:i:s or Carbon
+
+    //                             $voucherTime = date('H:i:s', strtotime($voucherCreatedAt));  // Extract time part
+    //                             $voucherDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $voucherDate . ' ' . $voucherTime);
+
+    //                             $advanceVoucherDate = $voucherDateTime ? $voucherDateTime->getTimestamp() : null;
+
+
+    //                             // --- Result Document DateTime ---
+    //                             $resDocDate = $res['document_date'];         // Format: d-m-Y
+    //                             $resCreatedAt = $res['created_at'];          // Format: Y-m-d H:i:s or similar
+
+    //                             $resTime = date('H:i:s', strtotime($resCreatedAt));          // Extract time part
+    //                             $resDateTime = \DateTime::createFromFormat('d-m-Y H:i:s', $resDocDate . ' ' . $resTime);
+
+    //                             $resDate = $resDateTime ? $resDateTime->getTimestamp() : null;
+
+    //                             if ($advanceVoucherDate < $resDate) { // Only proceed if the advance date is before the result date
+    //                                 $buckets = ['days_0_30', 'days_30_60', 'days_60_90', 'days_90_120', 'days_120_180', 'days_above_180'];
+
+    //                                 // Loop through the aging buckets for the current result
+    //                                 foreach ($buckets as $bucket) {
+    //                                     if ($remainingAdvanceAmount <= 0) {
+    //                                         break; // Stop applying the advance if no amount is left
+    //                                     }
+
+    //                                     // Deduct the minimum of the remaining advance or the value in the current bucket
+    //                                     $deductAmount = min($remainingAdvanceAmount, $res[$bucket]);
+    //                                     $res[$bucket] -= $deductAmount; // Reduce the bucket value
+    //                                     $remainingAdvanceAmount -= $deductAmount; // Reduce the advance amount
+    //                                     $res['total_outstanding'] -= $deductAmount; // Reduce the total outstanding
+    //                                 }
+    //                             }
+    //                         }
+    //                     }
+    //                 }
+    //             }
+    //         }
+
+
+
+
+    //         // //get Advance
+
+    //         // $advancePaymentMap = [];
+
+    //         // // Step 1: Get unique combinations of ledger_id + ledger_parent_id
+    //         // $uniquePairs = collect($result)->map(function ($res) {
+    //         //     return [
+    //         //         'ledger_id' => $res['ledger_id'],
+    //         //         'ledger_parent_id' => $res['ledger_parent_id']
+    //         //     ];
+    //         // })->unique();
+
+    //         // // Step 2: Precompute advance payment data
+    //         // foreach ($uniquePairs as $pair) {
+    //         //     $ledgerId = $pair['ledger_id'];
+    //         //     $parentId = $pair['ledger_parent_id'];
+    //         //     $advancePaymentKey = 'ledger' . $ledgerId . '_parent' . $parentId;
+
+    //         //     $advance = self::getAdvanceOnAccountType($cus_type, $parentId, $ledgerId, $start, $end, 'Advance');
+    //         //     $totalAdvanceAmount = (clone $advance)->sum('orgAmount');
+    //         //     $latestAdvance = (clone $advance)->sortByDesc('document_date')->first();
+
+    //         //     $advancePaymentMap[$advancePaymentKey] = [
+    //         //         'remaining_advance_amount' => $totalAdvanceAmount,
+    //         //         'advance_age_bucket' => $latestAdvance
+    //         //             ? self::get_bucket_ages(now()->diffInDays($latestAdvance->document_date), $ages_all)
+    //         //             : null,
+    //         //         'last_applied_index' => null,
+    //         //         ''
+
+    //         //     ];
+    //         // }
+
+    //         // // Step 3: Apply advance to aging buckets
+    //         // foreach ($result as $index => &$res) {
+    //         //     $ledgerId = $res['ledger_id'];
+    //         //     $parentId = $res['ledger_parent_id'];
+    //         //     $advancePaymentKey = 'ledger' . $ledgerId . '_parent' . $parentId;
+
+    //         //     if (
+    //         //         !isset($advancePaymentMap[$advancePaymentKey]) ||
+    //         //         $advancePaymentMap[$advancePaymentKey]['remaining_advance_amount'] <= 0
+    //         //     ) {
+    //         //         continue;
+    //         //     }
+
+    //         //     $agingBucket = self::get_bucket_ages($res['diff_days'], $ages_all);
+    //         //     $vendorDateTimestamp = strtotime($advance->voucher->document_date);
+    //         //     $resDateTimestamp = strtotime($res['document_date']);
+
+    //         //     if ($vendorDateTimestamp < $resDateTimestamp) {
+    //         //     $deductAmount = min($advancePaymentMap[$advancePaymentKey]['remaining_advance_amount'], $res[$agingBucket]);
+
+    //         //     $res[$agingBucket] -= $deductAmount;
+    //         //     $res['total_outstanding'] -= $deductAmount;
+    //         //     $advancePaymentMap[$advancePaymentKey]['remaining_advance_amount'] -= $deductAmount;
+    //         //     $advancePaymentMap[$advancePaymentKey]['last_applied_index'] = $index;
+    //         //     }
+    //         // }
+
+    //         // // Step 4: If any remaining advance, apply to latest matched row
+    //         // foreach ($advancePaymentMap as $advancePaymentKey => $data) {
+    //         //     if (
+    //         //         $data['remaining_advance_amount'] > 0 &&
+    //         //         $data['advance_age_bucket'] &&
+    //         //         $data['last_applied_index'] !== null
+    //         //     ) {
+    //         //         $idx = $data['last_applied_index'];
+    //         //         $bucket = $data['advance_age_bucket'];
+
+    //         //         if (isset($result[$idx][$bucket])) {
+    //         //             $result[$idx][$bucket] -= $data['remaining_advance_amount'];
+    //         //             $result[$idx]['total_outstanding'] -= $data['remaining_advance_amount'];
+    //         //         }
+    //         //     }
+    //         // }
+
+
+
+
+
+    //         //     $groups  = Group::find($group)->getAllChildIds();
+    //         //     $groups[] = $group;
+
+    //         // foreach($groups as $grp){
+    //         //     $ledgers = Ledger::where('ledger_group_id',$grp)
+    //         //     ->orWhereJsonContains('ledger_group_id', (string)$grp)->pluck('id')->toArray();
+
+
+
+
+
+
+    //     } else {
+    //         $advance = self::getAdvanceOnAccountType($cus_type, $group, $ledger, $start, $end, 'On Account');
+    //         $advanceSum = (clone $advance)->sum('orgAmount');
+    //         $advanceAges = (clone $advance)->sortByDesc('document_date')->first();
+
+    //         if ($advanceAges) {
+    //             $difDays = now()->diffInDays($advanceAges->document_date);
+    //             $avanceAgesbucket = self::get_bucket_ages($difDays, $ages_all);
+    //         }
+
+    //         foreach ($result as &$res) {
+    //             $bucket = self::get_bucket_ages($res['diff_days'], $ages_all);
+    //             if ($advanceSum > 0) {
+    //                 $deductAmount = min($advanceSum, $res[$bucket]);
+    //                 $res[$bucket] -= $deductAmount; // Reduce the bucket value
+    //                 $advanceSum -= $deductAmount; // Reduce the advance sum
+    //                 $res['total_outstanding'] -= $deductAmount; // Track total deducted
+    //             }
+    //         }
+    //         if (isset($avanceAgesbucket) && $advanceSum > 0) {
+    //             $result[$lastIndex][$avanceAgesbucket] -= $advanceSum;
+    //             $result[$lastIndex]['total_outstanding'] -= $advanceSum;
+    //         }
+
+
+    //         $advanceItems = self::getAdvanceOnAccountType($cus_type, $group, $ledger, $start, $end, 'Advance');
+
+    //         // Initialize the array to store remaining advances by date
+    //         $remainingAdvancesByDate = [];
+    //         $totAdvancesByDate = [];
+    //         $resDateTimestampArr = [];
+
+    //         // Initialize the total remaining advance amount
+    //         //$remainingAdvanceAmount = $advanceItems->sum('orgAmount');
+    //         foreach ($advanceItems as $advanceItem) {
+    //             // Get the voucher document date and created_at time for advance
+    //             $documentDate = $advanceItem->voucher->document_date; // Format: 'Y-m-d'
+    //             $createdAt = $advanceItem->voucher->created_at;       // Format: 'Y-m-d H:i:s'
+    //             $advanceDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $documentDate . ' ' . date('H:i:s', strtotime($createdAt)));
+
+    //             $vendorDateTimestamp = $advanceDateTime ? $advanceDateTime->getTimestamp() : null;
+
+    //             // Store remaining advance for this specific date in the array
+    //             if ($vendorDateTimestamp) {
+    //                 $totAdvancesByDate[$vendorDateTimestamp] = (int) $advanceItem->orgAmount;
+    //                 $remainingAdvancesByDate[$vendorDateTimestamp] = (int) $advanceItem->orgAmount;
+    //             }
+    //         }
+
+
+
+    //         // Loop through the results
+    //         foreach ($result as $index => &$res) {
+
+    //             $bucket = self::get_bucket_ages($res['diff_days'], $ages_all);
+    //             // Get the result document date and created_at time
+    //             $docDateInput = Carbon::createFromFormat('d-m-Y', $res['document_date'])->format('Y-m-d'); // Format: 'd-m-Y'
+
+    //             $createdTimeInput = $res['created_at']; // Format: 'Y-m-d H:i:s'
+
+    //             // Extract the time part from created_at
+    //             $timeFromCreated = date('H:i:s', strtotime($createdTimeInput));
+
+    //             // Combine and create DateTime object for result
+    //             $resDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $docDateInput . ' ' . $timeFromCreated);
+    //             $resDateTimestamp = $resDateTime ? $resDateTime->getTimestamp() : null;
+
+
+    //             // Check if the result date is before the advance date
+
+    //             // Reset bucketTotalDeducted before each advance deduction
+    //             $filtered = array_filter(
+    //                 $remainingAdvancesByDate,
+    //                 fn($v, $k) => $k < $resDateTimestamp && $v > 0,
+    //                 ARRAY_FILTER_USE_BOTH
+    //             );
+
+    //             if (!empty($filtered) && $res[$bucket] > 0) {
+    //                 foreach ($filtered as $advanceDate => $advanceAmount) {
+    //                     if ($res[$bucket] <= 0) {
+    //                         break; // stop once there's nothing left to deduct
+    //                     }
+
+    //                     // Deduct the smaller between the available advance and the bucket amount
+    //                     $deductAmount = min($advanceAmount, $res[$bucket]);
+    //                     $res[$bucket] -= $deductAmount;
+    //                     $remainingAdvancesByDate[$advanceDate] -= $deductAmount;
+    //                     $res['total_outstanding'] -= $deductAmount;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     //dd($remainingAdvancesByDate,$totAdvancesByDate);
+
+
+
+
+
+
+    //     foreach ($result as &$res) {
+    //         $creditDays = $credit_days ?? 0; // Ensure credit_days exists
+    //         $dueDate = date('d-m-Y', strtotime("+$creditDays days", strtotime($res['document_date'])));
+    //         $today = date('d-m-Y');
+
+    //         $overdue = (strtotime($today) > strtotime($dueDate)) ? $res['total_outstanding'] : 0;
+    //         $overdueDays = (strtotime($today) > strtotime($res['document_date'])) ? floor((strtotime($today) - strtotime($res['document_date'])) / (60 * 60 * 24)) : 0;
+    //         $res['overdue'] = $overdue;
+    //         $res['overdue_days'] = ($res['total_outstanding'] > 0) ? (int) $overdueDays : "-";
+    //     }
+    //     if ($details)
+    //         return $result;
+    //     else
+    //         return array_sum(array_column($result, $sum_column));
+    // }
+
+    public static function get_overdue(
+        $type,
+        $ages_all,
+        $doc_types,
+        $cus_type,
+        $vouchers,
+        $credit_days,
+        $group,
+        $ledger,
+        $details = null,
+        $start,
+        $end,
+        $sum_column = 'overdue',
+        $due_date = "invoice"
+    ) {
+        $amount = $type . '_amt_org';
+        [$ages0, $ages1, $ages2, $ages3, $ages4] = $ages_all;
+    
+        // Fetch items
         $vendors = ItemDetail::whereIn('voucher_id', $vouchers)
             ->where('ledger_id', $ledger)
             ->where($amount, '>', 0)
@@ -702,87 +1180,97 @@ class CrDrReportController extends Controller
                 $query->orderBy('created_at', 'asc');
             })->get()
             ->groupBy('voucher_id')
-            ->map(function ($items) use ($ages0, $ages1, $ages2, $ages3, $ages4, $amount,$due_date) {
-                $totals = (object) [
-                    'id' => '',
-                    'ledger_parent_id' => '',
-                    'ledger_id' => '',
-                    'days_0_30' => 0,
-                    'days_30_60' => 0,
-                    'days_60_90' => 0,
-                    'days_90_120' => 0,
-                    'days_120_180' => 0,
-                    'days_above_180' => 0,
-                    'total_outstanding' => 0,
-                    'invoice_amount' => 0,
-                    'document_date' => "",
-                    'days_diff' => 0,
-                    'due_date'=>''
-                ];
+            ->flatMap(function ($items) use ($ages0, $ages1, $ages2, $ages3, $ages4, $amount, $due_date) {
+                $records = [];
                 foreach ($items as $item) {
-                    $d_date = ($due_date =="invoice" || empty($item->due_date)) 
-                    ? Voucher::find($item->voucher_id)->document_date:$item->due_date;
+                    $totals = (object)[
+                        'id' => $item->voucher_id,
+                        'ledger_parent_id' => $item->ledger_parent_id,
+                        'ledger_id' => $item->ledger_id,
+                        'days_0_30' => 0,
+                        'days_30_60' => 0,
+                        'days_60_90' => 0,
+                        'days_90_120' => 0,
+                        'days_120_180' => 0,
+                        'days_above_180' => 0,
+                        'total_outstanding' => 0,
+                        'invoice_amount' => 0,
+                        'document_date' => "",
+                        'days_diff' => 0,
+                        'due_date' => $item->due_date
+                    ];
+    
+                    $d_date = ($due_date == "invoice" || empty($item->due_date))
+                        ? $item->voucher->document_date
+                        : $item->due_date;
+    
                     $totals->document_date = $d_date;
-                    $totals->due_date = $item->due_date;
-                    $totals->ledger_parent_id = $item->ledger_parent_id;
-                    $totals->ledger_id = $item->ledger_id;
-
+    
                     $documentDate = \Carbon\Carbon::parse($d_date)->format('Y-m-d');
-                    $totals->id = $item->voucher_id;
-                    $days_diff = $documentDate ? now()->diffInDays(\Carbon\Carbon::createFromFormat('Y-m-d', $documentDate)) : 0;
-
+                    $days_diff = $documentDate
+                        ? now()->diffInDays(\Carbon\Carbon::createFromFormat('Y-m-d', $documentDate))
+                        : 0;
+    
                     if ($days_diff <= $ages0) {
-                        $totals->days_0_30 += $item->$amount;
+                        $totals->days_0_30 = $item->$amount;
                     } elseif ($days_diff <= $ages1) {
-                        $totals->days_30_60 += $item->$amount;
+                        $totals->days_30_60 = $item->$amount;
                     } elseif ($days_diff <= $ages2) {
-                        $totals->days_60_90 += $item->$amount;
+                        $totals->days_60_90 = $item->$amount;
                     } elseif ($days_diff <= $ages3) {
-                        $totals->days_90_120 += $item->$amount;
+                        $totals->days_90_120 = $item->$amount;
                     } elseif ($days_diff <= $ages4) {
-                        $totals->days_120_180 += $item->$amount;
+                        $totals->days_120_180 = $item->$amount;
                     } else {
-                        $totals->days_above_180 += $item->$amount;
+                        $totals->days_above_180 = $item->$amount;
                     }
-                    $totals->invoice_amount += $item->$amount;
-                    $totals->total_outstanding += $item->$amount;
+    
+                    $totals->invoice_amount = $item->$amount;
+                    $totals->total_outstanding = $item->$amount;
                     $totals->days_diff = $days_diff;
+    
+                    $records[] = $totals;
                 }
-                return $totals;
+                return $records;
             })->values();
-
-
+    
         $result = [];
-
-
+    
         foreach ($vendors as $vendor) {
             $ages = self::getAgedReceipts([$vendor->id], $ages_all, $doc_types, $start, $end);
             $voucher = Voucher::find($vendor->id);
+    
             $bill_no = "";
             $invoice_amount = "";
             $view_route = "";
+    
             if ($voucher->reference_service != null) {
                 $model = Helper::getModelFromServiceAlias($voucher->reference_service);
                 if ($model != null) {
-
                     $referenceDoc = $model::find($voucher->reference_doc_id);
-                    if ($referenceDoc)
+                    if ($referenceDoc) {
                         $bill_no = trim(
                             ($referenceDoc->doc_prefix ? $referenceDoc->doc_prefix . '-' : '') .
                             $referenceDoc->doc_no .
                             ($referenceDoc->doc_suffix ? '-' . $referenceDoc->doc_suffix : ''),
                             '-'
                         );
+                    }
                     $invoice_amount = $vendor->invoice_amount;
-                    $view_route = Helper::getRouteNameFromServiceAlias($voucher->reference_service, $voucher->reference_doc_id);
+                    $view_route = Helper::getRouteNameFromServiceAlias(
+                        $voucher->reference_service,
+                        $voucher->reference_doc_id
+                    );
                 }
             }
+    
             $vs = $voucher->reference_service ? strtoupper($voucher->reference_service) . "-" : "";
+    
             $result[] = [
                 'id' => $voucher->id,
                 'ledger_parent_id' => $vendor->ledger_parent_id,
                 'ledger_id' => $vendor->ledger_id,
-                'due_date'=>$vendor->due_date,
+                'due_date' => $vendor->due_date,
                 'bill_no' => $vs . $bill_no,
                 'view_route' => $view_route,
                 'created_at' => $voucher?->created_at,
@@ -799,30 +1287,25 @@ class CrDrReportController extends Controller
                 'overdue_days' => 0,
                 'diff_days' => $vendor->days_diff,
                 'invoice_amount' => $invoice_amount,
-
             ];
         }
-
-        $lastIndex = count($result) - 1; // Get last index of result
-        usort($result, function ($a, $b) {
-            return strtotime($a['document_date']) <=> strtotime($b['document_date']);
-        });
+    
+        $lastIndex = count($result) - 1;
+        usort($result, fn($a, $b) => strtotime($a['document_date']) <=> strtotime($b['document_date']));
+    
+        /** ---------------------------------
+         * Advance adjustment (unchanged)
+         * --------------------------------- */
         if ($ledger == null) {
-
+            // On Account advance adjust
             $advanceData = [];
-
-            // Step 1: Collect unique ledger/parent combinations from $result
-            $uniqueLedgerPairs = collect($result)->map(function ($res) {
-                return [
-                    'ledger_id' => $res['ledger_id'],
-                    'ledger_parent_id' => $res['ledger_parent_id']
-                ];
-            })->unique()->values();
-
-            // Step 2: Precompute advance for each unique combination
+            $uniqueLedgerPairs = collect($result)->map(fn($res) => [
+                'ledger_id' => $res['ledger_id'],
+                'ledger_parent_id' => $res['ledger_parent_id']
+            ])->unique()->values();
+    
             foreach ($uniqueLedgerPairs as $pair) {
                 $key = 'ledger' . $pair['ledger_id'] . '_parent' . $pair['ledger_parent_id'];
-
                 $advance = self::getAdvanceOnAccountType(
                     $cus_type,
                     $pair['ledger_parent_id'],
@@ -831,10 +1314,8 @@ class CrDrReportController extends Controller
                     $end,
                     'On Account'
                 );
-
                 $sum = (clone $advance)->sum('orgAmount');
                 $latest = (clone $advance)->sortByDesc('document_date')->first();
-
                 $advanceData[$key] = [
                     'remaining' => $sum,
                     'ageBucket' => $latest
@@ -843,94 +1324,71 @@ class CrDrReportController extends Controller
                     'lastIndex' => null,
                 ];
             }
-
-            // Step 3: Deduct advance in the loop
+    
             foreach ($result as $index => &$res) {
                 $key = 'ledger' . $res['ledger_id'] . '_parent' . $res['ledger_parent_id'];
-
                 if (!isset($advanceData[$key]) || $advanceData[$key]['remaining'] <= 0) {
                     continue;
                 }
-
                 $bucket = self::get_bucket_ages($res['diff_days'], $ages_all);
                 $deduct = min($advanceData[$key]['remaining'], $res[$bucket]);
-
                 $res[$bucket] -= $deduct;
                 $res['total_outstanding'] -= $deduct;
                 $advanceData[$key]['remaining'] -= $deduct;
                 $advanceData[$key]['lastIndex'] = $index;
             }
-
-            // Step 4: Apply remaining advance to last row per group
+    
             foreach ($advanceData as $key => $groupl) {
                 if ($groupl['remaining'] > 0 && $groupl['ageBucket'] && $groupl['lastIndex'] !== null) {
                     $idx = $groupl['lastIndex'];
                     $bucket = $groupl['ageBucket'];
-
                     if (isset($result[$idx][$bucket])) {
                         $result[$idx][$bucket] -= $groupl['remaining'];
                         $result[$idx]['total_outstanding'] -= $groupl['remaining'];
                     }
                 }
             }
-
-
-            //calculate advance
-            // First, get unique pairs based on ledger_id and ledger_parent_id
-            $uniquePairs = collect($result)->map(function ($res) {
-                return [
-                    'ledger_id' => $res['ledger_id'],
-                    'ledger_parent_id' => $res['ledger_parent_id']
-                ];
-            })->unique();
-
-            // Now, loop through each unique pair and apply the advance sum
+    
+            // Advance adjust (only for older than res date)
+            $uniquePairs = collect($result)->map(fn($res) => [
+                'ledger_id' => $res['ledger_id'],
+                'ledger_parent_id' => $res['ledger_parent_id']
+            ])->unique();
+    
             foreach ($uniquePairs as $pair) {
-                // Get the advance items based on the current ledger_id and ledger_parent_id
-                $advanceItems = self::getAdvanceOnAccountType($cus_type, $pair['ledger_parent_id'], $pair['ledger_id'], $start, $end, 'Advance');
-                $remainingAdvanceAmount = $advanceItems->sum('orgAmount'); // Get total advance amount for the pair
-
-                // If there is any advance amount, apply it to the result
+                $advanceItems = self::getAdvanceOnAccountType(
+                    $cus_type,
+                    $pair['ledger_parent_id'],
+                    $pair['ledger_id'],
+                    $start,
+                    $end,
+                    'Advance'
+                );
+                $remainingAdvanceAmount = $advanceItems->sum('orgAmount');
                 if ($remainingAdvanceAmount > 0) {
-                    // Loop through the result set to apply the advance to each corresponding ledger
                     foreach ($result as &$res) {
                         if ($res['ledger_id'] == $pair['ledger_id'] && $res['ledger_parent_id'] == $pair['ledger_parent_id']) {
-                            // Loop through each advance item for this ledger/parent pair
                             foreach ($advanceItems as $advanceItem) {
-                                // Check if the advance's voucher document_date is earlier than res['document_date']
-                                // For voucher document date (assumed format: Y-m-d)
-                                $voucherDate = $advanceItem->voucher->document_date;         // Format: Y-m-d
-                                $voucherCreatedAt = $advanceItem->voucher->created_at;       // Format: Y-m-d H:i:s or Carbon
-
-                                $voucherTime = date('H:i:s', strtotime($voucherCreatedAt));  // Extract time part
+                                $voucherDate = $advanceItem->voucher->document_date;
+                                $voucherCreatedAt = $advanceItem->voucher->created_at;
+                                $voucherTime = date('H:i:s', strtotime($voucherCreatedAt));
                                 $voucherDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $voucherDate . ' ' . $voucherTime);
-
                                 $advanceVoucherDate = $voucherDateTime ? $voucherDateTime->getTimestamp() : null;
-
-
-                                // --- Result Document DateTime ---
-                                $resDocDate = $res['document_date'];         // Format: d-m-Y
-                                $resCreatedAt = $res['created_at'];          // Format: Y-m-d H:i:s or similar
-
-                                $resTime = date('H:i:s', strtotime($resCreatedAt));          // Extract time part
+    
+                                $resDocDate = $res['document_date'];
+                                $resCreatedAt = $res['created_at'];
+                                $resTime = date('H:i:s', strtotime($resCreatedAt));
                                 $resDateTime = \DateTime::createFromFormat('d-m-Y H:i:s', $resDocDate . ' ' . $resTime);
-
                                 $resDate = $resDateTime ? $resDateTime->getTimestamp() : null;
-
-                                if ($advanceVoucherDate < $resDate) { // Only proceed if the advance date is before the result date
+    
+                                if ($advanceVoucherDate < $resDate) {
                                     $buckets = ['days_0_30', 'days_30_60', 'days_60_90', 'days_90_120', 'days_120_180', 'days_above_180'];
-
-                                    // Loop through the aging buckets for the current result
                                     foreach ($buckets as $bucket) {
-                                        if ($remainingAdvanceAmount <= 0) {
-                                            break; // Stop applying the advance if no amount is left
-                                        }
-
-                                        // Deduct the minimum of the remaining advance or the value in the current bucket
+                                        if ($remainingAdvanceAmount <= 0) break;
                                         $deductAmount = min($remainingAdvanceAmount, $res[$bucket]);
-                                        $res[$bucket] -= $deductAmount; // Reduce the bucket value
-                                        $remainingAdvanceAmount -= $deductAmount; // Reduce the advance amount
-                                        $res['total_outstanding'] -= $deductAmount; // Reduce the total outstanding
+                                        $res[$bucket] -= $deductAmount;
+                                        $remainingAdvanceAmount -= $deductAmount;
+                                        $res['total_outstanding'] -= $deductAmount;
                                     }
                                 }
                             }
@@ -938,187 +1396,58 @@ class CrDrReportController extends Controller
                     }
                 }
             }
-
-
-
-
-            // //get Advance
-
-            // $advancePaymentMap = [];
-
-            // // Step 1: Get unique combinations of ledger_id + ledger_parent_id
-            // $uniquePairs = collect($result)->map(function ($res) {
-            //     return [
-            //         'ledger_id' => $res['ledger_id'],
-            //         'ledger_parent_id' => $res['ledger_parent_id']
-            //     ];
-            // })->unique();
-
-            // // Step 2: Precompute advance payment data
-            // foreach ($uniquePairs as $pair) {
-            //     $ledgerId = $pair['ledger_id'];
-            //     $parentId = $pair['ledger_parent_id'];
-            //     $advancePaymentKey = 'ledger' . $ledgerId . '_parent' . $parentId;
-
-            //     $advance = self::getAdvanceOnAccountType($cus_type, $parentId, $ledgerId, $start, $end, 'Advance');
-            //     $totalAdvanceAmount = (clone $advance)->sum('orgAmount');
-            //     $latestAdvance = (clone $advance)->sortByDesc('document_date')->first();
-
-            //     $advancePaymentMap[$advancePaymentKey] = [
-            //         'remaining_advance_amount' => $totalAdvanceAmount,
-            //         'advance_age_bucket' => $latestAdvance
-            //             ? self::get_bucket_ages(now()->diffInDays($latestAdvance->document_date), $ages_all)
-            //             : null,
-            //         'last_applied_index' => null,
-            //         ''
-
-            //     ];
-            // }
-
-            // // Step 3: Apply advance to aging buckets
-            // foreach ($result as $index => &$res) {
-            //     $ledgerId = $res['ledger_id'];
-            //     $parentId = $res['ledger_parent_id'];
-            //     $advancePaymentKey = 'ledger' . $ledgerId . '_parent' . $parentId;
-
-            //     if (
-            //         !isset($advancePaymentMap[$advancePaymentKey]) ||
-            //         $advancePaymentMap[$advancePaymentKey]['remaining_advance_amount'] <= 0
-            //     ) {
-            //         continue;
-            //     }
-
-            //     $agingBucket = self::get_bucket_ages($res['diff_days'], $ages_all);
-            //     $vendorDateTimestamp = strtotime($advance->voucher->document_date);
-            //     $resDateTimestamp = strtotime($res['document_date']);
-
-            //     if ($vendorDateTimestamp < $resDateTimestamp) {
-            //     $deductAmount = min($advancePaymentMap[$advancePaymentKey]['remaining_advance_amount'], $res[$agingBucket]);
-
-            //     $res[$agingBucket] -= $deductAmount;
-            //     $res['total_outstanding'] -= $deductAmount;
-            //     $advancePaymentMap[$advancePaymentKey]['remaining_advance_amount'] -= $deductAmount;
-            //     $advancePaymentMap[$advancePaymentKey]['last_applied_index'] = $index;
-            //     }
-            // }
-
-            // // Step 4: If any remaining advance, apply to latest matched row
-            // foreach ($advancePaymentMap as $advancePaymentKey => $data) {
-            //     if (
-            //         $data['remaining_advance_amount'] > 0 &&
-            //         $data['advance_age_bucket'] &&
-            //         $data['last_applied_index'] !== null
-            //     ) {
-            //         $idx = $data['last_applied_index'];
-            //         $bucket = $data['advance_age_bucket'];
-
-            //         if (isset($result[$idx][$bucket])) {
-            //             $result[$idx][$bucket] -= $data['remaining_advance_amount'];
-            //             $result[$idx]['total_outstanding'] -= $data['remaining_advance_amount'];
-            //         }
-            //     }
-            // }
-
-
-
-
-
-            //     $groups  = Group::find($group)->getAllChildIds();
-            //     $groups[] = $group;
-
-            // foreach($groups as $grp){
-            //     $ledgers = Ledger::where('ledger_group_id',$grp)
-            //     ->orWhereJsonContains('ledger_group_id', (string)$grp)->pluck('id')->toArray();
-
-
-
-
-
-
         } else {
+            // Ledger specific advance adjust
             $advance = self::getAdvanceOnAccountType($cus_type, $group, $ledger, $start, $end, 'On Account');
             $advanceSum = (clone $advance)->sum('orgAmount');
             $advanceAges = (clone $advance)->sortByDesc('document_date')->first();
-
             if ($advanceAges) {
                 $difDays = now()->diffInDays($advanceAges->document_date);
                 $avanceAgesbucket = self::get_bucket_ages($difDays, $ages_all);
             }
-
             foreach ($result as &$res) {
                 $bucket = self::get_bucket_ages($res['diff_days'], $ages_all);
                 if ($advanceSum > 0) {
                     $deductAmount = min($advanceSum, $res[$bucket]);
-                    $res[$bucket] -= $deductAmount; // Reduce the bucket value
-                    $advanceSum -= $deductAmount; // Reduce the advance sum
-                    $res['total_outstanding'] -= $deductAmount; // Track total deducted
+                    $res[$bucket] -= $deductAmount;
+                    $advanceSum -= $deductAmount;
+                    $res['total_outstanding'] -= $deductAmount;
                 }
             }
             if (isset($avanceAgesbucket) && $advanceSum > 0) {
                 $result[$lastIndex][$avanceAgesbucket] -= $advanceSum;
                 $result[$lastIndex]['total_outstanding'] -= $advanceSum;
             }
-
-
+    
             $advanceItems = self::getAdvanceOnAccountType($cus_type, $group, $ledger, $start, $end, 'Advance');
-
-            // Initialize the array to store remaining advances by date
             $remainingAdvancesByDate = [];
-            $totAdvancesByDate = [];
-            $resDateTimestampArr = [];
-
-            // Initialize the total remaining advance amount
-            //$remainingAdvanceAmount = $advanceItems->sum('orgAmount');
             foreach ($advanceItems as $advanceItem) {
-                // Get the voucher document date and created_at time for advance
-                $documentDate = $advanceItem->voucher->document_date; // Format: 'Y-m-d'
-                $createdAt = $advanceItem->voucher->created_at;       // Format: 'Y-m-d H:i:s'
+                $documentDate = $advanceItem->voucher->document_date;
+                $createdAt = $advanceItem->voucher->created_at;
                 $advanceDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $documentDate . ' ' . date('H:i:s', strtotime($createdAt)));
-
                 $vendorDateTimestamp = $advanceDateTime ? $advanceDateTime->getTimestamp() : null;
-
-                // Store remaining advance for this specific date in the array
                 if ($vendorDateTimestamp) {
-                    $totAdvancesByDate[$vendorDateTimestamp] = (int) $advanceItem->orgAmount;
-                    $remainingAdvancesByDate[$vendorDateTimestamp] = (int) $advanceItem->orgAmount;
+                    $remainingAdvancesByDate[$vendorDateTimestamp] = (int)$advanceItem->orgAmount;
                 }
             }
-
-
-
-            // Loop through the results
+    
             foreach ($result as $index => &$res) {
-
                 $bucket = self::get_bucket_ages($res['diff_days'], $ages_all);
-                // Get the result document date and created_at time
-                $docDateInput = Carbon::createFromFormat('d-m-Y', $res['document_date'])->format('Y-m-d'); // Format: 'd-m-Y'
-
-                $createdTimeInput = $res['created_at']; // Format: 'Y-m-d H:i:s'
-
-                // Extract the time part from created_at
+                $docDateInput = Carbon::createFromFormat('d-m-Y', $res['document_date'])->format('Y-m-d');
+                $createdTimeInput = $res['created_at'];
                 $timeFromCreated = date('H:i:s', strtotime($createdTimeInput));
-
-                // Combine and create DateTime object for result
                 $resDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $docDateInput . ' ' . $timeFromCreated);
                 $resDateTimestamp = $resDateTime ? $resDateTime->getTimestamp() : null;
-
-
-                // Check if the result date is before the advance date
-
-                // Reset bucketTotalDeducted before each advance deduction
+    
                 $filtered = array_filter(
                     $remainingAdvancesByDate,
                     fn($v, $k) => $k < $resDateTimestamp && $v > 0,
                     ARRAY_FILTER_USE_BOTH
                 );
-
+    
                 if (!empty($filtered) && $res[$bucket] > 0) {
                     foreach ($filtered as $advanceDate => $advanceAmount) {
-                        if ($res[$bucket] <= 0) {
-                            break; // stop once there's nothing left to deduct
-                        }
-
-                        // Deduct the smaller between the available advance and the bucket amount
+                        if ($res[$bucket] <= 0) break;
                         $deductAmount = min($advanceAmount, $res[$bucket]);
                         $res[$bucket] -= $deductAmount;
                         $remainingAdvancesByDate[$advanceDate] -= $deductAmount;
@@ -1127,28 +1456,23 @@ class CrDrReportController extends Controller
                 }
             }
         }
-        //dd($remainingAdvancesByDate,$totAdvancesByDate);
-
-
-
-
-
-
+    
+        // Final overdue calculation
         foreach ($result as &$res) {
-            $creditDays = $credit_days ?? 0; // Ensure credit_days exists
+            $creditDays = $credit_days ?? 0;
             $dueDate = date('d-m-Y', strtotime("+$creditDays days", strtotime($res['document_date'])));
             $today = date('d-m-Y');
-
             $overdue = (strtotime($today) > strtotime($dueDate)) ? $res['total_outstanding'] : 0;
-            $overdueDays = (strtotime($today) > strtotime($res['document_date'])) ? floor((strtotime($today) - strtotime($res['document_date'])) / (60 * 60 * 24)) : 0;
+            $overdueDays = (strtotime($today) > strtotime($res['document_date']))
+                ? floor((strtotime($today) - strtotime($res['document_date'])) / (60 * 60 * 24))
+                : 0;
             $res['overdue'] = $overdue;
-            $res['overdue_days'] = ($res['total_outstanding'] > 0) ? (int) $overdueDays : "-";
+            $res['overdue_days'] = ($res['total_outstanding'] > 0) ? (int)$overdueDays : "-";
         }
-        if ($details)
-            return $result;
-        else
-            return array_sum(array_column($result, $sum_column));
+    
+        return $details ? $result : array_sum(array_column($result, $sum_column));
     }
+    
 
 
     function get_bucket($diffDays)
@@ -1167,122 +1491,291 @@ class CrDrReportController extends Controller
             return 'days_above_180';
         }
     }
+    // public static function getLedgerDetails($type, $ledger, $group, Request $request)
+    // {
+    //     $model = $type == 'debit' ? Customer::class : Vendor::class;
+    //     $userData = $model::where('ledger_group_id', $group)
+    //         ->where('ledger_id', $ledger)->first();
+    //     $scheduler = CrDrReportScheduler::where('toable_id', $userData?->id)
+    //         ->where('toable_type', $model)->first();
+
+    //     $cc_users = Helper::getOrgWiseUserAndEmployees(Helper::getAuthenticatedUser()->organization_id);
+
+    //     $userchk = Helper::userCheck();
+
+
+    //     $to_users = $userData?->id;
+    //     $to_user_mail = $userData?->email;
+    //     $to_type = $model;
+
+
+
+
+    //     $start = null;
+    //     $end = null;
+    //     if ($request->date) {
+    //         $dates = explode(' to ', $request->date);
+    //         $start = date('Y-m-d', strtotime($dates[0]));
+    //         $end = isset($dates[1]) && $dates[1] ? date('Y-m-d', strtotime($dates[1])) : $start;
+    //     }
+    //     $loc = null;
+    //     $cost = null;
+    //     $org = null;
+
+    //     if ($request->has('location_id'))
+    //         $loc = $request->location_id;
+
+    //     if ($request->has('cost_center_id'))
+    //         $cost = $request->cost_center_id;
+
+    //     $cost_center_ids = null;
+    //     if (!empty($request->cost_center_id)) {
+    //         $cost_center_ids = $request->cost_center_id ?? null;
+    //         // dd($cost_center_ids);
+    //     } elseif (!empty($request->cost_group_id)) {
+    //         $cost_group = CostGroup::with('costCenters')
+    //             ->where('id', $request->cost_group_id)
+    //             ->where('status', 'active')
+    //             ->first();
+
+    //         $cost_center_ids = optional($cost_group->costCenters)->pluck('id')->unique()->all();
+    //         // dd($cost_center_ids);
+    //     }
+    //     if ($request->has('organization_id'))
+    //         $org = array_filter(array_map('intval', explode(',', $request->organization_id)));
+
+
+    //     $organization_id = Helper::getAuthenticatedUser()->organization_id;
+    //     $ages_all = [$request->age0 ?? 30, $request->age1 ?? 60, $request->age2 ?? 90, $request->age3 ?? 120, $request->age4 ?? 180];
+
+    //     $ledger_name = Ledger::find($ledger)?->name;
+    //     $group_name = Group::find($group)?->name;
+
+    //     $credit_days = $model::where('ledger_group_id', $group)
+    //         ->where('ledger_id', $ledger)
+    //         ->value('credit_days');
+    //     $credit_days = $credit_days ?? 0;
+    //     $doc_types = $type === 'debit' ? [ConstantHelper::RECEIPTS_SERVICE_ALIAS, 'Receipt'] : [ConstantHelper::PAYMENTS_SERVICE_ALIAS, 'Payment'];
+    //     $cus_type = $type === 'debit' ? 'customer' : 'vendor';
+
+    //     $vouchers = Voucher::withWhereHas('items', function ($query) use ($cost_center_ids, $ledger, $group, $type) {
+    //         $query->where('ledger_id', $ledger);
+    //         $query->where('ledger_parent_id', $group);
+    //         $query->where($type . '_amt_org', '>', 0);
+    //         $query->when(!is_null($cost_center_ids), function ($q) use ($cost_center_ids) {
+    //             // $q->where('cost_center_id', $cost);
+    //             if (is_array($cost_center_ids)) {
+    //                 $q->whereIn('cost_center_id', $cost_center_ids);
+    //             } else {
+    //                 $q->where('cost_center_id', $cost_center_ids);
+    //             }
+    //         });
+    //     })
+    //         // ->where('organization_id', $organization_id)
+    //         ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED)
+    //         ->when(!is_null($loc), function ($query) use ($loc) {
+    //             $query->where('location', $loc);
+    //         })
+    //         ->when(!is_null($org), function ($query) use ($org) {
+    //             $query->whereIn('organization_id', $org);
+    //         });
+    //     if (!empty($start) && !empty($end)) {
+    //         $vouchers->whereBetween('document_date', [$start, $end]); // Apply filter for document_date
+    //     }
+
+    //     $vouchers = $vouchers->orderBy('document_date', 'asc')
+    //         ->orderBy('created_at', 'asc')
+    //         ->pluck('id')
+    //         ->toArray();
+    //     if ($vouchers)
+    //         $data = self::get_overdue($type, $ages_all, $doc_types, $cus_type, $vouchers, $credit_days, $group, $ledger, 1, $start, $end);
+    //     else
+    //         $data = [];
+
+    //     $data = json_decode(json_encode($data));
+       
+    //     $date = $request->date;
+    //     $date2 = $end ? \Carbon\Carbon::parse($end)->format('jS-F-Y') : \Carbon\Carbon::parse(date('Y-m-d'))->format('jS-F-Y');
+    //     ;
+    //     $user = Helper::getAuthenticatedUser();
+    //     $organizationId = $user->organization_id;
+        
+    //     $companies = Helper::access_org();
+    //     $cost_centers = Helper::getActiveCostCenters();
+    //     $cost_groups = CostGroup::with('costCenters')->where('status', 'active')->get()->toArray();
+    //     $locations = InventoryHelper::getAccessibleLocations();
+       
+    //     return view('finance_report.details', compact('cost_centers', 'companies', 'cost_groups', 'organizationId', 'locations', 'ledger_name', 'scheduler', 'group_name', 'credit_days', 'data', 'cc_users', 'to_users', 'to_user_mail', 'to_type', 'ledger', 'group', 'type', 'date', 'date2'));
+    // }
+
     public static function getLedgerDetails($type, $ledger, $group, Request $request)
     {
         $model = $type == 'debit' ? Customer::class : Vendor::class;
         $userData = $model::where('ledger_group_id', $group)
             ->where('ledger_id', $ledger)->first();
+
         $scheduler = CrDrReportScheduler::where('toable_id', $userData?->id)
             ->where('toable_type', $model)->first();
 
         $cc_users = Helper::getOrgWiseUserAndEmployees(Helper::getAuthenticatedUser()->organization_id);
-
         $userchk = Helper::userCheck();
 
-
-        $to_users = $userData?->id;
+        $to_users     = $userData?->id;
         $to_user_mail = $userData?->email;
-        $to_type = $model;
+        $to_type      = $model;
 
-
-
-
+        // Date filters
         $start = null;
-        $end = null;
+        $end   = null;
         if ($request->date) {
             $dates = explode(' to ', $request->date);
             $start = date('Y-m-d', strtotime($dates[0]));
-            $end = isset($dates[1]) && $dates[1] ? date('Y-m-d', strtotime($dates[1])) : $start;
+            $end   = isset($dates[1]) && $dates[1] ? date('Y-m-d', strtotime($dates[1])) : $start;
         }
-        $loc = null;
-        $cost = null;
-        $org = null;
 
-        if ($request->has('location_id'))
-            $loc = $request->location_id;
+        $loc  = $request->has('location_id') ? $request->location_id : null;
+        $cost = $request->has('cost_center_id') ? $request->cost_center_id : null;
+        $org  = $request->has('organization_id') ? array_filter(array_map('intval', explode(',', $request->organization_id))) : null;
 
-        if ($request->has('cost_center_id'))
-            $cost = $request->cost_center_id;
-
+        // Cost Center IDs (direct or group-wise)
         $cost_center_ids = null;
         if (!empty($request->cost_center_id)) {
             $cost_center_ids = $request->cost_center_id ?? null;
-            // dd($cost_center_ids);
         } elseif (!empty($request->cost_group_id)) {
             $cost_group = CostGroup::with('costCenters')
                 ->where('id', $request->cost_group_id)
                 ->where('status', 'active')
                 ->first();
-
             $cost_center_ids = optional($cost_group->costCenters)->pluck('id')->unique()->all();
-            // dd($cost_center_ids);
         }
-        if ($request->has('organization_id'))
-            $org = array_filter(array_map('intval', explode(',', $request->organization_id)));
-
 
         $organization_id = Helper::getAuthenticatedUser()->organization_id;
-        $ages_all = [$request->age0 ?? 30, $request->age1 ?? 60, $request->age2 ?? 90, $request->age3 ?? 120, $request->age4 ?? 180];
+        $ages_all = [
+            $request->age0 ?? 30,
+            $request->age1 ?? 60,
+            $request->age2 ?? 90,
+            $request->age3 ?? 120,
+            $request->age4 ?? 180
+        ];
 
         $ledger_name = Ledger::find($ledger)?->name;
-        $group_name = Group::find($group)?->name;
+        $group_name  = Group::find($group)?->name;
 
         $credit_days = $model::where('ledger_group_id', $group)
             ->where('ledger_id', $ledger)
-            ->value('credit_days');
-        $credit_days = $credit_days ?? 0;
-        $doc_types = $type === 'debit' ? [ConstantHelper::RECEIPTS_SERVICE_ALIAS, 'Receipt'] : [ConstantHelper::PAYMENTS_SERVICE_ALIAS, 'Payment'];
+            ->value('credit_days') ?? 0;
+
+        $doc_types = $type === 'debit'
+            ? [ConstantHelper::RECEIPTS_SERVICE_ALIAS, 'Receipt']
+            : [ConstantHelper::PAYMENTS_SERVICE_ALIAS, 'Payment'];
+
         $cus_type = $type === 'debit' ? 'customer' : 'vendor';
 
-        $vouchers = Voucher::withWhereHas('items', function ($query) use ($cost_center_ids, $ledger, $group, $type) {
-            $query->where('ledger_id', $ledger);
-            $query->where('ledger_parent_id', $group);
-            $query->where($type . '_amt_org', '>', 0);
-            $query->when(!is_null($cost_center_ids), function ($q) use ($cost_center_ids) {
-                // $q->where('cost_center_id', $cost);
-                if (is_array($cost_center_ids)) {
-                    $q->whereIn('cost_center_id', $cost_center_ids);
-                } else {
-                    $q->where('cost_center_id', $cost_center_ids);
-                }
-            });
+      
+        $voucherQuery = Voucher::withWhereHas('items', function ($query) use ($cost_center_ids, $ledger, $group, $type) {
+            $query->where('ledger_id', $ledger)
+                ->where('ledger_parent_id', $group)
+                ->where($type . '_amt_org', '>', 0)
+                ->when(!is_null($cost_center_ids), function ($q) use ($cost_center_ids) {
+                    if (is_array($cost_center_ids)) {
+                        $q->whereIn('cost_center_id', $cost_center_ids);
+                    } else {
+                        $q->where('cost_center_id', $cost_center_ids);
+                    }
+                });
         })
-            // ->where('organization_id', $organization_id)
-            ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED)
-            ->when(!is_null($loc), function ($query) use ($loc) {
-                $query->where('location', $loc);
-            })
-            ->when(!is_null($org), function ($query) use ($org) {
-                $query->whereIn('organization_id', $org);
-            });
+        ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED)
+        ->when(!is_null($loc), function ($query) use ($loc) {
+            $query->where('location', $loc);
+        })
+        ->when(!is_null($org), function ($query) use ($org) {
+            $query->whereIn('organization_id', $org);
+        });
 
         if (!empty($start) && !empty($end)) {
-            $vouchers->whereBetween('document_date', [$start, $end]); // Apply filter for document_date
+            $voucherQuery->whereBetween('document_date', [$start, $end]);
         }
 
-        $vouchers = $vouchers->orderBy('document_date', 'asc')
+       
+        $voucherIds = $voucherQuery->orderBy('document_date', 'asc')
             ->orderBy('created_at', 'asc')
             ->pluck('id')
             ->toArray();
-        if ($vouchers)
-            $data = self::get_overdue($type, $ages_all, $doc_types, $cus_type, $vouchers, $credit_days, $group, $ledger, 1, $start, $end);
-        else
-            $data = [];
-
-        $data = json_decode(json_encode($data));
-        $date = $request->date;
-        $date2 = $end ? \Carbon\Carbon::parse($end)->format('jS-F-Y') : \Carbon\Carbon::parse(date('Y-m-d'))->format('jS-F-Y');
-        ;
-        $user = Helper::getAuthenticatedUser();
-        $organizationId = $user->organization_id;
         
-        $companies = Helper::access_org();
-        $cost_centers = Helper::getActiveCostCenters();
-        $cost_groups = CostGroup::with('costCenters')->where('status', 'active')->get()->toArray();
-        $locations = InventoryHelper::getAccessibleLocations();
 
-        return view('finance_report.details', compact('cost_centers', 'companies', 'cost_groups', 'organizationId', 'locations', 'ledger_name', 'scheduler', 'group_name', 'credit_days', 'data', 'cc_users', 'to_users', 'to_user_mail', 'to_type', 'ledger', 'group', 'type', 'date', 'date2'));
+        if ($voucherIds) {
+            $data = self::get_overdue(
+                $type,
+                $ages_all,
+                $doc_types,
+                $cus_type,
+                $voucherIds,
+                $credit_days,
+                $group,
+                $ledger,
+                1,
+                $start,
+                $end
+            );
+        } else {
+            $data = [];
+        }
+
+       
+        $data = json_decode(json_encode($data));
+        // dd($data);
+       
+
+       
+        $vouchersWithItems = Voucher::with([
+            'items.ledger',
+            'items.ledger_group',
+            'items.costCenter',
+            'series:id,book_code',
+            'organization',
+            'ErpLocation'
+        ])
+        ->whereIn('id', $voucherIds)
+        ->get();
+
+       
+        $date  = $request->date;
+        $date2 = $end
+            ? \Carbon\Carbon::parse($end)->format('jS-F-Y')
+            : \Carbon\Carbon::parse(date('Y-m-d'))->format('jS-F-Y');
+
+        $user           = Helper::getAuthenticatedUser();
+        $organizationId = $user->organization_id;
+        $companies      = Helper::access_org();
+        $cost_centers   = Helper::getActiveCostCenters();
+        $cost_groups    = CostGroup::with('costCenters')->where('status', 'active')->get()->toArray();
+        $locations      = InventoryHelper::getAccessibleLocations();
+
+        return view('finance_report.details', compact(
+            'cost_centers',
+            'companies',
+            'cost_groups',
+            'organizationId',
+            'locations',
+            'ledger_name',
+            'scheduler',
+            'group_name',
+            'credit_days',
+            'data',
+            'cc_users',
+            'to_users',
+            'to_user_mail',
+            'to_type',
+            'ledger',
+            'group',
+            'type',
+            'date',
+            'date2',
+            'vouchersWithItems' 
+        ));
     }
+
+
     public function addScheduler(Request $request)
     {
         // Validate request data
@@ -1320,6 +1813,7 @@ class CrDrReportController extends Controller
 
         return Response::json(['success' => 'Scheduler Added Successfully!']);
     }
+
     public static function getLedgerDetailsReport($type, $ledger, $group)
     {
         $start = null;
@@ -2022,43 +2516,118 @@ $mappings = DB::table('organizations')
             if ($request->document_no) {
                 $data = $data->where('voucher_no', 'like', "%" . $request->document_no . "%");
             }
+            
+
+            // $data = $data->with([
+            //     'series' => function ($s) {
+            //         $s->select('id', 'book_code');
+            //     }
+            // ])
+            // ->select('id', 'amount', 'book_id', 'document_date as date', 'created_at', 'voucher_name', 'voucher_no', 'location', 'organization_id')
+            // ->orderBy('id', 'desc')
+            // ->get()
+            // ->map(function ($voucher) use ($request, $ledger,$organizations)  {
+            //     $voucher->date = date('d/m/Y', strtotime($voucher->date));
+            //     $voucher->document_date = $voucher->document_date;
+            
+            //     $balance = VoucherReference::where('voucher_id', $voucher->id)
+            //         ->withWhereHas('voucherPayRec', function ($query) use ($organizations,$request) {
+            //             $query->when($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,function ($q){
+            //                 $q->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+            //                 $q->withoutGlobalScope('defaultLocation');
+            //             });
+            //             $query->when(!empty($organizations), function ($query) use ($organizations) {
+            //                 $query->whereIn('organization_id', $organizations);
+            //             });
+            //             $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
+            //         })->where('party_id', $ledger->id);
+            
+               
+            //     $voucher->items->transform(function($item) use ($request) {
+            //         $item->amount = $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS 
+            //             ? $item->credit_amt_org 
+            //             : $item->debit_amt_org;
+                   
+
+            //         $itemBalance = $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS 
+            //             ? $item->credit_amt_org 
+            //             : $item->debit_amt_org;
+
+            //         return $item;
+            //     });
+            
+               
+            //     unset($voucher->amount);
+            
+            //     $balance = $balance->sum('amount');
+            //     $voucher->set = $balance;
+            //     $voucher->balance = ($voucher->items->isNotEmpty() ? $voucher->items->sum('amount') : 0) - $balance;
+            
+            //     return $voucher;
+            // });
 
             $data = $data->with([
                 'series' => function ($s) {
                     $s->select('id', 'book_code');
                 }
             ])
-                ->select('id', 'amount', 'book_id', 'document_date as date', 'created_at', 'voucher_name', 'voucher_no', 'location', 'organization_id')
-                ->orderBy('id', 'desc')
-                ->get()
-                ->map(function ($voucher) use ($request, $ledger,$organizations)  {
-                    $voucher->date = date('d/m/Y', strtotime($voucher->date));
-                    $voucher->document_date = $voucher->document_date;
-
-                    $balance = VoucherReference::where('voucher_id', $voucher->id)
-                        ->withWhereHas('voucherPayRec', function ($query) use ($organizations,$request) {
-                            $query->when($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,function ($q){
-                            $q->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
-                            $q->withoutGlobalScope('defaultLocation');
-                        });
-                            $query->when(!empty($organizations), function ($query) use ($organizations) {
+            ->select(
+                'id',
+                'book_id',
+                'document_date as date',
+                'created_at',
+                'voucher_name',
+                'voucher_no',
+                'location',
+                'organization_id'
+            )
+            ->orderBy('id', 'desc')
+            ->get()
+            ->map(function ($voucher) use ($request, $ledger, $organizations) {
+                $voucher->date = date('d/m/Y', strtotime($voucher->date));
+                $voucher->document_date = $voucher->document_date;
+            
+                // 🔹 पहले voucher का total settlement निकालो
+                $settled = VoucherReference::where('voucher_id', $voucher->id)
+                    ->withWhereHas('voucherPayRec', function ($query) use ($organizations, $request) {
+                        $query->when(
+                            $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,
+                            function ($q) {
+                                $q->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+                                $q->withoutGlobalScope('defaultLocation');
+                            }
+                        );
+                        $query->when(!empty($organizations), function ($query) use ($organizations) {
                             $query->whereIn('organization_id', $organizations);
                         });
-                            $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                        })->where('party_id', $ledger->id);
-
-                    $amount = 0;
-                    foreach ($voucher->items as $item) {
-                        $amount += $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS ? $item->credit_amt_org : $item->debit_amt_org;
-                    }
-
-                    $voucher->amount = $amount;
-                    $balance = $balance->sum('amount');
-                    $voucher->set = $balance;
-                    $voucher->balance = $voucher->amount - $balance;
-
-                    return $voucher;
+                        $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
+                    })
+                    ->where('party_id', $ledger->id)
+                    ->sum('amount');
+            
+                // 🔹 अब हर item को उसका amount और balance assign करो
+                $voucher->items->transform(function ($item) use ($request, $settled) {
+                    $amount = $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS
+                        ? $item->credit_amt_org
+                        : $item->debit_amt_org;
+            
+                    $item->amount  = $amount;
+                    $item->balance = $amount - $settled; // 👈 हर item का अपना balance
+            
+                    return $item;
                 });
+            
+                // voucher-level amount और balance हटाओ
+                unset($voucher->amount);
+                unset($voucher->balance);
+            
+                // voucher-level पर सिर्फ total settled रखो
+                $voucher->set = $settled;
+            
+                return $voucher;
+            });
+            
+            
 
             $advanceSum = PaymentVoucherDetails::where('type', $cus_type)
                 ->whereIn('reference', ['On Account'])
@@ -2117,6 +2686,8 @@ $mappings = DB::table('organizations')
                         // $adv->ledger_group_id == $ledger->ledger_group_id;
                     }
                 });
+
+           
 
             foreach ($advanceItems as $advanceItem) {
                 $remainingAdvanceAmount = $advanceItem->orgAmount;

@@ -414,51 +414,104 @@
                         let html = '';
                         let rowIndex = 1; 
                         $.each(response.data, function(index, voucher) {
+                            console.log("check the voucher",voucher);
+                            
                             // if (!preSelected.includes(voucher.id.toString())) {
-                            if (!preSelected.includes(voucher.id.toString()) && voucher.balance >= 1) {
+                            // if (!preSelected.includes(voucher.id.toString()) && voucher.balance >= 1) {
+                            //     console.log("in the if");
+                                
+                            //     const items = voucher.items || [];
+
+                            //     items.forEach(function(item, i) {
+                            //         console.log("chck the item balance",item);
+                                    
+                            //         num++;
+                            //         const uniqueKey = `${voucher.id}_${num}`;
+                            //         voucherMap[uniqueKey] = {
+                            //             ...voucher,
+                            //             item: item // Also attach the specific item
+                            //         };
+                            //         const amount = parseFloat(item.amount ?? voucher.amount ??
+                            //             0).toFixed(2);
+                            //         const balance = parseFloat(item.balance ?? voucher
+                            //             .balance ?? 0).toFixed(2);
+                            //         const dataAmount = balance;
+
+                            //         const existingSettleAmt = voucherMap[uniqueKey]
+                            //             ?.settle_amt ?? 0;
+                            //         const isChecked = existingSettleAmt > 0;
+                            //         html += `<tr id="${uniqueKey}" class="voucherRows">
+                            //             <td>${rowIndex}</td>
+                            //             <td class="text-nowrap">${voucher.date ?? '-'}</td>
+                            //             <td class="text-nowrap" data-ledger-id="${item.ledger ?? ''}">${item.ledger?.name ?? '-'}</td>
+                            //             <td class="text-nowrap">${item.ledger_group?.name ?? item.ledger?.ledger_group?.name ?? '-'}</td>
+                            //             <td class="text-nowrap">${voucher.organization?.name ?? '-'}</td>
+                            //             <td class="text-nowrap">${voucher.erp_location?.store_name ?? '-'}</td>
+                            //             <td class="text-nowrap">${item.cost_center?.name ?? '-'}</td>
+                            //             <td class="text-nowrap fw-bolder text-dark">${voucher.series?.book_code?.toUpperCase() || '-'}</td>
+                            //             <td class="text-nowrap">${voucher.voucher_no ?? '-'}</td>
+                            //             <td class="text-nowrap text-end">${formatIndianNumber(amount)}</td>
+                            //             <td class="text-nowrap balanceInput text-end">${formatIndianNumber(balance)}</td>
+                            //             <td class="text-end">
+                            //                 <input type="number" style="width:105px" class="form-control text-end mw-100 settleInput settleAmount${uniqueKey}" data-id="${uniqueKey}" value="${existingSettleAmt}"/>
+                            //             </td>
+                            //             <td class="text-center">
+                            //                 <div class="form-check form-check-inline me-2">
+                            //                     <input class="form-check-input vouchers voucherCheck${uniqueKey}" data-id="${uniqueKey}" type="checkbox" name="vouchers" value="${uniqueKey}" data-amount="${dataAmount}"  ${isChecked ? 'checked' : ''}/>
+                            //                 </div>
+                            //             </td>
+                            //         </tr>`;
+
+                            //         rowIndex++;
+                            //     });
+                            // }
+
+                            if (!preSelected.includes(voucher.id.toString())) {
                                 const items = voucher.items || [];
 
                                 items.forEach(function(item, i) {
-                                    num++;
-                                    const uniqueKey = `${voucher.id}_${num}`;
-                                    voucherMap[uniqueKey] = {
-                                        ...voucher,
-                                        item: item // Also attach the specific item
-                                    };
-                                    const amount = parseFloat(item.amount ?? voucher.amount ??
-                                        0).toFixed(2);
-                                    const balance = parseFloat(item.balance ?? voucher
-                                        .balance ?? 0).toFixed(2);
-                                    const dataAmount = balance;
+                                    if (item.balance >= 1) {   // 👈 यहाँ item.balance चेक करो
+                                        num++;
+                                        const uniqueKey = `${voucher.id}_${num}`;
+                                        voucherMap[uniqueKey] = {
+                                            ...voucher,
+                                            item: item // हर item को attach किया
+                                        };
 
-                                    const existingSettleAmt = voucherMap[uniqueKey]
-                                        ?.settle_amt ?? 0;
-                                    const isChecked = existingSettleAmt > 0;
-                                    html += `<tr id="${uniqueKey}" class="voucherRows">
-                                        <td>${rowIndex}</td>
-                                        <td class="text-nowrap">${voucher.date ?? '-'}</td>
-                                        <td class="text-nowrap" data-ledger-id="${item.ledger ?? ''}">${item.ledger?.name ?? '-'}</td>
-                                        <td class="text-nowrap">${item.ledger_group?.name ?? item.ledger?.ledger_group?.name ?? '-'}</td>
-                                        <td class="text-nowrap">${voucher.organization?.name ?? '-'}</td>
-                                        <td class="text-nowrap">${voucher.erp_location?.store_name ?? '-'}</td>
-                                        <td class="text-nowrap">${item.cost_center?.name ?? '-'}</td>
-                                        <td class="text-nowrap fw-bolder text-dark">${voucher.series?.book_code?.toUpperCase() || '-'}</td>
-                                        <td class="text-nowrap">${voucher.voucher_no ?? '-'}</td>
-                                        <td class="text-nowrap text-end">${formatIndianNumber(amount)}</td>
-                                        <td class="text-nowrap balanceInput text-end">${formatIndianNumber(balance)}</td>
-                                        <td class="text-end">
-                                            <input type="number" style="width:105px" class="form-control text-end mw-100 settleInput settleAmount${uniqueKey}" data-id="${uniqueKey}" value="${existingSettleAmt}"/>
-                                        </td>
-                                        <td class="text-center">
-                                            <div class="form-check form-check-inline me-2">
-                                                <input class="form-check-input vouchers voucherCheck${uniqueKey}" data-id="${uniqueKey}" type="checkbox" name="vouchers" value="${uniqueKey}" data-amount="${dataAmount}"  ${isChecked ? 'checked' : ''}/>
-                                            </div>
-                                        </td>
-                                    </tr>`;
+                                        const amount = parseFloat(item.amount ?? 0).toFixed(2);
+                                        const balance = parseFloat(item.balance ?? 0).toFixed(2);
+                                        const dataAmount = balance;
 
-                                    rowIndex++;
+                                        const existingSettleAmt = voucherMap[uniqueKey]?.settle_amt ?? 0;
+                                        const isChecked = existingSettleAmt > 0;
+
+                                        html += `<tr id="${uniqueKey}" class="voucherRows">
+                                            <td>${rowIndex}</td>
+                                            <td class="text-nowrap">${voucher.date ?? '-'}</td>
+                                            <td class="text-nowrap" data-ledger-id="${item.ledger ?? ''}">${item.ledger?.name ?? '-'}</td>
+                                            <td class="text-nowrap">${item.ledger_group?.name ?? item.ledger?.ledger_group?.name ?? '-'}</td>
+                                            <td class="text-nowrap">${voucher.organization?.name ?? '-'}</td>
+                                            <td class="text-nowrap">${voucher.erp_location?.store_name ?? '-'}</td>
+                                            <td class="text-nowrap">${item.cost_center?.name ?? '-'}</td>
+                                            <td class="text-nowrap fw-bolder text-dark">${voucher.series?.book_code?.toUpperCase() || '-'}</td>
+                                            <td class="text-nowrap">${voucher.voucher_no ?? '-'}</td>
+                                            <td class="text-nowrap text-end">${formatIndianNumber(amount)}</td>
+                                            <td class="text-nowrap balanceInput text-end">${formatIndianNumber(balance)}</td>
+                                            <td class="text-end">
+                                                <input type="number" style="width:105px" class="form-control text-end mw-100 settleInput settleAmount${uniqueKey}" data-id="${uniqueKey}" value="${existingSettleAmt}"/>
+                                            </td>
+                                            <td class="text-center">
+                                                <div class="form-check form-check-inline me-2">
+                                                    <input class="form-check-input vouchers voucherCheck${uniqueKey}" data-id="${uniqueKey}" type="checkbox" name="vouchers" value="${uniqueKey}" data-amount="${dataAmount}" ${isChecked ? 'checked' : ''}/>
+                                                </div>
+                                            </td>
+                                        </tr>`;
+
+                                        rowIndex++;
+                                    }
                                 });
                             }
+
                         });
                         const rows = $.parseHTML(html).filter(el => el.nodeName === "TR");
                         rows.forEach(row => table.row.add(row));
