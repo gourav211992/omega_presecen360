@@ -26,7 +26,10 @@ class UserAuthenticate
         // Auth::guard('web')->login(User::find(2));
         // auth() -> user() -> authenticable_type = $authUser->authenticable_type;
         // auth() -> user() -> auth_user_id = $authUser->id;
+        $user = AuthUser::find(1);
+        $request->setUserResolver(fn () => $user);
 
+        return $next($request);
 
         $returnUrl = $request->fullUrl();
 
