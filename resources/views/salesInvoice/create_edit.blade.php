@@ -58,6 +58,7 @@
                                 @endif
                                 <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                                     @php
+                                        $options = [];
                                         if($order->document_type == "si"){
                                             $options=['Tax Invoice', 'Tax Invoice Attribute Grouped'];
                                         }
@@ -75,14 +76,16 @@
                                             $options = ['Tax Invoice'];
                                         }
                                          else if ($order->document_type == "ti"){
-
                                             $options = ['Lorry Receipt'];
+                                        }
+                                        if (isset($einvoice) && $einvoice->ewb_url) {
+                                            $options[]='E Way Bill';
                                         }
 
                                     @endphp
                                     @foreach ($options as $key)
                                         <li>
-                                            <a class="dropdown-item" href="{{ route('sale.invoice.generate-pdf', [$order->id, $key, 'type' => str_contains($key, 'Attribute Grouped') ? 'grouped' : '']) }}" target="_blank">{{ $key }}</a>
+                                            <a class="dropdown-item" href="{{ $key == 'E Way Bill' ? $einvoice->ewb_url : route('sale.invoice.generate-pdf', [$order->id, $key, 'type' => str_contains($key, 'Attribute Grouped') ? 'grouped' : '']) }}" target="_blank">{{ $key }}</a>
                                         </li>
                                     @endforeach
                                 </ul>
@@ -420,7 +423,8 @@
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Consignee Name</label>
-                                                            <input type="text" class="form-control ledgerselecct ui-autocomplete-input" autocomplete="off"  id = "consignee_name_input" name = "consignee_name" value = "{{isset($order) ? $order -> consignee_name : ''}}" />
+                                                            <input type="text" class="form-control ledgerselecct ui-autocomplete-input" autocomplete="off"  id = "consignee_name_input" name = "consignee_name" value = "{{isset($order) ? $order -> consignee_name : ''}}" onblur = "onChangeConsignee('consignee_name_input', true)"  />
+                                                            <input type = "hidden" name = "consignee_id" id = "consignee_id_input" value = "{{isset($order) ? $order -> consignee_id : ''}}"></input>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-3">
@@ -1858,7 +1862,7 @@
 
                      <div class="row mt-2">
                         <div class = "col-md-12 mb-1">
-                        <select class="select2 form-select vendor_dependent" id = "shipping_address_dropdown" name = "shipping_address" oninput = "onShippingAddressChange(this);">
+                        <select class="select2 form-select vendor_dependent consignee_dependent" id = "shipping_address_dropdown" name = "shipping_address" oninput = "onShippingAddressChange(this);">
                                                                         @if (isset($order) && isset($shipping_addresses))
                                                                             @foreach ($shipping_addresses as $shipping_address)
                                                                                 <option value = "{{$shipping_address -> value}}" {{$order -> shipping_to === $shipping_address -> id}}>{{$shipping_address -> label}}</option>
@@ -1870,7 +1874,7 @@
                         </div>
                        <div class="col-md-6 mb-1">
 							<label class="form-label">Country <span class="text-danger">*</span></label>
-							<select class="select2 form-select" id = "shipping_country_id_input"  onchange = "changeDropdownOptions(this, ['shipping_state_id_input'], ['states'], '/states/', null, ['shipping_city_id_input'])">
+							<select class="select2 form-select" id = "shipping_country_id_input" disabled onchange = "changeDropdownOptions(this, ['shipping_state_id_input'], ['states'], '/states/', null, ['shipping_city_id_input'])">
 								@foreach ($countries as $country)
                                     <option value = "{{$country -> value}}">{{$country -> label}}</option>
                                 @endforeach
@@ -1880,25 +1884,25 @@
 
 						<div class="col-md-6 mb-1">
 							<label class="form-label">State <span class="text-danger">*</span></label>
-							<select class="select2 form-select" id = "shipping_state_id_input"  onchange = "changeDropdownOptions(this, ['shipping_city_id_input'], ['cities'], '/cities/', null, [])">
+							<select class="select2 form-select" id = "shipping_state_id_input" disabled  onchange = "changeDropdownOptions(this, ['shipping_city_id_input'], ['cities'], '/cities/', null, [])">
 							</select>
 						</div>
 
                          <div class="col-md-6 mb-1">
 							<label class="form-label">City <span class="text-danger">*</span></label>
-							<select class="select2 form-select" name = "shipping_city_id" id = "shipping_city_id_input">
+							<select class="select2 form-select" name = "shipping_city_id" disabled id = "shipping_city_id_input">
 							</select>
 						</div>
 
 
 						<div class="col-md-6 mb-1">
 							<label class="form-label w-100">Pincode <span class="text-danger">*</span></label>
-							<input type="text" class="form-control" value="" placeholder="Enter Pincode" name ="shipping_pincode" id = "shipping_pincode_input"/>
+							<input type="text" class="form-control" disabled value="" placeholder="Enter Pincode" name ="shipping_pincode" id = "shipping_pincode_input"/>
 						</div>
 
 						<div class="col-md-12 mb-1">
 							<label class="form-label">Address <span class="text-danger">*</span></label>
-							<textarea class="form-control" placeholder="Enter Address" name = "shipping_address_text" id = "shipping_address_input"></textarea>
+							<textarea class="form-control" placeholder="Enter Address" name = "shipping_address_text" disabled id = "shipping_address_input"></textarea>
 						</div>
 
                     </div>
@@ -1909,7 +1913,7 @@
 
 				<div class="modal-footer justify-content-center">
 						<button type="button" class="btn btn-outline-secondary me-1">Cancel</button>
-                        <button type="button" onclick = "saveAddressShipping();" class="btn btn-primary">Submit</button>
+                        <button type="button" disabled class="btn btn-primary">Submit</button>
 				</div>
 			</div>
 		</div>
@@ -3653,7 +3657,53 @@
         });
     }
 
+    function initializeAutocompleteConsignee(selector) {
+        $("#" + selector).autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "{{ route('sales.autoComplete.customer.consignee') }}",
+                    method: 'GET',
+                    dataType: 'json',
+                    data: {
+                        q: request.term,
+                    },
+                    success: function(data) {
+                        response($.map(data, function(item) {
+                            return {
+                                id: item.id,
+                                label: `${item.consignee_name}`,
+                            };
+                        }));
+                    },
+                    error: function(xhr) {
+                        console.error('Error fetching customer data:', xhr.responseText);
+                    }
+                });
+            },
+            minLength: 0,
+            select: function(event, ui) {
+                var $input = $(this);
+                
+                $input.val(ui.item.label);
+                document.getElementById('consignee_id_input').value = ui.item.id;
+                onChangeConsignee('consignee_name_input');
+                return false;
+            },
+            change: function(event, ui) {
+                if (!ui.item) {
+                    $(this).val("");
+                    $("#consignee_name_input").val("");
+                }
+            }
+        }).focus(function() {
+            if (this.value === "") {
+                $(this).autocomplete("search", "");
+            }
+        });
+    }
+
     initializeAutocompleteCustomer('customer_code_input');
+    initializeAutocompleteConsignee('consignee_name_input');
 
     function checkItemAddValidation()
     {
@@ -3837,6 +3887,7 @@
                         $("#customer_id_input").val(currentOrder.customer_id);
                         $("#customer_code_input_hidden").val(currentOrder.customer?.company_name);
                         $("#consignee_name_input").val(currentOrder.consignee_name);
+                        $("#consignee_id_input").val(currentOrder?.consignee_id);
                         $("#customer_phone_no_input").val(currentOrder.customer_phone_no);
                         $("#customer_email_input").val(currentOrder.customer_email);
                         $("#customer_gstin_input").val(currentOrder.customer_gstin);
@@ -3882,12 +3933,22 @@
                         // $("#transporter_mode_input").val(currentOrder?.transportation_mode);
                         $("#vehicle_no_input").val(currentOrder.vehicle_no);
                         $("#lr_number_input").val(currentOrder?.lr_number);
-                        let transporterModeInput = currentOrder?.transportation_mode;
+                        let transporterModeInput = currentOrder?.eway_bill_master_id;
                         if (transporterModeInput) {
-                            $("#transporter_mode_input option")
-                            .filter(function() { return $(this).text() === transporterModeInput; })
-                            .prop("selected", true);
+                            $("#transporter_mode_input").val(transporterModeInput)
                         }
+
+                        $("#current_shipping_address_id").val(currentOrder.shipping_address_details?.id);
+                        $("#current_billing_address_id").val(currentOrder.billing_address_details?.id);
+                        //Main IDs
+                        var newOptionBilling = new Option(currentOrder.billing_address_details?.address, currentOrder.billing_address_details?.id, false, false);
+                        $('#billing_address_dropdown').append(newOptionBilling);
+                        $("#billing_address_dropdown").val(currentOrder.billing_address_details?.id);
+
+                        var newOptionShipping = new Option(currentOrder.shipping_address_details?.address, currentOrder.shipping_address_details?.id, false, false);
+                        $('#shipping_address_dropdown').append(newOptionShipping);
+                        $("#shipping_address_dropdown").val(currentOrder.shipping_address_details?.id);
+
 
                             const locationElement = document.getElementById('store_id_input');
                             if (locationElement) {
@@ -4143,7 +4204,7 @@
 
                             disableHeader();
 
-                            changeDropdownOptions(document.getElementById('customer_id_input'), ['billing_address_dropdown','shipping_address_dropdown'], ['billing_addresses', 'shipping_addresses'], '/customer/addresses/', 'vendor_dependent', [], [{key : 'phone_no', value : currentOrder?.customer_phone_no}]);
+                            // changeDropdownOptions(document.getElementById('customer_id_input'), ['billing_address_dropdown','shipping_address_dropdown'], ['billing_addresses', 'shipping_addresses'], '/customer/addresses/', 'vendor_dependent', [], [{key : 'phone_no', value : currentOrder?.customer_phone_no}]);
 
                             // $("#shipping_address_dropdown").select2();
                             // $("#shipping_address_dropdown").prop('disabled', false);

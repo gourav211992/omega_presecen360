@@ -543,24 +543,34 @@
             {{-- Row for images --}}
             @php
                 $images = $bom->getDocuments()->filter(fn($doc) => Str::contains($doc->mime_type, 'image'))->values();
-            @endphp
+           @endphp
 
             @foreach ($images as $index => $image)
                 @if ($index % 2 === 0)
                     <tr>
                 @endif
+                   @php
+                       // Get the local storage path instead of the public URL
+                       $path = $image->getDocumentUrl($image);
+                       $relativePath = str_replace('/storage/', '', $path);
+                       $fullPath = storage_path('app/public/' . $relativePath);
+                       // dd($fullPath);
+                        $data = file_exists($fullPath) ? file_get_contents($fullPath) : '';
+                        $imgType = pathinfo($path, PATHINFO_EXTENSION);
+                        $base64 = $data ? 'data:image/' . $imgType . ';base64,' . base64_encode($data) : '';
+                    @endphp
 
                 @if (($index === $images->count() - 1) && ($images->count() % 2 !== 0))
                     {{-- Last single image spans full row --}}
                     <td colspan="2" style="padding: 3px; border: 1px solid #000; border-top: none; text-align: center; vertical-align: middle;">
-                        <img src="{{ $bom->getPdfDocumentUrl($image) }}"
+                        <img src="{{ substr($base64, 0, 50) !== 'data:image/;base64,' ? $base64 : '' }}"
                             alt="Image : {{ $image->name }}"
                             style="max-width: 100%; height: auto; max-height: 150px;">
                     </td>
                 @else
                     {{-- Normal two-per-row --}}
                     <td style="padding: 3px; border: 1px solid #000; border-top: none; text-align: center; width: 50%; vertical-align: middle;">
-                        <img src="{{ $bom->getPdfDocumentUrl($image) }}"
+                        <img src="{{ substr($base64, 0, 50) !== 'data:image/;base64,' ? $base64 : '' }}"
                             alt="Image : {{ $image->name }}"
                             style="max-width: 100%; height: auto; max-height: 150px;">
                     </td>

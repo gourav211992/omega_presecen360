@@ -1127,7 +1127,8 @@ class ErpProductionSlipController extends Controller
                 DB::commit();
 
                 $module = "Production slip";
-                $docStatus = $request->document_status;
+                // $docStatus = $request->document_status;
+                $docStatus = 'updated';
                 return response() -> json([
                     'message' => $module .  " $docStatus successfully",
                     'redirect_url' => route('production.slip.index')

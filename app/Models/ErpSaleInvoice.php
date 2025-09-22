@@ -47,6 +47,7 @@ class ErpSaleInvoice extends Model
         'customer_gstin',
         'customer_code',
         'consignee_name',
+        'consignee_id',
         'consignment_no',
         'eway_bill_master_id',
         'eway_bill_no',

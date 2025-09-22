@@ -44,6 +44,7 @@ class ErpSaleOrder extends Model
         'customer_gstin',
         'customer_code',
         'consignee_name',
+        'consignee_id',
         'billing_address',
         'shipping_address',
         'currency_id',

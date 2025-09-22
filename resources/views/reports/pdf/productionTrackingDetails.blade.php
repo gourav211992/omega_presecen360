@@ -122,13 +122,15 @@
     <table style="width:100%; border-collapse:collapse; margin-top:6px;">
     
         <tr>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Sr. No.</th>
+          {{-- <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Sr. No.</th> --}}
           <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">MO No.</th>
           <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">MO Date</th>
           <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">MO Qty</th>
           <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Sub Store</th>
           <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Station</th>
           <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Type</th>
+          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Item Code</th>
+          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Item Name</th>
           <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">PSLIP No.</th>
           <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">PSLIP Date</th>
           <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Produced Qty</th>
@@ -140,13 +142,15 @@
    
         @foreach($get as $keys=>$r)
           <tr>
-            <td style="border:1px solid #000; text-align:center;">{{ $keys+1 }}</td>
+            {{-- <td style="border:1px solid #000; text-align:center;">{{ $keys+1 }}</td> --}}
             <td style="border:1px solid #000;">{{ $r->book_code }}-{{ $r->document_number }}</td>
             <td style="border:1px solid #000;">{{ date('d-m-Y',strtotime($r->document_date)) }}</td>
             <td style="border:1px solid #000; text-align:right;">{{ $r->mo_product_qty }}</td>
             <td style="border:1px solid #000;">{{ $r->sub_store_name }}</td>
             <td style="border:1px solid #000;">{{ $r->station_name }}</td>
             <td style="border:1px solid #000;">{{ $r->type }}</td>
+            <td style="border:1px solid #000;">{{ $r->item_code }}</td>
+            <td style="border:1px solid #000;">{{ $r->item_name }}</td>
             <td style="border:1px solid #000;">{{ $r->pslip_book_code }}-{{ $r->pslip_document_number }}</td>
             <td style="border:1px solid #000;">{{ date('d-m-Y',strtotime($r->pslip_document_date)) }}</td>
             <td style="border:1px solid #000; text-align:right;">{{ $r->qty? $r->qty : 0}}</td>

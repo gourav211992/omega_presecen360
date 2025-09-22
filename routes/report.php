@@ -8,8 +8,9 @@ Route::middleware(['user.auth'])->group(function () {
     // Report for BOM vs Actual
     Route::get('/bom-vs-actual', [ProductionReportController::class, 'bomVsActualReport'])->name('bomVsActual.report');
     Route::get('/bom-vs-actual/download', [ProductionReportController::class, 'downloadBomVsActualWithOutfile'])->name('bomVsActual.download');
-    
-    
+
+    Route::get('/getWithoutAttributesBom', [ProductionReportController::class, 'getWithoutAttributesBom'])->name('getWithoutAttributes');
+
     // Report for Production Tracking
     Route::prefix('production-tracking')->group(function(){
         

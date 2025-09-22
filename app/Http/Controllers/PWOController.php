@@ -262,11 +262,20 @@ class PWOController extends Controller
                         if($productionRoute) {
                             $productionStations = $productionRoute->details()->orderBy('level', 'asc')->get();
                         }
+                        // dd($productionStations);
                         foreach($productionStations as $productionStation) {
+                            if(!$productionStation?->productionLevel?->level) {
+                                    DB::rollBack();
+                                    return response()->json([
+                                            'message' => 'Invalid Production Station.',
+                                            'error' => "",
+                                        ], 422);
+                            }
                             $pwoStationConsum = PwoStationConsumption::where('pwo_mapping_id', $pwoSoMapping->id)
                                                     ->where('station_id', $productionStation->station_id)
                                                     ->first() ?? new PwoStationConsumption;
                             $pwoStationConsum->pwo_mapping_id = $pwoSoMapping->id;
+                            $pwoStationConsum->pwo_id = $mo->id;
                             $pwoStationConsum->station_id = $productionStation->station_id;
                             $pwoStationConsum->level = $productionStation?->productionLevel?->level;
                             $pwoStationConsum->mo_product_qty = 0;
@@ -361,10 +370,8 @@ class PWOController extends Controller
                          $moItemAttr->item_id = $groupedData->item_id;
                          $moItemAttr->item_code = $groupedData->item_code;
                          $moItemAttr->item_attribute_id = $moItemAttribute['attribute_id'];
-                        //  $moItemAttr->attribute_name = $moItemAttribute['attribute_group_name'];
                          $moItemAttr->attribute_id = $moItemAttribute['attribute_value'];
                          $moItemAttr->attribute_group_id = $moItemAttribute['attribute_name'];
-                        //  $moItemAttr->attribute_value = $moItemAttribute['attribute_name'];
                          $moItemAttr->save();
                      }
 
@@ -895,6 +902,7 @@ class PWOController extends Controller
                                                     ->where('station_id', $productionStation->station_id)
                                                     ->first() ?? new PwoStationConsumption;
                             $pwoStationConsum->pwo_mapping_id = $pwoSoMapping?->id;
+                            $pwoStationConsum->pwo_id = $pwoSoMapping?->pwo_id;
                             $pwoStationConsum->station_id = $productionStation->station_id;
                             $pwoStationConsum->level = $productionStation?->productionLevel?->level;
                             if(!$pwoStationConsum) {
@@ -1359,6 +1367,9 @@ class PWOController extends Controller
                 ->when($request->book_id, function ($bookQuery) use ($request) {
                     $bookQuery->where('book_id', $request->book_id);
                 })
+                ->when($request->series_id, function ($bookQuery) use ($request) {
+                    $bookQuery->where('book_id', $request->series_id);
+                })
                 ->when($storeId, function ($query) use ($storeId) {
                     $query->where('store_id', $storeId);
                 })
@@ -1507,7 +1518,12 @@ class PWOController extends Controller
                     if(count($items) > 1) {
                         $fg['attribute'] = [];
                     }
-                    $grouped[$soId] = [
+                    // $grouped[$soId] = [
+                    //     'semi_finished_goods' => [
+                    //         'fg' => $fg
+                    //     ]
+                    // ];
+                    $grouped[$items[0]['so_item_id']] = [
                         'semi_finished_goods' => [
                             'fg' => $fg
                         ]
@@ -1687,4 +1703,70 @@ class PWOController extends Controller
             ], 500);
         }
     }
+      public function setPwoAttributes(){
+      
+      $groupedDatas = DB::table('erp_pwo_bom_mapping')->selectRaw('pwo_id, so_id, item_id, item_code, uom_id, attributes, SUM(qty) as total_qty')
+                //  ->where('pwo_id', 236)
+                 ->groupBy('pwo_id', 'so_id', 'item_id', 'item_code', 'uom_id', 'attributes')
+                 ->get();
+
+        foreach ($groupedDatas as $groupedData) {
+            $moItem = DB::table('erp_pwo_items')
+                    ->where('pwo_id', $groupedData->pwo_id)
+                    ->where('so_id', $groupedData->so_id)
+                    ->where('item_id', $groupedData->item_id)
+                    ->where('item_code', $groupedData->item_code)
+                    ->where('uom_id', $groupedData->uom_id)
+                    ->where('inventory_uom_id', $groupedData->uom_id)
+                    ->get();
+
+                if (empty($moItem) || count($moItem) == 0) {
+                    continue;
+                }
+
+            $moItemAttributes = $groupedData->attributes 
+                ? json_decode($groupedData->attributes, true) 
+                : [];
+            foreach ($moItem as $moItems) {
+             foreach ($moItemAttributes as $attr) {
+
+                // Check if the attribute already exists
+                $existing = DB::table('erp_pwo_item_attributes')
+                    ->where('pwo_id', $groupedData->pwo_id)
+                    ->where('pwo_item_id', $moItems->id)
+                    ->where('item_id', $groupedData->item_id)
+                    ->where('item_code', $groupedData->item_code)
+                    ->where('item_attribute_id', $attr['attribute_id'] ?? null)
+                    ->first();
+                if($existing) {
+                    continue;
+                }
+
+                // Find an existing record with null fields to update
+
+               $existingAttr = ErpPwoItemAttribute::whereNull('pwo_id')
+                    ->whereNull('pwo_item_id')
+                    ->whereNull('item_id')
+                    ->whereNull('item_attribute_id')
+                    ->whereNull('attribute_id')
+                    ->where('item_code', $groupedData->item_code)
+                    ->where('attribute_group_id', $attr['attribute_name'])
+                    ->first();
+
+                if ($existingAttr) {
+                    $existingAttr->update([
+                        'pwo_id'       => $groupedData->pwo_id,
+                        'pwo_item_id'  => $moItems->id,
+                        'item_id'      => $groupedData->item_id,
+                        'item_attribute_id' => $attr['attribute_id'] ?? null,
+                        'attribute_id'      => $attr['attribute_value'] ?? null,
+                    ]);
+                }
+            }
+        }
+        }
+
+         return 'done';
+   }
+
 }

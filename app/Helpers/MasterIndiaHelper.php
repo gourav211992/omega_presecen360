@@ -872,6 +872,7 @@ class MasterIndiaHelper
                 'ewb_no' => $generateInvoice['results']['message']['EwbNo'],
                 'ewb_date' => $generateInvoice['results']['message']['EwbDt'],
                 'ewb_valid_till' => $generateInvoice['results']['message']['EwbValidTill'],
+                'ewb_url' => $generateInvoice['results']['message']['EwaybillPdf'],
                 'status' => $generateInvoice['results']['message']['Status'],
                 'remarks' => $generateInvoice['results']['message']['Remarks'],
                 'type' => 'IRN'

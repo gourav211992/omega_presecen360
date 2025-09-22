@@ -80,7 +80,8 @@
                         </div>
                         <div class="col-md-6 ">
                             <label for="percentage" class="form-label">Percentage </label>
-                            <input type="number" class="form-control" id="percentage" name="perc" step="0.01">
+                            <input type="number" class="form-control" id="percentage" name="perc" step="0.01" max="100" min="0">
+                            <div id="error-msg" style="color:red; display:none;">Value cannot exceed 100.</div>
                         </div>
                         <div class="col-md-6  d-flex align-items-center">
                             <div class="form-check" style="margin-top: 25px;">
@@ -444,6 +445,20 @@ $(document).on('change', '#ledger_group_name_0', function() {
     var selectedOption = $(this).find('option:selected');
     var groupId = selectedOption.val();
     $('#ledger_group_id_0').val(groupId);
+});
+
+const input = document.getElementById('percentage');
+const errorMsg = document.getElementById('error-msg');
+
+input.addEventListener('input', function() {
+  if (this.value > 100) {
+    errorMsg.style.display = 'block';
+    this.setCustomValidity('Value cannot exceed 100.');
+     this.value = 100;
+  } else {
+    errorMsg.style.display = 'none';
+    this.setCustomValidity('');
+  }
 });
 </script>
 @endsection

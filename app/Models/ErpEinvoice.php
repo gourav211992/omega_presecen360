@@ -24,6 +24,7 @@ class ErpEinvoice extends Model
         'ewb_no',
         'ewb_date',
         'ewb_valid_till',
+        'ewb_url',
         'status',
         'ewb_status',
         'Cancel_date',

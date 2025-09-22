@@ -111,10 +111,13 @@ class MoDeleteService
                 $pwoStation->save();
             }
                 $minQty = PwoStationConsumption::where('pwo_mapping_id', $moProductItem->pwoMapping->id)->min('mo_product_qty');
-                $deductQty = $minQty?? $moProductItem->qty;
-
+                // $deductQty = $minQty?? $moProductItem->qty;
+                if($minQty&&$minQty>=0){
+                    $moProductItem->pwoMapping->mo_product_qty = $minQty;
+                }else{
+                    $moProductItem->pwoMapping->mo_product_qty = $moProductItem->qty;
+                }
                 $moProductItem->pwoMapping->mo_id = null;
-                $moProductItem->pwoMapping->mo_product_qty -= $deductQty;
                 $moProductItem->pwoMapping->save();
            
             return self::successResponse("PWO Station consumption updated successfully.");

@@ -299,7 +299,12 @@
                                                </div>
                                                @if($approvalHist->created_at)
                                                     <h6>
-                                                        {{ \Carbon\Carbon::parse($approvalHist->created_at)->format('d/m/Y') }} || {{ \Carbon\Carbon::parse($approvalHist->created_at)->format('h.iA') }}
+                                                        @php
+                                                            $istTime = \Carbon\Carbon::parse($approvalHist->created_at)->timezone('Asia/Kolkata');
+                                                            @endphp
+
+                                                            {{ $istTime->format('d/m/Y') }} || {{ $istTime->format('h.iA') }}
+                                                        {{-- {{ \Carbon\Carbon::parse($approvalHist->created_at)->format('d/m/Y') }} || {{ \Carbon\Carbon::parse($approvalHist->created_at)->format('h.iA') }} --}}
                                                     </h6>
                                                 @endif
                                                 @if($approvalHist->remarks)

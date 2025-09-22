@@ -550,6 +550,7 @@ class ErpSaleOrderController extends Controller
                 $saleOrder -> document_date = $request -> document_date;
                 $saleOrder -> reference_number = $request -> reference_no;
                 $saleOrder -> consignee_name = $request -> consignee_name;
+                $saleOrder -> consignee_id = $request -> consignee_id;
                 $saleOrder -> remarks = $request -> final_remarks;
                 $actionType = $request -> action_type ?? '';
                 //Amend backup
@@ -633,6 +634,7 @@ class ErpSaleOrderController extends Controller
                     'customer_gstin' => $customerGSTIN,
                     'customer_code' => $request -> customer_code,
                     'consignee_name' => $request -> consignee_name,
+                    'consignee_id' => $request -> consignee_id,
                     'billing_address' => null,
                     'shipping_address' => null,
                     'currency_id' => $request -> currency_id,

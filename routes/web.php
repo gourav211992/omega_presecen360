@@ -2440,6 +2440,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('analyze-so-item', 'analyzeSoItem')->name('analyze.so-item');
             Route::post('process-so-item', 'processSoItem')->name('process.so-item');
             Route::get('get-stock', 'getStock')->name('get.stock');
+            Route::get('/update-attributes', 'setPwoAttributes')->name('update.attributes');
         });
 
     //Material Issue

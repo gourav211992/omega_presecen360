@@ -22,6 +22,7 @@ let amendUrl = window.routes.amend;
 let getSeries = window.routes.getSeries;
 let redirectUrl = window.routes.redirectUrl;
 let tripRoute = window.routes.tripRoute;
+let consigneeAddressRoute = window.routes.consigneeAddressRoute;
 // Optional: use them in fetch, axios, etc.
 $('#order_date_input').on('blur', function() {
     if(checkDateRange(this)){
@@ -1998,8 +1999,29 @@ function onChangeCustomer(selectElementId, reset = false)
         const displayAddress = locationElement.options[locationElement.selectedIndex].getAttribute('display-address');
         $("#current_pickup_address").text(displayAddress);
     }
-    //Get Addresses (Billing + Shipping)
-    changeDropdownOptions(document.getElementById('customer_id_input'), ['billing_address_dropdown','shipping_address_dropdown'], ['billing_addresses', 'shipping_addresses'], '/customer/addresses/', 'vendor_dependent');
+    if (!reset && selectedOption.value) {
+        //Get Addresses (Billing + Shipping)
+        changeDropdownOptions(document.getElementById('customer_id_input'), ['billing_address_dropdown','shipping_address_dropdown'], ['billing_addresses', 'shipping_addresses'], '/customer/addresses/', 'vendor_dependent');
+    }
+    if (reset && !selectedOption.value) {
+        //Get Addresses (Billing + Shipping)
+        changeDropdownOptions(document.getElementById('customer_id_input'), ['billing_address_dropdown','shipping_address_dropdown'], ['billing_addresses', 'shipping_addresses'], '/customer/addresses/', 'vendor_dependent');
+    }
+    
+}
+
+function onChangeConsignee(selectElementId, reset = false)
+{
+    const selectedOption = document.getElementById(selectElementId);
+    if (reset && !selectedOption.value) {
+        document.getElementById('consignee_id_input').value = "";
+        //Get Addresses Shipping
+        changeDropdownOptions(document.getElementById('consignee_id_input'), ['shipping_address_dropdown'], ['shipping_addresses'], consigneeAddressRoute + "/", 'consignee_dependent');
+    }
+    if (!reset && selectedOption.value) {
+        changeDropdownOptions(document.getElementById('consignee_id_input'), ['shipping_address_dropdown'], ['shipping_addresses'], consigneeAddressRoute + "/", 'consignee_dependent');
+    }
+    
 }
 
 function changeDropdownOptions(mainDropdownElement, dependentDropdownIds, dataKeyNames, routeUrl, resetDropdowns = null, resetDropdownIdsArray = [], extraKeysForRequest = [])

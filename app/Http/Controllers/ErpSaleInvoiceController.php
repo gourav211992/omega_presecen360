@@ -721,6 +721,7 @@ class ErpSaleInvoiceController extends Controller
                 $saleInvoice -> store_id = $request -> store_id ?? null;
                 $saleInvoice -> store_code = $store ?-> store_code ?? null;
                 $saleInvoice -> consignee_name = $request -> consignee_name;
+                $saleInvoice -> consignee_id = $request -> consignee_id;
                 $saleInvoice -> consignment_no = $request -> consignment_no;
                 $saleInvoice -> vehicle_no = $request -> vehicle_no;
                 $saleInvoice -> lr_number = $request -> lr_number ?? null;
@@ -891,6 +892,7 @@ class ErpSaleInvoiceController extends Controller
                     'customer_phone_no' => $customerPhoneNo,
                     'customer_gstin' => $customerGSTIN,
                     'consignee_name' => $request -> consignee_name,
+                    'consignee_id' => $request -> consignee_id,
                     'consignment_no' => $request -> consignment_no,
                     'vehicle_no' => $request -> vehicle_no,
                     'lr_number' => $request -> lr_number ?? null,
@@ -2314,6 +2316,7 @@ class ErpSaleInvoiceController extends Controller
                             //Customer Details
                             $header -> customer_code = $header -> customer ?-> customer_code;
                             $header -> consignee_name = '';
+                            $header -> consignee_id = null;
                             $header -> currency_code = $header -> currency ?-> short_name;
                             $header -> payment_term_code = $header -> payment_terms ?-> name;
                             //Address details
@@ -2504,6 +2507,7 @@ class ErpSaleInvoiceController extends Controller
                             $header -> customer_code = $item ?-> sale_order ?-> customer_code ?? null;
                             $header -> customer_id = $item ?-> sale_order ?-> customer_id ?? null;
                             $header -> consignee_name = $item ?-> sale_order ?-> consignee_name ?? null;
+                            $header -> consignee_id = $item ?-> sale_order ?-> consignee_id ?? null;
                             $header -> customer_phone_no = $item ?-> sale_order ?-> customer_phone_no ?? null;
                             $header -> customer_phone_no = $item ?-> sale_order ?-> customer_phone_no ?? null;
                             $header -> customer_email = $item ?-> sale_order ?-> customer_email ?? null;
@@ -3489,6 +3493,7 @@ class ErpSaleInvoiceController extends Controller
                 $validUptoObj = DateTime::createFromFormat('d/m/Y h:i:s A', $originalValidUpto);
                 $ewb_date = $ewbDateObj ? $ewbDateObj->format('Y-m-d H:i:s') : null;
                 $ewb_valid_till = $validUptoObj ? $validUptoObj->format('Y-m-d H:i:s') : null;
+                $ewbUrl = isset($message['url']) ? $message['url'] : null;
 
                 $eInvoice = $documentHeader?->irnDetail()?->first();
                 if ($eInvoice) {
@@ -3497,12 +3502,14 @@ class ErpSaleInvoiceController extends Controller
                     $eInvoice->ewb_valid_till = $ewb_valid_till;
                     $eInvoice->status = $data['results']['status'];
                     $eInvoice->type = "Direct Eway Bill";
+                    $eInvoice->ewb_url = $ewbUrl;
                     $eInvoice->save();
                 } else {
                     $documentHeader->irnDetail()->create([
                         'ewb_no' => $message['ewayBillNo'],
                         'ewb_date' => $ewb_date,
                         'ewb_valid_till' => $ewb_valid_till,
+                        'ewb_url' => $ewbUrl,
                         'status' => $data['results']['status'],
                         'type' => 'Direct Eway Bill'
                     ]);

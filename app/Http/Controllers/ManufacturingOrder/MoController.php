@@ -303,10 +303,14 @@ class MoController extends Controller
                                     $pwoStation->save();
                                 }
                                 $minQty = PwoStationConsumption::where('pwo_mapping_id', $moProdDetail->pwoMapping->id)->min('mo_product_qty');
-                                $calQty = $minQty?? $moProdDetail->qty;
+                                    if($minQty&&$minQty>=0){
+                                        $moProdDetail->pwoMapping->mo_product_qty = $minQty;
+
+                                    }else{
+                                        $moProdDetail->pwoMapping->mo_product_qty = $moProdDetail->qty;
+                                    }
 
                                     $moProdDetail->pwoMapping->mo_id = $mo->id;
-                                    $moProdDetail->pwoMapping->mo_product_qty += $calQty;
                                     $moProdDetail->pwoMapping->save();   
                                 
                                 
@@ -837,31 +841,43 @@ class MoController extends Controller
                                 }
 
                                 $minQty = PwoStationConsumption::where('pwo_mapping_id', $moProdDetail->pwoMapping->id)->min('mo_product_qty');
-                                $calQty = $minQty?? ($moProdDetail->qty-$moProdDetail->pwoMapping->mo_product_qty);
-
+                                // $calQty = $minQty?? ($moProdDetail->qty-$moProdDetail->pwoMapping->mo_product_qty);
+                                    if($minQty&&$minQty>=0){
+                                        $moProdDetail->pwoMapping->mo_product_qty = $minQty;
+                                    }else{
+                                        $moProdDetail->pwoMapping->mo_product_qty = $moProdDetail->qty;
+                                    }
                                     $moProdDetail->pwoMapping->mo_id = $mo->id;
-                                    $moProdDetail->pwoMapping->mo_product_qty = $calQty;
                                     $moProdDetail->pwoMapping->save();
                                 
                                 
                             }
+                             
                             $MoBomMapping = MoBomMapping::where('mo_product_id', $moProdDetail->id)->get();
                             foreach ($MoBomMapping as $mapping) {
                                 $mapping->consumption_qty = $mapping->bom_qty * $moProdDetail->qty;
                                 $mapping->save();
-                                $MoItem = MoItem::where('bom_detail_id', $mapping->bom_detail_id)
-                                        ->where('station_id', $mapping->station_id)
-                                        ->where('item_id', $mapping->item_id)
-                                        ->where('uom_id', $mapping->uom_id)
+        
+                            }
+                            $groupedDatas = MoBomMapping::selectRaw('mo_id, so_id, station_id, bom_detail_id, item_id, item_code, uom_id, rm_type, attributes, SUM(consumption_qty) as total_qty')
+                                        ->where('mo_id', $mo->id)
+                                        ->groupBy('mo_id', 'so_id', 'station_id', 'bom_detail_id', 'item_id', 'item_code', 'uom_id', 'rm_type', 'attributes')
+                                        ->get();
+
+                            foreach($groupedDatas as $groupedData) {
+                                 $MoItem = MoItem::where('bom_detail_id', $groupedData->bom_detail_id)
+                                        ->where('station_id', $groupedData->station_id)
+                                        ->where('item_id', $groupedData->item_id)
+                                        ->where('uom_id', $groupedData->uom_id)
                                         ->where('mo_id', $mo->id)
                                         ->first();
                                 if($MoItem) {
-                                    $MoItem->qty = $MoItem->qty + ($mapping->bom_qty * $moProdDetail->qty) - $MoItem->qty;
-                                    $MoItem->inventory_uom_qty = $MoItem->qty;
+                                    $MoItem->qty = $groupedData->total_qty;
+                                    $MoItem->inventory_uom_qty = $groupedData->total_qty;
                                     $MoItem->save();
                                 }
                             }
-                            
+                         
                         }
                         continue;
                     }

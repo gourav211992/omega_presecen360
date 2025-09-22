@@ -217,8 +217,14 @@
                                     data: 'pslip_document_number',
                                     name: 'c.document_number',
                                     render: function (data, type, row) {
-                                        return row.pslip_book_code+' - '+row.pslip_document_number;
-                                    }
+                                            const bookCode = row.pslip_book_code ?? '';        
+                                            const docNumber = row.pslip_document_number ?? '';  
+
+                                            return (bookCode && docNumber) 
+                                                ? `${bookCode} - ${docNumber}` 
+                                                : (bookCode || docNumber || '');
+                                        }
+
                                 }, 
                                 {
                                     data: 'pslip_document_date',

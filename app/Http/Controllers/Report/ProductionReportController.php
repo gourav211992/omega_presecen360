@@ -13,6 +13,9 @@ use App\Http\Controllers\Controller;
 use App\Models\View\BomVsConsumption;
 use App\Models\View\ProductionTracking;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\BomWithoutAttributesExport;
+
 class ProductionReportController extends Controller
 {
         public function bomVsActualReport(Request $request)
@@ -473,7 +476,11 @@ class ProductionReportController extends Controller
             ];
            $pdf = PDF::loadView('reports.pdf.productionTrackingDetails',$data,compact('details','get'));
 
-        $pdf->setOption('isHtml5ParserEnabled', true);
+        // $pdf->setOption('isHtml5ParserEnabled', true);
+         $pdf->setOptions([
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => true, 
+            ]);
         return $pdf->stream(str_replace(' ', '', $title) . '-' . date('Y-m-d') . '.pdf');
 
         }
@@ -498,5 +505,12 @@ class ProductionReportController extends Controller
         }
 
         return view('reports.productionDetails', compact('details'));
+    }
+
+    public function getWithoutAttributesBom(Request $request)
+    {
+
+        $fileName = 'Bom_Without_Attributes_' . now()->format('Y_m_d_His') . '.xlsx';
+        return Excel::download(new BomWithoutAttributesExport, $fileName);
     }
 }

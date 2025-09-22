@@ -647,7 +647,57 @@ document.querySelectorAll('.component-qty').forEach(input => {
     });
 
 });
+@elseif ($bom->document_status == 'draft')
+      document.querySelectorAll('input[name^="components"][name$="[qty]"]').forEach(input => {
+            input.removeAttribute('disabled');
+        });
 
+    /**
+     * Validate a single input against min-value and max-value.
+     * Displays inline error or clears it if valid.
+     */
+    function validateSingleInput(input, { adjustValue = false } = {}) {
+        const min = parseFloat(input.getAttribute('min-value'));
+        const max = parseFloat(input.getAttribute('max-value'));
+        const value = parseFloat(input.value);
+        let error = '';
+
+        if (isNaN(value)) {
+            error = `Enter a valid number (min: ${min}).`;
+            if (adjustValue) input.value = min;
+        } else if (value < min) {
+            error = `Value cannot be less than ${min}.`;
+            if (adjustValue) input.value = min;
+        } else if (value > max) {
+            error = `Value cannot exceed ${max}.`;
+            if (adjustValue) input.value = max;
+        }
+    
+        // Remove old error if exists
+        const oldError = input.nextElementSibling;
+        if (oldError && oldError.classList.contains('error-text')) {
+            oldError.remove();
+        }
+
+        // Add new error if any
+        if (error) {
+            const span = document.createElement('span');
+            span.className = 'error-text';
+            span.textContent = error;
+            input.after(span);
+            return false;
+        }
+
+        return true;
+    }
+
+    // Attach validation to all qty inputs
+    document.querySelectorAll('.component-qty').forEach(input => {
+        input.addEventListener('keyup', function () {
+            validateSingleInput(this); // Live feedback
+        });
+
+    });
 @else
    @if($bom->document_status != 'draft' && $bom->document_status != 'rejected' && $bom->document_status != 'closed' && $bom->document_status != 'posted')
    $(':input').prop('readonly', true);

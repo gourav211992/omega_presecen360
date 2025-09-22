@@ -57,7 +57,7 @@
             <input type="text" id = "item_qty_{{$slipItemIndex}}"  value = "{{$slipItem->qty}}" oninput = "changeItemQty(this, {{$slipItemIndex}});" onblur = "setFormattedNumericValue(this);" name = "item_qty[{{$slipItemIndex}}]" class="form-control mw-100 text-end" />
         </td>
         <td>
-            <input type="text" id = "item_accepted_qty_{{$slipItemIndex}}"  value = "{{$slipItem->accepted_qty}}" oninput = "changeItemQty(this, {{$slipItemIndex}});" onblur = "setFormattedNumericValue(this);" name = "item_accepted_qty[{{$slipItemIndex}}]" class="form-control mw-100 text-end approver-can-edit" />
+            <input type="text" id = "item_accepted_qty_{{$slipItemIndex}}"  value = "{{$slipItem->accepted_qty}}" oninput = "changeItemQty(this, {{$slipItemIndex}});" onblur = "setFormattedNumericValue(this);" name = "item_accepted_qty[{{$slipItemIndex}}]" class="form-control mw-100 text-end" />
         </td>
         {{-- @if($slipItem?->mo_product?->mo?->is_last_station) --}}
         <td>
