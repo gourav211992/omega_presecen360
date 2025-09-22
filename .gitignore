@@ -28,6 +28,10 @@ storage
 /storage/*
 !/storage/.gitignore
 
+*.zip
+/*.zip
+/public/*.zip
+vendor.zip
 
 # Ignore configuration files
 /config/database.php
