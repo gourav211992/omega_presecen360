@@ -39,11 +39,11 @@ class NumberHelper
      * Returns original value if not numeric.
      *
      * @param mixed $value The value to format
-     * @param bool $round Whether to round (true) or just format (false)
+     * @param bool $roundUptoNext Whether to round up to next decimal (true) or just format normally
      * @param int $decimals Number of decimal places
      * @return mixed
      */
-    public static function formatDecimal($value, bool $round = true, int $decimals = 2)
+    public static function formatDecimal($value, bool $roundUptoNext = true, int $decimals = 2)
     {
         if (!is_numeric($value)) {
             return $value;
@@ -51,8 +51,9 @@ class NumberHelper
 
         $numericValue = (float) $value;
 
-        if ($round) {
-            return number_format(round($numericValue, $round), $decimals, '.', '');
+        if ($roundUptoNext) {
+            $factor = pow(10, $decimals);
+            $numericValue = ceil($numericValue * $factor) / $factor;
         }
 
         return number_format($numericValue, $decimals, '.', '');

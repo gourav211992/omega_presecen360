@@ -348,41 +348,41 @@ class SaleModuleHelper
             );
         }
         //Update Customer Billing Address
-        $actualCustomerBillAddress = ErpAddress::find($document -> billing_address);
-        if (isset($actualCustomerBillAddress)) {
-            $document->billing_address_details()->updateOrCreate(
-                [
-                    'type' => 'billing'
-                ],
-                [
-                    'address' => $actualCustomerBillAddress->address,
-                    'country_id' => $actualCustomerBillAddress->country_id,
-                    'state_id' => $actualCustomerBillAddress->state_id,
-                    'city_id' => $actualCustomerBillAddress->city_id,
-                    'pincode' => $actualCustomerBillAddress->pincode,
-                    'phone' => $actualCustomerBillAddress->phone,
-                    'fax_number' => $actualCustomerBillAddress->fax_number
-                ]
-            );
-        }
+        // $actualCustomerBillAddress = ErpAddress::find($document -> billing_address);
+        // if (isset($actualCustomerBillAddress)) {
+        //     $document->billing_address_details()->updateOrCreate(
+        //         [
+        //             'type' => 'billing'
+        //         ],
+        //         [
+        //             'address' => $actualCustomerBillAddress->address,
+        //             'country_id' => $actualCustomerBillAddress->country_id,
+        //             'state_id' => $actualCustomerBillAddress->state_id,
+        //             'city_id' => $actualCustomerBillAddress->city_id,
+        //             'pincode' => $actualCustomerBillAddress->pincode,
+        //             'phone' => $actualCustomerBillAddress->phone,
+        //             'fax_number' => $actualCustomerBillAddress->fax_number
+        //         ]
+        //     );
+        // }
         //Update Customer Shipping Address
-        $actualCustomerShipAddress = ErpAddress::find($document -> shipping_address);
-        if (isset($actualCustomerShipAddress)) {
-            $document->shipping_address_details()->updateOrCreate(
-                [
-                    'type' => 'billing'
-                ],
-                [
-                    'address' => $actualCustomerShipAddress->address,
-                    'country_id' => $actualCustomerShipAddress->country_id,
-                    'state_id' => $actualCustomerShipAddress->state_id,
-                    'city_id' => $actualCustomerShipAddress->city_id,
-                    'pincode' => $actualCustomerShipAddress->pincode,
-                    'phone' => $actualCustomerShipAddress->phone,
-                    'fax_number' => $actualCustomerShipAddress->fax_number
-                ]
-            );
-        }
+        // $actualCustomerShipAddress = ErpAddress::find($document -> shipping_address);
+        // if (isset($actualCustomerShipAddress)) {
+        //     $document->shipping_address_details()->updateOrCreate(
+        //         [
+        //             'type' => 'shipping'
+        //         ],
+        //         [
+        //             'address' => $actualCustomerShipAddress->address,
+        //             'country_id' => $actualCustomerShipAddress->country_id,
+        //             'state_id' => $actualCustomerShipAddress->state_id,
+        //             'city_id' => $actualCustomerShipAddress->city_id,
+        //             'pincode' => $actualCustomerShipAddress->pincode,
+        //             'phone' => $actualCustomerShipAddress->phone,
+        //             'fax_number' => $actualCustomerShipAddress->fax_number
+        //         ]
+        //     );
+        // }
         //Retrieve Customer and update fields from there
         $customer = Customer::find($document -> customer_id);
         if (isset($customer) && $customer -> customer_type === ConstantHelper::REGULAR) {
@@ -393,7 +393,7 @@ class SaleModuleHelper
         if ($invoiceTypeField) {
             //Update GST Invoice
             $document -> gst_invoice_type = EInvoiceHelper::getGstInvoiceType($document -> customer_id, 
-            $actualCustomerShipAddress ?-> country_id, $actualOrgAddress ?-> country_id);
+            $document ?-> shipping_address_details ?-> country_id, $document ?-> location_address_details ?-> country_id);
         }
         
         //Save

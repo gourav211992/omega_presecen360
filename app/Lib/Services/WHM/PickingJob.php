@@ -6,6 +6,7 @@ use App\Helpers\CommonHelper;
 use App\Helpers\ConstantHelper;
 use App\Models\ErpMiItem;
 use App\Models\ErpPlItem;
+use App\Models\ErpTripPlanHeader;
 use App\Models\StockLedgerReservation;
 use App\Models\WHM\ErpItemUniqueCode;
 use App\Models\WHM\ErpWhmJob;
@@ -52,12 +53,53 @@ class PickingJob
             ->whereIn('trns_type', $trnstype)
             ->where('status', CommonHelper::SCANNED)
             ->get();
-        $jobId = $job -> id;
-        $namespace = get_class($detail);
-        $storeId = $job->store_id;
-        $subStoreId = $job->sub_store_id;
 
-        (new WhmJob())->copyExistingQrCodes($packets, $job, $header, $namespace, $detail->id, $jobType, $job->trns_type, CommonHelper::ISSUE, $storeId, $subStoreId, NULL, NULL, NULL, NULL, CommonHelper::SCANNED);
+        $morphableType = get_class($detail);
+        $trip = ErpTripPlanHeader::find($header->trip_id);
+
+        foreach ($packets as $code) {
+            $newRecord = ErpItemUniqueCode::create([
+                'uid' => $this->generateUniqueUid(),
+                'job_id' => $job->id,
+                'organization_id' => $job->organization_id,
+                'group_id' => $job->group_id,
+                'company_id' => $job->company_id,
+                'morphable_type' => $morphableType,
+                'morphable_id' => $detail->id,
+                'job_type' => $jobType,
+                'trns_type' => $job->trns_type,
+                'doc_type' => CommonHelper::ISSUE,
+                'doc_no' => $header->document_number ?? null,
+                'doc_date' => $header->document_date ?? null,
+                'book_id' => $header->book_id ?? null,
+                'store_id' => $job->store_id,
+                'sub_store_id' => $job->sub_store_id,
+                'book_code' => $header->book_code ?? null,
+                'item_attributes' => json_encode($code->item_attributes),
+                'item_id' => $code->item_id,
+                'item_name' => $code->item_name,
+                'item_code' => $code->item_code,
+                'vendor_id' => $code->vendor_id,
+                'item_uid' => $code->item_uid, 
+                'packet_no' => $code->packet_no,
+                'total_packets' => $code->total_packets,
+                'batch_id' => $code->batch_id,
+                'batch_number' => $code->batch_number,
+                'manufacturing_year' => $code->manufacturing_year,
+                'expiry_date' => $code->expiry_date,
+                'serial_no' => $code->serial_no,
+                'type' => 'qr',
+                'qty' => 1,
+                'status' => CommonHelper::SCANNED,
+                'trip_id' => $trip->id ? $trip->id : NULL,
+                'trip_no' => $trip->document_number ? $trip->document_number : NULL,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $code->utilized_id = $newRecord->uid;
+            $code->save();
+        }
     }
 
     public function generateQRCodes($subStoreId,$job,$storeId = null)
@@ -99,6 +141,7 @@ class PickingJob
                     'serial_no' => $packet->serial_no,
                     'item_uid' => $packet->item_uid, 
                     'trip_id' => $packet->trip_id, 
+                    'trip_no' => $packet->trip_no, 
                     'storage_point_id' => Null, 
                     'packet_no' => $packet->packet_no,
                     'total_packets' => $packet->total_packets,

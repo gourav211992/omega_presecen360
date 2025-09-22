@@ -337,6 +337,24 @@ class BomController extends Controller
             if ($bom->type == ConstantHelper::BOM_SERVICE_ALIAS) {
                 $quote_bom_id = $request->quote_bom_id;
                 $quoteBom = Bom::find($quote_bom_id);
+                # Copy Quote Bom media
+                if ($quoteBom) {
+                        $oldAttachments = $quoteBom->media;
+                        foreach ($oldAttachments as $media) {
+                            $newMedia = $media->replicate();
+                            $newMedia->uuid = (string) Str::uuid();
+                            $newMedia->model_id = $bom->id;
+                            if (!empty($media->file_path) && Storage::exists($media->file_path)) {
+                                $filename = pathinfo($media->file_path, PATHINFO_BASENAME);
+                                $extension = pathinfo($filename, PATHINFO_EXTENSION);
+                                $newPath = 'bom_instruction/' . uniqid() . '.' . $extension;
+                                Storage::copy($media->file_path, $newPath);
+                                $newMedia->file_path = $newPath;
+                            }
+                            $newMedia->save();
+                        }
+                }
+
                 if ($quoteBom) {
                     $quoteBom->production_bom_id = $bom->id;
                     $quoteBom->save();
@@ -1639,7 +1657,7 @@ class BomController extends Controller
             $canView = request()->user()?->hasPermission('production_bom.item_cost_view') ?? true;
         }
         $ids = json_decode($request->ids, true) ?? [];
-        $bom = Bom::with('uom:id,name')
+        $bom = Bom::with('uom:id,name','media')
             ->whereIn('id', $ids)
             ->first();
 
@@ -1682,11 +1700,17 @@ class BomController extends Controller
             'item' => $bom->item,
             'bom' => $bom,
             'selectedAttributes' => $selectedAttributes
+        ])->render();        
+        
+        $media = view('partials.document-preview', [
+            'documents' => $bom->getDocuments(),
+            'document_status' => $bom->document_status,
+            'elementKey' => 'main_bom_preview'
         ])->render();
         $headerOverheads = $bom->bomOverheadItems()->where('type', 'H')->orderBy('level')->get();
         $headerOverhead = view('billOfMaterial.partials.overhead.add-comp-level', ['headerOverheads' => $headerOverheads])->render();
         $instructionHtml = view('billOfMaterial.partials.instruction-row-edit', ['bom' => $bom, 'sectionRequired' => $sectionRequired, 'subSectionRequired' => $subSectionRequired])->render();
-        return response()->json(['data' => ['bom' => $bom, 'pos' => $html, 'headerAttrHtml' => $headerAttrHtml, 'instructionHtml' => $instructionHtml, 'headerOverhead' => $headerOverhead], 'status' => 200, 'message' => "fetched!"]);
+        return response()->json(['data' => ['bom' => $bom, 'pos' => $html, 'headerAttrHtml' => $headerAttrHtml, 'instructionHtml' => $instructionHtml, 'headerOverhead' => $headerOverhead, 'media' => $media], 'status' => 200, 'message' => "fetched!"]);
     }
 
     # Add Overhead Level

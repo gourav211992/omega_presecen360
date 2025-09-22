@@ -98,4 +98,9 @@ class PwoSoMappingHistory extends Model
     {
         return $this->belongsTo(Unit::class, 'uom_id');
     }
+
+      public function pwoBomMapping()
+    {
+        return $this->hasMany(PwoBomMappingHistory::class,'pwo_mapping_id');
+    }
 }

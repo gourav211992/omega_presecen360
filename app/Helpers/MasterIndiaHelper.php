@@ -47,6 +47,8 @@ use App\Services\EInvoiceService;
 use App\Services\MasterIndiaService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Model;
+use App\Helpers\AuthUser\UtlilityHelper;
+
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -502,6 +504,9 @@ class MasterIndiaHelper
         $totalSGSTValue = 0.00;
         $totalIGSTValue = 0.00;
         $documentNumber = $documentHeader->book_code .'-'. $documentHeader->document_number;
+        if (strlen($documentNumber) >= 16) {
+            $documentNumber = $documentHeader->document_number;
+        }
 
         $organization = Organization::where('id', $user->organization_id)->first();
         // $organizationAddress = Address::with(['city', 'state', 'country'])
@@ -580,6 +585,8 @@ class MasterIndiaHelper
             "state_code" => $buyerStateCode->name,
         ];
 
+        $headerTotalValue = 0;
+        $headerTotalAmount = 0;
         foreach($documentDetails as $key => $val){
             $uom = Unit::find($val?->uom_id);
             $orderQty = (isset($val?->accepted_qty) && ($val?->accepted_qty)) ? ($val?->accepted_qty) : ($val?->order_qty);
@@ -587,6 +594,10 @@ class MasterIndiaHelper
             $headerDiscount = (isset($val?->header_discount_amount) && ($val?->header_discount_amount)) ? ($val?->header_discount_amount) : ($val?->header_discount_amount);
             $totalAmt = ($orderQty*$val?->rate) - ($itemDiscount + $headerDiscount);
             $totalItemValue = $totalAmt + ($val->cgst_value['value'] + $val->sgst_value['value'] + $val->igst_value['value']);
+            $headerTotalValue += $totalItemValue;
+            $totalItemAmount = round($orderQty*$val?->rate, 2);
+            $headerTotalAmount += $totalAmt;
+
             if (count($val->taxes)) {
                 foreach ($val->taxes as $taxs) {
                     $taxName = $taxs->ted_name . " " . number_format($taxs->ted_percentage, 2) . " %";
@@ -603,7 +614,8 @@ class MasterIndiaHelper
             if ((float)$val->igst_value['rate']) {
                 $gstRate = $val->igst_value['rate'];
             } else {
-                $gstRate = $val->cgst_value['rate'];
+                $gstRate = (float)$val->cgst_value['rate'] + (float)$val->sgst_value['rate'];
+
             }
             $totalCGSTValue += $val->cgst_value['value'];
             $totalSGSTValue += $val->sgst_value['value'];
@@ -615,15 +627,15 @@ class MasterIndiaHelper
 				"is_service" => "N",
 				"hsn_code" => $val?->hsn_code,
 				"bar_code" => null,
-				"quantity" => round($orderQty),
-				"free_quantity" => round($orderQty),
+				"quantity" => round($orderQty,2),
+				"free_quantity" => round($orderQty,2),
 				"unit" => (string) $uom?->name,
-				"unit_price" => round($val?->rate),
-				"total_amount" => round($orderQty*$val?->rate),
-				"pre_tax_value" => round($val?->tax_value),
-				"discount" => round($itemDiscount + $headerDiscount),
+				"unit_price" => round($val?->rate,2),
+				"total_amount" => $totalItemAmount,
+				"pre_tax_value" => round($val?->tax_value,2),
+				"discount" => round($itemDiscount + $headerDiscount,2),
 				"other_charge" => 0,
-				"assessable_value" => round($totalAmt),
+				"assessable_value" => round($totalAmt, 2),
 				"gst_rate" => $gstRate,
 				"igst_amount" => $val->igst_value['value'],
 				"cgst_amount" => $val->cgst_value['value'],
@@ -651,14 +663,14 @@ class MasterIndiaHelper
         }
 
         $valDtls = (object) [
-            "total_assessable_value" => round($documentHeader->taxable_amount,2),
+            "total_assessable_value" => round($headerTotalAmount, 2),
             "total_cgst_value" => round($totalCGSTValue, 2),
             "total_sgst_value" => round($totalSGSTValue, 2),
             "total_igst_value" => round($totalIGSTValue, 2),
             "total_cess_value" => 0,
             "total_discount" => 0,
             "total_other_charge" => round($documentHeader->expense_amount, 2),
-            "total_invoice_value" => round(($documentHeader->total_amount),2),
+            "total_invoice_value" => round($headerTotalValue,2),
             "total_cess_value_of_state" => 0,
             "round_off_amount" => 0,
             "total_invoice_value_additional_currency" => 0
@@ -696,13 +708,15 @@ class MasterIndiaHelper
             "export_duty" => null
         ];
 
+        $timezone = UtlilityHelper::getAuthUserTimezone($user);
+
         $ewbDtls = (object) [
             "transporter_id" => "",
             "transporter_name" => $documentHeader->transportation_name,
             "transportation_mode" => $documentHeader->transportation_mode,
             'transportation_distance' => isset($distance['distance']) ? $distance['distance'] : 0,
             "transporter_document_number" => "12345",
-            "transporter_document_date" => now()->format('d/m/Y'),
+            "transporter_document_date" => now($timezone)->format('d/m/Y'),
             "vehicle_number" => $documentHeader->vehicle_no,
             "vehicle_type" => "R"
         ];

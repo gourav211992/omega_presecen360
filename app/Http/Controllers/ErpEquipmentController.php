@@ -25,81 +25,36 @@ use App\Models\FixedAssetRegistration;
 
 class ErpEquipmentController extends Controller
 {
-    
     public function index()
     {
-        $equipments = ErpEquipment::with([
-            'organization',
-            'location',
-            'spareParts',
-            'category',
-            'maintenanceDetails.checklists',
-            'maintenanceDetails.maintenanceType'
-        ])->get();
-
+        $equipments = ErpEquipment::with(['organization', 'location', 'spareParts', 'maintenanceDetails.checklists'])->get();
+    
         $plantMainWo = PlantMaintWo::select('id','document_status','equipment_details','created_at','updated_at')
             ->orderBy('created_at', 'DESC') 
             ->get();
-
+    
         $equipments = $equipments->map(function($equipment) use ($plantMainWo) {
-            foreach ($equipment->maintenanceDetails as $detail) {
-                $matchingWorkOrder = $plantMainWo->first(function($workOrder) use ($equipment, $detail) {
-                    $equipmentDetails = json_decode($workOrder->equipment_details, true);
-
-                    return isset(
-                            $equipmentDetails['equipment_id'], 
-                            $equipmentDetails['reference_type'], 
-                            $equipmentDetails['maintenance_type_id']
-                        ) &&
-                        $equipmentDetails['equipment_id'] == $equipment->id &&
-                        $equipmentDetails['reference_type'] === 'equipment' &&
-                        $equipmentDetails['maintenance_type_id'] == $detail->maintenance_type_id;
-                });
-
-               
-                $detail->equipment_status = $matchingWorkOrder ? $matchingWorkOrder->document_status : null;
-
-                
-                $lastMaintDate = null;
-                $dueDate = null;
-
-                if ($detail->equipment_status === 'approved' || $detail->equipment_status === 'approval_not_required') {
-                    $approvedDetail = $equipment->maintenanceDetails
-                        ->where('maintenance_type_id', $detail->maintenance_type_id)
-                        ->sortByDesc('start_date')
-                        ->first();
-
-                    if ($approvedDetail && $approvedDetail->start_date) {
-                        $lastMaintDate = \Carbon\Carbon::parse($approvedDetail->start_date);
-                        $base = $lastMaintDate->copy();
-                        $freqType = $approvedDetail->frequency ?? '';
-
-                        switch ($freqType) {
-                            case 'Daily': $dueDate = $base->copy()->addDay(); break;
-                            case 'Weekly': $dueDate = $base->copy()->addWeek(); break;
-                            case 'Monthly': $dueDate = $base->copy()->addMonth(); break;
-                            case 'Quarterly': $dueDate = $base->copy()->addMonths(3); break;
-                            case 'Semi-Annually': $dueDate = $base->copy()->addMonths(6); break;
-                            case 'Annually': case 'Yearly': $dueDate = $base->copy()->addYear(); break;
-                            default: $dueDate = $base;
-                        }
-                    }
-                } else {
-                    $lastMaintDate = null;
-                    $dueDate = $detail->start_date ? \Carbon\Carbon::parse($detail->start_date) : null;
-                }
-
-                
-                $detail->last_maint_date = $lastMaintDate ? $lastMaintDate->format('d-m-Y') : null;
-                $detail->due_date = $dueDate ? $dueDate->format('d-m-Y') : null;
+            
+           
+            $matchingWorkOrder = $plantMainWo->filter(function($workOrder) use ($equipment) {
+                $equipmentDetails = json_decode($workOrder->equipment_details, true);
+    
+                return isset($equipmentDetails['equipment_id'], $equipmentDetails['reference_type']) &&
+                       $equipmentDetails['equipment_id'] == $equipment->id &&
+                       $equipmentDetails['reference_type'] === 'equipment';
+            })->first(); 
+    
+            if ($matchingWorkOrder) {
+                $equipment->equipment_status = $matchingWorkOrder->document_status;
+            } else {
+                $equipment->equipment_status = null;
             }
-
+    
             return $equipment;
         });
-
+    
         return view('equipment.index', compact('equipments'));
     }
-
     
 
     public function create()

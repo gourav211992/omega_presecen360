@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Helpers\ConstantHelper;
 use App\Helpers\Helper;
+use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use App\Traits\DateFormatTrait;
 use App\Traits\DefaultGroupCompanyOrg;
 use App\Traits\DynamicFieldsTrait;
@@ -116,6 +117,13 @@ class ErpSaleInvoice extends Model
     public function vendor()
     {
         return $this -> hasOne(Customer::class, 'id', 'customer_id');
+    }
+
+    public function vendors()
+    {
+        return $this->hasOne(Vendor::class, 'enter_company_org_id', 'organization_id')
+                    ->where('related_party', 'Yes')
+                    ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
     }
 
     public function currency()

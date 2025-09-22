@@ -1,7 +1,9 @@
 
-@extends('layouts.app')
+ @extends('layouts.app')
+
 @section('styles')
 @endsection
+
 @section('content')
 <div class="app-content content ">
         <div class="content-overlay"></div>
@@ -36,83 +38,117 @@
                             <div class="card">
                                 <div class="table-responsive">
 									<table class="datatables-basic table myrequesttablecbox tableistlastcolumnfixed newerptabledesignlisthome"> 
-                  <thead>
-                        <tr>
+                                        <thead>
+                                             <tr>
 												<th>#</th>
 												<th>Equipment</th>
 												<th>Organization</th>
 												<th>Location</th>
 												<th>Alias</th>
-												<th>Category</th>
-												<th>Maintenance Type</th>
-                        <th>Checklist Name</th>
-												<th>Last MAint Date</th>
-												<th>Maint Due Date</th>
-												<th>Status</th>
+												<th>CAtegory</th>
+												<th>Checklist Name</th>
+												<th>LAst MAint Date</th>
+												<th>MAint Due Date</th>
 												<th>Action</th>
 											  </tr>
 											</thead>
                       
 										  <tbody>
-                      @php $rowIndex = 1; @endphp
-                      @foreach($equipments as $index => $equipment)
-                          @foreach($equipment->maintenanceDetails as $detailIndex => $detail)
-                              <tr>
-                                  <td>{{ $rowIndex++ }}</td>
-                                  <td class="fw-bolder text-dark">{{ $equipment->name ?? '' }}</td>
-                                  <td>{{ $equipment->organization->name ?? '' }}</td>
-                                  <td>
-                                      <div data-bs-toggle="tooltip" 
-                                          data-popup="tooltip-custom" 
-                                          data-bs-placement="top" 
-                                          title="{{ $equipment->location->full_address ?? '' }}">
-                                          {{ $equipment->location->store_name ?? '' }}
-                                      </div>
-                                  </td>
-                                  <td>{{ $equipment->alias ?? '' }}</td>
-                                  <td>{{ $equipment->category->name ?? '' }}</td>
+@foreach($equipments as $index => $equipment)
+      
+    <tr>
+        <td>{{ $index + 1 }}</td>
+        <td class="fw-bolder text-dark">{{ $equipment->name ?? '' }}</td>
+        <td>{{ $equipment->organization->name ?? '' }}</td>
+        <td>
+            <div data-bs-toggle="tooltip" data-popup="tooltip-custom" data-bs-placement="top" title="{{ $equipment->location->full_address ?? '' }}">
+                {{ $equipment->location->store_name ?? '' }}
+            </div>
+        </td>
+        <td>{{ $equipment->alias ?? '' }}</td>
+        <td>{{ $equipment->category->name ?? '' }}</td>
+        <td>
+        {{ $equipment->maintenanceDetails->flatMap->checklists->pluck('name')->unique()->implode(', ') }}
+        </td>
 
-                                  {{-- ✅ Maintenance Type --}}
-                                  <td>{{ $detail->maintenanceType->name ?? '' }}</td>
+        {{-- Last Maint Date --}}
+        <td>
+            @php
+                $lastMaintDate = null;
+                $dueDate = null;
+                
+                $first = $equipment->maintenanceDetails->sortBy('start_date')->first();
+               
+        
+                if ($equipment->equipment_status == 'approved' || $equipment->equipment_status == 'approval_not_required') {
+                 
+                    $approvedDetail = $equipment->maintenanceDetails->sortByDesc('start_date')->first();
+                   
+                   
+                    if ($approvedDetail) {
+                        $lastMaintDate = \Carbon\Carbon::parse($approvedDetail->start_date);
+                        $base = $lastMaintDate->copy();
+                        $freqType = $approvedDetail->frequency ?? '';
+                       
+                        
 
-                                  {{-- Checklists --}}
-                                  <td>{{ $detail->checklists->pluck('name')->unique()->implode(', ') }}</td>
+                        switch ($freqType) {
+                            case 'Daily':
+                                $dueDate = $base->copy()->addDay();
+                                break;
+                            case 'Weekly':
+                                $dueDate = $base->copy()->addWeek();
+                                break;
+                            case 'Monthly':
+                                $dueDate = $base->copy()->addMonth();
+                                break;
+                            case 'Quarterly':
+                                $dueDate = $base->copy()->addMonths(3);
+                                break;
+                            case 'Semi-Annually':
+                                $dueDate = $base->copy()->addMonths(6);
+                                break;
+                            case 'Annually':
+                                $dueDate = $base->copy()->addYear();
+                                break;
+                            case 'Yearly':
+                                $dueDate = $base->copy()->addYear();
+                                break;
+                            default:
+                                $dueDate = $base;
+                        }
+                    }
+                } else {
+                    $lastMaintDate = null;
+                    $dueDate = $first ? \Carbon\Carbon::parse($first->start_date) : null;
+                }
+            @endphp
 
-                                  {{-- Last Maint Date --}}
-                                  <td>{{ $detail->last_maint_date ?? '' }}</td>
+            {{ $lastMaintDate ? $lastMaintDate->format('d-m-Y') : '' }}
+        </td>
 
-                                  {{-- Maint Due Date --}}
-                                  <td>{{ $detail->due_date ?? '' }}</td>
-                                  <td class="tableactionnew">
-                                            <div class="d-flex align-items-center justify-content-end">
-                                                @php $statusClasss = App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$equipment->document_status??"draft"];  @endphp
-                                                <span
-                                                    class='badge rounded-pill {{ $statusClasss }} badgeborder-radius'>
-                                                    @if ($equipment->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED)
-                                                        Approved
-                                                    @else
-                                                        {{ ucfirst($equipment->document_status) }}
-                                                    @endif
-                                                </span>
-                                              </div>
-                                        </td>
-                                  <td class="tableactionnew">
-                                      <div class="dropdown">
-                                          <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
-                                              <i data-feather="more-vertical"></i>
-                                          </button>
-                                          <div class="dropdown-menu dropdown-menu-end">
-                                              <a class="dropdown-item" href="{{ route('equipment.edit', $equipment->id) }}">
-                                                  <i data-feather="edit-3" class="me-50"></i>
-                                                  <span>Edit</span>
-                                              </a>
-                                          </div>
-                                      </div>
-                                  </td>
-                              </tr>
-                          @endforeach
-                      @endforeach
-                      </tbody>
+        {{-- Maint Due Date --}}
+        <td>
+            {{ $dueDate ? $dueDate->format('d-m-Y') : '' }}
+        </td>
+
+        <td class="tableactionnew">
+            <div class="dropdown">
+                <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
+                    <i data-feather="more-vertical"></i>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end">
+                    <a class="dropdown-item" href="{{ route('equipment.edit', $equipment->id) }}">
+                        <i data-feather="edit-3" class="me-50"></i>
+                        <span>Edit</span>
+                    </a>
+                </div>
+            </div>
+        </td>
+    </tr>
+@endforeach
+</tbody>
+
 									</table>
 								</div>
                             </div>

@@ -2355,6 +2355,7 @@ class ExpenseAdviseController extends Controller
                     });
                 }
             })
+            ->with(['po', 'item', 'attributes', 'po.book', 'po.vendor'])
             ->whereHas('po', function ($po) use ($seriesId, $docNumber, $vendorId, $storeId) {
                 $po->whereIn('document_status', [
                     ConstantHelper::APPROVED,
@@ -2373,6 +2374,9 @@ class ExpenseAdviseController extends Controller
                 if ($storeId) {
                     $po->where('erp_purchase_orders.store_id', $storeId);
                 }
+            })
+            ->whereHas('po.vendor', function ($vendor) use ($seriesId) {
+                $vendor->where('related_party', ConstantHelper::NO);
             });
 
         if ($itemId) {
@@ -2762,6 +2766,7 @@ class ExpenseAdviseController extends Controller
                     });
                 }
             })
+            ->with(['jo', 'item', 'attributes', 'jo.book', 'jo.vendor'])
             ->whereHas('jo', function ($jo) use ($seriesId, $docNumber, $vendorId, $storeId) {
                 $jo->whereIn('document_status', [
                     ConstantHelper::APPROVED,
@@ -2780,6 +2785,9 @@ class ExpenseAdviseController extends Controller
                 if ($storeId) {
                     $jo->where('erp_job_orders.store_id', $storeId);
                 }
+            })
+            ->whereHas('jo.vendor', function ($vendor) use ($seriesId) {
+                $vendor->where('related_party', ConstantHelper::NO);
             });
 
         if ($itemId) {

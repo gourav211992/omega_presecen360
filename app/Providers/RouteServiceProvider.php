@@ -70,9 +70,6 @@ class RouteServiceProvider extends ServiceProvider
                 ->prefix('report')
                 ->namespace('App\Http\Controllers\Report')
                 ->group(base_path('routes/report.php'));
-
-            Route::middleware(['web'])
-                ->group(base_path('routes/finance.php'));
         });
     }
 }

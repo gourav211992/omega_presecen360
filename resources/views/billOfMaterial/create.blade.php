@@ -1956,6 +1956,7 @@ $(document).on('click', '.prProcess', (e) => {
                 $("#headerOverheadTbl tbody").html(data.data.headerOverhead);
                 $("#itemTable .mrntableselectexcel").empty().append(data.data.pos);
                 $("#itemTable3 .mrntableselectexcel").empty().append(data.data.instructionHtml);
+                $("#main_bom_file_preview").empty().append(data.data.media);
                 $("#prModal").modal('hide');
                 $(".prSelect").prop('disabled',true);
                 $('#itemTable > tbody .form-check-input').removeAttr('data-id');

@@ -120,7 +120,7 @@
                                                     <input type="checkbox" {{$subStore -> is_warehouse_required ? 'checked' : ''}} name="is_warehouse_required" id="is_warehouse_required_input" />
                                                 </div>
                                             </div>
-                                            <div class="row align-items-center mb-1" id = "uic_scan_for_issue_header">
+                                            <div class="row align-items-center d-none mb-1" id = "uic_scan_for_issue_header">
                                                 <div class="col-md-3">
                                                     <label class="form-label">Enforce UIC Scan while Issuing<span class="text-danger">*</span></label>
                                                 </div>
@@ -214,7 +214,7 @@
         }
         if (element.value === "{{App\Helpers\ConstantHelper::STOCKK}}") {
             warehouseFieldElement.classList.remove('d-none');
-            uicScanForIssueFieldElement.classList.remove('d-none');
+            // uicScanForIssueFieldElement.classList.remove('d-none');
             stockStoreTypeElement.classList.remove('d-none');
         } else {
             warehouseFieldInput.checked = false;

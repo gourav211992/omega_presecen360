@@ -3,6 +3,8 @@ $(document).on("click", ".summaryTaxBtn", (e) => {
     getTaxSummary();
 });
 
+
+
 /*Approve modal*/
 $(document).on("click", "#approved-button", (e) => {
     let actionType = "approve";
@@ -251,7 +253,6 @@ function setTableCalculation() {
         /*Bind Item Discount*/
         let itemDiscount = 0;
         if ($(item).find("[name*='[dis_perc]']").length && itemValue) {
-
             $(item)
                 .find("[name*='[dis_perc]']")
                 .each(function (index, eachItem) {
@@ -263,7 +264,6 @@ function setTableCalculation() {
                                 }][hidden_dis_perc]"]`
                             ).val()
                         ) || 0;
-
 
                     let discPerc = hiddenPerc || Number($(eachItem).val());
                     let eachDiscAmount = 0;
@@ -279,7 +279,6 @@ function setTableCalculation() {
                                 ).val()
                             ) || 0;
                     }
-
 
                     itemDiscount += eachDiscAmount;
                     $(
@@ -1247,6 +1246,7 @@ $(document).on("blur", "#vendor_name", (e) => {
         $("#vendor_code").val("");
         $("#vendor_address_id").val("");
         $("#delivery_address_id").val("");
+        $("#consignee_name").val("").trigger("change");
         $("#billing_address_id").val("");
         $("#hidden_state_id").val("");
         $("#hidden_country_id").val("");
@@ -1775,6 +1775,7 @@ function clearVendorData() {
     $("#vendor_address_id").val("");
     $("#billing_address_id").val("");
     $("#delivery_address_id").val("");
+    $("#consignee_name").val("").trigger("change");
     $(".editAddressBtn").addClass("d-none");
     $("#exchange_rate").val("");
 }
@@ -1821,6 +1822,7 @@ function vendorOnChange(vendorId) {
                 $('[name="currency_id"]').empty().append(curOption);
                 $('[name="payment_term_id"]').empty().append(termOption);
                 $("#delivery_address_id").val(data?.data?.location_address?.id);
+                $("#consignee_name").val("").trigger("change");
                 $(".delivery_address").text(
                     data?.data?.location_address?.display_address
                 );

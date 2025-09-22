@@ -40,7 +40,7 @@ use App\Models\Unit;
 use App\Lib\Services\ErpInspChecklistService;
 
 use App\Services\PslipDeleteService;
-use Barryvdh\DomPDF\Facade\Pdf; 
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
 use Exception;
 use Illuminate\Http\Request;
@@ -167,12 +167,14 @@ class ErpProductionSlipController extends Controller
         $firstService = $servicesBooks['services'][0];
         $typeName = "Packing Slip";
         $stores = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCKK);
+
         $currentBundleNo = ErpPslipItemDetail::orderByDesc('id')->first() ?-> bundle_no ?? 0;
         $startingBundleNo = $currentBundleNo + 1;
         $editableBundle = true;
         if ($currentBundleNo > 0) {
             $editableBundle = false;
         }
+
         // $authUser = Helper::getAuthenticatedUser();
         $organization = Organization::find($user ?->organization_id);
         $organizationId = $organization ?-> id ?? null;
@@ -1014,9 +1016,9 @@ class ErpProductionSlipController extends Controller
                         // $totalValue = $productionSlip->total_amount ?? 0;
                         // $document_status = Helper::checkApprovalRequired($request->book_id,$totalValue);
                         // $productionSlip->document_status = $document_status;
-                    // } 
+                    // }
                     else {
-                    
+
                         $productionSlip->document_status = $request->document_status ?? ConstantHelper::DRAFT;
                     }
                     $productionSlip -> save();

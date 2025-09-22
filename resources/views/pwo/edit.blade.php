@@ -75,6 +75,14 @@
                     @if($buttons['revoke'])
                         <button id = "revokeButton" type="button" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</button>
                     @endif  
+                    @if($buttons['delete']||$buttons['amend'])
+                        <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
+                            data-url="{{ route('pwo.remove', [$bom->id, $buttons['amend'] ? $buttons['amend'] : 0]) }}"
+                            data-redirect="{{ route('pwo.index') }}"
+                            data-message="Are you sure you want to delete this record?">
+                            <i data-feather="trash-2" class="me-50"></i> Delete
+                        </button>
+                    @endif
                     @if($buttons['close'])
                     <button id="closeButton" type="button" class="btn btn-primary btn-sm mb-50 mb-sm-0">
                         <i data-feather="check-square"></i> Close

@@ -172,6 +172,7 @@ class CustomerController extends Controller
     public function updateOrganization(Request $request)
     {
        try {
+
             $authUser = request()->user();
             $organizationId = $request->input('organization_id');
             $request->validate([
@@ -183,16 +184,14 @@ class CustomerController extends Controller
 
             app(AuthUserService::class)->switchOrganization($authUser, $organization->alias);
 
-            $user = $authUser->authUser();
+            // It will remove OrganizationHelper cached data
+            $ck = "iam:organization";
+            $key = app(TagCacheInterface::class)->key($authUser, $ck);
+            app(TagCacheInterface::class)->forget($key, [], 'redis_p360');
 
-            $user->organization_id = $organizationId;
-            $user->save();
-
-
-            $ck = "iam:{$authUser->group_id}:{$authUser->id}";
-
-            app(TagCacheInterface::class)->forget( $ck .":get-authenticated-user");
-            app(TagCacheInterface::class)->forget( $ck .":oauth_data");
+            $ck = "iam:auth-user";
+            $key = app(TagCacheInterface::class)->key($authUser, $ck);
+            app(TagCacheInterface::class)->forget($key, [], 'redis_p360');
 
             return redirect()->back()->with('success', 'Organization updated successfully!');
        } catch (\Throwable $th) {
@@ -204,15 +203,13 @@ class CustomerController extends Controller
      * Show the form for creating a new resource.
      */
 
-     public function generateCustomerCode(Request $request)
+    public function generateCustomerCode(Request $request)
     {
-        $customerName = $request->input('customer_name');
         $customerId = $request->input('customer_id');
         $customerType = $request->input('customer_type');
         $customerInitials = $request->input('customer_initials');
         $prefix = $request->input('prefix', '');
         $baseCode = $prefix . $customerType . $customerInitials;
-        $authUser = Helper::getAuthenticatedUser();
 
         if ($customerId) {
             $existingCustomer = Customer::find($customerId);
@@ -302,211 +299,211 @@ class CustomerController extends Controller
     public function store(CustomerRequest $request)
     {
         DB::beginTransaction();
-    try {
-        $user = Helper::getAuthenticatedUser();
-        $organization = $user->organization;
-        $validatedData = $request->validated();
-        $validatedData['created_by'] = $user->auth_user_id;
-        $validatedData['related_party'] = isset($validatedData['related_party']) ? 'Yes' : 'No';
-        // $validatedData['on_account_required'] = isset($validatedData['on_account_required']) ? '1' : '0';
-        $parentUrl = ConstantHelper::CUSTOMER_SERVICE_ALIAS;
-        $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl);
-        if ($services &&  isset($services['services']) && $services['services']->isNotEmpty()) {
-            $firstService = $services['services']->first();
-            $serviceId = $firstService->service_id;
-            $policyData = Helper::getPolicyByServiceId($serviceId);
-            if ($policyData && isset($policyData['policyLevelData'])) {
-                $policyLevelData = $policyData['policyLevelData'];
-                $validatedData['group_id'] = $policyLevelData['group_id'];
-                $validatedData['company_id'] = $policyLevelData['company_id'];
-                $validatedData['organization_id'] = $policyLevelData['organization_id'];
+        try {
+            $user = Helper::getAuthenticatedUser();
+            $organization = $user->organization;
+            $validatedData = $request->validated();
+            $validatedData['created_by'] = $user->auth_user_id;
+            $validatedData['related_party'] = isset($validatedData['related_party']) ? 'Yes' : 'No';
+            // $validatedData['on_account_required'] = isset($validatedData['on_account_required']) ? '1' : '0';
+            $parentUrl = ConstantHelper::CUSTOMER_SERVICE_ALIAS;
+            $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl);
+            if ($services &&  isset($services['services']) && $services['services']->isNotEmpty()) {
+                $firstService = $services['services']->first();
+                $serviceId = $firstService->service_id;
+                $policyData = Helper::getPolicyByServiceId($serviceId);
+                if ($policyData && isset($policyData['policyLevelData'])) {
+                    $policyLevelData = $policyData['policyLevelData'];
+                    $validatedData['group_id'] = $policyLevelData['group_id'];
+                    $validatedData['company_id'] = $policyLevelData['company_id'];
+                    $validatedData['organization_id'] = $policyLevelData['organization_id'];
+                } else {
+                    $validatedData['group_id'] = $organization->group_id;
+                    $validatedData['company_id'] = $organization->company_id;
+                    $validatedData['organization_id'] = null;
+                }
+                // Insert Book ID (if current_book exists)
+                if (isset($services['current_book'])) {
+                    $book = $services['current_book'];
+                    if ($book) {
+                        $validatedData['book_id'] = $book->id;
+                    } else {
+                        $validatedData['book_id'] = null;
+                    }
+                } else {
+                    $validatedData['book_id'] = null;
+                }
             } else {
                 $validatedData['group_id'] = $organization->group_id;
                 $validatedData['company_id'] = $organization->company_id;
                 $validatedData['organization_id'] = null;
             }
-             // Insert Book ID (if current_book exists)
-             if (isset($services['current_book'])) {
-                $book = $services['current_book'];
-                if ($book) {
-                    $validatedData['book_id'] = $book->id;
-                } else {
-                    $validatedData['book_id'] = null;
-                }
+            $companyName = $validatedData['company_name'] ?? '';
+            $validatedData['display_name'] = $companyName;
+            if ($request->document_status === 'submitted') {
+                $validatedData['status'] =  $validatedData['status'] ?? ConstantHelper::ACTIVE;
             } else {
-                $validatedData['book_id'] = null;
+                $validatedData['status'] = ConstantHelper::DRAFT;
             }
-        } else {
-            $validatedData['group_id'] = $organization->group_id;
-            $validatedData['company_id'] = $organization->company_id;
-            $validatedData['organization_id'] = null;
-        }
-        $companyName = $validatedData['company_name'] ?? '';
-        $validatedData['display_name'] = $companyName;
-        if ($request->document_status === 'submitted') {
-            $validatedData['status'] =  $validatedData['status'] ?? ConstantHelper::ACTIVE;
-        } else {
-            $validatedData['status'] = ConstantHelper::DRAFT;
-        }
-        $gstnNo = $validatedData['compliance']['gstin_no'] ?? '';
-        if ($gstnNo) {
-            $gstValidation = EInvoiceHelper::validateGstinName($gstnNo);
-            if ($gstValidation['Status'] === 1) {
-                $gstData = json_decode($gstValidation['checkGstIn'], true);
-                $validatedData['deregistration_date'] = $gstData['DtDReg'] ??'';
-                $validatedData['taxpayer_type'] = $gstData['TxpType'] ?? '';
-                $validatedData['gst_status'] = $gstData['Status'] ?? '';
-                $validatedData['block_status'] = $gstData['BlkStatus'] ?? '';
-                $validatedData['legal_name'] = $gstData['LegalName'] ?? '';
-                $addresses = $validatedData['addresses'] ?? [];
-                if (!empty($addresses)) {
-                    $firstAddress = $addresses[0];
-                    if (isset($firstAddress['state_id'])) {
-                        $validatedData['gst_state_id'] = $firstAddress['state_id'];
+            $gstnNo = $validatedData['compliance']['gstin_no'] ?? '';
+            if ($gstnNo) {
+                $gstValidation = EInvoiceHelper::validateGstinName($gstnNo);
+                if ($gstValidation['Status'] === 1) {
+                    $gstData = json_decode($gstValidation['checkGstIn'], true);
+                    $validatedData['deregistration_date'] = $gstData['DtDReg'] ??'';
+                    $validatedData['taxpayer_type'] = $gstData['TxpType'] ?? '';
+                    $validatedData['gst_status'] = $gstData['Status'] ?? '';
+                    $validatedData['block_status'] = $gstData['BlkStatus'] ?? '';
+                    $validatedData['legal_name'] = $gstData['LegalName'] ?? '';
+                    $addresses = $validatedData['addresses'] ?? [];
+                    if (!empty($addresses)) {
+                        $firstAddress = $addresses[0];
+                        if (isset($firstAddress['state_id'])) {
+                            $validatedData['gst_state_id'] = $firstAddress['state_id'];
+                        }
                     }
                 }
             }
-        }
-        $customer = Customer::create($validatedData);
-        $customer ->updated_at = null;
+            $customer = Customer::create($validatedData);
+            $customer ->updated_at = null;
 
-        if ($request->document_status === 'submitted') {
-            $bookId = $customer->book_id;
-            $docId = $customer->id;
-            $remarks = $request->remarks ?? '';
-            $attachments = $request->file('attachment');
-            $currentLevel = $customer->approval_level ?? 1;
-            $revisionNumber = $customer->revision_number ?? 0;
-            $actionType = 'submit';
-            $modelName = get_class($customer);
-            $totalValue = 0;
+            if ($request->document_status === 'submitted') {
+                $bookId = $customer->book_id;
+                $docId = $customer->id;
+                $remarks = $request->remarks ?? '';
+                $attachments = $request->file('attachment');
+                $currentLevel = $customer->approval_level ?? 1;
+                $revisionNumber = $customer->revision_number ?? 0;
+                $actionType = 'submit';
+                $modelName = get_class($customer);
+                $totalValue = 0;
 
-            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
-            $document_status = $approveDocument['approvalStatus'] ?? $customer->document_status;
-            $customer->document_status = $document_status;
+                $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
+                $document_status = $approveDocument['approvalStatus'] ?? $customer->document_status;
+                $customer->document_status = $document_status;
 
-            $submittedStatus = $request->input('status') ?? ConstantHelper::ACTIVE;
+                $submittedStatus = $request->input('status') ?? ConstantHelper::ACTIVE;
 
-            if (in_array($document_status, [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])) {
-                if ($revisionNumber == 0) {
-                  $customer->status = ConstantHelper::ACTIVE;
-                }
-                  // ** START: Call createPartyLedger if conditions are met **
-                    $createCustomerLedger = $request->input('create_ledger') && $request->input('create_ledger') == 1;
-                    $hiddenLedgerCustomerName = $request->input('hidden_ledger_customer_name');
-                    $hiddenLedgerCustomerCode = $request->input('hidden_ledger_customer_code');
-                    $ledgerGroupId = $request->input('ledger_group_id');
+                if (in_array($document_status, [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])) {
+                    if ($revisionNumber == 0) {
+                    $customer->status = ConstantHelper::ACTIVE;
+                    }
+                    // ** START: Call createPartyLedger if conditions are met **
+                        $createCustomerLedger = $request->input('create_ledger') && $request->input('create_ledger') == 1;
+                        $hiddenLedgerCustomerName = $request->input('hidden_ledger_customer_name');
+                        $hiddenLedgerCustomerCode = $request->input('hidden_ledger_customer_code');
+                        $ledgerGroupId = $request->input('ledger_group_id');
 
-                    if ($createCustomerLedger && !empty($hiddenLedgerCustomerName) && !empty($hiddenLedgerCustomerCode) && !empty($ledgerGroupId)) {
-                        try {
-                            $result = Helper::createPartyLedger(
-                                'customer',
-                                $hiddenLedgerCustomerName,
-                                $hiddenLedgerCustomerCode,
-                                $ledgerGroupId
-                            );
+                        if ($createCustomerLedger && !empty($hiddenLedgerCustomerName) && !empty($hiddenLedgerCustomerCode) && !empty($ledgerGroupId)) {
+                            try {
+                                $result = Helper::createPartyLedger(
+                                    'customer',
+                                    $hiddenLedgerCustomerName,
+                                    $hiddenLedgerCustomerCode,
+                                    $ledgerGroupId
+                                );
 
-                            if (!$result['success']) {
-                                Log::error('Error creating party ledger: ' . $result['message']);
+                                if (!$result['success']) {
+                                    Log::error('Error creating party ledger: ' . $result['message']);
+                                    DB::rollBack();
+                                    return response()->json([
+                                        'status' => false,
+                                        'message' => $result['message'],
+                                        'data' => $customer,
+                                    ], 500);
+                                }
+                                $ledgerId = $result['data']['ledger_id'] ?? null;
+                                $ledgerGroupId = $result['data']['ledger_group_id'] ?? null;
+                                $customer->ledger_id = $ledgerId;
+                                $customer->ledger_group_id = $ledgerGroupId;
+                                $customer->ledger_group_id = $ledgerGroupId;
+                                $customer->create_ledger = 0;
+                            } catch (Exception $e) {
+                                Log::error('Exception creating party ledger: ' . $e->getMessage(), [
+                                    'trace' => $e->getTraceAsString()
+                                ]);
                                 DB::rollBack();
                                 return response()->json([
                                     'status' => false,
-                                    'message' => $result['message'],
+                                    'message' =>  $e->getMessage(),
                                     'data' => $customer,
                                 ], 500);
                             }
-                            $ledgerId = $result['data']['ledger_id'] ?? null;
-                            $ledgerGroupId = $result['data']['ledger_group_id'] ?? null;
-                            $customer->ledger_id = $ledgerId;
-                            $customer->ledger_group_id = $ledgerGroupId;
-                            $customer->ledger_group_id = $ledgerGroupId;
-                            $customer->create_ledger = 0;
-                        } catch (Exception $e) {
-                            Log::error('Exception creating party ledger: ' . $e->getMessage(), [
-                                'trace' => $e->getTraceAsString()
-                            ]);
-                            DB::rollBack();
-                            return response()->json([
-                                'status' => false,
-                                'message' =>  $e->getMessage(),
-                                'data' => $customer,
-                            ], 500);
                         }
-                    }
-                // ** END: Call createPartyLedger if conditions are met **
+                    // ** END: Call createPartyLedger if conditions are met **
+                } else {
+                    $customer->status = $document_status;
+                }
+
             } else {
+                $document_status = $request->document_status ?? ConstantHelper::DRAFT;
+                $customer->document_status = $document_status;
                 $customer->status = $document_status;
             }
 
-        } else {
-            $document_status = $request->document_status ?? ConstantHelper::DRAFT;
-            $customer->document_status = $document_status;
-            $customer->status = $document_status;
-        }
+            $customer->save();
 
-        $customer->save();
+            $fileConfigs = [
+                'pan_attachment' => ['folder' => 'pan_attachments', 'clear_existing' => true],
+                'tin_attachment' => ['folder' => 'tin_attachments', 'clear_existing' => true],
+                'aadhar_attachment' => ['folder' => 'aadhar_attachments', 'clear_existing' => true],
+                'other_documents' => ['folder' => 'other_documents', 'clear_existing' => true],
+            ];
 
-        $fileConfigs = [
-            'pan_attachment' => ['folder' => 'pan_attachments', 'clear_existing' => true],
-            'tin_attachment' => ['folder' => 'tin_attachments', 'clear_existing' => true],
-            'aadhar_attachment' => ['folder' => 'aadhar_attachments', 'clear_existing' => true],
-            'other_documents' => ['folder' => 'other_documents', 'clear_existing' => true],
-        ];
+            $this->fileUploadHelper->handleFileUploads($request, $customer, $fileConfigs);
 
-        $this->fileUploadHelper->handleFileUploads($request, $customer, $fileConfigs);
+            $bankInfoData = $validatedData['bank_info'] ?? [];
+            if (!empty($bankInfoData)) {
+                $this->commonService->createBankInfo($bankInfoData, $customer);
+            }
+            // Handle notes
+            $notesData = $validatedData['notes'] ?? [];
+            if (!empty($notesData)) {
+                $this->commonService->createNote($notesData, $customer, $user);
+            }
 
-        $bankInfoData = $validatedData['bank_info'] ?? [];
-        if (!empty($bankInfoData)) {
-            $this->commonService->createBankInfo($bankInfoData, $customer);
-        }
-        // Handle notes
-        $notesData = $validatedData['notes'] ?? [];
-        if (!empty($notesData)) {
-            $this->commonService->createNote($notesData, $customer, $user);
-        }
+            $contacts = $validatedData['contacts'] ?? [];
+            if (!empty($contacts)) {
+                $this->commonService->createContact($contacts, $customer);
+            }
 
-        $contacts = $validatedData['contacts'] ?? [];
-        if (!empty($contacts)) {
-            $this->commonService->createContact($contacts, $customer);
-        }
+            $addresses = $validatedData['addresses'] ?? [];
+            if (!empty($addresses)) {
+                $this->commonService->createAddress($addresses, $customer);
+            }
 
-        $addresses = $validatedData['addresses'] ?? [];
-        if (!empty($addresses)) {
-            $this->commonService->createAddress($addresses, $customer);
-        }
+            $compliance = $validatedData['compliance'] ?? [];
+            if (!empty($compliance)) {
+                $this->commonService->createCompliance($compliance, $customer);
+            }
 
-        $compliance = $validatedData['compliance'] ?? [];
-         if (!empty($compliance)) {
-             $this->commonService->createCompliance($compliance, $customer);
-         }
+            // Handling Customer Items
 
-        // Handling Customer Items
-
-        if ($request->has('customer_item')) {
-            foreach ($request->input('customer_item') as $customerItemData) {
-                if (!empty($customerItemData['item_code']) && !empty($customerItemData['item_name'])) {
-                    $customer->approvedItems()->create([
-                        'item_id' => $customerItemData['item_id'],
-                        'item_code' => $customerItemData['item_code'] ?? null,
-                        'item_name' => $customerItemData['item_name'] ?? null,
-                        'item_details' => $customerItemData['item_details'] ?? null,
-                        'sell_price' => $customerItemData['sell_price'] ?? null,
-                        'uom_id' => $customerItemData['uom_id']?? null,
-                       'organization_id' => $validatedData['organization_id']?? null,
-                        'group_id' => $validatedData['group_id']?? null,
-                        'company_id' => $validatedData['company_id']?? null,
-                    ]);
+            if ($request->has('customer_item')) {
+                foreach ($request->input('customer_item') as $customerItemData) {
+                    if (!empty($customerItemData['item_code']) && !empty($customerItemData['item_name'])) {
+                        $customer->approvedItems()->create([
+                            'item_id' => $customerItemData['item_id'],
+                            'item_code' => $customerItemData['item_code'] ?? null,
+                            'item_name' => $customerItemData['item_name'] ?? null,
+                            'item_details' => $customerItemData['item_details'] ?? null,
+                            'sell_price' => $customerItemData['sell_price'] ?? null,
+                            'uom_id' => $customerItemData['uom_id']?? null,
+                        'organization_id' => $validatedData['organization_id']?? null,
+                            'group_id' => $validatedData['group_id']?? null,
+                            'company_id' => $validatedData['company_id']?? null,
+                        ]);
+                    }
                 }
             }
-        }
 
-        DB::commit();
+            DB::commit();
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Record created successfully',
-            'data' => $customer,
-        ]);
+            return response()->json([
+                'status' => true,
+                'message' => 'Record created successfully',
+                'data' => $customer,
+            ]);
         } catch (Exception $e) {
 
             DB::rollBack();
@@ -516,11 +513,6 @@ class CustomerController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
-    }
-
-    public function show($id)
-    {
-        // Implement the logic if needed
     }
 
     public function edit(Request $request,$id)

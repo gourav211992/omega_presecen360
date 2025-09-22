@@ -1299,7 +1299,7 @@
                         dataType: 'json',
                         data: {
                             q: request.term,
-                            type: 'goods_item_list',
+                            type: 'service_item_list',
                             selectedAllItemIds: JSON.stringify(selectedAllItemIds)
                         },
                         success: function(data) {
@@ -2582,7 +2582,7 @@
                             dataType: 'json',
                             data: {
                                 q: request.term,
-                                type: 'goods_item_list',
+                                type: 'service_item_list',
                                 selectedAllItemIds: JSON.stringify(selectedAllItemIds)
                             },
                             success: function(data) {
@@ -2940,7 +2940,7 @@
                             dataType: 'json',
                             data: {
                                 q: request.term,
-                                type:'goods_item_list',
+                                type:'service_item_list',
                                 selectedAllItemIds : JSON.stringify(selectedAllItemIds)
                             },
                             success: function(data) {

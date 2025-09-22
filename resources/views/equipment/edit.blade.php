@@ -26,9 +26,6 @@
                         </div>
                         <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
                             <div class="form-group breadcrumb-right">
-                            	<a href="{{ route('equipment.index') }}"> <button class="btn btn-secondary btn-sm"><i
-										data-feather="arrow-left-circle"></i> Back</button>
-							</a>
                             @if($buttons['submit'])
                                     <button type="button" onclick="submitForm('draft');" id="draft"
                                         class="btn btn-outline-primary btn-sm mb-50 mb-sm-0"><i data-feather='save'></i> Save as

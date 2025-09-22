@@ -129,7 +129,7 @@
                                                         <label class="form-label">Sub Asset Code</label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select class="form-select select2" id="asset_code_id" name="asset_code_id">
+                                                        <select class="form-select" id="asset_code_id" name="asset_code_id">
                                                             <option value="">Select Sub Asset Code</option>
                                                             @foreach($fixedAssetRegistration as $asset)
                                                                 <option value="{{ $asset->id }}">{{ $asset->asset_code }} - {{ $asset->asset_name }}</option>
@@ -687,8 +687,8 @@
                                         <option value="Annually">Annually</option>
                                     </select>
                                 </td>
-                                <td class="poprod-decpt">
-                                    <input type="date" name="maintenance[${rowId}][date]" required class="form-control mw-100 mb-25 date-field" />
+                                 <td class="poprod-decpt">
+                                    <input type="date" name="maintenance[${rowId}][date]" required class="form-control mw-100 mb-25" />
                                 </td>
                                 <td class="poprod-decpt">
                                     <input type="time" name="maintenance[${rowId}][time]" required placeholder="Enter Time" class="form-control mw-100 mb-25" />
@@ -784,80 +784,43 @@
          * Reset checklist modal to clean state
          */
         function resetChecklistModal() {
+            // Clear all checkboxes
             $('#checklist .modal-body input[type="checkbox"]').prop('checked', false);
-            $('#checkListPortion .checklist-portion').remove(); 
+            
+            // Reset all dropdowns to first option
+            $('#checkListPortion select').val('Select').trigger('change');
+            
+            // Clear all table bodies
             $('#checkListPortion tbody').empty();
+            
+            // Clear stored portion checklist data
+            portionChecklistData = {};
+            
             console.log('Checklist modal reset for row:', currentRowId);
         }
-
         
         /**
          * Load existing checklist selections for current row
          */
         function loadExistingChecklistSelections() {
-    if (!currentChecklistRowRef) return;
-
-    // hidden inputs (saved data from row)
-    const checklistInputs = currentChecklistRowRef.find('input[name^="maintenance[' + currentRowId + '][checklists]"]');
-
-    if (checklistInputs.length > 0) {
-        // Group by checklist_id
-        let grouped = {};
-        checklistInputs.each(function () {
-            const name = $(this).attr('name');
-            const value = $(this).val();
-
-            if (name.includes('[checklist_id]')) {
-                grouped[value] = grouped[value] || { checklist_id: value, detail_ids: [] };
+            if (!currentChecklistRowRef) return;
+            
+            const selectedIds = currentChecklistRowRef.find('.selected-checklists').val();
+            if (selectedIds) {
+                const ids = selectedIds.split(',').filter(Boolean);
+                
+                // Pre-check existing selections when modal content loads
+                setTimeout(() => {
+                    $('#checklist .modal-body input[type="checkbox"]').each(function () {
+                        if (ids.includes($(this).val())) {
+                            $(this).prop('checked', true);
+                        }
+                    });
+                }, 100);
+                
+                console.log('Loaded existing selections for row:', currentRowId, ids);
             }
-            if (name.includes('[checklist_detail_id]')) {
-                const index = name.match(/\[(\d+)\]\[checklist_detail_id\]/)[1];
-                const checklistId = currentChecklistRowRef.find(`input[name="maintenance[${currentRowId}][checklists][${index}][checklist_id]"]`).val();
-                grouped[checklistId] = grouped[checklistId] || { checklist_id: checklistId, detail_ids: [] };
-                grouped[checklistId].detail_ids.push(value);
-            }
-        });
-
-        // Reset modal portions
-        $('#checkListPortion .checklist-portion').remove();
-        const firstPortion = $('#checkListPortion .row').first();
-        firstPortion.find('tbody').empty();
-
-        let first = true;
-
-        // Loop through each checklist_id and restore
-        Object.values(grouped).forEach((group, i) => {
-            let targetRow;
-
-            if (first) {
-                // Use the default first portion
-                targetRow = firstPortion;
-                first = false;
-            } else {
-                // Create new portion for next checklist
-                addPortion();
-                targetRow = $('#checkListPortion .checklist-portion').last();
-            }
-
-            // Set dropdown value
-            const dropdown = targetRow.find('select');
-            dropdown.val(group.checklist_id).trigger('change');
-
-            // Trigger search and tick checkboxes after data load
-            targetRow.find('.btn-warning').trigger('click');
-
-            setTimeout(() => {
-                group.detail_ids.forEach(detailId => {
-                    targetRow.find(`input[type="checkbox"][value="${detailId}"]`).prop('checked', true);
-                });
-            }, 500);
-        });
-    }
-}
-
-
-
-
+        }
 
         /**
          * Handle checklist modal close - save selections
@@ -956,22 +919,20 @@
         /**
          * Update maintenance row with checklist data
          */
-        
-         function updateRowWithChecklistData(selectedData) {
-            console.log('Updating checklist data for row:', selectedData);
-
+        function updateRowWithChecklistData(selectedData) {
             const selectedIds = selectedData.map(item => item.checklist_detail_id);
-
-            const uniqueMainNames = [...new Set(selectedData.map(item => item.main_checklist_name))];
-
+            const mainChecklistName = selectedData.length > 0 ? selectedData[0].main_checklist_name : '';
+            
+            // Create badge display
             let badgesHtml = '';
-            if (uniqueMainNames.length > 0) {
-                badgesHtml = `<span class="badge rounded-pill badge-light-primary">${uniqueMainNames[0]}</span>`;
-                if (uniqueMainNames.length > 1) {
-                    badgesHtml += ` <span class="badge rounded-pill badge-light-primary">+${uniqueMainNames.length - 1}</span>`;
+            if (mainChecklistName) {
+                badgesHtml = `<span class="badge rounded-pill badge-light-primary">${mainChecklistName}</span>`;
+                if (selectedData.length > 1) {
+                    badgesHtml += ` <span class="badge rounded-pill badge-light-primary">+${selectedData.length - 1}</span>`;
                 }
             }
-
+            
+            // Create hidden inputs for form submission (only essential IDs)
             let hiddenInputs = '';
             selectedData.forEach(function (item, index) {
                 hiddenInputs += `
@@ -979,7 +940,8 @@
                     <input type="hidden" name="maintenance[${currentRowId}][checklists][${index}][checklist_detail_id]" value="${item.checklist_detail_id}">
                 `;
             });
-
+            
+            // Update the checklist cell
             currentChecklistRowRef.find('.checklist-cell').html(
                 `<span class="checklist-badges">${badgesHtml}</span>
                 <button type="button" class="btn p-25 btn-sm btn-outline-secondary open-checklist-modal" style="font-size: 10px">Add Checklist</button>
@@ -987,7 +949,6 @@
                 ${hiddenInputs}`
             );
         }
-
 
 
         // Track selected checklist IDs across all sections

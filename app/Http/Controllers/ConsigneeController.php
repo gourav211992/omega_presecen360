@@ -30,7 +30,7 @@ class ConsigneeController extends Controller
                     }
                     if (!empty($types)) {
                         $badgeClasses = [
-                            'Vendor' => 'badge-light-primary', 
+                            'Vendor' => 'badge-light-primary',
                             'Customer' => 'badge-light-info'
                         ];
                         $badges = array_map(function($type) use ($badgeClasses) {
@@ -42,9 +42,9 @@ class ConsigneeController extends Controller
                     return '<span class="badge rounded-pill badge-light-secondary badgeborder-radius">N/A</span>';
                 })
                 ->addColumn('status', function ($row) {
-                    return '<span class="badge rounded-pill ' 
-                        . ($row->status == 'active' ? 'badge-light-success' : 'badge-light-danger') 
-                        . ' badgeborder-radius">' 
+                    return '<span class="badge rounded-pill '
+                        . ($row->status == 'active' ? 'badge-light-success' : 'badge-light-danger')
+                        . ' badgeborder-radius">'
                         . ucfirst($row->status) . '</span>';
                 })
                 ->addColumn('action', function ($row) {

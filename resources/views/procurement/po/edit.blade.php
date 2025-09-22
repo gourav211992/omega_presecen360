@@ -222,6 +222,8 @@
 
                                                             <input type="hidden" value="{{ $po->latestShippingAddress()?->state?->id }}" id="hidden_state_id" name="hidden_state_id" />
                                                             <input type="hidden" value="{{ $po->latestShippingAddress()?->country?->id }}" id="hidden_country_id" name="hidden_country_id" />
+                                                            <input type="hidden" id="consignee_address_id" name="consignee_address_id" value="{{ $po->latestDeliveryAddress()?->id }}" />
+
                                                             <input type="hidden" id="delivery_country_id" name="delivery_country_id" />
                                                             <input type="hidden" id="delivery_state_id" name="delivery_state_id" />
                                                             <input type="hidden" id="delivery_city_id" name="delivery_city_id" />
@@ -269,9 +271,9 @@
 
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Consignee Name </label>
-                                                            {{-- <span class="text-danger">*</span> --}}
-                                                            <input type="text" class="form-control mw-100 @if (!$buttons['submit'] || !$buttons['draft']) disabled-input @endif" id="consignee_name" name="consignee_name" value="{{ $po->consignee_name }}" />
+                                                            <label class="form-label">Consignee Name</label>
+                                                            <input type="text" placeholder="Select" class="form-control mw-100 ledgerselecct  disabled-input" id="consignee_name" name="consignee_name" value="{{ $po->consignee_name }}" />
+                                                            <input type="hidden" id="consignee_id" name="consignee_id" value="{{ $po->consignee_id }}" />
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1713,11 +1715,8 @@
                 $("#pincode").val('');
                 $("#address").val('');
                 return false;
-            } else {
-                $form.find(":input").not(e.target).not("button, [type='button'], [type='submit']").addClass(
-                    'disabled-input');
-                $(this).removeClass('disabled-input');
             }
+
             let vendorId = $("#vendor_id").val();
             let addressType = $("#address_type").val();
             let addressId = selectedValue
@@ -2378,14 +2377,35 @@
             $('#prModal .po-order-detail .vendor-select', this).trigger('change.select2');
         });
 
+        $(document).on('change', '.vendor-select', function() {
+            if ($(this).val()) {
+                $(this).removeClass("is-invalid");
+                let $row = $(this).closest('tr');
+                let $checkbox = $row.find(".pi_item_checkbox");
+                $checkbox.removeClass("is-invalid");
+                $(this).next(".vendor-error").remove();
+            }
+        });
+
         /*Checkbox for pi item list*/
         @if ($serviceAlias == 'po')
-            $(document).on('change', '#prModal .po-order-detail > thead .form-check-input', (e) => {
+            /* Checkbox for pi item list */
+            $(document).on('change', '.po-order-detail > thead .form-check-input', (e) => {
                 if (e.target.checked) {
-                    // in this add check that the only select the vendor from the
+                    let $firstVendorInput = $('.pi_item_checkbox').first().closest('tr').find("[name='vend_name']");
+                    let selectedVendorId = $firstVendorInput.val() || '';
+
+                    if ($firstVendorInput.length && !selectedVendorId) {
+                        $firstVendorInput.addClass("is-invalid");
+                        if (!$firstVendorInput.next(".vendor-error").length) {
+                            $firstVendorInput.after('<div class="vendor-error text-danger">Please select vendor first</div>');
+                        }
+
+                        e.target.checked = false;
+                        return;
+                    }
+
                     if ($('.pi_item_checkbox').first().closest('tr').find("[name='vend_name']").length) {
-                        let selectedVendorId = $('.pi_item_checkbox:checked').first().closest('tr').find(
-                            "[name='vend_name']").val() || '';
                         $("[name='vend_name']").each(function(itemIndex, vendorItem) {
                             if (!selectedVendorId) {
                                 let firstVendor = $(vendorItem).val();
@@ -2396,10 +2416,9 @@
                             if (selectedVendorId && $(vendorItem).val() == selectedVendorId) {
                                 $(vendorItem).closest('tr').find('.form-check-input').prop('checked', true);
                             } else {
-                                $(vendorItem).closest('tr').find('.form-check-input').prop('checked',
-                                    false);
+                                $(vendorItem).closest('tr').find('.form-check-input').prop('checked', false);
                             }
-                        })
+                        });
                     } else {
                         $(".po-order-detail > tbody .form-check-input").each(function() {
                             $(this).prop('checked', true);
@@ -2433,11 +2452,27 @@
         $(document).ready(function() {
             localStorage.removeItem('selectedVendorId');
         });
+
         @if ($serviceAlias == 'po')
             $(document).on('change', '#prDataTable .pi_item_checkbox', function(e) {
+                let $row = $(this).closest('tr');
+                let $vendorInput = $row.find(".vendor-select"); // using vendor-select class
                 let currentPoVendorId = $('#vendor_id').val() || '';
                 let selectedVendorId = localStorage.getItem('selectedVendorId') || null;
                 let currentCheckedVendorId = $(this).closest('tr').find("[name='vend_name']").val();
+
+                if (!currentCheckedVendorId) {
+                    this.checked = false;
+
+                    $vendorInput.addClass("is-invalid");
+                    $vendorInput.after(
+                        `<span class="text-danger vendor-error">Please select vendor first</span>`
+                    );
+                    $(this).addClass("is-invalid");
+                    $vendorInput.focus();
+                    return;
+                }
+
                 if (!currentCheckedVendorId) {
                     this.checked = false;
                     return;
@@ -3163,6 +3198,57 @@
             });
         });
 
+        function consigneeAutoComplete() {
+            $("#consignee_name").autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: '/search',
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {
+                            q: request.term,
+                            type: 'consignee',
+                        },
+                        success: function(res) {
+                            response($.map(res, function(item) {
+                                return {
+                                    id: item.id,
+                                    label: item.consignee_name + " (" + item.consignee_code + ")",
+                                    value: item.consignee_name + " (" + item.consignee_code + ")",
+                                    delivery_address: item?.address
+                                };
+                            }));
+                        },
+                    });
+                },
+                minLength: 0,
+                select: function(event, ui) {
+                    $("#consignee_id").val(ui.item.id);
+                    $("#consignee_name").val(ui.item.value);
+                    if (ui.item.delivery_address) {
+                        $("#consignee_address_id").val(ui.item.delivery_address.id);
+                        $("#delivery_address_id").val(ui.item.delivery_address.id);
+                        $(".delivery_address").text(ui.item?.delivery_address.display_address);
+                    }
+                },
+                change: function(event, ui) {
+                    if (!ui.item) {
+                        $(this).val("");
+                        $("#consignee_id").val("");
+                        $("#consignee_address_id").val("");
+                        $("#consignee_name").val("");
+                        $("#delivery_address_id").val("");
+                        $(".delivery_address").text("");
+                    }
+                },
+            }).focus(function() {
+                if (this.value === "") {
+                    $(this).autocomplete("search", "");
+                }
+            });
+        }
+
+        consigneeAutoComplete();
 
         // Short CLose
         $(document).on('click', '#shortCloseBtn', (e) => {

@@ -42,6 +42,7 @@ use App\Models\Attribute;
 use App\Models\ErpMachineDetail;
 use App\Models\ErpSubStore;
 use App\Models\PwoBomMapping;
+use App\Services\MoDeleteService;
 use Yajra\DataTables\DataTables;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf; 
@@ -301,9 +302,14 @@ class MoController extends Controller
                                     $pwoStation->mo_id = $mo->id;
                                     $pwoStation->save();
                                 }
+                                $minQty = PwoStationConsumption::where('pwo_mapping_id', $moProdDetail->pwoMapping->id)->min('mo_product_qty');
+                                $calQty = $minQty?? $moProdDetail->qty;
+
                                     $moProdDetail->pwoMapping->mo_id = $mo->id;
-                                    $moProdDetail->pwoMapping->mo_product_qty += $moProdDetail->qty;
+                                    $moProdDetail->pwoMapping->mo_product_qty += $calQty;
                                     $moProdDetail->pwoMapping->save();   
+                                
+                                
                             }
 
                             # Mo Item Store
@@ -814,6 +820,49 @@ class MoController extends Controller
                 foreach($request->all()['components'] as $component) {
                     # MoProductDetail
                     if(isset($component['mo_product_id']) && $component['mo_product_id']) {
+                        $moProdDetail = MoProduct::find($component['mo_product_id']);
+                        if($moProdDetail) {
+                            $moProdDetail->update(['qty' => $component['qty']]);
+                         
+                            # Update MoProductDetailAttr component Attr
+                            if(isset($moProdDetail->pwoMapping) && $moProdDetail->pwoMapping) {
+                                $pwoStation = PwoStationConsumption::where('pwo_mapping_id',$moProdDetail?->pwoMapping?->id)
+                                                        ->where('station_id',$mo->station_id)
+                                                        ->first();
+                                                        
+                                if($pwoStation) {
+                                    $pwoStation->mo_product_qty += ($moProdDetail->qty-$pwoStation->mo_product_qty);
+                                    $pwoStation->mo_id = $mo->id;
+                                    $pwoStation->save();
+                                }
+
+                                $minQty = PwoStationConsumption::where('pwo_mapping_id', $moProdDetail->pwoMapping->id)->min('mo_product_qty');
+                                $calQty = $minQty?? ($moProdDetail->qty-$moProdDetail->pwoMapping->mo_product_qty);
+
+                                    $moProdDetail->pwoMapping->mo_id = $mo->id;
+                                    $moProdDetail->pwoMapping->mo_product_qty = $calQty;
+                                    $moProdDetail->pwoMapping->save();
+                                
+                                
+                            }
+                            $MoBomMapping = MoBomMapping::where('mo_product_id', $moProdDetail->id)->get();
+                            foreach ($MoBomMapping as $mapping) {
+                                $mapping->consumption_qty = $mapping->bom_qty * $moProdDetail->qty;
+                                $mapping->save();
+                                $MoItem = MoItem::where('bom_detail_id', $mapping->bom_detail_id)
+                                        ->where('station_id', $mapping->station_id)
+                                        ->where('item_id', $mapping->item_id)
+                                        ->where('uom_id', $mapping->uom_id)
+                                        ->where('mo_id', $mo->id)
+                                        ->first();
+                                if($MoItem) {
+                                    $MoItem->qty = $MoItem->qty + ($mapping->bom_qty * $moProdDetail->qty) - $MoItem->qty;
+                                    $MoItem->inventory_uom_qty = $MoItem->qty;
+                                    $MoItem->save();
+                                }
+                            }
+                            
+                        }
                         continue;
                     }
                     $ctr++;
@@ -864,11 +913,15 @@ class MoController extends Controller
                             $pwoStation->mo_product_qty += $moProdDetail->qty;
                             $pwoStation->mo_id = $mo->id;
                             $pwoStation->save();
-                        } else {
-                            $moProdDetail->pwoMapping->mo_id = $mo->id;
-                            $moProdDetail->pwoMapping->mo_product_qty += $moProdDetail->qty;
-                            $moProdDetail->pwoMapping->save();
                         }
+
+                        $minQty = PwoStationConsumption::where('pwo_mapping_id', $moProdDetail->pwoMapping->id)->min('mo_product_qty')?? 0;
+                        $calQty = $minQty?? $moProdDetail->qty;
+
+                            $moProdDetail->pwoMapping->mo_id = $mo->id;
+                            $moProdDetail->pwoMapping->mo_product_qty =$calQty;
+                            $moProdDetail->pwoMapping->save();
+
                     }
                 }
 
@@ -1914,5 +1967,48 @@ class MoController extends Controller
             'status' => 200,
             'message' => $bomExists ? 'Fetched!' : "Only products with production type In-house are allowed."
         ]);
+    }
+
+    public function destroy($id,$amendment = false)
+    {
+        $MfgOrder = MfgOrder::find($id);
+
+        if (!$MfgOrder) {
+            return response()->json(['status' => false, 'message' => 'Manufacturing Order not found.'], 404);
+        }
+    
+        if (!$amendment && $MfgOrder->document_status !== ConstantHelper::DRAFT) {
+            return response()->json(['status' => false, 'message' => 'Only draft documents can be deleted.'], 422);
+        }
+        \DB::beginTransaction();
+        try {
+          
+            
+            $moDeleteService = new MoDeleteService();
+            // Safe handling if no items exist
+            $deletedData['deletedPiItemIds'] = $MfgOrder->moProducts?->pluck('id')->toArray() ?? [];
+            
+            $response = $moDeleteService->deleteMoItems($deletedData, $MfgOrder);
+            // Delete all history 
+            if ($response['status'] === 'error') {
+                \DB::rollBack();
+                return response()->json(['status' => false, 'message' => $response['message']], 422);
+            }
+            $moDeleteService->deleteMoHistory($MfgOrder);
+
+            $MfgOrder->delete();
+
+            \DB::commit();
+
+            return response()->json(['status' => true, 'message' => 'Document deleted successfully.'], 200);
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+         
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error deleting Manufacturing Order: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

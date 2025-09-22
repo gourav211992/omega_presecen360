@@ -42,7 +42,7 @@ class GeDeleteService
                     $asnItem->ge_qty -= $orderQty;
                     $asnItem->save();
                 }
-                
+
                 switch ($mrn->reference_type) {
                     case ConstantHelper::JO_SERVICE_ALIAS:
                         if ($joItem = $mrnItem->joItem) {
@@ -50,18 +50,33 @@ class GeDeleteService
                             $joItem->save();
                         }
                         break;
-                
+
                     case ConstantHelper::SO_SERVICE_ALIAS:
                         if ($soItem = $mrnItem->soItem) {
                             $soItem->ge_qty -= $orderQty;
                             $soItem->save();
                         }
                         break;
-                
+
                     case ConstantHelper::PO_SERVICE_ALIAS:
                         if ($poItem = $mrnItem->poItem) {
                             $poItem->ge_qty -= $orderQty;
                             $poItem->save();
+                        }
+                        break;
+                    case ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS:
+                    case ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS:
+                        if ($dnoteItem = $mrnItem->dnoteItem) {
+                            $dnoteItem->grn_qty -= $orderQty;
+                            $dnoteItem->save();
+                        }
+                        if ($dnotePoItem = $mrnItem?->dnoteItem?->PoItem) {
+                            $dnotePoItem->grn_qty -= $orderQty;
+                            $dnotePoItem->save();
+                        }
+                        if ($dnoteJoItem = $mrnItem?->dnoteItem?->JoItem) {
+                            $dnoteJoItem->grn_qty -= $orderQty;
+                            $dnoteJoItem->save();
                         }
                         break;
                 }

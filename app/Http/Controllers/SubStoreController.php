@@ -6,6 +6,7 @@ use App\Helpers\InventoryHelper;
 use App\Http\Requests\SubStoreRequest;
 use App\Models\ErpSubStore;
 use App\Models\ErpSubStoreParent;
+use App\Models\MfgOrder;
 use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use App\Models\SubStoreType;
 use Exception;
@@ -120,7 +121,7 @@ class SubStoreController extends Controller
                 'type'=>$validatedData['store_location_type'],
                 'station_wise_consumption'=>isset($request -> station_wise_consumption) ? 'yes' : 'no',
                 'is_warehouse_required'=>isset($request -> is_warehouse_required) && $request -> stock_store_types === SubStoreConstants::MAIN_STORE_VALUE ? 1 : 0,
-                'uic_scan_for_issue'=> $uicScanForIssue,
+                // 'uic_scan_for_issue'=> $uicScanForIssue,
                 'status'=>$validatedData['status'],
             ];
             $erpSubStore->fill($data);
@@ -229,13 +230,21 @@ class SubStoreController extends Controller
                     $uicScanForIssue = isset($request -> uic_scan_for_issue) ? "yes" : "no";
                 }
             }
+            // mo check for station_wise_consumption
+            $subStoreCheck = MfgOrder::where('sub_store_id', $subStore -> id) -> exists();
+            if ($subStoreCheck && $subStore->station_wise_consumption !== $request->station_wise_consumption) {
+                return response()->json([
+                    'status'  => false,
+                    'message' => 'This Sub Store is referenced in Manufacturing Order. So, you cannot change Station wise consumption.',
+                ], 400);
+            }
             $subStore->update([
                 'code' => $validatedData['code'],
                 'name' => $validatedData['name'],
                 'type'=>$validatedData['store_location_type'],
                 'station_wise_consumption'=>isset($request -> station_wise_consumption) ? 'yes' : 'no',
                 'is_warehouse_required'=>isset($request -> is_warehouse_required) && $request -> stock_store_types === SubStoreConstants::MAIN_STORE_VALUE ? 1 : 0,
-                'uic_scan_for_issue' => $uicScanForIssue,
+                // 'uic_scan_for_issue' => $uicScanForIssue,
                 'status' => $validatedData['status'],
             ]);
             if ($subStore -> type == ConstantHelper::STOCKK) {

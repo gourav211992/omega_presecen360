@@ -1,14 +1,14 @@
 <?php
 
 namespace App\Traits;
+
+use App\Helpers\Common\OrganizationHelper;
 use App\Helpers\ConstantHelper;
 use App\Helpers\Helper;
-use App\Models\AuthUser;
 use App\Models\EmployeeBookMapping;
 use App\Models\Organization;
 use App\Models\OrganizationMenu;
 use App\Models\Scopes\DefaultGroupCompanyOrgScope;
-use Log;
 
 trait DefaultGroupCompanyOrg
 {
@@ -23,8 +23,10 @@ trait DefaultGroupCompanyOrg
         if (isset($this -> attributes['company_id'])) {
             return $this -> attributes['company_id'];
         } else {
-            $authUser = Helper::getAuthenticatedUser();
-            $organization = Organization::find($authUser -> organization_id);
+            // $authUser = Helper::getAuthenticatedUser();
+            // $organization = Organization::find($authUser -> organization_id);
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
+
             return $organization ?-> company_id;
         }
     }
@@ -34,9 +36,10 @@ trait DefaultGroupCompanyOrg
         if (isset($this -> attributes['organization_id'])) {
             return $this -> attributes['organization_id'];
         } else {
-            $authUser = Helper::getAuthenticatedUser();
-            $organization = Organization::find($authUser -> organization_id);
-            return $organization ?-> id;
+            // $authUser = Helper::getAuthenticatedUser();
+            // $organization = Organization::find($authUser -> organization_id);
+            // return $organization ?-> id;
+            return OrganizationHelper::getOrganizationId();
         }
     }
 
@@ -57,8 +60,10 @@ trait DefaultGroupCompanyOrg
     public function scopeWithDefaultGroupCompanyOrg($query, $paramAuthUser = null)
     {
         $query->withoutDefaultGroupCompanyOrgScope = true;
-        $authUser = $paramAuthUser ? $paramAuthUser : Helper::getAuthenticatedUser();
-        $authOrganization = Organization::find($authUser -> organization_id);
+        // $authUser = $paramAuthUser ? $paramAuthUser : Helper::getAuthenticatedUser();
+        // $authOrganization = Organization::find($authUser -> organization_id);
+        $authOrganization = OrganizationHelper::getAuthenticatedOrganization();
+
         $companyId = $authOrganization ?-> company_id;
         $groupId = $authOrganization ?-> group_id;
         $organizationId = $authOrganization ?-> id;
@@ -76,11 +81,13 @@ trait DefaultGroupCompanyOrg
 
     public function scopeWithDefaultGroupCompany($query, $paramAuthUser = null)
     {
-        $authUser = $paramAuthUser ? $paramAuthUser : Helper::getAuthenticatedUser();
-        $authOrganization = Organization::find($authUser -> organization_id);
+        // $authUser = $paramAuthUser ? $paramAuthUser : Helper::getAuthenticatedUser();
+        // $authOrganization = Organization::find($authUser -> organization_id);
+        $authOrganization = OrganizationHelper::getAuthenticatedOrganization();
+
         $companyId = $authOrganization ?-> company_id;
         $groupId = $authOrganization ?-> group_id;
-        $organizationId = $authOrganization ?-> id;
+        // $organizationId = $authOrganization ?-> id;
         $query -> where('group_id', $groupId) // Always compare group ID
         ->where(function ($q) use ($companyId) {
             // Only compare company_id if it is not null in the database

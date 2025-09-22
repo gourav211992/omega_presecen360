@@ -1072,7 +1072,7 @@ class PiController extends Controller
                     'SUM(invoice_qty) as invoice_qty'
                 ])));
         }
-        $soItems = $soItems->get();
+        $soItems = $soItems->orderBy('id', 'DESC')->get();
 
         $html = view('procurement.pi.partials.so-item-list', ['soItems' => $soItems, 'isAttribute' => $isAttribute])->render();
         return response()->json(['data' => ['pis' => $html, 'isAttribute' => $isAttribute], 'status' => 200, 'message' => "fetched!"]);

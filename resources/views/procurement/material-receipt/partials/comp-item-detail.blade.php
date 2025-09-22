@@ -97,7 +97,7 @@
                 </strong>
             </span>
             <span class="badge rounded-pill badge-light-primary">
-                {{$purchaseOrder->book_code}}-{{$purchaseOrder->document_number}}
+                {{$purchaseOrder?->book_code}}-{{$purchaseOrder?->document_number}}
             </span>
             <span class="badge rounded-pill badge-light-primary">
                 <strong>Date</strong>:

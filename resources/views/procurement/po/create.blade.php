@@ -138,6 +138,7 @@
                                                             <input type="hidden" id="vendor_address_id" name="vendor_address_id" />
                                                             <input type="hidden" id="billing_address_id" name="billing_address_id" />
                                                             <input type="hidden" id="delivery_address_id" name="delivery_address_id" />
+                                                            <input type="hidden" id="consignee_address_id" name="consignee_address_id" />
                                                             <input type="hidden" id="hidden_state_id" name="hidden_state_id" />
                                                             <input type="hidden" id="hidden_country_id" name="hidden_country_id" />
                                                             <input type="hidden" id="delivery_country_id" name="delivery_country_id" />
@@ -185,9 +186,9 @@
 
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Consignee Name </label>
-                                                            {{-- <span class="text-danger">*</span></label> --}}
-                                                            <input type="text" class="form-control mw-100" id="consignee_name" name="consignee_name" />
+                                                            <label class="form-label">Consignee Name</label>
+                                                            <input type="text" placeholder="Select" class="form-control mw-100 ledgerselecct" id="consignee_name" name="consignee_name" />
+                                                            <input type="hidden" id="consignee_id" name="consignee_id" />
                                                         </div>
                                                     </div>
 
@@ -1099,6 +1100,7 @@
                         $("select[name='currency_id']").prop('disabled', true);
                         $("select[name='payment_term_id']").prop('disabled', true);
                         $("#vendor_name").prop('readonly', true);
+                        $("#consignee_name").prop('readonly', true);
                         $("#book_id").prop('disabled', true);
                         $(".editAddressBtn").addClass('d-none');
                         document.getElementById('copy_item_section').style.display = "";
@@ -1151,6 +1153,7 @@
                 $("select[name='payment_term_id']").prop('disabled', false);
                 $(".editAddressBtn").removeClass('d-none');
                 $("#vendor_name").prop('readonly', false);
+                $("#consignee_name").prop('readonly', false);
                 $("#book_id").prop('disabled', false);
                 getLocation();
                 document.getElementById('copy_item_section').style.display = "none";
@@ -1210,19 +1213,28 @@
         }
 
         $(document).on('click', '.editAddressBtn', (e) => {
-            let addressType = $(e.target).closest('a').attr('data-type');
-            let vendorId = $("#vendor_id").val() || '';
+            let $target = $(e.target).closest('a');
+            let addressType = $target.attr('data-type');
+
+            let consigneeId = $("#consignee_id").val() || '';
+            let vendorId = (!consigneeId ? $("#vendor_id").val() : '');
+
             let addressId = '';
-            if (addressType == 'vendor_address') {
+            if (addressType === 'vendor_address' && !consigneeId) {
                 addressId = $("#vendor_address_id").val() || '';
             }
-            if (addressType == 'delivery_address') {
+            if (addressType === 'delivery_address') {
                 addressId = $("#delivery_address_id").val() || '';
             }
+            if (consigneeId) {
+                addressId = $("#consignee_address_id").val() || '';
+                addressType = 'consignee_address';
+            }
+
             let routeType = '{{ request()->route('type') }}';
             let actionUrl = `{{ route('po.edit.address', ['type' => ':type']) }}`
                 .replace(':type', routeType) +
-                `?vendor_id=${vendorId}&address_id=${addressId}&type=${addressType}`;
+                `?vendor_id=${vendorId}&consignee_id=${consigneeId}&address_id=${addressId}&type=${addressType}`;
 
             fetch(actionUrl)
                 .then(response => response.json())
@@ -1230,25 +1242,40 @@
                     if (!data.status) {
                         Swal.fire({
                             title: 'Error!',
-                            text: data.message,
+                            text: data.message || 'Something went wrong',
                             icon: 'error',
                         });
                         return false;
                     }
+
                     if (data.status === 200) {
                         if (data.data.html) {
                             $("#edit-address .modal-dialog").html(data.data.html);
                         }
-                        $("#edit-address").modal('show');
-                        initializeFormComponents(data.data.selectedAddress);
-                        $("#address_type").val(addressType);
-                        let v = $("#vendor_id").val();
-                        $("#hidden_vendor_id").val(v);
-                        if (addressType == 'vendor_address') {
-                            $("#vendor_address_id").val(data.data.selectedAddress.id);
+
+                        if (consigneeId) {
+                            $("#edit-address .submitAddress").prop("disabled", true);
                         }
-                        if (addressType == 'delivery_address') {
-                            $("#delivery_address_id").val(data.data.selectedAddress.id);
+
+                        $("#edit-address").modal('show');
+
+                        initializeFormComponents(data.data.selectedAddress || {});
+                        $("#address_type").val(addressType);
+
+                        if (consigneeId) {
+                            $("#hidden_consignee_id").val(consigneeId);
+                            if (addressType === 'consignee_address') {
+                                $("#consignee_address_id").val(data.data.selectedAddress?.id || '');
+                            }
+                        } else {
+                            $("#hidden_vendor_id").val(vendorId);
+                            if (addressType === 'vendor_address') {
+                                $("#vendor_address_id").val(data.data.selectedAddress?.id || '');
+                            }
+                        }
+
+                        if (addressType === 'delivery_address') {
+                            $("#delivery_address_id").val(data.data.selectedAddress?.id || '');
                         }
                     } else {
                         console.error('Failed to fetch address data:', data.message);
@@ -1260,39 +1287,44 @@
         $(document).on('change', "[name='address_id']", (e) => {
             const selectedValue = $(e.target).val();
             if (!selectedValue) {
-                $("#city_id").removeClass('disabled-input');
-                $("#pincode").removeClass('disabled-input');
-                $("#address").removeClass('disabled-input');
-                $("#city_id").val('');
-                $("#pincode").val('');
-                $("#address").val('');
+                $("#city_id, #pincode, #address").removeClass('disabled-input').val('');
                 return false;
-            } else {
-                $form.find(":input").not(e.target).not("button, [type='button'], [type='submit']").addClass(
-                    'disabled-input');
-                $(this).removeClass('disabled-input');
             }
-            let vendorId = $("#vendor_id").val();
+
+            let consigneeId = $("#consignee_id").val() || '';
+            let vendorId = (!consigneeId ? $("#vendor_id").val() : '');
             let addressType = $("#address_type").val();
-            let addressId = selectedValue
+            let addressId = selectedValue;
+
+            if (consigneeId) {
+                addressType = 'consignee_address';
+            }
 
             let type = '{{ request()->route('type') }}';
             let actionUrl = `{{ route('po.edit.address', ['type' => ':type']) }}`
                 .replace(':type', type) +
-                `?type=${addressType}&vendor_id=${vendorId}&address_id=${addressId}`;
+                `?type=${addressType}&vendor_id=${vendorId}&consignee_id=${consigneeId}&address_id=${addressId}`;
+
             fetch(actionUrl)
                 .then(response => response.json())
                 .then(data => {
                     if (!data.status) {
                         Swal.fire({
                             title: 'Error!',
-                            text: data.message,
+                            text: data.message || 'Something went wrong',
                             icon: 'error',
                         });
                         return false;
                     }
                     if (data.status === 200) {
-                        initializeFormComponents(data.data.selectedAddress);
+                        let selectedAddress = data?.data?.selectedAddress
+                        initializeFormComponents(selectedAddress || {});
+
+                        if (selectedAddress) {
+                            $("#consignee_address_id").val(selectedAddress.id);
+                            $("#delivery_address_id").val(selectedAddress.id);
+                            $(".delivery_address").text(selectedAddress?.display_address);
+                        }
                     } else {
                         console.error('Failed to fetch address data:', data.message);
                     }
@@ -1300,63 +1332,77 @@
                 .catch(error => console.error('Error fetching address data:', error));
         });
 
-        function initializeFormComponents(selectedAddress) {
+        function initializeFormComponents(selectedAddress = {}) {
             const countrySelect = $('#country_id');
+            const stateSelect = $('#state_id');
+            const citySelect = $('#city_id');
+
+            countrySelect.off('change');
+            stateSelect.off('change');
+
+            // COUNTRY
             fetch('/countries')
                 .then(response => response.json())
                 .then(data => {
-                    countrySelect.empty();
-                    countrySelect.append('<option value="">Select Country</option>');
-                    data.data.countries.forEach(country => {
-                        const isSelected = country.value == selectedAddress.country.id;
+                    const countries = data?.data?.countries || [];
+                    countrySelect.empty().append('<option value="">Select Country</option>');
+
+                    countries.forEach(country => {
+                        const isSelected = String(country.value) === String(selectedAddress?.country?.id ?? '');
                         countrySelect.append(new Option(country.label, country.value, isSelected, isSelected));
                     });
-                    if (selectedAddress.country.id) {
-                        countrySelect.trigger('change');
+
+                    if (selectedAddress?.country?.id) {
+                        countrySelect.val(String(selectedAddress.country.id)).trigger('change');
                     }
                 })
                 .catch(error => console.error('Error fetching countries:', error));
 
+            // STATE
             countrySelect.on('change', function() {
                 let countryValue = $(this).val();
-                let stateSelect = $('#state_id');
-                stateSelect.empty().append('<option value="">Select State</option>'); // Reset state dropdown
+                stateSelect.empty().append('<option value="">Select State</option>');
+                citySelect.empty().append('<option value="">Select City</option>');
 
                 if (countryValue) {
                     fetch(`/states/${countryValue}`)
                         .then(response => response.json())
                         .then(data => {
-                            data.data.states.forEach(state => {
-                                const isSelected = state.value == selectedAddress.state.id;
-                                stateSelect.append(new Option(state.label, state.value, isSelected,
-                                    isSelected));
+                            const states = data?.data?.states || [];
+                            states.forEach(state => {
+                                stateSelect.append(new Option(state.label, state.value));
                             });
-                            if (selectedAddress.state.id) {
-                                stateSelect.trigger('change');
+
+                            if (selectedAddress?.state?.id) {
+                                stateSelect.val(String(selectedAddress.state.id)).trigger('change');
                             }
                         })
                         .catch(error => console.error('Error fetching states:', error));
                 }
             });
-            $('#state_id').on('change', function() {
+
+            // CITY
+            stateSelect.on('change', function() {
                 let stateValue = $(this).val();
-                let citySelect = $('#city_id');
                 citySelect.empty().append('<option value="">Select City</option>');
+
                 if (stateValue) {
                     fetch(`/cities/${stateValue}`)
                         .then(response => response.json())
                         .then(data => {
-                            data.data.cities.forEach(city => {
-                                const isSelected = city.value == selectedAddress.city.id;
-                                citySelect.append(new Option(city.label, city.value, isSelected,
-                                    isSelected));
+                            const cities = data?.data?.cities || [];
+                            cities.forEach(city => {
+                                const isSelected = String(city.value) === String(selectedAddress?.city?.id ?? '');
+                                citySelect.append(new Option(city.label, city.value, isSelected, isSelected));
                             });
                         })
                         .catch(error => console.error('Error fetching cities:', error));
                 }
             });
-            $("#pincode").val(selectedAddress.pincode);
-            $("#address").val(selectedAddress.address);
+
+            // BASIC FIELDS
+            $("#pincode").val(selectedAddress?.pincode ?? '');
+            $("#address").val(selectedAddress?.address ?? '');
         }
 
         /*Display item detail*/
@@ -1465,6 +1511,7 @@
                         setTimeout(() => {
                             if (data?.data?.add_new_address) {
                                 $("#delivery_address_id").val('');
+                                $("#consignee_id").val("");
                             }
                         }, 0);
                         $("#edit-address").modal('hide');
@@ -2294,6 +2341,59 @@
                 });
             });
         }
+
+        function consigneeAutoComplete() {
+            $("#consignee_name").autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: '/search',
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {
+                            q: request.term,
+                            type: 'consignee',
+                        },
+                        success: function(res) {
+                            response($.map(res, function(item) {
+                                return {
+                                    id: item.id,
+                                    label: item.consignee_name + " (" + item.consignee_code + ")",
+                                    value: item.consignee_name + " (" + item.consignee_code + ")",
+                                    delivery_address: item?.address
+                                };
+                            }));
+                        },
+                    });
+                },
+                minLength: 0,
+                select: function(event, ui) {
+                    $("#consignee_id").val(ui.item.id);
+                    $("#consignee_name").val(ui.item.value);
+                    if (ui.item.delivery_address) {
+                        $("#consignee_address_id").val(ui.item.delivery_address.id);
+                        $("#delivery_address_id").val(ui.item.delivery_address.id);
+                        $(".delivery_address").text(ui.item?.delivery_address.display_address);
+                    }
+                },
+                change: function(event, ui) {
+                    if (!ui.item) {
+                        $(this).val("");
+                        $("#consignee_id").val("");
+                        $("#consignee_address_id").val("");
+                        $("#consignee_name").val("");
+                        $("#delivery_address_id").val("");
+                        $(".delivery_address").text("");
+                    }
+                },
+            }).focus(function() {
+                if (this.value === "") {
+                    $(this).autocomplete("search", "");
+                }
+            });
+        }
+
+        consigneeAutoComplete();
+
         $(document).on('click', '.clearPiFilter', (e) => {
             $("#item_name_input_qt").val('');
             $("#item_id_qt_val").val('');
