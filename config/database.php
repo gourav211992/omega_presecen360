@@ -46,11 +46,11 @@ return [
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DATABASE_URL'),
-            'host' => 'localhost',
-            'database' =>'erp_finance_04092025',
-            'username' =>'root',
-            'password' =>'!@#Staqo360presence' ,
-            'port' =>'3306',
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'database' => env('DB_DATABASE', 'forge'),
+            'username' => env('DB_USERNAME', 'forge'),
+            'password' => env('DB_PASSWORD', ''),
+            'port' => env('DB_PORT', '3306'),
             'unix_socket' => env('DB_SOCKET', ''),
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
@@ -63,13 +63,13 @@ return [
             ]) : [],
         ],
 
-        'mysql_master' => [
+        'master_db' => [
             'driver' => 'mysql',
-            'host' => 'localhost',
-            'port' => env('DB_PORT', '3306'),
-            'database' => 'master_erp_04092025',
-            'username' => 'root',
-            'password' => '!@#Staqo360presence',
+            'host' => env('DB_HOST_MASTER', '127.0.0.1'),
+            'port' => env('DB_PORT_MASTER', '3306'),
+            'database' => env('DB_DATABASE_MASTER', 'master_presence_360'),
+            'username' => env('DB_USERNAME_MASTER', 'forge'),
+            'password' => env('DB_PASSWORD_MASTER', ''),
             'unix_socket' => env('DB_SOCKET', ''),
             'charset' => 'utf8',
             'collation' => 'utf8_unicode_ci',
@@ -84,13 +84,14 @@ return [
             ],
             'engine' => null,
         ],
-        'master_db' => [
+
+        'mysql_master' => [
             'driver' => 'mysql',
-            'host' => 'localhost',
-            'port' => env('DB_PORT', '3306'),
-            'database' => 'master_erp_04092025',
-            'username' => 'root',
-            'password' => '!@#Staqo360presence',
+            'host' => env('DB_HOST_MASTER', '127.0.0.1'),
+            'port' => env('DB_PORT_MASTER', '3306'),
+            'database' => env('DB_DATABASE_MASTER', 'master_presence_360'),
+            'username' => env('DB_USERNAME_MASTER', 'forge'),
+            'password' => env('DB_PASSWORD_MASTER', ''),
             'unix_socket' => env('DB_SOCKET', ''),
             'charset' => 'utf8',
             'collation' => 'utf8_unicode_ci',
@@ -114,7 +115,7 @@ return [
             'database' => env('DB_DATABASE', 'forge'),
             'username' => env('DB_USERNAME', 'forge'),
             'password' => env('DB_PASSWORD', ''),
-        'unix_socket' => env('DB_SOCKET', ''),
+            'unix_socket' => env('DB_SOCKET', ''),
             'charset' => 'utf8mb4',
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
@@ -196,7 +197,7 @@ return [
             'username' => env('REDIS_USERNAME'),
             'password' => env('REDIS_PASSWORD'),
             'port' => env('REDIS_PORT', '6379'),
-            'database' => env('REDIS_DB', '0'),
+            'database' => env('REDIS_DB', '4'),
         ],
 
         'cache' => [
@@ -205,7 +206,16 @@ return [
             'username' => env('REDIS_USERNAME'),
             'password' => env('REDIS_PASSWORD'),
             'port' => env('REDIS_PORT', '6379'),
-            'database' => env('REDIS_CACHE_DB', '1'),
+            'database' => env('REDIS_CACHE_DB', '4'),
+        ],
+        
+        'p360' => [
+            'url' => env('REDIS_URL'),            
+            'host'     => env('REDIS_HOST', '127.0.0.1'),
+            'username' => env('REDIS_USERNAME'),
+            'password' => env('REDIS_PASSWORD'),
+            'port'     => env('REDIS_PORT', 6379),
+            'database' => (int) env('REDIS_P360_DB', 0),
         ],
 
     ],
