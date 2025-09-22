@@ -14,6 +14,8 @@
       <input type="hidden" name="components[{{$rowCount}}][po_detail_id]" value="{{@$item->purchase_order_item_id}}">
       <input type="hidden" name="components[{{$rowCount}}][job_order_id]" value="{{$item->jo_id}}">
       <input type="hidden" name="components[{{$rowCount}}][jo_detail_id]" value="{{$item->job_order_item_id}}">
+      <input type="hidden" name="components[{{ $rowCount }}][sale_invoice_id]" value="{{ $item->sale_invoice_id }}">
+      <input type="hidden" name="components[{{ $rowCount }}][invoice_itm_id]" value="{{ $item->invoice_item_id }}">
       <input type="hidden" name="components[{{$rowCount}}][vendor_asn_dtl_id]" value="{{$item->vendor_asn_dtl_id}}">
       <input type="hidden" name="components[{{$rowCount}}][vendor_asn_id]" value="{{$item->vendor_asn_id}}">
       <td class="customernewsection-form">
@@ -52,7 +54,7 @@
       <td>
          <input type="text" name="components[{{$rowCount}}][item_name]" value="{{$item?->item?->item_name}}" class="form-control mw-100 mb-25" readonly/>
       </td>
-      <td class="poprod-decpt attributeBtn" id="itemAttribute_{{$rowCount}}" data-count="{{$rowCount}}" attribute-array="{{$item->item_attributes_array()}}">
+      <td class="poprod-decpt attributeBtn" id="itemAttribute_{{$rowCount}}" data-count="{{$rowCount}}" attribute-array="{{$item->item_attributes_array()}}" data-disabled="true">
       </td>
       <td>
          <select class="form-select mw-100 " name="components[{{$rowCount}}][uom_id]">

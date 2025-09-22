@@ -96,7 +96,7 @@ class ProductionSlipController extends Controller
 
         } catch (\Exception $e) {
             \DB::rollBack();
-         
+
             return response()->json([
                 'status'  => false,
                 'message' => 'Error deleting Production Slip: ' . $e->getMessage(),
@@ -239,11 +239,11 @@ class ProductionSlipController extends Controller
                             ->whereDate('pslip_document_date', '<=', $endDate);
                     }
                 }
-        
+
 
                 if ($request->filled('so_number')) {
                     $so = explode('-', $request->so_number);
-                  
+
                     $so_number=isset($so[1])?$so[1]:$request->so_number;
                     $query->where('so_document_number', 'like', '%' . $so_number . '%');
                 }
@@ -255,7 +255,7 @@ class ProductionSlipController extends Controller
                 }
 
                 if ($request->filled('item_code')) {
-                      
+
                     $query->where('item_code', 'like', '%' . $request->item_code . '%');
                 }
             $results=$query->get();

@@ -2,19 +2,11 @@
 
 namespace App\Providers;
 
-use App\Helpers\ConstantHelper;
 use App\Helpers\Helper;
-use App\Models\ErpFinancialYear;
-use App\Models\OrganizationMenu;
-use App\Models\OrganizationService;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\URL;
-// use Illuminate\Support\Facades\DB;
-// use Illuminate\Support\Facades\Log;
-
-
+use P360\Core\Interfaces\TagCacheInterface;
+use App\Services\Common\FinancialYearService;
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -22,7 +14,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+
+        $this->app->singleton(FinancialYearService::class, function($app){
+            return new FinancialYearService(
+                $app->make(TagCacheInterface::class)
+            );
+        });
     }
 
     /**
@@ -38,28 +35,27 @@ class AppServiceProvider extends ServiceProvider
 
         View::composer('*', function ($view) {
 
-            $user = request()->user();
-            // $user = Helper::getAuthenticatedUser();
-            // $profileUser = $user->authUser();
+            $authUser = request()->user();
 
-            if ($user) {
+            if ($authUser) {
                 $user = Helper::getAuthenticatedUser();
-                $organizationId = $user->organization_id;
+                $organizationId = $authUser->organization_id;
                 // Fetch organization menus based on services
                 $menues = [];
 
                 // Fetch user organization mappings
                 $mappings = $user -> access_rights_org;
-                
+
                 // Fetch Organization Logo
                 $orgLogo = Helper::getOrganizationLogo($organizationId);
 
                 //financialyears
                 $c_fyear = "";
-                $fyears = Helper::getFinancialYears();
+                $fyears = app(FinancialYearService::class)->getFinancialYears($authUser);
+                // $fyears = Helper::getFinancialYears();
                 if($fyears!=null)
-                $c_fyear = Helper::getFinancialYear(date('Y-m-d'));
-
+                    $c_fyear = app(FinancialYearService::class)->getFinancialYear($authUser);
+                // $c_fyear = Helper::getFinancialYear(date('Y-m-d'));
 
                 // Pass organization id and mappings
                 $view->with([

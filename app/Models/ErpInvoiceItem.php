@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Helpers\InventoryHelper;
+use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -36,6 +37,8 @@ class ErpInvoiceItem extends Model
         'order_qty',
         'invoice_qty',
         'dnote_qty',
+        'grn_qty',
+        'ge_qty',
         'inventory_uom_id',
         'inventory_uom_code',
         'inventory_uom_qty',
@@ -131,7 +134,7 @@ class ErpInvoiceItem extends Model
                         $attributeValueData -> selected = $isSelected ? true : false;
                         array_push($attributesArray, $attributeValueData);
                     }
-                
+
             }
            $attribute -> values_data = $attributesArray;
             $attribute = $attribute -> only(['id','group_name', 'short_name', 'values_data', 'attribute_group_id']);
@@ -170,6 +173,12 @@ class ErpInvoiceItem extends Model
         return $this -> belongsTo(ErpSaleInvoice::class, 'sale_invoice_id');
     }
 
+    public function headers()
+    {
+        return $this -> belongsTo(ErpSaleInvoice::class, 'sale_invoice_id')
+        ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+    }
+
     public function getCgstValueAttribute()
     {
         $tedRecords = ErpSaleInvoiceTed::where('invoice_item_id', $this->id)
@@ -186,8 +195,8 @@ class ErpInvoiceItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'CGST')
             ->first();
-            
-        
+
+
         return [
             'rate' => @$tedRecord->taxDetail->tax_percentage,
             'value' => $tedRecords ?? 0.00
@@ -201,7 +210,7 @@ class ErpInvoiceItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'SGST')
             ->sum('ted_amount');
-        
+
             $tedRecord = ErpSaleInvoiceTed::with(['taxDetail'])
             ->where('invoice_item_id', $this->id)
             ->where('sale_invoice_id', $this->sale_invoice_id)
@@ -209,8 +218,8 @@ class ErpInvoiceItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'SGST')
             ->first();
-            
-        
+
+
         return [
             'rate' => @$tedRecord->taxDetail->tax_percentage,
             'value' => $tedRecords ?? 0.00
@@ -224,7 +233,7 @@ class ErpInvoiceItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'IGST')
             ->sum('ted_amount');
-        
+
             $tedRecord = ErpSaleInvoiceTed::with(['taxDetail'])
             ->where('invoice_item_id', $this->id)
             ->where('sale_invoice_id', $this->sale_invoice_id)
@@ -232,8 +241,8 @@ class ErpInvoiceItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'IGST')
             ->first();
-            
-        
+
+
         return [
             'rate' => @$tedRecord->taxDetail->tax_percentage,
             'value' => $tedRecords ?? 0.00
@@ -247,7 +256,7 @@ class ErpInvoiceItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'CESS')
             ->sum('ted_amount');
-        
+
             $tedRecord = ErpSaleInvoiceTed::with(['taxDetail'])
             ->where('invoice_item_id', $this->id)
             ->where('sale_invoice_id', $this->sale_invoice_id)
@@ -255,8 +264,8 @@ class ErpInvoiceItem extends Model
             ->where('ted_level', '=', 'D')
             ->where('ted_name', '=', 'CESS')
             ->first();
-            
-        
+
+
         return [
             'rate' => @$tedRecord->taxDetail->tax_percentage,
             'value' => $tedRecords ?? 0.00
@@ -326,7 +335,7 @@ class ErpInvoiceItem extends Model
         }
         return $stockBalanceQty;
     }
-    
+
     public function hsn()
     {
         return $this -> belongsTo(Hsn::class);
@@ -351,7 +360,13 @@ class ErpInvoiceItem extends Model
         $saleOrderItem = ErpSoItem::find($this -> getAttribute('so_item_id'));
         return $saleOrderItem;
     }
-    
+
+    public function saleOrderItem()
+    {
+        return $this->belongsTo(ErpSoItem::class,'so_item_id')
+        ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+    }
+
     // public function mapped_so_item_ids()
     // {
     //     return ErpSoDnMapping::where('delivery_note_id', $this -> getAttribute('sale_invoice_id')) -> where('dn_item_id', $this -> getAttribute('id')) -> get() -> pluck('so_item_id') -> toArray();
@@ -369,7 +384,7 @@ class ErpInvoiceItem extends Model
     {
         return $this->hasMany(ErpSaleInvoiceTed::class,'invoice_item_id')->where('ted_level', 'D')->where('ted_type', 'Tax');
     }
-    
+
     public function plItem()
     {
         return $this->belongsTo(ErpPlItem::class, 'pl_item_id');

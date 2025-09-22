@@ -2,6 +2,7 @@
 
 namespace App\Helpers;
 
+use App\Helpers\Common\OrganizationHelper;
 use App\Models\AmendmentWorkflow;
 use App\Models\ApprovalWorkflow;
 use App\Models\FixedAssetRegistration;
@@ -496,9 +497,13 @@ class Helper
 
     public static function generateDocumentNumberNew(int $book_id, string $document_date, stdClass $parameters = null, $authUser = null): mixed
     {
+        $user = self::getAuthenticatedUser();
 
         $book = Book::find($book_id);
-        $data = NumberPattern::where('book_id', $book_id)->orderBy('id', 'DESC')->first();
+        $data = NumberPattern::where('organization_id', $user->organization_id)
+            ->where('book_id', $book_id)->orderBy('id', 'DESC')
+            ->first();
+        // $data = NumberPattern::where('book_id', $book_id)->orderBy('id', 'DESC')->first();
         $serviceAlias = $data?->book?->org_service?->alias;
         $modelName = isset(ConstantHelper::SERVICE_ALIAS_MODELS[$serviceAlias]) ? ConstantHelper::SERVICE_ALIAS_MODELS[$serviceAlias] : '';
         $financialYear = self::getFinancialYear($document_date);
@@ -1391,7 +1396,6 @@ class Helper
         if ($docStatus == ConstantHelper::POSTED) {
             $voucher = true;
             $print = true;
-            $amend = false; // Disable Amend in case document has been posted (Fully lock the document)
         }
         return [
             'draft' => $draft,
@@ -2043,7 +2047,6 @@ class Helper
             if (isset($approvalRequired->approval_required) && $approvalRequired->approval_required) {
                 $approvalWorkflow = ApprovalWorkflow::where('book_id', $book->id)
                     ->where('organization_id', $user->organization_id)
-                    ->where('user_id', '!=', $createdBy)
                     ->whereHas('level')->get();
                 if (count($approvalWorkflow) == 0) {
                     $approvalStatus = ConstantHelper::APPROVAL_NOT_REQUIRED;
@@ -2660,31 +2663,24 @@ class Helper
     {
         $authUser = request()->user();
 
-        // $ck = "iam:{$authUser->group_id}:{$authUser->id}";
-        // $ttl = 0; // 20 minutes; adjust or use forever with manual busting
+        $ck = "iam:auth-user";
+        $key = app(TagCacheInterface::class)->key($authUser, $ck);
+        $ttl = app(TagCacheInterface::class)->ttl();
 
-        // $user = app(TagCacheInterface::class)->remember(
-        //     key: $ck . ':get-authenticated-user',
-        //     ttl: $ttl,
-        //     callback: function () use ($authUser) {
-        //         $user = $authUser->authUser();
-        //         $user->authenticable_type = $authUser->authenticable_type;
-        //         $user->auth_user_id = $authUser->id;
-        //         $user->db_name = $authUser->db_name;
-        //         // $user->current_organization_id = $authUser->organization_id;
-        //         return $user;
-        //     },
-        //     tags: [
-        //         'get-authenticated-user',
-        //         "group:{$authUser->group_id}",
-        //         "user:{$authUser->id}",
-        //     ]
-        // );
+        $user = app(TagCacheInterface::class)->remember(
+            key: $key,
+            ttl: $ttl,
+            callback: function () use ($authUser) {
+                $user = $authUser->authUser();
+                $user->authenticable_type = $authUser->authenticable_type;
+                $user->auth_user_id = $authUser->id;
+                $user->db_name = $authUser->db_name;
+                $user->organization_id = $authUser->organization_id;
 
-        $user = $authUser->authUser();
-        $user->authenticable_type = $authUser->authenticable_type;
-        $user->auth_user_id = $authUser->id;
-        $user->db_name = $authUser->db_name;
+                return $user;
+            },
+            storeName: 'redis_p360'
+        );
 
         return $user;
     }
@@ -2720,32 +2716,36 @@ class Helper
     public static function getOrganizationLogo($organizationId)
     {
 
-        $logoUrl = "";
-        $organization = Organization::find($organizationId);
+        $logoUrl = null;
+        // $organization = Organization::find($organizationId);
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+
         if ($organization && $organization->full_logo_path) {
-            return $organization->full_logo_path;
+            $logoUrl = $organization->full_logo_path;
         }
+
         // if ($organization && $organization->organization_logo) {
-        //     return $organization->organization_logo;
+        //     $logoUrl = $organization->organization_logo;
         // }
 
-
-        $orgMedia = Media::where('model_type', 'App\Models\Organization')
-            ->where('model_id', $organizationId)
-            ->where('collection_name', 'logo')
-            ->latest()
-            ->first();
-
-        if ($orgMedia) {
-            $logoUrl = "https://login.thepresence360.com";
-            $dbName = Session::get('DB_DATABASE', '');
-            $logoUrl .= "/storage";
-            if ($dbName)
-                $logoUrl .= "/$dbName";
-            $logoUrl .= "/$orgMedia->id/$orgMedia->file_name";
-        }
-
         return $logoUrl;
+
+        // $orgMedia = Media::where('model_type', 'App\Models\Organization')
+        //     ->where('model_id', $organizationId)
+        //     ->where('collection_name', 'logo')
+        //     ->latest()
+        //     ->first();
+
+        // if ($orgMedia) {
+        //     $logoUrl = "https://login.thepresence360.com";
+        //     $dbName = Session::get('DB_DATABASE', '');
+        //     $logoUrl .= "/storage";
+        //     if ($dbName)
+        //         $logoUrl .= "/$dbName";
+        //     $logoUrl .= "/$orgMedia->id/$orgMedia->file_name";
+        // }
+
+        // return $logoUrl;
     }
 
     public static function getInitials($name)
@@ -3299,7 +3299,8 @@ class Helper
                     })->get();
                     if ($organizationServices && count($organizationServices) > 0) {
                         $organizationServices = $organizationServices->filter(function ($orgService) use ($bookIds) {
-                            $isBookExist = Book::withDefaultGroupCompanyOrg()->whereIn('id', $bookIds)->where('org_service_id', $orgService->id)->first();
+                            $isBookExist = Book::whereIn('id', $bookIds)->where('org_service_id', $orgService->id)->first();
+                            // $isBookExist = Book::withDefaultGroupCompanyOrg()->whereIn('id', $bookIds)->where('org_service_id', $orgService->id)->first();
                             return $isBookExist;
                         });
                     }
@@ -3758,6 +3759,7 @@ class Helper
                         'end_date' => $financialYear->end_date,
                         'range' => $startYear . '-' . $endYearShort,
                         'authorized_users' => $financialYear->authorizedUsers()
+                        // 'authorized_users' => $financialYear->authorizedUsers()
                     ];
                 })
                 ->values();

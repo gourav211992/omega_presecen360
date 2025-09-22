@@ -2412,10 +2412,10 @@ class InventoryHelper
                     $query->orWhere('id', $storeId);
                 }
             })
-            ->when($isSuperAdmin && $groupId, function ($query) use ($groupId) {
-                $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
-                    ->where('group_id', $groupId);
-            })
+            // ->when($isSuperAdmin && $groupId, function ($query) use ($groupId) {
+            //     $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
+            //         ->where('group_id', $groupId);
+            // })
             ->when($locationType, function ($typeQuery) use ($locationType) {
                 if (is_string($locationType)) {
                     $typeQuery = $typeQuery->where('store_location_type', $locationType);
@@ -2933,7 +2933,7 @@ class InventoryHelper
                         if (!$stockLedger) {
                             $stockLedger = new StockLedger();
                         }
-                        $utilizedQty = 0;      
+                        $utilizedQty = 0;
                         $invoiceLedger = self::insertStockLedger($stockLedger, $documentItem, $bookType, $documentStatus, $transactionType, $utilizedQty);
                         if ($invoiceLedger['status'] == 'error') {
                             return $invoiceLedger;

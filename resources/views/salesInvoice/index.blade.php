@@ -30,7 +30,7 @@
                             {{'Create ' . $typeName}}
                         </a> 
                         @endif
-                        <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('transactions.report', ['serviceAlias' => 'si']) }}"><i data-feather="bar-chart-2"></i>Report</a>
+                    <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('transactions.report', ['serviceAlias' => $alias]) }}"><i data-feather="bar-chart-2"></i>Report</a>
 
                     </div>
                 </div>

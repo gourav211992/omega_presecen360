@@ -110,8 +110,10 @@ use App\Helpers\CommonHelper;
 use App\Helpers\Configuration\Constants;
 use App\Lib\Services\WHM\PutawayJob;
 use App\Models\Configuration;
+use App\Models\ErpInvoiceItem;
 use App\Models\ErpMiItem;
 use App\Models\ErpMrnPaymentTerm;
+use App\Models\ErpSaleInvoice;
 use App\Models\ErpSoItem;
 use App\Models\ErpSoJobWorkItem;
 use App\Models\ErpSubStoreParent;
@@ -124,6 +126,7 @@ use App\Models\MrnJoItem;
 use App\Models\PaymentTermDetail;
 use App\Models\VendorLocation;
 use App\Models\PurchaseOrderTed;
+use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use P360\ClientConfig\Services\ClientConfigService;
 
 class MaterialReceiptController extends Controller
@@ -155,7 +158,6 @@ class MaterialReceiptController extends Controller
         request()->merge(['type' => $orderType]);
         if (request()->ajax()) {
             $user = Helper::getAuthenticatedUser();
-            $organization = Organization::where('id', $user->organization_id)->first();
             $records = MrnHeader::with(
                 [
                     'items',
@@ -210,7 +212,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-    
+
                         return $joReferences ?: 'N/A';
                     } elseif ($row->reference_type === 'po') {
                         // Multiple POs from related items
@@ -223,7 +225,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-    
+
                         return $joReferences ?: 'N/A';
                     } else {
                         return '';
@@ -556,6 +558,11 @@ class MaterialReceiptController extends Controller
                             $result = self::processPurchaseOrderComponent($component, $item, $orderQty);
                             break;
 
+                        case ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS:
+                        case ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS:
+                            $result = self::processDnoteComponent($component, $item, $orderQty);
+                            break;
+
                         default:
                             $result = self::processDirectComponent($component, $item, $orderQty);
                             break;
@@ -607,6 +614,8 @@ class MaterialReceiptController extends Controller
                         'po_id' => $component['purchase_order_id'] ?? null,
                         'job_order_item_id' => $component['jo_detail_id'] ?? null,
                         'jo_id' => $component['job_order_id'] ?? null,
+                        'invoice_item_id' => $component['invoice_itm_id'] ?? null,
+                        'sale_invoice_id' => $component['sale_invoice_id'] ?? null,
                         'vendor_asn_id' => $component['vendor_asn_id'] ?? null,
                         'vendor_asn_item_id' => $component['vendor_asn_dtl_id'] ?? null,
                         'gate_entry_detail_id' => $component['gate_entry_detail_id'] ?? null,
@@ -708,6 +717,8 @@ class MaterialReceiptController extends Controller
                     $mrnDetail->purchase_order_item_id = $mrnItem['purchase_order_item_id'];
                     $mrnDetail->gate_entry_detail_id = $mrnItem['gate_entry_detail_id'];
                     $mrnDetail->job_order_item_id = $mrnItem['job_order_item_id'];
+                    $mrnDetail->invoice_item_id = $mrnItem['invoice_item_id'];
+                    $mrnDetail->sale_invoice_id = $mrnItem['sale_invoice_id'];
                     $mrnDetail->vendor_asn_id = $mrnItem['vendor_asn_id'];
                     $mrnDetail->vendor_asn_item_id = $mrnItem['vendor_asn_item_id'];
                     $mrnDetail->gate_entry_detail_id = $mrnItem['gate_entry_detail_id'];
@@ -1210,6 +1221,15 @@ class MaterialReceiptController extends Controller
                 $detailsField = 'sale_order_item_id';
                 $asnHeaderField = null;
                 $asnDetailsField = null;
+                break;
+            case 'dnote':
+            case 'si-dnote':
+                $headerField = 'sale_invoice_id';
+                $detailsField = 'invoice_item_id';
+                $asnHeaderField = null;
+                $asnDetailsField = null;
+                $geHeaderField = null;
+                $geDetailsField = null;
                 break;
         }
 
@@ -1871,18 +1891,16 @@ class MaterialReceiptController extends Controller
                             ? json_decode($component['assetDetailData'], true)
                             : $component['assetDetailData'];
                         if (is_array($assetDetails)) {
-                            $assetDetail = MrnAssetDetail::find($assetDetails['asset_id']) ?? new MrnAssetDetail();
+                            $assetDetail = MrnAssetDetail::find(@$assetDetails['asset_id']) ?? new MrnAssetDetail();
                             $assetDetail->header_id = $mrn->id;
                             $assetDetail->detail_id = $mrnDetail->id;
                             $assetDetail->item_id = $mrnDetail->item_id;
                             $assetDetail->asset_category_id = $assetDetails['asset_category_id'] ?? null;
-                            // $assetDetail->asset_code = $assetDetails['asset_code'] ?? null;
                             $assetDetail->asset_name = $assetDetails['asset_name'] ?? null;
                             $assetDetail->capitalization_date = $assetDetails['capitalization_date'] ? date('Y-m-d', strtotime($assetDetails['capitalization_date'])) : '';
                             $assetDetail->brand_name = $assetDetails['brand_name'] ?? null;
                             $assetDetail->model_no = $assetDetails['model_no'] ?? null;
                             $assetDetail->estimated_life = $assetDetails['estimated_life'] ?? null;
-                            $assetDetail->procurement_type = $assetDetails['procurement_type'] ?? null;
                             $assetDetail->salvage_value = $assetDetails['salvage_value'] ?? null;
                             $assetDetail->procurement_type = $assetDetails['procurement_type'] ?? null;
                             $assetDetail->save();
@@ -1898,9 +1916,9 @@ class MaterialReceiptController extends Controller
                             ? json_decode($component['batch_details'], true)
                             : $component['batch_details'];
                         if (is_array($batchDetails)) {
-                            foreach ($batchDetails as $i => $val) {
+                                foreach ($batchDetails as $i => $val) {
                                 // $batchNo = ($item->is_batch_no == 1) ? $val['batch_number'] : strtoupper(@$lotNumber);
-                                $batchDetail = MrnBatchDetail::find($val['id'] ?? new MrnBatchDetail());
+                                $batchDetail = MrnBatchDetail::find(@$val['id']) ?? new MrnBatchDetail();
                                 $batchDetail->header_id = $mrn->id;
                                 $batchDetail->detail_id = $mrnDetail->id;
                                 $batchDetail->item_id = $mrnDetail->item_id;
@@ -2038,6 +2056,7 @@ class MaterialReceiptController extends Controller
                     $mrn->expense_amount = 0.00;
                     $mrn->total_amount = 0.00;
                     $mrn->total_item_amount = 0.00;
+                    $mrn->reference_type = null;
                     $mrn->save();
                 }
             }
@@ -2656,14 +2675,14 @@ class MaterialReceiptController extends Controller
         $gateEntry = '';
         $specifications = $item?->specifications()->whereNotNull('value')->get() ?? [];
         $type = $request->type;
-        if ($type == 'po') {
+        if ($type == ConstantHelper::PO_SERVICE_ALIAS) {
             $purchaseOrder = PurchaseOrder::find($request->purchase_order_id);
             if ($purchaseOrder && $purchaseOrder->gate_entry_required == 'yes') {
                 $gateEntry = GateEntryHeader::where('purchase_order_id', $purchaseOrder->id)->first();
             }
             $poDetail = PoItem::find($request->po_detail_id ?? $request->supplier_inv_detail_id);
         }
-        if ($type == 'jo') {
+        if ($type == ConstantHelper::JO_SERVICE_ALIAS) {
             $purchaseOrder = JobOrder::find($request->job_order_id);
             // if($purchaseOrder && $purchaseOrder->gate_entry_required == 'yes')
             if ($purchaseOrder) {
@@ -2671,7 +2690,7 @@ class MaterialReceiptController extends Controller
             }
             $poDetail = JoProduct::find($request->jo_detail_id ?? $request->supplier_inv_detail_id);
         }
-        if ($type == 'so') {
+        if ($type == ConstantHelper::SO_SERVICE_ALIAS) {
             $purchaseOrder = ErpSaleOrder::find($request->sale_order_id);
             if ($purchaseOrder && $purchaseOrder->gate_entry_required == 'yes')
                 if ($purchaseOrder) {
@@ -2679,6 +2698,10 @@ class MaterialReceiptController extends Controller
                     $gateEntry = [];
                 }
             $poDetail = ErpSoJobWorkItem::find($request->so_detail_id ?? $request->supplier_inv_detail_id);
+        }
+        if ($type == ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS || $type == ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS) {
+            $purchaseOrder = ErpSaleInvoice::where('id', $request->sale_invoice_id)->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->first();
+            $poDetail = ErpInvoiceItem::where('id', $request->invoice_item_id)->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->first();
         }
 
         $html = view(
@@ -3076,6 +3099,8 @@ class MaterialReceiptController extends Controller
             'jo_detail_id' => $request->jo_detail_id,
             'sale_order_id' => $request->sale_order_id,
             'so_detail_id' => $request->so_detail_id,
+            'sale_invoice_id' => $request->sale_invoice_id,
+            'invoice_item_id' => $request->invoice_item_id,
             'ge_detail_id' => $request->ge_detail_id,
             'asn_detail_id' => $request->asn_detail_id,
             'mrn_detail_id' => $request->mrn_detail_id,
@@ -3103,6 +3128,8 @@ class MaterialReceiptController extends Controller
             'jo_detail_id' => $component['jo_detail_id'] ?? null,
             'sale_order_id' => $component['sale_order_id'] ?? null,
             'so_detail_id' => $component['so_detail_id'] ?? null,
+            'sale_invoice_id' => $component['sale_invoice_id'] ?? null,
+            'invoice_item_id' => $component['invoice_item_id'] ?? null,
             'ge_detail_id' => $component['ge_detail_id'] ?? null,
             'asn_detail_id' => $component['asn_detail_id'] ?? null,
             'mrn_detail_id' => $component['mrn_detail_id'] ?? null,
@@ -3354,6 +3381,9 @@ class MaterialReceiptController extends Controller
                 if ($storeId) {
                     $po->where('erp_purchase_orders.store_id', $storeId);
                 }
+            })
+            ->whereHas('po.vendor', function ($vendor) use ($seriesId) {
+                $vendor->where('related_party', ConstantHelper::NO);
             });
 
         // 🔍 Apply GE number filter (if present)
@@ -3407,7 +3437,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-    
+
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     });
@@ -3924,6 +3954,9 @@ class MaterialReceiptController extends Controller
                 if ($storeId) {
                     $jo->where('erp_job_orders.store_id', $storeId);
                 }
+            })
+            ->whereHas('jo.vendor', function ($vendor) use ($seriesId) {
+                $vendor->where('related_party', ConstantHelper::NO);
             });
 
         // 🔍 Apply GE number filter (if present)
@@ -3970,7 +4003,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-    
+
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     })
@@ -4283,7 +4316,7 @@ class MaterialReceiptController extends Controller
                     ? ($request->selected_so_ids[0] ?? 'null')
                     : 'null';
                 // $disabled = ($dataExistingPo !== 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-    
+
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input so_item_checkbox' type='checkbox' name='so_item_check' value='{$row->id}' data-module='{$this->moduleType}' data-current-so='{$dataCurrentSo}' data-existing-so='{$dataExistingSo}'>
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -4645,6 +4678,296 @@ class MaterialReceiptController extends Controller
                 'finalExpenses' => $finalExpenses,
                 'finalDiscounts' => $finalDiscounts,
                 'totalGateEntryQty' => $totalGateEntryQty
+            ],
+            'status' => 200,
+            'message' => "fetched!"
+        ]);
+    }
+
+    // Get Dnote Listing
+    public function getDnote(Request $request)
+    {
+        $query = $this->buildDnoteQuery($request);
+
+        return DataTables::of($query)
+            ->addColumn('select_checkbox', function ($row) use ($request) {
+                $this->moduleType = 'dnote-order';
+                $ref_no = ($row?->headers?->book?->book_code ?? 'NA') . '-' . ($row?->headers?->document_number ?? 'NA');
+                $dataCurrentDnote = $row->sale_invoice_id ?? 'null';
+                $dataExistingDnote = $request->type == 'create' && $row?->sale_invoice_id
+                    ? ($request->selected_dnote_ids[0] ?? 'null')
+                    : 'null';
+
+                return "<div class='form-check form-check-inline me-0'>
+                            <input class='form-check-input dnote_item_checkbox' type='checkbox' name='dnote_item_check' value='{$row->id}' data-module='{$this->moduleType}' data-current-dnote='{$dataCurrentDnote}' data-existing-dnote='{$dataExistingDnote}'>
+                            <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
+                        </div>";
+            })
+            ->addColumn('vendor', fn($row) => $row?->headers?->vendors?->company_name ?? 'NA')
+            ->addColumn('dnote_doc', fn($row) => ($row?->headers?->book_code ?? 'NA') . ' - ' . ($row?->headers?->document_number ?? 'NA'))
+            ->addColumn('dnote_date', fn($row) => $row?->headers?->getFormattedDate('document_date') ?? '-')
+            ->addColumn('item_code', fn($row) => $row?->item?->item_code ?? 'NA')
+            ->addColumn('item_name', fn($row) => $row?->item?->item_name ?? 'NA')
+            ->addColumn('attributes', function ($row) {
+                return $row?->attributes->map(function ($attr) {
+                    return "<span class='badge rounded-pill badge-light-primary'><strong>{$attr?->headerAttribute?->name}</strong>: {$attr?->headerAttributeValue?->value}</span>";
+                })->implode(' ');
+            })
+            ->addColumn('order_qty', function ($row) {
+                return $row?->dnote_qty ?? 0;
+            })
+            ->addColumn('inv_order_qty', function ($row) {
+                return $row?->inventory_uom_qty ?? 0;
+            })
+            ->addColumn('grn_qty', fn($row) => number_format(($row->grn_qty ?? 0), 2))
+            ->addColumn('balance_qty', function ($row) {
+                $grnQty = $row?->grn_qty ?? $row?->mrn_qty;
+                return number_format(($row?->dnote_qty - $grnQty), 2);
+            })
+            ->addColumn('rate', function ($row) {
+                return $row->rate ?? 0;
+            })
+            ->addColumn('total_amount', function ($row) {
+                $grnQty = $row?->grn_qty ?? $row?->mrn_qty;
+                return number_format(($row?->dnote_qty - $grnQty) * ($row?->rate ?? 0), 2);
+            })
+            ->rawColumns([
+                'select_checkbox',
+                'vendor',
+                'dnote_doc',
+                'dnote_date',
+                'item_code',
+                'item_name',
+                'attributes',
+                'order_qty',
+                'inv_order_qty',
+                'grn_qty',
+                'balance_qty',
+                'rate',
+                'total_amount'
+            ])
+            ->make(true);
+    }
+
+
+    # This for both bulk and single dnote
+    protected function buildDnoteQuery($request)
+    {
+        $seriesId = $request->series_id ?? null;
+        $docNumber = $request->document_number ?? null;
+        $itemId = $request->item_id ?? null;
+        $storeId = $request->store_id ?? null;
+        $vendorId = $request->vendor_id ?? null;
+        $headerBookId = $request->header_book_id ?? null;
+        $itemSearch = $request->item_search ?? null;
+
+        $decoded = urldecode(urldecode($request->selected_po_ids));
+        $selected_dnote_ids = json_decode($decoded, true) ?? [];
+
+        $keys = [
+            'header_ids',
+            'details_ids',
+        ];
+
+        foreach ($keys as $key) {
+            $$key = $request->$key ?? null;
+
+            if (is_string($$key)) {
+                $decoded = urldecode(urldecode($$key));
+
+                if (strpos($decoded, ',') !== false) {
+                    $$key = array_filter(explode(',', $decoded));
+                } else {
+                    $$key = strlen($decoded) ? [$decoded] : [];
+                }
+            } elseif (!is_array($$key)) {
+                $$key = [];
+            }
+        }
+
+        $applicableBookIds = ServiceParametersHelper::getBookCodesForReferenceFromParam($headerBookId);
+        $orderTypes = [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS];
+
+        $dnoteItems = ErpInvoiceItem::select(
+            'erp_invoice_items.*',
+            'erp_sale_invoices.id as dnote_id',
+            'erp_sale_invoices.customer_id as customer_id',
+            'erp_sale_invoices.book_id as book_id',
+        )
+            ->leftJoin('erp_sale_invoices', 'erp_sale_invoices.id', 'erp_invoice_items.sale_invoice_id')
+            ->whereIn('erp_sale_invoices.book_id', $applicableBookIds)
+            ->whereIn('erp_sale_invoices.document_type', $orderTypes)
+            ->whereRaw('(ROUND(dnote_qty) > ROUND(grn_qty))')
+            ->whereHas('item', function ($item) use ($itemSearch) {
+                $item->where('type', 'Goods');
+                if ($itemSearch) {
+                    $item->where(function ($query) use ($itemSearch) {
+                        $query->where('erp_items.item_name', 'LIKE', "%{$itemSearch}%")
+                            ->orWhere('erp_items.item_code', 'LIKE', "%{$itemSearch}%");
+                    });
+                }
+            })
+            ->with(['headers', 'item', 'attributes', 'headers.vendors'])
+            ->whereHas('headers', function ($dnote) use ($seriesId, $docNumber, $request, $storeId) {
+                $dnote->whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::POSTED])
+                ->whereNot('organization_id', $request->user()->organization_id)
+                ->where('group_id', $request->user()->group_id)
+                ->where('company_id', $request->user()->company_id);
+                if ($seriesId) {
+                    $dnote->where('erp_sale_invoices.book_id', $seriesId);
+                }
+                if ($docNumber) {
+                    $dnote->where('erp_sale_invoices.id', $docNumber);
+                }
+                if ($storeId) {
+                    $dnote->where('erp_sale_invoices.store_id', $storeId);
+                }
+            });
+
+        if ($itemId) {
+            $dnoteItems->where('item_id', $itemId);
+        }
+
+        if ($request->type == 'create' && count($selected_dnote_ids)) {
+            $dnoteItems->whereNotIn('erp_invoice_items.id', $selected_dnote_ids);
+        } elseif ($request->type == 'edit') {
+            if (!empty($header_ids)) {
+                $dnoteItems->whereIn('erp_invoice_items.sale_invoice_id', $header_ids)
+                ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+                if (!empty($details_ids)) {
+                    $dnoteItems->whereNotIn('erp_invoice_items.id', $details_ids)
+                    ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+                }
+            }
+
+        }
+        $dnoteItems = $dnoteItems->get();
+        $dnoteItemIds = [];
+        $finaldnoteItems = [];
+
+        foreach ($dnoteItems as $dnoteItem) {
+            if (!in_array($dnoteItem->id, $selected_dnote_ids)) {
+                    $finaldnoteItems[] = $dnoteItem;
+                    $dnoteItemIds[] = $dnoteItem->id;
+                }
+            }
+        return $finaldnoteItems;
+    }
+
+    // Process Dnote Item
+    public function processDnoteItem(Request $request)
+    {
+        $view = '';
+        $dnoteItems = [];
+        $vendor = null;
+        $vendorId = '';
+        $gateEntry = '';
+        $subStoreCount = 0;
+        $uniqueDnoteIds = [];
+        $finalDiscounts = collect();
+        $finalExpenses = collect();
+        $requestIds = json_decode($request->ids, true) ?: [];
+        $moduleTypes = json_decode($request->moduleTypes, true) ?: [];
+        $type = "dnote";
+        $tableRowCount = $request->tableRowCount ?: 0;
+
+        // Ensure all module types are the same
+        if (count(array_unique($moduleTypes)) > 1) {
+            return response()->json(['data' => ['pos' => ''], 'status' => 422, 'message' => "Multiple different module types are not allowed."]);
+        }
+        $moduleType = $moduleTypes[0] ?? null;
+        $dnoteItems = ErpInvoiceItem::whereIn('id', $requestIds)->get();
+        $uniqueDnoteIds = $dnoteItems->pluck('sale_invoice_id')->unique()->toArray();
+        $view = 'procurement.material-receipt.partials.dnote-item-row';
+
+        if (count($uniqueDnoteIds) > 1) {
+            return response()->json(['data' => ['pos' => ''], 'status' => 422, 'message' => "Mrn can be created from single Sale Invoice at a time."]);
+        }
+
+        $saleInvoice = ErpSaleInvoice::where('id', $uniqueDnoteIds[0])->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->first();
+        $vendorId = Vendor::where('related_party', 'Yes')->where('enter_company_org_id', $saleInvoice->organization_id)->pluck('id')->unique()->toArray();
+        if (count($vendorId) > 1) {
+            return response()->json([
+                'data' => ['pos' => ''],
+                'status' => 422,
+                'message' => "You cannot select multiple vendors for delivery note items at once."
+            ]);
+        }
+
+        $vendor = Vendor::find($vendorId[0] ?? null);
+        if ($vendor) {
+            $vendor->billing = $vendor->addresses()
+                ->whereIn('type', ['billing', 'both'])
+                ->latest()
+                ->first();
+            $vendor->shipping = $vendor->addresses()
+                ->whereIn('type', ['shipping', 'both'])
+                ->latest()
+                ->first();
+
+            $vendor->currency = $vendor->currency;
+            $vendor->paymentTerm = $vendor->paymentTerm;
+        }
+
+        $locations = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCKK);
+        // Fetch discounts & expenses efficiently
+        $discounts = collect();
+        $expenses = collect();
+
+        $pos = ErpSaleInvoice::whereIn('id', $uniqueDnoteIds)->with(['discount_ted', 'expense_ted'])->get();
+
+        foreach ($pos as $dnote) {
+            foreach ($dnote->discount_ted as $headerDiscount) {
+                if (!intval($headerDiscount->ted_perc)) {
+                    $tedPerc = (floatval($headerDiscount->ted_amount) / floatval($headerDiscount->assessment_amount)) * 100;
+                    $headerDiscount['ted_perc'] = $tedPerc;
+                }
+                $discounts->push($headerDiscount);
+            }
+
+            foreach ($dnote->expense_ted as $headerExpense) {
+                if (!intval($headerExpense->ted_perc)) {
+                    $tedPerc = (floatval($headerExpense->ted_amount) / floatval($headerExpense->assessment_amount)) * 100;
+                    $headerExpense['ted_perc'] = $tedPerc;
+                }
+                $expenses->push($headerExpense);
+            }
+        }
+
+        $groupedDiscounts = $discounts
+            ->groupBy('ted_id')
+            ->map(function ($group) {
+                return $group->sortByDesc('ted_perc')->first();
+            });
+        $groupedExpenses = $expenses
+            ->groupBy('ted_id')
+            ->map(function ($group) {
+                return $group->sortByDesc('ted_perc')->first();
+            });
+        $finalDiscounts = $groupedDiscounts->values()->toArray();
+        $finalExpenses = $groupedExpenses->values()->toArray();
+        $html = view(
+            $view,
+            [
+                'soItems' => $dnoteItems,
+                'locations' => $locations,
+                'moduleType' => $moduleType,
+                'type' => $type,
+                'tableRowCount' => $tableRowCount
+            ]
+        )
+            ->render();
+
+        return response()->json([
+            'data' => [
+                'pos' => $html,
+                'vendor' => $vendor,
+                'gateEntry' => $gateEntry,
+                'moduleType' => $moduleType,
+                'subStoreCount' => $subStoreCount,
+                'saleOrder' => $saleInvoice,
+                'finalExpenses' => $finalExpenses,
+                'finalDiscounts' => $finalDiscounts,
             ],
             'status' => 200,
             'message' => "fetched!"
@@ -6032,6 +6355,20 @@ class MaterialReceiptController extends Controller
         return $po ? self::updatePoQty($item, $po, $inputQty, 'purchase-order') : self::notFoundResponse('PO Item');
     }
 
+    private static function processDnoteComponent($component, $item, $inputQty)
+    {
+        // if (($validation = self::validateComponentQuantities($component, $inputQty)) !== true) {
+        //     return $validation;
+        // }
+
+        $dnote = ErpInvoiceItem::where('id', $component['invoice_itm_id'])
+        ->with(['saleOrderItem', 'saleOrderItem.poItem', 'saleOrderItem.joItem'])
+        ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
+        ->first();
+
+        return $dnote ? self::updateDnoteQty($item, $dnote, $inputQty, 'd-note') : self::notFoundResponse('DNote Item');
+    }
+
     # Process Direct Entry Component
     private static function processDirectComponent($component, $item, $inputQty)
     {
@@ -6069,6 +6406,58 @@ class MaterialReceiptController extends Controller
         $poDetail->grn_qty += $inputQty;
         $poDetail->save();
 
+        return true;
+    }
+
+    private static function updateDnoteQty($item, $poDetail, $inputQty, $type)
+    {
+        $orderQty = floatval($poDetail->dnote_qty);
+        $grnQty = floatval($poDetail->grn_qty ?? 0);
+        $totalQty = $grnQty + $inputQty;
+
+        $posTol = floatval($item->po_positive_tolerance);
+        $negTol = floatval($item->po_negative_tolerance);
+
+        $maxAllowed = $orderQty + $posTol;
+        $minAllowed = max(0, $orderQty - $negTol);
+        $remaining = $orderQty - $totalQty;
+
+        if ($posTol > 0 || $negTol > 0) {
+            if ($totalQty > $maxAllowed) {
+                return response()->json(['message' => 'Order Qty cannot exceed positive tolerance.'], 422);
+            }
+
+            if ($remaining <= $negTol && $remaining >= 0) {
+                $poDetail->short_close_qty += $remaining;
+            }
+        } elseif ($totalQty > $orderQty) {
+            return response()->json(['message' => 'Order Qty cannot exceed DNote Qty.'], 422);
+        }
+
+        $poDetail->grn_qty += $inputQty;
+        if (isset($poDetail?->saleOrderItem?->poItem) && $poDetail?->saleOrderItem?->poItem) {
+            $poItemData = PoItem::find($poDetail?->saleOrderItem?->poItem?->id);
+            $poOrderQty = floatval($poItemData?->order_qty ?? 0);
+            $existingPoGrnQty = floatval($poItemData?->grn_qty ?? 0);
+            $poItemData->grn_qty += $inputQty;
+            if($existingPoGrnQty > $poOrderQty)
+            {
+                return response()->json(['message' => 'Quantity cannot be greater than PO Quantity.'], 422);
+            }
+            $poItemData->save();
+        }
+        if (isset($poDetail?->saleOrderItem?->joItem) && $poDetail?->saleOrderItem?->joItem != 0) {
+            $joItemData = JoProduct::find($poDetail?->saleOrderItem?->joItem?->id);
+            $joOrderQty = floatval($joItemData?->order_qty ?? 0);
+            $existingJoGrnQty = floatval($joItemData?->grn_qty ?? 0);
+            $joItemData->grn_qty += $inputQty;
+            if($existingJoGrnQty > $joOrderQty)
+            {
+                return response()->json(['message' => 'Quantity cannot be greater than JO Quantity.'], 422);
+            }
+            $joItemData->save();
+        }
+        $poDetail->save();
         return true;
     }
 

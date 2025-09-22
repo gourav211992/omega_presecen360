@@ -2,56 +2,57 @@
 
 namespace App\Http\Controllers\PurchaseOrder;
 
-use App\Helpers\BookHelper;
-use App\Helpers\ConstantHelper;
-use App\Helpers\CurrencyHelper;
-use App\Helpers\DynamicFieldHelper;
-use App\Helpers\InventoryHelper;
-use App\Helpers\Helper;
-use App\Helpers\ItemHelper;
-use App\Helpers\NumberHelper;
-use App\Helpers\ServiceParametersHelper;
-use App\Helpers\TaxHelper;
-use App\Http\Controllers\Controller;
-use App\Jobs\SendEmailJob;
-use App\Models\Attribute;
-use App\Models\AttributeGroup;
-use App\Models\AuthUser;
-use App\Models\ErpSaleOrder;
-use App\Http\Requests\PoBulkRequest;
-use App\Http\Requests\PoRequest;
-use App\Models\Address;
+use DB;
+use PDF;
+use Carbon\Carbon;
 use App\Models\City;
-use App\Models\Country;
-use App\Models\Currency;
-use App\Models\ErpAddress;
 use App\Models\Item;
-use App\Models\Organization;
+use App\Models\Unit;
+use App\Models\State;
 use App\Models\PiItem;
 use App\Models\PoItem;
-use App\Models\PoItemAttribute;
-use App\Models\PoItemDelivery;
 use App\Models\PoTerm;
-use App\Models\PurchaseOrder;
-use App\Models\PurchaseOrderMedia;
-use App\Models\PurchaseOrderTed;
-use App\Models\TermsAndCondition;
-use App\Models\Unit;
 use App\Models\Vendor;
-use App\Models\PiPoMapping;
-use Carbon\Carbon;
-use DB;
-use Illuminate\Http\Request;
-use PDF;
-use Yajra\DataTables\DataTables;
-use Illuminate\Support\Facades\Storage;
-use App\Models\Department;
-use App\Models\ErpPaymentTerm;
-use App\Models\ErpPoPaymentTerm;
+use App\Helpers\Helper;
+use App\Models\Address;
+use App\Models\Country;
+use App\Models\AuthUser;
+use App\Models\Currency;
 use App\Models\ErpStore;
-use App\Models\PaymentTermDetail;
+use App\Models\Attribute;
+use App\Helpers\TaxHelper;
+use App\Jobs\SendEmailJob;
+use App\Models\Department;
+use App\Models\ErpAddress;
+use App\Helpers\BookHelper;
+use App\Helpers\ItemHelper;
+use App\Models\PiPoMapping;
+use App\Models\ErpSaleOrder;
+use App\Models\Organization;
+use Illuminate\Http\Request;
+use App\Helpers\NumberHelper;
+use App\Models\PurchaseOrder;
+use App\Models\AttributeGroup;
+use App\Models\ErpPaymentTerm;
+use App\Models\PoItemDelivery;
 use App\Models\PurchaseIndent;
-use App\Models\State;
+use App\Helpers\ConstantHelper;
+use App\Helpers\CurrencyHelper;
+use App\Models\PoItemAttribute;
+use App\Helpers\InventoryHelper;
+use App\Http\Requests\PoRequest;
+use App\Models\ERP\ErpConsignee;
+use App\Models\ErpPoPaymentTerm;
+use App\Models\PurchaseOrderTed;
+use Yajra\DataTables\DataTables;
+use App\Models\PaymentTermDetail;
+use App\Models\TermsAndCondition;
+use App\Models\PurchaseOrderMedia;
+use App\Helpers\DynamicFieldHelper;
+use App\Http\Controllers\Controller;
+use App\Http\Requests\PoBulkRequest;
+use Illuminate\Support\Facades\Storage;
+use App\Helpers\ServiceParametersHelper;
 
 class PoController extends Controller
 {
@@ -555,7 +556,8 @@ class PoController extends Controller
             $po->vendor_id = $request->vendor_id;
             $po->vendor_code = $request->vendor_code;
             $po->billing_address = $request->billing_address_id;
-            $po->shipping_address = $request->vendor_address_id;
+            $po->consignee_id = $request->consignee_id;
+            $po->shipping_address = $request->consignee_address_id ?? $request->vendor_address_id;
             $po->currency_id = $request->currency_id;
             $currency = Currency::find($request->currency_id ?? null);
             $po->currency_code = $currency?->short_name;
@@ -1260,22 +1262,23 @@ class PoController extends Controller
             }
 
             # Store location address
-            if($po?->store_location)
-            {
-                $storeAddress  = $po?->store_location->address;
-                $storeLocation = $po->store_address()->firstOrNew();
-                $storeLocation->fill([
-                    'type' => 'location',
-                    'address' => $storeAddress->address,
-                    'country_id' => $storeAddress->country_id,
-                    'state_id' => $storeAddress->state_id,
-                    'city_id' => $storeAddress->city_id,
-                    'pincode' => $storeAddress->pincode,
-                    'phone' => $storeAddress->phone,
-                    'fax_number' => $storeAddress->fax_number,
-                ]);
-                $storeLocation->save();
-            }
+            // if($po?->store_location)
+            // {
+            //     $storeAddress  = $ $po?->store_location->address;
+            //     $storeLocation = $po->store_address()->firstOrNew();
+            //     $storeLocation->fill([
+            //         'type' => 'location',
+            //         'address' => $storeAddress->address,
+            //         'country_id' => $storeAddress->country_id,
+            //         'state_id' => $storeAddress->state_id,
+            //         'city_id' => $storeAddress->city_id,
+            //         'pincode' => $storeAddress->pincode,
+            //         'phone' => $storeAddress->phone,
+            //         'fax_number' => $storeAddress->fax_number,
+            //     ]);
+            //     $storeLocation->save();
+            // }
+
             $totalItemLevelDiscValue = 0.00;
             $totalTax = 0;
 
@@ -1804,15 +1807,21 @@ class PoController extends Controller
                     ->where('addressable_type', Vendor::class)
                     ->latest()
                     ->get();
-        }
-        if($type == 'delivery_address') {
+        }else if($type == 'delivery_address') {
             $locations = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCKK);
             $storeIds = $locations->pluck('id')->toArray() ?? [];
             $addresses = ErpAddress::whereIn('addressable_id', $storeIds)
                     ->where('addressable_type', ErpStore::class)
                     ->latest()
                     ->get();
+        }else if ($type == 'consignee_address'){
+            $consigneeId = $request?->consignee_id ?? null;
+            $addresses = ErpAddress::where('addressable_id', $consigneeId)
+                ->where('addressable_type', ErpConsignee::class)
+                ->latest()
+                ->get();
         }
+
         $html = '';
         if($selectedAddress) {
             $html = view('procurement.po.partials.edit-address-modal', compact('type', 'addresses', 'selectedAddress'))->render();
@@ -2053,7 +2062,7 @@ class PoController extends Controller
             )
             ->groupBy('ted_name', 'ted_perc')
             ->get();
-        
+
         $taxes2 = clone $taxes;
         $totalTaxes = $taxes2->sum('total_amount');
 
@@ -2161,7 +2170,7 @@ class PoController extends Controller
             'row' => $row,
             'documentDate' => request()->get('document_date'),
         ])->resolveView()->render())
-        ->addColumn('so_no', fn($row) => $row?->pi?->so?->book_code ?? '')
+        ->addColumn('so_no', fn($row) => $row?->so?->full_document_number ?? '')
         ->addColumn('location', fn($row) => $row?->pi?->sub_store_id ? $row?->pi?->sub_store?->name : $row?->pi?->requester?->name)
         ->addColumn('requester', fn($row) => $row?->po?->department?->name ?? '')
         ->addColumn('remarks', fn($row) => $row?->remarks ?? '')

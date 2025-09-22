@@ -154,6 +154,11 @@ class GateEntryDetail extends Model
         return $this->belongsTo(JoProduct::class, 'job_order_item_id');
     }
 
+    public function dnoteItem()
+    {
+        return $this->belongsTo(ErpInvoiceItem::class, 'invoice_item_id');
+    }
+
     public function item()
     {
         return $this->belongsTo(Item::class, 'item_id');

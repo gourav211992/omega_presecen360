@@ -21,6 +21,7 @@ use App\Helpers\ItemHelper;
 use App\Helpers\ConstantHelper;
 use App\Helpers\InventoryHelper;
 use App\Helpers\InventoryHelperV2;
+use App\Models\ErpInvoiceItem;
 
 class GeCheckAndUpdateService
 {
@@ -60,6 +61,8 @@ class GeCheckAndUpdateService
 
             $poDetail = match ($type) {
                 ConstantHelper::JO_SERVICE_ALIAS => JoProduct::find($inputData['jo_detail_id']),
+                ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS => ErpInvoiceItem::find($inputData['invoice_item_id']),
+                ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS => ErpInvoiceItem::find($inputData['invoice_item_id']),
                 default => PoItem::find($inputData['po_detail_id'])
             };
 
@@ -87,6 +90,8 @@ class GeCheckAndUpdateService
                 ConstantHelper::JO_SERVICE_ALIAS => JoProduct::find($inputData['jo_detail_id']),
                 ConstantHelper::PO_SERVICE_ALIAS => PoItem::find($inputData['po_detail_id']),
                 ConstantHelper::SO_SERVICE_ALIAS => ErpSoJobWorkItem::find($inputData['so_detail_id']),
+                ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS => ErpInvoiceItem::find($inputData['invoice_item_id']),
+                ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS => ErpInvoiceItem::find($inputData['invoice_item_id']),
                 default => null
             };
 

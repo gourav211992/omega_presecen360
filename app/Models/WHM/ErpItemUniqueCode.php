@@ -62,6 +62,7 @@ class ErpItemUniqueCode extends Model
         'packet_no',
         'total_packets',
         'trip_id',
+        'trip_no',
     ];
 
     // protected  $casts = [

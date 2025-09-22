@@ -345,7 +345,7 @@ class ServiceParametersHelper
             'is_multiple' => true, // Whether or not to allow multiple selection
             'service_level_visibility' => true, // Whether or not to show this parameter in UI
         ],
-          [
+        [
             "name" => self::SERVICE_ITEM_PARAM,
             "applicable_values" => [],
             "default_value" => [],
@@ -1986,7 +1986,7 @@ class ServiceParametersHelper
     const GATE_ENTRY_SERVICE_PARAMETERS = [
         [
             "name" => self::REFERENCE_FROM_SERVICE_PARAM, //Name of the parameter
-            "applicable_values" => ["0", ConstantHelper::PO_SERVICE_ALIAS, ConstantHelper::JO_SERVICE_ALIAS], //All possible values
+            "applicable_values" => ["0", ConstantHelper::PO_SERVICE_ALIAS, ConstantHelper::JO_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS], //All possible values
             "default_value" => ["0", ConstantHelper::PO_SERVICE_ALIAS, ConstantHelper::JO_SERVICE_ALIAS], //Default selected value(s)
             'is_multiple' => true, // Whether or not to allow multiple selection
             'service_level_visibility' => true, // Whether or not to show this parameter in UI
@@ -2024,7 +2024,7 @@ class ServiceParametersHelper
     const MRN_SERVICE_PARAMETERS = [
         [
             "name" => self::REFERENCE_FROM_SERVICE_PARAM, //Name of the parameter
-            "applicable_values" => ["0", ConstantHelper::PO_SERVICE_ALIAS, ConstantHelper::JO_SERVICE_ALIAS, ConstantHelper::SO_SERVICE_ALIAS], //All possible values
+            "applicable_values" => ["0", ConstantHelper::PO_SERVICE_ALIAS, ConstantHelper::JO_SERVICE_ALIAS, ConstantHelper::SO_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS], //All possible values
             "default_value" => ["0", ConstantHelper::PO_SERVICE_ALIAS], //Default selected value(s)
             'is_multiple' => true, // Whether or not to allow multiple selection
             'service_level_visibility' => true, // Whether or not to show this parameter in UI
@@ -2395,6 +2395,44 @@ class ServiceParametersHelper
         ]
     ];
 
+    const EXP_ALC_SERVICE_PARAMETERS = [
+        [
+            "name" => self::REFERENCE_FROM_SERVICE_PARAM, //Name of the parameter
+            "applicable_values" => ["0", ConstantHelper::PO_SERVICE_ALIAS, ConstantHelper::MRN_SERVICE_ALIAS], //All possible values
+            "default_value" => ["0", ConstantHelper::PO_SERVICE_ALIAS, ConstantHelper::MRN_SERVICE_ALIAS], //Default selected value(s)
+            'is_multiple' => true, // Whether or not to allow multiple selection
+            'service_level_visibility' => true, // Whether or not to show this parameter in UI
+        ],
+        [
+            "name" => self::REFERENCE_FROM_SERIES_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => false
+        ],
+        [
+            "name" => self::BACK_DATE_ALLOW_PARAM,
+            "applicable_values" => self::BACK_DATE_ALLOW_PARAM_VALUES,
+            "default_value" => ['yes'],
+            'is_multiple' => false,
+            'service_level_visibility' => true
+        ],
+        [
+            "name" => self::FUTURE_DATE_ALLOW_PARAM,
+            "applicable_values" => self::FUTURE_DATE_ALLOW_PARAM_VALUES,
+            "default_value" => ['yes'],
+            'is_multiple' => false,
+            'service_level_visibility' => true
+        ],
+        [
+            "name" => self::TAX_REQUIRED_PARAM,
+            "applicable_values" => self::TAX_REQUIRED_PARAM_VALUES,
+            "default_value" => ['yes'],
+            'is_multiple' => false,
+            'service_level_visibility' => true
+        ],
+    ];
+
     const MATERIAL_ISSUE_SERVICE_PARAMETERS = [
         [
             "name" => self::REFERENCE_FROM_SERVICE_PARAM, //Name of the parameter
@@ -2744,7 +2782,7 @@ class ServiceParametersHelper
         ],
     ];
     const APPLICABLE_SERVICE_PARAMETERS = [
-        ConstantHelper::MAINT_WO=>self::MAINT_WO_SERVICE_PARAMETERS,
+        ConstantHelper::MAINT_WO => self::MAINT_WO_SERVICE_PARAMETERS,
         ConstantHelper::TI_SERVICE_ALIAS => self::TI_SERVICE_PARAMETERS,
         ConstantHelper::SO_SERVICE_ALIAS => self::SO_SERVICE_PARAMETERS,
         ConstantHelper::SQ_SERVICE_ALIAS => self::SQ_SERVICE_PARAMETERS,
@@ -2784,6 +2822,7 @@ class ServiceParametersHelper
         ConstantHelper::MRN_SERVICE_ALIAS => self::MRN_SERVICE_PARAMETERS,
         ConstantHelper::PB_SERVICE_ALIAS => self::PB_SERVICE_PARAMETERS,
         ConstantHelper::INSPECTION_SERVICE_ALIAS => self::INSPECTION_SERVICE_PARAMETERS,
+        ConstantHelper::EXP_ALC_SERVICE_ALIAS => self::EXP_ALC_SERVICE_PARAMETERS,
         ConstantHelper::PUTAWAY_SERVICE_ALIAS => self::PUTAWAY_SERVICE_PARAMETERS,
         ConstantHelper::EXPENSE_ADVISE_SERVICE_ALIAS => self::EXPENSE_ADVISE_SERVICE_PARAMETERS,
         ConstantHelper::PURCHASE_RETURN_SERVICE_ALIAS => self::PURCHASE_RETURN_SERVICE_PARAMETERS,
@@ -3106,7 +3145,7 @@ class ServiceParametersHelper
                     'organization_id' => null,
                     'org_service_id' => $orgService->id,
                     'service_param_id' => $orgServiceParam->service_param_id,
-                    'parameter_name' =>  $orgServiceParam->parameter_name,
+                    'parameter_name' => $orgServiceParam->parameter_name,
                     'parameter_value' => $defaultVal,
                     'type' => $orgServiceParam->type,
                     'status' => ConstantHelper::ACTIVE,
@@ -3203,7 +3242,7 @@ class ServiceParametersHelper
     {
 
         //Get all bookIds according to service
-        $bookIds =  Book::withDefaultGroupCompanyOrg()->whereHas('org_service', function ($serviceQuery) use ($serviceIds) {
+        $bookIds = Book::withDefaultGroupCompanyOrg()->whereHas('org_service', function ($serviceQuery) use ($serviceIds) {
             $serviceQuery->whereIn('service_id', $serviceIds);
         })->get()->pluck('id')->toArray();
 
@@ -3231,7 +3270,7 @@ class ServiceParametersHelper
                 })->where('parameter_name', ServiceParametersHelper::REFERENCE_FROM_SERIES_PARAM)
                     ->when($editBookId, function ($editQuery) use ($editBookId) {
                         $editQuery->where('book_id', '!=', $editBookId);
-                    })->where('org_service_id', $sourceService->id)->whereJsonContains('parameter_value', (string)$bookId)->first();
+                    })->where('org_service_id', $sourceService->id)->whereJsonContains('parameter_value', (string) $bookId)->first();
                 if (!isset($isReferenced)) {
                     array_push($nonReferencedBookIds, $bookId);
                     //Check for sales invoice
@@ -3254,7 +3293,7 @@ class ServiceParametersHelper
             }
         }
         //return all the non referenced books
-        $books =  Book::withDefaultGroupCompanyOrg()->whereIn('id', $nonReferencedBookIds);
+        $books = Book::withDefaultGroupCompanyOrg()->whereIn('id', $nonReferencedBookIds);
         if ($pluck) {
             $books = $books->get()->pluck('id')->toArray();
         } else {

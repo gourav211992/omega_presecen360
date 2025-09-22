@@ -62,6 +62,14 @@
                     @if($buttons['revoke'])
                         <button id = "revokeButton" type="button" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</button>
                     @endif
+                    @if($buttons['delete']||$buttons['amend'])
+                        <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
+                            data-url="{{ route('mo.destroy', [$bom->id, $buttons['amend'] ? $buttons['amend'] : 0]) }}"
+                            data-redirect="{{ route('mo.index') }}"
+                            data-message="Are you sure you want to delete this record?">
+                            <i data-feather="trash-2" class="me-50"></i> Delete
+                        </button>
+                    @endif
                     {{-- @if($buttons['close'])
                     <button id="closeButton" type="button" class="btn btn-primary btn-sm mb-50 mb-sm-0">
                         <i data-feather="check-square"></i> Close
@@ -542,6 +550,7 @@
 
 @endsection
 @section('scripts')
+<script src="{{ asset('app-assets/js/scripts/sweetalert.js') }}"></script>
 <script>
     let getMachineDetailUrl = "{{route('mo.get.machine.detail')}}";
     @if($bom->machine_id)
@@ -570,8 +579,75 @@ setTimeout(() => {
 @if($buttons['amend'] && intval(request('amendment') ?? 0))
     setTimeout(() => {
         let storeId = $("#store_id").val() || '';
-        locationOnChange(storeId);
+        let allDisabled = true; 
+        // for qty fields enabled for amendment case
+        document.querySelectorAll('input[name^="components"][name$="[qty]"]').forEach(input => {
+            input.removeAttribute('disabled');
+        });
+        // for consumed qty checked or not
+        document.querySelectorAll('.consumption-row').forEach(row => {
+            const consumedInput = row.querySelector('input[name*="[consumed_qty_2]"]');
+            if (consumedInput && parseFloat(consumedInput.value) > 0) {
+            row.querySelectorAll('input, select, textarea').forEach(el => {
+                el.disabled = true;
+            });
+            } else {
+            allDisabled = false;
+            }
+        });
+
+        if (!allDisabled) {
+            locationOnChange(storeId);
+        }
     }, 0);
+
+/**
+ * Validate a single input against min-value and max-value.
+ * Displays inline error or clears it if valid.
+ */
+function validateSingleInput(input, { adjustValue = false } = {}) {
+    const min = parseFloat(input.getAttribute('min-value'));
+    const max = parseFloat(input.getAttribute('max-value'));
+    const value = parseFloat(input.value);
+    let error = '';
+
+    if (isNaN(value)) {
+        error = `Enter a valid number (min: ${min}).`;
+        if (adjustValue) input.value = min;
+    } else if (value < min) {
+        error = `Value cannot be less than ${min}.`;
+        if (adjustValue) input.value = min;
+    } else if (value > max) {
+        error = `Value cannot exceed ${max}.`;
+        if (adjustValue) input.value = max;
+    }
+  
+    // Remove old error if exists
+    const oldError = input.nextElementSibling;
+    if (oldError && oldError.classList.contains('error-text')) {
+        oldError.remove();
+    }
+
+    // Add new error if any
+    if (error) {
+        const span = document.createElement('span');
+        span.className = 'error-text';
+        span.textContent = error;
+        input.after(span);
+        return false;
+    }
+
+    return true;
+}
+
+// Attach validation to all qty inputs
+document.querySelectorAll('.component-qty').forEach(input => {
+    input.addEventListener('keyup', function () {
+        validateSingleInput(this); // Live feedback
+    });
+
+});
+
 @else
    @if($bom->document_status != 'draft' && $bom->document_status != 'rejected' && $bom->document_status != 'closed' && $bom->document_status != 'posted')
    $(':input').prop('readonly', true);

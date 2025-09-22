@@ -2191,13 +2191,13 @@ class ErpSaleOrderController extends Controller
                 return number_format($row -> pwo_qty, 2);
             })
             ->editColumn('balance_pwo_qty', function ($row) {
-                return number_format($row -> order_qty - $row -> pwo_qty, 2);
+                return number_format($row -> order_qty - max($row -> pwo_qty,$row->dnote_qty), 2);
             })
             ->editColumn('pslip_qty', function ($row) {
                 return number_format($row -> pslip_qty, 2);
             })
             ->editColumn('balance_pslip_qty', function ($row) {
-                return number_format($row -> order_qty - $row -> pslip_qty, 2);
+                return number_format($row -> order_qty - max($row -> pslip_qty,$row->dnote_qty), 2);
             })
             ->editColumn('dnote_qty', function ($row) {
                 return number_format($row -> dnote_qty, 2);

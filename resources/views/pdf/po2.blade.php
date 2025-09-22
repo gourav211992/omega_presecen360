@@ -318,7 +318,7 @@
                 @endphp
                 @foreach ($po->po_items as $key => $val)
                     <tr>
-                        <td style=" vertical-align: top; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: center;">
+                        <td style="vertical-align: top; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: center;">
                             {{ $key + 1 }}
                         </td>
                         <td style="vertical-align: top; padding:10px 3px; text-align:left; border: 1px solid #000; border-top: none; border-left: none; word-break: break-word;">
@@ -376,7 +376,7 @@
                             {{ $helper->formatDecimal(@$val->order_qty) }}
                         </td>
                         <td style="vertical-align: top; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: center; word-break: break-word;">
-                            {{ ucfirst(@$val?->item?->uom?->name) }}
+                            {{ ucfirst(@$val?->uom?->name) }}
                         </td>
 
                         <td style="vertical-align: top; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right; word-break: break-word;">

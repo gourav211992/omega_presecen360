@@ -39,10 +39,6 @@ class ErpFinancialYear extends Model
             return null;
         }
 
-        if (empty($this->access_by)) {
-            return null;
-        }
-
         $allAuthorized = $access->every(fn($item) => $item['authorized'] == true);
         $allLocked = $access->every(fn($item) => isset($item['locked']) && $item['locked'] == true);
 
@@ -56,6 +52,7 @@ class ErpFinancialYear extends Model
             'all' => $allAuthorized,
             'locked' => $allLocked
         ];
+
         return $access_by;
     }
 

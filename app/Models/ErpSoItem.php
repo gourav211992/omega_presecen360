@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Helpers\InventoryHelper;
 use App\Helpers\ItemHelper;
+use App\Models\JobOrder\JoProduct;
+use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use DB;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -399,6 +401,18 @@ class ErpSoItem extends Model
             $stockBalanceQty = $stocks['confirmedStocks'];
         }
         return $stockBalanceQty;
+    }
+
+    public function poItem()
+    {
+        return $this->belongsTo(PoItem::class,'po_item_id')
+        ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+    }
+
+    public function joItem()
+    {
+        return $this->belongsTo(JoProduct::class,'jo_product_id')
+        ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
     }
 
     public function getDnotePullBalanceQtyAttribute()

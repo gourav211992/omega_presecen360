@@ -73,7 +73,7 @@ class ConstantHelper
     const LEASE = 'Lease Rent';
     const LEASE_SERVICE_TYPE_NAME = "Lease";
     const SECURITY_DEPOSIT = 'Security Deposit';
-    const LEASE_SERVICE_TYPE = [self::LEASE_SERVICE_TYPE_NAME,"Land-Lease"];
+    const LEASE_SERVICE_TYPE = [self::LEASE_SERVICE_TYPE_NAME, "Land-Lease"];
     const ASSESSED = 'Assessed';
     const SANCTIONED = 'sanctioned';
     const POST = 'post';
@@ -81,21 +81,21 @@ class ConstantHelper
     const REQUEST = 'Requested';
     const PROCESSFEEINCOMEACC = 'Processing Fee Income Account';
     const POSTED = 'posted';
-    const PAYABLE='Account Payable';
+    const PAYABLE = 'Account Payable';
     const RECEIVABLE = 'Account Receivable';
     const DOCUMENT_STATUS = [self::DRAFT, self::SUBMITTED, self::APPROVAL_NOT_REQUIRED, self::PARTIALLY_APPROVED, self::APPROVED, self::REJECTED];
 
-    const DOCUMENT_STATUS_CSS = [self::DRAFT => 'text-warning', self::SUBMITTED => 'text-primary', self::APPROVAL_NOT_REQUIRED => 'text-success', self::PARTIALLY_APPROVED => 'text-warning', self::APPROVED => 'text-success', self::REJECTED => 'text-danger', self::POSTED => 'text-primary-new',self::COMPLETED => 'text-warning'];
+    const DOCUMENT_STATUS_CSS = [self::DRAFT => 'text-warning', self::SUBMITTED => 'text-primary', self::APPROVAL_NOT_REQUIRED => 'text-success', self::PARTIALLY_APPROVED => 'text-warning', self::APPROVED => 'text-success', self::REJECTED => 'text-danger', self::POSTED => 'text-primary-new', self::COMPLETED => 'text-warning'];
 
     const DOCUMENT_STATUS_CSS_WO_TEXT = [self::DRAFT => 'warning', self::SUBMITTED => 'primary', self::APPROVAL_NOT_REQUIRED => 'success', self::PARTIALLY_APPROVED => 'warning', self::APPROVED => 'success', self::REJECTED => 'danger', self::POSTED => 'info'];
 
-    const DOCUMENT_STATUS_CSS_LIST = [self::DRAFT => 'badge-light-warning', self::SUBMITTED => 'badge-light-primary', self::APPROVAL_NOT_REQUIRED => 'badge-light-success', self::PARTIALLY_APPROVED => 'badge-light-warning', self::APPROVED => 'badge-light-success',self::CONFIRMED => 'badge-light-success', self::REJECTED => 'badge-light-danger',self::POSTED => 'badge-light-info',self::COMPLETED => 'badge-light-warning', self::CLOSED => 'badge-light-info',self::SHORTLISTED => 'badge-light-primary',self::ACTIVE => 'badge-light-success',self::INACTIVE => 'badge-light-danger'];
+    const DOCUMENT_STATUS_CSS_LIST = [self::DRAFT => 'badge-light-warning', self::SUBMITTED => 'badge-light-primary', self::APPROVAL_NOT_REQUIRED => 'badge-light-success', self::PARTIALLY_APPROVED => 'badge-light-warning', self::APPROVED => 'badge-light-success', self::CONFIRMED => 'badge-light-success', self::REJECTED => 'badge-light-danger', self::POSTED => 'badge-light-info', self::COMPLETED => 'badge-light-warning', self::CLOSED => 'badge-light-info', self::SHORTLISTED => 'badge-light-primary', self::ACTIVE => 'badge-light-success', self::INACTIVE => 'badge-light-danger'];
     // Error Message
     const DUPLICATE_DOCUMENT_NUMBER = "Document number already exists.";
     const DOCUMENT_NUMBER_NOT_FOUND = "Document number doesn't exists.";
 
-    const DOCUMENT_STATUS_APPROVED = [self::APPROVED,self::APPROVAL_NOT_REQUIRED,self::POSTED];
-    const DOCUMENT_STATUS_REJECTED = [self::CANCEL,self::REJECTED];
+    const DOCUMENT_STATUS_APPROVED = [self::APPROVED, self::APPROVAL_NOT_REQUIRED, self::POSTED];
+    const DOCUMENT_STATUS_REJECTED = [self::CANCEL, self::REJECTED];
     const DOCUMENT_STATUS_SUBMITTED = [self::SUBMITTED, self::APPROVED, self::APPROVAL_NOT_REQUIRED, self::POSTED, self::PARTIALLY_APPROVED];
 
     # Job Order
@@ -482,13 +482,13 @@ class ConstantHelper
         self::DELIVERY_CHALLAN_SERVICE_ALIAS => "Delivery Note",
         self::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS => "Delivery Note CUM Invoice",
         self::BOM_SERVICE_ALIAS => "Bill Of Material",
-        self::PO_SERVICE_ALIAS => "Purchase Order" ,
-        self::SUPPLIER_INVOICE_SERVICE_ALIAS => "Supplier Invoice" ,
-        self::SCRAP_SERVICE_ALIAS => "Scrap" ,
-        self::PI_SERVICE_ALIAS => "Purchase Indent" ,
-        self:: MRN_SERVICE_ALIAS => "MRN" ,
-        self:: GATE_ENTRY_SERVICE_ALIAS => "Gate Entry" ,
-        self::EXPENSE_SERVICE_ALIAS => "Expense" ,
+        self::PO_SERVICE_ALIAS => "Purchase Order",
+        self::SUPPLIER_INVOICE_SERVICE_ALIAS => "Supplier Invoice",
+        self::SCRAP_SERVICE_ALIAS => "Scrap",
+        self::PI_SERVICE_ALIAS => "Purchase Indent",
+        self::MRN_SERVICE_ALIAS => "MRN",
+        self::GATE_ENTRY_SERVICE_ALIAS => "Gate Entry",
+        self::EXPENSE_SERVICE_ALIAS => "Expense",
         self::EXPENSE_ADVISE_SERVICE_ALIAS => 'Expense Advise',
         self::PURCHASE_RETURN_SERVICE_ALIAS => "Purchase Return",
         self::PB_SERVICE_ALIAS => "Purchase Bill",
@@ -506,7 +506,7 @@ class ConstantHelper
         self::INSPECTION_SERVICE_ALIAS => "Inspection",
         self::MATERIAL_ISSUE_SERVICE_NAME => "Material Issue",
         self::MATERIAL_RETURN_SERVICE_NAME => "Material Return",
-        self::LEASE_INVOICE_SERVICE_ALIAS=>"Lease Invoice",
+        self::LEASE_INVOICE_SERVICE_ALIAS => "Lease Invoice",
         self::JOURNAL_VOUCHER => "Journal Voucher",
         self::OPENING_BALANCE => "Opening Balance",
         self::PRODUCTION_SLIP_SERVICE_ALIAS => "Production Slip",
@@ -521,7 +521,8 @@ class ConstantHelper
         self::ITEM_SERVICE_ALIAS => "Item",
         self::LEDGERS_SERVICE_ALIAS => "Ledger",
         PackingListConstants::SERVICE_ALIAS => "Packing List",
-        RgrConstant::SERVICE_ALIAS => "Return Goods Receipt"];
+        RgrConstant::SERVICE_ALIAS => "Return Goods Receipt"
+    ];
 
     //Service Alias
     const MO_SERVICE_ALIAS = 'mo'; # Manufacturing Order
@@ -540,6 +541,8 @@ class ConstantHelper
     const MRN_SERVICE_ALIAS = 'mrn';
     const GATE_ENTRY_SERVICE_ALIAS = 'ge';
     const EXPENSE_SERVICE_ALIAS = 'expense';
+    const EXP_ALC_SERVICE_ALIAS = 'exp-alc';
+
     const PURCHASE_RETURN_SERVICE_ALIAS = 'purchase-return';
     const INSPECTION_SERVICE_ALIAS = 'insp';
     const PUTAWAY_SERVICE_ALIAS = 'ptw';
@@ -676,7 +679,7 @@ class ConstantHelper
     const DIRECT_INCOMES = "Direct Incomes";
     const FIXED_ASSETS = "Fixed Assets";
     const INDIRECT_EXPENSES = "Indirect Expenses";
-    const RESERVE_SURPLUS ="Reserves & Surplus";
+    const RESERVE_SURPLUS = "Reserves & Surplus";
     const INDIRECT_INCOMES = "Indirect Incomes";
     const INVESTMENTS = "Investments";
     const LOANS_LIABILITY = "Loans (Liability)";
@@ -705,25 +708,25 @@ class ConstantHelper
         self::LOAN_DISBURSEMENT => self::LOAN_DISBURSEMENT,
         self::SI_SERVICE_ALIAS => self::SALES_VOUCHER,
         self::SERVICE_INV_SERVICE_ALIAS => self::SALES_VOUCHER,
-        // self::DELIVERY_CHALLAN_SERVICE_ALIAS => self::SALES_VOUCHER,
+            // self::DELIVERY_CHALLAN_SERVICE_ALIAS => self::SALES_VOUCHER,
         self::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS => self::SALES_VOUCHER,
         self::MRN_SERVICE_ALIAS => self::PURCHASE_VOUCHER,
         self::MO_SERVICE_ALIAS => self::JOURNAL_VOUCHER,
         self::PB_SERVICE_ALIAS => self::PURCHASE_VOUCHER,
         self::EXPENSE_ADVISE_SERVICE_ALIAS => self::PURCHASE_VOUCHER,
         self::PURCHASE_RETURN_SERVICE_ALIAS => self::PURCHASE_VOUCHER,
-        self::RECEIPT_VOUCHER=>self::RECEIPT_VOUCHER,
-        self::PAYMENT_VOUCHER_RECEIPT=>self::PAYMENT_VOUCHER_RECEIPT,
-        self::LEASE_INVOICE_SERVICE_ALIAS=>self::SALES_VOUCHER,
-        self::PAYMENTS_SERVICE_ALIAS=>self::PAYMENTS_SERVICE_ALIAS,
-        self::RECEIPTS_SERVICE_ALIAS=>self::RECEIPTS_SERVICE_ALIAS,
-        self::FIXED_ASSET_DEPRECIATION=>self::FIXED_ASSET_DEPRECIATION,
-        self::MAINT=>self::MAINT,
-        self::FIXED_ASSET_SPLIT=>self::FIXED_ASSET_SPLIT,
-        self::FIXED_ASSET_MERGER=>self::FIXED_ASSET_MERGER,
-        self::FIXED_ASSET_REV_IMP=>self::FIXED_ASSET_REV_IMP,
-        self::FIXEDASSET=>self::FIXEDASSET,
-        self::SR_SERVICE_ALIAS=>self::CREDIT_Note,
+        self::RECEIPT_VOUCHER => self::RECEIPT_VOUCHER,
+        self::PAYMENT_VOUCHER_RECEIPT => self::PAYMENT_VOUCHER_RECEIPT,
+        self::LEASE_INVOICE_SERVICE_ALIAS => self::SALES_VOUCHER,
+        self::PAYMENTS_SERVICE_ALIAS => self::PAYMENTS_SERVICE_ALIAS,
+        self::RECEIPTS_SERVICE_ALIAS => self::RECEIPTS_SERVICE_ALIAS,
+        self::FIXED_ASSET_DEPRECIATION => self::FIXED_ASSET_DEPRECIATION,
+        self::MAINT => self::MAINT,
+        self::FIXED_ASSET_SPLIT => self::FIXED_ASSET_SPLIT,
+        self::FIXED_ASSET_MERGER => self::FIXED_ASSET_MERGER,
+        self::FIXED_ASSET_REV_IMP => self::FIXED_ASSET_REV_IMP,
+        self::FIXEDASSET => self::FIXEDASSET,
+        self::SR_SERVICE_ALIAS => self::CREDIT_Note,
         self::PSV_SERVICE_ALIAS => self::JOURNAL_VOUCHER,
         self::PRODUCTION_SLIP_SERVICE_ALIAS => self::JOURNAL_VOUCHER,
         self::TI_SERVICE_ALIAS => self::TI_SERVICE_ALIAS,
@@ -737,6 +740,7 @@ class ConstantHelper
         self::BOM_SERVICE_ALIAS => 'Bom',
         self::PO_SERVICE_ALIAS => 'PurchaseOrder',
         self::JO_SERVICE_ALIAS => 'JobOrder\JobOrder', // If model inside sub folder
+        self::EXP_ALC_SERVICE_ALIAS => 'ExpenseAllocation\Header', // If model inside sub folder
         self::SUPPLIER_INVOICE_SERVICE_ALIAS => 'PurchaseOrder',
         self::PI_SERVICE_ALIAS => 'PurchaseIndent',
 
@@ -749,7 +753,7 @@ class ConstantHelper
         self::EXPENSE_ADVISE_SERVICE_ALIAS => 'ExpenseHeader',
         self::PURCHASE_RETURN_SERVICE_ALIAS => 'PRHeader',
         self::MATERIAL_REQUEST_SERVICE_ALIAS => 'PurchaseIndent',
-        // self::MATERIAL_ISSUE_SERVICE_ALIAS => 'MrnHeader',
+            // self::MATERIAL_ISSUE_SERVICE_ALIAS => 'MrnHeader',
         self::STOCK_ADJUSTMENT_SERVICE_ALIAS => 'MrnHeader',
         self::MATERIAL_ISSUE_SERVICE_ALIAS_NAME => 'ErpMaterialIssueHeader',
         self::MATERIAL_RETURN_SERVICE_ALIAS_NAME => 'ErpMaterialReturnHeader',
@@ -776,7 +780,7 @@ class ConstantHelper
         self::JOURNAL_VOUCHER => 'Voucher',
         self::CONTRA_VOUCHER => 'Voucher',
         self::PAYMENT_VOUCHER_RECEIPT => 'PaymentVoucher',
-        self::OPENING_BALANCE=>'Voucher',
+        self::OPENING_BALANCE => 'Voucher',
         self::PAYMENTS_SERVICE_ALIAS => 'PaymentVoucher',
         self::RECEIPTS_SERVICE_ALIAS => 'PaymentVoucher',
         self::LEGAL_FILE => 'FileTracking',
@@ -801,15 +805,15 @@ class ConstantHelper
         self::LEGAL => 'Legal',
         self::FIXEDASSET => 'FixedAssetRegistration',
         self::FIXED_ASSET_DEPRECIATION => 'FixedAssetDepreciation',
-        self::EQPT=> 'ErpEquipment',
+        self::EQPT => 'ErpEquipment',
         self::MAINT => 'ErpMaintenance',
         self::FIXED_ASSET_SPLIT => 'FixedAssetSplit',
         self::FIXED_ASSET_MERGER => 'FixedAssetMerger',
         self::FIXED_ASSET_REV_IMP => 'FixedAssetRevImp',
-        self::MAINT_BOM=>'PlantMaintBom',
+        self::MAINT_BOM => 'PlantMaintBom',
 
-        self::MAINT_WO=>'PlantMaintWo',
-        self::DEFECT_NOTIFICATION=>'DefectNotification',
+        self::MAINT_WO => 'PlantMaintWo',
+        self::DEFECT_NOTIFICATION => 'DefectNotification',
 
         self::STORE_MAPPING_SERVICE_ALIAS => 'ErpStoreMapping',
         self::ITEM_BUNDLE_SERVICE_ALIAS => 'ErpItemBundle',
@@ -817,9 +821,9 @@ class ConstantHelper
         self::CONSIGNEE_SERVICE_ALIAS => 'ErpConsignee',
         self::LEDGERS_SERVICE_ALIAS => 'Ledger',
         self::HSN_SERVICE_ALIAS => 'Hsn',
-        self::CATEGORY_SERVICE_ALIAS =>'Category',
-        self::ATTRIBUTE_SERVICE_ALIAS =>'Attribute',
-        self::PRODUCT_SPECIFICATION_ALIAS =>'ProductSpecification',
+        self::CATEGORY_SERVICE_ALIAS => 'Category',
+        self::ATTRIBUTE_SERVICE_ALIAS => 'Attribute',
+        self::PRODUCT_SPECIFICATION_ALIAS => 'ProductSpecification',
         self::PAYMENT_TERM_SERVICE_ALIAS => 'PaymentTerm',
         self::UNIT_SERVICE_ALIAS => 'Unit',
         self::STOCK_ACCOUNT_SERVICE_ALIAS => 'StockAccount',
@@ -860,8 +864,8 @@ class ConstantHelper
         RgrConstant::SERVICE_ALIAS => 'ErpRgr',
         RepConstant::SERVICE_ALIAS => 'ErpRepairOrder',
     ];
-    const CV_ALLOWED_GROUPS=['Cash-in-Hand', 'Bank Accounts', 'Bank OD A/c', 'Bank OCC A/c'];
-    const JV_EXCLUDE_GROUPS=[
+    const CV_ALLOWED_GROUPS = ['Cash-in-Hand', 'Bank Accounts', 'Bank OD A/c', 'Bank OCC A/c'];
+    const JV_EXCLUDE_GROUPS = [
         'Sales Accounts',
         'Purchase Accounts',
         'Cash-in-Hand',
@@ -869,7 +873,7 @@ class ConstantHelper
         'Bank OD A/c',
         'Bank OCC A/c',
     ];
-    const NON_CARRY_FORWARD_BALANCE_GROUPS =['Expenses','Incomes'];
+    const NON_CARRY_FORWARD_BALANCE_GROUPS = ['Expenses', 'Incomes'];
     const SERVICE_ALIAS_VIEW_ROUTE = [
         self::PAYMENTS_SERVICE_ALIAS => 'payments.edit',
         self::RECEIPTS_SERVICE_ALIAS => 'receipts.edit',
@@ -883,11 +887,11 @@ class ConstantHelper
         self::LOAN_DISBURSEMENT => 'loan.view-disbursement',
         self::FIXED_ASSET_DEPRECIATION => 'finance.fixed-asset.depreciation.show',
         self::SCRAP_SERVICE_ALIAS => 'remanufacturing.scrap.edit',
-        self::PI_SERVICE_ALIAS =>'pi.edit',
-        self::PO_SERVICE_ALIAS =>'po.edit',
+        self::PI_SERVICE_ALIAS => 'pi.edit',
+        self::PO_SERVICE_ALIAS => 'po.edit',
         self::JO_SERVICE_ALIAS => 'jo.edit',
         self::GATE_ENTRY_SERVICE_ALIAS => 'gate-entry.edit',
-        self::MRN_SERVICE_ALIAS =>'material-receipt.edit',
+        self::MRN_SERVICE_ALIAS => 'material-receipt.edit',
         self::PURCHASE_RETURN_SERVICE_ALIAS => 'purchase-return.edit',
         self::PB_SERVICE_ALIAS => 'purchase-bill.edit',
         self::EXPENSE_ADVISE_SERVICE_ALIAS => 'expense-adv.edit',
@@ -914,9 +918,9 @@ class ConstantHelper
         PackingListConstants::SERVICE_ALIAS => 'packingList.edit',
         RgrConstant::SERVICE_ALIAS => 'rgr.edit',
         self::ITEM_SERVICE_ALIAS => 'item.edit',
-        self::FIXED_ASSET_SPLIT=>'finance.fixed-asset.split.show',
-        self::FIXED_ASSET_MERGER=>'finance.fixed-asset.merger.show',
-        self::FIXED_ASSET_REV_IMP=>'finance.fixed-asset.revaluation-impairement.show',
+        self::FIXED_ASSET_SPLIT => 'finance.fixed-asset.split.show',
+        self::FIXED_ASSET_MERGER => 'finance.fixed-asset.merger.show',
+        self::FIXED_ASSET_REV_IMP => 'finance.fixed-asset.revaluation-impairement.show',
         self::RECEIPT_VOUCHER => 'receipts.edit',
         self::PAYMENT_VOUCHER => 'payments.edit',
         self::FIXEDASSET => 'finance.fixed-asset.registration.show',
@@ -929,7 +933,7 @@ class ConstantHelper
     ];
     const PWO_DOC_TYPES = [self::PWO_SERVICE_ALIAS];
     const SALE_INVOICE_DOC_TYPES = [self::SI_SERVICE_ALIAS, self::LEASE_INVOICE_SERVICE_ALIAS, self::DELIVERY_CHALLAN_SERVICE_ALIAS, self::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS, self::SERVICE_INV_SERVICE_ALIAS];
-    const SALE_RETURN_DOC_TYPES = [self::SR_SERVICE_ALIAS,self::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS, self::DELIVERY_CHALLAN_SERVICE_ALIAS];
+    const SALE_RETURN_DOC_TYPES = [self::SR_SERVICE_ALIAS, self::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS, self::DELIVERY_CHALLAN_SERVICE_ALIAS];
     const SALE_INVOICE_DOC_TYPES_FOR_DB = [self::SI_SERVICE_ALIAS, 'dn', 'sidn', self::SERVICE_INV_SERVICE_ALIAS];
     const SALE_RETURN_DOC_TYPES_FOR_DB = [self::SR_SERVICE_ALIAS, 'dn', 'srdn'];
     const DOC_NO_TYPE_AUTO = "Auto";
@@ -971,9 +975,9 @@ class ConstantHelper
 
     const ERP_STORE_LOCATION_TYPES = [
         self::STOCKK,
-        // self::SHOP_FLOOR,
-        // self::ADMINISTRATION,
-        // self::OTHER,
+            // self::SHOP_FLOOR,
+            // self::ADMINISTRATION,
+            // self::OTHER,
         self::VENDOR_STORE
     ];
 
@@ -992,6 +996,7 @@ class ConstantHelper
         self::STOCKK,
         self::SHOP_FLOOR,
         self::VENDOR,
+        self::CUSTOMER,
         self::OTHER,
     ];
 
@@ -1045,10 +1050,10 @@ class ConstantHelper
         self::CUSTOMER_SERVICE_ALIAS => ConstantHelper::ERP_MASTER_SERVICE_TYPE,
         self::VENDOR_SERVICE_ALIAS => ConstantHelper::ERP_MASTER_SERVICE_TYPE,
         self::LEDGERS_SERVICE_ALIAS => ConstantHelper::ERP_MASTER_SERVICE_TYPE,
-        self::EQPT=>ConstantHelper::ERP_MASTER_SERVICE_TYPE
+        self::EQPT => ConstantHelper::ERP_MASTER_SERVICE_TYPE
 
     ];
-    const DUE_DATE_ALIAS = [self::MRN_SERVICE_ALIAS,self::PB_SERVICE_ALIAS,self::SI_SERVICE_ALIAS,self::SERVICE_INV_SERVICE_ALIAS,self::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS];
+    const DUE_DATE_ALIAS = [self::MRN_SERVICE_ALIAS, self::PB_SERVICE_ALIAS, self::SI_SERVICE_ALIAS, self::SERVICE_INV_SERVICE_ALIAS, self::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS];
     const DOC_APPROVAL_STATUS_MAPPING = [
         ConstantHelper::SUBMITTED => 'submit',
         ConstantHelper::APPROVED => 'approve',
@@ -1087,7 +1092,7 @@ class ConstantHelper
         self::INCOMES
     ];
 
-    const VOUCHER_TYPES = ['Sales','Purchase','Return','Direct'];
+    const VOUCHER_TYPES = ['Sales', 'Purchase', 'Return', 'Direct'];
     const NATURE_OF_DOCUMENT = [
         'clttx' => 'Liable to collect tax u/s 52(TCS)',
         'paytx' => 'Liable to pay tax u/s 9(5)',
@@ -1120,28 +1125,28 @@ class ConstantHelper
 
     const DATA_TYPES = [
         ['label' => 'Text', 'value' => self::DATA_TYPE_TEXT],
-        ['label' => 'Number','value' => self::DATA_TYPE_NUMBER],
+        ['label' => 'Number', 'value' => self::DATA_TYPE_NUMBER],
         ['label' => 'Date', 'value' => self::DATA_TYPE_DATE],
         ['label' => 'List', 'value' => self::DATA_TYPE_LIST],
         ['label' => 'Boolean (Yes/No)', 'value' => self::DATA_TYPE_BOOLEAN],
     ];
 
-      public const LORRY_CHARGES = [
-        '5'   => '5',
-        '10'   => '10',
+    public const LORRY_CHARGES = [
+        '5' => '5',
+        '10' => '10',
     ];
 
-     public const FUEL_TYPES = [
-        'Diesel'   => 'Diesel',
-        'Petrol'   => 'Petrol',
-        'CNG'      => 'CNG',
+    public const FUEL_TYPES = [
+        'Diesel' => 'Diesel',
+        'Petrol' => 'Petrol',
+        'CNG' => 'CNG',
         'Electric' => 'Electric',
     ];
 
-      public const OWNERSHIP = [
-        'self'   => 'Self',
-        'contract'   => 'Contract',
-        'hp'      => 'HP',
+    public const OWNERSHIP = [
+        'self' => 'Self',
+        'contract' => 'Contract',
+        'hp' => 'HP',
     ];
 
     const MAINTENANCE_INSPECTION_CHECKLIST_TYPE = 'maintenance';
@@ -1151,7 +1156,7 @@ class ConstantHelper
         self::MAINTENANCE_INSPECTION_CHECKLIST_TYPE,
         self::ITEM_INSPECTION_CHECKLIST_TYPE,
     ];
-     // Excel Export Styling Constants
+    // Excel Export Styling Constants
     const EXCEL_FONT_COLOR_BLACK = 'FF000000';
     const EXCEL_FONT_BOLD = true;
 
@@ -1200,7 +1205,7 @@ class ConstantHelper
         ['label' => 'Extra Asset', 'value' => 'extra_asset'],
     ];
 
-    const REPAIR_ACTION  = [
+    const REPAIR_ACTION = [
         ['label' => 'Change Defect Severity', 'value' => 'change_defect_severity'],
         ['label' => 'Send to Vendor', 'value' => 'send_to_vendor'],
         ['label' => 'Scrap', 'value' => 'scrap'],

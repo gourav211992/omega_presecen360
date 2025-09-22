@@ -2,7 +2,7 @@
 @php
    $rowCount = $key + 1;
 @endphp
-<tr id="row_{{$rowCount}}" data-index="{{$rowCount}}">
+<tr class="order-row" id="row_{{$rowCount}}" data-index="{{$rowCount}}">
    <td class="customernewsection-form">
       <div class="form-check form-check-primary custom-checkbox">
          <input type="checkbox" class="form-check-input" id="Email_{{$rowCount}}" value="{{$rowCount}}" data-id="{{$moProduct->id}}">
@@ -52,7 +52,7 @@
       </select>
    </td>
    <td>
-      <input disabled type="text" value="{{number_format($moProduct->qty,4)}}" step="any" class="form-control mw-100 text-end"  name="components[{{$rowCount}}][qty]"/>
+      <input disabled type="text" value="{{number_format($moProduct->qty,4)}}" min-value="{{number_format($moProduct->pslip_qty,4)}}" max-value="{{number_format($moProduct?->pwoMapping?->qty,4)}}" step="any" class="form-control mw-100 text-end component-qty"  name="components[{{$rowCount}}][qty]"/>
    </td>
    <td>
       <input type="hidden" name="components[{{$rowCount}}][customer_id]" value="{{$moProduct->customer_id}}" />

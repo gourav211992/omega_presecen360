@@ -205,6 +205,11 @@ class MrnDetail extends Model
         return $this->belongsTo(ErpSoJobWorkItem::class, 'sale_order_item_id');
     }
 
+    public function dnoteItem()
+    {
+        return $this->belongsTo(ErpInvoiceItem::class, 'invoice_item_id');
+    }
+
     public function asnItem()
     {
         return $this->belongsTo(VendorAsnItem::class, 'vendor_asn_item_id');

@@ -160,22 +160,6 @@ $(document).on("change", "#itemTable > tbody .form-check-input", (e) => {
     }
 });
 
-/*Attribute on change*/
-$(document).on("change", '[name*="comp_attribute"]', (e) => {
-    let closestTr = e.target.closest("tr");
-    let rowCount = e.target
-        .closest("tr")
-        .querySelector('[name*="row_count"]').value;
-    let attrGroupId = e.target.getAttribute("data-attr-group-id");
-    $(
-        `[name="components[${rowCount}][attr_group_id][${attrGroupId}][attr_name]"]`
-    ).val(e.target.value);
-    // closestTr = $(`[name="components[${rowCount}][attr_group_id][${attrGroupId}][attr_name]"]`).closest('tr');
-    // getItemDetail(closestTr);
-    qtyEnabledDisabled();
-    setSelectedAttribute(rowCount);
-});
-
 // Check Negative Values
 let oldValue;
 $(document).on("focus", ".checkNegativeVal", function (e) {
@@ -228,6 +212,8 @@ $(document).on("change", "[name*='order_qty']", async function (e) {
     safeSet("jo_detail_id", getVal("[name*='[jo_detail_id]']"));
     safeSet("sale_order_id", getVal("[name*='[sale_order_id]']"));
     safeSet("so_detail_id", getVal("[name*='[so_detail_id]']"));
+    safeSet("sale_invoice_id", getVal("[name*='[sale_invoice_id]']"));
+    safeSet("invoice_item_id", getVal("[name*='[invoice_itm_id]']"));
     safeSet("ge_detail_id", getVal("[name*='[gate_entry_detail_id]']"));
     safeSet("asn_detail_id", getVal("[name*='[vendor_asn_dtl_id]']"));
     safeSet("mrn_detail_id", getVal("[name*='[mrn_detail_id]']"));
@@ -686,8 +672,6 @@ function setTableCalculation(edit = null) {
                 let promise = fetch(urlWithParams)
                     .then((response) => response.json())
                     .then((data) => {
-                        console.log("step 1.2", data?.data?.html);
-
                         $(item3).find("[name*='t_d_id']").remove();
                         $(item3).find("[name*='t_code']").remove();
                         $(item3).find("[name*='applicability_type']").remove();
@@ -1868,7 +1852,6 @@ $(document).on("change", ".sub_store", function () {
 const selectedStoreId = $(".header_store_id").val();
 const $selectedSubStore = $(".sub_store").find("option:selected");
 const selectedSubStoreId = $(".sub_store").val();
-console.log("selectedSubStoreId", selectedSubStoreId);
 
 const isSubStoreRequired =
     Number($selectedSubStore.data("warehouse-required")) === 1;
@@ -1918,8 +1901,6 @@ function getSubStores(storeLocationId, selectedSubStoreId = null) {
                 let options = "";
 
                 response.data.forEach(function (location) {
-                    console.log("location", location);
-
                     const isSelected =
                         selectedSubStoreId && location.id == selectedSubStoreId
                             ? "selected"
@@ -2404,12 +2385,22 @@ function initAttributeAutocomplete(context = document) {
                     const row = $input.closest("tr");
                     const rowCount = row.find('[name*="row_count"]').val();
                     const attrGroupId = $input.data("attr-group-id");
+
+                    // Set selected value in the autocomplete input
                     $input.val(ui.item.label);
-                    $(
-                        `[name="components[${rowCount}][attr_group_id][${attrGroupId}][attr_name]"]`
-                    ).val(ui.item.id);
-                    qtyEnabledDisabled();
-                    setSelectedAttribute(rowCount);
+
+                    // Update the hidden field (attribute ID) after selection
+                    setTimeout(() => {
+                        $(
+                            `[name="components[${rowCount}][attr_group_id][${attrGroupId}][attr_name]"]`
+                        ).val(ui.item.id);
+
+                        // Update quantity enabling/disabling and other related functions
+                        qtyEnabledDisabled();
+                        setSelectedAttribute(rowCount);
+                    }, 300);
+
+                    // This section can also be merged from your "on change" handler
                     const itemId = $("#attribute tbody tr")
                         .find('[name*="[item_id]"]')
                         .val();
@@ -2426,25 +2417,34 @@ function initAttributeAutocomplete(context = document) {
                             attr_value: attr_value,
                         });
                     });
+
+                    // Returning false to prevent default action, as you're handling the value update
                     return false;
                 },
                 focus: function (event, ui) {
                     event.preventDefault();
                 },
             });
+
+            // Autofocus and trigger search on input focus if field is empty
             $input.on("focus", function () {
                 if (!$(this).val()) {
                     $(this).autocomplete("search", "");
                 }
             });
+
+            // Handle input change, clearing value if empty
             $input.on("input", function () {
                 if (!$(this).val()) {
                     const row = $input.closest("tr");
                     const rowCount = row.find('[name*="row_count"]').val();
                     const attrGroupId = $input.data("attr-group-id");
+
+                    // Clear hidden value if input is empty
                     $(
                         `[name="components[${rowCount}][attr_group_id][${attrGroupId}][attr_name]"]`
                     ).val("");
+
                     qtyEnabledDisabled();
                 }
             });

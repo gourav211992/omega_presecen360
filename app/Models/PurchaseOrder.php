@@ -65,7 +65,8 @@ class PurchaseOrder extends Model
         'supp_invoice_required',
         'partial_delivery',
         'credit_days',
-        'consignee_name'
+        'consignee_name',
+        'consignee_id'
     ];
 
     public static function boot()

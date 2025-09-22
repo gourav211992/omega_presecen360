@@ -67,7 +67,7 @@
                             <div class="row breadcrumbs-top">
                                 <div class="col-12">
                                     <h2 class="content-header-title float-start mb-0">
-                                        {{$servicesBooks['services'][0]->name ?? "Material Receipt"}}
+                                        {{$servicesBooks['services'][0]->name ?? "Gate Entry"}}
                                     </h2>
                                     <div class="breadcrumb-wrapper">
                                         <ol class="breadcrumb">
@@ -164,7 +164,7 @@
                                                             Reference From
                                                         </label>
                                                     </div>
-                                                    <div class="col-md-5 action-button">
+                                                    <div class="col-md-8 action-button">
                                                         <button type="button" class="btn btn-outline-primary btn-sm mb-0 poSelect">
                                                             <i data-feather="plus-square"></i>
                                                             Outstanding PO
@@ -172,6 +172,11 @@
                                                         <button type="button" class="btn btn-outline-primary btn-sm mb-0 joSelect">
                                                             <i data-feather="plus-square"></i>
                                                             Outstanding JO
+                                                        </button>
+                                                        <button type="button"
+                                                            class="btn btn-outline-primary btn-sm mb-0 dnoteSelect  d-none">
+                                                            <i data-feather="plus-square"></i>
+                                                            D note
                                                         </button>
                                                     </div>
                                                 </div>
@@ -603,6 +608,8 @@
         {{-- Add Outstanding JO modal--}}
         @include('procurement.gate-entry.partials.outstanding-jo-modal')
         {{-- Edit Address --}}
+        {{-- Add Outstanding DNOTE modal --}}
+        @include('procurement.gate-entry.partials.outstanding-dnote-modal')
         <div class="modal fade" id="edit-address" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
             <div class="modal-dialog  modal-dialog-centered" style="max-width: 700px">
             </div>
@@ -748,12 +755,18 @@
     <script type="text/javascript" src="{{asset('assets/js/modules/gate-entry.js')}}"></script>
     <script type="text/javascript" src="{{asset('app-assets/js/file-uploader.js')}}"></script>
     <script>
+        let po = @json(\App\Helpers\ConstantHelper::PO_SERVICE_ALIAS);
+        let jo = @json(\App\Helpers\ConstantHelper::JO_SERVICE_ALIAS);
+        let so = @json(\App\Helpers\ConstantHelper::SO_SERVICE_ALIAS);
+        let dnote = @json(\App\Helpers\ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS);
+        let siDnote = @json(\App\Helpers\ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS);
         let currentProcessType = null;
         let tableRowCount = 0;
         window.onload = function () {
             localStorage.removeItem('selectedPoIds');
             localStorage.removeItem('selectedJoIds');
             localStorage.removeItem('selectedSoIds');
+            localStorage.removeItem('selectedDnoteIds');
             $(".scanQR").removeClass('d-none');
             currentProcessType = null;
             $("#addNewItemBtn").remove();
@@ -868,22 +881,35 @@
             /*Reference from*/
             let reference_from_service = parameters.reference_from_service;
 
-            if(reference_from_service.length) {
-                let po = '{{\App\Helpers\ConstantHelper::PO_SERVICE_ALIAS}}';
-                let jo = '{{\App\Helpers\ConstantHelper::JO_SERVICE_ALIAS}}';
-                if((reference_from_service.includes('po')) || (reference_from_service.includes('jo'))) {
+            if (reference_from_service.length) {
+                let dnoteTypes = [dnote, siDnote];
+                if (
+                    reference_from_service.includes(po) ||
+                    reference_from_service.includes(jo) ||
+                    reference_from_service.includes(dnote) ||
+                    reference_from_service.includes(siDnote)
+                ) {
                     $("#reference_from").removeClass('d-none');
-                    if (reference_from_service.includes('po'))
-                    {
+
+                    if (reference_from_service.includes(po)) {
                         $(".poSelect").removeClass('d-none');
                     }
-                    if (reference_from_service.includes('jo'))
-                    {
+
+                    if (reference_from_service.includes(jo)) {
                         $(".joSelect").removeClass('d-none');
                     }
 
+                    if (dnoteTypes.some(type => reference_from_service.includes(type))) {
+                        $(".dnoteSelect").removeClass('d-none');
+                    }
                 } else {
                     $("#reference_from").addClass('d-none');
+                }
+
+                if (reference_from_service.includes('d')) {
+                    $("#addNewItemBtn").removeClass('d-none');
+                } else {
+                    $("#addNewItemBtn").addClass('d-none');
                 }
             } else {
                 Swal.fire({
@@ -891,9 +917,10 @@
                     text: "Please update first reference from service param.",
                     icon: 'error',
                 });
+
                 setTimeout(() => {
-                    location.href = '{{route("gate-entry.index")}}';
-                },1500);
+                    location.href = '{{ route('gate-entry.index') }}';
+                }, 1500);
             }
         }
 
@@ -1175,6 +1202,7 @@
 
                         $(".poSelect").addClass('d-none');
                         $(".joSelect").addClass('d-none');
+                        $(".dnoteSelect").addClass('d-none');
                         $("#vendor_name").prop('readonly',true);
                         $(".editAddressBtn").addClass('d-none');
                         $(".scanQR").removeClass('d-none');
@@ -1234,6 +1262,7 @@
                 // $(".asn-container").removeClass('d-none');
                 $("#referenceNoDiv").hide();
                 $(".scanQR").removeClass('d-none');
+                $(".dnoteSelect").removeClass('d-none');
                 // $("#reference_number_input").val('');
                 $("#addNewItemBtn").show();
                 $("#itemTable > thead .form-check-input").prop('checked',false);
@@ -1429,6 +1458,8 @@
                 po_detail_id: getVal("[name*='[po_detail_id]']"),
                 job_order_id: getVal("[name*='[job_order_id]']"),
                 jo_detail_id: getVal("[name*='[jo_detail_id]']"),
+                sale_invoice_id: getVal("[name*='[sale_invoice_id]']"),
+                invoice_item_id: getVal("[name*='[invoice_itm_id]']"),
                 remark: getVal("[name*='[remark]']"),
                 uom_id: getVal("[name*='[uom_id]']"),
                 qty: getVal("[name*='[accepted_qty]']"),
@@ -1529,7 +1560,7 @@
         $(document).on('click', '.poSelect', (e) => {
             tableRowCount = $('.mrntableselectexcel tr').length;
             $("#poModal").modal('show');
-            currentProcessType = 'po';
+            currentProcessType = po;
             openPurchaseRequest();
             const tableSelector = '#poModal .po-order-detail';
             $(tableSelector).DataTable().clear().destroy();
@@ -1666,7 +1697,7 @@
                 item_search = '',
                 selected_po_ids = '';
 
-            if(currentProcessType === 'po')
+            if(currentProcessType === po)
             {
                 let selectedPoIds = localStorage.getItem('selectedPoIds') ?? '[]';
                 selectedPoIds = JSON.parse(selectedPoIds);
@@ -1684,7 +1715,7 @@
                 selected_po_ids = selectedPoIds
                 selected_po_ids = encodeURIComponent(selectedPoIds)
             }
-            if(currentProcessType === 'jo')
+            if(currentProcessType === jo)
             {
                 let selectedJoIds = localStorage.getItem('selectedJoIds') ?? '[]';
                 selectedJoIds = JSON.parse(selectedJoIds);
@@ -1702,7 +1733,7 @@
                 selected_po_ids = selectedJoIds
                 selected_po_ids = encodeURIComponent(selectedJoIds)
             }
-            if(currentProcessType === 'so')
+            if(currentProcessType === so)
             {
                 let selectedSoIds = localStorage.getItem('selectedSoIds') ?? '[]';
                 selectedSoIds = JSON.parse(selectedSoIds);
@@ -1718,6 +1749,21 @@
                 so_id = $("#so_so_qt_val").val() || '',
                 item_search = $("#so_item_name_search").length ? $("#so_item_name_search").val() : '',
                 selected_po_ids = encodeURIComponent(selectedSoIds)
+            }
+            if ((currentProcessType === dnote) || (currentProcessType === siDnote)) {
+                let selectedDnoteIds = localStorage.getItem('selectedDnoteIds') ?? '[]';
+                selectedDnoteIds = JSON.parse(selectedDnoteIds);
+                selectedDnoteIds = encodeURIComponent(JSON.stringify(selectedDnoteIds));
+                document_date = $("[name='document_date']").val() || '',
+                header_book_id = $("#book_id").val() || '',
+                series_id = $("#book_id_qt_val").val() || '',
+                document_number = $("#dnote_document_id_qt_val").val() || '',
+                item_id = $("#dnote_item_id_qt_val").val() || '',
+                vendor_id = $("#dnote_vendor_id_qt_val").val(),
+                store_id = $(".header_store_id").val() || '',
+                so_id = $("#dnote_so_qt_val").val() || '',
+                item_search = $("#dnote_item_name_search").length ? $("#dnote_item_name_search").val() : '';
+                selected_po_ids = encodeURIComponent(selectedDnoteIds)
             }
             return {
                 document_date: document_date,
@@ -1827,7 +1873,7 @@
             let asnIds = result.asnIds;
             let asnItemIds = result.asnItemIds;
             let referenceNo = result.referenceNos[0];
-            currentProcessType = 'po';
+            currentProcessType = po;
             if (!ids.length) {
                 $("#poModal").modal('hide');
                 Swal.fire({
@@ -1844,6 +1890,7 @@
             $(".joSelect").removeClass('d-none')
             $(".scanQR").removeClass('d-none');
             $("#addNewItemBtn").hide();
+            $(".dnoteSelect").addClass('d-none');
             if (referenceNo) {
                 $("#referenceNoDiv").show();
                 // $("#reference_number_input").val(referenceNo);
@@ -1851,7 +1898,7 @@
                 $("#referenceNoDiv").hide();
                 // $("#reference_number_input").val('');
             }
-            $("#reference_type_input").val('po');
+            $("#reference_type_input").val(po);
 
             // for component item code
             function initializeAutocomplete2(selector, type) {
@@ -1968,7 +2015,7 @@
                 ids: ids,
                 asnIds: asnIds,
                 asnItemIds: asnItemIds,
-                type: 'po',
+                type: po,
                 module_type: moduleTypes,
             };
 
@@ -1980,7 +2027,7 @@
         $(document).on('click', '.joSelect', (e) => {
             tableRowCount = $('.mrntableselectexcel tr').length;
             $("#joModal").modal('show');
-            currentProcessType = 'jo';
+            currentProcessType = jo;
             openJoRequest();
             const tableSelector = '#joModal .jo-order-detail';
             $(tableSelector).DataTable().clear().destroy();
@@ -2029,7 +2076,7 @@
         function initializeAutocompleteJoQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "")
         {
             let modalType = '#joModal';
-            if (currentProcessType == 'jo')
+            if (currentProcessType == jo)
                 modalType = '#joModal';
 
             $("#" + selector).autocomplete({
@@ -2198,7 +2245,7 @@
             let asnIds = result.asnIds;
             let asnItemIds = result.asnItemIds;
             let referenceNo = result.referenceNos[0];
-            currentProcessType = 'jo';
+            currentProcessType = jo;
             if (!ids.length) {
                 $("#joModal").modal('hide');
                 Swal.fire({
@@ -2214,6 +2261,7 @@
             $("[name='jo_item_ids']").val(ids);
             $(".poSelect").hide();
             $(".scanQR").removeClass('d-none');
+            $(".dnoteSelect").addClass('d-none');
             $("#addNewItemBtn").hide();
             if (referenceNo) {
                 $("#referenceNoDiv").show();
@@ -2222,7 +2270,7 @@
                 $("#referenceNoDiv").hide();
                 // $("#reference_number_input").val('');
             }
-            $("#reference_type_input").val('jo');
+            $("#reference_type_input").val(jo);
 
             // for comjonent item code
             function initializeAutocomplete2(selector, type) {
@@ -2339,7 +2387,7 @@
                 ids: ids,
                 asnIds: asnIds,
                 asnItemIds: asnItemIds,
-                type: 'jo',
+                type: jo,
                 module_type: moduleTypes,
             };
 
@@ -2509,14 +2557,14 @@
             const asnIds = JSON.stringify(asnData.asnIds);
             const asnItemIds = JSON.stringify(asnData.asnItemIds);
             const moduleTypes = JSON.stringify(asnData.module_type);
-            const moduleType = asnData.module_type?.[0] ?? 'po';
+            const moduleType = asnData.module_type?.[0] ?? po;
             const processType = asnData.type;
 
             const currencyId = $("[name='currency_id']").val();
             const transactionDate = $("[name='document_date']").val();
             const type = $("meta[name='route-type']").attr("content"); // blade->meta
 
-            const baseRoute = processType === 'jo'
+            const baseRoute = processType === jo
                 ? '{{ route("gate-entry.process.jo-item") }}'
                 : '{{ route("gate-entry.process.po-item") }}';
 
@@ -2544,14 +2592,14 @@
                         vendorAsn
                     } = data.data;
 
-                    const modelType = processType === 'jo' ? 'jo' : 'po';
-                    const order = modelType === 'jo' ? data.data.jobOrder : data.data.purchaseOrder;
+                    const modelType = processType === jo ? jo : po;
+                    const order = modelType === jo ? data.data.jobOrder : data.data.purchaseOrder;
 
                     vendorOnChange(vendor?.id, modelType, order.id);
 
-                    const getSelectedIdsFn = modelType === 'jo' ? getSelectedJoIDS : getSelectedPoIDS;
-                    const hiddenFieldName = modelType === 'jo' ? 'jo_item_ids' : 'po_item_ids';
-                    const localStorageKey = modelType === 'jo' ? 'selectedJoIds' : 'selectedPoIds';
+                    const getSelectedIdsFn = modelType === jo ? getSelectedJoIDS : getSelectedPoIDS;
+                    const hiddenFieldName = modelType === jo ? 'jo_item_ids' : 'po_item_ids';
+                    const localStorageKey = modelType === jo ? 'selectedJoIds' : 'selectedPoIds';
 
                     const newIds = getSelectedIdsFn().ids;
                     const existingIds = JSON.parse(localStorage.getItem(localStorageKey) || '[]');
@@ -2577,6 +2625,7 @@
                         case 'po-process':
                             $(".joSelect").addClass('d-none');
                             $(".poSelect").removeClass('d-none');
+                            $(".dnoteSelect").addClass('d-none');
                             // $(".asn-container").addClass('d-none');
                             $(".scanQR").addClass('d-none');
                             break;
@@ -2584,6 +2633,7 @@
                         default:
                             $(".poSelect").addClass('d-none');
                             $(".joSelect").removeClass('d-none');
+                            $(".dnoteSelect").addClass('d-none');
                             // $(".asn-container").addClass('d-none');
                             $(".scanQR").addClass('d-none');
                             break;
@@ -2714,5 +2764,580 @@
                 icon: 'error'
             });
         }
+
+        let dnoteOrderTable;
+        $(document).on('click', '.dnoteSelect', (e) => {
+            tableRowCount = $('.mrntableselectexcel tr').length;
+            $("#dnoteModal").modal('show');
+            currentProcessType = dnote;
+            openDNoteRequest();
+            const tableSelector = '#dnoteModal .dnote-order-detail';
+            $(tableSelector).DataTable().clear().destroy();
+            getDNoteOrders();
+            if ($(tableSelector).length) {
+                if ($.fn.DataTable.isDataTable(tableSelector)) {
+                    dnoteOrderTable = $(tableSelector).DataTable();
+                    dnoteOrderTable.ajax.reload();
+                }
+                // Re-initialize DataTable
+            }
+        });
+
+        function getSelectedDNoteTypes() {
+            let moduleTypes = [];
+            $('.dnote_item_checkbox:checked').each(function() {
+                moduleTypes.push($(this).attr('data-module'));
+            });
+            return moduleTypes;
+        }
+
+        function openDNoteRequest() {
+            initializeAutocompleteDQt("dnote_vendor_code_input_qt", "dnote_vendor_id_qt_val", "vendor_list", "vendor_code",
+                "company_name");
+            initializeAutocompleteDQt("dnote_document_no_input_qt", "dnote_document_id_qt_val", "dnote_document_qt",
+                "document_number", "");
+            initializeAutocompleteDQt("po_dnote_no_input_qt", "po_dnote_qt_val", "po_dnote_qt", "book_code", "document_number");
+        }
+
+        function initializeAutocompleteDQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "") {
+            let modalType = '#soModal';
+
+            $("#" + selector).autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: '/search',
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {
+                            q: request.term,
+                            type: typeVal,
+                            vendor_id: $("#vendor_id_qt_val").val(),
+                            header_book_id: $("#book_id").val(),
+                            item_search: $("#item_search_id_qt_val").val() || '',
+                        },
+                        success: function(data) {
+                            response($.map(data, function(item) {
+                                // return {
+                                //     id: item.id,
+                                //     label: `${item[labelKey1]} ${labelKey2 ? (item[labelKey2] ? '(' + item[labelKey2] + ')' : '') : ''}`,
+                                //     code: item[labelKey1] || '',
+                                // };
+                                let label = '';
+                                if ('document_number' in item && 'book_code' in item) {
+                                    label = `${item.document_number}`;
+                                } else if ('company_name' in item) {
+                                    label = item.company_name;
+                                }
+                                return {
+                                    id: item.id,
+                                    label: label,
+                                    code: item.book_code || item.vendor_code || '',
+                                };
+                            }));
+                        },
+                        error: function(xhr) {
+                            console.error('Error fetching customer data:', xhr.responseText);
+                        }
+                    });
+                },
+                appendTo: modalType,
+                minLength: 0,
+                select: function(event, ui) {
+                    var $input = $(this);
+                    $input.val(ui.item.label);
+                    $("#" + selectorSibling).val(ui.item.id);
+                    $('#dnoteModal .dnote-order-detail').DataTable().ajax.reload();
+                    return false;
+                },
+                change: function(event, ui) {
+                    if (!ui.item) {
+                        $(this).val("");
+                        $("#" + selectorSibling).val("");
+                        $('#dnoteModal .dnote-order-detail').DataTable().ajax.reload();
+                    }
+                }
+            }).focus(function() {
+                if (this.value === "") {
+                    $("#" + selectorSibling).val("");
+                    $('#dnoteModal .dnote-order-detail').DataTable().ajax.reload();
+                    $(this).autocomplete("search", "");
+                }
+            }).blur(function() {
+                if (this.value === "") {
+                    $("#" + selectorSibling).val("");
+                    $('#dnoteModal .dnote-order-detail').DataTable().ajax.reload();
+                }
+            })
+        }
+
+        function renderData(data) {
+            return data ? data : '';
+        }
+
+        function getDNoteOrders() {
+            const ajaxUrl = '{{ route('gate-entry.get.dnote', ['type' => 'create']) }}';
+            var columns = [];
+            columns = [{
+                    data: 'id',
+                    visible: false,
+                    orderable: true,
+                    searchable: false
+                },
+                {
+                    data: 'select_checkbox',
+                    name: 'select_checkbox',
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'vendor',
+                    name: 'vendor',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'dnote_doc',
+                    name: 'dnote_doc',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'dnote_date',
+                    name: 'dnote_date',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'item_code',
+                    name: 'item_code',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'item_name',
+                    name: 'item_name',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'attributes',
+                    name: 'attributes',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'order_qty',
+                    name: 'order_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
+                        $(td).addClass('text-end');
+                    }
+                },
+                {
+                    data: 'inv_order_qty',
+                    name: 'inv_order_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
+                        $(td).addClass('text-end');
+                    }
+                },
+                {
+                    data: 'grn_qty',
+                    name: 'grn_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
+                        $(td).addClass('text-end');
+                    }
+                },
+                {
+                    data: 'balance_qty',
+                    name: 'balance_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
+                        $(td).addClass('text-end');
+                    }
+                },
+                {
+                    data: 'rate',
+                    name: 'rate',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
+                        $(td).addClass('text-end');
+                    }
+                },
+                {
+                    data: 'total_amount',
+                    name: 'total_amount',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
+                        $(td).addClass('text-end');
+                    }
+                },
+            ];
+            initializeDataTableCustom('#dnoteModal .dnote-order-detail',
+                ajaxUrl,
+                columns
+            );
+        }
+
+        $(document).on('keyup', '#dnote_item_name_search', (e) => {
+            $('#dnoteModal .dnote-order-detail').DataTable().ajax.reload();
+        });
+
+        /*Checkbox for po/si item list*/
+        $(document).on('change', '.dnote-order-detail > thead .form-check-input', (e) => {
+            if (e.target.checked) {
+                $(".dnote-order-detail > tbody .form-check-input").each(function() {
+                    $(this).prop('checked', true);
+                });
+            } else {
+                $(".dnote-order-detail > tbody .form-check-input").each(function() {
+                    $(this).prop('checked', false);
+                });
+            }
+        });
+
+        function getSelectedDNoteIDS() {
+            let ids = [];
+            let referenceNos = [];
+            $('.dnote_item_checkbox:checked').each(function() {
+                ids.push($(this).val());
+                referenceNo = $(this).siblings("input[type='hidden'][name='reference_no']").val();
+                if (referenceNo) {
+                    referenceNos.push(referenceNo);
+                }
+            });
+            return {
+                ids: ids,
+                referenceNos: referenceNos
+            };
+        }
+
+        $(document).on('click', '.dnoteProcess', (e) => {
+            let result = getSelectedDNoteIDS();
+            let ids = result.ids;
+            let referenceNo = result.referenceNos[0];
+            let idsLength = ids.length;
+            currentProcessType = dnote;
+            if (!ids.length) {
+                $("#dnoteModal").modal('hide');
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Please select at least one one dnote',
+                    icon: 'error',
+                });
+                return false;
+            }
+
+            let moduleTypes = getSelectedDNoteTypes();
+
+            $("[name='dnote_item_ids']").val(ids);
+            $(".poSelect").addClass('d-none');
+            $(".joSelect").addClass('d-none');
+            $(".soSelect").addClass('d-none');
+            $(".scanQR").addClass('d-none');
+            $("#importItem ").hide();
+            $("#addNewItemBtn").hide();
+            if (referenceNo) {
+                $("#referenceNoDiv").show();
+                $("#reference_number_input").val(referenceNo);
+            } else {
+                $("#referenceNoDiv").hide();
+                $("#reference_number_input").val('');
+            }
+            $("#reference_type_input").val(dnote);
+
+            // for component item code
+            function initializeAutocomplete2(selector, type) {
+                $(selector).autocomplete({
+                    minLength: 0,
+                    source: function(request, response) {
+                        let selectedAllItemIds = [];
+                        $("#itemTable tbody [id*='row_']").each(function(index, item) {
+                            if (Number($(item).find('[name*="[item_id]"]').val())) {
+                                selectedAllItemIds.push(Number($(item).find(
+                                    '[name*="[item_id]"]').val()));
+                            }
+                        });
+                        $.ajax({
+                            url: '/search',
+                            method: 'GET',
+                            dataType: 'json',
+                            data: {
+                                q: request.term,
+                                type: 'goods_item_list',
+                                selectedAllItemIds: JSON.stringify(selectedAllItemIds)
+                            },
+                            success: function(data) {
+                                response($.map(data, function(item) {
+                                    return {
+                                        id: item.id,
+                                        label: `${item.item_name} (${item.item_code})`,
+                                        code: item.item_code || '',
+                                        item_id: item.id,
+                                        item_name: item.item_name,
+                                        uom_name: item.uom?.name,
+                                        uom_id: item.uom_id,
+                                        hsn_id: item.hsn?.id,
+                                        hsn_code: item.hsn?.code,
+                                        alternate_u_o_ms: item.alternate_u_o_ms,
+                                        is_attr: item.item_attributes_count,
+                                    };
+                                }));
+                            },
+                            error: function(xhr) {
+                                console.error('Error fetching customer data:', xhr
+                                    .responseText);
+                            }
+                        });
+                    },
+                    select: function(event, ui) {
+                        let $input = $(this);
+                        let itemCode = ui.item.code;
+                        let itemName = ui.item.value;
+                        let itemN = ui.item.item_name;
+                        let itemId = ui.item.item_id;
+                        let uomId = ui.item.uom_id;
+                        let uomName = ui.item.uom_name;
+                        let hsnId = ui.item.hsn_id;
+                        let hsnCode = ui.item.hsn_code;
+                        $input.attr('data-name', itemName);
+                        $input.attr('data-code', itemCode);
+                        $input.attr('data-id', itemId);
+                        $input.closest('tr').find('[name*="[item_id]"]').val(itemId);
+                        $input.closest('tr').find('[name*=item_code]').val(itemCode);
+                        $input.closest('tr').find('[name*=item_name]').val(itemN);
+                        $input.closest('tr').find('[name*=hsn_id]').val(hsnId);
+                        $input.closest('tr').find('[name*=hsn_code]').val(hsnCode);
+                        $input.closest('tr').find("td[id*='itemAttribute_']").html(defautAttrBtn);
+                        $input.val(itemCode);
+                        let uomOption = `<option value=${uomId}>${uomName}</option>`;
+                        if (ui.item?.alternate_u_o_ms) {
+                            for (let alterItem of ui.item.alternate_u_o_ms) {
+                                uomOption +=
+                                    `<option value="${alterItem.uom_id}" ${alterItem.is_purchasing ? 'selected' : ''}>${alterItem.uom?.name}</option>`;
+                            }
+                        }
+                        $input.closest('tr').find('[name*=uom_id]').append(uomOption);
+                        $input.closest('tr').find("input[name*='attr_group_id']").remove();
+                        setTimeout(() => {
+                            if (ui.item.is_attr) {
+                                $input.closest('tr').find('.attributeBtn').trigger('click');
+                            } else {
+                                $input.closest('tr').find('.attributeBtn').trigger('click');
+                                $input.closest('tr').find('[name*="[order_qty]"]').val('')
+                                    .focus();
+                            }
+                        }, 100);
+                        getItemDetail($input.closest('tr'), currentProcessType);
+                        getItemCostPrice($input.closest('tr'));
+                        return false;
+                    },
+                    change: function(event, ui) {
+                        if (!ui.item) {
+                            $(this).val("");
+                            // $('#itemId').val('');
+                            $(this).attr('data-name', '');
+                            $(this).attr('data-code', '');
+                        }
+                    }
+                }).focus(function() {
+                    if (this.value === "") {
+                        $(this).autocomplete("search", "");
+                    }
+                });
+            }
+
+            let currencyId = $("select[name='currency_id']").val();
+            let transactionDate = $("input[name='document_date']").val() || '';
+            let groupItems = [];
+            $('tr[data-group-item]').each(function() {
+                let groupItemData = $(this).data('group-item');
+                groupItems.push(groupItemData);
+            });
+
+            groupItems = JSON.stringify(groupItems);
+            let current_row_count = $("tbody tr[id*='row_']").length;
+            ids = JSON.stringify(ids);
+            moduleTypes = JSON.stringify(moduleTypes);
+            let type = dnote;
+            let actionUrl = '{{ route('gate-entry.process.dnote-item') }}' +
+                '?ids=' + encodeURIComponent(ids) +
+                '&type=' + type +
+                '&moduleTypes=' + moduleTypes +
+                '&tableRowCount=' + tableRowCount +
+                '&currency_id=' + encodeURIComponent(currencyId) +
+                '&d_date=' + encodeURIComponent(transactionDate)
+            // + '&groupItems=' + encodeURIComponent(groupItems);
+            fetch(actionUrl).then(response => {
+                return response.json().then(data => {
+                    if (data.status == 200) {
+                        let dnoteOrder = data?.data?.saleOrder;
+                        vendorOnChange(data?.data?.vendor?.id, dnote, dnoteOrder.id);
+                        let result = getSelectedDNoteIDS();
+                        let newIds = result.ids;
+                        let existingIds = localStorage.getItem('selectedDnoteIds');
+                        if (existingIds) {
+                            existingIds = JSON.parse(existingIds);
+                            const mergedIds = Array.from(new Set([...existingIds, ...newIds]));
+                            localStorage.setItem('selectedDnoteIds', JSON.stringify(mergedIds));
+                        } else {
+                            localStorage.setItem('selectedDnoteIds', JSON.stringify(newIds));
+                        }
+
+                        let existingIdsUpdate = JSON.parse(localStorage.getItem('selectedDnoteIds'));
+                        $("[name='dnote_item_ids']").val(existingIdsUpdate.join(','));
+
+                        let module_type = data?.data?.moduleType || '';
+                        let vendor = data?.data?.vendor || '';
+                        let finalDiscounts = data?.data?.finalDiscounts;
+                        let finalExpenses = data?.data?.finalExpenses;
+
+                        if ($("#itemTable .mrntableselectexcel").find("tr[id*='row_']").length) {
+                            $("#itemTable .mrntableselectexcel tr[id*='row_']:last").after(data.data
+                                .pos);
+                        } else {
+                            $("#itemTable .mrntableselectexcel").empty().append(data.data.pos);
+                        }
+                        initializeAutocomplete2(".comp_item_code");
+                        $("#dnoteModal").modal('hide');
+                        $("select[name='currency_id']").prop('disabled', true);
+                        $("select[name='payment_term_id']").prop('disabled', true);
+                        $("#vendor_name").prop('readonly', true);
+                        $(".editAddressBtn").addClass('d-none');
+                        if (dnoteOrder.type == 'supplier-invoice') {
+                            $("[name='supplier_invoice_no']").val(dnoteOrder.document_number);
+                            $("[name='supplier_invoice_date']").val(dnoteOrder.document_date);
+                        } else {
+                            $("[name='supplier_invoice_no']").val();
+                            $("[name='supplier_invoice_date']").val();
+                        }
+
+                        $(".module_type").val(module_type);
+                        let locationId = $("[name='header_store_id']").val();
+                        // getLocation(locationId);
+
+                        if (finalDiscounts.length) {
+                            let rows = '';
+                            finalDiscounts.forEach(function(item, index) {
+                                index = index + 1;
+                                rows += `<tr class="display_summary_discount_row">
+                                        <td>${index}</td>
+                                        <td>${item.ted_name}
+                                            <input type="hidden" value="${item.ted_id}" name="disc_summary[${index}][ted_d_id]">
+                                            <input type="hidden" value="" name="disc_summary[${index}][d_id]">
+                                            <input type="hidden" value="${item.ted_name}" name="disc_summary[${index}][d_name]">
+                                        </td>
+                                        <td class="text-end">${typeof item.ted_perc === "number" ? '0' : item.ted_perc}
+                                            <input type="hidden" value="${typeof item.ted_perc === "number" ? '0' : item.ted_perc}" name="disc_summary[${index}][d_perc]">
+                                            <input type="hidden" value="${item.ted_perc}" name="disc_summary[${index}][hidden_d_perc]">
+                                        </td>
+                                        <td class="text-end">
+                                            <input type="hidden" value="" name="disc_summary[${index}][d_amnt]">
+                                        </td>
+                                        <td>
+                                            <a href="javascript:;" class="text-danger deleteSummaryDiscountRow">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-trash-2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                            </a>
+                                        </td>
+                                    </tr>`
+                            });
+
+                            $("#summaryDiscountTable tbody").find('.display_summary_discount_row')
+                                .remove();
+                            $("#summaryDiscountTable tbody").find('#disSummaryFooter').before(rows);
+                            $("#f_header_discount_hidden").removeClass('d-none');
+                        } else {
+                            $("#f_header_discount_hidden").addClass('d-none');
+                        }
+
+                        if (finalExpenses.length) {
+                            let rows = '';
+                            finalExpenses.forEach(function(item, index) {
+                                index = index + 1;
+                                rows += `<tr class="display_summary_exp_row">
+                                        <td>${index}</td>
+                                        <td>${item.ted_name}
+                                            <input type="hidden" value="${item.ted_id}" name="exp_summary[${index}][ted_e_id]">
+                                            <input type="hidden" value="" name="exp_summary[${index}][e_id]">
+                                            <input type="hidden" value="${item.ted_name}" name="exp_summary[${index}][e_name]">
+                                        </td>
+                                        <td class="text-end">${typeof item.ted_perc === "number" ? '0' : item.ted_perc}
+                                            <input type="hidden" value="${typeof item.ted_perc === "number" ? '0' : item.ted_perc}" name="exp_summary[${index}][e_perc]">
+                                            <input type="hidden" value="${item.ted_perc}" name="exp_summary[${index}][hidden_e_perc]">
+                                        </td>
+                                        <td class="text-end">
+                                        <input type="hidden" value="" name="exp_summary[${index}][e_amnt]">
+                                        </td>
+                                        <td>
+                                            <a href="javascript:;" class="text-danger deleteExpRow">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-trash-2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                                            </a>
+                                        </td>
+                                    </tr>`;
+
+                            });
+                            $("#summaryExpTable tbody").find('.display_summary_exp_row').remove();
+                            $("#summaryExpTable tbody").find('#expSummaryFooter').before(rows);
+                        }
+                        initializeAutocomplete2(".comp_item_code");
+                        focusAndScrollToLastRowInput();
+                        setTimeout(() => {
+                            setTableCalculation();
+                            if (idsLength > 1) {
+                                $("#itemTable .mrntableselectexcel tr").each(function(index,
+                                    item) {
+                                    if (tableRowCount > 0) {
+                                        currentIndex = tableRowCount + 1;
+                                    }
+                                    currentIndex = index + 1;
+                                    setAttributesUIHelper(currentIndex,
+                                        "#itemTable");
+                                });
+                            }
+                            currentIndex = tableRowCount + 1;
+                            setAttributesUIHelper(currentIndex, "#itemTable");
+                        }, 3000);
+                    }
+                    if (data.status == 422) {
+                        $(".editAddressBtn").removeClass('d-none');
+                        $("#vendor_name").val('').prop('readonly', false);
+                        $("#vendor_id").val('');
+                        $("#vendor_code").val('');
+                        $("#hidden_state_id").val('');
+                        $("#hidden_country_id").val('');
+                        $("select[name='payment_term_id']").empty().append(
+                            '<option value="">Select</option>').prop('readonly', false);
+                        $(".shipping_detail").text('-');
+                        $(".billing_detail").text('-');
+                        Swal.fire({
+                            title: 'Error!',
+                            text: data.message,
+                            icon: 'error',
+                        });
+                        return false;
+                    }
+                });
+            });
+        });
+
     </script>
 @endsection

@@ -23,6 +23,8 @@ class MrnHeaderHistory extends Model
     protected $fillable = [
         'mrn_header_id',
         'series_id',
+        'book_id',
+        'book_code',
         'organization_id',
         'group_id',
         'company_id',

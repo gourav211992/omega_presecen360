@@ -3,7 +3,7 @@
 @php
    $rowCount = $key + 1;
 @endphp
-<tr>
+<tr class="consumption-row">
    @if(strtolower($bom->so_tracking_required) == 'yes')
    <td>
       <input type="text" name="component[{{$rowCount}}][doc_no_2]" value="{{strtoupper($moItem?->so?->book_code)}} - {{$moItem?->so?->document_number}}" class="form-control mw-100 mb-25" readonly/>

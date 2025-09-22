@@ -25,16 +25,16 @@ class IndexController extends Controller
                 $query->select(DB::raw(1))
                     ->from('erp_book_levels')
                     ->join('erp_approval_workflows', 'erp_approval_workflows.book_level_id', '=', 'erp_book_levels.id')
-                    ->whereColumn('erp_book_levels.organization_id', 'erp_transactions.organization_id')
                     ->where(function ($q) {
-                        $q->whereNotNull('erp_transactions.company_id')
-                        ->whereColumn('erp_book_levels.company_id', 'erp_transactions.company_id')
-                        ->orWhereNull('erp_transactions.company_id');
-                    })
-                    ->where(function ($q) {
+                        // If organization_id is not null, match organization_id
                         $q->whereNotNull('erp_transactions.organization_id')
-                        ->whereColumn('erp_book_levels.organization_id', 'erp_transactions.organization_id')
-                        ->orWhereNull('erp_transactions.organization_id');
+                          ->whereColumn('erp_book_levels.organization_id', 'erp_transactions.organization_id')
+                        // If organization_id is null, match company_id
+                          ->orWhere(function ($subQ) {
+                              $subQ->whereNull('erp_transactions.organization_id')
+                                   ->whereNotNull('erp_transactions.company_id')
+                                   ->whereColumn('erp_book_levels.company_id', 'erp_transactions.company_id');
+                          });
                     })
                     ->whereColumn('erp_book_levels.book_id', 'erp_transactions.book_id')
                     ->whereColumn('erp_book_levels.level', 'erp_transactions.approval_level')

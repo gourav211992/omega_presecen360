@@ -401,7 +401,8 @@
                                             <div class="col">
                                                 <div class="mb-1">
                                                     <label class="form-label">Mfg. Year <span class="text-danger show_required_field_for_batch" style="display: none;">*</span></label>
-                                                    <input type="number" @if(isset($slip)) value="{{ $slip?->manufacturing_year }}" @else value="{{ date('Y') }}" @endif pattern="\d{4}"  placeholder="YYYY" class="form-control mw-100" id="manufacturing_year" name="manufacturing_year" />
+                                                    <input type="number" @if(isset($slip)) value="{{ $slip?->manufacturing_year }}" @else value="{{ date('Y') }}" @endif pattern="\d{4}"  placeholder="YYYY"  min="1900" max="2099" class="form-control mw-100" id="manufacturing_year" name="manufacturing_year" oninput="validateYear(this)" />
+                                                      <small id="year-error" class="text-danger"></small>
                                                 </div>
                                             </div>
                                             <div class="col">
@@ -1152,7 +1153,7 @@
           <div class="modal-body alertmsg text-center warning">
               <i data-feather='alert-circle'></i>
               <h2>Are you sure?</h2>
-              <p>Are you sure you want to <strong>Amend</strong> this <strong>Material Issue</strong>?</p>
+              <p>Are you sure you want to <strong>Amend</strong> this <strong>Production Slip</strong>?</p>
               <button type="button" class="btn btn-secondary me-25" data-bs-dismiss="modal">Cancel</button>
               <button type="button" data-bs-dismiss="modal" onclick = "amendConfirm();" class="btn btn-primary">Confirm</button>
           </div>
@@ -4543,6 +4544,25 @@ function validateWipAgainstQty($wipInput) {
     //     $wipInput.val(itemSoQty - itemQty);
     // }
 }
+
+function validateYear(input) {
+    // Trim to 4 digits
+    const error = document.getElementById('year-error');
+    error.textContent = ''; 
+    if (input.value.length > 4) {
+        input.value = input.value.slice(0, 4);
+    }
+
+    // Check range when 4 digits entered
+    if (input.value.length === 4) {
+        const year = parseInt(input.value, 10);
+        if (year < 1900 || year > 2099) {
+            error.textContent = 'Year must be between 1900 and 2099.';
+            input.value = '';
+        }
+    }
+}
+
 </script>
 
 @endsection

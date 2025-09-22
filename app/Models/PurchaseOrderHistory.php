@@ -56,7 +56,10 @@ class PurchaseOrderHistory extends Model
         'group_currency_code',
         'group_currency_exg_rate',
         'supp_invoice_required',
-        'partial_delivery'
+        'partial_delivery',
+        'credit_days',
+        'consignee_name',
+        'consignee_id'
     ];
 
     public static function boot()

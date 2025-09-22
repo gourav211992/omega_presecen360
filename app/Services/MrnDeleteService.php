@@ -118,6 +118,22 @@ class MrnDeleteService
                             $poItem->save();
                         }
                         break;
+
+                    case ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS:
+                    case ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS:
+                        if ($dnoteItem = $mrnItem->dnoteItem) {
+                            $dnoteItem->grn_qty -= $orderQty;
+                            $dnoteItem->save();
+                        }
+                        if ($dnotePoItem = $mrnItem?->dnoteItem?->PoItem) {
+                            $dnotePoItem->grn_qty -= $orderQty;
+                            $dnotePoItem->save();
+                        }
+                        if ($dnoteJoItem = $mrnItem?->dnoteItem?->JoItem) {
+                            $dnoteJoItem->grn_qty -= $orderQty;
+                            $dnoteJoItem->save();
+                        }
+                        break;
                 }
 
                 $mrnItem->teds()->delete();

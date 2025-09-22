@@ -4,7 +4,7 @@ namespace App\Http\Middleware;
 
 use DB;
 use Closure;
-use App\Models\AuthUser;
+use P360\Core\Models\AuthUser;
 use PeterPetrus\Auth\PassportToken;
 class SsoAuthApi
 {
@@ -14,8 +14,6 @@ class SsoAuthApi
 	 * @author Ashish Chauhan.
 	 * @var PassportToken
 	 */
-
-
 
 	/**
 	 * Handle an incoming request.

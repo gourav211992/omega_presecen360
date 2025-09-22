@@ -16,6 +16,7 @@ class PutawayJob
     protected $referenceHeader; 
     protected $storeId; 
     protected $subStoreId; 
+    protected $subStoreType; 
 
     public function createJob($id, $namespace, $jobType = null, $subStoreType = null)
     {
@@ -27,6 +28,7 @@ class PutawayJob
         $this->referenceHeader = $header;
         $this->storeId = isset($header->store_id) ? $header->store_id : null;
         $this->subStoreId = isset($header->sub_store_id) ? $header->sub_store_id : null;
+        $this->subStoreType = $subStoreType;
 
         // ✅ Conditionally skip MRN headers with no is_inspection = 0
         if ($namespace === \App\Models\MrnHeader::class) {
@@ -41,9 +43,20 @@ class PutawayJob
             $referenceId = $header->id;
             $this->referenceNo = $header->book_code.'-'.$header->doc_no;
 
-            if($subStoreType === 'rejected_store'){
+            // Get batch data
+            $batch = $header->batches()->get();
+            $acceptedQty = $batch->sum('accepted_inv_uom_qty') ?? 0;
+            $rejectedQty = $batch->sum('rejected_inv_uom_qty') ?? 0;
+
+            if($this->subStoreType === 'rejected_store'){
+                if($rejectedQty <= 0){
+                    return; // ⛔ No job creation
+                }
                 $this->subStoreId = isset($header->rejected_sub_store_id) ? $header->rejected_sub_store_id : null;
             } else{
+                if($acceptedQty <= 0){
+                    return; // ⛔ No job creation
+                }
                 $this->subStoreId = isset($header->sub_store_id) ? $header->sub_store_id : null;
             }
             
@@ -56,7 +69,25 @@ class PutawayJob
         $trnstype = CommonHelper::getJobTransactionType($namespace);
         
         // Step 2: Get or Create Job (prevents duplicate job on edit)
-        $job = (new WhmJob())->createJob($header, $namespace, $type, $trnstype, $this->storeId, $this->subStoreId, $referenceType, $referenceId, $this->referenceNo);
+        $job = ErpWhmJob::firstOrCreate(
+            [
+                'morphable_type' => $namespace,
+                'morphable_id' => $header->id,
+                'type' => $type,
+                'store_id' => $this->storeId,
+                'sub_store_id' => $this->subStoreId
+            ],
+            [
+                'organization_id' => $header->organization_id,
+                'group_id' => $header->group_id,
+                'company_id' => $header->company_id,
+                'status' => CommonHelper::PENDING,
+                'trns_type' => $trnstype,
+                'reference_type' => $referenceType,
+                'reference_id' => $referenceId,
+                'reference_no' => $this->referenceNo,
+            ]
+        );
 
         // Step 3: Fetch Details with attributes
         if (!method_exists($header, 'items')) {
@@ -100,7 +131,7 @@ class PutawayJob
         if ($namespace === \App\Models\MrnDetail::class && isset($detail->gate_entry_detail_id) && $detail->gate_entry_detail_id) {
             if ($batchData->count() > 0) {
                 foreach($batchData as $batch){
-                    $qty = isset($batch->accepted_inv_uom_qty) & $batch->accepted_inv_uom_qty ? $batch->accepted_inv_uom_qty : intval($batch->inventory_uom_qty);
+                    $qty = isset($batch->accepted_inv_uom_qty) && $batch->accepted_inv_uom_qty ? $batch->accepted_inv_uom_qty : intval($batch->inventory_uom_qty);
                     $existingQRCodes = $this->getUnloadingQr($detail->geItem, $qty);
                     if ($existingQRCodes->count() > 0) {
                         $this->copyQrCodes($existingQRCodes,$detail, $header, $job, $namespace, $attributes, $type, CommonHelper::RECEIPT, $trnstype, $batch);
@@ -128,7 +159,13 @@ class PutawayJob
                 
                 if ($batchData->count() > 0) {
                     foreach($batchData as $batch){
-                        $qty = isset($batch->accepted_inv_uom_qty) & $batch->accepted_inv_uom_qty ? $batch->accepted_inv_uom_qty : intval($batch->inventory_uom_qty);
+
+                        // Get QTY
+                        $qty = isset($batch->accepted_inv_uom_qty) && $batch->accepted_inv_uom_qty ? $batch->accepted_inv_uom_qty : intval($batch->inventory_uom_qty);
+                        if($this->subStoreType === 'rejected_store'){
+                            $qty = isset($batch->rejected_inv_uom_qty) && $batch->rejected_inv_uom_qty ? $batch->rejected_inv_uom_qty : 0;
+                        }
+
                         $existingQRCodes = $this->getUnloadingQr($mrnDetail->geItem, $qty);
                         if ($existingQRCodes->count() > 0) {
                             $this->copyQrCodes($existingQRCodes,$detail, $header, $job, $namespace, $attributes, $type, CommonHelper::RECEIPT, $trnstype, $batch);
@@ -151,7 +188,12 @@ class PutawayJob
         
         if ($batchData->count() > 0) {
             foreach($batchData as $batch){
-                $qty = isset($batch->accepted_inv_uom_qty) & $batch->accepted_inv_uom_qty ? $batch->accepted_inv_uom_qty : intval($batch->inventory_uom_qty);
+                // Get qty
+                $qty = isset($batch->accepted_inv_uom_qty) && $batch->accepted_inv_uom_qty ? $batch->accepted_inv_uom_qty : intval($batch->inventory_uom_qty);
+                if($this->subStoreType === 'rejected_store'){
+                    $qty = isset($batch->rejected_inv_uom_qty) && $batch->rejected_inv_uom_qty ? $batch->rejected_inv_uom_qty : 0;
+                }
+
                 $this->createUniqueCode($header, $job, $namespace, $detail, $attributes, $type, $trnstype, $batch,$qty);
             }
 

@@ -4,6 +4,7 @@
             'po' => $item?->poItem?->order_qty,
             'jo' => $item?->joItem?->order_qty,
             'so' => $item?->soItem?->qty,
+            'dnote' => $item?->dnoteItem?->order_qty,
             default => $item?->order_qty,
         };
         $rowCount = $key + 1;
@@ -77,6 +78,9 @@
         <input type="hidden" name="components[{{ $rowCount }}][job_order_id]" value="{{ $item->jo_id }}">
         <input type="hidden" name="components[{{ $rowCount }}][jo_detail_id]"
             value="{{ $item->job_order_item_id }}">
+        <input type="hidden" name="components[{{ $rowCount }}][sale_invoice_id]" value="{{ $item->sale_invoice_id }}">
+        <input type="hidden" name="components[{{ $rowCount }}][invoice_itm_id]"
+            value="{{ $item->invoice_item_id }}">
         <input type="hidden" name="components[{{ $rowCount }}][vendor_asn_dtl_id]"
             value="{{ $item->vendor_asn_dtl_id }}">
         <input type="hidden" name="components[{{ $rowCount }}][vendor_asn_id]"
@@ -137,7 +141,8 @@
         <td class="poprod-decpt attributeBtn" id="itemAttribute_{{ $rowCount }}" data-count="{{ $rowCount }}"
             attribute-array="{{ $item->item_attributes_array() }}"
             {{ $item?->job_order_item_id ? 'data-disabled="true"' : '' }}
-            {{ $item?->purchase_order_item_id ? 'data-disabled="true"' : '' }}>
+            {{ $item?->purchase_order_item_id ? 'data-disabled="true"' : '' }}
+            {{ $item?->invoice_item_id ? 'data-disabled="true"' : '' }}>
         </td>
         <td>
             <select class="form-select mw-100 " name="components[{{ $rowCount }}][uom_id]">

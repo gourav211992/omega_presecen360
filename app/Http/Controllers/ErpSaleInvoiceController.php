@@ -271,7 +271,7 @@ class ErpSaleInvoiceController extends Controller
         $parentURL = request() -> segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
         $create_button = (isset($servicesBooks['services'])  && count($servicesBooks['services']) > 0 && isset($selectedfyYear['authorized']) && $selectedfyYear['authorized'] && !$selectedfyYear['lock_fy']) ? true : false;
-        return view('salesInvoice.index', ['typeName' => $typeName, 'redirect_url' => $redirectUrl, 'create_route' => $createRoute, 'create_button' => $create_button,'filterArray' => TransactionReportHelper::FILTERS_MAPPING[ConstantHelper::SI_SERVICE_ALIAS],
+        return view('salesInvoice.index', ['typeName' => $typeName,'alias' => $orderType ,'redirect_url' => $redirectUrl, 'create_route' => $createRoute, 'create_button' => $create_button,'filterArray' => TransactionReportHelper::FILTERS_MAPPING[$orderType == ConstantHelper::SI_SERVICE_ALIAS ? ConstantHelper::SI_SERVICE_ALIAS : ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS],
             'autoCompleteFilters' => $autoCompleteFilters,]);
     }
 
@@ -1157,14 +1157,7 @@ class ErpSaleInvoiceController extends Controller
                             foreach ($taxDetails as $taxDetail) {
                                 $itemTax += ((double)$taxDetail['tax_percentage'] / 100 * $valueAfterHeaderDiscount);
                             }
-                            if($taxDetail['applicability_type']=="collection")
-                            {
-                                $totalTax += $itemTax;
-                            }
-                            else
-                            {
-                                $totalTax -= $itemTax;
-                            }
+                            
                         }
                         //Update or create
                         $itemRowData = [
@@ -1474,6 +1467,7 @@ class ErpSaleInvoiceController extends Controller
                                 //     'ted_amount' => ((double)$taxDetail['tax_percentage'] / 100 * $valueAfterHeaderDiscount),
                                 //     'applicable_type' => 'Collection',
                                 // ]);
+                                
                                 $soItemTedForDiscount = ErpSaleInvoiceTed::updateOrCreate(
                                     [
                                         'sale_invoice_id' => $saleInvoice -> id,
@@ -1492,9 +1486,19 @@ class ErpSaleInvoiceController extends Controller
 
                                     ]
                                 );
+                                //Add Taxes
+                                $soItemTedForDiscount -> refresh();
+                                if($soItemTedForDiscount -> applicable_type == "collection")
+                                {
+                                    $totalTax += $soItemTedForDiscount -> ted_amount;
+                                }
+                                else
+                                {
+                                    $totalTax -= $soItemTedForDiscount -> ted_amount;
+                                }
                                 array_push($itemTaxIds,$soItemTedForDiscount -> id);
-
                             }
+
                         }
                         //Item Attributes
                         if (isset($request -> item_attributes[$itemDataKey])) {
@@ -2817,7 +2821,7 @@ class ErpSaleInvoiceController extends Controller
         $totalTaxableValue = ($totalItemValue - $totalDiscount);
         $totalAfterTax = ($totalTaxableValue + $totalTaxes);
         $totalExpense = $order->total_expense_value ?? 0.00;
-        $totalAmount = ($totalAfterTax + $totalExpense);
+        $totalAmount = $order->total_amount ?? 00.00;
         $amountInWords = NumberHelper::convertAmountToWords($totalAmount);
         // Path to your image (ensure the file exists and is accessible)
         $imagePath = public_path('assets/css/midc-logo.jpg'); // Store the image in the public directory
@@ -3525,7 +3529,7 @@ class ErpSaleInvoiceController extends Controller
     public function salesInvoiceReport(Request $request)
     {
         $pathUrl = route('sale.invoice.index');
-        $orderType = [ConstantHelper::SI_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS];
+        $orderType = [ConstantHelper::SI_SERVICE_ALIAS];
         $salesOrders = ErpSaleInvoice::with('items')->whereIn('document_type', $orderType) -> withDefaultGroupCompanyOrg() -> withDraftListingLogic() -> orderByDesc('id');
         //Customer Filter
         $salesOrders = $salesOrders -> when($request -> customer_id, function ($custQuery) use($request) {
@@ -3630,7 +3634,7 @@ class ErpSaleInvoiceController extends Controller
                 $reportRow -> srn_qty = number_format($soItem -> srn_qty, 2);
                 $reportRow -> so_qty = number_format($soItem -> sale_order_item() ?-> order_qty ?? 0.00, 2);
                 $reportRow -> so_date = $soItem ?-> sale_order ?-> document_date ?? " ";
-                $reportRow -> so_no = $soItem->sale_order ? $soItem ?-> sale_order ?-> document_number."-".$soItem ?-> sale_order ?-> document_number : " ";
+                $reportRow -> so_no = $soItem->sale_order ? $soItem ?-> sale_order ?-> book_code."-".$soItem ?-> sale_order ?-> document_number : " ";
                 $reportRow -> rate = number_format($soItem -> rate, 2);
                 $reportRow -> total_discount_amount = number_format($soItem -> header_discount_amount + $soItem -> item_discount_amount, 2);
                 $reportRow -> tax_amount = number_format($soItem -> tax_amount, 2);
@@ -3673,6 +3677,169 @@ class ErpSaleInvoiceController extends Controller
                 $displayStatus = ucfirst($row -> status);   
                 $editRoute = null;
                 $editRoute = route('sale.invoice.edit', ['id' => $row->id]);
+                return "
+                <div style='text-align:right;'>
+                    <span class='badge rounded-pill $statusClasss badgeborder-radius'>$displayStatus</span>
+                        <a href='" . $editRoute . "'>
+                            <i class='cursor-pointer' data-feather='eye'></i>
+                        </a>
+                </div>
+            ";
+            })
+            ->rawColumns(['item_attributes','delivery_schedule','status'])
+            ->make(true);
+    }
+    public function deliveryNoteReport(Request $request)
+    {
+        $pathUrl = route('sale.deliveryNote.index');
+        $orderType = [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS];
+        $salesOrders = ErpSaleInvoice::with('items')->whereIn('document_type', $orderType) -> withDefaultGroupCompanyOrg() -> withDraftListingLogic() -> orderByDesc('id');
+        //Customer Filter
+        $salesOrders = $salesOrders -> when($request -> customer_id, function ($custQuery) use($request) {
+            $custQuery -> where('customer_id', $request -> customer_id);
+        });
+        //Book Filter
+        $salesOrders = $salesOrders -> when($request -> book_id, function ($bookQuery) use($request) {
+            $bookQuery -> where('book_id', $request -> book_id);
+        });
+        //Document Id Filter
+        $salesOrders = $salesOrders -> when($request -> document_number, function ($docQuery) use($request) {
+            $docQuery -> where('document_number', 'LIKE', '%' . $request -> document_number . '%');
+        });
+        //Location Filter
+        $salesOrders = $salesOrders -> when($request -> location_id, function ($docQuery) use($request) {
+            $docQuery -> where('store_id', $request -> location_id);
+        });
+        //Company Filter
+        $salesOrders = $salesOrders -> when($request -> company_id, function ($docQuery) use($request) {
+            $docQuery -> where('store_id', $request -> company_id);
+        });
+        //Organization Filter
+        $salesOrders = $salesOrders -> when($request -> organization_id, function ($docQuery) use($request) {
+            $docQuery -> where('organization_id', $request -> organization_id);
+        });
+        //Document Status Filter
+        $salesOrders = $salesOrders -> when($request -> doc_status, function ($docStatusQuery) use($request) {
+            $searchDocStatus = [];
+            if ($request -> doc_status === ConstantHelper::DRAFT) {
+                $searchDocStatus = [ConstantHelper::DRAFT];
+            } else if ($searchDocStatus === ConstantHelper::SUBMITTED) {
+                $searchDocStatus = [ConstantHelper::SUBMITTED, ConstantHelper::PARTIALLY_APPROVED];
+            } else {
+                $searchDocStatus = [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED];
+            }
+            $docStatusQuery -> whereIn('document_status', $searchDocStatus);
+        });
+        //Date Filters
+        $dateRange = $request -> date_range ??  Carbon::now()->startOfMonth()->format('Y-m-d') . " to " . Carbon::now()->endOfMonth()->format('Y-m-d');
+        $salesOrders = $salesOrders -> when($dateRange, function ($dateRangeQuery) use($request, $dateRange) {
+           $dateRanges = explode('to', $dateRange);
+           if (count($dateRanges) == 2) {
+                $fromDate = Carbon::parse(trim($dateRanges[0])) -> format('Y-m-d');
+                $toDate = Carbon::parse(trim($dateRanges[1])) -> format('Y-m-d');
+                $dateRangeQuery -> whereDate('document_date', ">=" , $fromDate) -> where('document_date', '<=', $toDate);
+           }
+           else{
+                $fromDate = Carbon::parse(trim($dateRanges[0])) -> format('Y-m-d');
+                $dateRangeQuery -> whereDate('document_date', $fromDate);
+            }
+        });
+        //Item Id Filter
+        $salesOrders = $salesOrders -> when($request -> item_id, function ($itemQuery) use($request) {
+            $itemQuery -> withWhereHas('items', function ($itemSubQuery) use($request) {
+                $itemSubQuery -> where('item_id', $request -> item_id)
+                //Compare Item Category
+                -> when($request -> item_category_id, function ($itemCatQuery) use($request) {
+                    $itemCatQuery -> whereHas('item', function ($itemRelationQuery) use($request) {
+                        $itemRelationQuery -> where('category_id', $request -> category_id)
+                        //Compare Item Sub Category
+                        -> when($request -> item_sub_category_id, function ($itemSubCatQuery) use($request) {
+                            $itemSubCatQuery -> where('subcategory_id', $request -> item_sub_category_id);
+                        });
+                    });
+                });
+            });
+        });
+        //Order No Filter
+        $salesOrders = $salesOrders -> when($request -> so_no, function ($orderNoQuery) use($request) {
+            $orderNoQuery -> whereHas('items', function ($soItemQuery) use($request) {
+                $soItemQuery -> where('sale_order_id', $request -> so_no);
+            });
+        });
+        //SO Date Range Filter
+        $salesOrders = $salesOrders -> when($request -> so_dt, function ($orderDtQuery) use($request) {
+            $orderDtQuery -> whereDate('document_date', '>=', $request -> so_dt[0])
+                           -> whereDate('document_date', '<=', $request -> so_dt[1]);
+        });
+        $salesOrders = $salesOrders -> get();
+        $processedSalesOrder = collect([]);
+        foreach ($salesOrders as $saleOrder) {
+            foreach ($saleOrder -> items as $soItem) {
+                $reportRow = new stdClass();
+                //Header Details
+                $header = $soItem -> header;
+                $reportRow -> id = $soItem -> id;
+                $reportRow -> book_name = $header -> book_code;
+                $reportRow -> document_number = $header -> document_number;
+                $reportRow -> document_date = $header -> document_date;
+                $reportRow -> store_name = $header -> erpstore ?-> store_name;
+                $reportRow -> customer_name = $header -> customer ?-> company_name;
+                $reportRow -> customer_currency = $header -> currency_code;
+                $reportRow -> payment_terms_name = $header -> payment_term_code;
+                //Item Details
+                $reportRow -> item_name = $soItem -> item_name;
+                $reportRow -> item_code = $soItem -> item_code;
+                $reportRow -> hsn_code = $soItem -> hsn ?-> code;
+                $reportRow -> uom_name = $soItem -> uom ?-> name;
+                //Amount Details
+                $reportRow -> si_qty = number_format($soItem -> invoice_qty, 2);
+                $reportRow -> dnote_qty = number_format($soItem -> order_qty, 2);
+                $reportRow -> srn_qty = number_format($soItem -> srn_qty, 2);
+                $reportRow -> so_qty = number_format($soItem -> sale_order_item() ?-> order_qty ?? null, 2);
+                $reportRow -> so_date = $soItem ?-> sale_order ?-> document_date ?? " ";
+                $reportRow -> so_no = $soItem->sale_order ? $soItem ?-> sale_order ?-> book_code."-".$soItem ?-> sale_order ?-> document_number : " ";
+                $reportRow -> rate = number_format($soItem -> rate, 2);
+                $reportRow -> total_discount_amount = number_format($soItem -> header_discount_amount + $soItem -> item_discount_amount, 2);
+                $reportRow -> tax_amount = number_format($soItem -> tax_amount, 2);
+                $reportRow -> taxable_amount = number_format($soItem -> total_item_amount - $soItem -> tax_amount, 2);
+                $reportRow -> total_item_amount = number_format($soItem -> total_item_amount, 2);
+                $reportRow -> pending_qty = number_format($soItem -> order_qty - $soItem -> srn_qty, 2);
+                //Delivery Schedule UI
+                // $deliveryHtml = '';
+                // if (count($soItem -> item_deliveries) > 0) {
+                //     foreach ($soItem -> item_deliveries as $itemDelivery) {
+                //         $deliveryDate = Carbon::parse($itemDelivery -> delivery_date) -> format('d-m-Y');
+                //         $deliveryQty = number_format($itemDelivery -> qty, 2);
+                //         $deliveryHtml .= "<span class='badge rounded-pill badge-light-primary'><strong>$deliveryDate</strong> : $deliveryQty</span>";
+                //     }
+                // } else {
+                //     $parsedDeliveryDate = Carbon::parse($soItem -> delivery_date) -> format('d-m-Y');
+                //     $deliveryHtml .= "$parsedDeliveryDate";
+                // }
+                // $reportRow -> delivery_schedule = $deliveryHtml;
+                //Attributes UI
+                $attributesUi = '';
+                if (count($soItem -> item_attributes) > 0) {
+                    foreach ($soItem -> item_attributes as $soAttribute) {
+                        $attrName = $soAttribute -> attribute_name;
+                        $attrValue = $soAttribute -> attribute_value;
+                        $attributesUi .= "<span class='badge rounded-pill badge-light-primary' > $attrName : $attrValue </span>";
+                    }
+                } else {
+                    $attributesUi = 'N/A';
+                }
+                $reportRow -> item_attributes = $attributesUi;
+                //Main header Status
+                $reportRow -> status = $header -> document_status;
+                $processedSalesOrder -> push($reportRow);
+            }
+        }
+            return DataTables::of($processedSalesOrder) ->addIndexColumn()
+            ->editColumn('status', function ($row) use($orderType) {
+                $statusClasss = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$row->status ?? ConstantHelper::DRAFT];    
+                $displayStatus = ucfirst($row -> status);   
+                $editRoute = null;
+                $editRoute = route('sale.deliveryNote.edit', ['id' => $row->id]);
                 return "
                 <div style='text-align:right;'>
                     <span class='badge rounded-pill $statusClasss badgeborder-radius'>$displayStatus</span>

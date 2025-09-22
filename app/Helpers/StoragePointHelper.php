@@ -247,6 +247,12 @@ class StoragePointHelper
 
             foreach($stockLedger as $val){
                 $mrnDetail = MrnDetail::find($val->document_detail_id);
+                if(!$mrnDetail) {
+                    continue;
+                }
+
+                $storageUomCount = intval(optional($mrnDetail->item)->storage_uom_count);
+                $totalPacket = $storageUomCount > 0 ? $storageUomCount : 1;
 
                 $scannedPacketCount = ErpItemUniqueCode::where('morphable_id',$val->document_detail_id)
                         ->where('trns_type',$bookType)
@@ -254,8 +260,10 @@ class StoragePointHelper
                         ->whereNull('utilized_id')
                         ->count();
 
-                $orderQty =  ItemHelper::convertToAltUom($mrnDetail->item_id, $mrnDetail->uom_id, $scannedPacketCount ?? 0);
-                $mrnDetail->inventory_uom_qty = $scannedPacketCount;
+                $qty = $totalPacket == 0 ? 0 : $scannedPacketCount / $totalPacket;
+
+                $orderQty =  ItemHelper::convertToAltUom($mrnDetail->item_id, $mrnDetail->uom_id, $qty ?? 0);
+                $mrnDetail->inventory_uom_qty = $qty;
                 $mrnDetail->order_qty = $orderQty;
                 $mrnDetail->save();
 

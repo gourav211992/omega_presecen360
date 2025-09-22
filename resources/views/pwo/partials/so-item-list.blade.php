@@ -2,7 +2,7 @@
     @php
         $attributes = json_decode($soItem->attributes, TRUE);
         $html = '';
-        $orderQty = $soItem->inventory_uom_qty - $soItem->pwo_qty;
+        $orderQty = $soItem->inventory_uom_qty - ($soItem->pwo_qty + $soItem->dnote_qty);
         foreach($attributes as $attribute) {
             $attN =  $attribute['attribute_name'] ?? '';
             $attV =  $attribute['attribute_value'] ?? '';

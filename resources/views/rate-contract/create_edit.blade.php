@@ -332,7 +332,7 @@
                                                     <div class="col-md-4">
 
                                                         <label class="form-label">Start Date<span class="text-danger">*</span></label>
-                                                        <input type="date" class="form-control" name="start_date" id="start_date_input" value="{{ isset($order) ? $order->start_date : Carbon\Carbon::now() -> format('Y-m-d') }}" onchange="this.setAttribute('value', this.value); setDateDefaults(); checkVendorContracts();">
+                                                        <input type="date" class="form-control" name="start_date" id="start_date_input" value="{{ isset($order) ? $order->start_date : Carbon\Carbon::now() -> format('Y-m-d') }}" onchange="this.setAttribute('value', this.value); setDateDefaults();">
                                                     </div>
 
                                                     <div class="col-md-4">
@@ -340,7 +340,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">End Date</label>
                                                             <input type="date" class="form-control" name="end_date" id="end_date_input" value="{{ isset($order) ? $order->end_date : '' }}"
-                                                            onchange="this.setAttribute('value', this.value); setDateDefaults(); checkVendorContracts();">
+                                                            onchange="this.setAttribute('value', this.value); setDateDefaults();">
                                                         </div></div>
                                                     </div>
 
@@ -2030,12 +2030,12 @@
             const itemCodeInput = document.getElementById('items_dropdown_' + newIndex);
             const uomCodeInput = document.getElementById('uom_dropdown_' + newIndex);
             const requesterCodeInput = document.getElementById(`${type}_dropdown_` + newIndex);
-            itemCodeInput.addEventListener('input', function() {
-                checkStockData(newIndex);
-            });
-            uomCodeInput.addEventListener('input', function() {
-                checkStockData(newIndex);
-            });
+            // itemCodeInput.addEventListener('input', function() {
+            //     checkStockData(newIndex);
+            // });
+            // uomCodeInput.addEventListener('input', function() {
+            //     checkStockData(newIndex);
+            // });
             setDateDefaults(newIndex);
             $("#return_type_input").trigger("input");
 
@@ -3743,12 +3743,12 @@
                                 const itemCodeInput = document.getElementById('items_dropdown_' + currentOrderIndexVal);
                                 const uomCodeInput = document.getElementById('uom_dropdown_' + currentOrderIndexVal);
                                 const storeCodeInput = document.getElementById('item_store_' + currentOrderIndexVal);
-                                itemCodeInput.addEventListener('input', function() {
-                                    checkStockData(currentOrderIndexVal);
-                                });
-                                uomCodeInput.addEventListener('input', function() {
-                                    checkStockData(currentOrderIndexVal);
-                                });
+                                // itemCodeInput.addEventListener('input', function() {
+                                //     checkStockData(currentOrderIndexVal);
+                                // });
+                                // uomCodeInput.addEventListener('input', function() {
+                                //     checkStockData(currentOrderIndexVal);
+                                // });
                                 $("#return_type_input").trigger("input");
                                 currentOrderIndexVal += 1;
                                 });
@@ -4186,11 +4186,6 @@ function vendorOnChange(currency_id, currency_name, payment_terms_id, payment_te
     vendorId = $("#"+type+"_id").val();
     setCurrencyAndPaymentTerms(currency_id, currency_name, payment_terms_id, payment_terms_name);
 
-    if (vendorId) {
-        checkVendorContracts(document.getElementById(type+'_name'));
-    } else {
-        setCurrencyAndPaymentTerms('', '', '', '');
-    }
 }
 function checkVendorContracts(elementToReset = null) {
     $type = $("#party_type").val();
@@ -5237,8 +5232,8 @@ $(function() {
             const itemCodeInput = document.getElementById('items_dropdown_' + newIndex);
             const uomCodeInput = document.getElementById('uom_dropdown_' + newIndex);
 
-            itemCodeInput.addEventListener('input', () => checkStockData(newIndex));
-            uomCodeInput.addEventListener('input', () => checkStockData(newIndex));
+            // itemCodeInput.addEventListener('input', () => checkStockData(newIndex));
+            // uomCodeInput.addEventListener('input', () => checkStockData(newIndex));
             setAttributesUI(newIndex);
             setDateDefaults(newIndex);
             $("#return_type_input").trigger("input");

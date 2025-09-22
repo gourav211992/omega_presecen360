@@ -47,6 +47,7 @@ use App\Models\PwoStationConsumption;
 use App\Models\SubType;
 use App\Models\Unit;
 use App\Services\BomService;
+use App\Services\PwoDeleteService;
 use Yajra\DataTables\DataTables;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf; 
@@ -1368,7 +1369,7 @@ class PWOController extends Controller
                     $query->where('customer_id', $customerId);
                 });
         })
-        ->whereColumn('inventory_uom_qty', '>', 'pwo_qty')
+        ->whereColumn('inventory_uom_qty', '>', DB::raw('pwo_qty + dnote_qty'))
         ->where(function ($query) use ($itemSearch, $selectedPwoIds, $subTypeIds) {
              if(count($selectedPwoIds)) {
                  $query->whereNotIn('id', $selectedPwoIds);
@@ -1390,7 +1391,8 @@ class PWOController extends Controller
             $soItems = $soItems->groupBy($groupByColumns)
                     ->selectRaw(implode(',', array_merge($groupByColumns, [
                         'SUM(inventory_uom_qty) as inventory_uom_qty',
-                        'SUM(pwo_qty) as pwo_qty'
+                        'SUM(pwo_qty) as pwo_qty',
+                        'SUM(dnote_qty) as dnote_qty'
                     ])));
         }
         $soItems = $soItems->orderBy('id','desc')->get();
@@ -1441,7 +1443,7 @@ class PWOController extends Controller
                         $newItem['item_code']    = $soItem->item_code;
                         $newItem['uom_id']       = $soItem->uom_id;
                         $newItem['uom_name']     = $soItem->uom->name;
-                        $newItem['total_qty']    = $soItem->order_qty;
+                        $newItem['total_qty']    = $soItem->order_qty-($soItem->pwo_qty+$soItem->dnote_qty);
                         $newItem['so_item_id']   = $soItem->id;
                         $newItem['attribute']    = $soItem->item_attributes_array();
                         $newItems[] = $newItem;
@@ -1642,5 +1644,47 @@ class PWOController extends Controller
                 'avl_stock' => $stockBalanceQty
             ]
         ]);
+    }
+     public function remove($id,$amendment = false)
+    {
+        $pwo = ErpProductionWorkOrder::find($id);
+
+        if (!$pwo) {
+            return response()->json(['status' => false, 'message' => 'Production Work Order not found.'], 404);
+        }
+    
+        if (!$amendment && $pwo->document_status !== ConstantHelper::DRAFT) {
+            return response()->json(['status' => false, 'message' => 'Only draft documents can be deleted.'], 422);
+        }
+        \DB::beginTransaction();
+        try {
+          
+            
+            $pwoDeleteService = new PwoDeleteService();
+            // Safe handling if no items exist
+            $deletedData['deletedPiItemIds'] = $pwo->PwoSoMapping?->pluck('id')->toArray() ?? [];
+            
+            $response = $pwoDeleteService->deletePwoItems($deletedData, $pwo);
+            // Delete all history 
+            if ($response['status'] === 'error') {
+                \DB::rollBack();
+                return response()->json(['status' => false, 'message' => $response['message']], 422);
+            }
+            $pwoDeleteService->deletePwoHistory($pwo);
+
+            $pwo->delete();
+
+            \DB::commit();
+
+            return response()->json(['status' => true, 'message' => 'Document deleted successfully.'], 200);
+
+        } catch (\Exception $e) {
+            \DB::rollBack();
+         
+            return response()->json([
+                'status'  => false,
+                'message' => 'Error deleting Manufacturing Order: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }

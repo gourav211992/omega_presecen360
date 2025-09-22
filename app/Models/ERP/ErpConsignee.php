@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models\ERP;
 
 use App\Models\ErpAddress;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class ErpConsignee extends Model
 {
-    use SoftDeletes,Deletable,UserStampTrait;
+    use SoftDeletes, Deletable, UserStampTrait;
 
     protected $table = 'erp_consignees';
 
@@ -38,7 +39,13 @@ class ErpConsignee extends Model
 
     protected $hidden = ['deleted_at', 'deleted_by'];
 
-
+    public function scopeGroupCheck($query, $user)
+    {
+        if (isset($user->group_id) && $user->group_id) {
+            return $query->where('group_id', $user->group_id);
+        }
+        return $query;
+    }
 
     /**
      * A consignee can have multiple addresses (polymorphic).
@@ -62,12 +69,12 @@ class ErpConsignee extends Model
     {
         return $this->belongsTo(Organization::class, 'organization_id');
     }
-       public function createdBy()
+    public function createdBy()
     {
-        return $this->belongsTo(AuthUser::class,'created_by','id');
+        return $this->belongsTo(AuthUser::class, 'created_by', 'id');
     }
 
-     public function updatedBy()
+    public function updatedBy()
     {
         return $this->belongsTo(AuthUser::class, 'updated_by', 'id');
     }
@@ -77,9 +84,8 @@ class ErpConsignee extends Model
         return $this->belongsTo(AuthUser::class, 'deleted_by', 'id');
     }
 
-     public function address() {
+    public function address()
+    {
         return $this->morphOne(ErpAddress::class, 'addressable');
     }
 }
-
-?>
