@@ -238,6 +238,20 @@
                         </div>
                     @endif
 
+                    @if ($errors->has('voucher_no') || $errors->has('voucher_name'))
+                        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+                        <script>
+                            console.log("Validation Errors:", @json($errors->toArray())); // Debugging
+
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error !',
+                                text: 'Transaction Not Setup',
+                                confirmButtonColor: '#d33',
+                            });
+                        </script>
+                    @endif
+
 
                     <section id="basic-datatable">
                         <div class="row">
@@ -336,10 +350,6 @@
                                                         <input type="text" class="form-control  disable" name="voucher_name"
                                                             id="voucher_name" required value="{{ $data->voucher_name }}"
                                                             readonly />
-                                                        @error('voucher_name')
-                                                            <span class="text-danger"
-                                                                style="font-size:12px">{{ $message }}</span>
-                                                        @enderror
                                                     </div>
                                                 </div>
 
@@ -353,10 +363,6 @@
                                                         <input type="text" class="form-control" name="voucher_no"
                                                             id="voucher_no" required value="{{ $data->voucher_no }}"
                                                             readonly />
-                                                        @error('voucher_no')
-                                                            <span class="text-danger"
-                                                                style="font-size:12px">{{ $message }}</span>
-                                                        @enderror
                                                     </div>
 
                                                 </div>

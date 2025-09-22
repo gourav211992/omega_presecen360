@@ -27,6 +27,7 @@ storage
 /.phpunit.cache
 /storage/*
 !/storage/.gitignore
+
 *.zip
 /*.zip
 /public/*.zip
