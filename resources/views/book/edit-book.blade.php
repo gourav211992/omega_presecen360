@@ -504,8 +504,6 @@
                                                                                             <div
                                                                                                 class="form-check form-check-primary mt-0 me-1">
                                                                                                 <input type="radio"
-                                                                                                    {{$workflowGroup -> allow_change ? '' : 'disabled'}}
-
                                                                                                     id="anyone-{{ $workflowGroup->id }}"
                                                                                                     name="rights[{{ $level - 1 }}]"
                                                                                                     class="form-check-input"
@@ -519,7 +517,6 @@
                                                                                             <div
                                                                                                 class="form-check form-check-primary mt-0 me-0">
                                                                                                 <input type="radio"
-                                                                                                    {{$workflowGroup -> allow_change ? '' : 'disabled'}}
                                                                                                     id="all-{{ $workflowGroup->id }}"
                                                                                                     name="rights[{{ $level - 1 }}]"
                                                                                                     class="form-check-input"

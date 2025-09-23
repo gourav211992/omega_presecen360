@@ -194,6 +194,7 @@ class ServiceParametersHelper
         self::TAX_REQUIRED_PARAM => self::TAX_REQUIRED_PARAM_VALUES, //Applied
         self::BILL_TO_FOLLOW_PARAM => self::BILL_TO_FOLLOW_PARAM_VALUES, //Applied
         self::INVOICE_TO_FOLLOW_PARAM => self::INVOICE_TO_FOLLOW_PARAM_VALUES, //Applied
+        self::PO_PROCUREMENT_TYPE => self::PO_PROCUREMENT_TYPE_VALUES, //Applied
         self::ON_ACCOUNT_REQUIRED_PARAM => self::ON_ACCOUNT_REQUIRED_PARAM_VALUES,
         self::BOM_CONSUMPTION_METHOD => self::BOM_CONSUMPTION_METHOD_VALUES,
         self::BOM_SECTION_REQUIRED => self::BOM_SECTION_REQUIRED_VALUES,
@@ -767,7 +768,7 @@ class ServiceParametersHelper
     const PL_SERVICE_PARAMETERS = [
         [
             "name" => self::REFERENCE_FROM_SERVICE_PARAM, //Name of the parameter
-            "applicable_values" => ["0", ConstantHelper::SO_SERVICE_ALIAS,ConstantHelper::TRIP_SERVICE_ALIAS], //All possible values
+            "applicable_values" => ["0", ConstantHelper::SO_SERVICE_ALIAS, ConstantHelper::TRIP_SERVICE_ALIAS], //All possible values
             "default_value" => ["0", ConstantHelper::SO_SERVICE_ALIAS], //Default selected value(s)
             'is_multiple' => true, // Whether or not to allow multiple selection
             'service_level_visibility' => true, // Whether or not to show this parameter in UI

@@ -28,7 +28,7 @@
     <script src="{{ url('/app-assets/js/ajax-script.js') }}"></script>
     <script src="{{ url('/app-assets/js/vendor-customer-script.js') }}"></script>
     <!-- <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> -->
-    <script src="{{url('/vendor/p360/app-assets/vendors/js/sweet-alert/sweetalert.js')}}"></script>
+    <script src="{{ url('/vendor/p360/app-assets/vendors/js/sweet-alert/sweetalert.js') }}"></script>
 
     <script src="{{ url('/app-assets/js/jquery-ui.js') }}"></script>
     <!-- <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script> -->
@@ -49,16 +49,16 @@
     <script src="{{ url('/app-assets/js/scripts/forms/form-select2.js') }}"></script>
     <script src="{{ url('/app-assets/js/common-script.js') }}"></script>
     <!-- <script src="https://unpkg.com/feather-icons"></script> -->
-         <script src="{{url('/vendor/p360/app-assets/vendors/js/feather-icons/feather.min.js')}}"></script>
+    <script src="{{ url('/vendor/p360/app-assets/vendors/js/feather-icons/feather.min.js') }}"></script>
 
 
     <!-- <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script> -->
-    <script src="{{url('/vendor/p360/app-assets/vendors/js/pusher/pusher.min.js')}}"></script>
+    <script src="{{ url('/vendor/p360/app-assets/vendors/js/pusher/pusher.min.js') }}"></script>
 
 
     <!-- Then, include Laravel Echo -->
     <!-- <script src="https://cdn.jsdelivr.net/npm/laravel-echo@1.15.0/dist/echo.iife.js"></script> -->
-    <script src="{{url('/vendor/p360/app-assets/vendors/js/pusher/echo.iife.js')}}"></script>
+    <script src="{{ url('/vendor/p360/app-assets/vendors/js/pusher/echo.iife.js') }}"></script>
 
     <!-- Other Pusher Beams scripts -->
     <!-- <script src="https://js.pusher.com/beams/service-worker.js"></script>
@@ -96,7 +96,7 @@
             setActiveMenu('#main-menu-navigation');
 
 
-            $('.indian-number').each(function () {
+            $('.indian-number').each(function() {
                 let $el = $(this);
                 let value = $el.is('input') ? $el.val() : $el.text();
 
@@ -107,7 +107,7 @@
             });
 
             // Optional: Format input fields on blur (live formatting)
-            $('.indian-number').on('blur', function () {
+            $('.indian-number').on('blur', function() {
                 let $el = $(this);
                 let value = $el.val();
                 if ($.isNumeric(value)) {
@@ -155,7 +155,7 @@
             let maxLength = 0;
 
             // Loop through all menu links inside the given menu container
-            $(menuSelector).find('a[href]').each(function () {
+            $(menuSelector).find('a[href]').each(function() {
                 let link = $(this).attr('href');
 
                 // Skip empty or placeholder links
@@ -172,8 +172,8 @@
 
             // If a matching link is found, highlight it and expand parents
             if ($activeLink) {
-                $activeLink.addClass('active');                         // highlight the link
-                $activeLink.parents('li.has-sub').addClass('open');     // expand parent menus
+                $activeLink.addClass('active'); // highlight the link
+                $activeLink.parents('li.has-sub').addClass('open'); // expand parent menus
                 $activeLink.parents('li').children('a').addClass('active'); // highlight parent links
             }
         }
@@ -243,8 +243,8 @@
             return day + '-' + month + '-' + year;
         }
 
-        $('.modal').on('shown.bs.modal', function () {
-            $('.indian-number').each(function () {
+        $('.modal').on('shown.bs.modal', function() {
+            $('.indian-number').each(function() {
                 let $el = $(this);
                 let value = $el.is('input') ? $el.val() : $el.text();
 

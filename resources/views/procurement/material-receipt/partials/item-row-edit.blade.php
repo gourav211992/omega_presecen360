@@ -11,7 +11,7 @@
         $readOnly = '';
         $acceptedReadOnly = 'readonly';
         if ($item->gate_entry_detail_id) {
-            $readOnly = 'readonly';
+            $readOnly = $item->po?->partial_delivery == 'no' ? 'readonly' : '';
         } elseif ($item->vendor_asn_dtl_id) {
             $readOnly = 'readonly';
         } elseif ($item->purchase_order_item_id && $item->mrnHeader->reference_type == 'po') {

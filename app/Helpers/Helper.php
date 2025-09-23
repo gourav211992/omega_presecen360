@@ -63,6 +63,7 @@ use App\Models\BankInfo;
 use App\Models\Note;
 use App\Models\Compliance;
 use App\Http\Controllers\VoucherController;
+use App\Models\AuthUserBookMapping;
 use App\Models\ErpFyMonth;
 use App\Models\MrnAssetDetail;
 use P360\Core\Interfaces\TagCacheInterface;
@@ -3270,7 +3271,12 @@ class Helper
                     'message' => 'All Data Found'
                 ];
             } else {
-                $services = EmployeeBookMapping::where('service_menu_id', $organizationMenu?->serviceMenu?->id)->where('employee_id', $authUser->auth_user_id)->first();
+                $services = null;
+                if ($authUser -> authenticable_type === 'employee') {
+                    $services = EmployeeBookMapping::where('service_menu_id', $organizationMenu?->serviceMenu?->id)->where('employee_id', $authUser->id)->first();
+                } else {
+                    $services = AuthUserBookMapping::where('service_menu_id', $organizationMenu?->serviceMenu?->id)->where('auth_user_id', $authUser->auth_user_id)->first();
+                }
                 if (!isset($services)) { //Assign all services and books data if no record is found
                     $serviceIds = $organizationMenu?->serviceMenu?->erp_service_id ?? [];
 

@@ -94,6 +94,7 @@ use App\Services\MrnService;
 use App\Services\MrnDeleteService;
 use App\Services\MrnCheckAndUpdateService;
 use App\Services\TransactionCalculationService;
+use App\Services\GRN\BackUpdateService;
 
 use App\Jobs\SendEmailJob;
 use App\Services\CommonService;
@@ -1576,39 +1577,17 @@ class MaterialReceiptController extends Controller
                         ], 422);
                     }
 
-                    if (isset($component['po_detail_id']) && $component['po_detail_id']) {
-                        $poItem = PoItem::find($component['po_detail_id'] ?? @$mrnDetail->purchase_order_item_id);
-                        if (isset($poItem) && $poItem) {
-                            if (isset($poItem->id) && $poItem->id) {
-                                $orderQty = floatval($order_qty);
-                                $componentQty = floatval($component['order_qty'] ?? $component['accepted_qty']);
-                                $qtyDifference = $componentQty - $orderQty;
-                                if ($qtyDifference) {
-                                    $poItem->grn_qty += $qtyDifference;
-                                }
-                            } else {
-                                // $poItem->order_qty += $component['qty'];
-                            }
-                            $poItem->save();
-                        }
-                    } else if (isset($component['jo_detail_id']) && $component['jo_detail_id']) {
-                        $joItem = JoProduct::find($component['jo_detail_id'] ?? @$mrnDetail->job_order_item_id);
-                        if (isset($joItem) && $joItem) {
-                            if (isset($joItem->id) && $joItem->id) {
-                                $orderQty = floatval($order_qty);
-                                $componentQty = floatval($component['order_qty'] ?? $component['accepted_qty']);
-                                $qtyDifference = $componentQty - $orderQty;
-                                if ($qtyDifference) {
-                                    $joItem->grn_qty += $qtyDifference;
-                                }
-                            } else {
-                                // $joItem->order_qty += $component['qty'];
-                            }
-                            $joItem->save();
-                        }
-                    } else {
-
+                    // ✅ Back Update Qty Capture response
+                    $backUpdateService = new BackUpdateService();
+                    $backUpdateResponse = $backUpdateService->updateQuantity($component, $mrnDetail, $order_qty);
+                    if ($deleteResponse['status'] === 'error') {
+                        \DB::rollBack();
+                        return response()->json([
+                            'message' => $deleteResponse['message'],
+                            'error' => 'ERR04'
+                        ], 422);
                     }
+
                     $inventory_uom_id = null;
                     $inventory_uom_code = null;
                     $inventory_uom_qty = 0.00;
@@ -1916,9 +1895,10 @@ class MaterialReceiptController extends Controller
                             ? json_decode($component['batch_details'], true)
                             : $component['batch_details'];
                         if (is_array($batchDetails)) {
-                                foreach ($batchDetails as $i => $val) {
+                            foreach ($batchDetails as $i => $val) {
+                                $batchId = isset($val['id']) ? $val['id'] : null;
                                 // $batchNo = ($item->is_batch_no == 1) ? $val['batch_number'] : strtoupper(@$lotNumber);
-                                $batchDetail = MrnBatchDetail::find(@$val['id']) ?? new MrnBatchDetail();
+                                $batchDetail = MrnBatchDetail::find(@$batchId) ?? new MrnBatchDetail();
                                 $batchDetail->header_id = $mrn->id;
                                 $batchDetail->detail_id = $mrnDetail->id;
                                 $batchDetail->item_id = $mrnDetail->item_id;
@@ -6212,9 +6192,9 @@ class MaterialReceiptController extends Controller
             $asnLimit = (float) $asnItem->supplied_qty;
             if ($updatedAsnQty > $asnLimit + $eps) {
                 \DB::rollBack();
-                return self::notFoundResponse(
-                    'ASN quantity exceeds limit: updatedAsnQty = ' . $fmt($updatedAsnQty) .
-                    ', ASNQty = ' . $fmt($asnLimit)
+                return self::qtyValidationResponse(
+                    'ASN Quantity Exceeded as Receipt Quantity = ' . $fmt($updatedAsnQty) .
+                    ' can not be greater than ASN Qty = ' . $fmt($asnLimit)
                 );
             }
         }
@@ -6224,9 +6204,9 @@ class MaterialReceiptController extends Controller
             $poLimit = (float) $poItem->order_qty;
             if ($updatedPoQty > $poLimit + $eps) {
                 \DB::rollBack();
-                return self::notFoundResponse(
-                    'PO quantity exceeds limit: updatedPoQty = ' . $fmt($updatedPoQty) .
-                    ', PoQty = ' . $fmt($poLimit)
+                return self::qtyValidationResponse(
+                    'PO Quantity Exceeded as Receipt Quantity = ' . $fmt($updatedPoQty) .
+                    ' can not be greater than PO Qty = ' . $fmt($poLimit)
                 );
             }
         }
@@ -6236,9 +6216,9 @@ class MaterialReceiptController extends Controller
             $joLimit = (float) $joProduct->order_qty;
             if ($updatedJoQty > $joLimit + $eps) {
                 \DB::rollBack();
-                return self::notFoundResponse(
-                    'JO quantity exceeds limit: updatedJoQty = ' . $fmt($updatedJoQty) .
-                    ', JoQty = ' . $fmt($joLimit)
+                return self::qtyValidationResponse(
+                    'JO Quantity Exceeded as Receipt Quantity = ' . $fmt($updatedJoQty) .
+                    ' can not be greater than JO Qty = ' . $fmt($joLimit)
                 );
             }
         }
@@ -6544,6 +6524,12 @@ class MaterialReceiptController extends Controller
     {
         \DB::rollBack();
         return response()->json(['message' => "{$label} not found."], 422);
+    }
+
+    private static function qtyValidationResponse($label)
+    {
+        \DB::rollBack();
+        return response()->json(['message' => "{$label}"], 422);
     }
 
     private static function exceedsQtyResponse()
