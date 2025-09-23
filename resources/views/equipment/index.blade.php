@@ -35,7 +35,7 @@
                         <div class="col-12">
                             <div class="card">
                                 <div class="table-responsive">
-                                <table class="datatables-basic table myrequesttablecbox tableistlastcolumnfixed newerptabledesignlisthome"> 
+                                <table id="equipmentsTable" class="datatables-basic table myrequesttablecbox tableistlastcolumnfixed newerptabledesignlisthome"> 
                                     <thead>
                                         <tr>
                                             <th>#</th>
@@ -53,88 +53,7 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @php $rowIndex = 1; @endphp
-                                        @foreach($equipments as $equipment)
-                                            @foreach($equipment->maintenanceDetails as $detail)
-                                                @php
-                                                    // PlantMaintWo se matching work order dhoondo
-                                                    $matchingWorkOrder = $plantMainWo->first(function ($workOrder) use ($equipment, $detail) {
-                                                        $equipmentDetails = json_decode($workOrder->equipment_details, true);
-
-                                                        return isset(
-                                                            $equipmentDetails['equipment_id'],
-                                                            $equipmentDetails['reference_type'],
-                                                            $equipmentDetails['maintenance_type_id']
-                                                        ) &&
-                                                        $equipmentDetails['equipment_id'] == $equipment->id &&
-                                                        $equipmentDetails['reference_type'] === 'equipment' &&
-                                                        $equipmentDetails['maintenance_type_id'] == $detail->maintenance_type_id;
-                                                    });
-
-                                                    // Status nikalo
-                                                    $status = $matchingWorkOrder->document_status ?? 'draft';
-
-                                                    // Last Maint Date aur Due Date calculate karo
-                                                    $lastMaintDate = $detail->start_date ? \Carbon\Carbon::parse($detail->start_date) : null;
-                                                    $dueDate = null;
-
-                                                    if ($lastMaintDate && in_array($status, ['approved','approval_not_required'])) {
-                                                        switch ($detail->frequency) {
-                                                            case 'Daily': $dueDate = $lastMaintDate->copy()->addDay(); break;
-                                                            case 'Weekly': $dueDate = $lastMaintDate->copy()->addWeek(); break;
-                                                            case 'Monthly': $dueDate = $lastMaintDate->copy()->addMonth(); break;
-                                                            case 'Quarterly': $dueDate = $lastMaintDate->copy()->addMonths(3); break;
-                                                            case 'Semi-Annually': $dueDate = $lastMaintDate->copy()->addMonths(6); break;
-                                                            case 'Annually':
-                                                            case 'Yearly': $dueDate = $lastMaintDate->copy()->addYear(); break;
-                                                        }
-                                                    } elseif ($detail->start_date) {
-                                                        $dueDate = \Carbon\Carbon::parse($detail->start_date);
-                                                    }
-
-                                                    // Status CSS class
-                                                    $statusClasss = App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$status] ?? 'badge-light-secondary';
-                                                @endphp
-
-                                                <tr>
-                                                    <td>{{ $rowIndex++ }}</td>
-                                                    <td class="fw-bolder text-dark">{{ $equipment->name ?? '' }}</td>
-                                                    <td>{{ $equipment->organization->name ?? '' }}</td>
-                                                    <td>
-                                                        <div data-bs-toggle="tooltip" 
-                                                            title="{{ $equipment->location->full_address ?? '' }}">
-                                                            {{ $equipment->location->store_name ?? '' }}
-                                                        </div>
-                                                    </td>
-                                                    <td>{{ $equipment->alias ?? '' }}</td>
-                                                    <td>{{ $equipment->category->name ?? '' }}</td>
-                                                    <td>{{ $detail->maintenanceType->name ?? '' }}</td>
-                                                    <td>{{ $detail->checklists->pluck('name')->unique()->implode(', ') }}</td>
-                                                    <td>{{ $lastMaintDate ? $lastMaintDate->format('d-m-Y') : '' }}</td>
-                                                    <td>{{ $dueDate ? $dueDate->format('d-m-Y') : '' }}</td>
-                                                    <td class="tableactionnew">
-                                                        <div class="d-flex align-items-center justify-content-end">
-                                                            <span class="badge rounded-pill {{ $statusClasss }}">
-                                                                {{ $status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($status) }}
-                                                            </span>
-                                                        </div>
-                                                    </td>
-                                                    <td class="tableactionnew">
-                                                        <div class="dropdown">
-                                                            <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
-                                                                <i data-feather="more-vertical"></i>
-                                                            </button>
-                                                            <div class="dropdown-menu dropdown-menu-end">
-                                                                <a class="dropdown-item" href="{{ route('equipment.edit', $equipment->id) }}">
-                                                                    <i data-feather="edit-3" class="me-50"></i>
-                                                                    <span>Edit</span>
-                                                                </a>
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        @endforeach
+                                      
                                     </tbody>
                                 </table>
             								</div>
@@ -217,131 +136,92 @@
 	</div>
 @endsection
 @section('scripts')
- <script>
-        $(window).on('load', function() {
-            if (feather) {
-                feather.replace({
-                    width: 14,
-                    height: 14
-                });
-            }
-        })
-		$(function () { 
-
-  var dt_basic_table = $('.datatables-basic'),
-    dt_date_table = $('.dt-date'),
-    dt_complex_header_table = $('.dt-complex-header'),
-    dt_row_grouping_table = $('.dt-row-grouping'),
-    dt_multilingual_table = $('.dt-multilingual'),
-    assetPath = '../../../app-assets/';
-
-  if ($('body').attr('data-framework') === 'laravel') {
-    assetPath = $('body').attr('data-asset-path');
-  }
-
-  // DataTable with buttons
-  // --------------------------------------------------------------------
-
-  if (dt_basic_table.length) {
-    var dt_basic = dt_basic_table.DataTable({
-      
-      order: [[0, 'asc']],
-      dom: 
-        '<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-3 withoutheadbuttin dt-action-buttons text-end"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
-      displayLength: 7,
-      lengthMenu: [7, 10, 25, 50, 75, 100],
-      buttons: [
-        {
-          extend: 'collection',
-          className: 'btn btn-outline-secondary dropdown-toggle',
-          text: feather.icons['share'].toSvg({ class: 'font-small-4 mr-50' }) + 'Export',
-          buttons: [
-            {
-              extend: 'excel',
-              text: feather.icons['file'].toSvg({ class: 'font-small-4 mr-50' }) + 'Excel',
-              className: 'dropdown-item',
-              exportOptions: { columns: [3, 4, 5, 6, 7] }
-            },
-          ],
-          init: function (api, node, config) {
-            $(node).removeClass('btn-secondary');
-            $(node).parent().removeClass('btn-group');
-            setTimeout(function () {
-              $(node).closest('.dt-buttons').removeClass('btn-group').addClass('d-inline-flex');
-            }, 50);
-          }
-        },
-         
-      ],
-      
-      language: {
-        paginate: {
-          // remove previous & next text from pagination
-          previous: '&nbsp;',
-          next: '&nbsp;'
+<script>
+    $(window).on('load', function() {
+        if (feather) {
+            feather.replace({
+                width: 14,
+                height: 14
+            });
         }
-      }
     });
-    $('div.head-label').html('<h6 class="mb-0">Event List</h6>');
-  }
 
-  // Flat Date picker
-  if (dt_date_table.length) {
-    dt_date_table.flatpickr({
-      monthSelectorType: 'static',
-      dateFormat: 'm/d/Y'
-    });
-  }
+    $(document).ready(function () {
+        // agar already DataTable init hai to destroy kar do
+        if ($.fn.DataTable.isDataTable('#equipmentsTable')) {
+            $('#equipmentsTable').DataTable().destroy();
+        }
 
-  // Add New record
-  // ? Remove/Update this code as per your requirements ?
-  var count = 101;
-  $('.data-submit').on('click', function () {
-    var $new_name = $('.add-new-record .dt-full-name').val(),
-      $new_post = $('.add-new-record .dt-post').val(),
-      $new_email = $('.add-new-record .dt-email').val(),
-      $new_date = $('.add-new-record .dt-date').val(),
-      $new_salary = $('.add-new-record .dt-salary').val();
+        var dt_basic = $('#equipmentsTable').DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: "{{ route('equipments.data') }}",
+            pageLength: 10,
+            order: [[0, 'asc']],
 
-    if ($new_name != '') {
-      dt_basic.row
-        .add({
-          responsive_id: null,
-          id: count,
-          full_name: $new_name,
-          post: $new_post,
-          email: $new_email,
-          start_date: $new_date,
-          salary: '$' + $new_salary,
-          status: 5
-        })
-        .draw();
-      count++;
-      $('.modal').modal('hide');
-    }
-  });
+            // 👇 Layout (entries left, export middle, search right)
+            dom: 
+              '<"d-flex justify-content-between align-items-center mx-2 row"' +
+                '<"col-sm-12 col-md-6"l>' +
+                '<"col-sm-12 col-md-3 withoutheadbuttin dt-action-buttons text-end"B>' +
+                '<"col-sm-12 col-md-3"f>' +
+              '>t' +
+              '<"d-flex justify-content-between mx-2 row"' +
+                '<"col-sm-12 col-md-6"i>' +
+                '<"col-sm-12 col-md-6"p>' +
+              '>',  
 
-  // Delete Record
-  $('.datatables-basic tbody').on('click', '.delete-record', function () {
-    dt_basic.row($(this).parents('tr')).remove().draw();
-  });
-	
-	 
- 
-});
-        
+            buttons: [
+                {
+                    extend: 'excel',
+                    className: 'btn btn-outline-secondary',
+                    text: feather.icons['file'].toSvg({ class: 'font-small-4 me-50' }) + 'Excel',
+                    exportOptions: { columns: ':visible' }
+                }
+            ],
+
+            columns: [
+                { data: 'rowIndex', name: 'rowIndex' },
+                { data: 'equipment', name: 'equipment' },
+                { data: 'organization', name: 'organization' },
+                { data: 'location', name: 'location',
+                  render: function (data, type, row) {
+                      return `<div title="${row.location_full ?? ''}">${data}</div>`;
+                  }
+                },
+                { data: 'alias', name: 'alias' },
+                { data: 'category', name: 'category' },
+                { data: 'maintenance_type', name: 'maintenance_type' },
+                { data: 'checklists', name: 'checklists' },
+                { data: 'last_date', name: 'last_date' },
+                { data: 'due_date', name: 'due_date' },
+                { data: 'status', orderable: false, searchable: false },
+                { data: 'action', orderable: false, searchable: false }
+            ],
+
+            language: {
+                paginate: {
+                    previous: '&nbsp;',
+                    next: '&nbsp;'
+                }
+            }
+        });
+
+        // row click select
         $(".myrequesttablecbox tr").click(function() {
-          $(this).addClass('trselected').siblings().removeClass('trselected');
-          value = $(this).find('td:first').html();
+            $(this).addClass('trselected').siblings().removeClass('trselected');
+            value = $(this).find('td:first').html();
         });
 
+        // keyboard up/down navigation
         $(document).on('keydown', function(e) { 
-          if (e.which == 38) {
-            $('.trselected').prev('tr').addClass('trselected').siblings().removeClass('trselected');
-          } else if (e.which == 40) {
-            $('.trselected').next('tr').addClass('trselected').siblings().removeClass('trselected');
-          } 
-          $('html, body').scrollTop($('.trselected').offset().top - 100); 
+            if (e.which == 38) {
+                $('.trselected').prev('tr').addClass('trselected').siblings().removeClass('trselected');
+            } else if (e.which == 40) {
+                $('.trselected').next('tr').addClass('trselected').siblings().removeClass('trselected');
+            } 
+            $('html, body').scrollTop($('.trselected').offset().top - 100); 
         });
-    </script>
+    });
+</script>
 @endsection

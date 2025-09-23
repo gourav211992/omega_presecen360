@@ -27,7 +27,7 @@
                                     <a class="btn btn-primary btn-sm" href="{{ route('vouchers.create') }}"><i
                                     data-feather="plus-circle"></i> Add New</a>
                                 @endif
-                                <a href="{{route('vouchers.import')}}" class="btn btn-success btn-sm mb-50 mb-sm-0">
+                                <a href="{{route('vouchers.import')}}" class="btn btn-secondary btn-sm mb-50 mb-sm-0">
                                     <i data-feather="upload"></i>Import
                                 </a>
                                 </div>

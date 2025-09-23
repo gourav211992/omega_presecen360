@@ -3271,6 +3271,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::prefix('equipment')->group(function () {
 
         Route::get('/', [ErpEquipmentController::class, 'index'])->name('equipment.index');
+        Route::get('/equipments/data', [ErpEquipmentController::class, 'getData'])->name('equipments.data');
         Route::get('/create', [ErpEquipmentController::class, 'create'])->name('equipment.create');
         Route::post('/store', [ErpEquipmentController::class, 'store'])->name('equipment.store');
         Route::get('/edit/{id}', [ErpEquipmentController::class, 'edit'])->name('equipment.edit');

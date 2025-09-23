@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Exception;
+use DataTables;
+use Carbon\Carbon;
 use App\Http\Requests\ErpEquipmentRequest;
 use App\Helpers\Helper;
 use App\Helpers\InventoryHelper;
@@ -28,6 +30,25 @@ class ErpEquipmentController extends Controller
     
     public function index()
     {
+        return view('equipment.index');
+    }
+
+    public function getData(Request $request)
+    {
+        $plantMainWo = PlantMaintWo::select('id','document_status','equipment_details','created_at','updated_at')
+            ->orderBy('created_at', 'DESC')
+            ->get();
+
+       
+        $workOrderMap = [];
+        foreach ($plantMainWo as $wo) {
+            $details = json_decode($wo->equipment_details, true);
+            if (!empty($details['equipment_id']) && !empty($details['maintenance_type_id']) && ($details['reference_type'] ?? '') === 'equipment') {
+                $key = $details['equipment_id'].'-'.$details['maintenance_type_id'];
+                $workOrderMap[$key] = $wo->document_status;
+            }
+        }
+
         $equipments = ErpEquipment::with([
             'organization:id,name',
             'location:id,store_name',
@@ -37,11 +58,66 @@ class ErpEquipmentController extends Controller
             'maintenanceDetails.checklists:id,erp_equip_maintenance_id,name',
         ])->get();
 
-        $plantMainWo = PlantMaintWo::select('id','document_status','equipment_details','created_at','updated_at')
-        ->orderBy('created_at', 'DESC') 
-        ->get();
+        $rows = [];
+        $rowIndex = 1;
 
-        return view('equipment.index', compact('equipments','plantMainWo'));
+        foreach ($equipments as $equipment) {
+            foreach ($equipment->maintenanceDetails as $detail) {
+                $key = $equipment->id.'-'.$detail->maintenance_type_id;
+                $status = $workOrderMap[$key] ?? 'draft';
+
+                $lastMaintDate = $detail->start_date ? Carbon::parse($detail->start_date) : null;
+                $dueDate = null;
+
+                if ($lastMaintDate && in_array($status, ['approved','approval_not_required'])) {
+                    $dueDate = match ($detail->frequency) {
+                        'Daily'         => $lastMaintDate->copy()->addDay(),
+                        'Weekly'        => $lastMaintDate->copy()->addWeek(),
+                        'Monthly'       => $lastMaintDate->copy()->addMonth(),
+                        'Quarterly'     => $lastMaintDate->copy()->addMonths(3),
+                        'Semi-Annually' => $lastMaintDate->copy()->addMonths(6),
+                        'Annually','Yearly' => $lastMaintDate->copy()->addYear(),
+                        default => $lastMaintDate
+                    };
+                } elseif ($detail->start_date) {
+                    $dueDate = Carbon::parse($detail->start_date);
+                }
+
+                $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$status] ?? 'badge-light-secondary';
+                $statusText  = $status == ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($status);
+
+                $rows[] = [
+                    'rowIndex'     => $rowIndex++,
+                    'equipment'    => $equipment->name ?? '',
+                    'organization' => $equipment->organization->name ?? '',
+                    'location'     => $equipment->location->store_name ?? '',
+                    'location_full'=> $equipment->location->full_address ?? '',
+                    'alias'        => $equipment->alias ?? '',
+                    'category'     => $equipment->category->name ?? '',
+                    'maintenance_type' => $detail->maintenanceType->name ?? '',
+                    'checklists'   => $detail->checklists->pluck('name')->unique()->implode(', '),
+                    'last_date'    => $lastMaintDate?->format('d-m-Y'),
+                    'due_date'     => $dueDate?->format('d-m-Y'),
+                    'status'       => "<span class='badge rounded-pill {$statusClass}'>{$statusText}</span>",
+                    'action'       => '
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
+                                <i data-feather="more-vertical"></i>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a class="dropdown-item" href="'.route('equipment.edit', $equipment->id).'">
+                                    <i data-feather="edit-3" class="me-50"></i>
+                                    <span>Edit</span>
+                                </a>
+                            </div>
+                        </div>'
+                ];
+            }
+        }
+
+        return DataTables::of($rows)
+            ->rawColumns(['status','action'])
+            ->toJson();
     }
 
 
