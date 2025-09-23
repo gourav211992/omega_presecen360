@@ -705,26 +705,7 @@
                                 </td>
                             </tr>`;
 
-            // $(function () {
-            //     $(".ledgerselecct").autocomplete({
-            //         source: maintenanceTypes.map(item => item.name),
-            //         minLength: 0
-            //     }).focus(function () {
-            //         if (this.value == "") {
-            //             $(this).autocomplete("search");
-            //         }
-            //     });
-            // });
-            //  $(function () {
-            //     $(".ledgerselecct2").autocomplete({
-            //         source: maintenanceBOM.map(item => item.name),
-            //         minLength: 0
-            //     }).focus(function () {
-            //         if (this.value == "") {
-            //             $(this).autocomplete("search");
-            //         }
-            //     });
-            // });
+           
 
             return row;
         }

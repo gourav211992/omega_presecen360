@@ -2539,93 +2539,109 @@ function processDefectSelection() {
 		$(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Searching...');
 
 		// Call filter method for equipment
-		$.ajax({
-			url: "{{ route('maint-wo.filter') }}",
-			method: 'POST',
-			data: {
-				type: 'equipment',
-				equipment_id: equipmentId,
-				maintenance_type_id: maintenanceTypeId,
-				bom_id: bomId,
-				_token: $('meta[name="csrf-token"]').attr('content')
-			},
-			success: function(response) {
-				// Response is now direct array data (like populateModal)
-				if (response && response.length > 0) {
-					// Clear existing table content
-					$('#eqptTable').empty();
-					
-					// Populate equipment modal table with filtered results
-					response.forEach(function (eqpt, idx) {
-						const isSelected = window.selectedEquipmentState && window.selectedEquipmentState.equipmentId == eqpt.id;
-						const checkedAttribute = isSelected ? 'checked' : '';
-						let row = `
-							<tr class="trail-bal-tabl-none">
-								<th class="customernewsection-form">
-									<div class="form-check form-check-primary custom-radio">
-										<input type="radio" class="form-check-input equipment-radio" 
-											   name="equipment_radio" 
-											   id="equipment_${eqpt.id}" 
-											   value="${eqpt?.equipment?.id ?? eqpt.id}"
-											   data-index="${idx}"
-											   data-equipment-id="${eqpt?.equipment?.id ?? eqpt.id}" 
-											   data-equipment-name="${eqpt?.equipment?.name ?? ''}" 
-											   data-maintenance-type="${eqpt?.maintenance_type?.id ?? ''}"
-											   data-bom-id="${eqpt?.bom?.id ?? ''}"
-											   ${checkedAttribute}>
-										<label class="form-check-label" for="equipment_${eqpt.id}"></label>
-									</div> 
-								</th>
-								<td><strong>${eqpt?.equipment?.name ?? 'N/A'}</strong></td> 
-								<td>${eqpt?.maintenance_type?.name ?? 'N/A'}</td>
-								<td>${eqpt?.bom?.bom_name ?? 'N/A'}</td>
-								<td>${eqpt?.bom?.book?.book_code ?? 'N/A'}</td>
-								<td>${eqpt?.bom?.document_number ?? 'N/A'}</td>
-								<td>${eqpt?.equipment?.due_date ?? 'N/A'}</td>
-							</tr>`;
-						$('#eqptTable').append(row);
-					});
-					
-					// Store filtered data globally for reference
-					window.equipmentModalData = response;
-					
-					// Show equipment modal
-					$('#equipment-modal').modal('show');
-
-					Swal.fire({
-						title: 'Success!',
-						text: `Found ${response.length} equipment configuration(s).`,
-						icon: 'success',
-						timer: 2000,
-						showConfirmButton: false
-					});
-
-				} else {
-					// No data found - show empty modal
-					$('#eqptTable').html('<tr><td colspan="7" class="text-center">No equipment found for the selected criteria.</td></tr>');
-					$('#equipment-modal').modal('show');
-					
-					Swal.fire({
-						title: 'No Results',
-						text: 'No equipment found matching the selected criteria.',
-						icon: 'info'
-					});
-				}
-			},
-			error: function(xhr, status, error) {
-				console.error('Equipment search error:', error);
-				Swal.fire({
-					title: 'Error!',
-					text: 'An error occurred while searching for equipment data.',
-					icon: 'error'
-				});
-			},
-			complete: function() {
-				// Reset button state
-				$('#equipmentSearchBtn').prop('disabled', false).html('<i data-feather="search"></i> Search');
-				feather.replace(); // Re-initialize feather icons
+		function calculateDueDate(startDate, frequency) {
+			if (!startDate || !frequency) return null;
+			let base = new Date(startDate);
+			switch (frequency.trim()) {
+				case 'Daily': base.setDate(base.getDate() + 1); break;
+				case 'Weekly': base.setDate(base.getDate() + 7); break;
+				case 'Monthly': base.setMonth(base.getMonth() + 1); break;
+				case 'Quarterly': base.setMonth(base.getMonth() + 3); break;
+				case 'Semi-Annually':
+				case 'Semi Annually':
+				case 'Semi Annualy': base.setMonth(base.getMonth() + 6); break;
+				case 'Annually':
+				case 'Annualy':
+				case 'Yearly': base.setFullYear(base.getFullYear() + 1); break;
 			}
-		});
+			let day = String(base.getDate()).padStart(2, '0');
+			let month = String(base.getMonth() + 1).padStart(2, '0');
+			let year = base.getFullYear();
+			return `${day}-${month}-${year}`;
+		}
+
+	$.ajax({
+		url: "{{ route('maint-wo.filter') }}",
+		method: 'POST',
+		data: {
+			type: 'equipment',
+			equipment_id: equipmentId,
+			maintenance_type_id: maintenanceTypeId,
+			bom_id: bomId,
+			_token: $('meta[name="csrf-token"]').attr('content')
+		},
+		success: function(response) {
+			if (response && response.length > 0) {
+				$('#eqptTable').empty();
+				
+				response.forEach(function (eqpt, idx) {
+					const isSelected = window.selectedEquipmentState && window.selectedEquipmentState.equipmentId == eqpt.id;
+					const checkedAttribute = isSelected ? 'checked' : '';
+					const dueDate = calculateDueDate(eqpt.start_date, eqpt.frequency);
+
+					let row = `
+						<tr class="trail-bal-tabl-none">
+							<th class="customernewsection-form">
+								<div class="form-check form-check-primary custom-radio">
+									<input type="radio" class="form-check-input equipment-radio" 
+										name="equipment_radio" 
+										id="equipment_${eqpt.id}" 
+										value="${eqpt?.equipment?.id ?? eqpt.id}"
+										data-index="${idx}"
+										data-equipment-id="${eqpt?.equipment?.id ?? eqpt.id}" 
+										data-equipment-name="${eqpt?.equipment?.name ?? ''}" 
+										data-maintenance-type="${eqpt?.maintenance_type?.id ?? ''}"
+										data-bom-id="${eqpt?.bom?.id ?? ''}"
+										${checkedAttribute}>
+									<label class="form-check-label" for="equipment_${eqpt.id}"></label>
+								</div> 
+							</th>
+							<td><strong>${eqpt?.equipment?.name ?? 'N/A'}</strong></td> 
+							<td>${eqpt?.maintenance_type?.name ?? 'N/A'}</td>
+							<td>${eqpt?.bom?.bom_name ?? 'N/A'}</td>
+							<td>${eqpt?.bom?.book?.book_code ?? 'N/A'}</td>
+							<td>${eqpt?.bom?.document_number ?? 'N/A'}</td>
+							<td>${dueDate ?? 'N/A'}</td>
+						</tr>`;
+					$('#eqptTable').append(row);
+				});
+				
+				window.equipmentModalData = response;
+				$('#equipment-modal').modal('show');
+
+				Swal.fire({
+					title: 'Success!',
+					text: `Found ${response.length} equipment configuration(s).`,
+					icon: 'success',
+					timer: 2000,
+					showConfirmButton: false
+				});
+
+			} else {
+				$('#eqptTable').html('<tr><td colspan="7" class="text-center">No equipment found for the selected criteria.</td></tr>');
+				$('#equipment-modal').modal('show');
+				
+				Swal.fire({
+					title: 'No Results',
+					text: 'No equipment found matching the selected criteria.',
+					icon: 'info'
+				});
+			}
+		},
+		error: function(xhr, status, error) {
+			console.error('Equipment search error:', error);
+			Swal.fire({
+				title: 'Error!',
+				text: 'An error occurred while searching for equipment data.',
+				icon: 'error'
+			});
+		},
+		complete: function() {
+			$('#equipmentSearchBtn').prop('disabled', false).html('<i data-feather="search"></i> Search');
+			feather.replace();
+		}
+	});
+
 	});
 
 	// Amendment workflow logic
