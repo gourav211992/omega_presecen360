@@ -845,6 +845,7 @@
 @endsection
 
 @section('scripts')
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 	<script type="text/javascript" src="{{asset('app-assets/js/file-uploader.js')}}"></script>
     @include('plant.maint_wo.common-js-route',["wo" => isset($wo) ? $wo : null, "route_prefix" => "maint-wo"])
     <script src="{{ asset('assets/js/modules/maint-wo/common-script.js')}}"></script>
@@ -1824,55 +1825,6 @@
 			
 		}
 
-		// function showDefectNotificationFields() {
-		// 	// Show all equipment detail fields
-		// 	$('.equipment-detail-field').show();
-			
-		// 	// Set all fields as readonly with default values
-		// 	$('#defect_type_select').prop('disabled', true).val('General Defect');
-		// 	$('#defect_type_hidden').val('General Defect');
-			
-		// 	$('#problem_field input').prop('disabled', true).val('Please resolve ASAP');
-		// 	$('#problem_hidden').val('Please resolve ASAP');
-			
-		// 	$('#priority_field select').prop('disabled', true).val('High');
-			
-		// 	$('#report_date_field input').prop('disabled', true).val('22-07-2025 | 02:30 PM');
-		// 	$('#report_date_time_hidden').val('22-07-2025 | 02:30 PM');
-			
-		// 	$('#report_by_field input').prop('disabled', true).val('Aniket');
-		// 	$('#reported_by_hidden').val('Aniket');
-			
-		// 	$('#detailed_observations_field textarea').prop('readonly', true).val('Defect notification requires immediate attention');
-			
-		// 	$('#supporting_documents_field input').prop('disabled', false); // Keep file upload enabled
-		// }
-
-		// function showDefectNotificationFields() {
-		// 	// Show all equipment detail fields
-		// 	$('.equipment-detail-field').show();
-			
-		// 	// Set all fields as readonly with default values
-		// 	$('#defect_type_select').prop('disabled', true).val('General Defect');
-		// 	$('#defect_type_hidden').val('General Defect');
-			
-		// 	$('#problem_field input').prop('disabled', true).val('Please resolve ASAP');
-		// 	$('#problem_hidden').val('Please resolve ASAP');
-			
-		// 	$('#priority_field select').prop('disabled', true).val('High');
-			
-		// 	$('#report_date_field input').prop('disabled', true).val('22-07-2025 | 02:30 PM');
-		// 	$('#report_date_time_hidden').val('22-07-2025 | 02:30 PM');
-			
-		// 	$('#report_by_field input').prop('disabled', true).val('Aniket');
-		// 	$('#reported_by_hidden').val('Aniket');
-			
-		// 	$('#detailed_observations_field textarea').prop('readonly', true).val('Defect notification requires immediate attention');
-			
-		// 	$('#supporting_documents_field input').prop('disabled', false); // Keep file upload enabled
-		// }
-
-
 		// Maintenance Type change handler to update checklist
 		$(document).on('change', '#maintenance_type', function() {
 			// Skip maintenance type processing if defect notification is being processed
@@ -2057,31 +2009,29 @@
 					_token: $('meta[name="csrf-token"]').attr('content')
 				},
 				success: function(response) {
-					
-					
-					// Response is now direct array data (like populateModal)
 					if (response && response.length > 0) {
-						// Clear existing table content
 						$('#eqptTable').empty();
 						
-						// Populate equipment modal table with filtered results
 						response.forEach(function (eqpt, idx) {
 							const isSelected = window.selectedEquipmentState && window.selectedEquipmentState.equipmentId == eqpt.id;
 							const checkedAttribute = isSelected ? 'checked' : '';
+
+							const dueDate = calculateDueDate(eqpt.start_date, eqpt.frequency);
+
 							let row = `
 								<tr class="trail-bal-tabl-none">
 									<th class="customernewsection-form">
 										<div class="form-check form-check-primary custom-radio">
 											<input type="radio" class="form-check-input equipment-radio" 
-												   name="equipment_radio" 
-												   id="equipment_${eqpt.id}" 
-												   value="${eqpt?.equipment?.id ?? eqpt.id}"
-												   data-index="${idx}"
-												   data-equipment-id="${eqpt?.equipment?.id ?? eqpt.id}" 
-												   data-equipment-name="${eqpt?.equipment?.name ?? ''}" 
-												   data-maintenance-type="${eqpt?.maintenance_type?.id ?? ''}"
-												   data-bom-id="${eqpt?.bom?.id ?? ''}"
-												   ${checkedAttribute}>
+												name="equipment_radio" 
+												id="equipment_${eqpt.id}" 
+												value="${eqpt?.equipment?.id ?? eqpt.id}"
+												data-index="${idx}"
+												data-equipment-id="${eqpt?.equipment?.id ?? eqpt.id}" 
+												data-equipment-name="${eqpt?.equipment?.name ?? ''}" 
+												data-maintenance-type="${eqpt?.maintenance_type?.id ?? ''}"
+												data-bom-id="${eqpt?.bom?.id ?? ''}"
+												${checkedAttribute}>
 											<label class="form-check-label" for="equipment_${eqpt.id}"></label>
 										</div> 
 									</th>
@@ -2090,15 +2040,12 @@
 									<td>${eqpt?.bom?.bom_name ?? 'N/A'}</td>
 									<td>${eqpt?.bom?.book?.book_code ?? 'N/A'}</td>
 									<td>${eqpt?.bom?.document_number ?? 'N/A'}</td>
-									<td>${eqpt?.equipment?.due_date ?? 'N/A'}</td>
+									<td>${dueDate ?? 'N/A'}</td>
 								</tr>`;
 							$('#eqptTable').append(row);
 						});
 						
-						// Store filtered data globally for reference
 						window.equipmentModalData = response;
-						
-						// Show equipment modal
 						$('#equipment-modal').modal('show');
 
 						Swal.fire({
@@ -2110,7 +2057,6 @@
 						});
 
 					} else {
-						// No data found - show empty modal
 						$('#eqptTable').html('<tr><td colspan="7" class="text-center">No equipment found for the selected criteria.</td></tr>');
 						$('#equipment-modal').modal('show');
 						
@@ -2130,9 +2076,8 @@
 					});
 				},
 				complete: function() {
-					// Reset button state
 					$('#equipmentSearchBtn').prop('disabled', false).html('<i data-feather="search"></i> Search');
-					feather.replace(); // Re-initialize feather icons
+					feather.replace();
 				}
 			});
 		});
@@ -2372,5 +2317,27 @@
 		};
 
 		});
+
+		function calculateDueDate(startDate, frequency) {
+			if (!startDate || !frequency) return null;
+			let base = new Date(startDate);
+			switch (frequency.trim()) {
+				case 'Daily': base.setDate(base.getDate() + 1); break;
+				case 'Weekly': base.setDate(base.getDate() + 7); break;
+				case 'Monthly': base.setMonth(base.getMonth() + 1); break;
+				case 'Quarterly': base.setMonth(base.getMonth() + 3); break;
+				case 'Semi-Annually':
+				case 'Semi Annually':
+				case 'Semi Annualy': base.setMonth(base.getMonth() + 6); break;
+				case 'Annually':
+				case 'Annualy':
+				case 'Yearly': base.setFullYear(base.getFullYear() + 1); break;
+			}
+			let day = String(base.getDate()).padStart(2, '0');
+			let month = String(base.getMonth() + 1).padStart(2, '0');
+			let year = base.getFullYear();
+			return `${day}-${month}-${year}`;
+		}
+
 	</script>
 @endsection
