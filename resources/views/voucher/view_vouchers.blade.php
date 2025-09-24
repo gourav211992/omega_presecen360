@@ -24,12 +24,13 @@
                                     <button class="btn btn-warning btn-sm mb-50 mb-sm-0" data-bs-target="#filter"
                             data-bs-toggle="modal"><i data-feather="filter"></i> Filter</button>
                                 @if(isset($fyearLocked) && $fyearLocked)
+                                    <a href="{{route('vouchers.import')}}" class="btn btn-secondary btn-sm mb-50 mb-sm-0">
+                                        <i data-feather="upload"></i>Import
+                                    </a>
+                                    
                                     <a class="btn btn-primary btn-sm" href="{{ route('vouchers.create') }}"><i
                                     data-feather="plus-circle"></i> Add New</a>
                                 @endif
-                                <a href="{{route('vouchers.import')}}" class="btn btn-secondary btn-sm mb-50 mb-sm-0">
-                                    <i data-feather="upload"></i>Import
-                                </a>
                                 </div>
                             </div>
                         </div>

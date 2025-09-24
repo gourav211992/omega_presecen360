@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Traits\DefaultGroupCompanyOrg;
+use App\Models\ErpMaintenanceType;
 use App\Traits\Deletable;
 use App\Models\ErpEquipment;
 use App\Traits\FileUploadTrait;
@@ -43,6 +44,9 @@ class PlantMaintWo extends Model
         'final_remark',
         'upload_file',
         'status',
+        'reference_type',
+        'equipment_id',
+        'maintenance_type_id',
         'updated_by',
         'deleted_by'
     ];
@@ -62,6 +66,14 @@ class PlantMaintWo extends Model
         return $this->belongsTo(Book::class, 'book_id');
     }
 
+    public function equipment()
+    {
+        return $this->belongsTo(ErpEquipment::class, 'equipment_id');
+    }
 
+    public function maintenanceType()
+    {
+        return $this->belongsTo(ErpMaintenanceType::class, 'maintenance_type_id');
+    }
 
 }

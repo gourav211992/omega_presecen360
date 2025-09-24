@@ -1105,67 +1105,6 @@ function fillFormFromDefect(defect) {
   
   
 }
-// function processDefectSelection() {
-//   console.log('processDefectSelection called');
-//   const $sel = $('input.defect-radio:checked');
-//   console.log('Selected defect radio buttons:', $sel.length);
-//   if ($sel.length === 0) { (window.toastr?.warning && toastr.warning('Please select a defect')) || alert('Please select a defect'); return; }
-//   const idx = Number($sel.data('index'));
-//   const defectId = $sel.data('defect-id');
-//   console.log('Selected defect - idx:', idx, 'defectId:', defectId);
-  
-//   // Fallback: use cached data if available
-//   const cachedList = window.defectModalData || [];
-//   const cachedPicked = cachedList[idx];
-  
-//   // Call populate-modal endpoint to get fresh data (same as equipment process)
-//   $.ajax({
-//     url: ApiURL,
-//     type: "GET",
-//     data: { type: 'defect', book_code: selectedSeries },
-//     dataType: "json",
-//     success: function (response) {
-//       console.log('Defect populate modal response:', response);
-//       if (response && Array.isArray(response) && response.length > 0) {
-//         // Store the fresh data
-//         window.defectModalData = response;
-        
-//         // Find the selected defect in the response
-//         const picked = response.find(item => item.id == defectId) || response[idx];
-        
-//         if (picked) {
-//           fillFormFromDefect(picked);
-//           console.log('Equipment details after fillFormFromDefect:', $('#equipment_details').val());
-//         } else {
-//           console.log('Selected defect not found in response, using cached data');
-//           if (cachedPicked) {
-//             fillFormFromDefect(cachedPicked);
-//             console.log('Equipment details after fillFormFromDefect (cached):', $('#equipment_details').val());
-//           }
-//         }
-//       } else {
-//         console.log('No defect data received from populate-modal, using cached data');
-//         if (cachedPicked) {
-//           fillFormFromDefect(cachedPicked);
-//           console.log('Equipment details after fillFormFromDefect (cached):', $('#equipment_details').val());
-//         }
-//       }
-      
-//       // Close modal after processing is complete
-//       $('#defectlog').modal('hide');
-//     },
-//     error: function(xhr, status, error) {
-//       console.error('Error calling populate-modal for defect:', error);
-//       console.log('Using cached defect data due to error');
-//       if (cachedPicked) {
-//         fillFormFromDefect(cachedPicked);
-//         console.log('Equipment details after fillFormFromDefect (error fallback):', $('#equipment_details').val());
-//       }
-//       $('#defectlog').modal('hide');
-//     }
-//   });
-// }
-
 // === Checklist Submit Hook ===
 function collectChecklistData() {
   let checklistData = [];

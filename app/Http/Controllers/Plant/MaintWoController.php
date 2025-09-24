@@ -18,6 +18,10 @@ use App\Models\ErpEquipment;
 use App\Models\ErpMaintenanceType;
 use App\Models\ErpDefectType;
 use App\Models\ErpItem;
+use App\Models\ErpItemAttribute;
+use App\Models\InspectionChecklist;
+use App\Models\InspectionChecklistDetail;
+use App\Models\InspectionChecklistDetailValue;
 use Carbon\Carbon;
 use App\Models\StockLedger;
 use App\Models\ErpEquipMaintenanceChecklist;
@@ -357,7 +361,7 @@ class MaintWoController extends Controller
     public function store(Request $request)
     {
         
-        
+       
         $rules = [
             'book_id' => 'required',
             'document_number' => 'required|string|max:100',
@@ -416,6 +420,22 @@ class MaintWoController extends Controller
         ];
 
         $data = array_merge($request->all(), $additionalData);
+
+        $equipmentDetails = $request->equipment_details;
+
+        if (is_string($equipmentDetails)) {
+            $equipmentDetails = json_decode($equipmentDetails, true);
+        }
+
+     
+        if (is_array($equipmentDetails)) {
+            $data['reference_type']      = $equipmentDetails['reference_type'] ?? null;
+            $data['equipment_id']        = $equipmentDetails['equipment_id'] ?? null;
+            $data['maintenance_type_id'] = $equipmentDetails['maintenance_type_id'] ?? null;
+
+         
+            $data['equipment_details'] = json_encode($equipmentDetails);
+        }
       
 
         if (isset($data['spare_parts']) && is_array($data['spare_parts'])) {
@@ -427,7 +447,6 @@ class MaintWoController extends Controller
         }
 
         unset($data['checklist_data']);
-
         try {
             DB::transaction(function () use ($data, $request) {
                 $workOrder = PlantMaintWo::create($data);
@@ -786,6 +805,20 @@ class MaintWoController extends Controller
 
             // Prepare update data
             $updateData = $request->all();
+
+            $equipmentDetails = $request->equipment_details;
+
+            if (is_string($equipmentDetails)) {
+                $equipmentDetails = json_decode($equipmentDetails, true);
+            }
+
+            if (is_array($equipmentDetails)) {
+                $updateData['reference_type']      = $equipmentDetails['reference_type'] ?? null;
+                $updateData['equipment_id']        = $equipmentDetails['equipment_id'] ?? null;
+                $updateData['maintenance_type_id'] = $equipmentDetails['maintenance_type_id'] ?? null;
+
+                $updateData['equipment_details'] = json_encode($equipmentDetails);
+            }
             
             
             // Only update checklist_data if it's not empty

@@ -17,6 +17,7 @@ use App\Models\ErpEquipmentHistory;
 use App\Models\InspectionChecklist;
 use App\Models\InspectionChecklistDetail;
 use App\Models\Item;
+use App\Models\ErpItemAttribute;
 use App\Models\PlantMaintWo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,20 +36,6 @@ class ErpEquipmentController extends Controller
 
     public function getData(Request $request)
     {
-        $plantMainWo = PlantMaintWo::select('id','document_status','equipment_details','created_at','updated_at')
-            ->orderBy('created_at', 'DESC')
-            ->get();
-
-       
-        $workOrderMap = [];
-        foreach ($plantMainWo as $wo) {
-            $details = json_decode($wo->equipment_details, true);
-            if (!empty($details['equipment_id']) && !empty($details['maintenance_type_id']) && ($details['reference_type'] ?? '') === 'equipment') {
-                $key = $details['equipment_id'].'-'.$details['maintenance_type_id'];
-                $workOrderMap[$key] = $wo->document_status;
-            }
-        }
-
         $equipments = ErpEquipment::with([
             'organization:id,name',
             'location:id,store_name',
@@ -56,6 +43,7 @@ class ErpEquipmentController extends Controller
             'maintenanceDetails:id,erp_equipment_id,maintenance_type_id,start_date,frequency',
             'maintenanceDetails.maintenanceType:id,name',
             'maintenanceDetails.checklists:id,erp_equip_maintenance_id,name',
+            'maintenanceDetails.latestWorkOrder:id,equipment_id,maintenance_type_id,document_status,created_at,equipment_details'
         ])->get();
 
         $rows = [];
@@ -63,28 +51,49 @@ class ErpEquipmentController extends Controller
 
         foreach ($equipments as $equipment) {
             foreach ($equipment->maintenanceDetails as $detail) {
-                $key = $equipment->id.'-'.$detail->maintenance_type_id;
-                $status = $workOrderMap[$key] ?? 'draft';
+                $wo = $detail->latestWorkOrder;
+                $eqpStatus = $equipment->document_status ?? 'draft';
 
-                $lastMaintDate = $detail->start_date ? Carbon::parse($detail->start_date) : null;
-                $dueDate = null;
+                $lastMaintDate = null;
+                $nextDueDate = null;
 
-                if ($lastMaintDate && in_array($status, ['approved','approval_not_required'])) {
-                    $dueDate = match ($detail->frequency) {
-                        'Daily'         => $lastMaintDate->copy()->addDay(),
-                        'Weekly'        => $lastMaintDate->copy()->addWeek(),
-                        'Monthly'       => $lastMaintDate->copy()->addMonth(),
-                        'Quarterly'     => $lastMaintDate->copy()->addMonths(3),
-                        'Semi-Annually' => $lastMaintDate->copy()->addMonths(6),
-                        'Annually','Yearly' => $lastMaintDate->copy()->addYear(),
-                        default => $lastMaintDate
-                    };
-                } elseif ($detail->start_date) {
-                    $dueDate = Carbon::parse($detail->start_date);
+                if ($wo) {
+                    $details = json_decode($wo->equipment_details, true);
+                    if (is_array($details) && isset($details['due_date'])) {
+                        $lastMaintDate = Carbon::parse($details['due_date']);
+                        $frequency = $detail->frequency;
+
+                        switch ($frequency) {
+                            case 'Daily':
+                                $nextDueDate = $lastMaintDate->copy()->addDay();
+                                break;
+                            case 'Weekly':
+                                $nextDueDate = $lastMaintDate->copy()->addWeek();
+                                break;
+                            case 'Monthly':
+                                $nextDueDate = $lastMaintDate->copy()->addMonth();
+                                break;
+                            case 'Quarterly':
+                                $nextDueDate = $lastMaintDate->copy()->addMonths(3);
+                                break;
+                            case 'Semi-Annually':
+                                $nextDueDate = $lastMaintDate->copy()->addMonths(6);
+                                break;
+                            case 'Annually':
+                            case 'Yearly':
+                                $nextDueDate = $lastMaintDate->copy()->addYear();
+                                break;
+                            default:
+                                $nextDueDate = null;
+                        }
+                    }
+                } else {
+                    $lastMaintDate = null;
+                    $nextDueDate = $detail->start_date ? Carbon::parse($detail->start_date) : null;
                 }
 
-                $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$status] ?? 'badge-light-secondary';
-                $statusText  = $status == ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($status);
+                $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$eqpStatus] ?? 'badge-light-secondary';
+                $statusText  = $eqpStatus == ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($eqpStatus);
 
                 $rows[] = [
                     'rowIndex'     => $rowIndex++,
@@ -97,7 +106,7 @@ class ErpEquipmentController extends Controller
                     'maintenance_type' => $detail->maintenanceType->name ?? '',
                     'checklists'   => $detail->checklists->pluck('name')->unique()->implode(', '),
                     'last_date'    => $lastMaintDate?->format('d-m-Y'),
-                    'due_date'     => $dueDate?->format('d-m-Y'),
+                    'due_date'     => $nextDueDate?->format('d-m-Y'),
                     'status'       => "<span class='badge rounded-pill {$statusClass}'>{$statusText}</span>",
                     'action'       => '
                         <div class="dropdown">
@@ -120,8 +129,6 @@ class ErpEquipmentController extends Controller
             ->toJson();
     }
 
-
-    
 
     public function create()
     {
