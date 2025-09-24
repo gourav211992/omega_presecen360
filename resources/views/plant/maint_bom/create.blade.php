@@ -502,8 +502,7 @@
 
 
 @section('scripts')
-	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>
-
+	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>														
 	<script>
 		const itemsData = @json($items);
 		let rowCount = 1;
@@ -645,43 +644,121 @@
 			}
 		}
 		$('#addNewRowBtn').on('click', function () {
+			let allInputsFilled = true;
+
+			$('.mrntableselectexcel').find('tr').each(function () {
+				const row = $(this);
+
+				// Validate item_code
+				const itemCode = row.find('.item_code');
+				if (!itemCode.prop('readonly')) {
+					if (!itemCode.val()) {
+						allInputsFilled = false;
+						itemCode.addClass('is-invalid')[0].reportValidity();
+						return false;
+					} else {
+						itemCode.removeClass('is-invalid');
+					}
+				}
+
+				// Validate item_name
+				const itemName = row.find('.item_name');
+				if (!itemName.val()) {
+					allInputsFilled = false;
+					itemName.addClass('is-invalid')[0].reportValidity();
+					return false;
+				} else {
+					itemName.removeClass('is-invalid');
+				}
+
+				// Validate uom
+				const uom = row.find('.uom');
+				if (!uom.val()) {
+					allInputsFilled = false;
+					uom.addClass('is-invalid')[0].reportValidity();
+					return false;
+				} else {
+					uom.removeClass('is-invalid');
+				}
+
+				// Validate qty
+				const qty = row.find('.qty');
+				if (!qty.val()) {
+					allInputsFilled = false;
+					qty.addClass('is-invalid')[0].reportValidity();
+					return false;
+				} else {
+					qty.removeClass('is-invalid');
+				}
+
+				const attributeInput = row.find('.attribute');
+				let attributeVal = attributeInput.val();
+
+				// Parse JSON safely
+				let attrArray = [];
+				try {
+					attrArray = attributeVal ? JSON.parse(attributeVal) : [];
+				} catch (e) {
+					attrArray = [];
+				}
+
+				// Validation: must contain at least 1 {item_attribute_id, value_id}
+				if (!Array.isArray(attrArray) || attrArray.length === 0) {
+					allInputsFilled = false;
+
+					Swal.fire({
+						icon: 'warning',
+						title: 'Attribute Required',
+						text: 'Please select at least one attribute before adding a new row.'
+					});
+
+					row.find('.attribute-badges').addClass('border border-danger rounded p-1');
+					return false; 
+				} else {
+					row.find('.attribute-badges').removeClass('border border-danger rounded p-1');
+				}
+				
+			});
+
+			if (!allInputsFilled) {
+				return;
+			}
+
 			rowCount++;
-			let newRow = `<tr>
-															<td class="customernewsection-form">
-																<div class="form-check form-check-primary custom-checkbox">
-																	<input type="checkbox" class="form-check-input row-check"
-																		id="Email">
-																	<label class="form-check-label" for="Email"></label>
-																</div>
-															</td>
-															<td class="poprod-decpt">
-																<input type="hidden" class="item_id">
-																<input required type="text" placeholder="Select" name="item[]"
-																	class="item_code form-control mw-100 ledgerselecct mb-25" />
-															</td>
-															<td required class="poprod-decpt">
-																<input type="text" placeholder="Select"
-																	class="item_name form-control mw-100 ledgerselecct mb-25" />
-															</td>
+			let newRow = `
+				<tr>
+					<td class="customernewsection-form">
+						<div class="form-check form-check-primary custom-checkbox">
+							<input type="checkbox" class="form-check-input row-check" id="Email">
+							<label class="form-check-label" for="Email"></label>
+						</div>
+					</td>
+					<td class="poprod-decpt">
+						<input type="hidden" class="item_id">
+						<input required type="text" placeholder="Select" name="item[]"
+							class="item_code form-control mw-100 ledgerselecct mb-25" />
+					</td>
+					<td class="poprod-decpt">
+						<input required type="text" placeholder="Select"
+							class="item_name form-control mw-100 ledgerselecct mb-25" />
+					</td>
+					<td class="poprod-decpt">
+						<input type="hidden" class="attribute">
+						<div class="d-flex flex-wrap gap-1" id="attribute-badges"></div>
+					</td>
+					<td>
+						<select class="uom form-select mw-100" name="uom[]" required></select>
+					</td>
+					<td>
+						<input type="number" class="qty form-control mw-100" name="qty[]" required />
+					</td>
+				</tr>`;
 
-															<td class="poprod-decpt">
-																<input type="hidden" class="attribute">
-																<div class="d-flex flex-wrap gap-1" id="attribute-badges">
-																	<!-- Attribute badges will be displayed here -->
-																</div>
-															</td>
-															<td>
-																<select class="uom form-select mw-100" name="uom[]" required>
-
-																</select>
-															</td>
-															<td><input type="number" class="qty form-control mw-100"  name="qty[]"
-																	required /></td>
-														</tr>																  `;
 			$('.mrntableselectexcel').append(newRow);
 			initAutoForItem('.item_code');
-
 		});
+
+
 		$('#delete').on('click', function () {
 			let $rows = $('.mrntableselectexcel tr');
 			let $checked = $rows.find('.row-check:checked');
