@@ -373,12 +373,12 @@
                             {{$html}}
                             <br/>
                         @endif
-                        @if(@$val?->item?->specifications->count())
-                            {{-- @foreach(@$val?->item?->specifications as $specification)
-                            @endforeach --}}
-                            {{ $val->item->specifications->pluck('value')->implode(', ') }}
-
-                            <br/>
+                        @if(isset($val->item->specifications))
+                            @foreach(@$val->item->specifications as $data)
+                                @if(isset($data->value))
+                                {{$data->specification_name}}:{{$data->value}}<br>
+                                @endif
+                            @endforeach
                         @endif
                         Code : {{ @$val->item_code }}<br/>
                         @if(isset($val->sow))Scope Of Work : {{ @$val->sow->item_name }}@endif

@@ -180,7 +180,7 @@
                     </td> --}}
                     <td
                         style=" vertical-align: top; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: left;word-break: break-word;">
-                        {{@$piItem?->item?->uom?->name}}
+                        {{@$piItem?->uom?->name}}
                     </td>
                     <td
                         style="vertical-align: top; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;word-break: break-word;">

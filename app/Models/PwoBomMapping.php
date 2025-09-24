@@ -36,7 +36,10 @@ class PwoBomMapping extends Model
     {
         return $this->belongsTo(BomDetail::class, 'bom_detail_id');
     }
-
+    public function pwo()
+    {
+        return $this->belongsTo(ErpProductionWorkOrder::class,'pwo_id');
+    }
     public function item()
     {
         return $this->belongsTo(Item::class,'item_id');

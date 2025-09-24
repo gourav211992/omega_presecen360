@@ -10,6 +10,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('/bom-vs-actual/download', [ProductionReportController::class, 'downloadBomVsActualWithOutfile'])->name('bomVsActual.download');
 
     Route::get('/getWithoutAttributesBom', [ProductionReportController::class, 'getWithoutAttributesBom'])->name('getWithoutAttributes');
+    Route::get('/syncAttributes', [ProductionReportController::class, 'syncAttributes'])->name('syncAttributes');
 
     // Report for Production Tracking
     Route::prefix('production-tracking')->group(function(){

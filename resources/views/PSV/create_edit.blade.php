@@ -1399,7 +1399,7 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                     </select>
                 </td>
                 <td class="numeric-alignment">
-                    <input type="text" id="item_physical_qty_${newIndex}" name="item_physical_qty[${newIndex}]" class="form-control mw-100 text-end"  oninput="setVariance(this,${newIndex}); setValue(${newIndex});" onblur="setFormattedNumericValue(this);">
+                    <input type="text" id="item_physical_qty_${newIndex}" name="item_physical_qty[${newIndex}]" class="form-control mw-100 text-end decimal-6"  oninput="setVariance(this,${newIndex}); setValue(${newIndex});" onblur="setFormattedNumericValue(this);">
                 </td>
                 <td class="numeric-alignment">
                     <input type="text" id="item_confirmed_qty_${newIndex}" name="item_confirmed_qty[${newIndex}]" class="form-control mw-100 text-end"  readonly>
@@ -1908,7 +1908,7 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                                         }
                                     }
                                     if(!$(`#item_variance_qty_${itemRowId}`).val() || (!$(`#item_physical_qty_${itemRowId}`).val() || $(`#item_physical_qty_${itemRowId}`).val() == 0)) {
-                                        $(`#item_variance_qty_${itemRowId}`).val(0-(data?.stocks?.confirmedStockAltUom));
+                                        $(`#item_variance_qty_${itemRowId}`).val(0-(data?.stocks?.confirmedStockAltUom)).toFixed(6);
                                     }
                                     else{
                                      setVariance(document.getElementById('item_physical_qty_' + itemRowId), itemRowId);
@@ -1975,11 +1975,12 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
 
             let varianceValue;
             if (isNaN(physicalQty) || physicalQty === "" || physicalQty === null) {
-                varianceValue = (0 - confirmedQty).toFixed(4);
+                varianceValue = (0 - confirmedQty).toFixed(6);
             } else {
-                varianceValue = (physicalQty - confirmedQty).toFixed(4);
+                varianceValue = (physicalQty - confirmedQty).toFixed(6);
             }
             variance.val(varianceValue);
+            const batchDetail = $(`#batches_${index}`).val("");
         }
         function setValue(index)
         {
@@ -2030,7 +2031,7 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                     success: function(data) {
                         var inputQtyBox = document.getElementById('item_confirmed_qty_' + itemRowId);
                         var actualQty = inputQtyBox.value;
-                        inputQtyBox.setAttribute('max-stock',data.stocks.confirmedStockAltUom);
+                        inputQtyBox.setAttribute('max-stock', parseFloat(data.stocks.confirmedStockAltUom).toFixed(6));
                         if (inputQtyBox.getAttribute('max-stock')) {
                             var maxStock = parseFloat(inputQtyBox.getAttribute('max-stock') ? inputQtyBox.getAttribute('max-stock') : 0);
                             if (maxStock <= 0) {
@@ -2129,7 +2130,7 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                                         icon: 'error',
                                     });
                                     // storeElement.setAttribute('data-stores', encodeURIComponent(JSON.stringify([])));
-                                    document.getElementById('item_confirmed_qty_' + itemRowId).value = 0.00;
+                                    document.getElementById('item_confirmed_qty_' + itemRowId).value = 0.00000;
                                     if (callOnClick) {
                                         onItemClick(itemRowId, callOnClick);
                                     }
@@ -3301,7 +3302,7 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
     }
     function setFormattedNumericValue(element)
     {
-        element.value = (parseFloat(element.value ? element.value  : 0)).toFixed(4)
+        element.value = (parseFloat(element.value ? element.value  : 0)).toFixed(6)
     }
 
     function initializeAutocompleteQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "") {
@@ -3725,9 +3726,13 @@ document.addEventListener('input', function (e) {
             value = '0' + value;
         }
 
-        // Limit to 2 decimal places
-        if (parts[1]?.length > 2) {
-            value = parts[0] + '.' + parts[1].substring(0, 2);
+         // Limit to 2 decimal places
+        if (parts[1]?.length > 6) {
+            if (e.target.classList.contains('decimal-6')) {
+                value = parts[0] + '.' + parts[1].substring(0, 6);
+            } else {
+                value = parts[0] + '.' + parts[1].substring(0, 2);
+            }
         }
 
         // Prevent exceeding the max limit
@@ -4808,7 +4813,7 @@ document.addEventListener('input', function (e) {
                         </select>
                     </td>
                     <td class="numeric-alignment">
-                        <input type="text" id="item_physical_qty_${index}" value="${physicalQty}" name="item_physical_qty[${index}]" class="form-control mw-100 text-end" oninput="setVariance(this, ${index});setValue(${index});">
+                        <input type="text" id="item_physical_qty_${index}" value="${physicalQty}" name="item_physical_qty[${index}]" class="form-control mw-100 text-end decimal-6" oninput="setVariance(this, ${index});setValue(${index});">
                     </td>
                     <td class="numeric-alignment">
                         <input type="text" id="item_confirmed_qty_${index}" value="0.00" name="item_confirmed_qty[${index}]" class="form-control mw-100 text-end" readonly>
@@ -5053,7 +5058,7 @@ function populateDataTable(items) {
                 <td><select class="form-select" readonly name="uom_id[]" id="uom_dropdown_${index}">
                 <option selected value="${item.uom_id}">${item.uom_code}</option></select></td>
                 <td class="numeric-alignment">
-                    <input type="text" id="item_physical_qty_${index}" value="${item.verified_qty}" name="item_physical_qty[${index}]" oninput='setVariance(this,${index});setValue(${index});' class="form-control physical_qty mw-100 text-end">
+                    <input type="text" id="item_physical_qty_${index}" value="${item.verified_qty}" name="item_physical_qty[${index}]" oninput='setVariance(this,${index});setValue(${index});' class="form-control physical_qty decimal-6 mw-100 text-end">
                 </td>
                 <td class="numeric-alignment">
                     <input type="text" id="item_confirmed_qty_${index}" 
@@ -5524,25 +5529,30 @@ $(document).on("click", ".submitAssetBtn", function () {
 function generateBatchRow(index, data = {} ,disabled = false) {
     const batchNumber = data.batch_number || "";
     const mfgYear = data.manufacturing_year || 0;
-    // Parse only the date part from expiry_date (e.g., "2025-09-23T00:00:00.000000Z" => "2025-09-23")
+
+    // Parse only the date part from expiry_date
     let expiryDate = "";
     if (data.expiry_date) {
         expiryDate = data.expiry_date.split('T')[0];
     }
+
     // Calculate qty: if not present, set to (totalBatchQty - sum of previous rows' qty)
     let qty = data.quantity;
     if (qty === undefined || qty === null || qty === "") {
-        // Get total batch qty from modal
         const totalBatchQty = parseFloat($("#totalBatchQty").text()) || 0;
-        // Sum previous rows' qty
+
         let prevQtySum = 0;
         $("#itemBatchTable tbody tr").each(function (i) {
             if (i < index) {
                 prevQtySum += parseFloat($(this).find(".batch-qty").val()) || 0;
             }
         });
-        qty = (totalBatchQty - prevQtySum) || "";
+
+        qty = (totalBatchQty - prevQtySum) || 0;
     }
+
+    // always keep qty to 6 decimals if numeric
+    qty = qty !== "" ? parseFloat(qty).toFixed(6) : "";
 
     if (disabled || (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}")) {
         setTimeout(() => {
@@ -5553,10 +5563,10 @@ function generateBatchRow(index, data = {} ,disabled = false) {
             $(".add-batch-row-header, .delete-batch-row-header").show();
         }, 0);
     }
-    if(order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}")
-    {
+    if (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") {
         $("#saveItemBatchBtn").hide();
     }
+
     return `
         <tr>
             <td>${index + 1}</td>
@@ -5586,9 +5596,10 @@ function generateBatchRow(index, data = {} ,disabled = false) {
             <td>
                 <input name='batch-qty[]' 
                     type="number" 
+                    step="0.000001"
                     ${disabled || (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") ? "disabled" : ""} 
                     class="form-control mw-100 batch-qty" 
-                    value="${qty}" 
+                    value="${qty}"
                 >
             </td>
             <td class="text-center">

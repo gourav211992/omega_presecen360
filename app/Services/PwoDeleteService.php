@@ -4,9 +4,7 @@ namespace App\Services;
 use App\Models\PwoSoMapping;
 use App\Models\ErpPwoItem;
 use App\Models\ErpProductionWorkOrderHistory;
-use App\Models\PwoStationConsumption;
-use App\Models\ErpPwoDynamicFieldHistory;
-use App\Models\PwoBomMappingHistory;
+
 
 class PwoDeleteService
 {
@@ -38,7 +36,7 @@ class PwoDeleteService
             $pwoHistory->items()->delete();
 
             // Delete related dynamic fields
-            ErpPwoDynamicFieldHistory::where('header_id', $pwoHistory->id)->delete();
+            // ErpPwoDynamicFieldHistory::where('header_id', $pwoHistory->id)->delete();
             $pwoHistory->delete();
         }
     }
@@ -73,17 +71,14 @@ class PwoDeleteService
             if ($result['status'] === 'error') {
                 return $result;
             }
-
             // Delete  product
-            try {
+        
                  if($pwoSoMapping->soItem) {
                         $pwoSoMapping->soItem->pwo_qty -= $pwoSoMapping->inventory_uom_qty; 
                         $pwoSoMapping->soItem->save();
                     }
                 $pwoSoMapping->delete();
-            } catch (\Throwable $e) {
-                return self::errorResponse("Failed to delete PWO product item ID {$pwoSoMapping->id}: " . $e->getMessage());
-            }
+         
         }
 
         return self::successResponse("Production Work Order deleted successfully.");
@@ -98,12 +93,10 @@ class PwoDeleteService
             // Not an error: just no mapping to update
             return self::successResponse("No PWO Consumption found for this PWO product item.");
         }
-        try {
+     
             $pwoSoMapping?->pwoStationConsumption()->delete();
             return self::successResponse("PWO Station consumption updated successfully.");
-        } catch (\Throwable $e) {
-            return self::errorResponse("Failed to update PWO Station consumption: " . $e->getMessage());
-        }
+       
     }
 
     /**
@@ -111,9 +104,10 @@ class PwoDeleteService
      */
     private function cleanupPwoBomItems($pwoSoMapping)
     {
-        try {
+       
 
-            $groupedItems = $pwoSoMapping->pwoBomMapping()->groupBy('pwo_id','item_id','attributes','uom_id')->selectRaw('pwo_id, item_id, attributes, uom_id, SUM(qty) as total_qty')->get();
+            $groupedItems = $pwoSoMapping->pwoBomMapping()->get();
+          
             foreach($groupedItems as $groupedItem) {
                 $pwoItem = ErpPwoItem::where('pwo_id', $groupedItem->pwo_id)
                     ->where('item_id', $groupedItem->item_id)
@@ -126,18 +120,17 @@ class PwoDeleteService
                             });
                         }
                     })
-                    ->first();
-
-                    
-                    $pwoItem?->attributes()?->delete();
-                    $pwoItem->delete();
-                $groupedItem->delete();
+                    ->get();
+                 
+                    foreach($pwoItem as $pwoItem) {
+                        $pwoItem?->attributes()?->delete();
+                        $pwoItem->delete();
+                    }
+                    $groupedItem->delete();
             }
 
             return self::successResponse("PWO BOM cleaned successfully.");
-        } catch (\Throwable $e) {
-            return self::errorResponse("Failed to clean PWO BOM items: " . $e->getMessage());
-        }
+       
     }
 
     /**

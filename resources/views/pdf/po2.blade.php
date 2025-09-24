@@ -344,9 +344,12 @@
                                 {{ $html }}
                             @endif
                             <br />
-                            @if (@$val?->item?->specifications->count())
-                                {{ $val->item->specifications->pluck('value')->implode(', ') }}
-                                <br />
+                            @if(isset($val->item->specifications))
+                                @foreach(@$val->item->specifications as $data)
+                                    @if(isset($data->value))
+                                    {{$data->specification_name}}:{{$data->value}}<br>
+                                    @endif
+                                @endforeach
                             @endif
                             Code : {{ @$val->item_code }}
                             <br />

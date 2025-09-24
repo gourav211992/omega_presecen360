@@ -28,13 +28,7 @@ class ErpRateContractRequest extends FormRequest
             'rate_contract_id' => 'nullable|numeric|integer',
             
             'book_id' => 'required|numeric|integer|exists:erp_books,id',
-            'document_no' => [
-                'required',
-                Rule::unique('erp_rate_contracts', 'document_number')
-                    ->ignore($this->rate_contract_id, 'id')
-                    ->where('book_id', $this->input('book_id')), // Fixed direct variable access
-            ],
-            
+            'document_no' => ['required'],
             'document_date' => 'required|date',
             'reference_no' => 'nullable|string',
 

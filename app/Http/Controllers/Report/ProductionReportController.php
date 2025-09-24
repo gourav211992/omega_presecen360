@@ -15,7 +15,12 @@ use App\Models\View\ProductionTracking;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\BomWithoutAttributesExport;
-
+use App\Models\Bom;
+use App\Models\PwoBomMapping;
+use App\Models\BomDetail;
+use App\Models\ErpSoItemBom;
+use App\Models\ErpProductionWorkOrder;
+use App\Models\ErpPwoItemAttribute;
 class ProductionReportController extends Controller
 {
         public function bomVsActualReport(Request $request)
@@ -241,19 +246,21 @@ class ProductionReportController extends Controller
 
     public function productionTrackingReport(Request $request)
     {
-        $user = Helper::getAuthenticatedUser(); 
-        $organizationId = $user->organization_id;
-        $organization   = Organization::find($organizationId);
-        $groupId        = $organization?->group_id ?? null;
-        $companyId      = $organization?->company_id ?? null;
+        $user = Helper::getAuthenticatedUser();
 
         if ($request->ajax()) {
            
         $query = ProductionTracking::query()
-                ->where('group_id', $groupId)
-                ->where('company_id', $companyId)
-                ->where('organization_id', $organizationId)
-                ->where('main_so_item', 1)
+                ->where('group_id', $user->group_id)
+                ->where('company_id', $user->company_id)
+                ->where('organization_id', $user->organization_id)
+                ->where(function ($q) {
+                    $q->whereNull('so_id')           
+                    ->orWhere(function ($q2) {     
+                        $q2->whereNotNull('so_id')
+                            ->where('main_so_item', 1);
+                    });
+                })
                 ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED)
                 ->orderByDesc('id'); 
                  if ($request->filled('date_range')) {
@@ -512,5 +519,112 @@ class ProductionReportController extends Controller
 
         $fileName = 'Bom_Without_Attributes_' . now()->format('Y_m_d_His') . '.xlsx';
         return Excel::download(new BomWithoutAttributesExport, $fileName);
+    }
+
+    public function syncAttributes()
+    {
+        $user = Helper::getAuthenticatedUser();
+        $pwos = ErpProductionWorkOrder::where('organization_id', $user->organization_id)
+                ->where('company_id', $user->company_id)
+                ->where('group_id', $user->group_id)
+                // ->where('id', 236)
+                ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED)
+                ->get();
+
+        if($pwos->isEmpty()){
+            return response()->json(['message' => 'No Production Work Orders found to sync attributes.'], 404);
+        }
+
+        foreach ($pwos as $pwo) {
+                $pwoBomMappings = PwoBomMapping::where('pwo_id', $pwo->id)
+                    ->with(['bomDetail'])->get();
+
+                foreach ($pwoBomMappings as $mapping) {
+                   
+                    if (!$mapping->bomDetail) {
+                        continue; // Skip if no BOM detail found
+                    }
+                    $bomDetail=$mapping->bomDetail;
+        
+                    if ($bomDetail instanceof \App\Models\BomDetail) {
+                        $bomAttributes = $bomDetail->attributes->map(fn($attribute) => [
+                            'attribute_id' => intval($attribute->item_attribute_id),
+                            'attribute_value' => intval($attribute->attribute_value),
+                            'attribute_name' => intval($attribute->attribute_name),
+                        ])->toArray();
+    
+                    } elseif ($bomDetail instanceof \App\Models\ErpSoItemBom) {
+                        $bomAttributes = array_map(function ($attribute) {
+                            return [
+                                'attribute_id' => intval($attribute['attribute_id']),
+                                'attribute_value' => intval($attribute['attribute_value_id']),
+                                'attribute_name' => intval($attribute['attribute_group_id']),
+                            ];
+                        }, $bomDetail->item_attributes ?? []);
+                       
+                    }
+                    $mapping->attributes = $bomAttributes;
+                    $mapping->save();
+
+                }
+               
+            // update item attributes
+            $groupedDatas = DB::table('erp_pwo_bom_mapping')->selectRaw('pwo_id, so_id, item_id, item_code, uom_id, attributes, SUM(qty) as total_qty')
+                    ->where('pwo_id', $pwo->id)
+                    ->groupBy('pwo_id', 'so_id', 'item_id', 'item_code', 'uom_id', 'attributes')
+                    ->get();
+
+            foreach ($groupedDatas as $groupedData) {
+                $pwoItem = DB::table('erp_pwo_items')
+                        ->where('pwo_id', $groupedData->pwo_id)
+                        ->where('so_id', $groupedData->so_id)
+                        ->where('item_id', $groupedData->item_id)
+                        ->where('item_code', $groupedData->item_code)
+                        ->where('uom_id', $groupedData->uom_id)
+                        ->where('inventory_uom_id', $groupedData->uom_id)
+                        ->get();
+
+                    if (empty($pwoItem) || count($pwoItem) == 0) {
+                        continue;
+                    }
+
+                $pwoItemAttributes = $groupedData->attributes 
+                    ? json_decode($groupedData->attributes, true) 
+                    : [];
+
+                foreach ($pwoItem as $pwoItems) {
+                foreach ($pwoItemAttributes as $attr) {
+
+                    // Check if the attribute already exists
+                    $existing = ErpPwoItemAttribute::where('pwo_id', $groupedData->pwo_id)
+                        ->where('pwo_item_id', $pwoItems->id)
+                        ->where('item_id', $groupedData->item_id)
+                        ->where('item_code', $groupedData->item_code)
+                        ->first();
+
+                    if($existing) {
+                        $existing->update([
+                            'item_attribute_id' => $attr['attribute_id'] ?? null,
+                            'attribute_group_id'=> $attr['attribute_name'] ?? null,
+                            'attribute_id'      => $attr['attribute_value'] ?? null,
+                        ]);
+                    }
+                    else {
+                        ErpPwoItemAttribute::create([
+                            'pwo_id'            => $groupedData->pwo_id,
+                            'pwo_item_id'       => $pwoItems->id,
+                            'item_id'           => $groupedData->item_id,
+                            'item_code'         => $groupedData->item_code,
+                            'item_attribute_id' => $attr['attribute_id'] ?? null,
+                            'attribute_group_id'=> $attr['attribute_name'] ?? null,
+                            'attribute_id'      => $attr['attribute_value'] ?? null,
+                        ]);
+                    }
+                    }
+                }
+            }
+        }
+
+        return response()->json(['message' => 'Attributes synchronized successfully.']);
     }
 }

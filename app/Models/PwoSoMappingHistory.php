@@ -88,7 +88,10 @@ class PwoSoMappingHistory extends Model
     {
         return $this->belongsTo(ErpSaleOrder::class,'so_id');
     }
-
+        public function pwoStationConsumption()
+    {
+        return $this->hasMany(PwoStationConsumptionHistory::class,'pwo_mapping_id');
+    }
         public function store()
     {
         return $this->belongsTo(ErpStore::class, 'store_id');

@@ -189,7 +189,7 @@ class PWOController extends Controller
                 // $soIds = [];
                 foreach($request->all()['components'] as $component) {
                     # Save PWO SO Mapping
-                    // $soIds[] = $component['so_id'];
+                
                     $item = Item::find($component['item_id'] ?? null);
                     $pwoSoMapping = new PwoSoMapping;
                     $pwoSoMapping->pwo_id = $mo->id;
@@ -200,12 +200,6 @@ class PWOController extends Controller
                         $pwoSoMapping->so_item_id = $component['so_item_id'] ?? null;
                     }
                     $pwoSoMapping->store_id = $component['store_id'] ?? null;
-                    // if(intval($component['main_so_item'])) {
-                    // if (!empty(intval($component['main_so_item']))) {
-                    //     $pwoSoMapping->main_so_item = true;
-                    // } else {
-                    //     $pwoSoMapping->main_so_item = false;
-                    // }
                     $pwoSoMapping->main_so_item = isset($component['main_so_item']) && intval($component['main_so_item']) != 0;
                     $pwoSoMapping->item_id = $component['item_id'] ?? null;
                     $pwoSoMapping->item_code = $component['item_code'] ?? null;
@@ -996,20 +990,23 @@ class PWOController extends Controller
                     ->where('item_id', $groupedData->item_id)
                     ->where('uom_id', $groupedData->uom_id)
                     ->where(function($query) use($groupedData) {
-                        if(count($groupedData->attributes)) {
-                            $query->whereHas('attributes', function($pwoItemAttrQuery) use($groupedData) {
-                                foreach($groupedData->attributes as $attribute) {
-                                    $pwoItemAttrQuery->where('item_attribute_id', $attribute['attribute_id'])
-                                    ->where('attribute_id', $attribute['attribute_value']);
-                                }
-                            });
-                        }
-                        if($groupedData?->so_id) {
-                            $query->where('so_id', $groupedData->so_id);
-                        }
+                           if (!empty($groupedData->attributes) && is_countable($groupedData->attributes)) {
+                                $query->whereHas('attributes', function ($pwoItemAttrQuery) use ($groupedData) {
+                                    $pwoItemAttrQuery->where(function ($attrSubQuery) use ($groupedData) {
+                                        foreach ($groupedData->attributes as $attribute) {
+                                            $attrSubQuery->orWhere(function ($sub) use ($attribute) {
+                                                $sub->where('item_attribute_id', $attribute['attribute_id'])
+                                                    ->where('attribute_id', $attribute['attribute_value']);
+                                            });
+                                        }
+                                    });
+                                });
+                            }
+                            if($groupedData?->so_id) {
+                                $query->where('so_id', $groupedData->so_id);
+                            }
                     })
                     ->first();
-
                     if($pwoItemExist) {
                         $pwoItemExist->order_qty = $groupedData->total_qty;
                         $pwoItemExist->inventory_uom_qty = $groupedData->total_qty;
@@ -1672,41 +1669,38 @@ class PWOController extends Controller
         if (!$amendment && $pwo->document_status !== ConstantHelper::DRAFT) {
             return response()->json(['status' => false, 'message' => 'Only draft documents can be deleted.'], 422);
         }
-        \DB::beginTransaction();
+        DB::beginTransaction();
         try {
           
             
             $pwoDeleteService = new PwoDeleteService();
             // Safe handling if no items exist
-            $deletedData['deletedPiItemIds'] = $pwo->PwoSoMapping?->pluck('id')->toArray() ?? [];
-            
+            $deletedData['deletedPiItemIds'] = $pwo->mapping?->pluck('id')->toArray() ?? [];
             $response = $pwoDeleteService->deletePwoItems($deletedData, $pwo);
             // Delete all history 
             if ($response['status'] === 'error') {
-                \DB::rollBack();
+                DB::rollBack();
                 return response()->json(['status' => false, 'message' => $response['message']], 422);
             }
             $pwoDeleteService->deletePwoHistory($pwo);
-
             $pwo->delete();
 
-            \DB::commit();
+            DB::commit();
 
             return response()->json(['status' => true, 'message' => 'Document deleted successfully.'], 200);
 
         } catch (\Exception $e) {
-            \DB::rollBack();
+            DB::rollBack();
          
             return response()->json([
                 'status'  => false,
-                'message' => 'Error deleting Manufacturing Order: ' . $e->getMessage(),
+                'message' => 'Error deleting PWO Order: ' . $e->getMessage(),
             ], 500);
         }
     }
       public function setPwoAttributes(){
       
       $groupedDatas = DB::table('erp_pwo_bom_mapping')->selectRaw('pwo_id, so_id, item_id, item_code, uom_id, attributes, SUM(qty) as total_qty')
-                //  ->where('pwo_id', 236)
                  ->groupBy('pwo_id', 'so_id', 'item_id', 'item_code', 'uom_id', 'attributes')
                  ->get();
 
@@ -1768,5 +1762,15 @@ class PWOController extends Controller
 
          return 'done';
    }
+        public function updateSoitem($id, Request $request){
+           
 
+            $soItem = ErpSoItem::where('pwo_id', $id)->update('pwo_qty', 0);
+            if (!$soItem) {
+                return response()->json(['status' => false, 'message' => 'SO Item not found.'], 404);
+            }
+
+            
+            return response()->json(['status' => true, 'message' => 'SO Item updated successfully.'], 200);
+        }
 }

@@ -664,7 +664,7 @@ class ErpPSVController extends Controller
                         $manufacturingYear = (int)($batchDetail['manufacturing_year'] ?? 0);
                         $expiryDate = $batchDetail['expiry_date'] ?? null;
                         $batchQty = $batchDetail['quantity'] ?? 0;
-                        $remainingQty = $adjustedQty-$batchQty;
+                        $remainingQty = round($adjustedQty - $batchQty, 6);
                         // Manufacturing year validation: must be 0 (for null) or between 2000 and current year
                         if ($manufacturingYear !== 0 && ($manufacturingYear < 2000 || $manufacturingYear > $currentYear)) {
                             DB::rollBack();
