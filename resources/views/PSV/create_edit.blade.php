@@ -18,6 +18,38 @@
     #uploadProgressBar {
         transition: width 0.4s ease;
     }
+    #item-batch-modal .table-responsive {
+        overflow-y: auto;
+        max-height: 300px;
+        /* Set the height of the scrollable body */
+        position: relative;
+    }
+
+    #item-batch-modal .po-order-detail {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    #item-batch-modal .po-order-detail thead {
+        position: sticky;
+        top: 0;
+        /* Stick the header to the top of the table container */
+        background-color: white;
+        /* Optional: Make sure header has a background */
+        z-index: 1;
+        /* Ensure the header stays above the body content */
+    }
+
+    #item-batch-modal .po-order-detail th {
+        background-color: #f8f9fa;
+        /* Optional: Background for the header */
+        text-align: left;
+        padding: 8px;
+    }
+
+    #item-batch-modal .po-order-detail td {
+        padding: 8px;
+    }
 </style>
     <!-- BEGIN: Content-->
     <form method="POST" data-completionFunction = "disableHeader" class="ajax-input-form sales_module_form material_issue" action = "{{route('psv.store')}}" data-redirect="{{ $redirect_url }}" id = "sale_invoice_form" enctype='multipart/form-data'>
@@ -186,9 +218,9 @@
                                             </div>
                                         </div>
 
-                                        <div class="row align-items-center mb-1 {{isset($order) && $order -> station_id ? '' : 'd-none'}}" id = "station_id_header">
+                                        <div class="row align-items-center mb-1 {{isset($order) && $order -> station_id ? '' : 'd-none'}}" id = "station_header">
                                             <div class="col-md-3"> 
-                                                <label class="form-label">Station</label>  
+                                                <label class="form-label">Station <span class="text-danger">*</span></label>  
                                             </div>  
                                             <div class="col-md-5">  
                                                 <select class="form-select disable_on_edit" name = "station_id" id = "station_id_input">
@@ -661,9 +693,14 @@
         </div>
     </div>
 </div>
-
+{{-- Item Batch --}}
+{{-- Asset Detail Modal --}}
+@include('PSV.modals')
+{{-- End Asset Detail Modal --}}
 @section('scripts')
 <script type="text/javascript" src="{{asset('app-assets/js/file-uploader.js')}}"></script>
+<script type="text/javascript" src="{{ asset('assets/js/modules/asset-registration.js') }}"></script>
+    
 {{-- 
 $(document).ready(function () {
     // File selection and preview
@@ -725,6 +762,14 @@ $(document).ready(function () {
 --}}
 
 <script>
+    // Keep batches per row
+    let itemBatches = {};
+    let currentBatchRowIndex = null;
+
+    // Keep asset details per row
+    let assetDetails = {};
+    let currentAssetRowIndex = null;
+
         $(window).on('load', function() {
             if (feather) {
                 feather.replace({
@@ -1170,7 +1215,8 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                     setItemAttributes('items_dropdown_' + index, index,true);
                     let rateElement = document.getElementById('item_rate_' + index);
                     if (rateElement && response.item.sell_price) {
-                        rateElement.value = parseFloat(response.item.sell_price);
+                        console.log('item-rate-', index, response.item.sell_price);
+                        rateElement.value = parseFloat(response.item.sell_price ?? 0);
                         setValue(index);
                     }
                     onItemClick(index);
@@ -1255,14 +1301,26 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
             const previousElements = document.getElementsByClassName('item_header_rows');
             const newIndex = previousElements.length ? previousElements.length : 0;
             if (newIndex == 0) {
-                let addRow = $('#series_id_input').val() && $("#order_no_input").val() && $('#order_date_input').val() && $("#store_id_input").val() && $("#sub_store_id_input").val();
-                if (!addRow) {
-                Swal.fire({
-                    title: 'Error!',
-                    text: 'Please fill all the header details first',
-                    icon: 'error',
-                });
-                return;
+                let consumption = $("#sub_store_id_input").find(':selected').attr('consumption');
+                if (consumption && consumption == "yes") {
+                    if (!$("#station_id_input").val()) {
+                        Swal.fire({
+                            title: 'Error!',
+                            text: 'Select Station First',
+                            icon: 'error',
+                        });
+                        return;
+                    }
+                } else {
+                    let addRow = $('#series_id_input').val() && $("#order_no_input").val() && $('#order_date_input').val() && $("#store_id_input").val() && $("#sub_store_id_input").val();
+                    if (!addRow) {
+                        Swal.fire({
+                            title: 'Error!',
+                            text: 'Select Header Details First',
+                            icon: 'error',
+                        });
+                        return;
+                    }
                 }
                 $(".Item_Search_section").hide();
             } else {
@@ -1360,13 +1418,61 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                 </td>
                 <td>
                     <div class="d-flex">
-                        <div class="me-50 cursor-pointer" data-bs-toggle="modal" data-bs-target="#Remarks" onclick="setItemRemarks('item_remarks_${newIndex}');">
-                            <span data-bs-toggle="tooltip" data-bs-placement="top" title="Remarks" class="text-primary"><i data-feather="file-text"></i></span>
+                        <!-- Hidden Asset Detail Input -->
+                        <input type="hidden" name="assetDetailData[${newIndex}]" id="assetDetailData_${newIndex}" />
+
+                        <!-- Asset Detail Button -->
+                        <div class="cursor-pointer ms-50 text-success assetDetailBtn d-none"
+                            data-row-count="${newIndex}"
+                            data-bs-toggle="modal"
+                            data-bs-target="#assetDetailModal"
+                            title="Asset Detail">
+                            <span data-bs-toggle="tooltip" data-bs-placement="top" class="text-primary"
+                                data-bs-original-title="Asset Detail" aria-label="Asset Detail">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+                                    class="bi bi-clipboard-check" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd"
+                                        d="M10.854 6.146a.5.5 0 0 0-.708.708L11.293 8l-1.147 1.146a.5.5 0 0 0 .708.708L12 8.707l1.146 1.147a.5.5 0 0 0 .708-.708L12.707 8l1.147-1.146a.5.5 0 0 0-.708-.708L12 7.293 10.854 6.146z" />
+                                    <path
+                                        d="M10 1.5v1h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 0-2-2v-9a2 2 0 0 1 2-2h1v-1a1 1 0 1 1 2 0v1h2v-1a1 1 0 1 1 2 0zM5 4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H5z" />
+                                </svg>
+                            </span>
+                        </div>
+
+                        <!-- Hidden Batch Input -->
+                        <input type="hidden" id="batches_${newIndex}" name="batch_details[${newIndex}]" value="" />
+
+                        <!-- Batch Button -->
+                        <div class="me-50 cursor-pointer addBatchBtn"
+                            data-row-count="${newIndex}"
+                            data-is-batch-number=""
+                            data-is-expiry=""
+                            data-bs-toggle="modal"
+                            data-bs-target="#item-batch-modal">
+                            <span data-bs-toggle="tooltip" data-bs-placement="top" class="text-primary"
+                                data-bs-original-title="Item Batch" aria-label="Item Batch">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="feather feather-map-pin">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                            </span>
+                        </div>
+
+                        <!-- Remarks Button -->
+                        <div class="me-50 cursor-pointer" data-bs-toggle="modal" data-bs-target="#Remarks"
+                            onclick="setItemRemarks('item_remarks_${newIndex}');">
+                            <span data-bs-toggle="tooltip" data-bs-placement="top" title="Remarks" class="text-primary">
+                                <i data-feather="file-text"></i>
+                            </span>
                         </div>
                     </div>
+
+                    <!-- Hidden Remarks Input -->
                     <input type="hidden" id="item_remarks_${newIndex}" name="item_remarks[${newIndex}]">
                 </td>
-               
+
              </tr>
             `;
             tableElementBody.appendChild(newItemRow);
@@ -1533,7 +1639,7 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                     if (data.data && data.data.length > 0) {
                         let options = '<option value="" disabled selected>Select</option>';
                         data.data.forEach(function(subStore) {
-                            options += `<option value="${subStore.id}" ${subStore.id == sub_store_id ? 'selected' : ''}>${subStore.name}</option>`;
+                            options += `<option value="${subStore.id}" consumption="${subStore.station_wise_consumption}" ${subStore.id == sub_store_id ? 'selected' : ''}>${subStore.name}</option>`;
                         });
                         $('#sub_store_id_input').empty().html(options);
                     }
@@ -1551,6 +1657,51 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                     console.error('Error fetching sub-stores:', xhr.responseText);
                     }
                 });
+            }
+        });
+        $("#sub_store_id_input").on('change', function() {
+            let consumption = $(this).find(':selected').attr('consumption');
+            const subStoreId = $(this).val();
+            const station_id = "{{ isset($order) && $order->station_id ? $order->station_id : '' }}";
+            if (subStoreId && consumption && consumption.toLowerCase() == 'yes') {
+                $.ajax({
+                    url: "{{ route('stations.stocking.get.subStore') }}",
+                    method: 'GET',
+                    dataType: 'json',
+                    data: {
+                    sub_store_id: subStoreId,
+                    selected_id : station_id,
+                    },
+                    success: function(data) {
+                    console.log('station fetched successfully:', data);
+                    if (data.data && data.data.length > 0) {
+                        let options = '<option value="" disabled selected>Select</option>';
+                        $("#station_id_input").val('');
+                        data.data.forEach(function(station) {
+                            options += `<option value="${station.id}" ${station.id == station_id ? 'selected' : ''}>${station.name}</option>`;
+                        });
+                        $('#station_id_input').empty().html(options);
+                        $("#station_header").removeClass('d-none');
+                    }
+                    else{
+                        $('#station_id_input').empty();
+                        $("#station_id_input").val('');
+                        $("#station_id_input").html('');
+                        $("#station_header").addClass('d-none');
+                    }
+                    // Handle the response data as needed
+                    },
+                    error: function(xhr) {
+                        console.error('Error fetching sub-stores:', xhr.responseText);
+                    }
+                });
+            }
+            
+            else{
+                $('#station_id_input').empty();
+                $("#station_id_input").val('');
+                $("#station_id_input").html('');
+                $("#station_header").addClass('d-none');
             }
         });
 
@@ -1757,7 +1908,7 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                                         }
                                     }
                                     if(!$(`#item_variance_qty_${itemRowId}`).val() || (!$(`#item_physical_qty_${itemRowId}`).val() || $(`#item_physical_qty_${itemRowId}`).val() == 0)) {
-                                        $(`#item_variance_qty_${itemRowId}`).val(data?.stocks?.confirmedStockAltUom);
+                                        $(`#item_variance_qty_${itemRowId}`).val(0-(data?.stocks?.confirmedStockAltUom));
                                     }
                                     else{
                                      setVariance(document.getElementById('item_physical_qty_' + itemRowId), itemRowId);
@@ -1814,21 +1965,21 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                     }
         }
 
-        function setVariance(element,index)
+        function setVariance(element, index)
         {
-            const currentQty = parseFloat(element.value) || 0; // Get the current element's value
-            const variance = $(`#item_variance_qty_${index}`); // Get the next <td> element
-            const confirmedQty = $(`#item_confirmed_qty_${index}`).val();
-            if (variance) {
-                if (currentQty) {
-                    const varianceQty = parseFloat(variance.val()) || 0; // Get the next input's value
-                    variance.val((currentQty - confirmedQty ).toFixed(4)); // Subtract and update the value
-                    
-                }
-                else{
-                    variance.val(confirmedQty);
-                }
+            console.log('setVariance called for index:', index, ' element value:', element);
+            // Get physical qty (may be empty or not a number)
+            const physicalQty = parseFloat($(`#item_physical_qty_${index}`).val());
+            const confirmedQty = parseFloat($(`#item_confirmed_qty_${index}`).val()) || 0;
+            const variance = $(`#item_variance_qty_${index}`);
+
+            let varianceValue;
+            if (isNaN(physicalQty) || physicalQty === "" || physicalQty === null) {
+                varianceValue = (0 - confirmedQty).toFixed(4);
+            } else {
+                varianceValue = (physicalQty - confirmedQty).toFixed(4);
             }
+            variance.val(varianceValue);
         }
         function setValue(index)
         {
@@ -1922,7 +2073,6 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                        
                         const rateInput = document.getElementById('item_rate_' + itemRowId);
                         const valueInput = document.getElementById('item_value_' + itemRowId);
-
                         $.ajax({
                         url: "{{route('get_item_store_details')}}",
                             method: 'GET',
@@ -1936,7 +2086,8 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                                 header_id : "{{isset($order) ? $order -> id : null}}",
                                 detail_id : itemDetailId,
                                 store_id: $("#store_id_input").val(),
-                                sub_store_id : $("#item_sub_store_from_" + itemRowId).val()
+                                sub_store_id : $("#sub_store_id_input").val(),
+                                station_id: $("#station_id_input").val() || null,
                             },
                             success: function(data) {
                                 if (data?.stores && data?.stores?.records && data?.stores?.records?.length > 0 && data.stores.code == 200) {
@@ -1961,7 +2112,7 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                                     });
                                     var actualQty = qtyElement.value;
                                     if (actualQty > 0) {
-                                        totalRate = parseFloat(totalValue) / parseFloat(qty ? qty : qtyElement.value); 
+                                        totalRate = parseFloat(totalValue) / parseFloat(qty > 0 ? qty : qtyElement.value); 
                                         rateInput.value = parseFloat(totalRate).toFixed(2);
                                     } else {
                                         rateInput.value = 0.00;
@@ -2071,72 +2222,150 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
 
         function initializeAutocomplete1(selector, index) {
             $("#" + selector).autocomplete({
-                source: function(request, response) {
+                source: function (request, response) {
                     $.ajax({
                         url: '/search',
                         method: 'GET',
                         dataType: 'json',
                         data: {
                             q: request.term,
-                            type:'material_issue_items',
-                            customer_id : null,
-                            header_book_id : $("#series_id_input").val()
+                            type: 'batch_items',
+                            customer_id: null,
+                            header_book_id: $("#series_id_input").val()
                         },
-                        success: function(data) {
-                            response($.map(data, function(item) {
+                        success: function (data) {
+                            response($.map(data, function (item) {
                                 return {
                                     id: item.id,
                                     label: `${item.item_name} (${item.item_code})`,
-                                    code: item.item_code || '', 
+                                    code: item.item_code || '',
+                                    rate: item.rate || null,
                                     item_id: item.id,
-                                    uom : item.uom,
-                                    alternateUoms : item.alternate_u_o_ms,
-                                    specifications : item.specifications
+                                    uom: item.uom,
+                                    alternateUoms: item.alternate_u_o_ms,
+                                    specifications: item.specifications,
+                                    is_asset: item.is_asset,
+                                    asset_name: item.item_name,
+                                    asset_category_id: item.asset_category_id,
+                                    asset_category_name: item.asset_category?.name,
+                                    brand_name: item.brand_name,
+                                    model_no: item.model_no,
+                                    estimated_life: item.expected_life,
+                                    salvage_percentage: item.salvage_percentage ?? 0,
+                                    salvage_value: 0,
+                                    procurement_type: 'BUY',
+                                    is_batch_number: item.is_batch_no,
+                                    is_expiry: item.is_expiry,
+                                    is_attr: item.is_attr,
+                                    hsn_id: item.hsn_id,
+                                    hsn_code: item.hsn_code,
+                                    is_inspection: item.is_inspection
                                 };
                             }));
                         },
-                        error: function(xhr) {
+                        error: function (xhr) {
                             console.error('Error fetching customer data:', xhr.responseText);
                         }
                     });
                 },
                 minLength: 0,
-                select: function(event, ui) {
-                    var $input = $(this);
-                    var itemCode = ui.item.code;
-                    var itemName = ui.item.value;
-                    var itemId = ui.item.item_id;
+                select: function (event, ui) {
+                    let $input = $(this);
+                    let closestTr = $input.closest("tr");
 
-                    $input.attr('data-name', itemName);
-                    $input.attr('data-code', itemCode);
-                    $input.attr('data-id', itemId);
-                    $input.attr('specs', JSON.stringify(ui.item.specifications));
-                    $input.val(itemCode);
+                    // --- Fill inputs ---
+                    $input.attr("data-name", ui.item.label);
+                    $input.attr("data-code", ui.item.code);
+                    $input.attr("data-id", ui.item.item_id);
+                    $input.attr("specs", JSON.stringify(ui.item.specifications));
+                    $input.val(ui.item.code);
 
+                    // Hidden item_id
+                    closestTr.find(`#${selector}_value`).val(ui.item.item_id);
+
+                    // Item name field
+                    closestTr.find(`#items_name_${index}`).val(ui.item.label);
+                    closestTr.find(`#item_rate_${index}`).val(ui.item.rate ?? 0);
+
+                    // HSN & Inspection (if you have hidden fields for them, adapt here)
+                    closestTr.find('[name*=hsn_id]').val(ui.item.hsn_id || '');
+                    closestTr.find('[name*=hsn_code]').val(ui.item.hsn_code || '');
+
+                    // --- UOM Dropdown ---
                     const uomDropdown = document.getElementById('uom_dropdown_' + index);
-                    var uomInnerHTML = ``;
-                    if (uomDropdown) {
-                        uomInnerHTML += `<option selected value = '${ui.item.uom.id}'>${ui.item.uom.alias}</option>`;
+                    let uomId = ui.item.uom?.id || ui.item.uom_id;
+                    let uomName = ui.item.uom?.alias || ui.item.uom_name;
+                    let uomOption = `<option value="${uomId}" selected>${uomName}</option>`;
+
+                    if (ui.item.alternateUoms) {
+                        ui.item.alternateUoms.forEach(alterItem => {
+                            uomOption += `<option value="${alterItem.uom_id}" ${alterItem.is_purchasing ? 'selected' : ''}>${alterItem.uom?.name}</option>`;
+                        });
                     }
-                    
-                    uomDropdown.innerHTML = uomInnerHTML;
+                    if (uomDropdown) {
+                        uomDropdown.innerHTML = uomOption;
+                    }
+                    console.log(ui.item);
+                    // --- Batch setup ---
+                    closestTr.find('.addBatchBtn')
+                        .attr("data-is-batch-number", ui.item.is_batch_number)
+                        .attr("data-is-expiry", ui.item.is_expiry);
+
+                    // --- Asset setup ---
+                    if (ui.item.is_asset === 1) {
+                        const assetPayload = {
+                            asset_id: null,
+                            asset_name: ui.item.asset_name ?? '',
+                            asset_category_id: ui.item.asset_category_id ?? null,
+                            asset_category_name: ui.item.asset_category_name ?? '',
+                            asset_code: null,
+                            brand_name: ui.item.brand_name ?? '',
+                            model_no: ui.item.model_no ?? '',
+                            estimated_life: ui.item.estimated_life ?? '',
+                            salvage_percentage: ui.item.salvage_percentage ?? 0,
+                            procurement_type: ui.item.procurement_type ?? null,
+                            capitalization_date: new Date().toISOString().split('T')[0]
+                        };
+                        closestTr.find(`#assetDetailData_${index}`).val(JSON.stringify(assetPayload));
+                        closestTr.find('.assetDetailBtn')
+                            .removeClass('d-none')
+                            .attr('data-asset', JSON.stringify(assetPayload));
+                    } else {
+                        closestTr.find(`#assetDetailData_${index}`).val('');
+                        closestTr.find('.assetDetailBtn')
+                            .addClass('d-none')
+                            .removeAttr('data-asset');
+                    }
+
+                    // --- Attributes ---
                     itemOnChange(selector, index, '/item/attributes/');
+
+                    setTimeout(() => {
+                        if (ui.item.is_attr) {
+                            $(`#attribute_button_${index}`).trigger("click");
+                        } else {
+                            $(`#attribute_button_${index}`).trigger("click");
+                            $(`#item_physical_qty_${index}`).val('').focus();
+                        }
+                    }, 100);
+
                     return false;
                 },
-                change: function(event, ui) {
+                change: function (event, ui) {
                     if (!ui.item) {
                         $(this).val("");
-                        // $('#itemId').val('');
-                        $(this).attr('data-name', '');
-                        $(this).attr('data-code', '');
+                        $(this).attr("data-name", "");
+                        $(this).attr("data-code", "");
+                        $(this).attr("data-id", "");
                     }
                 }
-            }).focus(function() {
+            }).focus(function () {
                 if (this.value === "") {
                     $(this).autocomplete("search", "");
                 }
             });
-    }
+        }
+
 
     function initializeAutocompleteAutoUser(selector) {
             $("#" + selector).autocomplete({
@@ -3631,14 +3860,6 @@ document.addEventListener('input', function (e) {
         if (type === 'to') 
         {
             let typeAttribute = element.options[element.selectedIndex].getAttribute('store-type');
-            if (typeAttribute == 'Shop floor')
-            {
-                $("#station_id_header").removeClass('d-none');
-            }
-            else
-            {
-                $("#station_id_header").addClass('d-none');
-            }
             onHeaderToLocationChange(element);
         } else {
             onHeaderFromLocationChange(element);
@@ -4162,7 +4383,6 @@ document.addEventListener('input', function (e) {
             }
         }
     }
-
     function checkOrRecheckAllItems(element)
     {
         const allRowsCheck = document.getElementsByClassName('item_row_checks');
@@ -4395,7 +4615,7 @@ document.addEventListener('input', function (e) {
                 <input type = "hidden" name = "attribute_value_${currentItemIndex}" />
             `;
         }
-        
+        setVariance($(`item_physical_qty_${currentItemIndex}`),currentItemIndex);
     }
 
     // Opens import modal with store/type/header context
@@ -5000,6 +5220,413 @@ $(document).on('click', '#pagination-wrapper .pagination a', function (e) {
         customPaginate(url);
     }
 });
+
+// Open batch modal
+$(document).on("click", ".addBatchBtn", function (e) {
+    e.preventDefault();
+    const rowIndex = $(this).data("row-count");
+    const isExpiry = $(this).data("is-expiry") || 0;
+    const batchset = $(this).data("is-batch-number") == 1 ? false : true;
+    currentBatchRowIndex = rowIndex;
+
+    $("#itemBatchRowIndex").val(rowIndex);
+    $("#itemBatchIsExpiry").val(isExpiry);  
+    $("#itemBatchIsEdit").val($(this).data('is-batch-number') || '0');
+    const item = $(`#items_dropdown_${rowIndex}`).val();
+    if (!item) {
+        $("#item-batch-modal").modal("hide");
+        Swal.fire({
+            title: 'Error!',
+            text: 'Please select an Item first.',
+            icon: 'error',
+        });
+        return;
+    }
+    const total_qty = $(`#item_variance_qty_${rowIndex}`).val();
+    if(!total_qty || total_qty <= 0) {
+        $("#item-batch-modal").modal("hide");
+        Swal.fire({
+            title: 'Error!',
+            text: 'Please enter a positive Variance Quantity before adding batches.',
+            icon: 'error',
+        });
+        return;
+    }
+    // Clear table
+    $("#itemBatchTable tbody").empty();
+
+    // Load existing batches if any
+    let batchVal = $("#batches_" + rowIndex).val();
+    let existing = [];
+    try {
+        if (batchVal && /^[\[\{]/.test(batchVal)) {
+            existing = JSON.parse(batchVal);
+        }
+    } catch (e) {
+        existing = [];
+    }
+    console.log('existing', existing);
+    existing.forEach((batch, idx) => {
+        $("#itemBatchTable tbody").append(generateBatchRow(idx, batch , batchset) );
+    });
+
+    // Ensure one row exists
+    if (existing.length === 0) {
+        batchData = generateNewBatch(rowIndex);
+
+        $("#itemBatchTable tbody").append(generateBatchRow(0 , batchData , batchset) );
+    }
+    $("#totalBatchQty").text(total_qty);
+    $("#item-batch-modal").modal("show");
+    renderIcons();
+});
+
+// Add new batch row
+$(document).on("click", ".add-batch-row-header", function () {
+    const tbody = $("#itemBatchTable tbody");
+    const row = tbody.find("tr");
+    const index = row.length;
+    const totalQty = parseFloat($("#totalBatchQty").text()) || 0;
+
+    // Calculate current total batch qty
+    let batchQtySum = 0;
+    tbody.find(".batch-qty").each(function () {
+        batchQtySum += parseFloat($(this).val()) || 0;
+    });
+
+    // Only allow adding if batchQtySum < totalQty
+    if (batchQtySum >= totalQty) {
+        Swal.fire({
+            title: 'Error!',
+            text: 'Total batch quantity already matches Physical Quantity. Cannot add more batches.',
+            icon: 'error',
+        });
+        return;
+    }
+
+    tbody.append(generateBatchRow(index));
+});
+
+// Delete selected batch rows
+$(document).on("click", ".delete-batch-row-header", function () {
+    const tbody = $("#itemBatchTable tbody");
+    const checkedRows = tbody.find(".batch-row-check:checked");
+    const totalRows = tbody.find("tr").length;
+
+    // Prevent deleting if only one row remains
+    if (checkedRows.length >= totalRows) {
+        Swal.fire({
+            title: 'Error!',
+            text: 'At least one batch row must remain.',
+            icon: 'error',
+        });
+        return;
+    }
+
+    checkedRows.each(function () {
+        // Only remove if more than one row remains
+        if (tbody.find("tr").length > 1) {
+            const currentQty = parseFloat($(this).closest("tr").find(".batch-qty").val()) || 0;
+            const allRows = tbody.find("tr");
+            // Find the last row that is NOT being deleted
+            let lastAvailableRow = null;
+            allRows.each(function () {
+            const checkbox = $(this).find(".batch-row-check");
+            if (!checkbox.is(":checked")) {
+                lastAvailableRow = $(this);
+            }
+            });
+            // If found, move all qty to the last available row
+            if (lastAvailableRow && currentQty > 0) {
+            const lastQtyInput = lastAvailableRow.find(".batch-qty");
+            let lastQty = parseFloat(lastQtyInput.val()) || 0;
+            lastQtyInput.val(lastQty + currentQty);
+            }
+            $(this).closest("tr").remove();
+        }
+        });
+        // If only one row remains after deletion, ensure its qty equals totalBatchQty
+        if (tbody.find("tr").length === 1) {
+        const totalQty = parseFloat($("#totalBatchQty").text()) || 0;
+        tbody.find(".batch-qty").val(totalQty);
+        }
+
+    // re-index
+    tbody.find("tr").each(function (i) {
+        $(this).find("td:first").text(i + 1);
+    });
+});
+
+// Save batch modal
+$("#saveItemBatchBtn").on("click", function () {
+    const rowIndex = $("#itemBatchRowIndex").val();
+    let batches = [];
+    let errorMsg = "";
+    let totalBatchQty = 0;
+    let allFilled = true;
+
+    $("#itemBatchTable tbody tr").each(function () {
+        const batchNumber = $(this).find(".batch-number").val().trim();
+        const mfgYear = $(this).find(".mfg-year").val();
+        const expiryDate = $(this).find(".expiry-date").val();
+        const qty = $(this).find(".batch-qty").val();
+
+        if($("#itemBatchIsEdit").val() == "1")
+        {
+
+            // Check if batch number exists and is not repeated
+            if (!batchNumber) {
+                allFilled = false;
+                errorMsg = "Batch number is required.";
+            } else {
+                // Check for duplicate batch numbers in current modal
+                let batchNumbers = [];
+                $("#itemBatchTable tbody .batch-number").each(function () {
+                batchNumbers.push($(this).val().trim());
+                });
+                let batchNumberCount = batchNumbers.filter(bn => bn === batchNumber).length;
+                if (batchNumberCount > 1) {
+                allFilled = false;
+                errorMsg = "Batch number '" + batchNumber + "' is repeated.";
+                }
+            }
+
+            // Check manufacturing year range
+            const currentYear = new Date().getFullYear();
+            if (!mfgYear || mfgYear < 2000 || mfgYear > currentYear) {
+                allFilled = false;
+                errorMsg = "Manufacturing year must be between 2000 and " + currentYear + ".";
+            }
+
+            // Check expiry only if #itemBatchIsExpiry is set to 1
+            if ($("#itemBatchIsExpiry").val() == "1") {
+                if (!expiryDate) {
+                allFilled = false;
+                errorMsg = "Expiry date is required.";
+                } else {
+                // Expiry date must be greater than today
+                const today = new Date().toISOString().split('T')[0];
+                if (expiryDate <= today) {
+                    allFilled = false;
+                    errorMsg = "Expiry date must be greater than today.";
+                }
+                }
+            }
+
+            // Check quantity
+            if (!qty || qty <= 0) {
+                allFilled = false;
+                errorMsg = "Batch quantity must be greater than zero.";
+            }
+
+        }
+        if (batchNumber || qty) {
+            batches.push({
+                batch_number: batchNumber,
+                manufacturing_year: mfgYear,
+                expiry_date: expiryDate,
+                quantity: qty,
+            });
+            totalBatchQty += parseFloat(qty) || 0;
+        }
+    });
+
+
+
+    const expectedQty = parseFloat($("#totalBatchQty").text()) || 0;
+
+    // Only allow editable batches (where addBatchBtn has data-is-batch-number = 1)
+    const isBatchEditable = $(`.addBatchBtn[data-row-count="${rowIndex}"]`).data("is-batch-number") == 0;
+
+    if (!allFilled && isBatchEditable!=0) {
+        errorMsg = "Please fill all batch details before saving.";
+    } else if (totalBatchQty !== expectedQty) {
+        errorMsg = "Total batch quantity must match Physical Quantity.";
+    }
+
+    if (errorMsg) {
+        Swal.fire({
+            title: 'Error!',
+            text: errorMsg,
+            icon: 'error',
+        });
+        return; // Do not close modal or save
+    }
+
+    itemBatches[rowIndex] = batches;
+
+    // Save JSON to hidden input
+    $(`#batches_${rowIndex}`).val(JSON.stringify(batches));
+
+    // Close modal
+    $("#item-batch-modal").modal("hide");
+});
+
+/**
+ * ===========================
+ *  ASSET DETAIL MODAL LOGIC
+ * ===========================
+ */
+
+// Open asset modal
+$(document).on("click", ".assetDetailBtn", function () {
+    const rowIndex = $(this).data("row-count");
+    currentAssetRowIndex = rowIndex;
+
+    const modalBody = $(".asset-detail-modal-body");
+    modalBody.empty();
+
+    // Load existing details if any
+    const existing = assetDetails[rowIndex] || [];
+
+    if (existing.length === 0) {
+        modalBody.append(generateAssetRow(0));
+    } else {
+        existing.forEach((asset, idx) => {
+            modalBody.append(generateAssetRow(idx, asset));
+        });
+    }
+});
+
+// Submit asset modal
+$(document).on("click", ".submitAssetBtn", function () {
+    let assets = [];
+
+    $(".asset-detail-modal-body .asset-row").each(function () {
+        const serial = $(this).find(".asset-serial").val().trim();
+        const code = $(this).find(".asset-code").val().trim();
+        const desc = $(this).find(".asset-desc").val().trim();
+
+        if (serial || code || desc) {
+            assets.push({
+                serial_no: serial,
+                asset_code: code,
+                description: desc,
+            });
+        }
+    });
+
+    assetDetails[currentAssetRowIndex] = assets;
+
+    // Save JSON to hidden input
+    $(`#assetDetailData_${currentAssetRowIndex}`).val(JSON.stringify(assets));
+
+    // Close modal
+    $("#assetDetailModal").modal("hide");
+});
+/**
+ * ===========================
+ *  HELPERS
+ * ===========================
+ */
+
+// Generate batch row
+function generateBatchRow(index, data = {} ,disabled = false) {
+    const batchNumber = data.batch_number || "";
+    const mfgYear = data.manufacturing_year || 0;
+    // Parse only the date part from expiry_date (e.g., "2025-09-23T00:00:00.000000Z" => "2025-09-23")
+    let expiryDate = "";
+    if (data.expiry_date) {
+        expiryDate = data.expiry_date.split('T')[0];
+    }
+    // Calculate qty: if not present, set to (totalBatchQty - sum of previous rows' qty)
+    let qty = data.quantity;
+    if (qty === undefined || qty === null || qty === "") {
+        // Get total batch qty from modal
+        const totalBatchQty = parseFloat($("#totalBatchQty").text()) || 0;
+        // Sum previous rows' qty
+        let prevQtySum = 0;
+        $("#itemBatchTable tbody tr").each(function (i) {
+            if (i < index) {
+                prevQtySum += parseFloat($(this).find(".batch-qty").val()) || 0;
+            }
+        });
+        qty = (totalBatchQty - prevQtySum) || "";
+    }
+
+    if (disabled || (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}")) {
+        setTimeout(() => {
+            $(".add-batch-row-header, .delete-batch-row-header").hide();
+        }, 0);
+    } else {
+        setTimeout(() => {
+            $(".add-batch-row-header, .delete-batch-row-header").show();
+        }, 0);
+    }
+    if(order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}")
+    {
+        $("#saveItemBatchBtn").hide();
+    }
+    return `
+        <tr>
+            <td>${index + 1}</td>
+            <td><input name='batch-number[]' type="text" ${disabled || (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") ? "disabled" : ""} class="form-control mw-100 batch-number" value="${batchNumber}"></td>
+            <td>
+                <input name='batch-year[]' 
+                    type="number" 
+                    min="2000" 
+                    max="${new Date().getFullYear()}" 
+                    ${disabled || (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") ? "disabled" : ""} 
+                    class="form-control mw-100 mfg-year" 
+                    value="${mfgYear == 0 ? '' : mfgYear}" 
+                    placeholder="YYYY"
+                    oninput="if(this.value == '0'){this.value='';}"
+                >
+            </td>
+            <td>
+                <input name='batch-expiry[]' 
+                    type="date" 
+                    min="${new Date().toISOString().split('T')[0]}" 
+                    ${disabled || Number($("#itemBatchIsExpiry").val()) == 0 || (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") ? "disabled" : ""} 
+                    class="form-control mw-100 expiry-date" 
+                    value="${expiryDate}" 
+                    oninput="if(this.value && this.value <= '${new Date().toISOString().split('T')[0]}'){Swal.fire('Error','Expiry date must be greater than today','error');this.value='';}"
+                >
+            </td>
+            <td>
+                <input name='batch-qty[]' 
+                    type="number" 
+                    ${disabled || (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") ? "disabled" : ""} 
+                    class="form-control mw-100 batch-qty" 
+                    value="${qty}" 
+                >
+            </td>
+            <td class="text-center">
+                <input type="checkbox" ${(order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") ? "disabled" : ""} class="form-check-input batch-row-check">
+            </td>
+        </tr>
+    `;
+}
+
+// Generate asset row
+function generateAssetRow(index, data = {}) {
+    const serial = data.serial_no || "";
+    const code = data.asset_code || "";
+    const desc = data.description || "";
+
+    return `
+        <div class="row mb-2 asset-row">
+            <div class="col-md-3">
+                <input type="text" class="form-control w-100 asset-serial" placeholder="Serial No" value="${serial}">
+            </div>
+            <div class="col-md-3">
+                <input type="text" class="form-control w-100 asset-code" placeholder="Asset Code" value="${code}">
+            </div>
+            <div class="col-md-6">
+                <input type="text" class="form-control w-100 asset-desc" placeholder="Description" value="${desc}">
+            </div>
+        </div>
+    `;
+}
+
+function generateNewBatch(rowIndex) {
+    return {
+        batch_number:  $("#order_date_input").val()+"/"+$("#book_code_input").val()+"/"+$("#order_no_input").val(),
+        manufacturing_year: "0000",
+        expiry_date: "0000-00-00",
+        quantity: $("#item_variance_qty_"+rowIndex).val() || 0,
+    };
+}
 </script>
 @endsection
 @endsection

@@ -14,7 +14,7 @@
     </style>
 </head>
 <body>
-    <div style="width:100%; font-size: 11px; font-family:Arial;">
+    <div style="width:100%; font-size: 11px; font-family:'Arial', sans-serif;">
 
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
             <tr>
@@ -168,13 +168,13 @@
                         }
                     @endphp
                 <tr>
-                    <td colspan="{{ $colspan - 1 }}" style="padding: 6px; border-left: 1px solid #000; background: #80808070; text-align: left; font-weight: bold">
+                    <td colspan="{{ $colspan - 2 }}" style="padding: 6px; border-left: 1px solid #000; background: #80808070; text-align: left; font-weight: bold">
                         So NO : {{ isset($order->last_so()->book_code) ? $order->last_so()->book_code . '-' . $order->last_so()->document_number : '' }}<br>
                         So Date : {{ $order?->document_date ? date('d-M-y', strtotime($order->last_so()->document_date)) : '' }}
                     </td>
-                    <td colspan="1" style="padding: 6px; border-right: 1px solid #000; background: #80808070; text-align: left; font-weight: bold">
-                        Delivery Date : {{ isset($order?->soItem?->item_deliveries?->delivery_date) ? date('d-M-y', strtotime($order?->soItem?->item_deliveries?->delivery_date )) : '' }}<br>
-                        Party Order No:     {{ isset($val->so->reference_number) ? strtoupper($val->so->reference_number) : " " }}
+                    <td colspan="2" style="padding: 6px; border-right: 1px solid #000; background: #80808070; text-align: left; font-weight: bold">
+                        Delivery Date : {{ isset($order->moProducts?->first()?->soItem?->item_deliveries->first()->delivery_date) ? date('d-M-y', strtotime($order->moProducts?->first()?->soItem?->item_deliveries->first()->delivery_date )) : '' }}<br>
+                        Party Order No:     {{ isset($order->last_so()->reference_number) ? strtoupper($order->last_so()->reference_number) : " " }}
                     </td>
                 </tr>
 

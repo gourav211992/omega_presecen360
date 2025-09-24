@@ -61,9 +61,7 @@ use App\Helpers\ConstantHelper;
 use App\Models\GateEntryHeader;
 use App\Models\ProductionRoute;
 use App\Helpers\InventoryHelper;
-use App\Models\ERP\ErpConsignee;
 use App\Helpers\CostCenterHelper;
-use App\Models\ErpProductionSlip;
 use App\Models\ErpSubStoreParent;
 use App\Models\JobOrder\JobOrder;
 use App\Models\TermsAndCondition;
@@ -81,6 +79,7 @@ use Illuminate\Console\Events\CommandStarting;
 use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use App\Helpers\SubStore\Constants as SubStoreConstants;
 use App\Helpers\PackingList\Constants as PackingListConstants;
+use App\Models\ErpProductionSlip;
 
 class AutocompleteController extends Controller
 {
@@ -505,7 +504,7 @@ class AutocompleteController extends Controller
             } elseif ($type === 'scrap_comp_item') {
                 $results = Item::searchByKeywords($term)
                     ->where('status', ConstantHelper::ACTIVE)
-                    ->where('is_scrap', '1')
+                    ->where('is_scrap', '0')
                     ->with([
                     'itemAttributes:id',
                     'uom:id,name'
@@ -642,6 +641,69 @@ class AutocompleteController extends Controller
                     ->withCount('itemAttributes')
                     ->limit(10)
                     ->get(['id', 'item_name', 'item_code', 'uom_id']);
+            } elseif ($type === 'batch_items') {
+                $results = Item::searchByKeywords($term)
+                    ->when($request->customer_id, function ($custQuery) use ($request) {
+                        $custQuery->where(function ($query) use ($request) {
+                            $query->whereHas('approvedCustomers', function ($subQuery) use ($request) {
+                                $subQuery->where('customer_id', $request->customer_id);
+                            })
+                            ->orWhereDoesntHave('approvedCustomers');
+                        });
+                    })
+                    ->whereIn('type', [ConstantHelper::GOODS])
+                    ->with([
+                        'alternateUOMs.uom',
+                        'specifications',
+                        'uom:id,name',
+                        'assetCategory:id,name',
+                        'hsn:id,code'
+                    ])
+                    ->where('status', ConstantHelper::ACTIVE)
+                    ->with(['itemAttributes'])
+                    ->withCount('itemAttributes')
+                    ->limit(10)
+                    ->get([
+                        'id',
+                        'item_name',
+                        'item_code',
+                        'rate',
+                        'uom_id',
+                        'is_asset',
+                        'asset_category_id',
+                        'brand_name',
+                        'model_no',
+                        'expected_life',
+                        'salvage_percentage',
+                        'is_batch_no',
+                        'is_expiry',
+                        'is_attr',
+                        'hsn_id',
+                        'is_inspection'
+                    ])
+                    ->map(function ($item) {
+                        return [
+                            'id' => $item->id,
+                            'item_name' => $item->item_name,
+                            'item_code' => $item->item_code,
+                            'uom' => $item->uom,
+                            'alternate_u_o_ms' => $item->alternateUOMs,
+                            'specifications' => $item->specifications,
+                            'is_asset' => $item->is_asset,
+                            'asset_category_id' => $item->asset_category_id,
+                            'asset_category' => $item->assetCategory ? $item->assetCategory->name : null,
+                            'brand_name' => $item->brand_name,
+                            'model_no' => $item->model_no,
+                            'expected_life' => $item->expected_life,
+                            'salvage_percentage' => $item->salvage_percentage,
+                            'is_batch_no' => $item->is_batch_no,
+                            'is_expiry' => $item->is_expiry,
+                            'is_attr' => $item->is_attr,
+                            'hsn_id' => $item->hsn_id,
+                            'hsn_code' => $item->hsn ? $item->hsn->code : null,
+                            'is_inspection' => $item->is_inspection,
+                        ];
+                    });
             } elseif ($type === 'material_return_items') {
                 $results = Item::searchByKeywords($term)
                     -> when($request -> customer_id, function ($custQuery) use($request) {
@@ -2406,30 +2468,6 @@ class AutocompleteController extends Controller
                 $results = $query
                     ->limit(10)
                     ->get(['id', 'item_name', 'item_code', 'uom_id']);
-            } elseif ($type === 'consignee') {
-                $isVendor = $request->is_vendor;
-                $isCostumer = $request->is_customer;
-                $results = ErpConsignee::select('id', 'consignee_name', 'consignee_code')
-                    ->groupCheck($request->user())
-                    ->where('status', ConstantHelper::ACTIVE)
-                    ->when($isVendor, function ($termQuery) use ($isVendor) {
-                        $termQuery->where('is_vendor', $isVendor);
-                    })
-                    ->when($isCostumer, function ($termQuery) use ($isCostumer) {
-                        $termQuery->where('is_customer', $isCostumer);
-                    })
-                    ->when($term, function ($termQuery) use ($term) {
-                        $termQuery->where(function ($q) use ($term) {
-                            $q->where('consignee_name', 'LIKE', "%{$term}%")
-                              ->orWhere('consignee_code', 'LIKE', "%{$term}%")
-                              ->orWhere('email', 'LIKE', "%{$term}%")
-                              ->orWhere('phone', 'LIKE', "%{$term}%")
-                              ->orWhere('mobile', 'LIKE', "%{$term}%");
-                        });
-                    })
-                    ->with(['address'])
-                    ->limit(10)
-                    ->get();
             } else {
                 return response()->json(['error' => 'Invalid type specified'], 400);
             }

@@ -26,6 +26,8 @@ class ErpPsvHeader extends Model
         'store_id',
         'sub_store_id',
         'store_code',
+        'station_id',
+        'station_code',
         'sub_store_code',
         'doc_number_type',
         'doc_reset_pattern',
@@ -67,6 +69,10 @@ class ErpPsvHeader extends Model
     public function sub_store()
     {
         return $this->belongsTo(ErpSubStore::class, 'sub_store_id');
+    }
+    public function station()
+    {
+        return $this->belongsTo(Station::class, 'station_id');
     }
 
     public function currency()
@@ -124,6 +130,11 @@ class ErpPsvHeader extends Model
     public function dynamic_fields()
     {
         return $this -> hasMany(ErpPsvDynamicField::class, 'header_id');
+    }
+
+    public function batch_details()
+    {
+        return $this->hasMany(ErpPsvBatchDetail::class, 'header_id');
     }
     
 }

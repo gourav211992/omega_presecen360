@@ -21,6 +21,7 @@ use App\Models\AttributeGroup;
 use App\Models\AuthUser;
 use App\Helpers\DynamicFieldHelper;
 use App\Models\Category;
+use App\Models\ErpPsvBatchDetail;
 use App\Models\ErpPsvDynamicField;
 use App\Models\Country;
 use App\Models\Department;
@@ -362,6 +363,7 @@ class ErpPSVController extends Controller
                     'message' => 'Store is required.',
                 ], 400);
             }
+            
             DB::beginTransaction();
             $user = Helper::getAuthenticatedUser();
             $organization = Organization::find($user->organization_id);
@@ -401,20 +403,28 @@ class ErpPSVController extends Controller
     
             $store = ErpStore::find($request->store_id);
             $sub_store = ErpSubStore::find($request->sub_store_id);
+            if($sub_store){
+                if(strtolower($sub_store->station_wise_consumption) == 'yes' && !$request->filled('station_id')){
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Station is required for consumption store.',
+                    ], 400);
+                }
+            }
+            $station = Station::find($request->station_id ?? null);
             $vendor = Vendor::find($request->vendor_id);
-    
             if ($request->requester_type == 'User') {
                 $user = AuthUser::find($request->user_id);
             } else {
                 $department = Department::find($request->department_id);
             }
-    
             if ($isUpdate) {
                 $psv = ErpPsvHeader::find($request->psv_header_id);
                 $psv -> document_date = $request -> document_date;
                 //Store and department keys
                 $psv -> store_id = $request -> store_id ?? null;
                 $psv -> sub_store_id = $request -> sub_store_id ?? null;
+                $psv -> station_id = $request -> station_id ?? null;
                 $psv -> remarks = $request -> final_remarks;
                 $actionType = $request->action_type ?? '';
     
@@ -431,6 +441,7 @@ class ErpPSVController extends Controller
                     'document_date' => $request->document_date,
                     'store_id' => $request->store_id,
                     'sub_store_id' => $request->sub_store_id,
+                    'station_id' => $request->station_id,
                     'remarks' => $request->final_remarks,
                 ])->save();
     
@@ -453,8 +464,10 @@ class ErpPSVController extends Controller
                     'book_code' => $request->book_code,
                     'store_id' => $request->store_id,
                     'sub_store_id' => $request->sub_store_id,
+                    'station_id' => $request->station_id,
                     'store_code' => $store?->store_name,
                     'sub_store_code' => $sub_store?->name,
+                    'station_code' => $station?->name,
                     'doc_number_type' => $numberPatternData['type'],
                     'doc_reset_pattern' => $numberPatternData['reset_pattern'],
                     'doc_prefix' => $numberPatternData['prefix'],
@@ -617,6 +630,78 @@ class ErpPSVController extends Controller
                         'attr_value' => $attributeValId,
                     ]);
                     $itemAttributeIds[] = $itemAttribute->id;
+                }
+                // Handle batch_details from request (directly available as JSON string)
+                $itemBatchs = $request->batch_details[$itemKey] ?? null;
+                if (!$itemBatchs && $adjustedQty > 0) {
+                    
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Please provide batch details for item No. ' . ($itemKey + 1),
+                        'error' => ''
+                    ], 422);
+                }
+                else
+                {
+                    // If it's a string, decode it
+                    if (is_string($itemBatchs)) {
+                        $batchArray = json_decode($itemBatchs, true);
+                        if (json_last_error() !== JSON_ERROR_NONE || !is_array($batchArray)) {
+                            DB::rollBack();
+                            return response()->json([
+                                'message' => 'Invalid batch details format for item No. ' . ($itemKey + 1),
+                                'error' => ''
+                            ], 422);
+                        }
+                    } else {
+                        $batchArray = is_array($itemBatchs) ? $itemBatchs : [];
+                    }
+
+                    $currentYear = (int)date('Y');
+                    $today = date('Y-m-d');
+                    $remainingQty = $adjustedQty;
+                    foreach ($batchArray as $batchDetail) {
+                        $manufacturingYear = (int)($batchDetail['manufacturing_year'] ?? 0);
+                        $expiryDate = $batchDetail['expiry_date'] ?? null;
+                        $batchQty = $batchDetail['quantity'] ?? 0;
+                        $remainingQty = $adjustedQty-$batchQty;
+                        // Manufacturing year validation: must be 0 (for null) or between 2000 and current year
+                        if ($manufacturingYear !== 0 && ($manufacturingYear < 2000 || $manufacturingYear > $currentYear)) {
+                            DB::rollBack();
+                            return response()->json([
+                                'message' => 'Manufacturing year for item No. ' . ($itemKey + 1) . ' must be between 2000 and ' . $currentYear . ', or zero.',
+                                'error' => ''
+                            ], 422);
+                        }
+
+                        // Expiry date validation: must be today or in the future (if provided)
+                        if ($expiryDate && $expiryDate < $today) {
+                            DB::rollBack();
+                            return response()->json([
+                                'message' => 'Batch expiry date for item No. ' . ($itemKey + 1) . ' must be today or a future date.',
+                                'error' => ''
+                            ], 422);
+                        }
+
+                        $item_batch = ErpPsvBatchDetail::updateOrCreate([
+                            'detail_id' => $psvItem->id,
+                            'batch_number' => $batchDetail['batch_number'] ?? null,
+                        ], [
+                            'header_id' => $psv->id,
+                            'item_id' => $psvItem->item_id ?? null,
+                            'manufacturing_year' => $manufacturingYear > 0 ? $manufacturingYear : null,
+                            'expiry_date' => $expiryDate ?? null,
+                            'quantity' => $batchDetail['quantity'] ?? 0,
+                            'inventory_uom_qty' => ItemHelper::convertToBaseUom($psvItem->item_id,$psvItem->uom_id,$batchDetail['quantity']),
+                        ]);
+                    }
+                }
+                if($remainingQty != 0 && $adjustedQty > 0){
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Total batch quantity must equal to Variance quantity for item No. ' . ($itemKey + 1),
+                        'error' => ''
+                    ], 422);
                 }
             }
             if ($request->document_status == ConstantHelper::SUBMITTED) {
@@ -855,7 +940,7 @@ class ErpPSVController extends Controller
                 $currentOrder -> store_location_code = $currentOrder -> header -> store_location ?-> store_name;
                 $currentOrder -> avl_stock = $currentOrder -> getAvlStock($request -> store_id_from);
                 $currentOrder -> department_code = $currentOrder ?-> header ?-> department ?-> name;
-                $currentOrder -> station_name = $currentOrder ?-> header ?-> station ?-> name;
+                $currentOrder -> station_code = $currentOrder ?-> header ?-> station ?-> name;
             }
             $order = $order -> values();
             return response() -> json([

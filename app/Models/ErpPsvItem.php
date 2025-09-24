@@ -161,4 +161,9 @@ class ErpPsvItem extends Model
     {
         return $this -> hasMany(ErpPsvItemAttribute::class, 'psv_item_id');
     }
+
+    public function batch_details()
+    {
+        return $this->hasMany(ErpPsvBatchDetail::class, 'detail_id');
+    }
 }

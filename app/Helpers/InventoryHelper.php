@@ -1,6 +1,7 @@
 <?php
 namespace App\Helpers;
 
+use App\Models\ErpPsvBatchDetail;
 use DB;
 use Auth;
 use stdClass;
@@ -691,7 +692,8 @@ class InventoryHelper
 
                     $stockLedger->lot_number = $documentItemLocation?->batch_number ?? null;
                     $stockLedger->manufacturing_year = $documentItemLocation?->manufacturing_year ?? null;
-                    $stockLedger->expiry_date = $documentItemLocation->expiry_date ? date('Y-m-d', strtotime($documentItemLocation->expiry_date)) : null;
+                    $expiryDate = $documentItemLocation->expiry_date ? date('Y-m-d', strtotime($documentItemLocation->expiry_date)) : null;
+                    $stockLedger->expiry_date = ($expiryDate && $expiryDate !== '0000-00-00') ? $expiryDate : null;
                     $stockLedger->so_id = $documentDetail?->so_id ?? null;
                 } else {
                     $qty = @$documentItemLocation->inventory_uom_qty;
@@ -1076,9 +1078,9 @@ class InventoryHelper
             }
 
             if ($bookType == ConstantHelper::PSV_SERVICE_ALIAS) {
-                $qty = ItemHelper::convertToBaseUom($documentItemLocation->item_id, $documentItemLocation->uom_id, abs($documentItemLocation->adjusted_qty));
-                $documentHeader = ErpPsvHeader::find($documentItemLocation->psv_header_id);
-                $detailId = $documentItemLocation->id;
+                $qty = ItemHelper::convertToBaseUom($documentItemLocation->psvItem->item_id, $documentItemLocation->psvItem->uom_id, abs($documentItemLocation->quantity));
+                $documentHeader = ErpPsvHeader::find($documentItemLocation->header_id);
+                $detailId = $documentItemLocation->detail_id;
                 $documentDetail = ErpPsvItem::with(['header', 'attributes'])->find($detailId);
                 $stockLedger->vendor_id = null;
                 $stockLedger->vendor_code = null;
@@ -1087,8 +1089,11 @@ class InventoryHelper
                 }
                 if ($transactionType == 'receipt') {
                     $stockLedger->receipt_qty = @$qty;
-                    $stockLedger->lot_number = InventoryHelper::generateLotNumber($documentHeader->document_date, $documentHeader->book_code, $documentHeader->document_number);
+                    $stockLedger->lot_number = $documentItemLocation->batch_number ?? InventoryHelper::generateLotNumber($documentHeader->document_date, $documentHeader->book_code, $documentHeader->document_number);
                     $stockLedger->original_receipt_date = Carbon::parse($documentHeader->document_date . ' ' . now()->format('H:i:s'));
+                    $stockLedger->manufacturing_year = $documentItemLocation?->manufacturing_year ?? null;
+                    $stockLedger->expiry_date = $documentItemLocation->expiry_date ? date('Y-m-d', strtotime($documentItemLocation->expiry_date)) : null;
+                    
                 }
                 $stockLedger->book_id = @$documentHeader->book_id;
                 $totalItemCost = ($qty * $documentDetail->rate) - ($documentDetail?->item_discount_amount + $documentDetail->header_discount_amount);
@@ -1110,6 +1115,15 @@ class InventoryHelper
                 if (($transactionType == 'receipt') && $documentDetail->header->sub_store_id) {
                     $stockLedger->sub_store_id = $documentDetail->header->sub_store_id ?? null;
                     $stockLedger->sub_store = @$documentDetail->header->sub_store->store_code;
+                }
+                if (($transactionType == 'issue') && $documentDetail->header->station_id) {
+                    $stockLedger->station_id = $documentDetail->header->station_id ?? null;
+                    // $stockLedger->station = @$documentDetail->header->station->name;
+                }
+
+                if (($transactionType == 'receipt') && $documentDetail->header->station_id) {
+                    $stockLedger->station_id = $documentDetail->header->station_id ?? null;
+                    // $stockLedger->station = @$documentDetail->header->station->name;
                 }
             }
 
@@ -3209,8 +3223,13 @@ class InventoryHelper
         $user = Helper::getAuthenticatedUser();
         $invoiceLedger = [];
         try {
-            $documentItem = ErpPsvItem::where('psv_header_id', $documentHeaderId)
-                ->whereIn('id', $documentDetailId)
+            $documentItem = ErpPsvBatchDetail::where('header_id', $documentHeaderId)
+            ->with([
+                'header',
+                'psvItem',
+                'psvItem.item',
+                'psvItem.attributes',
+            ])
                 ->get();
             $stockLedger = StockLedger::withDefaultGroupCompanyOrg()
                 ->where('document_header_id', $documentHeaderId)
@@ -3233,7 +3252,7 @@ class InventoryHelper
                     // ->where('document_status','draft')
                     ->whereNotNull('utilized_id')
                     ->sum('receipt_qty');
-                $documentItems->inventory_uom_qty = ItemHelper::convertToBaseUom($documentItems->item_id, $documentItems->uom_id, abs($documentItems->adjusted_qty));
+                $documentItems->inventory_uom_qty = ItemHelper::convertToBaseUom($documentItems->item_id, $documentItems->psvItem->uom_id, abs($documentItems->psvItem->adjusted_qty));
                 if ($documentItems->inventory_uom_qty > $utilizedQty) {
                     $stockLedger = new StockLedger();
                     $invoiceLedger = self::insertStockLedger($stockLedger, $documentItems, $bookType, $documentStatus, $transactionType, $utilizedQty, $utlStockLedger = null);

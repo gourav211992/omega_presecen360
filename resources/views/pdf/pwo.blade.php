@@ -249,7 +249,7 @@
                     </td>
                     <td
                     style=" vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: center;">
-                        {{ isset($val->so) ? strtoupper($val->so->reference_no) : " " }}
+                        {{ isset($val->so) ? strtoupper($val->so->reference_number) : " " }}
                     </td>
                 </tr>
                 @endforeach

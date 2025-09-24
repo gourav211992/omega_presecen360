@@ -41,7 +41,7 @@
 </head>
 
 <body>
-    <div style="width:700px; font-size: 11px; font-family:Arial;">
+    <div style="width:700px; font-size: 11px; font-family:Times;">
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
             <tr>
                 <!-- Organization Logo (Left) -->
