@@ -34,6 +34,7 @@ class ErpEquipmentController extends Controller
         return view('equipment.index');
     }
 
+
     public function getData(Request $request)
     {
         $equipments = ErpEquipment::with([
@@ -44,90 +45,90 @@ class ErpEquipmentController extends Controller
             'maintenanceDetails.maintenanceType:id,name',
             'maintenanceDetails.checklists:id,erp_equip_maintenance_id,name',
             'maintenanceDetails.latestWorkOrder:id,equipment_id,maintenance_type_id,document_status,created_at,equipment_details'
-        ])->get();
+        ]);
 
-        $rows = [];
-        $rowIndex = 1;
-
-        foreach ($equipments as $equipment) {
-            foreach ($equipment->maintenanceDetails as $detail) {
-                $wo = $detail->latestWorkOrder;
-                $eqpStatus = $equipment->document_status ?? 'draft';
-
-                $lastMaintDate = null;
-                $nextDueDate = null;
-
-                if ($wo) {
+        return DataTables::eloquent($equipments)
+            ->addIndexColumn()
+            ->addColumn('equipment', fn($row) => $row->name ?? '')
+            ->addColumn('organization', fn($row) => $row->organization->name ?? '')
+            ->addColumn('location', fn($row) => $row->location->store_name ?? '')
+            ->addColumn('location_full', fn($row) => $row->location->full_address ?? '')
+            ->addColumn('alias', fn($row) => $row->alias ?? '')
+            ->addColumn('category', fn($row) => $row->category->name ?? '')
+            ->addColumn('maintenance_type', fn($row) =>
+                $row->maintenanceDetails->pluck('maintenanceType.name')->unique()->implode(', ')
+            )
+            ->addColumn('checklists', fn($row) =>
+                $row->maintenanceDetails->flatMap->checklists->pluck('name')->unique()->implode(', ')
+            )
+            ->addColumn('last_date', function ($row) {
+                $detail = $row->maintenanceDetails->last();
+                $wo = optional($detail)->latestWorkOrder;
+                if ($wo && in_array($wo->document_status, [
+                    ConstantHelper::DOCUMENT_STATUS_APPROVED,
+                    ConstantHelper::APPROVAL_NOT_REQUIRED
+                ])) {
                     $details = json_decode($wo->equipment_details, true);
-                    if (is_array($details) && isset($details['due_date'])) {
+                    if (is_array($details) && !empty($details['due_date'])) {
+                        return Carbon::parse($details['due_date'])->format('d-m-Y');
+                    }
+                }
+                return null;
+            })
+            ->addColumn('due_date', function ($row) {
+                $detail = $row->maintenanceDetails->last();
+                $wo = optional($detail)->latestWorkOrder;
+                $lastMaintDate = null;
+                if ($wo && in_array($wo->document_status, [
+                    ConstantHelper::DOCUMENT_STATUS_APPROVED,
+                    ConstantHelper::APPROVAL_NOT_REQUIRED
+                ])) {
+                    $details = json_decode($wo->equipment_details, true);
+                    if (is_array($details) && !empty($details['due_date'])) {
                         $lastMaintDate = Carbon::parse($details['due_date']);
-                        $frequency = $detail->frequency;
-
-                        switch ($frequency) {
-                            case 'Daily':
-                                $nextDueDate = $lastMaintDate->copy()->addDay();
-                                break;
-                            case 'Weekly':
-                                $nextDueDate = $lastMaintDate->copy()->addWeek();
-                                break;
-                            case 'Monthly':
-                                $nextDueDate = $lastMaintDate->copy()->addMonth();
-                                break;
-                            case 'Quarterly':
-                                $nextDueDate = $lastMaintDate->copy()->addMonths(3);
-                                break;
-                            case 'Semi-Annually':
-                                $nextDueDate = $lastMaintDate->copy()->addMonths(6);
-                                break;
-                            case 'Annually':
-                            case 'Yearly':
-                                $nextDueDate = $lastMaintDate->copy()->addYear();
-                                break;
-                            default:
-                                $nextDueDate = null;
-                        }
+                    }
+                }
+                if ($lastMaintDate) {
+                    switch ($detail->frequency) {
+                        case 'Daily': return $lastMaintDate->copy()->addDay()->format('d-m-Y');
+                        case 'Weekly': return $lastMaintDate->copy()->addWeek()->format('d-m-Y');
+                        case 'Monthly': return $lastMaintDate->copy()->addMonth()->format('d-m-Y');
+                        case 'Quarterly': return $lastMaintDate->copy()->addMonths(3)->format('d-m-Y');
+                        case 'Semi-Annually': return $lastMaintDate->copy()->addMonths(6)->format('d-m-Y');
+                        case 'Annually':
+                        case 'Yearly': return $lastMaintDate->copy()->addYear()->format('d-m-Y');
                     }
                 } else {
-                    $lastMaintDate = null;
-                    $nextDueDate = $detail->start_date ? Carbon::parse($detail->start_date) : null;
+                    return $detail && $detail->start_date
+                        ? Carbon::parse($detail->start_date)->format('d-m-Y')
+                        : null;
                 }
-
+            })
+            ->addColumn('status', function ($row) {
+                $eqpStatus = $row->document_status ?? 'draft';
                 $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$eqpStatus] ?? 'badge-light-secondary';
                 $statusText  = $eqpStatus == ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($eqpStatus);
-
-                $rows[] = [
-                    'rowIndex'     => $rowIndex++,
-                    'equipment'    => $equipment->name ?? '',
-                    'organization' => $equipment->organization->name ?? '',
-                    'location'     => $equipment->location->store_name ?? '',
-                    'location_full'=> $equipment->location->full_address ?? '',
-                    'alias'        => $equipment->alias ?? '',
-                    'category'     => $equipment->category->name ?? '',
-                    'maintenance_type' => $detail->maintenanceType->name ?? '',
-                    'checklists'   => $detail->checklists->pluck('name')->unique()->implode(', '),
-                    'last_date'    => $lastMaintDate?->format('d-m-Y'),
-                    'due_date'     => $nextDueDate?->format('d-m-Y'),
-                    'status'       => "<span class='badge rounded-pill {$statusClass}'>{$statusText}</span>",
-                    'action'       => '
-                        <div class="dropdown">
-                            <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
-                                <i data-feather="more-vertical"></i>
-                            </button>
-                            <div class="dropdown-menu dropdown-menu-end">
-                                <a class="dropdown-item" href="'.route('equipment.edit', $equipment->id).'">
-                                    <i data-feather="edit-3" class="me-50"></i>
-                                    <span>Edit</span>
-                                </a>
-                            </div>
-                        </div>'
-                ];
-            }
-        }
-
-        return DataTables::of($rows)
+                return "<span class='badge rounded-pill {$statusClass}'>{$statusText}</span>";
+            })
+            ->addColumn('action', function ($row) {
+                return '
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
+                            <i data-feather="more-vertical"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item" href="'.route('equipment.edit', $row->id).'">
+                                <i data-feather="edit-3" class="me-50"></i>
+                                <span>Edit</span>
+                            </a>
+                        </div>
+                    </div>';
+            })
             ->rawColumns(['status','action'])
             ->toJson();
     }
+
+
 
 
     public function create()

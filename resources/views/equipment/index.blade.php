@@ -147,81 +147,73 @@
     });
 
     $(document).ready(function () {
-        // agar already DataTable init hai to destroy kar do
-        if ($.fn.DataTable.isDataTable('#equipmentsTable')) {
-            $('#equipmentsTable').DataTable().destroy();
-        }
+    if ($.fn.DataTable.isDataTable('#equipmentsTable')) {
+        $('#equipmentsTable').DataTable().destroy();
+    }
 
-        var dt_basic = $('#equipmentsTable').DataTable({
-            processing: true,
-            serverSide: true,
-            ajax: "{{ route('equipments.data') }}",
-            pageLength: 10,
-            order: [[0, 'asc']],
-
-            // 👇 Layout (entries left, export middle, search right)
-            dom: 
-              '<"d-flex justify-content-between align-items-center mx-2 row"' +
-                '<"col-sm-12 col-md-6"l>' +
-                '<"col-sm-12 col-md-3 withoutheadbuttin dt-action-buttons text-end"B>' +
-                '<"col-sm-12 col-md-3"f>' +
-              '>t' +
-              '<"d-flex justify-content-between mx-2 row"' +
-                '<"col-sm-12 col-md-6"i>' +
-                '<"col-sm-12 col-md-6"p>' +
-              '>',  
-
-            buttons: [
-                {
-                    extend: 'excel',
-                    className: 'btn btn-outline-secondary',
-                    text: feather.icons['file'].toSvg({ class: 'font-small-4 me-50' }) + 'Excel',
-                    exportOptions: { columns: ':visible' }
-                }
-            ],
-
-            columns: [
-                { data: 'rowIndex', name: 'rowIndex' },
-                { data: 'equipment', name: 'equipment' },
-                { data: 'organization', name: 'organization' },
-                { data: 'location', name: 'location',
-                  render: function (data, type, row) {
-                      return `<div title="${row.location_full ?? ''}">${data}</div>`;
-                  }
-                },
-                { data: 'alias', name: 'alias' },
-                { data: 'category', name: 'category' },
-                { data: 'maintenance_type', name: 'maintenance_type' },
-                { data: 'checklists', name: 'checklists' },
-                { data: 'last_date', name: 'last_date' },
-                { data: 'due_date', name: 'due_date' },
-                { data: 'status', orderable: false, searchable: false },
-                { data: 'action', orderable: false, searchable: false }
-            ],
-
-            language: {
-                paginate: {
-                    previous: '&nbsp;',
-                    next: '&nbsp;'
-                }
+    var dt_basic = $('#equipmentsTable').DataTable({
+        processing: true,
+        serverSide: true,
+        ajax: "{{ route('equipments.data') }}",
+        pageLength: 10,
+        order: [[0, 'asc']],
+        dom: 
+          '<"d-flex justify-content-between align-items-center mx-2 row"' +
+            '<"col-sm-12 col-md-6"l>' +
+            '<"col-sm-12 col-md-3 withoutheadbuttin dt-action-buttons text-end"B>' +
+            '<"col-sm-12 col-md-3"f>' +
+          '>t' +
+          '<"d-flex justify-content-between mx-2 row"' +
+            '<"col-sm-12 col-md-6"i>' +
+            '<"col-sm-12 col-md-6"p>' +
+          '>',  
+        buttons: [
+            {
+                extend: 'excel',
+                className: 'btn btn-outline-secondary',
+                text: feather.icons['file'].toSvg({ class: 'font-small-4 me-50' }) + 'Excel',
+                exportOptions: { columns: ':visible' }
             }
-        });
-
-        // row click select
-        $(".myrequesttablecbox tr").click(function() {
-            $(this).addClass('trselected').siblings().removeClass('trselected');
-            value = $(this).find('td:first').html();
-        });
-
-        // keyboard up/down navigation
-        $(document).on('keydown', function(e) { 
-            if (e.which == 38) {
-                $('.trselected').prev('tr').addClass('trselected').siblings().removeClass('trselected');
-            } else if (e.which == 40) {
-                $('.trselected').next('tr').addClass('trselected').siblings().removeClass('trselected');
-            } 
-            $('html, body').scrollTop($('.trselected').offset().top - 100); 
-        });
+        ],
+        columns: [
+            {data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false},
+            {data: 'equipment', name: 'erp_equipments.name'},
+            {data: 'organization', name: 'organization.name'},
+            {data: 'location', name: 'location.store_name',
+                render: function (data, type, row) {
+                    return `<div title="${row.location_full ?? ''}">${data ?? ''}</div>`;
+                }
+            },
+            {data: 'alias', name: 'alias'},
+            {data: 'category', name: 'category.name'},
+            {data: 'maintenance_type', orderable: false, searchable: false},
+            {data: 'checklists', orderable: false, searchable: false},
+            {data: 'last_date', orderable: false, searchable: false},
+            {data: 'due_date', orderable: false, searchable: false},
+            {data: 'status', orderable: false, searchable: false},
+            {data: 'action', orderable: false, searchable: false}
+        ],
+        language: {
+            paginate: { previous: '&nbsp;', next: '&nbsp;' }
+        }
     });
+
+    $('#equipmentsTable tbody').on('click', 'tr', function () {
+        $(this).addClass('trselected').siblings().removeClass('trselected');
+    });
+
+    $(document).on('keydown', function(e) { 
+        let selected = $('.trselected');
+        if (e.which == 38) {
+            selected.prev('tr').addClass('trselected').siblings().removeClass('trselected');
+        } else if (e.which == 40) {
+            selected.next('tr').addClass('trselected').siblings().removeClass('trselected');
+        } 
+        if ($('.trselected').length) {
+            $('html, body').scrollTop($('.trselected').offset().top - 100); 
+        }
+    });
+});
+
 </script>
 @endsection
