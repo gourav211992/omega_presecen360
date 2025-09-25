@@ -3329,8 +3329,9 @@ document.addEventListener('input', function (e) {
             bundleElement.setAttribute('data-bundles', encodeURIComponent(JSON.stringify(bundlesArray)));
             bundleTable.innerHTML = bundleScheduleHTML + `
             <tr>
-                <td class="text-dark text-end" colspan = "3"><strong>Total</strong></td>
+                <td class="text-dark text-end" colspan = "2"><strong>Total</strong></td>
                 <td class="text-dark text-end"><strong id = "bundle_total_qty">${totalQty}</strong></td>
+                <td class="text-dark text-end"></td>
 			</tr>
             `;
         }

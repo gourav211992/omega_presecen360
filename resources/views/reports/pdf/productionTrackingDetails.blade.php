@@ -119,48 +119,43 @@
 
     <!-- Detail Table -->
     <div style="margin-top:12px; font-weight:700; font-size:12px;">Manufacturing Orders</div>
-    <table style="width:100%; border-collapse:collapse; margin-top:6px;">
-    
-        <tr>
-          {{-- <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Sr. No.</th> --}}
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">MO No.</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">MO Date</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">MO Qty</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Sub Store</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Station</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Type</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Item Code</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Item Name</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">PSLIP No.</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">PSLIP Date</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Produced Qty</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Accepted (A)</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Sub Standard (B)</th>
-          <th style="border:1px solid #000; background:#f1f5f9; font-size:10px; text-transform:uppercase;">Rejected (C)</th>
-        </tr>
-   
-   
-        @foreach($get as $keys=>$r)
-          <tr>
-            {{-- <td style="border:1px solid #000; text-align:center;">{{ $keys+1 }}</td> --}}
-            <td style="border:1px solid #000;">{{ $r->book_code }}-{{ $r->document_number }}</td>
-            <td style="border:1px solid #000;">{{ date('d-m-Y',strtotime($r->document_date)) }}</td>
-            <td style="border:1px solid #000; text-align:right;">{{ $r->mo_product_qty }}</td>
-            <td style="border:1px solid #000;">{{ $r->sub_store_name }}</td>
-            <td style="border:1px solid #000;">{{ $r->station_name }}</td>
-            <td style="border:1px solid #000;">{{ $r->type }}</td>
-            <td style="border:1px solid #000;">{{ $r->item_code }}</td>
-            <td style="border:1px solid #000;">{{ $r->item_name }}</td>
-            <td style="border:1px solid #000;">{{ $r->pslip_book_code }}-{{ $r->pslip_document_number }}</td>
-            <td style="border:1px solid #000;">{{ date('d-m-Y',strtotime($r->pslip_document_date)) }}</td>
-            <td style="border:1px solid #000; text-align:right;">{{ $r->qty? $r->qty : 0}}</td>
-            <td style="border:1px solid #000; text-align:right;">{{ $r->accepted_qty? $r->accepted_qty : 0}}</td>
-            <td style="border:1px solid #000; text-align:right;">{{ $r->subprime_qty? $r->subprime_qty : 0}}</td>
-            <td style="border:1px solid #000; text-align:right;">{{ $r->rejected_qty? $r->rejected_qty : 0}}</td>
-          </tr>
-        @endforeach
-     
-    </table>
+   <table style="width:100%; border-collapse:collapse; margin-top:6px; font-size:9px;">
+    <tr>
+        <th style="border:1px solid #000; background:#f1f5f9;">MO No.</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">MO Date</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">MO Qty</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">Sub Store</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">Station</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">Type</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">Item Code</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">Item Name</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">PSLIP No.</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">PSLIP Date</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">Produced Qty</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">Accepted (A)</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">Sub Standard (B)</th>
+        <th style="border:1px solid #000; background:#f1f5f9;">Rejected (C)</th>
+    </tr>
+    @foreach($get as $keys=>$r)
+    <tr>
+        <td style="border:1px solid #000;">{{ $r->book_code }}-{{ $r->document_number }}</td>
+        <td style="border:1px solid #000;">{{ date('d-m-Y',strtotime($r->document_date)) }}</td>
+        <td style="border:1px solid #000; text-align:right;">{{ $r->mo_product_qty }}</td>
+        <td style="border:1px solid #000;">{{ $r->sub_store_name }}</td>
+        <td style="border:1px solid #000;">{{ $r->station_name }}</td>
+        <td style="border:1px solid #000;">{{ $r->type }}</td>
+        <td style="border:1px solid #000;">{{ $r->item_code }}</td>
+        <td style="border:1px solid #000; word-wrap:break-word;">{{ $r->item_name }}</td>
+        <td style="border:1px solid #000;">{{ $r->pslip_book_code }}-{{ $r->pslip_document_number }}</td>
+        <td style="border:1px solid #000;">{{ isset($r->pslip_document_date)?date('d-m-Y',strtotime($r->pslip_document_date)):'-' }}</td>
+        <td style="border:1px solid #000; text-align:right;">{{ $r->qty ?? 0 }}</td>
+        <td style="border:1px solid #000; text-align:right;">{{ $r->accepted_qty ?? 0 }}</td>
+        <td style="border:1px solid #000; text-align:right;">{{ $r->subprime_qty ?? 0 }}</td>
+        <td style="border:1px solid #000; text-align:right;">{{ $r->rejected_qty ?? 0 }}</td>
+    </tr>
+    @endforeach
+</table>
+
 
     <!-- Signature Block -->
     <table style="width:100%; border-collapse:collapse;">

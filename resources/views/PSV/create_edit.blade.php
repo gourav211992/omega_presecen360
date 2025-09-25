@@ -190,14 +190,16 @@
                                                 <label class="form-label" id="from_location_header_label">Location<span class="text-danger">*</span></label>  
                                             </div>
                                             <div class="col-md-5">  
-                                                <select class="form-select disable_on_edit" name="store_id" id="store_id_input">
+                                                <select class="form-select storeSelect disable_on_edit" name="store_id" id="store_id_input">
                                                     @if(isset($order) && $order->store_id)
-                                                        <option value="{{ $order->store_id }}" selected> {{ $order->store_code }}</option>
+                                                        <option value="{{ $order->store_id }}" selected> {{ $order->store->store_name }}</option>
                                                     @else
                                                     <option value="">Select</option> 
-                                                        @foreach ($stores as $store)
-                                                            <option value="{{$store->id}}" {{isset($order) ? ($order->store_id == $store->id ? 'selected' : '') : ''}} data-name="{{$store->store_name}}">{{$store->store_name}}</option> 
-                                                        @endforeach
+                                                    @foreach ($stores as $store)
+                                                        <option value="{{ $store->id }}"> {{ $store->store_name }}</option>
+
+                                                    
+                                                    @endforeach
                                                     @endif    
                                                 </select>
                                             </div>
@@ -208,7 +210,7 @@
                                                 <label class="form-label">Store<span class="text-danger">*</span></label>  
                                             </div>  
                                             <div class="col-md-5">  
-                                                <select class="form-select disable_on_edit" name="sub_store_id" id="sub_store_id_input">
+                                                <select class="form-select subStoreSelect disable_on_edit" name="sub_store_id" id="sub_store_id_input">
                                                     @if(isset($order) && $order->sub_store_id)
                                                         <option value="{{ $order->sub_store_id }}" selected> {{ $order->sub_store_code }}</option>
                                                     @else
@@ -223,11 +225,12 @@
                                                 <label class="form-label">Station <span class="text-danger">*</span></label>  
                                             </div>  
                                             <div class="col-md-5">  
-                                                <select class="form-select disable_on_edit" name = "station_id" id = "station_id_input">
-                                                <option value = '' >Select</option>
-                                                @foreach ($stations as $station)
-                                                    <option {{isset($order) && $order -> station_id == $station -> id ? 'selected' : ''}} value = "{{$station -> id}}">{{$station -> name}}</option>
-                                                @endforeach
+                                                <select class="form-select stationSelect disable_on_edit" name = "station_id" id = "station_id_input">
+                                                    @if(isset($order) && $order -> station_id)
+                                                        <option value = "{{$order -> station_id}}">{{$order -> station_name}}</option>
+                                                    @else
+                                                        <option value = '' >Select</option>
+                                                    @endif
                                                 </select>
                                             </div>
                                         </div>
@@ -5638,6 +5641,141 @@ function generateNewBatch(rowIndex) {
         quantity: $("#item_variance_qty_"+rowIndex).val() || 0,
     };
 }
+/**
+ * Initialize Select2 with AJAX search for a given selector.
+ * @param {string} selector - The jQuery selector for the select element.
+ * @param {string} searchType - (optional) The type parameter for backend filtering.
+ */
+// function initializeSelect2Ajax(selector, searchType = '', dependent = null, label_field = null,$name = null) {
+//     $(selector).select2({
+//         placeholder: "Select",
+//         minimumInputLength: 0, // allow fetching without typing
+//         ajax: {
+//             url: $name ?? '/search',
+//             dataType: 'json',
+//             delay: 250,
+//             data: function (params) {
+//                 let data = {
+//                     q: params.term || '', // send empty when no term
+//                 };
+
+//                 if (searchType) {
+//                     data.type = searchType;
+//                 }
+
+//                 if (dependent) {
+//                     let $dep = $('#' + dependent);
+
+//                     if ($dep.length) {
+//                         let elementName = $dep.attr('name')
+//                             ? $dep.attr('name').replace(/\[\]$/, '')
+//                             : dependent;
+//                         let elementValue = $dep.val();
+//                         data.element_name = elementName;
+//                         data[elementName] = elementValue;
+//                     }
+//                 }
+
+//                 return data;
+//             },
+//             processResults: function (data) {
+//                 let results = [];
+//                 if (Array.isArray(data)) {
+//                     results = data;
+//                 } else if (Array.isArray(data.items)) {
+//                     results = data.items;
+//                 } else if (Array.isArray(data.data)) {
+//                     results = data.data;
+//                 }
+
+//                 results = results.map(function (item) {
+//                     return {
+//                         id: item.id,
+//                         text: label_field && item[label_field]
+//                             ? item[label_field]
+//                             : (item.text || item.name || item.label || item.code || item.id)
+//                     };
+//                 });
+
+//                 return { results };
+//             },
+//             cache: true
+//         },
+//         escapeMarkup: function (markup) { return markup; }
+//     });
+
+//     // trigger initial load
+//     $(selector).on('select2:open', function () {
+//         let $searchField = $('.select2-search__field');
+//         if ($searchField.val() === '') {
+//             $searchField.trigger('keyup'); // force fetch without term
+//         }
+//     });
+// }
+// function initializeDynamicLocationSelect(selector, required, dependent = null, label_field = null) {
+//     $(selector).select2({
+//         placeholder: "Select",
+//         minimumInputLength: 0, // allow fetching without typing
+//         ajax: {
+//             url: '/select/location', // always hit your selectSearch route
+//             type: 'POST',
+//             dataType: 'json',
+//             delay: 250,
+//             headers: {
+//                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') // for POST
+//             },
+//             data: function (params) {
+//                 let data = {
+//                     required: required,
+//                     term: params.term || ''
+//                 };
+
+//                 if (dependent) {
+//                     // dependent can be a single ID or multiple IDs
+//                     let $dep = $('#' + dependent);
+//                     if ($dep.length) {
+//                         let elementName = $dep.attr('name')
+//                             ? $dep.attr('name').replace(/\[\]$/, '')
+//                             : dependent;
+//                         let elementValue = $dep.val();
+//                         data.element_name = elementName;
+//                         data[elementName] = elementValue;
+//                     }
+//                 }
+
+//                 return data;
+//             },
+//             processResults: function (data) {
+//                 let results = Array.isArray(data) ? data : (Array.isArray(data.items) ? data.items : (Array.isArray(data.data) ? data.data : []));
+                
+//                 return {
+//                     results: results.map(function (item) {
+//                         return {
+//                             id: item.id,
+//                             text: label_field && item[label_field]
+//                                 ? item[label_field]
+//                                 : (item.text || item.name || item.label || item.code || item.id)
+//                         };
+//                     })
+//                 };
+//             },
+//             cache: true
+//         },
+//         escapeMarkup: function (markup) { return markup; }
+//     });
+
+//     // trigger initial load for empty selects
+//     $(selector).on('select2:open', function () {
+//         let $searchField = $('.select2-search__field');
+//         if ($searchField.val() === '') {
+//             $searchField.trigger('keyup'); // force fetch without term
+//         }
+//     });
+// }
+
+// initializeSelect2Ajax('.storeSelect', 'location' , null ,'store_name'); // or whatever type you want
+// initializeSelect2Ajax('.subStoreSelect', 'sub_store','store_id_input' , 'name'); // or whatever type you want
+// in
 </script>
 @endsection
 @endsection

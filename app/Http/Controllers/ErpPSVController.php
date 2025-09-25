@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\ApiGenericException;
+use App\Helpers\Common\OrganizationHelper;
 use App\Helpers\ConstantHelper;
 use App\Helpers\CurrencyHelper;
 use App\Helpers\FinancialPostingHelper;
@@ -79,7 +80,6 @@ class ErpPSVController extends Controller
         $accessible_locations = InventoryHelper::getAccessibleLocations()->pluck('id')->toArray();
         $parentURL = request() -> segments()[0];
         $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
-        $autoCompleteFilters = self::getBasicFilters();
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
         $create_button = (isset($servicesBooks['services'])  && count($servicesBooks['services']) > 0 && isset($selectedfyYear['authorized']) && $selectedfyYear['authorized'] && !$selectedfyYear['lock_fy']) ? true : false;
         //Date Filters
@@ -95,11 +95,11 @@ class ErpPSVController extends Controller
                 }) -> when($request -> type, function ($docQuery) use($request) {
                     $docQuery -> where('issue_type', 'LIKE', "%".$request -> type . "%");
                 })-> when($request -> location_id, function ($docQuery) use($request) {
-                    $docQuery -> where('from_store_id', $request -> location_id);
+                    $docQuery -> where('store_id', $request -> location_id);
                 })-> when($request -> to_location_id, function ($docQuery) use($request) {
                     $docQuery -> where('to_store_id', $request -> to_location_id);
                 })-> when($request -> company_id, function ($docQuery) use($request) {
-                    $docQuery -> where('from_store_id', $request -> company_id);
+                    $docQuery -> where('store_id', $request -> company_id);
                 })-> when($request -> organization_id, function ($docQuery) use($request) {
                     $docQuery -> where('organization_id', $request -> organization_id);
                 })-> when($request -> status, function ($docStatusQuery) use($request) {
@@ -187,32 +187,10 @@ class ErpPSVController extends Controller
                 ]);
             }
         }
-        return view('PSV.index', ['typeName' => $typeName, 'redirect_url' => $redirectUrl,'create_route' => $createRoute, 'create_button' => $create_button, 'filterArray' => TransactionReportHelper::FILTERS_MAPPING[ConstantHelper::PSV_SERVICE_ALIAS],
-            'autoCompleteFilters' => $autoCompleteFilters,]);
+        return view('PSV.index', ['typeName' => $typeName, 'redirect_url' => $redirectUrl,'create_route' => $createRoute,
+         'create_button' => $create_button, 'filterArray' => TransactionReportHelper::FILTERS_MAPPING[ConstantHelper::PSV_SERVICE_ALIAS]]);
     }
 
-    public function getBasicFilters()
-    {
-        //Get the common filters
-        $user = Helper::getAuthenticatedUser();
-        $categories = Category::select('id AS value', 'name AS label') -> withDefaultGroupCompanyOrg() 
-        -> whereNull('parent_id') -> get();
-        $subCategories = Category::select('id AS value', 'name AS label') -> withDefaultGroupCompanyOrg() 
-        -> whereNotNull('parent_id') -> get();
-        $items = Item::select('id AS value', 'item_name AS label') -> withDefaultGroupCompanyOrg()->get();
-        $users = AuthUser::select('id AS value', 'name AS label') -> where('organization_id', $user -> organization_id)->get();
-        $attributeGroups = AttributeGroup::select('id AS value', 'name AS label')->withDefaultGroupCompanyOrg()->get();
-
-        //Custom filters (to be restr)
-
-        return array(
-            'itemCategories' => $categories,
-            'itemSubCategories' => $subCategories,
-            'items' => $items,
-            'users' => $users,
-            'attributeGroups' => $attributeGroups 
-        );
-    }
     public function create(Request $request)
     {
         //Get the menu 
@@ -223,32 +201,20 @@ class ErpPSVController extends Controller
         if (count($servicesBooks['services']) == 0) {
             return redirect() -> route('/');
         }
-        $currentfyYear = Helper::getCurrentFinancialYear();
+        $currentfyYear = Helper::getCurrentFinancialYear();        
         $selectedfyYear = Helper::getFinancialYear(Carbon::now());
         $currentfyYear['current_date'] = Carbon::now() -> format('Y-m-d');
         $redirectUrl = route('psv.index');
         $firstService = $servicesBooks['services'][0];
         $typeName = ConstantHelper::PSV_SERVICE_ALIAS;
-        $countries = Country::select('id AS value', 'name AS label') -> where('status', ConstantHelper::ACTIVE) -> get();
         $stores = InventoryHelper::getAccessibleLocations([ConstantHelper::STOCKK, ConstantHelper::SHOP_FLOOR , ConstantHelper::VENDOR_STORE]);
-        $vendors = Vendor::select('id', 'company_name') -> withDefaultGroupCompanyOrg() 
-        -> where('status', ConstantHelper::ACTIVE) -> get();
-        $departments = UserHelper::getDepartments($user -> auth_user_id);
-        $users = AuthUser::select('id', 'name') -> where('organization_id', $user -> organization_id) 
-        -> where('status', ConstantHelper::ACTIVE) -> get();
-        $stations = Station::withDefaultGroupCompanyOrg()
-        ->where('status', ConstantHelper::ACTIVE)
-        ->get();
-        
         $data = [
             'user' => $user,
             'services' => $servicesBooks['services'],
             'selectedService'  => $firstService ?-> id ?? null,
             'series' => array(),
-            'countries' => $countries,
             'typeName' => $typeName,
             'stores' => $stores,
-            'stations' => $stations,
             'redirect_url' => $redirectUrl,
             'current_financial_year' => $selectedfyYear,
         ];
@@ -287,7 +253,6 @@ class ErpPSVController extends Controller
             $buttons = Helper::actionButtonDisplay($doc->book_id,$doc->document_status , $doc->id, $totalValue, 
             $doc->approval_level, $doc -> created_by ?? 0, $userType['type'], $revision_number);
             $books = Helper::getBookSeriesNew(ConstantHelper::PSV_SERVICE_ALIAS, ) -> get();
-            $countries = Country::select('id AS value', 'name AS label') -> where('status', ConstantHelper::ACTIVE) -> get();
             $revNo = $doc->revision_number;
             if($request->has('revisionNumber')) {
                 $revNo = intval($request->revisionNumber);
@@ -298,9 +263,6 @@ class ErpPSVController extends Controller
             $approvalHistory = Helper::getApprovalHistory($doc->book_id, $ogDoc->id, $revNo, $docValue, $doc -> created_by);
             $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$doc->document_status] ?? '';
             $typeName = "Physical Stock Verification";
-            $stations = Station::withDefaultGroupCompanyOrg()
-            ->where('status', ConstantHelper::ACTIVE)
-            ->get();
             foreach ($doc -> items as $docItem) {
                 $docItem -> max_qty_attribute = 9999999;
                 if ($docItem -> mo_item_id) {
@@ -312,9 +274,6 @@ class ErpPSVController extends Controller
                     }
                 }
             }
-            $departments = UserHelper::getDepartments($user -> auth_user_id);
-            $users = AuthUser::select('id', 'name') -> where('organization_id', $user -> organization_id) 
-            -> where('status', ConstantHelper::ACTIVE) -> get();   
             $SubStores = InventoryHelper::getAccesibleSubLocations($doc -> store_id, 0, ConstantHelper::ERP_SUB_STORE_LOCATION_TYPES);
             $dynamicFieldsUI = $doc -> dynamicfieldsUi();
 
@@ -323,7 +282,6 @@ class ErpPSVController extends Controller
                 'series' => $books,
                 'order' => $doc,
                 'items' => $items,
-                'countries' => $countries,
                 'buttons' => $buttons,
                 'approvalHistory' => $approvalHistory,
                 'revision_number' => $revision_number,
@@ -331,17 +289,13 @@ class ErpPSVController extends Controller
                 'typeName' => $typeName,
                 'stores' => $stores,
                 'dynamicFieldsUi' => $dynamicFieldsUI,
-                'stations' => $stations,
                 'maxFileCount' => isset($order -> mediaFiles) ? (10 - count($doc -> media_files)) : 10,
                 'services' => $servicesBooks['services'],
-                'departments' => $departments['departments'],
                 'selectedDepartmentId' => $doc ?-> department_id,
-                'requesters' => $users,
                 'selectedUserId' => $doc ?-> user_id,
                 'sub_stores' => $SubStores,
                 'redirect_url' => $redirect_url,
                 'current_financial_year' => $selectedfyYear,
-
             ];
             return view('PSV.create_edit', $data);  
         } catch(Exception $ex) {
@@ -365,8 +319,7 @@ class ErpPSVController extends Controller
             }
             
             DB::beginTransaction();
-            $user = Helper::getAuthenticatedUser();
-            $organization = Organization::find($user->organization_id);
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
     
             $organizationId = $organization?->id;
             $groupId = $organization?->group_id;
@@ -391,7 +344,7 @@ class ErpPSVController extends Controller
                     ], 422);
                 }
                 $document_number = $numberPatternData['document_number'] ?? $request->document_no;
-                $regeneratedDocExist = ErpPsvHeader::withDefaultGroupCompanyOrg()->where('book_id', $request->book_id)
+                $regeneratedDocExist = ErpPsvHeader::where('book_id', $request->book_id)
                     ->where('document_number', $document_number)->first();
                 if ($regeneratedDocExist) {
                     return response()->json([
@@ -412,12 +365,6 @@ class ErpPSVController extends Controller
                 }
             }
             $station = Station::find($request->station_id ?? null);
-            $vendor = Vendor::find($request->vendor_id);
-            if ($request->requester_type == 'User') {
-                $user = AuthUser::find($request->user_id);
-            } else {
-                $department = Department::find($request->department_id);
-            }
             if ($isUpdate) {
                 $psv = ErpPsvHeader::find($request->psv_header_id);
                 $psv -> document_date = $request -> document_date;
@@ -633,13 +580,25 @@ class ErpPSVController extends Controller
                 }
                 // Handle batch_details from request (directly available as JSON string)
                 $itemBatchs = $request->batch_details[$itemKey] ?? null;
-                if (!$itemBatchs && $adjustedQty > 0) {
-                    
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => 'Please provide batch details for item No. ' . ($itemKey + 1),
-                        'error' => ''
-                    ], 422);
+
+                if (!$itemBatchs) {
+                    if ($adjustedQty <= 0) {
+                        continue;
+                    } else {
+                        // If item requires batch number but batch details are missing, throw error
+                        if (
+                            (isset($item->is_batch_no) && $item->is_batch_no == "1") ||
+                            (isset($item['is_batch_no']) && $item['is_batch_no'] == "1")
+                        ) {
+                            DB::rollBack();
+                            return response()->json([
+                                'message' => 'Please provide batch details for item No. ' . ($itemKey + 1),
+                                'error' => ''
+                            ], 422);
+                        } else {
+                            self::generateBatchNumber($psvItem);
+                        }
+                    }
                 }
                 else
                 {
@@ -695,13 +654,13 @@ class ErpPSVController extends Controller
                             'inventory_uom_qty' => ItemHelper::convertToBaseUom($psvItem->item_id,$psvItem->uom_id,$batchDetail['quantity']),
                         ]);
                     }
-                }
-                if($remainingQty != 0 && $adjustedQty > 0){
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => 'Total batch quantity must equal to Variance quantity for item No. ' . ($itemKey + 1),
-                        'error' => ''
-                    ], 422);
+                    if($remainingQty != 0 && $adjustedQty > 0){
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => 'Total batch quantity must equal to Variance quantity for item No. ' . ($itemKey + 1),
+                            'error' => ''
+                        ], 422);
+                    }
                 }
             }
             if ($request->document_status == ConstantHelper::SUBMITTED) {
@@ -993,6 +952,27 @@ class ErpPSVController extends Controller
                 'error' => $ex -> getMessage()
             ]);
         }
+    }
+
+    public function generateBatchNumber($psvItem)
+    {
+        $header = $psvItem -> header;
+        // Generate batch number using header's document_date, book_code, and document_number
+        $batchNumber = ($header->document_date ?? '') . '/' . ($header->book_code ?? '') . '/' . ($header->document_number ?? '');
+
+        // Create batch detail
+        $batchDetail = ErpPsvBatchDetail::create([
+            'header_id' => $header->id,
+            'detail_id' => $psvItem->id,
+            'item_id' => $psvItem->item_id,
+            'batch_number' => $batchNumber,
+            'manufacturing_year' => null,
+            'expiry_date' => null,
+            'quantity' => $psvItem->adjusted_qty ?? 0,
+            'inventory_uom_qty' => ItemHelper::convertToBaseUom($psvItem->item_id, $psvItem->uom_id, $psvItem->adjusted_qty ?? 0),
+        ]);
+
+        return $batchDetail;
     }
     public function generatePdf(Request $request, $id)
     {

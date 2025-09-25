@@ -57,7 +57,7 @@
                             </select>
                         </td>
                         <td class="numeric-alignment">
-                            <input type="text" id="item_physical_qty_{{$orderItemIndex}}" value="{{$orderItem->verified_qty}}" name="item_physical_qty[{{$orderItemIndex}}]" oninput='setVariance(this,{{$orderItemIndex}});setValue({{$orderItemIndex}});' class="form-control mw-100 text-end" >
+                            <input type="text" id="item_physical_qty_{{$orderItemIndex}}" value="{{number_format($orderItem->verified_qty, 6, '.', '') }}" name="item_physical_qty[{{$orderItemIndex}}]" oninput='setVariance(this,{{$orderItemIndex}});setValue({{$orderItemIndex}});' class="form-control mw-100 text-end" >
                         </td>
                         <td class="numeric-alignment">
                             <input type="text" id="item_confirmed_qty_{{$orderItemIndex}}" 
@@ -74,13 +74,13 @@
                                 readonly>
                         </td>
                         <td class="numeric-alignment">
-                            <input type="text" id="item_variance_qty_{{$orderItemIndex}}" value="{{ $orderItem->verified_qty - $orderItem->confirmed_qty }}" name="item_balance_qty[{{$orderItemIndex}}]" class="form-control mw-100 text-end" readonly>
+                            <input type="text" id="item_variance_qty_{{$orderItemIndex}}" value="{{ number_format($orderItem->verified_qty - $orderItem->confirmed_qty,6,'.','') }}" name="item_balance_qty[{{$orderItemIndex}}]" class="form-control mw-100 text-end" readonly>
                         </td>
                         <td class="numeric-alignment">
-                            <input type="text" id="item_rate_{{$orderItemIndex}}" value="{{ $orderItem -> rate }}" name="item_rate[${newIndex}]" class="form-control mw-100 text-end" oninput="setValue({{$orderItemIndex}});" >
+                            <input type="text" id="item_rate_{{$orderItemIndex}}" value="{{ number_format($orderItem->rate, 6, '.', '')  }}" name="item_rate[${newIndex}]" class="form-control mw-100 text-end" oninput="setValue({{$orderItemIndex}});" >
                         </td>
                         <td class="numeric-alignment">
-                            <input type="text" id="item_value_{{$orderItemIndex}}" value="{{ $orderItem -> total_amount }}" name="item_value[${newIndex}]" class="form-control mw-100 text-end" readonly>
+                            <input type="text" id="item_value_{{$orderItemIndex}}" value="{{ number_format($orderItem->total_amount, 6, '.', '')  }}" name="item_value[${newIndex}]" class="form-control mw-100 text-end" readonly>
                         </td>
                         <td>
                             <div class="d-flex">

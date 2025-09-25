@@ -67,7 +67,7 @@
                             </tr>
                             <tr>
                                 <td><b>Date</b></td>
-                                <td>{{date('d-m-Y',strtotime($details->so_document_date))}}</td>
+                                <td>{{isset($details->so_document_date)?date('d-m-Y',strtotime($details->so_document_date)):''}}</td>
                                 <td><b>% Completion</b></td>
                                 <td>{{$details->completion_percent}}%</td>
                             </tr>

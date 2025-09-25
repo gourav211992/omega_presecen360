@@ -169,7 +169,7 @@
             <tbody>
                 <tr>
                     @php
-                        $colspan = 9;
+                        $colspan = 12;
                     @endphp
                     <td colspan='{{$colspan}}' style="padding: 6px; border: 1px solid #000; background: #80808070; text-align: center; font-weight: bold">
                         Product(s)
@@ -190,6 +190,15 @@
                     </td>
                     <td style="font-weight: bold; padding: 4px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
                         Qty
+                    </td> 
+                    <td style="font-weight: bold; padding: 4px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
+                        Accepted (A)
+                    </td> 
+                    <td style="font-weight: bold; padding: 4px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
+                        Substandard (B)
+                    </td> 
+                    <td style="font-weight: bold; padding: 4px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
+                        Rejected (C)
                     </td>
                     <td style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
                         Customer
@@ -254,6 +263,18 @@
                     <td
                         style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">
                         {{@$val?->qty}}
+                    </td> 
+                    <td
+                        style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">
+                        {{@$val?->accepted_qty}}
+                    </td> 
+                    <td
+                        style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">
+                        {{@$val?->subprime_qty}}
+                    </td> 
+                    <td
+                        style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">
+                        {{@$val?->rejected_qty}}
                     </td>
                     <td
                         style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: center;">

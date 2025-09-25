@@ -48,7 +48,7 @@ use App\Services\MasterIndiaService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Database\Eloquent\Model;
 use App\Helpers\AuthUser\UtlilityHelper;
-
+use Illuminate\Support\Arr;
 
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -872,7 +872,7 @@ class MasterIndiaHelper
                 'ewb_no' => $generateInvoice['results']['message']['EwbNo'],
                 'ewb_date' => $generateInvoice['results']['message']['EwbDt'],
                 'ewb_valid_till' => $generateInvoice['results']['message']['EwbValidTill'],
-                'ewb_url' => $generateInvoice['results']['message']['EwaybillPdf'],
+                'ewb_url' => Arr::get($generateInvoice, 'results.message.EwaybillPdf'),
                 'status' => $generateInvoice['results']['message']['Status'],
                 'remarks' => $generateInvoice['results']['message']['Remarks'],
                 'type' => 'IRN'
