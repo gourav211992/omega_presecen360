@@ -37,33 +37,38 @@ class ErpEquipmentController extends Controller
 
     public function getData(Request $request)
     {
-        $equipments = ErpEquipment::with([
-            'organization:id,name',
-            'location:id,store_name',
-            'category:id,name',
-            'maintenanceDetails:id,erp_equipment_id,maintenance_type_id,start_date,frequency',
-            'maintenanceDetails.maintenanceType:id,name',
-            'maintenanceDetails.checklists:id,erp_equip_maintenance_id,name',
-            'maintenanceDetails.latestWorkOrder:id,equipment_id,maintenance_type_id,document_status,created_at,equipment_details'
-        ]);
+        $details = ErpEquipMaintenanceDetail::with([
+            'equipment:id,name,alias,organization_id,location_id,category_id,document_status',
+            'equipment.organization:id,name',
+            'equipment.location:id,store_name',
+            'equipment.category:id,name',
+            'maintenanceType:id,name',
+            'checklists:id,erp_equip_maintenance_id,name',
+            'latestWorkOrder:id,equipment_id,maintenance_type_id,document_status,created_at,equipment_details'
+        ])
+        ->addSelect([
+            'latest_work_order_id' => PlantMaintWo::select('id')
+                ->whereColumn('erp_plant_maint_wo.equipment_id', 'erp_equip_maintenance_details.erp_equipment_id')
+                ->whereColumn('erp_plant_maint_wo.maintenance_type_id', 'erp_equip_maintenance_details.maintenance_type_id')
+                ->where('erp_plant_maint_wo.reference_type', 'equipment') 
+                ->latest('created_at')
+                ->limit(1)
+        ])
+        ->whereHas('checklists')
+        ->whereHas('equipment');
 
-        return DataTables::eloquent($equipments)
+        return DataTables::eloquent($details)
             ->addIndexColumn()
-            ->addColumn('equipment', fn($row) => $row->name ?? '')
-            ->addColumn('organization', fn($row) => $row->organization->name ?? '')
-            ->addColumn('location', fn($row) => $row->location->store_name ?? '')
-            ->addColumn('location_full', fn($row) => $row->location->full_address ?? '')
-            ->addColumn('alias', fn($row) => $row->alias ?? '')
-            ->addColumn('category', fn($row) => $row->category->name ?? '')
-            ->addColumn('maintenance_type', fn($row) =>
-                $row->maintenanceDetails->pluck('maintenanceType.name')->unique()->implode(', ')
-            )
-            ->addColumn('checklists', fn($row) =>
-                $row->maintenanceDetails->flatMap->checklists->pluck('name')->unique()->implode(', ')
-            )
+            ->addColumn('equipment', fn($row) => optional($row->equipment)->name ?? '')
+            ->addColumn('organization', fn($row) => optional($row->equipment?->organization)->name ?? '')
+            ->addColumn('location', fn($row) => optional($row->equipment?->location)->store_name ?? '')
+            ->addColumn('location_full', fn($row) => optional($row->equipment?->location)->full_address ?? '')
+            ->addColumn('alias', fn($row) => optional($row->equipment)->alias ?? '')
+            ->addColumn('category', fn($row) => optional($row->equipment?->category)->name ?? '')
+            ->addColumn('maintenance_type', fn($row) => optional($row->maintenanceType)->name ?? '')
+            ->addColumn('checklists', fn($row) => $row->checklists->pluck('name')->implode(', '))
             ->addColumn('last_date', function ($row) {
-                $detail = $row->maintenanceDetails->last();
-                $wo = optional($detail)->latestWorkOrder;
+                $wo = $row->latestWorkOrder;
                 if ($wo && in_array($wo->document_status, [
                     ConstantHelper::DOCUMENT_STATUS_APPROVED,
                     ConstantHelper::APPROVAL_NOT_REQUIRED
@@ -76,8 +81,7 @@ class ErpEquipmentController extends Controller
                 return null;
             })
             ->addColumn('due_date', function ($row) {
-                $detail = $row->maintenanceDetails->last();
-                $wo = optional($detail)->latestWorkOrder;
+                $wo = $row->latestWorkOrder;
                 $lastMaintDate = null;
                 if ($wo && in_array($wo->document_status, [
                     ConstantHelper::DOCUMENT_STATUS_APPROVED,
@@ -89,7 +93,7 @@ class ErpEquipmentController extends Controller
                     }
                 }
                 if ($lastMaintDate) {
-                    switch ($detail->frequency) {
+                    switch ($row->frequency) {
                         case 'Daily': return $lastMaintDate->copy()->addDay()->format('d-m-Y');
                         case 'Weekly': return $lastMaintDate->copy()->addWeek()->format('d-m-Y');
                         case 'Monthly': return $lastMaintDate->copy()->addMonth()->format('d-m-Y');
@@ -98,26 +102,33 @@ class ErpEquipmentController extends Controller
                         case 'Annually':
                         case 'Yearly': return $lastMaintDate->copy()->addYear()->format('d-m-Y');
                     }
-                } else {
-                    return $detail && $detail->start_date
-                        ? Carbon::parse($detail->start_date)->format('d-m-Y')
-                        : null;
                 }
+                return $row->start_date
+                    ? Carbon::parse($row->start_date)->format('d-m-Y')
+                    : null;
             })
             ->addColumn('status', function ($row) {
-                $eqpStatus = $row->document_status ?? 'draft';
+                $eqpStatus = optional($row->equipment)->document_status;
+                if ($eqpStatus == ConstantHelper::APPROVAL_NOT_REQUIRED) {
+                    $statusText = 'Approved';
+                } else {
+                    $statusText = ucfirst($eqpStatus);
+                }
                 $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$eqpStatus] ?? 'badge-light-secondary';
-                $statusText  = $eqpStatus == ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($eqpStatus);
                 return "<span class='badge rounded-pill {$statusClass}'>{$statusText}</span>";
             })
             ->addColumn('action', function ($row) {
+                $equipmentId = optional($row->equipment)->id;
+                if (!$equipmentId) {
+                    return '';
+                }
                 return '
                     <div class="dropdown">
                         <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
                             <i data-feather="more-vertical"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end">
-                            <a class="dropdown-item" href="'.route('equipment.edit', $row->id).'">
+                            <a class="dropdown-item" href="'.route('equipment.edit', $equipmentId).'">
                                 <i data-feather="edit-3" class="me-50"></i>
                                 <span>Edit</span>
                             </a>
@@ -131,11 +142,13 @@ class ErpEquipmentController extends Controller
 
 
 
+
     public function create()
     {
         $parentURL = request()->segments()[0];
         $fixedAssetRegistration = FixedAssetRegistration::select('id', 'asset_name','asset_code')->get();
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
+        
         if (count($servicesBooks['services']) == 0) {
             return redirect()->route('/');
         }

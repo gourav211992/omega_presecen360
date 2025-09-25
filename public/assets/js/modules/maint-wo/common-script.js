@@ -232,16 +232,12 @@ function setReject() {
 function setFormattedNumericValue(element) {
   element.value = (parseFloat(element.value ? element.value : 0)).toFixed(4)
 }
-$(document).on('click', '#amendmentSubmit', (e) => {
-  e.preventDefault();
-  let url = new URL(amendUrl, window.location.origin);
-  url.searchParams.set('amendment', 1);
-  window.location.href = url.toString();
-});
+
 $(document).on('click', '#amendmentBtnSubmit', (e) => {
   e.preventDefault();
   $("#amendmentModal").modal('show');
 });
+
 $(document).on('click', '#amendmentModalSubmit', (e) => {
   e.preventDefault();
   let remark = $("#amendmentModal").find('[name="amend_remarks"]').val();

@@ -31,8 +31,13 @@ class ErpEquipMaintenanceDetail extends Model
 
     public function latestWorkOrder()
     {
-        return $this->hasOne(PlantMaintWo::class, 'maintenance_type_id', 'maintenance_type_id')
-                    ->whereColumn('equipment_id','equipment_id')
-                    ->latest('created_at');
+        return $this->belongsTo(PlantMaintWo::class, 'latest_work_order_id');
     }
+
+
+
+
+
+
+
 }

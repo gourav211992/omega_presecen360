@@ -1525,7 +1525,9 @@
             e.preventDefault();
             var activeTab = $('.tab-pane.active').attr('id');
             if (activeTab === 'Maintenance') {
-                $('#maintenanceRows').append(getMaintenanceRow());
+                if (validateMaintenanceRows()) {
+                    $('#maintenanceRows').append(getMaintenanceRow());
+                }
             } else if (activeTab === 'Spare') {
                 $('#spareRows').append(getSparePartRow());
             }
@@ -1724,6 +1726,62 @@
         @if ($errors->any())
             showToast('error', "@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach");
         @endif
-           
+        
+        function validateMaintenanceRows() {
+            let allValid = true;
+            $('#maintenanceRows tr').each(function () {
+                const type      = $(this).find('.maintenance-type');
+                const freq      = $(this).find('.frequency');
+                const date      = $(this).find('.date-field');
+                const time      = $(this).find('.time-field');
+                const bom       = $(this).find('.maintenance-bom');
+                const checklist = $(this).find('.selected-checklists');
+
+                // Reset previous errors
+                $(this).find('select, input').removeClass('is-invalid');
+
+                // Check fields safely
+                if (type.length && !type.val()) {
+                    type.addClass('is-invalid');
+                    if (type[0] && typeof type[0].reportValidity === "function") type[0].reportValidity();
+                    allValid = false;
+                    return false; // break loop
+                }
+                if (freq.length && !freq.val()) {
+                    freq.addClass('is-invalid');
+                    if (freq[0] && typeof freq[0].reportValidity === "function") freq[0].reportValidity();
+                    allValid = false;
+                    return false;
+                }
+                if (date.length && !date.val()) {
+                    date.addClass('is-invalid');
+                    if (date[0] && typeof date[0].reportValidity === "function") date[0].reportValidity();
+                    allValid = false;
+                    return false;
+                }
+                if (time.length && !time.val()) {
+                    time.addClass('is-invalid');
+                    if (time[0] && typeof time[0].reportValidity === "function") time[0].reportValidity();
+                    allValid = false;
+                    return false;
+                }
+                if (bom.length && !bom.val()) {
+                    bom.addClass('is-invalid');
+                    if (bom[0] && typeof bom[0].reportValidity === "function") bom[0].reportValidity();
+                    allValid = false;
+                    return false;
+                }
+                if (checklist.length && !checklist.val()) {
+                    $(this).addClass('table-danger');
+                    setTimeout(() => $(this).removeClass('table-danger'), 2000);
+                    allValid = false;
+                    return false;
+                }
+            });
+
+            return allValid;
+        }
+
+
     </script>
 @endsection
