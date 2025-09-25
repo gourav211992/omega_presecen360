@@ -26,7 +26,7 @@
                         </div>
                         <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
                             <div class="form-group breadcrumb-right">
-                            	<a href="{{ route('equipment.index') }}"> <button class="btn btn-secondary btn-sm"><i
+                            	<a href="{{ route('equipment.index') }}"> <button id="back" class="btn btn-secondary btn-sm"><i
 										data-feather="arrow-left-circle"></i> Back</button>
 							</a>
                             @if($buttons['submit'])
@@ -61,21 +61,21 @@
                     </div>
                 </div>
                 <input type="hidden" name="status" id="status">
-                @if (session('success'))
-                            <div class="alert alert-success">
-                                {{ session('success') }}
-                            </div>
-                        @endif
+                    @if (session('success'))
+                        <div class="alert alert-success">
+                            {{ session('success') }}
+                        </div>
+                    @endif
 
-                        @if ($errors->any())
-                            <div class="alert alert-danger">
-                                <ul>
-                                    @foreach ($errors->all() as $error)
-                                        <li>{{ $error }}</li>
-                                    @endforeach
-                                </ul>
-                            </div>
-                        @endif
+                    @if ($errors->any())
+                        <div class="alert alert-danger">
+                            <ul>
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
 
                 <div class="content-body">
                     <section id="basic-datatable">
@@ -815,12 +815,12 @@
             }
 
              @if(!$buttons['submit'])
-        $('#equipmentForm').find('input, select,button,textarea').prop('disabled', true);
-       
-        $('#revisionNumber').prop('disabled', false);
-        $('#back').prop('disabled', false);
-        @endif
-
+                $('#equipmentForm').find('input, select,button,textarea').prop('disabled', true);
+                $('#revisionNumber').prop('disabled', false);
+                $('#back').prop('disabled', false);
+            @endif
+            $('#back').prop('disabled', false);
+            
          $(function() {
             $("#revisionNumber").change(function() {
                 const fullUrl = "{{ route('equipment.edit', $equipment->id) }}?revisionNumber=" +
@@ -1842,10 +1842,12 @@
                 e.preventDefault();
                 var activeTab = $('.tab-pane.active').attr('id');
                 if (activeTab === 'Maintenance') {
-                    $('#maintenanceRows').append(getMaintenanceRow());
+                    if (validateMaintenanceRows()) {
+                        $('#maintenanceRows').append(getMaintenanceRow());
+                    }
                 } else if (activeTab === 'Spare') {
                     $('#spareRows').append(getSparePartRow());
-                }
+            }
             });
 
             // Delete selected rows from active tab
@@ -2168,6 +2170,61 @@
                     }
                 });
             }
+        }
+
+        function validateMaintenanceRows() {
+            let allValid = true;
+            $('#maintenanceRows tr').each(function () {
+                const type      = $(this).find('.maintenance-type');
+                const freq      = $(this).find('.frequency');
+                const date      = $(this).find('.date-field');
+                const time      = $(this).find('.time-field');
+                const bom       = $(this).find('.maintenance-bom');
+                const checklist = $(this).find('.selected-checklists');
+
+                // Reset previous errors
+                $(this).find('select, input').removeClass('is-invalid');
+
+                // Check fields safely
+                if (type.length && !type.val()) {
+                    type.addClass('is-invalid');
+                    if (type[0] && typeof type[0].reportValidity === "function") type[0].reportValidity();
+                    allValid = false;
+                    return false; // break loop
+                }
+                if (freq.length && !freq.val()) {
+                    freq.addClass('is-invalid');
+                    if (freq[0] && typeof freq[0].reportValidity === "function") freq[0].reportValidity();
+                    allValid = false;
+                    return false;
+                }
+                if (date.length && !date.val()) {
+                    date.addClass('is-invalid');
+                    if (date[0] && typeof date[0].reportValidity === "function") date[0].reportValidity();
+                    allValid = false;
+                    return false;
+                }
+                if (time.length && !time.val()) {
+                    time.addClass('is-invalid');
+                    if (time[0] && typeof time[0].reportValidity === "function") time[0].reportValidity();
+                    allValid = false;
+                    return false;
+                }
+                if (bom.length && !bom.val()) {
+                    bom.addClass('is-invalid');
+                    if (bom[0] && typeof bom[0].reportValidity === "function") bom[0].reportValidity();
+                    allValid = false;
+                    return false;
+                }
+                if (checklist.length && !checklist.val()) {
+                    $(this).addClass('table-danger');
+                    setTimeout(() => $(this).removeClass('table-danger'), 2000);
+                    allValid = false;
+                    return false;
+                }
+            });
+
+            return allValid;
         }
 
 

@@ -100,7 +100,7 @@
 		<input type="hidden" name="doc_no" id="doc_no" value="{{ $workOrder->document_number ?? '' }}">
         <input type="hidden" name="book_id" id="book_id" value="{{ $workOrder->book_id ?? '' }}">
         <input type="hidden" name="document_date" id="document_date" value="{{ $workOrder->document_date ?? '' }}">
-        <input type="hidden" name="document_status" id="document_status" value="{{ $workOrder->document_status ?? '' }}">
+        <input type="hidden" name="document_status" id="document_status" value="submitted">
         <input type="hidden" name="spare_parts" id="spare_parts" value="{{ $workOrder->spare_parts ?? '' }}">
         <input type="hidden" name="selected_equipment_id" id="selected_equipment_id" value="{{ $equipmentDetailsArr->equipment_id ?? '' }}">
         <input type="hidden" name="equipment_maintenance_type_name" id="equipment_maintenance_type_name" value="{{ $equipmentDetailsArr->equipment_maintenance_type_name ?? $equipmentDetailsArr->maintenance_type_name ?? '' }}">
@@ -130,6 +130,24 @@
                           <h4 class="card-title text-theme">Basic Information</h4>
                           <p class="card-text">Fill the details</p>
                         </div>
+                        <div class="header-right">
+                          @php
+                              use App\Helpers\Helper;
+                          @endphp
+                          <div class="col-md-6 text-sm-end">
+                              <span
+                                  class="badge rounded-pill {{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$workOrder->document_status] ?? ''}} forminnerstatus">
+                                  <span class="text-dark">Status</span>
+                                  : <span
+                                      class="{{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS['CLOSED'] ?? ''}}">
+                                      @if ($workOrder->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED)
+                                          Approved
+                                      @else
+                                          {{ ucfirst($workOrder->document_status) }}
+                                      @endif
+                                  </span>
+                              </span>
+                          </div>
                       </div>
                     </div>
 
@@ -989,7 +1007,11 @@
                 <p class="text-center">Enter the details below.</p>
 
                 <div class="table-responsive-md customernewsection-form">
-                  <table class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail" id="attributes_table_modal" item-index="">
+                  <table class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail" id="attributes_table_modal" style="width: 100%;">
+                    <colgroup>
+                      <col style="width: 40%;">
+                      <col style="width: 60%;">
+                    </colgroup>
                     <thead>
                       <tr>
                         <th>Attribute Name</th>
@@ -1001,8 +1023,8 @@
                 </div>
               </div>
               <div class="modal-footer justify-content-center">
-                <button type="button" class="btn btn-outline-secondary me-1" onclick="closeModal('attribute');">Cancel</button>
-                <button type="button" class="btn btn-primary submitAttributeBtn">Select</button>
+                <button type="button" class="btn btn-outline-secondary me-1" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary submitAttributeBtn" id="saveAttributes">Select</button>
               </div>
             </div>
           </div>
@@ -1094,6 +1116,7 @@
 
 @section('scripts')
 <script type="text/javascript" src="{{asset('app-assets/js/file-uploader.js')}}"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @include('plant.maint_wo.common-js-route',["wo" => isset($wo) ? $wo : null, "route_prefix" => "maint-wo"])
 <script src="{{ asset('assets/js/modules/maint-wo/common-script.js') }}"></script>
 <script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>
@@ -1101,12 +1124,138 @@
 <script>
 	const itemsData = @json($items);
 	const sparePartsData = @json($sparePartsData);
-  console.log("check the sparePartsData", sparePartsData);
   
 	let rowCount = 1;
 
+	// Function to handle saving attributes from modal
+	$(document).on('click', '.submitAttributeBtn', function() {
+		let $modal = $('#attribute');
+		let $row = $modal.data('currentRow');
+		
+		if ($row) {
+			let attributes = [];
+			
+			// Collect all selected attributes
+			$('#attribute_table .attribute-select').each(function() {
+				let $select = $(this);
+				let attributeId = $select.data('attribute-id');
+				let valueId = $select.val();
+				
+				if (valueId) {
+					let optionText = $select.find('option:selected').text();
+					attributes.push({
+						item_attribute_id: attributeId,
+						value_id: valueId,
+						value: optionText,
+						name: $select.closest('tr').find('td:first').text().trim()
+					});
+				}
+			});
+			
+			// Update the hidden input
+			$row.find('.attribute').val(JSON.stringify(attributes));
+			
+			// Update badges - ensure we're targeting the correct container
+			updateAttributeBadges($row);
+			
+			// Close modal
+			$modal.modal('hide');
+		}
+	});
+	
+	// Make sure badges are updated when a new row is added
+	$(document).on('click', '#addNewRowBtn', function(e) {
+		e.preventDefault();
+		
+		if (!validateItemRows()) {
+			return false;
+		}
+
+		rowCount++;
+		let newRow = `
+		<tr>
+			<td class="customernewsection-form">
+				<div class="form-check form-check-primary custom-checkbox">
+					<input type="checkbox" class="form-check-input row-check" id="row_${rowCount}">
+					<label class="form-check-label" for="row_${rowCount}"></label>
+				</div>
+			</td>
+			<td class="poprod-decpt">
+				<input type="hidden" class="item_id">
+				<input required type="text" placeholder="Select" name="item[]" class="item_code form-control mw-100 ledgerselecct mb-25" />
+			</td>
+			<td class="poprod-decpt">
+				<input type="text" placeholder="Select" class="item_name form-control mw-100 ledgerselecct mb-25" />
+			</td>
+			<td class="poprod-decpt">
+				<input type="hidden" class="attribute" value="[]">
+				<div class="d-flex flex-wrap gap-1 attribute-badges">
+					<span class="text-muted small">No attributes selected</span>
+				</div>
+			</td>
+			<td>
+				<select class="uom form-select mw-100" name="uom[]" required></select>
+			</td>
+			<td>
+				<input type="number" class="qty form-control mw-100" name="qty[]" required />
+			</td>
+			<td>
+				<input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly />
+			</td>
+		</tr>`;
+
+		$('.mrntableselectexcel').append(newRow);
+		initAutoForItem('.item_code');
+	});
+	
+	// Function to update attribute badges
+	function updateAttributeBadges($row) {
+		if (!$row) return;
+
+		let $badgesContainer = $row.find('.attribute-badges');
+		let $hiddenInput = $row.find('.attribute');
+		let attributes = [];
+		
+		try {
+			attributes = $hiddenInput.val() ? JSON.parse($hiddenInput.val()) : [];
+		} catch (e) {
+			console.error('Error parsing attributes:', e);
+		}
+		
+		let badgesHtml = '';
+		
+		if (attributes && attributes.length > 0) {
+			// Show up to 2 badges, with a +X more indicator if there are more
+			const maxVisible = 2;
+			const visibleAttrs = attributes.slice(0, maxVisible);
+			
+			visibleAttrs.forEach(attr => {
+				badgesHtml += `
+					<span class="badge rounded-pill badge-light-primary me-1 mb-1" style="font-size: 10px;">
+						${attr.name || 'Attribute'}: ${attr.value || 'N/A'}
+					</span>
+				`;
+			});
+			
+			// Add more indicator if there are additional attributes
+			if (attributes.length > maxVisible) {
+				badgesHtml += `
+					<span class="badge rounded-pill badge-light-secondary me-1 mb-1" style="font-size: 10px;">
+						+${attributes.length - maxVisible} more
+					</span>
+				`;
+			}
+		} else {
+			badgesHtml = '<span class="text-muted small">No attributes selected</span>';
+		}
+		
+		$badgesContainer.html(badgesHtml);
+	}
+
 	// Populate attribute modal
 	function populateAttributeModal(attributes, $row) {
+		console.log("check the populate modal here", attributes);
+		
 		if (!attributes || attributes.length === 0) return;
 
 		window.currentAttributeRow = $row;
@@ -1335,7 +1484,6 @@
 
 	// Initialize autocomplete function
 	function initAutoForItem(selector, type) {
-		console.log("check the selector and type", selector, type);
 		
 		$(selector).autocomplete({
 			minLength: 0,
@@ -1348,7 +1496,6 @@
 					let val = $(this).val();
 					if (val) selectedItemIds.push(val);
 				});
-				console.log("check the selectedItemIds", selectedItemIds);
 
 				// Filter itemsData by search term AND exclude already selected items
 				let filtered = itemsData.filter(item => {
@@ -1364,8 +1511,6 @@
 					return (item.item_code.toLowerCase().includes(term) || item.item_name.toLowerCase().includes(term)) &&
 						(!isSelectedElsewhere || item.id.toString() === currentItemId);
 				});
-
-				console.log("check the filtered", filtered);
 				
 				let results = filtered.map(item => ({
 					id: item.id,
@@ -1378,8 +1523,6 @@
 					attr: item.item_attributes || [],
 					available_stock: item.available_stock || 0
 				}));
-
-				console.log("check the results", results);
 				
 				response(results);
 			},
@@ -1515,7 +1658,58 @@
 	});
 
 	// Add New Item functionality
-	$('#addNewRowBtn').on('click', function () {
+	// $('#addNewRowBtn').on('click', function () {
+	// 	rowCount++;
+	// 	let newRow = `<tr>
+	// 		<td class="customernewsection-form">
+	// 			<div class="form-check form-check-primary custom-checkbox">
+	// 				<input type="checkbox" class="form-check-input row-check" id="row_${rowCount}">
+	// 				<label class="form-check-label" for="row_${rowCount}"></label>
+	// 			</div>
+	// 		</td>
+	// 		<td class="poprod-decpt">
+	// 			<input type="hidden" class="item_id">
+	// 			<input required type="text" placeholder="Select" name="item[]" class="item_code form-control mw-100 ledgerselecct mb-25" />
+	// 		</td>
+	// 		<td class="poprod-decpt">
+	// 			<input type="text" placeholder="Select" class="item_name form-control mw-100 ledgerselecct mb-25" />
+	// 		</td>
+	// 		<td class="poprod-decpt">
+	// 			<input type="hidden" class="attribute">
+	// 			<div class="d-flex flex-wrap gap-1" id="attribute-badges">
+	// 				<!-- Attribute badges will be displayed here -->
+	// 			</div>
+	// 		</td>
+	// 		<td>
+	// 			<select class="uom form-select mw-100" name="uom[]" required></select>
+	// 		</td>
+	// 		<td>
+	// 			<input type="number" class="qty form-control mw-100" name="qty[]" required />
+	// 		</td>
+	// 		<td>
+	// 			<input type="number" class="available_stock form-control mw-100" name="available_stock[]" 
+        
+        
+        
+        
+    //      readonly />
+	// 		</td>
+	// 	</tr>`;
+	// 	$('.mrntableselectexcel').append(newRow);
+		
+	// 	// Initialize autocomplete for the new row
+	// 	if (typeof initAutoForItem === 'function') {
+	// 		initAutoForItem('.item_code');
+	// 	}
+	// });
+
+	$('#addNewRowBtn').on('click', function (e) {
+		e.preventDefault();
+
+		if (!validateItemRows()) {
+			return false;
+		}
+
 		rowCount++;
 		let newRow = `<tr>
 			<td class="customernewsection-form">
@@ -1533,9 +1727,7 @@
 			</td>
 			<td class="poprod-decpt">
 				<input type="hidden" class="attribute">
-				<div class="d-flex flex-wrap gap-1" id="attribute-badges">
-					<!-- Attribute badges will be displayed here -->
-				</div>
+				<div class="d-flex flex-wrap gap-1 attribute-badges"></div>
 			</td>
 			<td>
 				<select class="uom form-select mw-100" name="uom[]" required></select>
@@ -1544,21 +1736,18 @@
 				<input type="number" class="qty form-control mw-100" name="qty[]" required />
 			</td>
 			<td>
-				<input type="number" class="available_stock form-control mw-100" name="available_stock[]" 
-        
-        
-        
-        
-         readonly />
+				<input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly />
 			</td>
 		</tr>`;
+
 		$('.mrntableselectexcel').append(newRow);
-		
-		// Initialize autocomplete for the new row
+
 		if (typeof initAutoForItem === 'function') {
 			initAutoForItem('.item_code');
 		}
 	});
+
+	
 
 	// Delete selected rows functionality
 	$('#delete').on('click', function () {
@@ -1578,36 +1767,25 @@
 		$(this).addClass('trselected').siblings().removeClass('trselected');
 		$('html, body').scrollTop($(this).offset().top - 200);
 		updateFooterFromSelected();
-		console.log('Spare part row clicked, updating footer...');
 	});
 
 	function updateFooterFromSelected() {
 		let $selected = $('.trselected');
-		console.log('updateFooterFromSelected called, selected rows:', $selected.length);
 		
 		if ($selected.length) {
-			console.log("Selected row found, processing...");
-			
 			// Get basic part details
 			let partName = $selected.find('.item_name').val() || 'N/A';
 			let uomText = $selected.find('.uom option:selected').text() || $selected.find('.uom').val() || 'N/A';
 			let qty = $selected.find('.qty').val() || '0';
 			let availableStock = $selected.find('.available_stock').val() || '0'; // Get available stock
 			
-			console.log('Part details extracted:', {
-				partName: partName,
-				uomText: uomText,
-				qty: qty,
-				availableStock: availableStock
-			});
-			
+	
 			// Update part details display
 			$('#part_name').text(partName);
 			$('#uom').text(uomText);
 			$('#qty').text(qty);
 			$('#available_stock').text(availableStock); // Update available stock in Part Details
 			
-			console.log('Part details updated in DOM');
 			
 			let $selectElement = $selected.find('.item_code');
 			let $badgesContainer = $('#attributes_badges'); // container for badges
@@ -1681,7 +1859,7 @@
 		if (!$row) return;
 
 		let $selectElement = $row.find('.item_code');
-		let $badgesContainer = $row.find('#attribute-badges');
+		let $badgesContainer = $row.find('.attribute-badges');
 
 		if ($selectElement.val() !== "") {
 			let $hiddenInput = $row.find('.attribute');
@@ -1749,22 +1927,14 @@
 		var $this = $(this);
 		var $tr = $this.closest('tr');
 		var $selectElement = $tr.find('.item_code');
-		var $attributesTable = $('#attribute_table'); // modal table
-		$attributesTable.data('currentRow', $tr);
 
 		if ($selectElement.val() !== "") {
 			let attributesJSON = JSON.parse($selectElement.attr('data-attr') || '[]');
-			let $hiddenInput = $tr.find('.attribute');
-			let existingAttributes = $hiddenInput.length && $hiddenInput.val()
-				? JSON.parse($hiddenInput.val())
-				: [];
 
 			if (attributesJSON.length > 0) {
-				// Open attribute modal
-				$('#attributeModal').modal('show');
-				
-				// Populate attribute modal with data
-				populateAttributeModal(attributesJSON, existingAttributes, $tr);
+				// Use the same populateAttributeModal function for consistency
+				populateAttributeModal(attributesJSON, $tr);
+				$('#attribute').modal('show');
 			} else {
 				showToast('info', 'No attributes available for this item.');
 			}
@@ -1773,14 +1943,7 @@
 		}
 	});
 
-	// Function to populate attribute modal (placeholder - needs actual modal implementation)
-	function populateAttributeModal(attributesJSON, existingAttributes, $row) {
-		// This function would populate the attribute modal
-		// For now, just show a message that modal functionality needs to be implemented
-		console.log('Attribute modal functionality needs to be implemented');
-		console.log('Attributes:', attributesJSON);
-		console.log('Existing selections:', existingAttributes);
-	}
+	
 
 	// Initialize attribute badges for existing rows on page load
 	$(document).ready(function() {
@@ -1792,14 +1955,10 @@
 
 	// Missing function definitions for edit form
 	function clearSparePartsTable() {
-		console.log('🧹 clearSparePartsTable() called');
+		
 		
 		// Find the spare parts table body
 		const sparePartsTableBody = $('.mrntableselectexcel');
-		
-		console.log('🧹 Found spare parts table body:', sparePartsTableBody.length);
-		console.log('🧹 Current rows in table:', sparePartsTableBody.find('tr').length);
-		
 		if (sparePartsTableBody.length > 0) {
 			// Clear all existing rows
 			sparePartsTableBody.empty();
@@ -1825,7 +1984,7 @@
 					</td>
 					<td class="poprod-decpt">
 						<input type="hidden" class="attribute">
-						<div class="d-flex flex-wrap gap-1" id="attribute-badges">
+						<div class="d-flex flex-wrap gap-1 attribute-badges" id="attribute-badges">
 							<!-- Attribute badges will be displayed here -->
 						</div>
 					</td>
@@ -1840,11 +1999,10 @@
 			
 			// Add the single row to the table
 			sparePartsTableBody.html(singleRow);
-			console.log('🧹 Single row added, final row count:', sparePartsTableBody.find('tr').length);
+			
 			
 			// Reinitialize autocomplete for the new row
 			initAutoForItem('.item_code');
-			console.log('🔄 Autocomplete reinitialized for new spare parts row');
 			
 			// Clear the spare_parts hidden field
 			$('#spare_parts').val('');
@@ -1852,12 +2010,8 @@
 			// Clear any selected equipment and BOM IDs to prevent spare parts from being fetched
 			$('#selected_equipment_id').val('');
 			$('#selected_bom_id').val('');
-			$('#selected_maintenance_type_id').val('');
-			
-			console.log('🧹 Spare parts table cleared and reset to single row for defect notification');
-		} else {
-			console.log('🧹 ERROR: Spare parts table body not found!');
-		}
+			$('#selected_maintenance_type_id').val('');	
+		} 
 	}
 
 	function processEquipmentSelection() {
@@ -1894,22 +2048,19 @@
 		$('#equipment_name').prop('readonly', true);
 		$('#maintenance_type').prop('disabled', true);
 		
-		console.log('Equipment selected:', equipmentName);
-		console.log('Equipment detail fields shown');
-		
 		// Fetch spare parts via AJAX only if reference type is equipment (not defect notification)
 		const referenceType = $('#reference_type').val();
 		const maintenanceTypeId = selectedEquipment.data('maintenance-type');
 		if (equipmentId && maintenanceTypeId && referenceType === 'equipment') {
-			console.log('🔧 Fetching spare parts for equipment reference type');
+			
 			// Note: fetchEquipmentSpareParts function should be available from common-script.js
 			if (typeof fetchEquipmentSpareParts === 'function') {
 				fetchEquipmentSpareParts(equipmentId, maintenanceTypeId);
 			} else {
-				console.log('⚠️ fetchEquipmentSpareParts function not available');
+				
 			}
 		} else if (referenceType === 'defect_notification') {
-			console.log('🚫 Skipping spare parts fetch - defect notification mode');
+			
 			// Ensure spare parts table is cleared for defect notifications
 			clearSparePartsTable();
 		}
@@ -1922,7 +2073,6 @@
 
 	// Reference button functions (missing from edit form)
 	function selectEquipmentReference() {
-		console.log('🔧 selectEquipmentReference() called');
 		loadModal('eqpt');
 		$('#reference_type').val('equipment');
 		$('#reference_type_error').hide();
@@ -1977,7 +2127,6 @@
 		$('#detailed_observations_field textarea').prop('readonly', true);
 		$('#report_by_field input').prop('readonly', true);
 		
-		console.log(' Spare parts table cleared and reset to single row for defect notification');
 	
 }
 
@@ -2015,22 +2164,14 @@ function processEquipmentSelection() {
 	$('#equipment_name').prop('readonly', true);
 	$('#maintenance_type').prop('disabled', true);
 	
-	console.log('Equipment selected:', equipmentName);
-	console.log('Equipment detail fields shown');
-	
 	// Fetch spare parts via AJAX only if reference type is equipment (not defect notification)
 	const referenceType = $('#reference_type').val();
 	const maintenanceTypeId = selectedEquipment.data('maintenance-type');
 	if (equipmentId && maintenanceTypeId && referenceType === 'equipment') {
-		console.log(' Fetching spare parts for equipment reference type');
-		// Note: fetchEquipmentSpareParts function should be available from common-script.js
 		if (typeof fetchEquipmentSpareParts === 'function') {
 			fetchEquipmentSpareParts(equipmentId, maintenanceTypeId);
-		} else {
-			console.log(' fetchEquipmentSpareParts function not available');
 		}
 	} else if (referenceType === 'defect_notification') {
-		console.log(' Skipping spare parts fetch - defect notification mode');
 		// Ensure spare parts table is cleared for defect notifications
 		clearSparePartsTable();
 	}
@@ -2261,14 +2402,6 @@ function processDefectSelection() {
 		var defectTypeId = $('select[name="defect_type_id"]').val();
 		var priority = $('select[name="defect_priority"]').val();
 		var series = $('select[name="series"]').val();
-
-		console.log('Defect filter params:', {
-			equipment_id: equipmentId,
-			defect_type_id: defectTypeId,
-			priority: priority,
-			series_code: series
-		});
-
 		$.ajax({
 			url: "{{ route('maint-wo.filter') }}",
 			method: 'POST',
@@ -2702,5 +2835,109 @@ function processDefectSelection() {
 		});
 	});
 
+	function validateItemRows() {
+		let allValid = true;
+
+		$('.mrntableselectexcel tr').each(function () {
+			const itemCode   = $(this).find('.item_code');
+			const itemName   = $(this).find('.item_name');
+			const attribute  = $(this).find('.attribute');
+			const uom        = $(this).find('.uom');
+			const qty        = $(this).find('.qty');
+
+			$(this).find('select, input').removeClass('is-invalid');
+			$(this).removeClass('table-danger');
+
+			if (itemCode.length && !itemCode.val()) {
+				itemCode.addClass('is-invalid').focus();
+				allValid = false;
+				return false;
+			}
+			if (itemName.length && !itemName.val()) {
+				itemName.addClass('is-invalid').focus();
+				allValid = false;
+				return false;
+			}
+			if (attribute.length && (!attribute.val() || attribute.val() === '[]')) {
+				$(this).addClass('table-danger');
+				setTimeout(() => $(this).removeClass('table-danger'), 2000);
+				allValid = false;
+				return false;
+			}
+			if (uom.length && !uom.val()) {
+				uom.addClass('is-invalid').focus();
+				allValid = false;
+				return false;
+			}
+			if (qty.length && (!qty.val() || parseFloat(qty.val()) <= 0)) {
+				qty.addClass('is-invalid').focus();
+				allValid = false;
+				return false;
+			}
+		});
+
+		return allValid;
+	}
+
+
+
 </script>
+
+<!-- Amendment Confirmation Modal -->
+<div class="modal fade" id="amendmentconfirm" tabindex="-1" aria-labelledby="amendmentconfirmLabel" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="amendmentconfirmLabel">Amendment Confirmation</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<form id="amendment-form" action="{{ route('maint-wo.update', $workOrder->id) }}" method="POST" enctype="multipart/form-data">
+				@csrf
+				@method('PUT')
+				<input type="hidden" name="action_type" value="amendment">
+				<input type="hidden" name="book_code" value="{{ $workOrder->book_code }}">
+				<input type="hidden" name="book_id" value="{{ $workOrder->book_id }}">
+				<input type="hidden" name="doc_number_type" value="{{ $workOrder->doc_number_type }}">
+				<input type="hidden" name="doc_reset_pattern" value="{{ $workOrder->doc_reset_pattern }}">
+				<input type="hidden" name="doc_prefix" value="{{ $workOrder->doc_prefix }}">
+				<input type="hidden" name="doc_suffix" value="{{ $workOrder->doc_suffix }}">
+				<input type="hidden" name="doc_no" value="{{ $workOrder->doc_no }}">
+				<input type="hidden" name="document_status" value="{{ $workOrder->document_status }}">
+				<input type="hidden" name="document_number" value="{{ $workOrder->document_number }}">
+				<input type="hidden" name="document_date" value="{{ $workOrder->document_date }}">
+				<input type="hidden" name="location_id" value="{{ $workOrder->location_id }}">
+				<input type="hidden" name="reference_type" value="{{ $refType }}">
+				<input type="hidden" name="equipment_details" value="{{ $workOrder->equipment_details }}">
+				<input type="hidden" name="spare_parts" value="{{ $workOrder->spare_parts }}">
+				<input type="hidden" name="checklist_data" value="{{ $workOrder->checklist_data }}">
+
+				<div class="modal-body">
+					<div class="alert alert-warning">
+						<i data-feather="alert-triangle"></i>
+						<strong>Amendment Notice:</strong> This action will create a new revision of the maintenance work order and submit it for approval.
+					</div>
+
+					<div class="mb-3">
+						<label for="amend_remarks" class="form-label">Amendment Remarks <span class="text-danger">*</span></label>
+						<textarea class="form-control" id="amend_remarks" name="amend_remarks" rows="3" placeholder="Please provide reason for amendment..." required></textarea>
+					</div>
+
+					<div class="mb-3">
+						<label for="amend_attachment" class="form-label">Supporting Document (Optional)</label>
+						<input type="file" class="form-control" id="amend_attachment" name="amend_attachment" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+						<small class="text-muted">Accepted formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB)</small>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+					<button type="submit" class="btn btn-warning">
+						<i data-feather="edit"></i> Submit Amendment
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+</div>
+
 @endsection

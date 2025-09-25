@@ -1033,6 +1033,9 @@
 			}
 		}
 		$('#addNewRowBtn').on('click', function () {
+			if (!validateExcelRows()) {
+				return;
+			}
 			rowCount++;
 			let newRow = `<tr>
 															<td class="customernewsection-form">
@@ -1075,20 +1078,6 @@
 		$('#delete').on('click', function () {
 			let $rows = $('.mrntableselectexcel tr');
 			let $checked = $rows.find('.row-check:checked');
-
-			// // Prevent deletion if only one row exists
-			// if ($rows.length <= 1) {
-			// 	showToast('error', 'At least one row is required.');
-			// 	return;
-			// }
-
-			// // Prevent deletion if checked rows would remove all
-			// if ($rows.length - $checked.length < 1) {
-			// 	showToast('error', 'You must keep at least one row.');
-			// 	return;
-			// }
-
-			// Remove only the checked rows
 			$checked.closest('tr').remove();
 
 		});
@@ -2338,6 +2327,57 @@
 			let year = base.getFullYear();
 			return `${day}-${month}-${year}`;
 		}
+
+		function validateExcelRows() {
+			let allValid = true;
+
+			$('.mrntableselectexcel tr').each(function () {
+				const itemCode  = $(this).find('.item_code');
+				const itemName  = $(this).find('.item_name');
+				const attribute = $(this).find('.attribute');
+				const uom       = $(this).find('.uom');
+				const qty       = $(this).find('.qty');
+				const attrTd    = $(this).find('td').eq(3);
+
+				$(this).find('input, select').removeClass('is-invalid');
+				attrTd.removeClass("border border-danger");
+
+				if (!itemCode.val()) {
+					itemCode.addClass('is-invalid');
+					allValid = false;
+					return false;
+				}
+
+				if (!itemName.val()) {
+					itemName.addClass('is-invalid');
+					allValid = false;
+					return false;
+				}
+
+				let attrValue = attribute.val();
+				if (attrValue === "{}" || !attrValue) {
+					attrTd.addClass("border border-danger");
+					allValid = false;
+					return false;
+				}
+
+				if (!uom.val()) {
+					uom.addClass('is-invalid');
+					allValid = false;
+					return false;
+				}
+
+				if (!qty.val() || parseFloat(qty.val()) <= 0) {
+					qty.addClass('is-invalid');
+					allValid = false;
+					return false;
+				}
+			});
+
+			return allValid;
+		}
+
+
 
 	</script>
 @endsection

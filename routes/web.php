@@ -3016,8 +3016,8 @@ Route::middleware(['user.auth'])->group(function () {
         'show' => 'maint-wo.show',
         'edit' => 'maint-wo.edit',
     ]);
-
-
+    Route::post('plant/maint-wo/{id}/amendment', [MaintWoController::class, 'amendment'])
+    ->name('maint-wo.amendment');
     Route::get('plant/defect-noti/get-ajax-data', [DefectNotificationController::class, 'getDefectNotificationsData'])->name('defect-notification.ajax-data');
     Route::get('plant/populate-modal', [MaintWoController::class, 'populateModal'])->name('maint-wo.populateModal');
 

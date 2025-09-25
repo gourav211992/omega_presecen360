@@ -43,12 +43,13 @@
                         data-bs-toggle="modal" data-bs-target="#approveModal" onclick="setRejection()">
                     <i data-feather="x-circle"></i> Reject
                 </button>
+                @endif
               
-              
+                @if($buttons['amend'])
                 <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
                         class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
-               @endif
-`
+                @endif
+                       
                 <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light" data-bs-toggle="modal" data-bs-target="#closeModal">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Close
                 </button>
@@ -2197,6 +2198,61 @@ function showToast(icon, title) {
 			$('.preloader').hide();
 			showToast("error", "{{ session('error') }}");
 		@endif
+
+    $(document).on('click', '#amendmentSubmit', function (e) {
+      e.preventDefault();
+
+      let id = $('#workorder_id').val(); 
+      let url = "{{ route('maint-wo.amendment', ':id') }}".replace(':id', id);
+
+      $.ajax({
+          url: url,
+          type: "POST",
+          data: {
+              _token: $('meta[name="csrf-token"]').attr('content'),
+              id: id,
+              document_status: "draft"
+          },
+          beforeSend: function () {
+              $('#amendmentSubmit').prop('disabled', true).text('Processing...');
+          },
+          success: function (response) {
+            if (response.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success',
+                    text: 'Amendment Done',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    willClose: () => {
+                        let amendUrl = "{{ route('maint-wo.edit', ':id') }}".replace(':id', id);
+                        let redirectUrl = new URL(amendUrl, window.location.origin);
+                        redirectUrl.searchParams.set('amendment', 1);
+                        window.location.href = redirectUrl.toString();
+                    }
+                });
+            }
+ else {
+                  Swal.fire({
+                      icon: 'error',
+                      title: 'Error',
+                      text: response.message || 'Something went wrong!'
+                  });
+              }
+          },
+          error: function (xhr) {
+              Swal.fire({
+                  icon: 'error',
+                  title: 'Error',
+                  text: xhr.responseJSON?.message || 'Failed to create amendment.'
+              });
+          },
+          complete: function () {
+              $('#amendmentSubmit').prop('disabled', false).text('Confirm');
+          }
+      });
+  });
+
 
 </script>
 
