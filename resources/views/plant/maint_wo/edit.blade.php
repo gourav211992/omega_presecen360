@@ -61,10 +61,7 @@
           $refType = $equipmentDetailsArr->reference_type;
           $sparePartsData = $workOrder && $workOrder->spare_parts ? json_decode($workOrder->spare_parts, true) : [];
           $checklistData = $workOrder && $workOrder->checklist_data ? json_decode($workOrder->checklist_data, true) : [];
-          
-          // Debug spare parts data
-          // dd('Spare Parts Data:', $sparePartsData, 'Work Order:', $workOrder->spare_parts);
-
+        
           // Extract defect notification details if reference type is defect_notification
           $selectedDefectName = $equipmentDetailsArr->equipment_defect_type ?? '';
           $selectedPriority = $equipmentDetailsArr->equipment_priority ?? '';
@@ -578,7 +575,7 @@
                                        </td>
                                        <td>
                                            <input type="number" class="available_stock form-control mw-100" name="available_stock[]"
-                                                  value="{{ $part['available_stock'] ?? 100 }}" readonly />
+                                                  value="{{ $part['available_stock'] }}" />
                                        </td>
                                      </tr>
                                   @endforeach
@@ -1107,6 +1104,63 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- Amendment Confirmation Modal -->
+<div class="modal fade" id="amendmentconfirm" tabindex="-1" aria-labelledby="amendmentconfirmLabel" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered">
+		<div class="modal-content">
+			<div class="modal-header">
+				<h5 class="modal-title" id="amendmentconfirmLabel">Amendment Confirmation</h5>
+				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<form id="amendment-form" action="{{ route('maint-wo.update', $workOrder->id) }}" method="POST" enctype="multipart/form-data">
+				@csrf
+				@method('PUT')
+				<input type="hidden" name="action_type" value="amendment">
+				<input type="hidden" name="book_code" value="{{ $workOrder->book_code }}">
+				<input type="hidden" name="book_id" value="{{ $workOrder->book_id }}">
+				<input type="hidden" name="doc_number_type" value="{{ $workOrder->doc_number_type }}">
+				<input type="hidden" name="doc_reset_pattern" value="{{ $workOrder->doc_reset_pattern }}">
+				<input type="hidden" name="doc_prefix" value="{{ $workOrder->doc_prefix }}">
+				<input type="hidden" name="doc_suffix" value="{{ $workOrder->doc_suffix }}">
+				<input type="hidden" name="doc_no" value="{{ $workOrder->doc_no }}">
+				<input type="hidden" name="document_status" value="{{ $workOrder->document_status }}">
+				<input type="hidden" name="document_number" value="{{ $workOrder->document_number }}">
+				<input type="hidden" name="document_date" value="{{ $workOrder->document_date }}">
+				<input type="hidden" name="location_id" value="{{ $workOrder->location_id }}">
+				<input type="hidden" name="reference_type" value="{{ $refType }}">
+				<input type="hidden" name="equipment_details" value="{{ $workOrder->equipment_details }}">
+				<input type="hidden" name="spare_parts" value="{{ $workOrder->spare_parts }}">
+				<input type="hidden" name="checklist_data" value="{{ $workOrder->checklist_data }}">
+
+				<div class="modal-body">
+					<div class="alert alert-warning">
+						<i data-feather="alert-triangle"></i>
+						<strong>Amendment Notice:</strong> This action will create a new revision of the maintenance work order and submit it for approval.
+					</div>
+
+					<div class="mb-3">
+						<label for="amend_remarks" class="form-label">Amendment Remarks <span class="text-danger">*</span></label>
+						<textarea class="form-control" id="amend_remarks" name="amend_remarks" rows="3" placeholder="Please provide reason for amendment..." required></textarea>
+					</div>
+
+					<div class="mb-3">
+						<label for="amend_attachment" class="form-label">Supporting Document (Optional)</label>
+						<input type="file" class="form-control" id="amend_attachment" name="amend_attachment" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+						<small class="text-muted">Accepted formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB)</small>
+					</div>
+				</div>
+
+				<div class="modal-footer">
+					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+					<button type="submit" class="btn btn-warning">
+						<i data-feather="edit"></i> Submit Amendment
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
 </div>
 
 @endsection
@@ -1947,6 +2001,8 @@
 
 	// Initialize attribute badges for existing rows on page load
 	$(document).ready(function() {
+		var itemsData = @json($items);
+		console.log('📦 Initial itemsData loaded:', itemsData);
 		$('.mrntableselectexcel tr').each(function() {
 			let $row = $(this);
 			updateAttributeBadges($row);
@@ -2790,7 +2846,13 @@ function processDefectSelection() {
 					// Show amendment modal for amendment mode
 					$("#amendmentSubmitModal").modal('show');
 				} else {
-					// Direct form submission for regular edit
+					// Validate items before direct form submission for regular edit
+					console.log('🔍 Validating items before form submission...');
+					if (!validateItemRows()) {
+						console.log('❌ Validation failed - preventing form submission');
+						return false; // Prevent form submission if validation fails
+					}
+					console.log('✅ Validation passed - submitting form');
 					$('.preloader').show();
 					document.getElementById('maint-wo-form').submit();
 				}
@@ -2813,6 +2875,14 @@ function processDefectSelection() {
 				$("#amendment_remarks").removeClass('is-invalid');
 				$("#amendment_remarks").next('.invalid-feedback').remove();
 			}
+			
+			// Validate items before amendment form submission
+			console.log('🔍 Validating items before amendment submission...');
+			if (!validateItemRows()) {
+				console.log('❌ Validation failed - preventing amendment submission');
+				return false; // Prevent form submission if validation fails
+			}
+			console.log('✅ Validation passed - proceeding with amendment');
 			
 			// Add action_type hidden field for amendment
 			if (!$('#action_type').length) {
@@ -2874,70 +2944,157 @@ function processDefectSelection() {
 				allValid = false;
 				return false;
 			}
+
+			// Check available stock
+			if (qty.length && qty.val()) {
+				const itemId = $(this).find('.item_id').val();
+				const itemData = itemsData.find(item => item.id == itemId);
+				const availableStock = itemData ? itemData.available_stock : 0;
+				const requestedQty = parseFloat(qty.val());
+
+				console.log('📋 Form submission stock check:', {
+					rowIndex: $('.mrntableselectexcel tr').index($(this)),
+					itemId,
+					itemName: itemName.val(),
+					availableStock,
+					requestedQty,
+					isInsufficient: requestedQty > availableStock,
+					itemDataFound: !!itemData
+				});
+
+				if (requestedQty > availableStock) {
+					qty.addClass('is-invalid');
+					Swal.fire({
+						title: 'Insufficient Stock!',
+						text: `Insufficient stock for ${itemName.val()}. Available: ${availableStock}`,
+						icon: 'error',
+						confirmButtonText: 'OK',
+						timer: 3000, // Auto close after 3 seconds
+						timerProgressBar: true
+					});
+					allValid = false;
+					return false;
+				}
+			}
 		});
 
 		return allValid;
 	}
 
+	// Real-time stock validation functions
+	function validateStockForRow($row) {
+		const itemId = $row.find('.item_id').val();
+		const itemName = $row.find('.item_name').val();
+		const qty = $row.find('.qty').val();
+		const qtyField = $row.find('.qty');
+
+		// Clear previous validation
+		qtyField.removeClass('is-invalid');
+
+		// Only validate if we have item and quantity
+		if (!itemId || !qty || parseFloat(qty) <= 0) {
+			return true;
+		}
+
+		const itemData = itemsData.find(item => item.id == itemId);
+
+		if (!itemData) {
+			return true;
+		}
+
+		const availableStock = itemData.available_stock || 0;
+		const requestedQty = parseFloat(qty);
+
+		if (requestedQty > availableStock) {
+			qtyField.addClass('is-invalid');
+			Swal.fire({
+				title: 'Insufficient Stock!',
+				text: `Insufficient stock for ${itemName}. Available: ${availableStock}`,
+				icon: 'error',
+				confirmButtonText: 'OK',
+				timer: 3000, // Auto close after 3 seconds
+				timerProgressBar: true
+			});
+			return false;
+		}
+
+		return true;
+	}
+
+	// Function to collect form data and update hidden spare_parts field
+	function collectFormData() {
+		let sparePartsData = [];
+
+		$('.mrntableselectexcel tr').each(function(index) {
+			const $row = $(this);
+
+			const itemId = $row.find('.item_id').val();
+			const itemCode = $row.find('.item_code').val();
+			const itemName = $row.find('.item_name').val();
+			const qty = $row.find('.qty').val();
+			const uomId = $row.find('.uom').val();
+			const uomName = $row.find('.uom option:selected').text();
+			const attribute = $row.find('.attribute').val();
+			const availableStock = $row.find('.available_stock').val();
+
+			// Only include rows with valid data
+			if (itemId && itemCode && itemName && qty) {
+				const itemData = itemsData.find(item => item.id == itemId);
+
+				sparePartsData.push({
+					item_id: itemId,
+					item_code: itemCode,
+					item_name: itemName,
+					qty: qty,
+					uom_id: uomId,
+					uom_name: uomName,
+					attribute: attribute || '[]',
+					attributes: itemData ? itemData.item_attributes : [],
+					available_stock: availableStock || 0
+				});
+			}
+		});
+
+		// Update hidden field with JSON data
+		$('#spare_parts').val(JSON.stringify(sparePartsData));
+	}
+
+	// Form submission validation for edit form
+	$(document).on('submit', '#maint-wo-form', function(e) {
+		// Collect current form data and update hidden field
+		collectFormData();
+		
+		if (!validateItemRows()) {
+			e.preventDefault(); // Prevent form submission
+			return false;
+		}
+		// ... allow submission
+	});
+
+	// Real-time validation for quantity changes
+	$(document).on('input change blur', '.qty', function() {
+		const $row = $(this).closest('tr');
+		
+		validateStockForRow($row);
+
+		// Update hidden field immediately when quantity changes
+		setTimeout(() => {
+			collectFormData();
+		}, 100);
+	});
+
+	// Real-time validation when item is selected (item_id changes)
+	$(document).on('change', '.item_id', function() {
+		const $row = $(this).closest('tr');
+		// Small delay to ensure all fields are populated
+		setTimeout(() => {
+			validateStockForRow($row);
+			// Update hidden field when item changes
+			collectFormData();
+		}, 100);
+	});
+
 
 
 </script>
-
-<!-- Amendment Confirmation Modal -->
-<div class="modal fade" id="amendmentconfirm" tabindex="-1" aria-labelledby="amendmentconfirmLabel" aria-hidden="true">
-	<div class="modal-dialog modal-dialog-centered">
-		<div class="modal-content">
-			<div class="modal-header">
-				<h5 class="modal-title" id="amendmentconfirmLabel">Amendment Confirmation</h5>
-				<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-			</div>
-			<form id="amendment-form" action="{{ route('maint-wo.update', $workOrder->id) }}" method="POST" enctype="multipart/form-data">
-				@csrf
-				@method('PUT')
-				<input type="hidden" name="action_type" value="amendment">
-				<input type="hidden" name="book_code" value="{{ $workOrder->book_code }}">
-				<input type="hidden" name="book_id" value="{{ $workOrder->book_id }}">
-				<input type="hidden" name="doc_number_type" value="{{ $workOrder->doc_number_type }}">
-				<input type="hidden" name="doc_reset_pattern" value="{{ $workOrder->doc_reset_pattern }}">
-				<input type="hidden" name="doc_prefix" value="{{ $workOrder->doc_prefix }}">
-				<input type="hidden" name="doc_suffix" value="{{ $workOrder->doc_suffix }}">
-				<input type="hidden" name="doc_no" value="{{ $workOrder->doc_no }}">
-				<input type="hidden" name="document_status" value="{{ $workOrder->document_status }}">
-				<input type="hidden" name="document_number" value="{{ $workOrder->document_number }}">
-				<input type="hidden" name="document_date" value="{{ $workOrder->document_date }}">
-				<input type="hidden" name="location_id" value="{{ $workOrder->location_id }}">
-				<input type="hidden" name="reference_type" value="{{ $refType }}">
-				<input type="hidden" name="equipment_details" value="{{ $workOrder->equipment_details }}">
-				<input type="hidden" name="spare_parts" value="{{ $workOrder->spare_parts }}">
-				<input type="hidden" name="checklist_data" value="{{ $workOrder->checklist_data }}">
-
-				<div class="modal-body">
-					<div class="alert alert-warning">
-						<i data-feather="alert-triangle"></i>
-						<strong>Amendment Notice:</strong> This action will create a new revision of the maintenance work order and submit it for approval.
-					</div>
-
-					<div class="mb-3">
-						<label for="amend_remarks" class="form-label">Amendment Remarks <span class="text-danger">*</span></label>
-						<textarea class="form-control" id="amend_remarks" name="amend_remarks" rows="3" placeholder="Please provide reason for amendment..." required></textarea>
-					</div>
-
-					<div class="mb-3">
-						<label for="amend_attachment" class="form-label">Supporting Document (Optional)</label>
-						<input type="file" class="form-control" id="amend_attachment" name="amend_attachment" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-						<small class="text-muted">Accepted formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB)</small>
-					</div>
-				</div>
-
-				<div class="modal-footer">
-					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-					<button type="submit" class="btn btn-warning">
-						<i data-feather="edit"></i> Submit Amendment
-					</button>
-				</div>
-			</form>
-		</div>
-	</div>
-</div>
-
 @endsection
