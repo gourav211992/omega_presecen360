@@ -149,6 +149,10 @@ class ErpSaleInvoice extends Model
     {
         return $this -> hasMany(ErpSaleInvoiceTed::class, 'sale_invoice_id') -> where('ted_level', 'H') -> where('ted_type', 'Discount');
     }
+    public function header_tax()
+    {
+        return $this -> hasMany(ErpSaleInvoiceTed::class, 'sale_invoice_id') -> where('ted_level', 'H') -> where('ted_type', 'Tax');
+    }
     public function billing_address_details()
     {
         return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'billing');

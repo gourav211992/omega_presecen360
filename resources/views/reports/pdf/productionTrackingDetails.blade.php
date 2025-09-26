@@ -87,7 +87,7 @@
           <div style="margin-top:8px; font-size:11px;"><span style="font-weight:700;">SO#:</span>
               {{  $details->so_book_code }}-{{  $details->so_document_number }}</div>
           <div style="margin-top:8px; font-size:11px;"><span style="font-weight:700;">Date:</span>
-              {{ date('d-m-Y',strtotime($details->so_document_date))}}</div>
+              {{ isset($details->so_document_date)?date('d-m-Y',strtotime($details->so_document_date)):''}}</div>
             
         </td>
         <td style="vertical-align:top; width:45%; border:1px solid #000; padding:8px;">

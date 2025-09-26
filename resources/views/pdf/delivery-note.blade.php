@@ -341,6 +341,7 @@
                 $total_qty = 0;
                 $taxableValue = 0.00;
                 $hsnGroups = [];
+                $taxBracket = [];
             @endphp
             @foreach($order->items as $key => $val)
                 @php
@@ -382,9 +383,10 @@
                         $totalTaxPercentage += $taxPercentage;
                         $hsnGroups[$hsnCode][$taxType . '_amount'] += $taxTypeAmount;
                     }
-                    $hsnGroups[$hsnCode]['taxable_value'] += $taxableValue;
-                    $hsnGroups[$hsnCode]['taxable_rate'] = $taxPercentage;
-
+                    if(isset($hsnGroups[$hsnCode])) {
+                        $hsnGroups[$hsnCode]['taxable_value'] += $taxableValue;
+                        $hsnGroups[$hsnCode]['taxable_rate'] = $taxPercentage;
+                    }
                 }
 
                 // Now, calculate total tax_amount for each HSN group

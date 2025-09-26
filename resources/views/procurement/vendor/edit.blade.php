@@ -969,21 +969,6 @@
                                                                     </div>
                                                                 </div>
 
-                                                                
-                                                                <div class="row align-items-center mb-1">
-                                                                    <div class="col-md-4">
-                                                                        <label class="form-label">TDS Applicable</label>
-                                                                    </div>
-                                                                    <div class="col-md-6">
-                                                                        <div class="form-check form-check-primary mt-25 custom-checkbox">
-                                                                            <input type="checkbox" name="compliance[tds_applicable]" id="tdsApplicableIndia" 
-                                                                                class="form-check-input" 
-                                                                                @if($vendor->compliances && $vendor->compliances->tds_applicable) checked @endif
-                                                                            <label class="form-check-label" for="tdsApplicableIndia">Yes/No</label>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-
                                                             </div>
 
                                                             <!-- GST Info -->

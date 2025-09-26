@@ -663,7 +663,7 @@ $(document).on('click', '#revokeButton', (e) => {
   /*Approve modal*/
   $(document).on('click', '#approved-button', (e) => {
      let actionType = 'approve';
-     $("#approveModal").find("# var currentActionType = $('#action_type').val();").val(actionType);
+     $("#approveModal").find("#action_type").val(actionType);
      $("#approveModal #popupTitle").text("Approve Application");
      $("#approveModal").modal('show');
   });

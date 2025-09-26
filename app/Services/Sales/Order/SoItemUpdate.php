@@ -85,7 +85,7 @@ class SoItemUpdate
             $poItem = PoItem::find($request['po_item_ids'][$currentItemIndex]);
             if (isset($poItem)) {
                 //Enough balance qty is available or not
-                if (($qtItem -> inter_org_so_bal_qty + (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) < $currentQty) {
+                if (($poItem -> inter_org_so_bal_qty + (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) < $currentQty) {
                     return SuccessErrorArrayResponse::errorResponse('Not Enough Purchase Order Qty Available');
                 }
                 $poItem -> inter_org_so_qty = ($poItem -> inter_org_so_qty - (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) + $currentQty;
@@ -99,7 +99,7 @@ class SoItemUpdate
             $joProduct = JoProduct::find($request['jo_product_ids'][$currentItemIndex]);
             if (isset($joProduct)) {
                 //Enough balance qty is available or not
-                if (($qtItem -> inter_org_so_bal_qty + (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) < $currentQty) {
+                if (($joProduct -> inter_org_so_bal_qty + (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) < $currentQty) {
                     return SuccessErrorArrayResponse::errorResponse('Not Enough Job Order Qty Available');
                 }
                 $joProduct -> inter_org_so_qty = ($joProduct -> inter_org_so_qty - (isset($oldSoItem) ? $oldSoItem -> order_qty : 0)) + $currentQty;
@@ -109,8 +109,10 @@ class SoItemUpdate
                 //Save the item
                 //Only Save in case of create
                 if (!$request['sale_order_id'] && $saleOrder -> order_type === SaleModuleHelper::ORDER_TYPE_SUB_CONTRACTING) {
-                    $joBomMapping = JoBomMapping::where('jo_product_id', $joProduct -> id) -> get();
-                    foreach ($joBomMapping as $joBomMapping) {
+                    $joBomMappings =  JoBomMapping::where('jo_product_id', $joProduct->id)
+                        ->with(['item.uom']) // eager load relations
+                        ->get();
+                    foreach($joBomMappings as $joBomMapping) {
                         //Update Or Create Mapping Data
                         $jobWorkItem = ErpSoJobWorkItem::updateOrCreate([
                             'sale_order_id' => $saleOrder -> id,
@@ -128,21 +130,23 @@ class SoItemUpdate
                             'inventory_uom_qty' => ItemHelper::convertToBaseUom($joBomMapping -> item_id, $joBomMapping -> uom_id, $joBomMapping -> qty)
                         ]);
                         //Update Or Create Attributes Data
-                        foreach ($joBomMapping -> attributes as $joBomMappingAttribute) {
+                        foreach ($joBomMapping->attributes as $joBomMappingAttribute) {
                             $attribute = AttributeGroup::find($joBomMappingAttribute['attribute_name']);
-                            $attributeValue = Attribute::find($joBomMappingAttribute['attribute_value']);
-                            ErpSoJobWorkItemAttribute::updateOrCreate([
-                                'sale_order_id' => $saleOrder -> id,
+                            $attributeValue = Attribute::find($joBomMappingAttribute['attribute_value']);;
+
+                            $jobWorkItemAttributesData[] = [
+                                'sale_order_id' => $saleOrder->id,
                                 'job_work_item_id' => $jobWorkItem -> id,
-                                'item_id' => $jobWorkItem -> item_id,
-                                'item_code' => $jobWorkItem -> item_code,
+                                'item_id' => $joBomMapping->item_id,
+                                'item_code' => $joBomMapping->item_code,
                                 'item_attribute_id' => $joBomMappingAttribute['attribute_id'],
-                                'attribute_name' => $attribute ?-> name,
-                                'attr_name' => $attribute ?-> id,
-                                'attribute_value' => $attributeValue ?-> value,
-                                'attr_value' => $attributeValue ?-> id
-                            ]);
+                                'attribute_name' => $attribute?->name,
+                                'attr_name' => $attribute?->id,
+                                'attribute_value' => $attributeValue?->value,
+                                'attr_value' => $attributeValue?->id,
+                            ];
                         }
+                        ErpSoJobWorkItemAttribute::upsert($jobWorkItemAttributesData, ['sale_order_id', 'job_work_item_id', 'item_id', 'item_attribute_id']);
                     }
                 }
             }

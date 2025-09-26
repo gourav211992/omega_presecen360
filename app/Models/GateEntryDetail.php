@@ -84,6 +84,11 @@ class GateEntryDetail extends Model
         return $this->belongsTo(PurchaseOrder::class, 'po_id');
     }
 
+    public function dnote()
+    {
+        return $this->belongsTo(ErpSaleInvoice::class, 'sale_invoice_id');
+    }
+
     public function jo()
     {
         return $this->belongsTo(JobOrder::class, 'jo_id');

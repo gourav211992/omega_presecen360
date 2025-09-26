@@ -90,7 +90,7 @@ class ErpRgr extends Model
         return $this->belongsTo(Book::class, 'book_id');
     }
 
-    public function store()
+    public function Store()
     {
         return $this->belongsTo(ErpStore::class, 'store_id');
     }
@@ -137,6 +137,6 @@ class ErpRgr extends Model
 
     public function job()
     {
-        return $this->hasOne(ErpWhmJob::class, 'morphable_id');
+        return $this->morphOne(ErpWhmJob::class, 'morphable','morphable_type','morphable_id');
     }
 }

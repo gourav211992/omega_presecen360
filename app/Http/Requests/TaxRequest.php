@@ -59,7 +59,7 @@ class TaxRequest extends FormRequest
            'tax_group' => [
             'required',
             'string',
-            'max:10',
+            'max:50',
             $uniqueRule,
             ],
             'description' => 'nullable|string',
@@ -73,6 +73,12 @@ class TaxRequest extends FormRequest
             'tax_details.*.id' => 'nullable|integer|exists:erp_tax_details,id',
             'tax_details.*.tax_type' => 'required',
             'tax_details.*.tax_percentage' => 'required|numeric|min:0|max:100',
+            'tax_details.*.tax_threshold' => in_array($taxCategory, ['TDS', 'TCS'])
+            ? 'required|numeric|min:0'
+            : 'nullable|numeric|min:0',
+            'tax_details.*.tax_percent_wo_pan' => in_array($taxCategory, ['TDS', 'TCS'])
+            ? 'required|numeric|min:0|max:100'
+            : 'nullable|numeric|min:0|max:100',
             'tax_details.*.place_of_supply' => $taxCategory === 'GST' ? 'required|in:Intrastate,Interstate,Overseas' : 'nullable', 
             'tax_details.*.is_purchase' => 'nullable|boolean',
             'tax_details.*.is_sale' => 'nullable|boolean',
@@ -117,7 +123,7 @@ class TaxRequest extends FormRequest
         return [
             'tax_group.required' => 'The tax group field is required.',
             'tax_group.string' => 'The tax group must be a string.',
-            'tax_group.max' => 'The tax group may not be greater than 10 characters.',
+            'tax_group.max' => 'The tax group may not be greater than 50 characters.',
             'tax_type.required' => 'The tax type field is required.',
             'tax_category.required' => 'The tax category field is required.',
             'description.string' => 'The description must be a string.',
@@ -135,6 +141,15 @@ class TaxRequest extends FormRequest
             'tax_details.*.tax_percentage.numeric' => 'The tax percentage must be a number.',
             'tax_details.*.tax_percentage.min' => 'The tax percentage must be at least 0.',
             'tax_details.*.tax_percentage.max' => 'The tax percentage may not be greater than 100.',
+            'tax_details.*.tax_threshold.required' => 'Tax threshold is required.',
+            'tax_details.*.tax_threshold.numeric'  => 'Tax threshold must be a valid number.',
+            'tax_details.*.tax_threshold.regex'    => 'Tax threshold may have up to 2 decimal places.',
+            'tax_details.*.tax_threshold.min'      => 'Tax threshold must be at least 0.',
+            'tax_details.*.tax_threshold.max'      => 'Tax threshold may not be greater than 100.',
+            'tax_details.*.tax_percent_wo_pan.required' => 'Tax percent without PAN is required.',
+            'tax_details.*.tax_percent_wo_pan.numeric'  => 'Tax percent without PAN must be a valid number.',
+            'tax_details.*.tax_percent_wo_pan.min'      => 'Tax percent without PAN must be at least 0.',
+            'tax_details.*.tax_percent_wo_pan.max'      => 'Tax percent without PAN may not be greater than 100.',
             'tax_details.*.place_of_supply.required' => 'The place of supply is required.',
             'tax_details.*.place_of_supply.in' => 'The selected place of supply is invalid.',
             'tax_details.*.is_purchase.boolean' => 'The is purchase field must be a boolean.',

@@ -457,7 +457,7 @@
                                                             </label>
                                                             <input type="date" name="supplier_invoice_date"
                                                                 value="{{ date('Y-m-d', strtotime($mrn->supplier_invoice_date)) }}"
-                                                                class="form-control gate-entry" id="datepicker3"
+                                                                class="form-control gate-entry expiry-date" id="datepicker3"
                                                                 placeholder="Enter Supplier Invoice Date">
                                                         </div>
                                                     </div>
@@ -1193,6 +1193,8 @@
                     `selected${currentProcessType.charAt(0).toUpperCase() + currentProcessType.slice(1)}Ids`, JSON
                     .stringify(ids));
             }
+
+            allowBackDate();
         };
 
         /*Clear local storage*/
@@ -3930,8 +3932,8 @@
                     }
                 },
                 {
-                    data: 'inv_order_qty',
-                    name: 'inv_order_qty',
+                    data: 'dnote_qty',
+                    name: 'dnote_qty',
                     render: renderData,
                     orderable: false,
                     searchable: false,
@@ -3940,8 +3942,8 @@
                     }
                 },
                 {
-                    data: 'grn_qty',
-                    name: 'grn_qty',
+                    data: 'ge_qty',
+                    name: 'ge_qty',
                     render: renderData,
                     orderable: false,
                     searchable: false,

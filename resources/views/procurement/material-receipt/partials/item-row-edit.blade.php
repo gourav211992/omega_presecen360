@@ -4,7 +4,7 @@
             'po' => $item?->poItem?->order_qty,
             'jo' => $item?->joItem?->order_qty,
             'so' => $item?->soItem?->qty,
-            'dnote' => $item?->dnoteItem?->order_qty,
+            'dnote' => $item?->dnoteItem?->dnote_qty,
             default => $item?->order_qty,
         };
         $rowCount = $key + 1;
@@ -18,8 +18,14 @@
             $readOnly = $item->po?->partial_delivery == 'no' ? 'readonly' : '';
         } elseif ($item->job_order_item_id && $item->mrnHeader->reference_type == 'jo') {
             $readOnly = $item->jo?->partial_delivery == 'no' ? 'readonly' : '';
+        } elseif ($item->invoice_item_id && $item->mrnHeader->reference_type == 'dnote') {
+            $readOnly = 'readonly';
         } else {
             $readOnly = '';
+        }
+
+        if ($item->invoice_item_id && $item->mrnHeader->reference_type == 'dnote') {
+            $readOnly = 'readonly';
         }
 
         if ($item->header->reference_type == 'po') {

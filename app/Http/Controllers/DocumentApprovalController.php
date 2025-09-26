@@ -3,7 +3,6 @@ namespace App\Http\Controllers;
 
 use App\Helpers\CommonHelper;
 use App\Helpers\ConstantHelper;
-use App\Helpers\SaleModuleHelper;
 use App\Helpers\MrnModuleHelper;
 use App\Jobs\SendEmailJob;
 use App\Models\ErpFinancialYear;
@@ -370,21 +369,6 @@ class DocumentApprovalController extends Controller
 
             $bookTypeServiceAlias = $saleInvoice -> document_type;
             $approvalStatus = $saleInvoice -> document_status;
-
-            if ($actionType == 'approve' && in_array($approvalStatus, [ConstantHelper::APPROVED, ConstantHelper::POSTED]) &&
-            in_array($bookTypeServiceAlias, [ConstantHelper::SI_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS])) {
-                $fy = Helper::getFinancialYear($saleInvoice -> document_date);
-                $fyYear = ErpFinancialYear::find($fy['id']);
-                if ((int)$revisionNumber > 0) {
-                    $oldSaleInvoice = ErpSaleInvoiceHistory::where('source_id', $saleInvoice -> id)
-                        -> where('revision_number', $saleInvoice -> revision_number - 1) -> first();
-                    if ($oldSaleInvoice) {
-                        SaleModuleHelper::buildCustomerSaleInvoiceSummary($saleInvoice, $fyYear, $oldSaleInvoice);
-                    }
-                } else {
-                    SaleModuleHelper::buildCustomerSaleInvoiceSummary($saleInvoice, $fyYear);
-                }
-            }
 
             DB::commit();
             return response()->json([

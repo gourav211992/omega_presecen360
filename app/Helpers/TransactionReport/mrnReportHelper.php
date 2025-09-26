@@ -63,6 +63,22 @@ class mrnReportHelper
             'column_style' => '',
         ],
         [
+            'name' => 'SUP INV No',
+            'field' => 'supplier_invoice_no',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
+            'name' => 'SUP INV Date',
+            'field' => 'supplier_invoice_date',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
             'name' => 'LOT No',
             'field' => 'lot_no',
             'header_class' => '',

@@ -486,7 +486,6 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                         'nullable', 
                         'string', 
                         'max:255', 
-                        'required_if:tds_applicable,1'
                     ],
                     'tan_number' => 'nullable|string|max:255',
                     'msme_registered' => 'nullable',

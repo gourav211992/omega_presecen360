@@ -52,7 +52,7 @@
     }
 </style>
     <!-- BEGIN: Content-->
-    <form method="POST" data-completionFunction = "disableHeader" class="ajax-input-form sales_module_form material_issue" action = "{{route('psv.store')}}" data-redirect="{{ $redirect_url }}" id = "sale_invoice_form" enctype='multipart/form-data'>
+    <form method="POST" data-completionFunction = "disableHeader" class="ajax-input-form sales_module_form psv_form material_issue" action = "{{route('psv.store')}}" data-redirect="{{ $redirect_url }}" id = "sale_invoice_form" enctype='multipart/form-data'>
     <div class="app-content content ">
         <div class="content-overlay"></div>
         <div class="header-navbar-shadow"></div>
@@ -227,7 +227,7 @@
                                             <div class="col-md-5">  
                                                 <select class="form-select stationSelect disable_on_edit" name = "station_id" id = "station_id_input">
                                                     @if(isset($order) && $order -> station_id)
-                                                        <option value = "{{$order -> station_id}}">{{$order -> station_name}}</option>
+                                                        <option value = "{{$order -> station_id}}">{{$order -> station -> name}}</option>
                                                     @else
                                                         <option value = '' >Select</option>
                                                     @endif
@@ -1443,8 +1443,7 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                         </div>
 
                         <!-- Hidden Batch Input -->
-                        <input type="hidden" id="batches_${newIndex}" name="batch_details[${newIndex}]" value="" />
-
+                        <div id="batches_${newIndex}" class="psv_batch_data" data-batch=''></div>
                         <!-- Batch Button -->
                         <div class="me-50 cursor-pointer addBatchBtn"
                             data-row-count="${newIndex}"
@@ -1881,6 +1880,7 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                                 selectedAttr : selectedItemAttr,
                                 store_id: $("#store_id_input").val(),
                                 sub_store_id : $("#sub_store_id_input").val(),
+                                station_id : $("#station_id_input").val()??null,
                                 service_alias : 'psv',
                                 header_id : "{{isset($order) ? $order -> id : ''}}",
                                 detail_id : $("#item_row_" + itemRowId).attr('data-detail-id')
@@ -1911,7 +1911,7 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                                         }
                                     }
                                     if(!$(`#item_variance_qty_${itemRowId}`).val() || (!$(`#item_physical_qty_${itemRowId}`).val() || $(`#item_physical_qty_${itemRowId}`).val() == 0)) {
-                                        $(`#item_variance_qty_${itemRowId}`).val(0-(data?.stocks?.confirmedStockAltUom)).toFixed(6);
+                                        $(`#item_variance_qty_${itemRowId}`).val(0-(data?.stocks?.confirmedStockAltUom));
                                     }
                                     else{
                                      setVariance(document.getElementById('item_physical_qty_' + itemRowId), itemRowId);
@@ -1968,9 +1968,8 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                     }
         }
 
-        function setVariance(element, index)
+        function setVariance(element, index , prevVal)
         {
-            console.log('setVariance called for index:', index, ' element value:', element);
             // Get physical qty (may be empty or not a number)
             const physicalQty = parseFloat($(`#item_physical_qty_${index}`).val());
             const confirmedQty = parseFloat($(`#item_confirmed_qty_${index}`).val()) || 0;
@@ -1983,7 +1982,12 @@ initializeAutocompleteSearch('filter_item_name_code','filter_item_name_code_id',
                 varianceValue = (physicalQty - confirmedQty).toFixed(6);
             }
             variance.val(varianceValue);
-            const batchDetail = $(`#batches_${index}`).val("");
+            const prev_phy_qty = $(`#batches_${index}`).attr("data-pqty") || 0;
+            console.log(prev_phy_qty,"prev_qty");
+            if(prev_phy_qty != physicalQty)
+            {
+                const batchDetail = $(`#batches_${index}`).attr("data-batch","");
+            }
         }
         function setValue(index)
         {
@@ -5264,7 +5268,8 @@ $(document).on("click", ".addBatchBtn", function (e) {
     $("#itemBatchTable tbody").empty();
 
     // Load existing batches if any
-    let batchVal = $("#batches_" + rowIndex).val();
+    let batchVal = $("#batches_" + rowIndex).attr('data-batch');
+    console.log('batchval',batchVal);
     let existing = [];
     try {
         if (batchVal && /^[\[\{]/.test(batchVal)) {
@@ -5464,7 +5469,7 @@ $("#saveItemBatchBtn").on("click", function () {
     itemBatches[rowIndex] = batches;
 
     // Save JSON to hidden input
-    $(`#batches_${rowIndex}`).val(JSON.stringify(batches));
+    $(`#batches_${rowIndex}`).attr("data-batch",JSON.stringify(batches));
 
     // Close modal
     $("#item-batch-modal").modal("hide");

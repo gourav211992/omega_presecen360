@@ -2,7 +2,7 @@
     @php
         $rowCount = $tableRowCount + $key + 1;
         $item_disc_key = '';
-        $availableQty = $item->order_qty - $item->ge_qty ?? 0.00;
+        $availableQty = $item->dnote_qty - $item->ge_qty ?? 0.00;
         $readOnly = 'readonly';
         $grossItemValue = $availableQty * $item->rate;
         $itemDisc = $item->item_discount_amount;

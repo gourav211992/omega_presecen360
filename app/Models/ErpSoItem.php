@@ -405,11 +405,21 @@ class ErpSoItem extends Model
 
     public function poItem()
     {
+        return $this->hasOne(PoItem::class,'po_item_id');
+    }
+
+    public function joItem()
+    {
+        return $this->hasOne(JoProduct::class,'jo_product_id');
+    }
+
+    public function poItems()
+    {
         return $this->belongsTo(PoItem::class,'po_item_id')
         ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
     }
 
-    public function joItem()
+    public function joItems()
     {
         return $this->belongsTo(JoProduct::class,'jo_product_id')
         ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);

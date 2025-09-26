@@ -68,7 +68,8 @@ class GateEntryRequest extends FormRequest
                 //     })
                 //     ->ignore($mrnId), // ignore when updating
             ],
-            'supplier_invoice_date' => 'required|date',
+            // 'supplier_invoice_date' => 'required|date',
+            'supplier_invoice_date' => 'required|date|before:today',
             'manual_entry_no' => 'required|max:50',
             'transporter_name' => 'required|max:50',
             'vehicle_no' => [
@@ -162,6 +163,7 @@ class GateEntryRequest extends FormRequest
             'consignment_no.required' => 'Consignment No is required.',
             'supplier_invoice_no.required' => 'Supplier Invoice No is required.',
             'supplier_invoice_date.required' => 'Supplier Invoice Date is required.',
+            'supplier_invoice_date.before' => 'Supplier invoice date must be past date.',
             'transporter_name.required' => 'Transporter Name is required.',
             'vehicle_no.required' => 'Vehicle number is required.',
             'vehicle_no.regex' => 'Invalid vehicle number format. Example: MH12AB1234',

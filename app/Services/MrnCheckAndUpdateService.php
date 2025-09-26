@@ -74,17 +74,25 @@ class MrnCheckAndUpdateService
             };
 
             if ($poDetail) {
-                $availableQty = floatval($poDetail->order_qty - $poDetail->grn_qty);
+                if(($type == ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS) || ($type == ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS))
+                {
+                    $poOrderQty = $poDetail->order_qty;
+                }
+                else
+                {
+                    $poOrderQty = $poDetail->order_qty;
+                }
+                $availableQty = floatval($poOrderQty - $poDetail->grn_qty);
                 $inputDiff = $inputQty - floatval($mrnDetail->order_qty);
 
-                if ($inputQty > $poDetail->order_qty) {
-                    return self::errorResponse("Order qty cannot be greater than PO quantity.", [
+                if ($inputQty > $poOrderQty) {
+                    return self::errorResponse("Order qty cannot be greater than {$type} quantity.", [
                         'order_qty' => $mrnOrderQty
                     ]);
                 }
 
                 if ($availableQty < $inputDiff) {
-                    return self::errorResponse("Only {$availableQty} qty can be added. {$poDetail->grn_qty} already used; PO qty is {$poDetail->order_qty}.", [
+                    return self::errorResponse("Only {$availableQty} qty can be added. {$poDetail->grn_qty} already used; {$type} qty is {$poOrderQty}.", [
                         'order_qty' => $mrnOrderQty
                     ]);
                 }
@@ -136,8 +144,16 @@ class MrnCheckAndUpdateService
 
             // Step 5: Tolerance check (if tolerance configured)
             if ($poDetail) {
+                if(($type == ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS) || ($type == ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS))
+                {
+                    $poOrderQty = $poDetail->order_qty;
+                }
+                else
+                {
+                    $poOrderQty = $poDetail->order_qty;
+                }
                 $grnQty = floatval($poDetail->grn_qty ?? 0);
-                $orderQty = floatval($poDetail->order_qty ?? 0);
+                $orderQty = floatval($poOrderQty ?? 0);
                 $totalQty = $inputQty + $grnQty;
 
                 $positiveTol = floatval($item->po_positive_tolerance ?? 0);

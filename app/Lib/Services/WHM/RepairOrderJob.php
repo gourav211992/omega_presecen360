@@ -70,7 +70,7 @@ class RepairOrderJob
                 'company_id' => $header->company_id,
                 'morphable_type' => $namespace,
                 'morphable_id' => $detail->id,
-                'job_type' => $job->job_type,
+                'job_type' => $job->type,
                 'trns_type' => RepConstant::SERVICE_ALIAS,
                 'doc_type' => 'receipt',
                 'doc_no' => $header->document_number ?? null,
@@ -107,9 +107,9 @@ class RepairOrderJob
             foreach($detail->attributes as $key1 => $attribute) {
                 $attributeJsonArray[] = [
                     "attr_name" => (string)$attribute->attr_name,
-                    "attribute_name" => (string)@$attribute->attributeName->name,
+                    "attribute_name" => (string)@$attribute->attribute_name,
                     "attr_value" => (string)@$attribute->attr_value,
-                    "attribute_value" => (string)@$attribute->attributeValue->value,
+                    "attribute_value" => (string)@$attribute->attribute_value,
                 ];
             }
         }

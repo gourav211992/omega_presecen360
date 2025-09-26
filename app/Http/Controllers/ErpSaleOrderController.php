@@ -841,7 +841,7 @@ class ErpSaleOrderController extends Controller
                         $itemPrice = ($itemDataValue['item_value'] + $headerDiscount + $itemDataValue['item_discount_amount']) / $itemDataValue['order_qty'];
                         $partyCountryId = isset($billingAddress) ? $billingAddress -> country_id : null;
                         $partyStateId = isset($billingAddress) ? $billingAddress -> state_id : null;
-                        $taxDetails = SaleModuleHelper::checkTaxApplicability($request -> customer_id, $request -> book_id) ? TaxHelper::calculateTax($itemDataValue['hsn_id'], $itemPrice, $companyCountryId, $companyStateId, $partyCountryId ?? $request -> shipping_country_id, $partyStateId ?? $request -> shipping_state_id, 'sale') : [];
+                        $taxDetails = SaleModuleHelper::checkTaxApplicability($request -> customer_id, $request -> book_id) ? TaxHelper::calculateTax($itemDataValue['hsn_id'], $itemPrice, $companyCountryId, $companyStateId, $partyCountryId ?? $request -> billing_country_id, $partyStateId ?? $request -> billing_state_id, 'sale') : [];
                         if (isset($taxDetails) && count($taxDetails) > 0) {
                             foreach ($taxDetails as $taxDetail) {
                                 $itemTax += ((double)$taxDetail['tax_percentage'] / 100 * $valueAfterHeaderDiscount);
@@ -1258,8 +1258,12 @@ class ErpSaleOrderController extends Controller
             if ($customer -> customer_type === ConstantHelper::CASH) {
                 $phoneNo = $request -> phone_no ?? null;
                 $cashCustomerDetail = CashCustomerDetail::where('phone_no', $phoneNo) -> first();
-                $billingAddresses = ErpAddress::where('addressable_id', $cashCustomerDetail ?-> id)->where('addressable_type', CashCustomerDetail::class)->whereIn('type', ['billing', 'both'])->get();
-                $shippingAddresses = ErpAddress::where('addressable_id', $cashCustomerDetail ?-> id)->where('addressable_type', CashCustomerDetail::class)->whereIn('type', ['shipping', 'both'])->get();
+                $billingAddresses = ErpAddress::where('addressable_id', $cashCustomerDetail ?-> id)->where('addressable_type', CashCustomerDetail::class)->where(function ($subQuery) {
+                    $subQuery -> whereIn('type', ['billing', 'both']) -> orWhere('is_billing', 1);
+                })->get();
+                $shippingAddresses = ErpAddress::where('addressable_id', $cashCustomerDetail ?-> id)->where('addressable_type', CashCustomerDetail::class)->where(function ($subQuery) {
+                    $subQuery -> whereIn('type', ['shipping', 'both']) -> orWhere('is_shipping', 1);
+                })->get();
             } else {
                 $billingAddresses = ErpAddress::where('addressable_id', $customerId)->where('addressable_type', Customer::class)
                 ->where(function ($subQuery) {
@@ -1509,7 +1513,7 @@ class ErpSaleOrderController extends Controller
                             $itemQuery->with(['specifications', 'alternateUoms.uom', 'uom', 'hsn']);
                         }
                     ]);
-                }) -> bookViewAccess($pathUrl) -> whereIn('id', $request->quotation_id)->get();
+                }) -> whereIn('id', $request->quotation_id)->get();
                 foreach ($quotation as &$header) {
                     $customer = Customer::with(['payment_terms', 'currency']) -> withDefaultGroupCompanyOrg()
                     -> where('related_party', 'Yes') -> where('enter_company_org_id', $header -> organization_id)
@@ -1544,7 +1548,7 @@ class ErpSaleOrderController extends Controller
                             $itemQuery->with(['specifications', 'alternateUoms.uom', 'uom', 'hsn']);
                         }
                     ]);
-                }) -> bookViewAccess($pathUrl) -> whereIn('id', $request->quotation_id)->get();
+                }) -> whereIn('id', $request->quotation_id)->get();
                 foreach ($quotation as &$header) {
                     $customer = Customer::with(['payment_terms', 'currency']) -> withDefaultGroupCompanyOrg()
                     -> where('related_party', 'Yes') -> where('enter_company_org_id', $header -> organization_id)
@@ -1582,7 +1586,7 @@ class ErpSaleOrderController extends Controller
                             $itemQuery->with(['specifications', 'alternateUoms.uom', 'uom', 'hsn']);
                         }
                     ]);
-                }) -> bookViewAccess($pathUrl) -> withDefaultGroupCompanyOrg() -> withDraftListingLogic()
+                }) -> withDefaultGroupCompanyOrg() -> withDraftListingLogic()
                 ->where('document_type', ConstantHelper::SQ_SERVICE_ALIAS)->whereIn('id', $request->quotation_id)->get();
             }
             return response()->json([

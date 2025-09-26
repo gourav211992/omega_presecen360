@@ -106,7 +106,11 @@ $(document).on('submit', '.ajax-input-form', function (e) {
     if (this.classList.contains('psv_form')) {
         const items = document.getElementsByClassName('comp_item_code');
         for (let index = 0; index < items.length; index++) {
-            data.append(`item_attributes[${index}]`, items[index].getAttribute('selected-attribute'));
+            data.append(`item_attributes[${index}]`, items[index].getAttribute('attribute-array'));
+        }
+        const batch = document.getElementsByClassName('psv_batch_data');
+        for (let index = 0; index < batch.length; index++) {
+            data.append(`batch_details[${index}]`, batch[index].getAttribute('data-batch'));
         }
 
     }

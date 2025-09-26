@@ -190,7 +190,7 @@
                     <tr>
                         <td colspan="3" style="padding-top: 10px;">
                             <span style="font-weight: 900;">
-                                {{ Str::ucfirst(@$order?->vendor?->company_name) }}
+                                {{ @$order ?-> consignee_name ? Str::ucfirst(@$order ?-> consignee_name) : Str::ucfirst(@$order?->vendor?->company_name) }}
                             </span>
                         </td>
                     </tr>
@@ -328,6 +328,7 @@
                 $totalTaxValue = 0.00;
                 $taxableValue = 0.00;
                 $hsnGroups = [];
+                $taxBracket = [];
             @endphp
             @foreach($order->items as $key => $val)
             @php
@@ -359,9 +360,10 @@
                         $totalTaxPercentage += $taxPercentage;
                         $hsnGroups[$hsnCode][$taxType . '_amount'] += $taxTypeAmount;
                     }
-                    $hsnGroups[$hsnCode]['taxable_value'] += $taxableValue;
-                    $hsnGroups[$hsnCode]['taxable_rate'] = $taxPercentage;
-
+                    if(isset($hsnGroups[$hsnCode])) {
+                        $hsnGroups[$hsnCode]['taxable_value'] += $taxableValue;
+                        $hsnGroups[$hsnCode]['taxable_rate'] = $taxPercentage;
+                    }  
                 }
 
                 // Now, calculate total tax_amount for each HSN group
@@ -548,6 +550,16 @@
                                 </td>
                                 <td style="text-align: right; padding-top: 3px;">
                                     {{ number_format($value[0], 2) }}
+                                </td>
+                            </tr>
+                        @endforeach
+                        @foreach($order->header_tax as $key => $tax)
+                            <tr>
+                                <td style="text-align: right; padding-top: 3px;">
+                                    <b>{{ucFirst($tax->ted_name) . " " . number_format($tax->ted_percentage, 2) . " %"}} @ {{number_format($tax->assessment_amount, 2)}}:</b>
+                                </td>
+                                <td style="text-align: right; padding-top: 3px;">
+                                    {{ number_format(@$tax->ted_amount, 2) }}
                                 </td>
                             </tr>
                         @endforeach

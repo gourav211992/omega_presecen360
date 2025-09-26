@@ -10,6 +10,7 @@ const today = window.pageData.today;
 let csrfToken = window.pageData.csrf_token;
 const menuAlias = window.pageData.menu_alias;
 const calTaxUrl = window.routes.calTax;
+const calTaxTcsUrl = window.routes.calTcsTax;
 // Assume bookId is already defined
 
 let actionUrl = `${window.routes.docParams}?book_id=${$("#series_id_input").val()}&document_date=${$("#order_date_input").val()}`;
@@ -103,8 +104,12 @@ function getItemTax(itemIndex)
             const itemTotalInput = document.getElementById('item_total_' + itemIndex);
             itemTotalInput.value = parseFloat(valueAfterHeaderDiscount ? valueAfterHeaderDiscount : 0) +  parseFloat(TotalItemTax ? TotalItemTax : 0);
             //Get All Total Values
-            setAllTotalFields();
-            updateHeaderExpenses();
+            if (menuAlias === 'sale-invoices' || menuAlias === 'delivery-note-cum-invoice') {
+                getTcsTax();
+            } else {
+                setAllTotalFields();
+                updateHeaderExpenses();
+            }
         },
         error: function(xhr) {
             console.error('Error fetching customer data:', xhr.responseText);
@@ -118,10 +123,66 @@ function getItemTax(itemIndex)
             taxInput.value = (TotalItemTax).toFixed(2);
             const itemTotalInput = document.getElementById('item_total_' + itemIndex);
             itemTotalInput.value = parseFloat(valueAfterHeaderDiscount ? valueAfterHeaderDiscount : 0) +  parseFloat(TotalItemTax ? TotalItemTax : 0);
+            //Get All Total Values
+            if (menuAlias === 'sale-invoices' || menuAlias === 'delivery-note-cum-invoice') {
+                getTcsTax();
+            } else {
+                setAllTotalFields();
+                updateHeaderExpenses();
+            }
+        }
+    });
+}
+
+function getTcsTax()
+{
+    //Call TCS TAX
+    let oldTaxValue = order ? order.total_item_value - order.total_discount_value : 0;
+    oldTaxValue = Number(oldTaxValue.toFixed(2));
+    let nonTcsAccessableAmt = $("#order_tcs_assessable_amt").val() ?? 0;
+    if (oldTaxValue  > 0) {
+        nonTcsAccessableAmt = oldTaxValue - nonTcsAccessableAmt;
+        nonTcsAccessableAmt = Number(nonTcsAccessableAmt.toFixed(2));
+    }
+    const billToCountryId = $("#current_billing_country_id").val();
+    const taxInput = document.getElementById('order_tcs_tax');
+    $.ajax({
+        url: calTaxTcsUrl,
+        method: 'GET',
+        dataType: 'json',
+        data : {
+            customer_id : $("#customer_id_input").val(),
+            total_taxable_value : $("#all_items_total_total_summary").text(),
+            non_tcs_assessable_amt : nonTcsAccessableAmt,
+            document_date : $("#order_date_input").val(),
+            to_country_id : billToCountryId,
+            store_id : $("#store_id_input").val(),
+        },
+        success: function(data) {
+            let taxAttrs = [];
+            if (data && data?.id) {
+                taxAttrs.push({
+                    'tax_index' : taxAttrs.length,
+                    'tax_name' : data.tax_type,
+                    'tax_group' : data.tax_group,
+                    'tax_type' : data.tax_type,
+                    'taxable_value' : data.assesable_value,
+                    'tax_percentage' : data.tax_percentage,
+                    'tax_value' : (data.tax_amount).toFixed(2),
+                    'tax_applicability_type' : data.applicability_type,
+                });
+            }
+            taxInput.setAttribute('tax_details', JSON.stringify(taxAttrs));
+            setAllTotalFields();
+            updateHeaderExpenses();
+        },
+        error: function(xhr) {
+            console.error('Error fetching customer data:', xhr.responseText);
+            taxInput.setAttribute('tax_details', JSON.stringify([]));
             setAllTotalFields();
             updateHeaderExpenses();
         }
-    });
+    })
 }
 
 function setAllTotalFields() {
@@ -492,6 +553,13 @@ function editScript()
             document.getElementById('order_expense_percentage').value = orderExpense.ted_percentage ? orderExpense.ted_percentage : "";
             document.getElementById('order_expense_value').value = orderExpense.ted_amount;
             addOrderExpense(orderExpense.id, false);
+        });
+        //Order Tax
+        order?.header_tax?.forEach((orderTax, orderTaxIndex) => {
+            if (orderTax.ted_name === 'Sale_of_Other_Goods') { //Constant
+                addHiddenInput("order_tcs_master_id", orderTax.id, `order_tcs_id`, 'order_tcs_id', 'main_so_form', orderTax.id);        
+                addHiddenInput("order_tcs_assessable_amt", orderTax.assessment_amount, `order_tcs_assesable_amt`, 'order_tcs_assessable_amt', 'main_so_form', orderTax.id);        
+            }
         });
        
         if (typeof window.setAllTotalFields === 'function') {

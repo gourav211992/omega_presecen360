@@ -1540,6 +1540,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('/{id}/print-barcodes', 'printBarcodes')->name('print-barcodes');
             Route::post('/get-selected-item-amount', 'getSelectedItemAmount')->name('get-selected-item-amount');
             Route::post('/validate-asn', 'processAsn')->name('validate-asn');
+            Route::get('/inter-company-cost-centers', 'getInterCompanyCostCenters')->name('inter-company-cost-centers');
 
             /*Remove data*/
             Route::delete('remove-dis-item-level', 'removeDisItemLevel')->name('remove.item.dis');
@@ -2056,6 +2057,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::prefix('taxes')->controller(TaxController::class)->group(function () {
         Route::get('/test-tax-calculation', 'testCalculateTax')->name('tax.test.calculate');
         Route::get('/tax-calculation', 'calculateItemTax')->name('tax.calculate');
+        Route::get('/tax-calculation/tcs', 'calculateTcsTax')->name('tax.calculate.tcs');
         Route::get('/tax-group-calculation', 'calculateTaxGroups')->name('tax.group.calculate');
         Route::get('/tax-calculation', 'calculateItemTax');
         Route::get('/', 'index')->name('tax.index');

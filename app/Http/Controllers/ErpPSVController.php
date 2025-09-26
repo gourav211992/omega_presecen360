@@ -11,50 +11,36 @@ use App\Helpers\Helper;
 use App\Helpers\InventoryHelper;
 use App\Helpers\ItemHelper;
 use App\Helpers\NumberHelper;
-use App\Helpers\SaleModuleHelper;
 use App\Helpers\ServiceParametersHelper;
 use App\Helpers\TransactionReportHelper;
-use App\Helpers\UserHelper;
-use App\Http\Requests\ErpPSVRequest;
+
 use App\Models\Address;
-use App\Models\Attribute;
 use App\Models\AttributeGroup;
-use App\Models\AuthUser;
 use App\Helpers\DynamicFieldHelper;
-use App\Models\Category;
 use App\Models\ErpPsvBatchDetail;
 use App\Models\ErpPsvDynamicField;
-use App\Models\Country;
-use App\Models\Department;
-use App\Models\ErpAddress;
-use App\Models\ErpInvoiceItem;
+
 use App\Models\ErpPsvHeader;
 use App\Models\ErpPsvHeaderHistory;
-use App\Models\ErpMaterialReturnHeader;
 use App\Models\ErpPsvItem;
 use App\Models\ErpPsvItemAttribute;
-use App\Models\ErpPsvItemLocation;
-use App\Models\ErpPsvItemLotDetail;
+
 use App\Models\ErpMrItem;
 use App\Models\ErpProductionSlip;
 use App\Models\ErpProductionWorkOrder;
 use App\Models\ErpPwoItem;
-use App\Models\ErpRack;
 use App\Models\ErpStore;
 use App\Models\ErpSubStore;
-use App\Models\ErpVendor;
 use App\Models\Item;
-use App\Models\ItemAttribute;
 use App\Models\MfgOrder;
 use App\Models\MoItem;
 use App\Models\Organization;
 use App\Models\PiItem;
 use App\Models\PurchaseIndent;
-use App\Models\PwoSoMapping;
 use App\Models\Station;
 use App\Models\StockLedger;
+use App\Services\Common\FinancialYearService;
 use App\Models\Unit;
-use App\Models\Vendor;
 use Carbon\Carbon;
 use PDF;
 use Exception;
@@ -68,18 +54,19 @@ class ErpPSVController extends Controller
 {
     public function index(Request $request)
     {
+        $authUser = request()->user();
         $currentfyYear = Helper::getCurrentFinancialYear();
-        $selectedfyYear = Helper::getFinancialYear(Carbon::now());
+        // $selectedfyYear = Helper::getFinancialYear(Carbon::now());
 
         $pathUrl = request()->segments()[0];
         $orderType = ConstantHelper::PSV_SERVICE_ALIAS;
-        $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
         $redirectUrl = route('psv.index');
         $createRoute = route('psv.create');
         $typeName = "Physical Stock Verification ";
         $accessible_locations = InventoryHelper::getAccessibleLocations()->pluck('id')->toArray();
         $parentURL = request() -> segments()[0];
-        $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
+        $selectedfyYear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), $authUser);
+
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
         $create_button = (isset($servicesBooks['services'])  && count($servicesBooks['services']) > 0 && isset($selectedfyYear['authorized']) && $selectedfyYear['authorized'] && !$selectedfyYear['lock_fy']) ? true : false;
         //Date Filters
@@ -196,13 +183,14 @@ class ErpPSVController extends Controller
         //Get the menu 
         
         $parentURL = request() -> segments()[0];
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL,'',$user);
         if (count($servicesBooks['services']) == 0) {
             return redirect() -> route('/');
         }
         $currentfyYear = Helper::getCurrentFinancialYear();        
-        $selectedfyYear = Helper::getFinancialYear(Carbon::now());
+        // $selectedfyYear = Helper::getFinancialYear(Carbon::now());
+        $selectedfyYear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), $user);
         $currentfyYear['current_date'] = Carbon::now() -> format('Y-m-d');
         $redirectUrl = route('psv.index');
         $firstService = $servicesBooks['services'][0];
@@ -227,16 +215,16 @@ class ErpPSVController extends Controller
             $currentfyYear['current_date'] = Carbon::now() -> format('Y-m-d');
             $parentUrl = request() -> segments()[0];
             $redirect_url = route('psv.index');
-            $user = Helper::getAuthenticatedUser();
+            $user = request()->user();
             $servicesBooks = [];
             if (isset($request -> revisionNumber))
             {
-                $doc = ErpPsvHeaderHistory::with(['book'])
+                $doc = ErpPsvHeaderHistory::with(['book','items.batch_details'])
                 ->first();
         
             $ogDoc = ErpPsvHeader::find($id);
             } else {
-                $doc = ErpPsvHeader::with(['book'])
+                $doc = ErpPsvHeader::with(['book','items.batch_details'])
                 ->find($id);
                 $ogDoc = $doc;
             }
@@ -246,10 +234,10 @@ class ErpPSVController extends Controller
                 $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl,$doc -> book ?-> service ?-> alias,$user);
             }            
             $revision_number = $doc->revision_number;
-            $selectedfyYear = Helper::getFinancialYear($doc->document_date ?? Carbon::now()->format('Y-m-d'));
+            $selectedfyYear = app(FinancialYearService::class)->getFinancialYear($doc->document_date ?? date('Y-m-d'), $user);
             $totalValue = ($doc -> total_item_value - $doc -> total_discount_value) + 
             $doc -> total_tax_value + $doc -> total_expense_value;
-            $userType = Helper::userCheck();
+            $userType = $user -> user_type;
             $buttons = Helper::actionButtonDisplay($doc->book_id,$doc->document_status , $doc->id, $totalValue, 
             $doc->approval_level, $doc -> created_by ?? 0, $userType['type'], $revision_number);
             $books = Helper::getBookSeriesNew(ConstantHelper::PSV_SERVICE_ALIAS, ) -> get();
@@ -276,7 +264,7 @@ class ErpPSVController extends Controller
             }
             $SubStores = InventoryHelper::getAccesibleSubLocations($doc -> store_id, 0, ConstantHelper::ERP_SUB_STORE_LOCATION_TYPES);
             $dynamicFieldsUI = $doc -> dynamicfieldsUi();
-
+            
             $data = [
                 'user' => $user,
                 'series' => $books,
@@ -317,7 +305,6 @@ class ErpPSVController extends Controller
                     'message' => 'Store is required.',
                 ], 400);
             }
-            
             DB::beginTransaction();
             $organization = OrganizationHelper::getAuthenticatedOrganization();
     
@@ -380,6 +367,7 @@ class ErpPSVController extends Controller
                         ['model_type' => 'header', 'model_name' => 'ErpPsvHeader', 'relation_column' => ''],
                         ['model_type' => 'detail', 'model_name' => 'ErpPsvItem', 'relation_column' => 'psv_header_id'],
                         ['model_type' => 'sub_detail', 'model_name' => 'ErpPsvItemAttribute', 'relation_column' => 'psv_item_id'],
+                        ['model_type' => 'detail', 'model_name' => 'ErpPsvBatchDetail', 'relation_column' => 'detail_id'],
                     ];
                     Helper::documentAmendment($revisionData, $psv->id);
                 }
@@ -618,13 +606,16 @@ class ErpPSVController extends Controller
 
                     $currentYear = (int)date('Y');
                     $today = date('Y-m-d');
-                    $remainingQty = $adjustedQty;
+                    $totalBatchQty = 0; 
                     foreach ($batchArray as $batchDetail) {
                         $manufacturingYear = (int)($batchDetail['manufacturing_year'] ?? 0);
                         $expiryDate = $batchDetail['expiry_date'] ?? null;
-                        $batchQty = $batchDetail['quantity'] ?? 0;
-                        $remainingQty = round($adjustedQty - $batchQty, 6);
-                        // Manufacturing year validation: must be 0 (for null) or between 2000 and current year
+                        $batchQty = (float)($batchDetail['quantity'] ?? 0);
+
+                        // Add to total
+                        $totalBatchQty += $batchQty;
+
+                        // Manufacturing year validation
                         if ($manufacturingYear !== 0 && ($manufacturingYear < 2000 || $manufacturingYear > $currentYear)) {
                             DB::rollBack();
                             return response()->json([
@@ -633,7 +624,7 @@ class ErpPSVController extends Controller
                             ], 422);
                         }
 
-                        // Expiry date validation: must be today or in the future (if provided)
+                        // Expiry date validation
                         if ($expiryDate && $expiryDate < $today) {
                             DB::rollBack();
                             return response()->json([
@@ -642,6 +633,7 @@ class ErpPSVController extends Controller
                             ], 422);
                         }
 
+                        // Save / update batch
                         $item_batch = ErpPsvBatchDetail::updateOrCreate([
                             'detail_id' => $psvItem->id,
                             'batch_number' => $batchDetail['batch_number'] ?? null,
@@ -650,11 +642,13 @@ class ErpPSVController extends Controller
                             'item_id' => $psvItem->item_id ?? null,
                             'manufacturing_year' => $manufacturingYear > 0 ? $manufacturingYear : null,
                             'expiry_date' => $expiryDate ?? null,
-                            'quantity' => $batchDetail['quantity'] ?? 0,
-                            'inventory_uom_qty' => ItemHelper::convertToBaseUom($psvItem->item_id,$psvItem->uom_id,$batchDetail['quantity']),
+                            'quantity' => $batchQty,
+                            'inventory_uom_qty' => ItemHelper::convertToBaseUom($psvItem->item_id, $psvItem->uom_id, $batchQty),
                         ]);
                     }
-                    if($remainingQty != 0 && $adjustedQty > 0){
+
+                    // ✅ Now check after loop
+                    if (round($totalBatchQty, 6) != round($adjustedQty, 6)) {
                         DB::rollBack();
                         return response()->json([
                             'message' => 'Total batch quantity must equal to Variance quantity for item No. ' . ($itemKey + 1),
@@ -682,8 +676,13 @@ class ErpPSVController extends Controller
                     $items = $psv->items->where('adjusted_qty',0);
                     foreach ($items as $item) {
                         $atts_data = $item->attributes;
+                        $batches = $item -> batch_details;
                         foreach ($atts_data as $att) {
                             $att->delete();
+                        }
+                        foreach($batches as $bat)
+                        {
+                            $bat->delete();
                         }
                         $item->delete();
                     }
@@ -976,7 +975,7 @@ class ErpPSVController extends Controller
     }
     public function generatePdf(Request $request, $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $organization = Organization::where('id', $user->organization_id)->first();
         $organizationAddress = Address::with(['city', 'state', 'country'])
         ->where('addressable_id', $user->organization_id)
@@ -1387,7 +1386,7 @@ class ErpPSVController extends Controller
     }
 
     public function getAllItems(Request $request){
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         if($request?->generated)
         {
             $model= Item::class;

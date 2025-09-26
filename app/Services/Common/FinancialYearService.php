@@ -98,14 +98,14 @@ class FinancialYearService
      * @param mixed $authUser The authenticated user object
      * @return array|null
      */
-    public function getFinancialYear($authUser): mixed
+    public function getFinancialYear($date, $authUser): mixed
     {
         $cacheKey = "fy:accesss:";
 
         return $this->cache->remember(
             key: $this->cache->key($authUser, $cacheKey),
             ttl: $this->cache->ttl(),
-            callback: fn() => $this->getFYData($authUser),
+            callback: fn() => $this->getFYData($date, $authUser),
             storeName: 'redis_p360'
         );
     }
@@ -117,9 +117,8 @@ class FinancialYearService
      * @param mixed $authUser The authenticated user
      * @return array Financial year data with access flag
      */
-    public function getFYData($authUser): array
+    public function getFYData($date, $authUser): array
     {
-        $date      = date('Y-m-d');
         $startDate = request()->cookie('fyear_start_date', $date);
         $endDate   = request()->cookie('fyear_end_date', $date);
 

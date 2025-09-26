@@ -30,6 +30,7 @@ use App\Models\ErpSaleOrderHistory;
 use App\Models\ErpSaleReturnHistory;
 use App\Models\ErpSaleInvoiceHistory;
 use App\Helpers\ServiceParametersHelper;
+use App\Models\Customer;
 use Illuminate\Support\Facades\Response;
 
 
@@ -192,6 +193,8 @@ class TaxController extends Controller
                     'reverse_ledger_group_id' => isset($detail['reverse_ledger_group_id']) ? $detail['reverse_ledger_group_id'] : null,
                     'tax_type' => $detail['tax_type'],
                     'tax_percentage' => $detail['tax_percentage'],
+                    'tax_threshold' => $detail['tax_threshold'],
+                    'tax_percent_wo_pan' => $detail['tax_percent_wo_pan'],
                     'place_of_supply' => $detail['place_of_supply'],
                     'applicability_type' => $detail['applicability_type'],
                     'is_purchase' => isset($detail['is_purchase']) && $detail['is_purchase'] == '1',
@@ -366,6 +369,8 @@ class TaxController extends Controller
                                 'reverse_ledger_group_id' => isset($detailData['reverse_ledger_group_id']) ? $detailData['reverse_ledger_group_id'] : null,
                                 'tax_type' => $detailData['tax_type'],
                                 'tax_percentage' => $detailData['tax_percentage'],
+                                'tax_threshold' => $detailData['tax_threshold'],
+                                'tax_percent_wo_pan' => $detailData['tax_percent_wo_pan'],
                                 'place_of_supply' => $detailData['place_of_supply'],
                                 'applicability_type' => $detailData['applicability_type'],
                                 'is_purchase' => isset($detailData['is_purchase']) && $detailData['is_purchase'] == '1',
@@ -837,6 +842,35 @@ class TaxController extends Controller
             }
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public function calculateTcsTax(Request $request)
+    {
+        try {
+            $authUser = Helper::getAuthenticatedUser();
+            $store = ErpStore::with('address') -> find($request -> store_id);
+            if (!$store) {
+                return response()->json(['error' => 'Location not found'], 422);
+            }
+            $fromCountryId = $store -> address -> country_id;
+            $customerId = $request -> customer_id;
+            $totalTaxableValue = $request -> total_taxable_value;
+            $toCountryId = $request -> to_country_id;
+            $nonTcsAssessableAmt = $request -> non_tcs_assessable_amt ?? 0;
+            $documentDate = $request -> document_date ?? "";
+            $customer = Customer::find($customerId);
+            if (!$customer) {
+                return response()->json(['error' => 'Customer not found'], 422);
+            }
+            $tcsTax = TaxHelper::calculateHeaderTax($customer, $fromCountryId, $toCountryId, $authUser, 'sale', ConstantHelper::TCS, ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS, $documentDate, $nonTcsAssessableAmt, $totalTaxableValue);
+            if ($tcsTax['status'] == 'error') {
+                return response()->json(['error' => $tcsTax['message']], 500);
+            } else {
+                return response()->json($tcsTax['data']);
+            }
+        } catch(\Exception $ex) {
+            return response()->json(['error' => $ex->getMessage()], 500);
         }
     }
 }

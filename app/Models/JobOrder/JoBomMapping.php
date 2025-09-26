@@ -2,7 +2,7 @@
 
 namespace App\Models\JobOrder;
 
-use App\Models\ErpMiItem;
+use App\Models\Item;
 use App\Models\StockLedger;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -43,6 +43,10 @@ class JoBomMapping extends Model
     public function stockMappings()
     {
         return $this->hasMany(StockLedger::class, 'item_id', 'item_id');
+    }
+    public function item()
+    {
+        return $this->belongsTo(Item::class, 'item_id');
     }
 
 }

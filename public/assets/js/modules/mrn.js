@@ -1,5 +1,12 @@
 // Determine if current URL is an edit page
 const isEditPage = window.location.pathname.includes("/edit");
+let currentProcessType;
+
+if (!isEditPage) {
+    currentProcessType = null;
+} else {
+    currentProcessType = currentProcessType;
+}
 
 /*Tax Detail Display Start*/
 $(document).on("click", ".summaryTaxBtn", (e) => {
@@ -1670,22 +1677,27 @@ $(document).on("keyup", "#new_exp_perc", (e) => {
 function qtyEnabledDisabled() {
     $("tr[id*='row_']").each(function (index, item) {
         let qtyDisabled = false;
-        if ($(item).find("[name*='[attr_name]']").length) {
-            $(item)
-                .find("[name*='[attr_name]']")
-                .each(function () {
-                    if ($(this).val().trim() === "") {
-                        qtyDisabled = true;
-                    }
-                });
-            $(item)
-                .find("[name*='[order_qty]']")
-                .attr("readonly", Boolean(qtyDisabled));
-            if (qtyDisabled) {
-                $(item).find("[name*='[order_qty]']").val("");
+        if (currentProcessType == 'dnote') {
+            $(item).find("[name*='[order_qty]']").attr("readonly", true)
+        }
+        else {
+            if ($(item).find("[name*='[attr_name]']").length) {
+                $(item)
+                    .find("[name*='[attr_name]']")
+                    .each(function () {
+                        if ($(this).val().trim() === "") {
+                            qtyDisabled = true;
+                        }
+                    });
+                $(item)
+                    .find("[name*='[order_qty]']")
+                    .attr("readonly", Boolean(qtyDisabled));
+                if (qtyDisabled) {
+                    $(item).find("[name*='[order_qty]']").val("");
+                }
+            } else {
+                $(item).find("[name*='[order_qty]']").attr("readonly", false);
             }
-        } else {
-            $(item).find("[name*='[order_qty]']").attr("readonly", false);
         }
     });
 }
@@ -2766,4 +2778,19 @@ function formatTaxBreakup(breakupJson) {
         console.error("Invalid tax breakup JSON", e);
     }
     return html;
+}
+
+function allowBackDate() {
+    const maxDate = isoNDaysFromToday(-1);
+    $('input.expiry-date[name="supplier_invoice_date"]').each(function () {
+        $(this).attr("max", maxDate);
+    });
+}
+
+function isoNDaysFromToday(n) {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${m}-${day}`;
 }

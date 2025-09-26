@@ -929,6 +929,7 @@
                                                                                     <h6 class="text-dark mb-0 bg-light-primary py-1 px-50 d-flex justify-content-between"><strong>Invoice Summary</strong>
                                                                                         <div class="addmendisexpbtn">
                                                                                             <button type = "button" id = "taxes_button" data-bs-toggle="modal" data-bs-target="#orderTaxes" class="btn p-25 btn-sm btn-outline-secondary" onclick = "onOrderTaxClick();" >Taxes</button>
+                                                                                            <input class = "item_taxes_input" type = "hidden" id = "order_tcs_tax" value = "" />
                                                                                             <button type = "button" id = "order_discount_button" data-bs-toggle="modal" data-bs-target="#discountOrder" class="btn p-25 btn-sm btn-outline-secondary" onclick = "onOrderDiscountModalOpen();"><i data-feather="plus"></i> Discount</button>
                                                                                             <button type = "button" id = "order_expense_button" data-bs-toggle="modal" data-bs-target="#expenses" class="btn p-25 btn-sm btn-outline-secondary" onclick = "onOrderExpenseModalOpen();"><i data-feather="plus"></i> Expenses</button>
                                                                                         </div>
@@ -1832,9 +1833,9 @@
 										 <tr>
                                             <th>S.No.</th>
 											<th width="150px">Tax</th>
-											<th>Taxable Amount</th>
-                                            <th>Tax %</th>
-											<th>Tax Value</th>
+											<th class = "numeric-alignment">Taxable Amount</th>
+                                            <th class = "numeric-alignment">Tax %</th>
+											<th class = "numeric-alignment">Tax Value</th>
 										  </tr>
 										</thead>
 										<tbody id = "order_tax_details_table">
@@ -3791,13 +3792,13 @@
         let newTaxesHtml = ``;
         orderTaxes.forEach(taxDetail => {
             newTaxesHtml += `
-                        <tr>
-                        <td>${taxDetail.index+1}</td>
-                        <td>${taxDetail.tax_type}</td>
-                        <td>${taxDetail.taxable_amount}</td>
-                        <td>${taxDetail.tax_percentage}</td>
-                        <td>${taxDetail.tax_value}</td>
-                        </tr>
+                <tr>
+                <td>${taxDetail.index+1}</td>
+                <td>${taxDetail.tax_type}</td>
+                <td class = "numeric-alignment">${taxDetail.taxable_amount}</td>
+                <td class = "numeric-alignment">${taxDetail.tax_percentage}</td>
+                <td class = "numeric-alignment">${taxDetail.tax_value}</td>
+                </tr>
             `
         });
         mainTableBody.innerHTML = newTaxesHtml;

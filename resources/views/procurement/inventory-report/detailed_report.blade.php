@@ -33,16 +33,23 @@
                     <div class="card border  overflow-hidden">
                         <div class="row">
                             <div class="col-md-12 bg-light border-bottom mb-1 po-reportfileterBox">
-                                <div class="d-flex justify-content-between align-items-center p-2">
-                                    <div>
+                                <div class="row p-2">
+                                    <div class="col-md-4">
                                         <h3 class="mb-0">Stock Ledger Report</h3>
                                         <p class="mb-0">Apply the Filter</p>
                                     </div>
-                                    <div class="d-flex gap-1">
-                                        <button class="btn btn-secondary" onclick="toggleFilterSidebar()">Filters</button>
-                                        <a href="/inventory-reports/get-stock-ledger-reports"
-                                            class="btn btn-danger">Clear</a>
-                                        <button type="button" onclick="sendMailTo();" class="btn btn-primary">
+                                    <div class="col-md-8 text-sm-end">
+                                        <!-- Period Input -->
+                                        <input type="text" name="Period" id="Custom" class="form-control flatpickr-input d-inline-block" readonly style="max-width: 180px; height: 28px" />
+
+                                        <!-- Filters Button -->
+                                        <button class="btn btn-secondary btn-sm" onclick="toggleFilterSidebar()">Filters</button>
+
+                                        <!-- Clear Button -->
+                                        <a href="/inventory-reports/get-stock-ledger-reports" class="btn btn-danger btn-sm">Clear</a>
+
+                                        <!-- E-Mail Button -->
+                                        <button type="button" onclick="sendMailTo();" class="btn btn-primary btn-sm">
                                             <i data-feather="mail"></i> E-Mail
                                         </button>
                                     </div>
@@ -55,11 +62,6 @@
                                     <button class="btn-close" onclick="toggleFilterSidebar()"></button>
                                 </div>
                                 <form action="/inventory-reports/get-stock-ledger-summary-filter" method="GET">
-                                    <div class="mb-2">
-                                        <label>Period</label>
-                                        <input type="text" name="Period" id="Custom"
-                                            class="form-control flatpickr-input" readonly />
-                                    </div>
                                     <div class="mb-2">
                                         <label class="form-label">Doc No.</label>
                                         <input type="text" name="doc_no" id="doc_no" placeholder="Document No"
@@ -489,6 +491,8 @@
                     openingValue,
                     closingValue
                 } = calculateBalance(recordsToDisplay, startDate, endDate);
+                let finalClosingBalance = 0;
+                let finalClosingValue = 0;
 
                 function getBalanceColor(balance) {
                     return balance < 0 ? 'text-danger' : 'text-primary'; // Red if negative, blue if positive
@@ -618,6 +622,8 @@
                     tr.innerHTML = cells.join("");
                     tbody.appendChild(tr); // Append each report row
                 });
+                finalClosingBalance = parseFloat(openingBalance ?? "0") + parseFloat(totalReceiptQty ?? "0") - parseFloat(totalIssueQty ?? "0");
+                finalClosingValue = parseFloat(openingValue ?? "0") + parseFloat(totalReceiptValue ?? "0") - parseFloat(totalIssueValue ?? "0");
                 // Add the total receipt quantity  and issue qunatity total
                 const totalQtyRow = document.createElement("tr");
                 totalQtyRow.innerHTML = `
@@ -662,12 +668,12 @@
                 <td></td>
                 <td></td>
                 <td></td>
-                <td class="fw-bolder no-wrap text-end ${getBalanceColor(closingValue)}" style="width: 100%;">Closing Balance</td>
+                <td class="fw-bolder no-wrap text-end ${getBalanceColor(finalClosingValue)}" style="width: 100%;">Closing Balance</td>
                 <td></td>
                 <td></td>
-                <td class="fw-bolder no-wrap text-end ${getBalanceColor(closingBalance)}" style="width: 100%;">Quantity: ${closingBalance}</td>
+                <td class="fw-bolder no-wrap text-end ${getBalanceColor(finalClosingBalance)}" style="width: 100%;">Quantity: ${finalClosingBalance}</td>
                 <td></td>
-                <td class="fw-bolder no-wrap text-end ${getBalanceColor(closingValue)}" style="width: 100%;">Value: ${closingValue}</td>
+                <td class="fw-bolder no-wrap text-end ${getBalanceColor(finalClosingValue)}" style="width: 100%;">Value: ${finalClosingValue}</td>
                 <td></td>
                 <td></td>
                 <td></td>

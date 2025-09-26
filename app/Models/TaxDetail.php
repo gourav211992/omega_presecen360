@@ -21,6 +21,8 @@ class TaxDetail extends Model
         'reverse_ledger_group_id',
         'tax_type',
         'tax_percentage',
+        'tax_threshold',
+        'tax_percent_wo_pan',
         'place_of_supply',
         'applicability_type',
         'is_purchase',

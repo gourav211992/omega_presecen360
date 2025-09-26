@@ -61,7 +61,7 @@
                                         <th>ITEM NAME</th>
                                         <th>ATTRIBUTES</th>
                                         <th class="text-end">QTY</th>
-                                        <th class="text-end">INV QTY</th>
+                                        <th class="text-end">DNOTE QTY</th>
 										<th class="text-end">GE QTY</th>
                                         <th class="text-end">BALANCE QTY</th>
                                         <th class="text-end">RATE</th>

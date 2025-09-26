@@ -20,7 +20,9 @@ Route::middleware(['user.auth'])->group(function () {
     Route::prefix('dashboard')->controller(IndexController::class)->group(function () {
         Route::get('/', 'index')->name('kaizen.dashboard');
         Route::get('get/', 'getDashboard')->name('kaizen.get-dashboard');
+        Route::get('get-admin/', 'getAdminDashboard')->name('kaizen.get-admin-dashboard');
     });
+    Route::get('/admin-dashboard',[IndexController::class,'adminIndex'])->name('kaizen.admin-dashboard');
 
     Route::controller(KaizenController::class)->group(function () {
         Route::get('/', 'index')->name('kaizen.index');

@@ -28,4 +28,18 @@ class ErpRepItemAttribute extends Model
     {
         return $this->belongsTo(ErpRepairOrder::class, 'repair_order_id');
     }
+       public function attributeGroup()
+    {
+        return $this->belongsTo(AttributeGroup::class, 'attr_name', 'id');
+    }
+
+     public function attribute()
+    {
+        return $this->belongsTo(Attribute::class, 'attr_value', 'id');
+    }
+
+    public function Itemattribute()
+    {
+        return $this->belongsTo(ItemAttribute::class, 'item_attribute_id', 'id');
+    }
 }

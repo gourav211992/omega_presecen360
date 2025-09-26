@@ -354,7 +354,7 @@
 
                         <tr>
                             <td colspan="2" style="font-weight: 900; vertical-align: top; padding-top:10px;">
-                                {{ Str::ucfirst(@$order?->vendor?->company_name) }}
+                                {{ @$order ?-> consignee_name ? Str::ucfirst(@$order ?-> consignee_name) : Str::ucfirst(@$order?->vendor?->company_name) }}
                             </td>
                         </tr>
                         
@@ -688,6 +688,16 @@
                                 </td>
                                 <td style="text-align: right; padding-top: 3px;">
                                     {{ number_format($value[0], 2) }}
+                                </td>
+                            </tr>
+                        @endforeach
+                        @foreach($order->header_tax as $key => $tax)
+                            <tr>
+                                <td style="text-align: right; padding-top: 3px;">
+                                    <b>{{ucFirst($tax->ted_name) . " " . number_format($tax->ted_percentage, 2) . " %"}} @ {{number_format($tax->assessment_amount, 2)}}:</b>
+                                </td>
+                                <td style="text-align: right; padding-top: 3px;">
+                                    {{ number_format(@$tax->ted_amount, 2) }}
                                 </td>
                             </tr>
                         @endforeach

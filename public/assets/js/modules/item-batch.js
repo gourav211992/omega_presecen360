@@ -70,6 +70,7 @@ function reindexBatchRows() {
 
 function generateBatchRow(index, opts = {}, allowEdit = true) {
     const {
+        batch_id = "",
         batch_number = "",
         manufacturing_year = "",
         expiry_date = "",
@@ -81,10 +82,10 @@ function generateBatchRow(index, opts = {}, allowEdit = true) {
     const dis = allowEdit ? "" : "disabled";
 
     return `
-       <tr data-index="${index}">
+       <tr data-index="${index}" data-batch-id="${batch_id}">
          <td>
            <input type="checkbox" class="form-check-input batch-row-check"
-                  data-index="${index}" ${isFirst ? "disabled" : ""} ${dis} />
+                  data-index="${index}" data-batch-id="${batch_id}" ${isFirst ? "disabled" : ""} ${dis} />
          </td>
          <td>
            <input type="text" class="form-control mw-100 batch-number"
@@ -110,7 +111,7 @@ function generateBatchRow(index, opts = {}, allowEdit = true) {
            ${
                allowEdit
                    ? `
-                <a href="#" class="text-primary add-batch-row-header" data-index="${index}">
+                <a href="#" class="text-primary add-batch-row-header" data-index="${index}" data-batch-id="${batch_id}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-plus-circle">
                         <circle cx="12" cy="12" r="10"></circle>
                         <line x1="12" y1="8" x2="12" y2="16"></line>
@@ -121,7 +122,7 @@ function generateBatchRow(index, opts = {}, allowEdit = true) {
                  isFirst
                      ? ""
                      : `
-                <a href="#" class="text-danger remove-batch-row" data-index="${index}">
+                <a href="#" class="text-danger remove-batch-row" data-index="${index}" data-batch-id="${batch_id}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle">
                         <circle cx="12" cy="12" r="10"></circle>
                         <line x1="15" y1="9" x2="9" y2="15"></line>
@@ -159,6 +160,7 @@ function populateBatchTable(data = [], allowEdit) {
             generateBatchRow(
                 i,
                 {
+                    batch_id: row.id ?? "" ,
                     batch_number:
                         row.batch_number ?? (allowEdit ? "" : lotNumber),
                     manufacturing_year: row.manufacturing_year ?? "",

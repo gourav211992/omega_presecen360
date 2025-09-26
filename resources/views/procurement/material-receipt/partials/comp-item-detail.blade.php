@@ -89,11 +89,11 @@
             <span class="mw-100" style="padding: 0%;">
                 <strong style="font-size:11px; color : #6a6a6a;">
                     {{
-                        ($type == 'po') ? 'Purchase' :
-                        (($type == 'jo') ? 'Job' :
-                        (($type == 'so') ? 'Sale' : ''))
+                        ($type == 'po') ? 'Purchase Order' :
+                        (($type == 'jo') ? 'Job Order' :
+                        (($type == 'so') ? 'Sale Order' :
+                        (($type == 'dnote') ? 'Del. Note' : '')))
                     }}
-                    Order
                 </strong>
             </span>
             <span class="badge rounded-pill badge-light-primary">
@@ -104,20 +104,20 @@
                 {{ $purchaseOrder?->getFormattedDate('document_date') }}
             </span>
             <span class="badge rounded-pill badge-light-primary">
-                <strong>Order Qty.</strong>: {{number_format($poDetail->order_qty, 2)}}
+                <strong>Order Qty.</strong>: {{number_format($poDetail?->order_qty, 2)}}
             </span>
             @if($poDetail->grn_qty && ($poDetail->grn_qty > 0))
                 <span class="badge rounded-pill badge-light-primary">
-                    <strong>Received Qty.</strong>: {{number_format($poDetail->grn_qty, 2)}}
+                    <strong>Received Qty.</strong>: {{number_format($poDetail?->grn_qty, 2)}}
                 </span>
             @endif
             @if($poDetail->grn_qty && ($poDetail->short_close_qty > 0))
                 <span class="badge rounded-pill badge-light-primary">
-                    <strong>Cloased Qty.</strong>: {{number_format($poDetail->short_close_qty, 2)}}
+                    <strong>Closed Qty.</strong>: {{number_format($poDetail?->short_close_qty, 2)}}
                 </span>
             @endif
             <span class="badge rounded-pill badge-light-primary">
-                <strong>Balance Qty.</strong>: {{number_format(((($poDetail->order_qty ?? 0.00) - ($poDetail->short_close_qty ?? 0.00)) - (($poDetail->grn_qty ?? 0.00))), 2)}}
+                <strong>Balance Qty.</strong>: {{number_format(((($poDetail?->order_qty ?? 0.00) - ($poDetail?->short_close_qty ?? 0.00)) - (($poDetail?->grn_qty ?? 0.00))), 2)}}
             </span>
         </td>
     </tr>

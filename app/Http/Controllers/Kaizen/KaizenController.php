@@ -525,8 +525,8 @@ class KaizenController extends Controller
         $improvementIds = [
             $kaizen->productivity_imp_id,
             $kaizen->quality_imp_id,
-            $kaizen->moral_imp_id,
-            $kaizen->delivery_imp_id,
+            // $kaizen->moral_imp_id,
+            // $kaizen->delivery_imp_id,
             $kaizen->cost_imp_id,
             $kaizen->innovation_imp_id,
             $kaizen->safety_imp_id
@@ -558,7 +558,7 @@ class KaizenController extends Controller
 
         return [
             'score' => $score,
-            'total_score' => 80
+            'total_score' => 60
         ];
     }
 

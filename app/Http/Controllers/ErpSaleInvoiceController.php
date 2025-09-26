@@ -430,13 +430,13 @@ class ErpSaleInvoiceController extends Controller
         $servicesBooks = [];
         if (isset($request -> revisionNumber))
         {
-            $order = ErpSaleInvoiceHistory::with(['customer','media_files','discount_ted', 'expense_ted', 'billing_address_details', 'shipping_address_details', 'location_address_details']) -> with('items', function ($query) {
+            $order = ErpSaleInvoiceHistory::with(['customer','media_files','discount_ted', 'expense_ted', 'header_tax','billing_address_details', 'shipping_address_details', 'location_address_details']) -> with('items', function ($query) {
                 $query -> with('discount_ted', 'tax_ted', 'item_locations', 'bundles') -> with(['item' => function ($itemQuery) {
                     $itemQuery -> with(['specifications', 'alternateUoms.uom', 'uom']);
                 }]);
             }) -> where('source_id', $id)->firstOrFail();
         } else {
-            $order = ErpSaleInvoice::with(['customer','media_files','discount_ted', 'expense_ted', 'billing_address_details', 'shipping_address_details',  'location_address_details']) -> with('items', function ($query) {
+            $order = ErpSaleInvoice::with(['customer','media_files','discount_ted', 'expense_ted', 'header_tax', 'billing_address_details', 'shipping_address_details',  'location_address_details']) -> with('items', function ($query) {
                 $query -> with('discount_ted', 'tax_ted', 'item_locations', 'bundles') -> with(['item' => function ($itemQuery) {
                     $itemQuery -> with(['specifications', 'alternateUoms.uom', 'uom']);
                 }]);
@@ -712,6 +712,7 @@ class ErpSaleInvoiceController extends Controller
                 }
             }
             $transportationMode = EwayBillMaster::find($request->transporter_mode);
+            $oldNonTcsAccesableAmt = 0;
 
             if ($request -> sale_invoice_id) { //Update
                 $saleInvoice = ErpSaleInvoice::find($request -> sale_invoice_id);
@@ -733,6 +734,10 @@ class ErpSaleInvoiceController extends Controller
                 $saleInvoice -> customer_terms = $request -> terms;
                 $saleInvoice -> customer_terms_id = $request -> terms_id;
                 $actionType = $request -> action_type ?? '';
+                $tcsAssessableAmt = $saleInvoice -> header_tax() -> where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS) -> first() ?-> assessment_amount ?? 0;
+                $oldNonTcsAccesableAmt = ($saleInvoice -> total_item_value - $saleInvoice -> total_discount_value) - $tcsAssessableAmt;
+                $locationAddress = $saleInvoice -> location_address_details;
+                $billingAddress = $saleInvoice -> billing_address_details;
                 //Amend backup
                 if(($saleInvoice -> document_status == ConstantHelper::APPROVED || $saleInvoice -> document_status == ConstantHelper::APPROVAL_NOT_REQUIRED) && $actionType == 'amendment')
                 {
@@ -1154,7 +1159,7 @@ class ErpSaleInvoiceController extends Controller
                         $itemPrice = ($itemDataValue['item_value'] + $headerDiscount + $itemDataValue['item_discount_amount']) / $itemDataValue['order_qty'];
                         $partyCountryId = isset($billingAddress) ? $billingAddress -> country_id : null;
                         $partyStateId = isset($billingAddress) ? $billingAddress -> state_id : null;
-                        $taxDetails = TaxHelper::calculateTax($itemDataValue['hsn_id'], $itemPrice, $companyCountryId, $companyStateId, $partyCountryId ?? $request -> shipping_country_id, $partyStateId ?? $request -> shipping_state_id, 'sale');
+                        $taxDetails = TaxHelper::calculateTax($itemDataValue['hsn_id'], $itemPrice, $companyCountryId, $companyStateId, $partyCountryId ?? $request -> billing_country_id, $partyStateId ?? $request -> billing_state_id, 'sale');
                         if (isset($taxDetails) && count($taxDetails) > 0) {
                             foreach ($taxDetails as $taxDetail) {
                                 $itemTax += ((double)$taxDetail['tax_percentage'] / 100 * $valueAfterHeaderDiscount);
@@ -1630,6 +1635,43 @@ class ErpSaleInvoiceController extends Controller
                         $totalExpenseAmount += $orderExpenseVal;
                     }
                 }
+                //Sale Invoice TCS Tax
+                if (in_array($saleInvoice -> document_type, [ConstantHelper::SI_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS])) {
+                    $totalTaxableValue = ($itemTotalValue - ($totalHeaderDiscount + $itemTotalDiscount));
+                    $tcsApplicability = TaxHelper::calculateHeaderTax($customer, $locationAddress -> country_id, $billingAddress -> country_id, $user, 'sale',
+                     ConstantHelper::TCS, ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS, $saleInvoice -> document_date, $oldNonTcsAccesableAmt, $totalTaxableValue);
+                    if ($tcsApplicability['status'] == 'error') {
+                        DB::rollBack();
+                        return response() -> json([
+                            'status' => 'error',
+                            'message' => $tcsApplicability['message']
+                        ], 422);
+                    }
+                    if ($tcsApplicability['data'] && isset($tcsApplicability['data']['id'])) {
+                        $headerTcsRowData = [
+                            'sale_invoice_id' => $saleInvoice -> id,
+                            'invoice_item_id' => null,
+                            'ted_type' => 'Tax',
+                            'ted_level' => 'H',
+                            'ted_id' => $tcsApplicability['data']['id'],
+                            'ted_name' => $tcsApplicability['data']['tax_code'],
+                            'assessment_amount' => $tcsApplicability['data']['assesable_value'],
+                            'ted_group_code' => $tcsApplicability['data']['tax_group'],
+                            'ted_percentage' => $tcsApplicability['data']['tax_percentage'],
+                            'ted_amount' => $tcsApplicability['data']['tax_amount'],
+                            'applicable_type' => $tcsApplicability['data']['applicability_type'],
+                        ];
+                        if (isset($request -> order_tcs_id)) {
+                            $tcsTaxTed = ErpSaleInvoiceTed::updateOrCreate(['id' => $request -> order_tcs_id], $headerTcsRowData);
+                        } else {
+                            $tcsTaxTed = ErpSaleInvoiceTed::create($headerTcsRowData);
+                        }
+                        $totalTax += $tcsTaxTed -> ted_amount;
+                    } else {
+                        ErpSaleInvoiceTed::where('sale_invoice_id', $saleInvoice -> id) -> where('ted_type', 'Tax') 
+                            -> where('ted_level', 'H') -> where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS) -> delete();
+                    }
+                }
                 //Check all total values
                 if ($itemTotalValue - ($totalHeaderDiscount + $itemTotalDiscount) + $totalExpenseAmount < 0)
                 {
@@ -1644,6 +1686,13 @@ class ErpSaleInvoiceController extends Controller
                 $saleInvoice -> total_tax_value = $totalTax;
                 $saleInvoice -> total_expense_value = $totalExpenseAmount;
                 $saleInvoice -> total_amount = ($itemTotalValue - ($totalHeaderDiscount + $itemTotalDiscount)) + $totalTax + $totalExpenseAmount;
+                $saleInvoice -> save();
+                if (in_array($saleInvoice -> document_type, [ConstantHelper::SI_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS])) {
+                    $saleInvoice -> refresh();
+                    $currentTcsAssessableAmt = $saleInvoice -> header_tax() -> where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS) -> first() ?-> assessment_amount ?? 0;
+                    $currentNonTcsAssessableAmt = ($saleInvoice -> total_item_value - $saleInvoice -> total_discount_value) - $currentTcsAssessableAmt - $oldNonTcsAccesableAmt;
+                    TaxHelper::buildTaxThresholdUtilization($saleInvoice, 'sale', ConstantHelper::TCS, ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS, $currentNonTcsAssessableAmt);
+                }
                 //Approval check
                 if ($request -> sale_invoice_id) { //Update condition
                     $bookId = $saleInvoice->book_id;
@@ -1701,9 +1750,7 @@ class ErpSaleInvoiceController extends Controller
                         $saleInvoice->document_status = $approveDocument['approvalStatus'] ?? $saleInvoice->document_status;
                     }
                     $saleInvoice -> save();
-                }
-                // $saleInvoice -> document_type = isset($request -> type) && in_array($request -> type, ConstantHelper::SALE_INVOICE_DOC_TYPES) ? $request -> type : ConstantHelper::SI_SERVICE_ALIAS;
-                $saleInvoice -> save();
+                }                
                 //Media
                 if ($request->hasFile('attachments')) {
                     foreach ($request->file('attachments') as $singleFile) {
@@ -1755,17 +1802,6 @@ class ErpSaleInvoiceController extends Controller
                 $saleInvoice -> save();
                 SaleModuleHelper::cashCustomerMasterData($saleInvoice);
                 SaleModuleHelper::updateOrCreateInvoicePaymentTerms($saleInvoice -> id, $saleInvoice -> document_date, $saleInvoice -> payment_term_id, $saleInvoice -> credit_days);
-                $fy = Helper::getFinancialYear($saleInvoice -> document_date);
-                $fyYear = ErpFinancialYear::find($fy['id']);
-                if ($request -> sale_invoice_id && $request -> action_type == 'amendment') {
-                    $oldSaleInvoice = ErpSaleInvoiceHistory::where('source_id', $saleInvoice -> id) 
-                        -> where('revision_number', $saleInvoice -> revision_number - 1) -> first();
-                    if ($oldSaleInvoice) {
-                        SaleModuleHelper::buildCustomerSaleInvoiceSummary($saleInvoice, $fyYear, $oldSaleInvoice);
-                    }
-                } else {
-                    SaleModuleHelper::buildCustomerSaleInvoiceSummary($saleInvoice, $fyYear);
-                }
 
                 // Create job
                 if ($saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS || $saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS) {

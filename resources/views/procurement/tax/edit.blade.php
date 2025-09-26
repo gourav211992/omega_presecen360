@@ -137,13 +137,15 @@
                                                         <tr>
                                                             <th>S.NO</th>
                                                             <th>Tax Type <span class="text-danger">*</span></th>
+                                                            <th class="th-threshold">Threshold <span class="text-danger">*</span></th>
                                                             <th>Tax %age <span class="text-danger">*</span></th>
-                                                            <th>Place of Supply <span class="text-danger">*</span></th>
+                                                            <th class="th-tax-wo-pan">Tax% (w/o PAN) <span class="text-danger">*</span></th>
+                                                            <th class="th-place-of-supply">Place of Supply <span class="text-danger">*</span></th>
                                                             <th width="200px">Transaction Type</th>
-                                                            <th width="200px">Forward Ledger Name</th>
-                                                            <th width="200px">Forward Ledger Group</th>
-                                                            <th width="200px">Reverse Ledger Name</th> 
-                                                            <th width="200px">Reverse Ledger Group</th> 
+                                                            <th width="200px">Ledger Name</th>
+                                                            <th width="200px">Ledger Group</th>
+                                                            <th class="th-reverse-ledger-name" width="200px">Reverse Ledger Name</th> 
+                                                            <th class="th-reverse-ledger-group" width="200px">Reverse Ledger Group</th> 
                                                             <th>Applicability Type <span class="text-danger">*</span></th>
                                                             <th>Action</th>
                                                         </tr>
@@ -156,10 +158,12 @@
                                                                     <select name="tax_details[0][tax_type]" id="tax_type_0" class="form-select mw-100 tax-type">
                                                                     </select>
                                                                 </td>
+                                                                <td class="td-threshold"><input type="text" name="tax_details[0][tax_threshold]" class="form-control mw-100"></td>
                                                                 <td>
                                                                     <input type="text" name="tax_details[0][tax_percentage]" step="any" class="form-control mw-100 tax-percentage" value="">
                                                                 </td>
-                                                                <td>
+                                                                <td class="td-tax-wo-pan"><input type="text" name="tax_details[0][tax_percent_wo_pan]" class="form-control mw-100"></td>
+                                                                <td class="td-place-of-supply">
                                                                     <select name="tax_details[0][place_of_supply]" class="form-select mw-100">
                                                                         <option value="">Select</option>
                                                                         @foreach ($supplyTypes as $type)
@@ -187,11 +191,11 @@
                                                                     <select id="ledger_group_id_0" name="tax_details[0][ledger_group_id]" class="form-control mw-100 ledger-group-select">
                                                                     </select>
                                                                 </td>
-                                                                <td>
+                                                                <td class="td-reverse-ledger-name">
                                                                     <input type="text" class="autocomplete-ledgr-reverse form-control mw-100" data-id="reverse_ledger_id_0" value="">
                                                                     <input type="hidden" id="reverse_ledger_id_0" name="tax_details[0][reverse_ledger_id]" value="">
                                                                 </td>
-                                                                <td>
+                                                                <td class="td-reverse-ledger-group">
                                                                     <select id="reverse_ledger_group_id_0" name="tax_details[0][reverse_ledger_group_id]" class="form-control mw-100 ledger-group-select-reverse">
                                                                     </select>
                                                                 </td>
@@ -240,10 +244,16 @@
 
                                                                         </select>
                                                                     </td>
+                                                                    <td class="td-threshold">
+                                                                        <input type="text" name="tax_details[{{ $index }}][tax_threshold]" class="form-control mw-100" value="{{ $detail->tax_threshold ?? '' }}">
+                                                                    </td>
                                                                     <td>
                                                                         <input type="text" name="tax_details[{{ $index }}][tax_percentage]" class="form-control mw-100 tax-percentage" value="{{ $detail->tax_percentage ?? '' }}">
                                                                     </td>
-                                                                    <td>
+                                                                     <td class="td-tax-wo-pan">
+                                                                        <input type="text" name="tax_details[{{ $index }}][tax_percent_wo_pan]" class="form-control mw-100 tax-percentage" value="{{ $detail->tax_percent_wo_pan ?? '' }}">
+                                                                    </td>
+                                                                    <td class="td-place-of-supply">
                                                                         <select name="tax_details[{{ $index }}][place_of_supply]"  id="place_of_supply_{{ $index }}" class="form-select mw-100"  @if ($tax->tax_category === 'TDS' || $tax->tax_category === 'TCS') disabled @endif>
                                                                            
                                                                             <option value="">Select</option>
@@ -281,12 +291,12 @@
                                                                         
                                                                         <input type="hidden" id="hidden_ledger_group_id_{{ $index }}" value="{{ $detail->ledger_group_id ?? '' }}">
                                                                     </td>
-                                                                    <td>
+                                                                    <td class="td-reverse-ledger-name">
                                                                         <input type="text" name="reverse_ledger" class="autocomplete-ledgr-reverse form-control mw-100" data-id="reverse_ledger_id_{{ $index }}" value="{{ $detail->reverseLedger->name ?? '' }}">
                                                                         <input type="hidden" id="reverse_ledger_id_{{ $index }}" name="tax_details[{{ $index }}][reverse_ledger_id]" value="{{ $detail->reverse_ledger_id ?? '' }}">
                                                                     </td>
 
-                                                                    <td>
+                                                                    <td class="td-reverse-ledger-group">
                                                                         <select id="reverse_ledger_group_id_{{ $index }}" name="tax_details[{{ $index }}][reverse_ledger_group_id]" class="form-control mw-100 ledger-group-select-reverse">
                                                                             @if(isset($ledgerGroups))
                                                                                 @foreach($ledgerGroups as $group)
@@ -596,36 +606,40 @@
 
       function handleTaxCategory() {
             var selectedCategory = $('#tax_category').val();
-            var $rows = $('#tax-details-body tr');
+            var $table = $('#tax-details-body').closest('table');
+            $table.find('th, td').show();
+            $table.find('input, select').prop('disabled', false);
 
-            $rows.each(function() {
+            if (selectedCategory === 'TDS' || selectedCategory === 'TCS') {
+                $table.find('th.th-place-of-supply, th.th-reverse-ledger-name, th.th-reverse-ledger-group').hide();
+            } else if (selectedCategory === 'GST') {
+                $table.find('th.th-threshold, th.th-tax-wo-pan').hide();
+            }
+
+            $('#tax-details-body tr').each(function() {
                 var $row = $(this);
+
+                if (selectedCategory === 'TDS' || selectedCategory === 'TCS') {
+                    $row.find('.td-place-of-supply').hide().find('select').prop('disabled', true);
+                    $row.find('.td-reverse-ledger-name').hide().find('input').prop('disabled', true);
+                    $row.find('.td-reverse-ledger-group').hide().find('select').prop('disabled', true);
+                }
+
+                if (selectedCategory === 'GST') {
+                    $row.find('.td-threshold').hide().find('input').prop('disabled', true);
+                    $row.find('.td-tax-wo-pan').hide().find('input').prop('disabled', true);
+                    $row.find('.td-reverse-ledger-name, .td-reverse-ledger-group').show();
+                    $row.find('.autocomplete-ledgr-reverse, .ledger-group-select-reverse').prop('disabled', false);
+                }
                 var deductionRadio = $row.find('input[value="deduction"].form-check-input');
                 var collectionRadio = $row.find('input[value="collection"].form-check-input');
-
-                deductionRadio.prop('checked', false).prop('disabled', false);
-                collectionRadio.prop('checked', false).prop('disabled', false);
 
                 if (selectedCategory === 'TDS') {
                     deductionRadio.prop('checked', true).prop('disabled', true);
                     collectionRadio.prop('disabled', true);
-                    $row.find('input.autocomplete-ledgr-reverse').prop('disabled', true).val('');
-                    $row.find('select.ledger-group-select-reverse').prop('disabled', true).val('');
-                } else if (selectedCategory === 'TCS') {
+                } else if (selectedCategory === 'TCS' || selectedCategory === 'GST') {
                     collectionRadio.prop('checked', true).prop('disabled', true);
                     deductionRadio.prop('disabled', true);
-                    $row.find('input.autocomplete-ledgr-reverse').prop('disabled', true).val('');
-                    $row.find('select.ledger-group-select-reverse').prop('disabled', true).val('');
-                } else if (selectedCategory === 'GST') {
-                    collectionRadio.prop('checked', true).prop('disabled', true);
-                    deductionRadio.prop('disabled', true);
-                    $row.find('input.autocomplete-ledgr-reverse').prop('disabled', false);
-                    $row.find('select.ledger-group-select-reverse').prop('disabled', false).val('');
-                }
-                else {
-                    collectionRadio.prop('checked', true);
-                    $row.find('input.autocomplete-ledgr-reverse').prop('disabled', true).val('');
-                    $row.find('select.ledger-group-select-reverse').prop('disabled', true).val('');
                 }
             });
         }

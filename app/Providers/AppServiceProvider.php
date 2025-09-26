@@ -54,7 +54,7 @@ class AppServiceProvider extends ServiceProvider
                 $fyears = app(FinancialYearService::class)->getFinancialYears($authUser);
                 // $fyears = Helper::getFinancialYears();
                 if($fyears!=null)
-                    $c_fyear = app(FinancialYearService::class)->getFinancialYear($authUser);
+                    $c_fyear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), $authUser);
                 // $c_fyear = Helper::getFinancialYear(date('Y-m-d'));
 
                 // Pass organization id and mappings

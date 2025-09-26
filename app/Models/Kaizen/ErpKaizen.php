@@ -4,7 +4,7 @@ namespace App\Models\Kaizen;
 
 use App\Models\Department;
 use App\Models\Employee;
-use App\Models\User;
+use App\Models\Organization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -70,7 +70,10 @@ class ErpKaizen extends Model
             'id'                                    
         );
     }
-
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class, 'organization_id', 'id');
+    }
     public function department()
     {
         return $this->belongsTo(

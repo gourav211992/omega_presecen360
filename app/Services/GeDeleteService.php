@@ -8,6 +8,8 @@ use App\Helpers\ConstantHelper;
 use App\Models\GateEntryDetail;
 use App\Models\GateEntryItemLocation;
 use App\Models\GateEntryTed;
+use App\Models\JobOrder\JoProduct;
+use App\Models\PoItem;
 
 class GeDeleteService
 {
@@ -42,7 +44,6 @@ class GeDeleteService
                     $asnItem->ge_qty -= $orderQty;
                     $asnItem->save();
                 }
-
                 switch ($mrn->reference_type) {
                     case ConstantHelper::JO_SERVICE_ALIAS:
                         if ($joItem = $mrnItem->joItem) {
@@ -67,16 +68,20 @@ class GeDeleteService
                     case ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS:
                     case ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS:
                         if ($dnoteItem = $mrnItem->dnoteItem) {
-                            $dnoteItem->grn_qty -= $orderQty;
+                            $dnoteItem->ge_qty -= $orderQty;
                             $dnoteItem->save();
                         }
-                        if ($dnotePoItem = $mrnItem?->dnoteItem?->PoItem) {
-                            $dnotePoItem->grn_qty -= $orderQty;
-                            $dnotePoItem->save();
+
+                        $poDetail = PoItem::find($mrnItem?->dnoteItem?->saleOrderItem?->po_item_id ?? null);
+                        if($poDetail){
+                            $poDetail->ge_qty -= $orderQty;
+                            $poDetail->save();
                         }
-                        if ($dnoteJoItem = $mrnItem?->dnoteItem?->JoItem) {
-                            $dnoteJoItem->grn_qty -= $orderQty;
-                            $dnoteJoItem->save();
+
+                        $joDetail =JoProduct::find($mrnItem?->dnoteItem?->saleOrderItem?->jo_product_id ?? null);
+                        if($joDetail){
+                            $joDetail->ge_qty -= $orderQty;
+                            $joDetail->save();
                         }
                         break;
                 }

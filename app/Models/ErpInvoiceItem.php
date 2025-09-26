@@ -394,4 +394,9 @@ class ErpInvoiceItem extends Model
     {
         return $this->morphMany(ErpItemUniqueCode::class, 'morphable');
     }
+
+    public function geItems()
+    {
+        return $this->hasOne(GateEntryDetail::class, 'invoice_item_id', 'id');
+    }
 }

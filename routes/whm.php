@@ -125,14 +125,17 @@ Route::group(['middleware' => ['sso-api', 'apiresponse']], function () {
         Route::get('/get-vendors', 'getVendors')->name('vendors.get');
         Route::get('get-repair-defects-count/{store_id}', 'getDefectStatusCounts')->name('repair-orders.defects.counts');
         Route::post('/repair-action', 'repairAction')->name('repair.action');
+        Route::post('/scrap-action', 'scrapAction')->name('scrap.action');
+        Route::post('/send-to-vendor-action', 'sendToVendorAction')->name('send.to.vendor.action');
+        Route::post('/change-defect-severity-action', 'changeDefectSeverityAction')->name('change.defect.severity.action');
     });
 
 
     Route::controller(RepairQcJobController::class)->prefix('repair-qc')->group(function () {
         Route::get('jobs/{store_id}', 'getRepairQc')->name('repair-qc.jobs');
-        Route::get('job-details/{job_id}', 'getRepairQcJobDetails')->name('repair-qc.job-details');
+        Route::get('details/{job_id}', 'getRepairQcJobDetails')->name('repair-qc.job-details');
         Route::get('actions', 'getQcAction')->name('repair-qc.actions');
-     Route::post('close-job',  'closeRepairQcJob')->name('repair-qc.close-job');
+        Route::post('close-job',  'closeRepairQcJob')->name('repair-qc.close-job');
 
     });
      

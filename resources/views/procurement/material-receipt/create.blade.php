@@ -512,7 +512,7 @@
                                                                 <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="date" name="supplier_invoice_date"
-                                                                class="form-control bg-white gate-entry supplier_invoice_date"
+                                                                class="form-control bg-white gate-entry supplier_invoice_date expiry-date"
                                                                 id="datepicker3"
                                                                 placeholder="Enter Supplier Invoice Date">
                                                         </div>
@@ -998,13 +998,13 @@
             localStorage.removeItem('selectedDnoteIds');
             currentProcessType = null;
             $(".scanQR").removeClass('d-none');
+            allowBackDate();
         };
         let po = @json(\App\Helpers\ConstantHelper::PO_SERVICE_ALIAS);
         let jo = @json(\App\Helpers\ConstantHelper::JO_SERVICE_ALIAS);
         let so = @json(\App\Helpers\ConstantHelper::SO_SERVICE_ALIAS);
         let dnote = @json(\App\Helpers\ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS);
         let siDnote = @json(\App\Helpers\ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS);
-        let currentProcessType = null;
         let tableRowCount = 0;
         let currentIndex = '';
         selectedCostCenterId = "";
@@ -4238,6 +4238,7 @@
                     } else {
                         $("#f_header_expense_hidden").addClass('d-none');
                     }
+                    qtyEnabledDisabled();
 
                     setTimeout(() => {
                         if (idsLength > 1) {
@@ -4523,8 +4524,18 @@
                     }
                 },
                 {
-                    data: 'inv_order_qty',
-                    name: 'inv_order_qty',
+                    data: 'dnote_qty',
+                    name: 'dnote_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
+                        $(td).addClass('text-end');
+                    }
+                },
+                {
+                    data: 'ge_qty',
+                    name: 'ge_qty',
                     render: renderData,
                     orderable: false,
                     searchable: false,
@@ -4598,9 +4609,13 @@
 
         function getSelectedDNoteIDS() {
             let ids = [];
+            let geIds = [];
+            let geItemIds = [];
             let referenceNos = [];
             $('.dnote_item_checkbox:checked').each(function() {
                 ids.push($(this).val());
+                geIds.push($(this).attr('data-current-ge'));
+                geItemIds.push($(this).attr('data-current-ge-item'));
                 referenceNo = $(this).siblings("input[type='hidden'][name='reference_no']").val();
                 if (referenceNo) {
                     referenceNos.push(referenceNo);
@@ -4608,6 +4623,8 @@
             });
             return {
                 ids: ids,
+                geIds: geIds,
+                geItemIds: geItemIds,
                 referenceNos: referenceNos
             };
         }
@@ -4615,6 +4632,8 @@
         $(document).on('click', '.dnoteProcess', (e) => {
             let result = getSelectedDNoteIDS();
             let ids = result.ids;
+            let geIds = result.geIds;
+            let geItemIds = result.geItemIds;
             let referenceNo = result.referenceNos[0];
             let idsLength = ids.length;
             currentProcessType = dnote;
@@ -4759,20 +4778,25 @@
             groupItems = JSON.stringify(groupItems);
             let current_row_count = $("tbody tr[id*='row_']").length;
             ids = JSON.stringify(ids);
+            geIds = JSON.stringify(geIds);
+            geItemIds = JSON.stringify(geItemIds);
             moduleTypes = JSON.stringify(moduleTypes);
             let type = dnote;
             let actionUrl = '{{ route('material-receipt.process.dnote-item') }}' +
                 '?ids=' + encodeURIComponent(ids) +
                 '&type=' + type +
                 '&moduleTypes=' + moduleTypes +
+                '&geIds=' + encodeURIComponent(geIds) +
+                '&geItemIds=' + encodeURIComponent(geItemIds) +
                 '&tableRowCount=' + tableRowCount +
                 '&currency_id=' + encodeURIComponent(currencyId) +
-                '&d_date=' + encodeURIComponent(transactionDate)
+                '&d_date=' + encodeURIComponent(transactionDate);
             // + '&groupItems=' + encodeURIComponent(groupItems);
             fetch(actionUrl).then(response => {
                 return response.json().then(data => {
+
                     if (data.status == 200) {
-                        let dnoteOrder = data?.data?.saleOrder;
+                        let dnoteOrder = data?.data;
                         vendorOnChange(data?.data?.vendor?.id, dnote, dnoteOrder.id);
                         let result = getSelectedDNoteIDS();
                         let newIds = result.ids;
@@ -4790,7 +4814,8 @@
 
                         let module_type = data?.data?.moduleType || '';
                         let vendor = data?.data?.vendor || '';
-                        let finalDiscounts = data?.data?.finalDiscounts;
+                        let geHeader = data?.data?.geHeader || '';
+                        // let finalDiscounts = data?.data?.finalDiscounts;
                         let finalExpenses = data?.data?.finalExpenses;
 
                         if ($("#itemTable .mrntableselectexcel").find("tr[id*='row_']").length) {
@@ -4815,40 +4840,19 @@
 
                         $(".module_type").val(module_type);
                         let locationId = $("[name='header_store_id']").val();
-                        // getLocation(locationId);
-
-                        if (finalDiscounts.length) {
-                            let rows = '';
-                            finalDiscounts.forEach(function(item, index) {
-                                index = index + 1;
-                                rows += `<tr class="display_summary_discount_row">
-                                        <td>${index}</td>
-                                        <td>${item.ted_name}
-                                            <input type="hidden" value="${item.ted_id}" name="disc_summary[${index}][ted_d_id]">
-                                            <input type="hidden" value="" name="disc_summary[${index}][d_id]">
-                                            <input type="hidden" value="${item.ted_name}" name="disc_summary[${index}][d_name]">
-                                        </td>
-                                        <td class="text-end">${typeof item.ted_perc === "number" ? '0' : item.ted_perc}
-                                            <input type="hidden" value="${typeof item.ted_perc === "number" ? '0' : item.ted_perc}" name="disc_summary[${index}][d_perc]">
-                                            <input type="hidden" value="${item.ted_perc}" name="disc_summary[${index}][hidden_d_perc]">
-                                        </td>
-                                        <td class="text-end">
-                                            <input type="hidden" value="" name="disc_summary[${index}][d_amnt]">
-                                        </td>
-                                        <td>
-                                            <a href="javascript:;" class="text-danger deleteSummaryDiscountRow">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-trash-2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                                            </a>
-                                        </td>
-                                    </tr>`
-                            });
-
-                            $("#summaryDiscountTable tbody").find('.display_summary_discount_row')
-                                .remove();
-                            $("#summaryDiscountTable tbody").find('#disSummaryFooter').before(rows);
-                            $("#f_header_discount_hidden").removeClass('d-none');
+                        if (module_type === 'gate-entry' && geHeader) {
+                            $("[name='gate_entry_no']").val(geHeader.gate_entry_no);
+                            $("[name='gate_entry_date']").val(geHeader.gate_entry_date);
+                            $("[name='supplier_invoice_no']").val(geHeader.supplier_invoice_no);
+                            $("[name='supplier_invoice_date']").val(geHeader.supplier_invoice_date);
+                            $("[name='consignment_no']").val(geHeader.consignment_no);
+                            $("[name='eway_bill_no']").val(geHeader.eway_bill_no);
+                            $("[name='transporter_name']").val(geHeader.transporter_name);
+                            $("[name='vehicle_no']").val(geHeader.vehicle_no);
+                            $("[name='manual_entry_no']").val(geHeader.manual_entry_no);
                         } else {
-                            $("#f_header_discount_hidden").addClass('d-none');
+                            $("[name='supplier_invoice_no'], [name='supplier_invoice_date'], [name='consignment_no'], [name='eway_bill_no'], [name='transporter_name'], [name='vehicle_no']")
+                                .val('');
                         }
 
                         if (finalExpenses.length) {
@@ -4882,6 +4886,7 @@
                         }
                         initializeAutocomplete2(".comp_item_code");
                         focusAndScrollToLastRowInput();
+                        qtyEnabledDisabled();
                         setTimeout(() => {
                             setTableCalculation();
                             if (idsLength > 1) {
@@ -4897,7 +4902,7 @@
                             }
                             currentIndex = tableRowCount + 1;
                             setAttributesUIHelper(currentIndex, "#itemTable");
-                        }, 500);
+                        }, 3000);
                     }
                     if (data.status == 422) {
                         $(".editAddressBtn").removeClass('d-none');

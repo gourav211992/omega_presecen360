@@ -78,7 +78,7 @@ class ItemRequest extends FormRequest
            'item_name' => [
                 'required',
                 'string',
-                'max:200',
+                'max:300',
                 Rule::unique('erp_items', 'item_name')
                     ->ignore($itemId)  
                     ->whereNull('deleted_at')

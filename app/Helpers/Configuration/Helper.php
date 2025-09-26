@@ -14,4 +14,12 @@ class Helper
         $value = isset($config -> config_value) ? $config -> config_value : "";
         return $value;
     }
+
+    public static function getConfigurationValueOfCompany(string $key, int $companyId) : string
+    {
+        $config = Configuration::select('id', 'config_value') -> where('type', ConfigConstant::COMPANY_MORPH_TYPE) 
+        -> where('type_id', $companyId) -> where('config_key', $key) -> first();
+        $value = isset($config -> config_value) ? $config -> config_value : "";
+        return $value;
+    }
 }

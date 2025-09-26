@@ -5,6 +5,10 @@
       {
          $readOnly = 'readonly';
       }
+      if($item->sale_invoice_id && $item->invoice_item_id)
+      {
+         $readOnly = 'readonly';
+      }
       $rowCount = $key + 1;
    @endphp
    <tr id="row_{{$rowCount}}" data-index="{{$rowCount}}" @if($rowCount < 2 ) class="trselected" @endif>

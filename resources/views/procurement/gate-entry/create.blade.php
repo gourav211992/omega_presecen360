@@ -356,7 +356,7 @@
                                                                 <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="date" name="supplier_invoice_date"
-                                                                class="form-control bg-white gate-entry" id="datepicker3"
+                                                                class="form-control bg-white gate-entry expiry-date" id="datepicker3"
                                                                 placeholder="Enter Supplier Invoice Date">
                                                         </div>
                                                     </div>
@@ -775,6 +775,7 @@
             $("#add_new_head_dis").remove();
             $("#add_new_head_exp").remove();
             $(".deleteExpRow").remove();
+            allowBackDate();
         };
         $(document).on('change','#book_id',(e) => {
             let bookId = e.target.value;
@@ -2942,8 +2943,8 @@
                     }
                 },
                 {
-                    data: 'inv_order_qty',
-                    name: 'inv_order_qty',
+                    data: 'dnote_qty',
+                    name: 'dnote_qty',
                     render: renderData,
                     orderable: false,
                     searchable: false,
@@ -2952,8 +2953,8 @@
                     }
                 },
                 {
-                    data: 'grn_qty',
-                    name: 'grn_qty',
+                    data: 'ge_qty',
+                    name: 'ge_qty',
                     render: renderData,
                     orderable: false,
                     searchable: false,
@@ -3338,6 +3339,5 @@
                 });
             });
         });
-
     </script>
 @endsection

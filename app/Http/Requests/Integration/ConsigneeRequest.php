@@ -25,17 +25,17 @@ class ConsigneeRequest extends FormRequest
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('erp_consignees', 'consignee_code')
-                    ->whereNull('deleted_at')
-                    ->where(fn ($q) => $q->where('organization_id', $organizationId))
+                // Rule::unique('erp_consignees', 'consignee_code')
+                //     ->whereNull('deleted_at')
+                //     ->where(fn ($q) => $q->where('organization_id', $organizationId))
             ],
             'consignees.*.consignee_name' => [
                 'required',
                 'string',
                 'max:255',
-                Rule::unique('erp_consignees', 'consignee_name')
-                    ->where(fn ($q) => $q->where('organization_id', $organizationId))
-                    ->whereNull('deleted_at')
+                // Rule::unique('erp_consignees', 'consignee_name')
+                //     ->where(fn ($q) => $q->where('organization_id', $organizationId))
+                //     ->whereNull('deleted_at')
             ],
             'consignees.*.country_id'    => 'required|integer|exists:mysql_master.countries,id',
             'consignees.*.state_id'      => 'required|integer|exists:mysql_master.states,id',

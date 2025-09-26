@@ -1248,6 +1248,46 @@ class GateEntryController extends Controller
                             }
                             $joItem->save();
                         }
+                    } else if (isset($component['invoice_itm_id']) && $component['invoice_itm_id']) {
+                        $dnoteItem = ErpInvoiceItem::find($component['invoice_itm_id'] ?? @$gateEntryDetail->job_order_item_id);
+                        if (isset($dnoteItem) && $dnoteItem) {
+                            if (isset($dnoteItem->id) && $dnoteItem->id) {
+                                $orderQty = floatval(@$gateEntryDetail->accepted_qty) ?? 0;
+                                $componentQty = floatval($component['accepted_qty'] ?? $component['order_qty']);
+                                $qtyDifference = $componentQty - $orderQty;
+
+                                if(floatval($qtyDifference) != 0)
+                                {
+                                    DB::rollBack();
+                                    return response()->json([
+                                        'message' => 'Qty cannot be greater or less than Dnote Qunatity',
+                                        'error' => '',
+                                    ], 500);
+                                }
+
+                                if ($qtyDifference) {
+                                    $dnoteItem->ge_qty += $qtyDifference;
+                                }
+                                if($dnoteItem->saleOrderItem?->poItems){
+                                    $poDetail = PoItem::find($dnoteItem?->saleOrderItem?->po_item_id);
+
+                                    if($poDetail){
+                                        $poDetail->ge_qty += $qtyDifference;
+                                        $poDetail->save();
+                                    }
+                                }
+                                if($dnoteItem->saleOrderItem?->joItems){
+                                    $joDetail = JoProduct::find($dnoteItem?->saleOrderItem?->jo_product_id);
+                                    if($joDetail){
+                                        $joDetail->ge_qty += $qtyDifference;
+                                        $joDetail->save();
+                                    }
+                                }
+                            } else {
+                                // $joItem->order_qty += $component['qty'];
+                            }
+                            $dnoteItem->save();
+                        }
                     } else {
 
                     }
@@ -2406,7 +2446,7 @@ class GateEntryController extends Controller
             'job_order_id' => $request->job_order_id,
             'jo_detail_id' => $request->jo_detail_id,
             'sale_invoice_id' => $request->sale_invoice_id,
-            'invoice_item_id' => $request->invoice_item_id,
+            'invoice_item_id' => $request->invoice_itm_id,
             'sale_order_id' => $request->sale_order_id,
             'so_detail_id' => $request->so_detail_id,
             'ge_detail_id' => $request->ge_detail_id,
@@ -2434,7 +2474,7 @@ class GateEntryController extends Controller
             'job_order_id' => $component['job_order_id'] ?? null,
             'jo_detail_id' => $component['jo_detail_id'] ?? null,
             'sale_invoice_id' => $component['sale_invoice_id'] ?? null,
-            'invoice_item_id' => $component['invoice_item_id'] ?? null,
+            'invoice_item_id' => $component['invoice_itm_id'] ?? null,
             'sale_order_id' => $component['sale_order_id'] ?? null,
             'so_detail_id' => $component['so_detail_id'] ?? null,
             'ge_detail_id' => $component['ge_detail_id'] ?? null,
@@ -3313,12 +3353,20 @@ class GateEntryController extends Controller
                 $moduleType = 'dnote-order';
                 $ref_no = ($row?->headers?->book?->book_code ?? 'NA') . '-' . ($row?->headers?->document_number ?? 'NA');
                 $dataCurrentDnote = $row->sale_invoice_id ?? 'null';
+                $decoded = urldecode(urldecode($request->selected_po_ids));
+                $selected_dnote_ids = json_decode($decoded, true) ?? [];
+                $dnoteDetail = ErpInvoiceItem::where('id', $selected_dnote_ids)->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->pluck('sale_invoice_id')->toArray();
                 $dataExistingDnote = $request->type == 'create' && $row?->sale_invoice_id
-                    ? ($request->selected_dnote_ids[0] ?? 'null')
+                    ? ($selected_dnote_ids[0] ?? 'null')
                     : 'null';
+                if (empty($selected_dnote_ids)) {
+                    $disabled = '';
+                } else {
+                    $disabled = (!in_array($dataCurrentDnote, $dnoteDetail)) ? 'disabled' : '';
+                }
 
                 return "<div class='form-check form-check-inline me-0'>
-                            <input class='form-check-input dnote_item_checkbox' type='checkbox' name='dnote_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-dnote='{$dataCurrentDnote}' data-existing-dnote='{$dataExistingDnote}'>
+                            <input class='form-check-input dnote_item_checkbox' type='checkbox' name='dnote_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-dnote='{$dataCurrentDnote}' data-existing-dnote='{$dataExistingDnote}' {$disabled}>
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
                         </div>";
             })
@@ -3333,22 +3381,22 @@ class GateEntryController extends Controller
                 })->implode(' ');
             })
             ->addColumn('order_qty', function ($row) {
-                return $row?->dnote_qty ?? 0;
+                return $row?->order_qty ?? 0;
             })
-            ->addColumn('inv_order_qty', function ($row) {
-                return $row?->inventory_uom_qty ?? 0;
+            ->addColumn('dnote_qty', function ($row) {
+                return $row?->dnote_qty ?? 0;
             })
             ->addColumn('ge_qty', fn($row) => number_format(($row->ge_qty ?? 0), 2))
             ->addColumn('balance_qty', function ($row) {
-                $grnQty = $row?->ge_qty ?? $row?->mrn_qty;
-                return number_format(($row?->dnote_qty - $grnQty), 2);
+                $geQty = $row?->ge_qty ?? 0.00;
+                return number_format(($row?->dnote_qty - $geQty), 2);
             })
             ->addColumn('rate', function ($row) {
                 return $row->rate ?? 0;
             })
             ->addColumn('total_amount', function ($row) {
-                $grnQty = $row?->ge_qty ?? $row?->mrn_qty;
-                return number_format(($row?->dnote_qty - $grnQty) * ($row?->rate ?? 0), 2);
+                $geQty = $row?->ge_qty ?? 0.00;
+                return number_format(($row?->dnote_qty - $geQty) * ($row?->rate ?? 0), 2);
             })
             ->rawColumns([
                 'select_checkbox',
@@ -3359,7 +3407,7 @@ class GateEntryController extends Controller
                 'item_name',
                 'attributes',
                 'order_qty',
-                'inv_order_qty',
+                'dnote_qty',
                 'ge_qty',
                 'balance_qty',
                 'rate',
@@ -3377,6 +3425,8 @@ class GateEntryController extends Controller
         $itemId = $request->item_id ?? null;
         $storeId = $request->store_id ?? null;
         $vendorId = $request->vendor_id ?? null;
+        $headerIds = $request->header_ids ?? '';
+        $detailsIds = $request->details_ids ?? '';
         $headerBookId = $request->header_book_id ?? null;
         $itemSearch = $request->item_search ?? null;
 
@@ -3412,10 +3462,12 @@ class GateEntryController extends Controller
             'erp_sale_invoices.id as dnote_id',
             'erp_sale_invoices.customer_id as customer_id',
             'erp_sale_invoices.book_id as book_id',
+            'erp_sale_invoices.gate_entry_required as gate_entry_required',
         )
             ->leftJoin('erp_sale_invoices', 'erp_sale_invoices.id', 'erp_invoice_items.sale_invoice_id')
             ->whereIn('erp_sale_invoices.book_id', $applicableBookIds)
             ->whereIn('erp_sale_invoices.document_type', $orderTypes)
+            ->where('erp_sale_invoices.gate_entry_required', 'yes')
             ->whereRaw('(ROUND(dnote_qty) > ROUND(ge_qty))')
             ->whereHas('item', function ($item) use ($itemSearch) {
                 $item->where('type', 'Goods');
@@ -3437,9 +3489,6 @@ class GateEntryController extends Controller
                 }
                 if ($docNumber) {
                     $dnote->where('erp_sale_invoices.id', $docNumber);
-                }
-                if ($storeId) {
-                    $dnote->where('erp_sale_invoices.store_id', $storeId);
                 }
             });
 
@@ -3500,7 +3549,7 @@ class GateEntryController extends Controller
         $view = 'procurement.gate-entry.partials.dnote-item-row';
 
         if (count($uniqueDnoteIds) > 1) {
-            return response()->json(['data' => ['pos' => ''], 'status' => 422, 'message' => "Mrn can be created from single Sale Invoice at a time."]);
+            return response()->json(['data' => ['pos' => ''], 'status' => 422, 'message' => "Gate Entry can be created from single Sale Invoice at a time."]);
         }
 
         $saleInvoice = ErpSaleInvoice::where('id', $uniqueDnoteIds[0])->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->first();
@@ -4402,16 +4451,40 @@ class GateEntryController extends Controller
 
     private static function processDnoteComponent($component, $item, $inputQty)
     {
-        // if (($validation = self::validateComponentQuantities($component, $inputQty)) !== true) {
-        //     return $validation;
-        // }
+        $oldQty = 0;
+        if(@$component['detail_id']){
+            $geDetail = GateEntryDetail::find($component['detail_id']);
+            $oldQty = $geDetail->accepted_qty ?? 0;
+        }
+        $qtyDifference = floatval($inputQty) - floatval($oldQty);
 
         $dnote = ErpInvoiceItem::where('id', $component['invoice_itm_id'])
-        ->with(['saleOrderItem', 'saleOrderItem.poItem', 'saleOrderItem.joItem'])
         ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
         ->first();
 
-        return $dnote ? self::updateDnoteQty($item, $dnote, $inputQty, 'd-note') : self::notFoundResponse('DNote Item');
+        $orderQty = floatval($dnote->dnote_qty);
+        if ($inputQty != $orderQty) {
+            return response()->json(['message' => 'GE Qty cannot be greater or less than DNote Qty.'], 422);
+        }
+        $dnote->ge_qty += $qtyDifference;
+        $dnote->save();
+
+        if($dnote->saleOrderItem?->poItems){
+            $poDetail = PoItem::find($dnote?->saleOrderItem?->po_item_id);
+
+            if($poDetail){
+                $poDetail->ge_qty += $qtyDifference;
+                $poDetail->save();
+            }
+        }
+        if($dnote->saleOrderItem?->joItems){
+            $joDetail = JoProduct::find($dnote?->saleOrderItem?->jo_product_id);
+            if($joDetail){
+                $joDetail->ge_qty += $qtyDifference;
+                $joDetail->save();
+            }
+        }
+        return $dnote ? true : self::notFoundResponse('DNote Item');
     }
 
     # Helper Functions for Responses
@@ -4453,8 +4526,8 @@ class GateEntryController extends Controller
         }
 
         $poDetail->ge_qty += $inputQty;
-        if (isset($poDetail?->saleOrderItem?->poItem) && $poDetail?->saleOrderItem?->poItem) {
-            $poItemData = PoItem::find($poDetail?->saleOrderItem?->poItem?->id);
+        if (isset($poDetail?->saleOrderItem?->poItems) && $poDetail?->saleOrderItem?->poItems) {
+            $poItemData = PoItem::find($poDetail?->saleOrderItem?->poItems?->id);
             $poOrderQty = floatval($poItemData?->order_qty ?? 0);
             $existingPoGrnQty = floatval($poItemData?->ge_qty ?? 0);
             $poItemData->ge_qty += $inputQty;
@@ -4464,8 +4537,8 @@ class GateEntryController extends Controller
             }
             $poItemData->save();
         }
-        if (isset($poDetail?->saleOrderItem?->joItem) && $poDetail?->saleOrderItem?->joItem) {
-            $joItemData = JoProduct::find($poDetail?->saleOrderItem?->joItem?->id);
+        if (isset($poDetail?->saleOrderItem?->joItems) && $poDetail?->saleOrderItem?->joItems) {
+            $joItemData = JoProduct::find($poDetail?->saleOrderItem?->joItems?->id);
             $joOrderQty = floatval($joItemData?->order_qty ?? 0);
             $existingJoGrnQty = floatval($joItemData?->ge_qty ?? 0);
             $joItemData->ge_qty += $inputQty;

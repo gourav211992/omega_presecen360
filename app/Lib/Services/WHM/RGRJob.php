@@ -98,7 +98,7 @@ class RGRJob
                 'doc_date' => $header->document_date ?? null,
                 'book_id' => $header->book_id ?? null,
                 'store_id' => $this->storeId ?? null,
-                'sub_store_id' => $this->subStoreId ?? null,
+                'sub_store_id' => $detail->sub_store_id ?? null,
                 'book_code' => $header->book_code ?? null,
                 'item_attributes' => json_encode($attributes),
                 'item_id' => $detail->item_id,
@@ -133,9 +133,9 @@ class RGRJob
             foreach($detail->attributes as $key1 => $attribute) {
                 $attributeJsonArray[] = [
                     "attr_name" => (string)$attribute->attr_name,
-                    "attribute_name" => (string)@$attribute->attributeName->name,
+                    "attribute_name" => (string)@$attribute->attribute_name,
                     "attr_value" => (string)@$attribute->attr_value,
-                    "attribute_value" => (string)@$attribute->attributeValue->value,
+                    "attribute_value" => (string)@$attribute->attribute_value,
                 ];
             }
         }

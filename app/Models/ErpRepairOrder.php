@@ -29,6 +29,7 @@ class ErpRepairOrder extends Model
         'store_name',
         'vendor_id',
         'type',
+        'defect_status',
         'doc_number_type',
         'doc_reset_pattern',
         'doc_prefix',
@@ -81,7 +82,7 @@ class ErpRepairOrder extends Model
     }
      public function job()
     {
-        return $this->hasOne(ErpWhmJob::class, 'morphable_id');
+        return $this->morphOne(ErpWhmJob::class, 'morphable','morphable_type','morphable_id');
     }
 
     public function rgr()

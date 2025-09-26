@@ -655,7 +655,7 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
                    'item_name' => [
                         'required',
                         'string',
-                        'max:200',
+                        'max:300',
                         Rule::unique('erp_items', 'item_name')
                             ->where(function ($query) use ($uploadedItem) {
                                 if ($uploadedItem->group_id !== null) {

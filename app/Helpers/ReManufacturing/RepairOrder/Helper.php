@@ -5,7 +5,9 @@ use App\Helpers\ConstantHelper;
 use App\Helpers\ServiceParametersHelper;
 use App\Models\Book;
 use App\Models\ErpRgrItem;
+use App\Models\ErpRgr;
 use App\Models\WHM\ErpItemUniqueCode;
+use App\Models\WHM\ErpWhmJob;
 use App\Helpers\Helper as MainHelper;
 use App\Lib\Services\WHM\RepairOrderJob;
 use App\Models\ErpRepairOrder;
@@ -20,23 +22,28 @@ class Helper
     //Ok To Receive Items from RGR Item
     public static function generateRepFromRgrItem(ErpItemUniqueCode $rgrItemUniqueCode, string $repairOrderType, $authUser, $createJob = false) : array
     {
-        $rgrItem = ErpRgrItem::with('rgr')->find($rgrItemUniqueCode -> morphable_id);
-        //RGR Item reference not found
-        if (!$rgrItem) {
-            return [
-                'status' => 'error',
-                'message' => 'RGR Item reference not found'
-            ];
-        }
         //RGR Item Segregation
-        $rgrSegregation = $rgrItem -> segregation;
+        $rgrSegregation = $rgrItemUniqueCode -> segregation;
         if (!$rgrSegregation) {
             return [
                 'status' => 'error',
                 'message' => 'RGR Item segregation not found'
             ];
         }
-        $rgrHeader = $rgrItem -> rgr;
+
+        $job = ErpWhmJob::where('id', $rgrItemUniqueCode->job_id)
+            ->where('morphable_type', ErpRgr::class)
+            ->first();
+
+        if (!$job) {
+            return [
+                'status' => 'error',
+                'message' => 'Job not found'
+            ];
+        }
+
+        $rgrHeader = $job->morphable;
+
         //Check RGR Header
         if (!$rgrHeader) {
             return [
@@ -105,16 +112,17 @@ class Helper
             'book_code' => $okToReceiveRepBook -> book_code,
             'store_id' => $rgrHeader -> store_id,
             'store_name' => $rgrHeader -> store_name,
-            'rgr_sub_store_id' => $rgrItem -> sub_store_id,
-            'qc_sub_store_id' => $rgrItem -> sub_store_id,
+            'rgr_sub_store_id' => $rgrItemUniqueCode -> sub_store_id,
+            'qc_sub_store_id' => $rgrItemUniqueCode -> sub_store_id, //Need to chnage
             'vendor_id' => null,
             'type' => null,
-            'defect_status' => $rgrSegregation -> defect_severity,
+            'defect_status' => $rgrSegregation ->defect_severity,
             'doc_number_type' => $documentNoDetails['type'],
             'doc_reset_pattern' => $documentNoDetails['reset_pattern'],
             'doc_prefix' => $documentNoDetails['prefix'],
             'doc_suffix' => $documentNoDetails['suffix'],
             'doc_no' => $documentNoDetails['doc_no'],
+            'document_number' => $documentNoDetails['document_number'],
             'document_date' => $documentDate,
             'revision_number' => 0,
             'revision_date' => null,
@@ -126,44 +134,50 @@ class Helper
             'remarks' => null,
         ]);
         //Now Item Details
+
+        $unitId=$rgrItemUniqueCode ->item-> uom_id;
+        $unitName=$rgrItemUniqueCode ->item->uom->name;
+
         $repItem = ErpRepItem::create([
             'repair_order_id' => $repairOrder -> id,
-            'rgr_item_id' => $rgrItem -> id,
+            'rgr_item_id' => $rgrItemUniqueCode -> item_id,
             'rgr_job_detail_id' => $rgrSegregation -> job_item_id,
-            'item_id' => $rgrItem -> item_id,
-            'item_code' => $rgrItem -> item_code,
-            'item_name' => $rgrItem -> item_name,
+            'item_id' => $rgrItemUniqueCode -> item_id,
+            'item_code' => $rgrItemUniqueCode -> item_code,
+            'item_name' => $rgrItemUniqueCode -> item_name,
             'item_uid' => $rgrItemUniqueCode -> item_uid,
-            'uom_id' => $rgrItem -> uom_id,
-            'uom_code' => $rgrItem -> uom_name,
+            'uom_id' => $unitId,
+            'uom_code' => $unitName,
             'qty' => $rgrItemUniqueCode -> qty,
-            'inventory_uom_id' => $rgrItem -> inventory_uom_id,
-            'inventory_uom_code' => $rgrItem -> inventory_uom_code,
+            'inventory_uom_id' => $unitId,
+            'inventory_uom_code' => $unitName,
             'inventory_uom_qty' => $rgrItemUniqueCode -> qty,
             'service_item_id' => null,
             'service_item_code' => null,
             'service_item_name' => null,
-            'rgr_sub_store_id' => $rgrItem -> sub_store_id, //NEED TO DISCUSS
-            'rgr_sub_store_name' => $rgrItem ?-> subStore ?-> name,//NEED TO DISCUSS
-            'qc_sub_store_id' => $rgrItem -> sub_store_id,//NEED TO DISCUSS
-            'qc_sub_store_name' => $rgrItem -> subStore ?-> name,//NEED TO DISCUSS
+            'rgr_sub_store_id' => $rgrItemUniqueCode -> sub_store_id, //NEED TO DISCUSS
+            'rgr_sub_store_name' => $rgrItemUniqueCode ?-> subStore ?-> name,//NEED TO DISCUSS
+            'qc_sub_store_id' => $rgrItemUniqueCode -> sub_store_id,//NEED TO DISCUSS
+            'qc_sub_store_name' => $rgrItemUniqueCode -> subStore ?-> name,//NEED TO DISCUSS
             'rejuvenate_item_id' => null,
             'rejuvenate_item_code' => null,
             'rejuvenate_item_name' => null,
             'rejuvenate_item_attributes' => null,
             'repair_remarks' => null,
         ]);
-        //Now Rep Item Attributes
-        foreach ($rgrItem -> attributes as $rgrItemAttribute) {
+
+       $attributes = is_string($rgrItemUniqueCode->item_attributes) ? json_decode($rgrItemUniqueCode->item_attributes,true) :$rgrItemUniqueCode->item_attributes;
+
+        foreach ($attributes as $rgrItemAttribute) {
             ErpRepItemAttribute::create([
                 'repair_order_id' => $repairOrder -> id,
                 'rep_item_id' => $repItem -> id,
-                'item_attribute_id' => $rgrItemAttribute -> item_attribute_id,
-                'item_code' => $rgrItemAttribute -> rgrItem -> item_code,
-                'attribute_name' => $rgrItemAttribute -> attribute_name,
-                'attr_name' => $rgrItemAttribute -> attr_name,
-                'attribute_value' => $rgrItemAttribute -> attribute_value,
-                'attr_value' => $rgrItemAttribute -> attr_value,
+                'item_attribute_id' => 0, //NEED TO CHNAGE
+                'item_code' => $rgrItemUniqueCode-> item_code,
+                'attribute_name' => $rgrItemAttribute['attribute_name'] ?? null,
+                'attr_name' => $rgrItemAttribute['attr_name'] ?? null,
+                'attribute_value' => $rgrItemAttribute['attribute_value'] ?? null,
+                'attr_value' => $rgrItemAttribute['attr_value'] ?? null,
             ]);
         }
         //If Job is not required return success

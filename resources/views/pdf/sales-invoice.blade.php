@@ -458,6 +458,16 @@
                                 {{ number_format($totalAfterTax,2)}}
                             </td>
                         </tr>
+                        @foreach($order->header_tax as $key => $tax)
+                            <tr>
+                                <td style="text-align: right; padding-top: 3px;">
+                                    <b>{{ucFirst($tax->ted_name) . " " . number_format($tax->ted_percentage, 2) . " %"}} @ {{number_format($tax->assessment_amount, 2)}}:</b>
+                                </td>
+                                <td style="text-align: right; padding-top: 3px;">
+                                    {{ number_format(@$tax->ted_amount, 2) }}
+                                </td>
+                            </tr>
+                        @endforeach
                         @foreach($order->expense_ted as $key => $expense)
                             <tr>
                                 <td style="text-align: right; padding-top: 3px;">

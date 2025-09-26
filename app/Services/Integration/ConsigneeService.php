@@ -27,11 +27,11 @@ class ConsigneeService
                 $consignee = ErpConsignee::updateOrCreate(
                     [
                         'company_id'     => $organization ? $organization->company_id : null,
+                        'group_id'       => $organization ? $organization->group_id : null,
                         'consignee_code'   => $consigneeData['consignee_code'],
                     ],
                     [
                         'organization_id'  => $organization ? $organization->id : $organizationId,
-                        'group_id'       => $organization ? $organization->group_id : null,
                         'is_customer'    => $consigneeData['is_customer'],
                         'is_vendor'      => $consigneeData['is_vendor'],
                         'consignee_name' => $consigneeData['consignee_name'],

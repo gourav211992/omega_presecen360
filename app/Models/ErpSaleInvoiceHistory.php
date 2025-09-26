@@ -40,7 +40,10 @@ class ErpSaleInvoiceHistory extends Model
     {
         return $this -> hasMany(ErpInvoiceItemHistory::class, 'sale_invoice_id');
     }
-
+    public function header_tax()
+    {
+        return $this -> hasMany(ErpSaleInvoiceTedHistory::class, 'sale_invoice_id') -> where('ted_level', 'H') -> where('ted_type', 'Tax');
+    }
     public function expense_ted()
     {
         return $this -> hasMany(ErpSaleInvoiceTedHistory::class, 'sale_invoice_id') -> where('ted_level', 'H') -> where('ted_type', 'Expense');

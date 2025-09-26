@@ -1,27 +1,14 @@
 @foreach ($dnoteItems as $key => $item)
     @php
         $rowCount = $tableRowCount + $key + 1;
-        $item_disc_key = '';
-        $geId = null;
-        $geItemId = null;
-        $readOnly = '';
+        $orderQty = 0.0;
+        $hasAssetDetail = $item?->item?->is_asset;
         $acceptedReadOnly = 'readonly';
-        $dnoteQty = $item->avail_order_qty ?? 0.0;
-        $availableQty = $item->available_qty ?? 0.0;
-        if ($moduleType === 'gate-entry') {
-            $geId = $item->ge_id;
-            $geItemId = $item->ge_item_id;
-        }
 
-        if ($moduleType === 'gate-entry') {
-            $readOnly = $item->dnote?->partial_delivery == 'no' ? 'readonly' : '';
-        } elseif ($moduleType === 'dnote-order') {
-            $readOnly = 'readonly';
-        } else {
-            $readOnly = '';
-        }
+        $moduleType = 'dnote-order';
+        $orderQty = $item->dnote_qty - $item->grn_qty;
 
-        $grossItemValue = $availableQty * $item->rate;
+        $grossItemValue = $orderQty * $item->rate;
         $itemDisc = $item->item_discount_amount;
         $headerDiscAmount = $item->header_discount_amount;
         $headerExpAmount = $item->expense_amount;
@@ -32,13 +19,8 @@
     <tr data-group-item="{{ json_encode($item) }}" id="row_{{ $rowCount }}" data-index="{{ $rowCount }}"
         @if ($rowCount < 2) class="trselected" @endif>
         <input type="hidden" name="components[{{ $rowCount }}][ref_type]" value="{{ $type }}">
-        <input type="hidden" name="components[{{ $rowCount }}][sale_invoice_id]"
-            value="{{ $item->sale_invoice_id }}">
+        <input type="hidden" name="components[{{ $rowCount }}][sale_invoice_id]" value="{{ $item->sale_invoice_id }}">
         <input type="hidden" name="components[{{ $rowCount }}][invoice_itm_id]" value="{{ $item->id }}">
-        <input type="hidden" name="components[{{ $rowCount }}][gate_entry_detail_id]"
-            value="{{ $geItemId }}">
-        <input type="hidden" name="components[{{ $rowCount }}][gate_entry_header_id]"
-            value="{{ $geId }}">
         <td class="customernewsection-form">
             <div class="form-check form-check-primary custom-checkbox">
                 <input type="checkbox" class="form-check-input" id="Email_{{ $rowCount }}"
@@ -48,8 +30,7 @@
         </td>
         <td>
             <input type="text" name="component_item_name[{{ $rowCount }}]" placeholder="Select"
-                class="form-control mw-100 ledgerselecct comp_item_code" value="{{ $item->item_code }}"
-                {{ $item?->purchase_order_item_id ? 'readonly' : '' }} />
+                class="form-control mw-100 ledgerselecct comp_item_code" value="{{ $item->item_code }}" readonly />
             <input type="hidden" name="components[{{ $rowCount }}][item_id]" value="{{ @$item->item_id }}" />
             <input type="hidden" name="components[{{ $rowCount }}][item_code]" value="{{ @$item->item_code }}" />
             <input type="hidden" name="components[{{ $rowCount }}][item_name]"
@@ -57,8 +38,6 @@
             <input type="hidden" name="components[{{ $rowCount }}][hsn_id]" value="{{ @$item->hsn_id }}" />
             <input type="hidden" name="components[{{ $rowCount }}][hsn_code]"
                 value="{{ $item?->item?->hsn?->code }}" />
-            <input type="hidden" name="components[{{ $rowCount }}][is_inspection]"
-                value="{{ $item?->item?->is_inspection }}" />
             @php
                 $selectedAttr = @$item->attributes
                     ? @$item->attributes()->whereNotNull('attr_value')->pluck('attr_value')->all()
@@ -90,8 +69,7 @@
                 value="{{ $item?->item?->item_name }}" class="form-control mw-100 mb-25" readonly />
         </td>
         <td class="poprod-decpt" id="itemAttribute_{{ $rowCount }}" data-count="{{ $rowCount }}"
-            attribute-array="{{ $item->item_attributes_array() }}"
-            {{ $item?->purchase_order_item_id ? 'data-disabled="true"' : '' }}>
+            attribute-array="{{ $item->item_attributes_array() }}" data-disabled="true">
         </td>
         <td>
             <input type="hidden" name="components[{{ $rowCount }}][inventory_uom_id]"
@@ -109,13 +87,13 @@
         </td>
         <td>
             <input type="number" class="form-control mw-100 po_qty text-end checkNegativeVal"
-                value="{{ $dnoteQty }}" step="any" readonly />
+                value="{{ $item->dnote_qty }}" step="any" readonly />
         </td>
         <td>
             <input type="hidden" name="module-type" id="module-type" value="{{ $moduleType }}">
             <input type="number" class="form-control mw-100 order_qty text-end checkNegativeVal"
-                name="components[{{ $rowCount }}][order_qty]" value="{{ $availableQty }}" step="any"
-                {{ $readOnly }} />
+                name="components[{{ $rowCount }}][order_qty]" value="{{ $orderQty }}" step="any"
+                {{ $item?->header?->partial_delivery == 'no' ? 'readonly' : '' }} />
         </td>
         <td>
             <input type="number" class="form-control mw-100 accepted_qty text-end checkNegativeVal"
@@ -133,11 +111,11 @@
         </td>
         <td>
             <input type="number" name="components[{{ $rowCount }}][rate]" value="{{ $item->rate }}" readonly
-                class="form-control mw-100 text-end rate" />
+                class="form-control mw-100 text-end rate" step="any" />
         </td>
         <td>
             <input type="number" name="components[{{ $rowCount }}][basic_value]"
-                value="{{ $availableQty * $item->rate }}"
+                value="{{ ($item->dnote_qty - $item->grn_qty) * $item->rate }}"
                 class="form-control text-end mw-100 basic_value checkNegativeVal" readonly step="any" />
         </td>
         <td>
@@ -167,18 +145,18 @@
                         name="components[{{ $rowCount }}][discounts][{{ $itemDis_key + 1 }}][dis_amount]">
                 @endforeach
 
-                @if (!empty($item->dnote->expense_ted))
+                @if (!empty($item->headers->discount_ted))
                     @php
-                        $saleInvoiceId = $item->sale_invoice_id;
-                        $saleInvoiceValue = \DB::table('erp_invoice_items')
+                        $joId = $item->sale_invoice_id;
+                        $poValue = \DB::table('erp_invoice_items')
                             ->select(\DB::raw('SUM(order_qty * rate) as total'))
-                            ->where('sale_invoice_id', $saleInvoiceId)
+                            ->where('erp_invoice_items.sale_invoice_id', $joId)
                             ->value('total');
                         $baseIndex = count($item->discount_ted); // Offset for header discounts
                     @endphp
-                    @foreach ($item->dnote->expense_ted as $headDis_key => $headDiscount)
+                    @foreach ($item->headers->discount_ted as $headDis_key => $headDiscount)
                         @php
-                            $discPerc = $saleInvoiceValue > 0 ? ($headDiscount->ted_amount / $saleInvoiceValue) * 100 : 0;
+                            $discPerc = $poValue > 0 ? ($headDiscount->ted_amount / $poValue) * 100 : 0;
                             $discAmt = number_format(($grossItemValue * $discPerc) / 100, 2);
                             $index = $baseIndex + $headDis_key + 1;
                         @endphp
@@ -239,6 +217,23 @@
         </td>
         <td>
             <div class="d-flex">
+                @if ($hasAssetDetail === 1)
+                    <input type="hidden" name="components[{{ $rowCount }}][assetDetailData]" />
+                    <div class="cursor-pointer ms-50 text-success assetDetailBtn"
+                        data-row-count="{{ $rowCount }}" data-asset='@json($assetPayload)'
+                        data-bs-toggle="modal" data-bs-target="#assetDetailModal" title="Asset Detail">
+                        <span data-bs-toggle="tooltip" data-bs-placement="top" class="text-primary"
+                            data-bs-original-title="Asset Detail" aria-label="Asset Detail">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                                fill="currentColor" class="bi bi-clipboard-check" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd"
+                                    d="M10.854 6.146a.5.5 0 0 0-.708.708L11.293 8l-1.147 1.146a.5.5 0 0 0 .708.708L12 8.707l1.146 1.147a.5.5 0 0 0 .708-.708L12.707 8l1.147-1.146a.5.5 0 0 0-.708-.708L12 7.293 10.854 6.146z" />
+                                <path
+                                    d="M10 1.5v1h1a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h1v-1a1 1 0 1 1 2 0v1h2v-1a1 1 0 1 1 2 0zM5 4a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-9a1 1 0 0 0-1-1H5z" />
+                            </svg>
+                        </span>
+                    </div>
+                @endif
                 <input type="hidden" id="components_batches_{{ $rowCount }}"
                     name="components[{{ $rowCount }}][batch_details]" value="" />
                 <div class="me-50 cursor-pointer addBatchBtn" data-bs-toggle="modal"
@@ -253,6 +248,15 @@
                             <circle cx="12" cy="10" r="3"></circle>
                         </svg></span>
                 </div>
+                <!-- <input type="hidden" id="components_storage_packets_{{ $rowCount }}" name="components[{{ $rowCount }}][storage_packets]" value=""/>
+                <div class="me-50 cursor-pointer addStoragePointBtn" data-bs-toggle="modal" data-row-count="{{ $rowCount }}" data-bs-target="#storage-point-modal">
+                    <span data-bs-toggle="tooltip" data-bs-placement="top" title="" class="text-primary"
+                        data-bs-original-title="Storage Point" aria-label="Storage Point">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                        class="feather feather-map-pin">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></span>
+                </div> -->
                 <input type="hidden" id="components_remark_{{ $rowCount }}"
                     name="components[{{ $rowCount }}][remark]" value="{{ $item->remarks }}" />
                 <div class="me-50 cursor-pointer addRemarkBtn" data-row-count="{{ $rowCount }}"
@@ -270,11 +274,9 @@
             </div>
         </td>
         <input type="hidden" name="components[{{ $rowCount }}][dnote_item_hidden_ids]"
-            value="{{ $item->id }}">
-        <input type="hidden" name="components[{{ $rowCount }}][dnote_hidden_ids]" value="{{ $item->headers->id }}">
-        {{-- <input type="hidden" name="components[{{ $rowCount }}][so_id]" value="{{ $item->so_id }}"> --}}
-        <input type="hidden" name="components[{{ $rowCount }}][ge_qty]" value="{{ $item->ge_qty }}">
-        <input type="hidden" name="components[{{ $rowCount }}][item_module_type]"
-            value="{{ $moduleType }}">
+            value="{{ $item?->id }}">
+        <input type="hidden" name="components[{{ $rowCount }}][dnote_hidden_ids]"
+            value="{{ $item?->sale_invoice_id }}">\
+        <input type="hidden" name="components[{{ $rowCount }}][item_module_type]" value="{{ $moduleType }}">
     </tr>
 @endforeach

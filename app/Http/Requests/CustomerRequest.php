@@ -130,14 +130,6 @@ class CustomerRequest extends FormRequest
                 'nullable',
                 'email',
                 'regex:/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/',
-                $isUpdate
-                    ? Rule::unique('erp_customers', 'email')
-                        ->whereNull('deleted_at')
-                        ->ignore($customerId)
-                        ->where($uniqueScope)
-                    : Rule::unique('erp_customers', 'email')
-                        ->whereNull('deleted_at')
-                        ->where($uniqueScope),
             ],
             'phone' => 'nullable|string|regex:/^\d{10,12}$/',
             'mobile' => 'nullable|string|regex:/^\d{10}$/',

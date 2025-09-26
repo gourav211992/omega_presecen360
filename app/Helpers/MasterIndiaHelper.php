@@ -716,7 +716,7 @@ class MasterIndiaHelper
             "transportation_mode" => $documentHeader->transportation_mode,
             'transportation_distance' => isset($distance['distance']) ? $distance['distance'] : 0,
             "transporter_document_number" => "12345",
-            "transporter_document_date" => now($timezone)->format('d/m/Y'),
+            "transporter_document_date" => date('d/m/Y', strtotime($documentHeader->document_date)),
             "vehicle_number" => $documentHeader->vehicle_no,
             "vehicle_type" => "R"
         ];

@@ -2032,3 +2032,18 @@ function summaryExpTotal() {
     $("#expSummaryFooter #taxTotal").text(taxTotal.toFixed(2));
     $("#expSummaryFooter #grandTotal").text(grandTotal.toFixed(2));
 }
+
+function allowBackDate() {
+    const maxDate = isoNDaysFromToday(-1);
+    $('input.expiry-date[name="supplier_invoice_date"]').each(function () {
+        $(this).attr("max", maxDate);
+    });
+}
+
+function isoNDaysFromToday(n) {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${m}-${day}`;
+}

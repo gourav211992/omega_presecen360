@@ -27,6 +27,20 @@
                     $docType = $order->document_type;
                 @endphp
                 @foreach ($items as $orderItemIndex => $orderItem)
+                    @php
+                        $batchData = $orderItem->batch_details ?? [];
+                        $batches = collect($batchData ?? [])
+                            ->map(function ($b) {
+                                return [
+                                    'id' => (int) $b->id,
+                                    'batch_number' => (string) $b->batch_number,
+                                    'manufacturing_year' => $b->manufacturing_year ? (int) $b->manufacturing_year : null,
+                                    'expiry_date' => $b->expiry_date?->toDateString(), // Y-m-d
+                                    'quantity' => (float) $b->quantity,
+                                ];
+                            })
+                            ->values();
+                    @endphp
                     <tr id="item_row_{{$orderItemIndex}}" class="item_header_rows" onclick="onItemClick('{{$orderItemIndex}}');" data-detail-id="{{$orderItem->id}}" data-id="{{$orderItem->id}}">
                         <input type="hidden" id="psv_item_id_{{$orderItemIndex}}" name="psv_item_id[]" value="{{$orderItem->id}}" {{$orderItem->is_editable ? '' : 'readonly'}}>
                         <td class="customernewsection-form">
@@ -105,9 +119,11 @@
                                     </span>
                                 </div>
 
-                                <!-- Hidden Batch Input -->
-                                <input type="hidden" id="batches_{{$orderItemIndex}}" name="batch_details[{{$orderItemIndex}}]" value="{{ isset($order) ? $order->batch_details : '' }}" />
-
+                       <input type="hidden"
+                       id="batches_{{$orderItemIndex}}"
+                       name = "psv_batch_data"
+                       data-pqty = "{{ number_format($orderItem->verified_qty - $orderItem->confirmed_qty,6,'.','') }}"
+                            data-batch='{{json_encode($batches)}}' >
                                 <!-- Batch Button -->
                                 <div class="me-50 cursor-pointer addBatchBtn"
                                     data-row-count="{{$orderItemIndex}}"
@@ -116,8 +132,8 @@
                                     data-bs-toggle="modal"
                                     data-bs-target="#item-batch-modal">
                                     <span data-bs-toggle="tooltip" data-bs-placement="top" class="text-primary"
-                                        data-bs-original-title="Item Batch" aria-label="Item Batch">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                    data-bs-original-title="Item Batch" aria-label="Item Batch">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
                                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                             stroke-linejoin="round" class="feather feather-map-pin">
                                             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
