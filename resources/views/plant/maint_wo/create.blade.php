@@ -1878,6 +1878,8 @@
 		//Search function for the defect modal 
 
 		$(document).ready(function() {
+		var itemsData = @json($items);
+		console.log('📦 Initial itemsData loaded:', itemsData);
 			$('#defect_search_btn').on('click', function(e) {
 				e.preventDefault();
 
@@ -2338,6 +2340,7 @@
 				const uom       = $(this).find('.uom');
 				const qty       = $(this).find('.qty');
 				const attrTd    = $(this).find('td').eq(3);
+				const availableStock = $(this).find('.available_stock');
 
 				$(this).find('input, select').removeClass('is-invalid');
 				attrTd.removeClass("border border-danger");
@@ -2372,10 +2375,105 @@
 					allValid = false;
 					return false;
 				}
+
+				// Check available stock
+				const itemId = $(this).find('.item_id').val();
+				const requestedQty = parseFloat(qty.val());
+
+				if (requestedQty > availableStock) {
+					qty.addClass('is-invalid');
+					Swal.fire({
+						title: 'Insufficient Stock!',
+						text: `Insufficient stock for ${itemName.val()}. Available: ${availableStock}`,
+						icon: 'error',
+						confirmButtonText: 'OK'
+					});
+					allValid = false;
+					return false;
+				}
 			});
 
 			return allValid;
 		}
+
+		// Real-time stock validation functions
+		function validateStockForRow($row) {
+			const itemId = $row.find('.item_id').val();
+			const itemName = $row.find('.item_name').val();
+			const qty = $row.find('.qty').val();
+			const qtyField = $row.find('.qty');
+			const availableStock = $row.find('.available_stock').val();
+
+			console.log('🧪 validateStockForRow called:', {
+				itemId,
+				itemName,
+				qty,
+				qtyField: qtyField.length
+			});
+
+			// Clear previous validation
+			qtyField.removeClass('is-invalid');
+
+			// Only validate if we have item and quantity
+			if (!itemId || !qty || parseFloat(qty) <= 0) {
+				console.log('⏭️ Skipping validation - missing itemId, qty, or qty <= 0');
+				return true;
+			}
+
+			const itemData = itemsData.find(item => item.id == itemId);
+			console.log('🔍 itemData found:', itemData);
+
+			if (!itemData) {
+				console.log('❌ No itemData found for itemId:', itemId);
+				return true;
+			}
+
+			
+			const requestedQty = parseFloat(qty);
+
+			console.log('📊 Stock check:', {
+				availableStock,
+				requestedQty,
+				itemName: itemName,
+				isInsufficient: requestedQty > availableStock
+			});
+
+			if (requestedQty > availableStock) {
+				console.log('🚫 Insufficient stock - adding is-invalid class and showing error');
+				qtyField.addClass('is-invalid');
+				Swal.fire({
+					title: 'Insufficient Stock!',
+					text: `Insufficient stock for ${itemName}. Available: ${availableStock}`,
+					icon: 'error',
+					confirmButtonText: 'OK',
+					timer: 3000, // Auto close after 3 seconds
+					timerProgressBar: true
+				});
+				return false;
+			}
+
+			console.log('✅ Stock validation passed');
+			return true;
+		}
+
+		// Real-time validation for quantity changes
+		$(document).on('input change blur', '.qty', function() {
+			const $row = $(this).closest('tr');
+			validateStockForRow($row);
+		});
+
+		// Form submission validation
+		$(document).on('submit', '#maint-wo-form', function(e) {
+			console.log('🔍 Form submission detected - validating items...');
+			if (!validateItemRows()) {
+				console.log('❌ Validation failed - preventing form submission');
+				e.preventDefault(); // Prevent form submission
+				return false;
+			}
+			console.log('✅ Validation passed - allowing form submission');
+			$('.preloader').show();
+			return true;
+		});
 
 
 

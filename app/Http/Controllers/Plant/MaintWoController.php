@@ -282,7 +282,7 @@ class MaintWoController extends Controller
                         END
                     ) as confirmed_stock
                 ")
-                ->where('item_code', $item->item_code) // yaha fix kiya
+                ->where('item_code', $item->item_code) 
                 ->value('confirmed_stock');
         
             return [
@@ -292,7 +292,7 @@ class MaintWoController extends Controller
                 'uom_name'        => optional($item->uom)->name,
                 'uom_id'          => optional($item->uom)->id,
                 'item_attributes' => $item->attributes,
-                'available_stock' => $confirmedStock ?? 0, // agar null ho to 0
+                'available_stock' => $confirmedStock ?? 0, 
             ];
         });
 
@@ -518,7 +518,7 @@ class MaintWoController extends Controller
             
             foreach ($sparePartsData as $sparePart) {
                 $enrichedSparePart = $sparePart;
-                
+                   
                 // Enrich item_attributes with complete structure for attribute modal
                 if (isset($sparePart['item_id'])) {
                     $item = Item::with(['itemAttributes'])->find($sparePart['item_id']);
@@ -637,7 +637,22 @@ class MaintWoController extends Controller
             $item->attributes = collect($processedData);
         }
 
+        // Calculate stock for all items once (for both existing spare parts and JS validation)
         $items = $items->map(function ($item) {
+
+            $confirmedStock = StockLedger::query()
+            ->selectRaw("
+                SUM(
+                    CASE 
+                        WHEN document_status IN ('approved', 'approval_not_required', 'posted') 
+                        THEN receipt_qty - reserved_qty
+                        ELSE 0
+                    END
+                ) as confirmed_stock
+            ")
+            ->where('item_code', $item->item_code) 
+            ->value('confirmed_stock');
+
             return [
                 'id' => $item->id,
                 'item_code' => $item->item_code,
@@ -645,8 +660,12 @@ class MaintWoController extends Controller
                 'uom_name' => optional($item->uom)->name,
                 'uom_id' => optional($item->uom)->id,
                 'item_attributes' => $item->attributes,
+                'available_stock' => 100, 
             ];
         });
+
+        // Create a lookup array for quick stock access when updating existing spare parts
+        $stockLookup = collect($items)->pluck('available_stock', 'item_code')->toArray();
 
         $locations = InventoryHelper::getAccessibleLocations();
 
@@ -957,10 +976,10 @@ class MaintWoController extends Controller
                 'location',
                 'category',
                 'defectType',
-            ])->where('document_status', '!=', 'draft')
+            ])->whereIn('document_status', ['approved', 'approval_not_required'])
               ->orderBy('created_at', 'desc');
 
-            $totalDefects = DefectNotification::where('document_status', '!=', 'draft')->count();
+            $totalDefects = DefectNotification::whereIn('document_status', ['approved', 'approval_not_required'])->count();
            
 
             if ($r->book_code && is_array($r->book_code) && count($r->book_code) > 0) {
@@ -1006,7 +1025,7 @@ class MaintWoController extends Controller
             ])
             ->whereHas('bom')
             ->whereHas('equipment', function ($q) use ($r) {
-                $q->where('document_status', '!=', 'draft') 
+                $q->whereIn('document_status', ['approved', 'approval_not_required']) 
                     ->whereHas('book', function ($qu) use ($r) {
                         $qu->whereIn('book_code', $r->book_code);
                     });
@@ -1408,7 +1427,7 @@ class MaintWoController extends Controller
                         'uom_id' => $sparePart['uom_id'] ?? null,
                         'attribute' => $sparePart['attribute'] ?? '[]',
                         'attributes' => [],
-                        'confirmed_stock' => $confirmedStock ?? 0,
+                        'available_stock' => 0,
                     ];
 
                     // Process attributes if they exist

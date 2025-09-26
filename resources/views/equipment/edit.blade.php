@@ -29,7 +29,7 @@
                             	<a href="{{ route('equipment.index') }}"> <button id="back" class="btn btn-secondary btn-sm"><i
 										data-feather="arrow-left-circle"></i> Back</button>
 							</a>
-                            @if($buttons['submit'])
+                                    @if($buttons['submit'])
                                     <button type="button" onclick="submitForm('draft');" id="draft"
                                         class="btn btn-outline-primary btn-sm mb-50 mb-sm-0"><i data-feather='save'></i> Save as
                                         Draft</button>
@@ -38,7 +38,7 @@
                                         class="btn btn-primary btn-sm mb-50 mb-sm-0" id="submitted"><i
                                             data-feather="check-circle"></i>
                                         Submit</button>
-                                        @endif
+                                    @endif
                                     @if ($buttons['approve'])
                                         <a type="button" id="reject-button" data-bs-toggle="modal"
                                             data-bs-target="#approveModal" onclick = "setReject();"
@@ -49,13 +49,10 @@
                                                 data-feather="check-circle"></i> Approve</a>
                                     @endif
                     
-                  
                                     @if($buttons['amend'])
                                     <a type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</a>
                                     @endif
-                    
-                                   
-                                        <input id="submitButton" type="submit" value="Submit" class="hidden" />
+                                    <input id="submitButton" type="submit" value="Submit" class="hidden" />
                             </div>
                         </div>
                     </div>
@@ -574,8 +571,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <div>
-                        <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">Select
-                            Checklist</h4>
+                        <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">Select Checklist</h4>
                         <p class="mb-0">Select from the below list</p>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -697,10 +693,6 @@
                 </div>
                 <div class="modal-footer text-end">
                     
-                    <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i
-                            data-feather="x-circle"></i> Cancel</button>
-                    <button class="btn btn-primary btn-sm" data-bs-dismiss="modal"><i data-feather="check-circle"></i>
-                        Submit</button>
                 </div>
             </div>
         </div>
@@ -716,7 +708,7 @@
                     <input type="hidden" name="id" value="{{ $equipment->id }}">
                     <div class="modal-header">
                         <div>
-                            <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17"></h4>
+                            <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel178"></h4>
                             <p class="mb-0 fw-bold voucehrinvocetxt mt-0">{{ Carbon\Carbon::now()->format('d-m-Y') }}
                             </p>
                         </div>
@@ -814,10 +806,13 @@
                 $('#spareRows').append(getSparePartRow());
             }
 
-             @if(!$buttons['submit'])
+             @if(!$buttons['submit'] && !request('amendment'))
                 $('#equipmentForm').find('input, select,button,textarea').prop('disabled', true);
                 $('#revisionNumber').prop('disabled', false);
                 $('#back').prop('disabled', false);
+            @elseif(request('amendment'))
+                // Force enable all fields in amendment mode
+                $('#equipmentForm').find('input, select,button,textarea').prop('disabled', false);
             @endif
             $('#back').prop('disabled', false);
             
@@ -1046,14 +1041,14 @@
                 // Reset modal state
                 resetChecklistModal();
                 
-                // Only load existing selections if this row has saved checklist data
+                // Load existing selections if this row has saved checklist data
                 const hasExistingData = checklistRowRef.find('.selected-checklists').val();
                 if (hasExistingData && hasExistingData.trim() !== '') {
-
                     loadExistingSelections(currentRowId);
-                } else {
-
                 }
+                
+                // Auto-load all checklists in the modal for edit mode
+                loadAllChecklistsForModal();
                 
                 $('#checklist').modal('show');
             });
@@ -1092,6 +1087,141 @@
             }
             
             /**
+             * Load all available checklists in the modal for edit mode
+             */
+            function loadAllChecklistsForModal() {
+                // Clear any existing portions first
+                $("#checkListPortion").empty();
+
+                // Get all checklists from the PHP data
+                const allChecklists = @json($checklists);
+
+                if (allChecklists && allChecklists.length > 0) {
+                    // Create portions for each checklist
+                    allChecklists.forEach(function(checklist, index) {
+                        const portionId = `portion_${checklist.id}`;
+
+                        // Load checklist details for this checklist
+                        loadChecklistDetailsForModal(checklist.id, checklist.name, portionId);
+                    });
+
+                    // Check after a delay if any portions were loaded
+                    setTimeout(() => {
+                        if ($("#checkListPortion").children().length === 0) {
+                            $("#checkListPortion").html('<p class="text-center text-muted">Loading checklists...</p>');
+                        }
+                    }, 500);
+                } else {
+                    $("#checkListPortion").html('<p class="text-center text-muted">No checklists available</p>');
+                }
+            }
+
+            /**
+             * Load checklist details for modal display
+             */
+            function loadChecklistDetailsForModal(checklistId, checklistName, portionId) {
+                $.ajax({
+                    url: '{{ route("equipment.get-checklist-details") }}',
+                    method: 'POST',
+                    data: {
+                        checklist_id: checklistId,
+                        _token: '{{ csrf_token() }}'
+                    },
+                    success: function (response) {
+                        if (response.success && response.data.checklist) {
+                            createChecklistPortionForModal(response.data, checklistId, checklistName, portionId);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error('Error loading checklist details for modal:', error);
+                    }
+                });
+            }
+
+            /**
+             * Create checklist portion in modal with all items and selected ones checked
+             */
+            function createChecklistPortionForModal(data, checklistId, checklistName, portionId) {
+                // Store checklist data for this portion
+                portionChecklistData[portionId] = {
+                    checklistId: checklistId,
+                    checklistName: checklistName
+                };
+
+                let tableRows = "";
+                const checklists = data.checklist || [];
+                
+                // Get existing selected IDs to mark as checked (only from current row)
+                let existingSelectedIds = [];
+                if (checklistRowRef) {
+                    const selectedIdsString = checklistRowRef.find('.selected-checklists').val();
+                    if (selectedIdsString) {
+                        existingSelectedIds = selectedIdsString.split(',').filter(Boolean);
+                    }
+                }
+
+                if (checklists.length > 0) {
+                    checklists.forEach(function (checklist) {
+                        const isChecked = existingSelectedIds.includes(checklist.id.toString()) ? 'checked' : '';
+                        
+                        tableRows += `
+                            <tr>
+                                <td class="customernewsection-form">
+                                    <div class="form-check form-check-primary custom-checkbox">
+                                        <input type="checkbox" class="form-check-input" value="${checklist.id}" ${isChecked}>
+                                        <label class="form-check-label"></label>
+                                    </div>
+                                </td>
+                                <td>${checklist.name || ''}</td>
+                                <td>${checklist.description || ''}</td>
+                                <td>
+                                    <span class="badge rounded-pill badge-light-info">
+                                        ${checklist.data_type || ''}
+                                    </span>
+                                </td>
+                            </tr>
+                        `;
+                    });
+
+                    // Only create portion if there are items
+                    if (tableRows.trim() !== '') {
+                        // Create the portion HTML
+                        const portionHtml = `
+                            <div class="row checklist-portion mb-2" id="${portionId}">
+                                <div class="col-md-12">
+                                    <h5 class="mb-1">${checklistName}</h5>
+                                    <div class="table-responsive">
+                                        <table class="mt-1 table myrequesttablecbox table-striped po-order-detail">
+                                            <thead>
+                                                <tr>
+                                                    <th width="40px" class="customernewsection-form">
+                                                        <div class="form-check form-check-primary custom-checkbox">
+                                                            <input type="checkbox" class="form-check-input select-all">
+                                                        </div>
+                                                    </th>
+                                                    <th>Name</th>
+                                                    <th>Description</th>
+                                                    <th>Type</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${tableRows}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        // Append to modal
+                        $("#checkListPortion").append(portionHtml);
+                    }
+                }
+            }
+
+          
+
+            /**
              * Load existing checklist selections for the current row
              */
             function loadExistingSelections(rowId) {
@@ -1111,8 +1241,6 @@
                     }, 100);
                 }
             }
-
-          
 
             /**
              * Handle checklist modal close - save selections
@@ -1182,28 +1310,51 @@
                 return selectedData;
             }
             
-            /**
-             * Update maintenance row with checklist data
-             */
             function updateRowWithChecklistData(selectedData) {
                 const context = checklistContexts[currentRowId] || {};
                 const selectedIds = selectedData.map(item => item.checklist_detail_id);
-                
+
+                // Collect unique main checklist IDs and names
+                const mainChecklists = new Map();
+                selectedData.forEach(item => {
+                    // Find the checklist name from portion data
+                    let checklistName = null;
+                    const portionData = Object.values(portionChecklistData).find(p => p.checklistId == item.checklist_id);
+                    if (portionData && portionData.checklistName) {
+                        checklistName = portionData.checklistName;
+                    } else {
+                        // Fallback: try to find from any portion that might have loaded this checklist
+                        const anyPortion = Object.values(portionChecklistData).find(p => p.checklistId == item.checklist_id);
+                        if (anyPortion) {
+                            checklistName = anyPortion.checklistName;
+                        }
+                    }
+
+                    if (checklistName) {
+                        // Use checklist_id as key to ensure uniqueness
+                        mainChecklists.set(parseInt(item.checklist_id), checklistName);
+                    }
+                });
+
+                // Convert to array of unique main checklist names
+                const uniqueNames = Array.from(mainChecklists.values());
+
+                console.log('Selected data:', selectedData);
+                console.log('Portion checklist data:', portionChecklistData);
+                console.log('Main checklists map:', mainChecklists);
+                console.log('Unique names:', uniqueNames);
+
                 // Create badge display
                 let badgesHtml = '';
-                if (context.mainChecklistName) {
-                    badgesHtml = `<span class="badge rounded-pill badge-light-primary">${context.mainChecklistName}</span>`;
-                    if (selectedData.length > 1) {
-                        badgesHtml += ` <span class="badge rounded-pill badge-light-primary">+${selectedData.length - 1}</span>`;
-                    }
-                } else if (mainChecklistNames.length > 0) {
-                    // Fallback to saved main checklist names if context not available
-                    badgesHtml = `<span class="badge rounded-pill badge-light-primary">${mainChecklistNames[0]}</span>`;
-                    if (mainChecklistNames.length > 1) {
-                        badgesHtml += ` <span class="badge rounded-pill badge-light-primary">+${mainChecklistNames.length - 1}</span>`;
-                    }
+                if (uniqueNames.length === 1) {
+                    // Show only the checklist name when 1 main checklist is selected
+                    badgesHtml = `<span class="badge rounded-pill badge-light-primary">${uniqueNames[0]}</span>`;
+                } else if (uniqueNames.length > 1) {
+                    // Show first name + count when multiple main checklists are selected
+                    badgesHtml = `<span class="badge rounded-pill badge-light-primary">${uniqueNames[0]}</span>`;
+                    badgesHtml += ` <span class="badge rounded-pill badge-light-primary">+${uniqueNames.length - 1}</span>`;
                 }
-                
+
                 // Create hidden inputs for form submission - only essential IDs
                 let hiddenInputs = '';
                 selectedData.forEach((item, index) => {
@@ -1212,61 +1363,23 @@
                         <input type="hidden" name="maintenance[${currentRowId}][checklists][${index}][checklist_detail_id]" value="${item.checklist_detail_id}">
                     `;
                 });
-                
+
                 // Update row HTML
+                const buttonClass = @json($buttons['submit']) ? 'open-checklist-modal' : 'view-checklist-modal';
                 const newHtml = `
                     <span class="checklist-badges">${badgesHtml}</span>
-                    <button type="button" class="btn p-25 btn-sm btn-outline-secondary @if($buttons['submit']) open-checklist-modal @else view-checklist-modal @endif" style="font-size: 10px">Add Checklist</button>
+                    <button type="button" class="btn p-25 btn-sm btn-outline-secondary ${buttonClass}" style="font-size: 10px">Add Checklist</button>
                     <input type="hidden" class="selected-checklists" value="${selectedIds.join(',')}" />
                     ${hiddenInputs}
                 `;
-                
+
                 checklistRowRef.find('.checklist-cell').html(newHtml);
             }
 
             /**
              * Handle search button click for checklist details
              */
-            $(document).on('click', '.btn-warning', function(e) {
-                e.preventDefault();
-                
-                const dropdown = $(this).closest('.row').find('select');
-                const checklistId = dropdown.val();
-                const checklistName = dropdown.find('option:selected').text();
-                
-                if (!checklistId) {
-                    return;
-                }
-                
-                // Get the current portion ID
-                const portionElement = $(this).closest('.checklist-portion');
-                const portionId = portionElement.attr('id') || 'portion_default';
-                
-
-                
-                // Store checklist data for this specific portion
-                portionChecklistData[portionId] = {
-                    checklistId: checklistId,
-                    checklistName: checklistName
-                };
-                
-
-                
-                // Store checklist context for current row (keep for compatibility)
-                if (checklistContexts[currentRowId]) {
-                    checklistContexts[currentRowId].mainChecklistId = checklistId;
-                    checklistContexts[currentRowId].mainChecklistName = checklistName;
-                }
-                
-                // Check if checklist already selected
-                if (selectedChecklistIds.includes(checklistId)) {
-                    dropdown.val('');
-                    return;
-                }
-                
-                // Load checklist details via AJAX
-                loadChecklistDetails(checklistId, $(this));
-            });
+          
             
             /**
              * Load checklist details from server
@@ -2041,16 +2154,17 @@
 
             function setApproval() {
             document.getElementById('action_type').value = "approve";
-            $('#myModalLabel17').text('Approve Voucher');
+            $('#myModalLabel178').text('Approve Equipment');
 
         }
 
         function setReject() {
             document.getElementById('action_type').value = "reject";
-            $('#myModalLabel17').text('Reject Voucher');
+            $('#myModalLabel178').text('Reject Equipment');
 
         }
-         $(document).on('click', '#amendmentSubmit', (e) => {
+        
+        $(document).on('click', '#amendmentSubmit', (e) => {
             let actionUrl = "{{ route('equipment.amendment', $equipment->id) }}";
             fetch(actionUrl).then(response => {
                 return response.json().then(data => {
@@ -2058,8 +2172,21 @@
                         Swal.fire({
                             title: 'Success!',
                             text: data.message,
-                            icon: 'success'
+                            icon: 'success',
+                            showConfirmButton: false,   // OK button hat jayega
+                            timer: 1500                 // 1.5 sec baad auto close
                         });
+
+                        let url = new URL(window.location.href);
+                        url.search = '';
+                        url.searchParams.set('amendment', 1);
+                        let amendmentUrl = url.toString();
+
+                        // bina OK click kiye direct redirect
+                        setTimeout(() => {
+                            window.location.replace(amendmentUrl);
+                        }, 1500);
+
                     } else {
                         Swal.fire({
                             title: 'Error!',
@@ -2067,10 +2194,11 @@
                             icon: 'error'
                         });
                     }
-                    location.reload();
                 });
             });
         });
+
+
 
    
         function getPopupChecklistData(equipId, mainTypeId){
@@ -2112,56 +2240,65 @@
 
                                 if(checklist.details && checklist.details.length > 0){
                                     checklist.details.forEach(function(detail){
-                                        let isChecked = selectedDetails.includes(detail.id.toString()) ? "checked" : "";
+                                        let isChecked = selectedDetails.includes(detail.id.toString());
 
-                                        tableRows += `
-                                            <tr>
-                                                <td>
-                                                    <div class="form-check form-check-primary custom-checkbox">
-                                                        <input type="checkbox" 
-                                                            class="form-check-input" 
-                                                            value="${detail.id}" ${isChecked}>
-                                                    </div>
-                                                </td>
-                                                <td>${detail.name || ''}</td>
-                                                <td>${detail.description || ''}</td>
-                                                <td><span class="badge rounded-pill badge-light-info">${detail.data_type || ''}</span></td>
-                                            </tr>
-                                        `;
+                                        // Only show selected/checked items
+                                        if (isChecked) {
+                                            tableRows += `
+                                                <tr>
+                                                    <td>
+                                                        <div class="form-check form-check-primary custom-checkbox">
+                                                            <input type="checkbox"
+                                                                class="form-check-input"
+                                                                value="${detail.id}" checked>
+                                                        </div>
+                                                    </td>
+                                                    <td>${detail.name || ''}</td>
+                                                    <td>${detail.description || ''}</td>
+                                                    <td><span class="badge rounded-pill badge-light-info">${detail.data_type || ''}</span></td>
+                                                </tr>
+                                            `;
+                                        }
                                     });
-                                } else {
-                                    tableRows = `<tr><td colspan="4" class="text-muted text-center">No details found</td></tr>`;
-                                }
 
-                                let portionHtml = `
-                                    <div class="row checklist-portion mb-2" id="${portionId}">
-                                        <div class="col-md-12">
-                                            <h5 class="mb-1">${checklist.name}</h5>
-                                            <div class="table-responsive">
-                                                <table class="mt-1 table table-striped border">
-                                                    <thead>
-                                                        <tr>
-                                                            <th width="40px">
-                                                                <div class="form-check form-check-primary custom-checkbox">
-                                                                    <input type="checkbox" class="form-check-input select-all">
-                                                                </div>
-                                                            </th>
-                                                            <th>Name</th>
-                                                            <th>Description</th>
-                                                            <th>Type</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        ${tableRows}
-                                                    </tbody>
-                                                </table>
+                                    // Only show this portion if it has selected items
+                                    if (tableRows) {
+                                        let portionHtml = `
+                                            <div class="row checklist-portion mb-2" id="${portionId}">
+                                                <div class="col-md-12">
+                                                    <h5 class="mb-1">${checklist.name}</h5>
+                                                    <div class="table-responsive">
+                                                        <table class="mt-1 table table-striped border">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th width="40px">
+                                                                        <div class="form-check form-check-primary custom-checkbox">
+                                                                            <input type="checkbox" class="form-check-input select-all">
+                                                                        </div>
+                                                                    </th>
+                                                                    <th>Name</th>
+                                                                    <th>Description</th>
+                                                                    <th>Type</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                ${tableRows}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                `;
+                                        `;
 
-                                $("#viewCheckListPortion").append(portionHtml);
+                                        $("#viewCheckListPortion").append(portionHtml);
+                                    }
+                                }
                             });
+
+                            // Check if any portions were added
+                            if ($("#viewCheckListPortion").children().length === 0) {
+                                $("#viewCheckListPortion").html(`<p class="text-center text-warning">No selected checklist items found</p>`);
+                            }
                         } else {
                             $("#viewCheckListPortion").html(`<p class="text-center text-danger">No checklist data found</p>`);
                         }
@@ -2226,15 +2363,5 @@
 
             return allValid;
         }
-
-
-
-
-
-        
-       
-       
-        
-
     </script>
 @endsection
