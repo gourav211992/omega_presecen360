@@ -360,9 +360,6 @@ class MaintWoController extends Controller
 
     public function store(Request $request)
     {
-        $previousWo = PlantMaintWo::latest()->first();
-        \Log::info("Previous Latest DB Record (Before Insert):", $previousWo ? $previousWo->toArray() : []);
-
         $rules = [
             'book_id' => 'required',
             'document_number' => 'required|string|max:100',
@@ -431,7 +428,7 @@ class MaintWoController extends Controller
             $data['reference_type']      = $equipmentDetails['reference_type'] ?? null;
             $data['equipment_id']        = $equipmentDetails['equipment_id'] ?? null;
             $data['maintenance_type_id'] = $equipmentDetails['maintenance_type_id'] ?? null;
-            $data['equipment_details'] = json_encode($equipmentDetails);
+            $data['equipment_details']   = json_encode($equipmentDetails);
         }
 
         if (isset($data['spare_parts']) && is_array($data['spare_parts'])) {
@@ -448,8 +445,6 @@ class MaintWoController extends Controller
             DB::transaction(function () use ($data, $request) {
                 $workOrder = PlantMaintWo::create($data);
 
-                \Log::info("WorkOrder Created (Before File/Checklist):", $workOrder->toArray());
-
                 if ($request->hasFile('upload_file')) {
                     $file = $request->file('upload_file');
                     $extension = $file->getClientOriginalExtension();
@@ -464,7 +459,6 @@ class MaintWoController extends Controller
                         if (is_string($request->checklist_data)) {
                             $checklistData = json_decode($request->checklist_data, true);
                             if (json_last_error() !== JSON_ERROR_NONE) {
-                                \Log::error('JSON decode error: ' . json_last_error_msg());
                                 $checklistData = null;
                             }
                         } elseif (is_array($request->checklist_data)) {
@@ -478,14 +472,9 @@ class MaintWoController extends Controller
                             $workOrder->save();
                         }
                     } catch (\Exception $e) {
-                        \Log::error('Error processing checklist data: ' . $e->getMessage());
+                        // silently fail checklist
                     }
                 }
-
-                $workOrder->doc_no = $request->document_number;
-                $workOrder->save();
-
-                \Log::info("Final WorkOrder Saved:", $workOrder->toArray());
 
                 if ($workOrder->document_status != ConstantHelper::DRAFT) {
                     $doc = Helper::approveDocument(
@@ -502,32 +491,20 @@ class MaintWoController extends Controller
 
                     $workOrder->document_status = $doc['approvalStatus'] ?? $workOrder->document_status;
                     $workOrder->save();
-
-                    \Log::info("Approved WorkOrder Updated:", $workOrder->toArray());
                 }
             });
-
-            $latestWo = PlantMaintWo::latest()->first();
-            \Log::info("Latest DB Record:", $latestWo ? $latestWo->toArray() : []);
-
-            $oldWithoutDocNo = PlantMaintWo::whereNull('document_number')
-                ->orWhere('document_number', '')
-                ->orderBy('id', 'asc')
-                ->first();
-
-            \Log::info("Old Record Without document_number:", $oldWithoutDocNo ? $oldWithoutDocNo->toArray() : []);
 
             return redirect()
                 ->route("maint-wo.index")
                 ->with('success', 'Maintenance Work Order created!');
         } catch (\Throwable $e) {
-            \Log::error("Store Error: " . $e->getMessage());
             return redirect()
                 ->route("maint-wo.create")
                 ->withInput()
                 ->with('error', $e->getMessage());
         }
     }
+
 
 
     public function edit(string $id)

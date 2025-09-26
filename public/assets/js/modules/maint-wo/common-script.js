@@ -141,29 +141,43 @@ function resetParametersDependentElements(reset = true) {
 }
 function getDocNumberByBookId(element, reset = true) {
   resetParametersDependentElements(reset);
+
   let actionUrl = `${window.routes.docParams}?book_id=${$("#book_id").val()}&document_date=${$("#document_date").val()}`;
-  fetch(actionUrl).then(response => {
-    return response.json().then(data => {
-      if (data.status == 200) {
-        $("#book_code_input").val(data.data.book_code);
-        if (!data.data.doc.document_number) { if (reset) $("#document_number").val(''); }
-        if (reset) $("#document_number").val(data.data.doc.document_number);
-        if (data.data.doc.type == 'Manually') $("#document_number").attr('readonly', false); else $("#document_number").attr('readonly', true);
-        enableDisableQtButton();
-        if (data.data.parameters) implementBookParameters(data.data.parameters);
+
+  fetch(actionUrl).then(response => response.json().then(data => {
+    if (data.status == 200) {
+      $("#book_code_input").val(data.data.book_code);
+
+      if (!data.data.doc.document_number && reset) {
+        $("#document_number, #doc_number_type, #doc_reset_pattern, #doc_prefix, #doc_suffix, #doc_no").val('');
+      } else if (reset) {
+        $("#document_number").val(data.data.doc.document_number);
+        $('#doc_number_type').val(data.data.doc.type);
+        $('#doc_reset_pattern').val(data.data.doc.reset_pattern);
+        $('#doc_prefix').val(data.data.doc.prefix);
+        $('#doc_suffix').val(data.data.doc.suffix);
+        $('#doc_no').val(data.data.doc.doc_no);
       }
-      if (data.status == 404) { if (reset) $("#book_code_input").val(""); enableDisableQtButton(); }
-      if (data.status == 500) {
-        if (reset) {
-          $("#book_code_input").val(""); $("#book_id").val("");
-          Swal.fire({ title: 'Error!', text: data.message, icon: 'error' });
-        }
-        enableDisableQtButton();
-      }
-      if (reset == false) { viewModeScript(); }
-    });
-  });
+
+      $("#document_number").attr('readonly', data.data.doc.type !== 'Manually');
+      if (data.data.parameters) implementBookParameters(data.data.parameters);
+    }
+
+    if (data.status == 404 && reset) {
+      $("#book_code_input, #document_number, #doc_number_type, #doc_reset_pattern, #doc_prefix, #doc_suffix, #doc_no").val('');
+      showToast?.('error', data.message); // optional
+    }
+
+    if (data.status == 500 && reset) {
+      $("#book_code_input, #book_id, #document_number, #doc_number_type, #doc_reset_pattern, #doc_prefix, #doc_suffix, #doc_no").val('');
+      Swal.fire({ title: 'Error!', text: data.message, icon: 'error' });
+    }
+
+    enableDisableQtButton();
+    if (!reset) viewModeScript();
+  }));
 }
+
 function enableDisableQtButton() {
   const bookId = document.getElementById('book_id').value;
   const bookCode = document.getElementById('book_code_input').value;
