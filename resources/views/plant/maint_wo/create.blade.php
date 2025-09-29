@@ -297,17 +297,17 @@
                   <div class="step-custhomapp bg-light">
                     <ul class="nav nav-tabs my-25 custapploannav" role="tablist" id="main-tabs">
                       <li class="nav-item" id="checklist-tab">
-                        <a class="nav-link" data-bs-toggle="tab" href="#payment">Checklist</a>
+                        <a class="nav-link active" data-bs-toggle="tab" href="#payment">Checklist</a>
                       </li>
                       <li class="nav-item" id="spare-parts-tab">
-                        <a class="nav-link active" data-bs-toggle="tab" href="#attachment">Spare Parts</a>
+                        <a class="nav-link" data-bs-toggle="tab" href="#attachment">Spare Parts</a>
                       </li>
                     </ul>
                   </div>
 
                   <div class="tab-content pb-1">
                     {{-- Checklist tab --}}
-                    <div class="tab-pane" id="payment">
+                    <div class="tab-pane active" id="payment">
                       <div class="row">
                         <div class="col-md-12">
                           <div class="table-responsive pomrnheadtffotsticky1">
@@ -330,7 +330,7 @@
                     </div>
 
                     {{-- Spare parts tab --}}
-                      <div class="tab-pane active" id="attachment">
+                      <div class="tab-pane" id="attachment">
                       <div class="border-bottom mb-2 pb-25">
                         <div class="row">
                           <div class="col-md-6">
