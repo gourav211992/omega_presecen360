@@ -1177,7 +1177,7 @@
 <script>
 	const itemsData = @json($items);
 	const sparePartsData = @json($sparePartsData);
-  
+	// ✅ ADDED BACK: itemsData is now used for showing first 10 items on click
 	let rowCount = 1;
 
 	// Function to handle saving attributes from modal
@@ -1539,7 +1539,7 @@
 	function initAutoForItem(selector, type) {
 		
 		$(selector).autocomplete({
-			minLength: 0,
+			minLength: 0, // ✅ Allow showing items without typing
 			source: function (request, response) {
 				let term = request.term.toLowerCase();
 
@@ -1550,34 +1550,63 @@
 					if (val) selectedItemIds.push(val);
 				});
 
-				// Filter itemsData by search term AND exclude already selected items
-				let filtered = itemsData.filter(item => {
-					let isSelectedElsewhere = selectedItemIds.includes(item.id.toString());
+				// ✅ If no search term, return first 10 items from initial load
+				if (!term.trim()) {
+					let initialItems = itemsData.filter(item => {
+						let currentItemId = $(selector).closest('tr').find('.item_id').val();
+						return !selectedItemIds.includes(item.id.toString()) || item.id.toString() === currentItemId;
+					}).slice(0, 10); // Show first 10 items
 
-					// Allow the current input's item (so it doesn't exclude itself)
-					// Get current input's item_id value:
-					let currentItemId = $(selector).closest('tr').find('.item_id').val();
+					let results = initialItems.map(item => ({
+						id: item.id,
+						label: `${item.item_code} - ${item.item_name}`,
+						code: item.item_code,
+						item_id: item.id,
+						item_name: item.item_name,
+						uom_name: item.uom_name,
+						uom_id: item.uom_id,
+						attr: item.item_attributes || [],
+						available_stock: item.available_stock || 0
+					}));
 
-					// Include item if:
-					// - it matches the search term
-					// - and (not selected elsewhere OR is the current selected item in this row)
-					return (item.item_code.toLowerCase().includes(term) || item.item_name.toLowerCase().includes(term)) &&
-						(!isSelectedElsewhere || item.id.toString() === currentItemId);
+					response(results);
+					return;
+				}
+
+				// ✅ NEW: Use server-side API for search
+				$.ajax({
+					url: "{{ route('maint-wo.search-items') }}",
+					method: 'GET',
+					data: {
+						q: term,
+						page: 1,
+						per_page: 20
+					},
+					success: function(data) {
+						// Filter out already selected items and format for autocomplete
+						let filtered = data.items.filter(item => {
+							let currentItemId = $(selector).closest('tr').find('.item_id').val();
+							return !selectedItemIds.includes(item.id.toString()) || item.id.toString() === currentItemId;
+						});
+
+						let results = filtered.map(item => ({
+							id: item.id,
+							label: `${item.item_code} - ${item.item_name}`,
+							code: item.item_code,
+							item_id: item.id,
+							item_name: item.item_name,
+							uom_name: item.uom_name,
+							uom_id: item.uom_id,
+							attr: item.item_attributes || [],
+							available_stock: item.available_stock || 0
+						}));
+
+						response(results);
+					},
+					error: function() {
+						response([]);
+					}
 				});
-				
-				let results = filtered.map(item => ({
-					id: item.id,
-					label: `${item.item_code} - ${item.item_name}`,
-					code: item.item_code,
-					item_id: item.id,
-					item_name: item.item_name,
-					uom_name: item.uom_name,
-					uom_id: item.uom_id,
-					attr: item.item_attributes || [],
-					available_stock: item.available_stock || 0
-				}));
-				
-				response(results);
 			},
 			select: function (event, ui) {
 				let $input = $(this);
@@ -2947,8 +2976,7 @@ function processDefectSelection() {
 			// Check available stock
 			if (qty.length && qty.val()) {
 				const itemId = $(this).find('.item_id').val();
-				const itemData = itemsData.find(item => item.id == itemId);
-				const availableStock = itemData ? itemData.available_stock : 0;
+				const availableStock = parseFloat($(this).find('.available_stock').val()) || 0; // ✅ Use stored value instead of looking up in itemsData
 				const requestedQty = parseFloat(qty.val());
 
 				console.log('📋 Form submission stock check:', {
@@ -2957,8 +2985,7 @@ function processDefectSelection() {
 					itemName: itemName.val(),
 					availableStock,
 					requestedQty,
-					isInsufficient: requestedQty > availableStock,
-					itemDataFound: !!itemData
+					isInsufficient: requestedQty > availableStock
 				});
 
 				if (requestedQty > availableStock) {
@@ -2986,25 +3013,36 @@ function processDefectSelection() {
 		const itemName = $row.find('.item_name').val();
 		const qty = $row.find('.qty').val();
 		const qtyField = $row.find('.qty');
+		const availableStock = parseFloat($row.find('.available_stock').val()) || 0; // ✅ Use stored value instead of looking up in itemsData
+
+		console.log('🧪 validateStockForRow called:', {
+			itemId,
+			itemName,
+			qty,
+			qtyField: qtyField.length,
+			availableStock
+		});
 
 		// Clear previous validation
 		qtyField.removeClass('is-invalid');
 
 		// Only validate if we have item and quantity
 		if (!itemId || !qty || parseFloat(qty) <= 0) {
+			console.log('⏭️ Skipping validation - missing itemId, qty, or qty <= 0');
 			return true;
 		}
 
-		const itemData = itemsData.find(item => item.id == itemId);
-
-		if (!itemData) {
-			return true;
-		}
-
-		const availableStock = itemData.available_stock || 0;
 		const requestedQty = parseFloat(qty);
 
+		console.log('📊 Stock check:', {
+			availableStock,
+			requestedQty,
+			itemName: itemName,
+			isInsufficient: requestedQty > availableStock
+		});
+
 		if (requestedQty > availableStock) {
+			console.log('🚫 Insufficient stock - adding is-invalid class and showing error');
 			qtyField.addClass('is-invalid');
 			Swal.fire({
 				title: 'Insufficient Stock!',
@@ -3017,6 +3055,7 @@ function processDefectSelection() {
 			return false;
 		}
 
+		console.log('✅ Stock validation passed');
 		return true;
 	}
 
@@ -3048,7 +3087,7 @@ function processDefectSelection() {
 					uom_id: uomId,
 					uom_name: uomName,
 					attribute: attribute || '[]',
-					attributes: itemData ? itemData.item_attributes : [],
+					attributes: itemData ? itemData.item_attributes : [], // ✅ This is fine - used for attributes display
 					available_stock: availableStock || 0
 				});
 			}

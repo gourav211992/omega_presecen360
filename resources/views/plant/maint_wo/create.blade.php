@@ -849,9 +849,8 @@
 	<script type="text/javascript" src="{{asset('app-assets/js/file-uploader.js')}}"></script>
     @include('plant.maint_wo.common-js-route',["wo" => isset($wo) ? $wo : null, "route_prefix" => "maint-wo"])
     <script src="{{ asset('assets/js/modules/maint-wo/common-script.js')}}"></script>
-  	
-	<script>
-		const itemsData = @json($items);
+        <script>
+                const itemsData = @json($items); // ✅ ADDED BACK: Need this for showing first 10 items on click
 		
 		let rowCount = 1;
 
@@ -1184,7 +1183,7 @@
 		function initAutoForItem(selector, type) {
 			
 			$(selector).autocomplete({
-				minLength: 0,
+				minLength: 0, // ✅ Allow showing items without typing
 				source: function (request, response) {
 					let term = request.term.toLowerCase();
 
@@ -1195,44 +1194,63 @@
 						if (val) selectedItemIds.push(val);
 					});
 
-					// Filter itemsData by search term AND exclude already selected items
-					let filtered = itemsData.filter(item => {
-						// Get current input's item_id value:
-						let currentItemId = $(selector).closest('tr').find('.item_id').val();
-						
-						// Check if this item is selected in other rows (excluding current row)
-						let isSelectedElsewhere = false;
-						$('.item_id').each(function() {
-							let val = $(this).val();
-							let $currentRow = $(selector).closest('tr');
-							let $thisRow = $(this).closest('tr');
-							
-							// Only consider it selected elsewhere if it's in a different row
-							if (val && val === item.id.toString() && !$thisRow.is($currentRow)) {
-								isSelectedElsewhere = true;
-							}
-						});
+					// ✅ If no search term, return first 10 items from initial load
+					if (!term.trim()) {
+						let initialItems = itemsData.filter(item => {
+							let currentItemId = $(selector).closest('tr').find('.item_id').val();
+							return !selectedItemIds.includes(item.id.toString()) || item.id.toString() === currentItemId;
+						}).slice(0, 10); // Show first 10 items
 
-						// Include item if:
-						// - it matches the search term
-						// - and (not selected elsewhere OR is the current selected item in this row)
-						return (item.item_code.toLowerCase().includes(term) || item.item_name.toLowerCase().includes(term)) &&
-							(!isSelectedElsewhere || item.id.toString() === currentItemId);
+						let results = initialItems.map(item => ({
+							id: item.id,
+							label: `${item.item_code} - ${item.item_name}`,
+							code: item.item_code,
+							item_id: item.id,
+							item_name: item.item_name,
+							uom_name: item.uom_name,
+							uom_id: item.uom_id,
+							attr: item.item_attributes || [],
+							available_stock: item.available_stock || 0
+						}));
+
+						response(results);
+						return;
+					}
+
+					// ✅ NEW: Use server-side API for search
+					$.ajax({
+						url: "{{ route('maint-wo.search-items') }}",
+						method: 'GET',
+						data: {
+							q: term,
+							page: 1,
+							per_page: 20
+						},
+						success: function(data) {
+							// Filter out already selected items and format for autocomplete
+							let filtered = data.items.filter(item => {
+								let currentItemId = $(selector).closest('tr').find('.item_id').val();
+								return !selectedItemIds.includes(item.id.toString()) || item.id.toString() === currentItemId;
+							});
+
+							let results = filtered.map(item => ({
+								id: item.id,
+								label: `${item.item_code} - ${item.item_name}`,
+								code: item.item_code,
+								item_id: item.id,
+								item_name: item.item_name,
+								uom_name: item.uom_name,
+								uom_id: item.uom_id,
+								attr: item.item_attributes || [],
+								available_stock: item.available_stock || 0
+							}));
+
+							response(results);
+						},
+						error: function() {
+							response([]);
+						}
 					});
-					
-					let results = filtered.map(item => ({
-						id: item.id,
-						label: `${item.item_code} - ${item.item_name}`,
-						code: item.item_code,
-						item_id: item.id,
-						item_name: item.item_name,
-						uom_name: item.uom_name,
-						uom_id: item.uom_id,
-						attr: item.item_attributes || [],
-						available_stock: item.available_stock || 0
-					}));
-					
-					response(results);
 				},
 				select: function (event, ui) {
 					let $input = $(this);
@@ -1334,6 +1352,7 @@
 					}
 				}
 			}).focus(function () {
+				// ✅ Show first 10 items when field is clicked (no typing required)
 				if (!this.value.trim()) {
 					$(this).autocomplete("search", "");
 				}
@@ -1879,7 +1898,6 @@
 
 		$(document).ready(function() {
 		var itemsData = @json($items);
-		console.log('📦 Initial itemsData loaded:', itemsData);
 			$('#defect_search_btn').on('click', function(e) {
 				e.preventDefault();
 
@@ -2402,13 +2420,14 @@
 			const itemName = $row.find('.item_name').val();
 			const qty = $row.find('.qty').val();
 			const qtyField = $row.find('.qty');
-			const availableStock = $row.find('.available_stock').val();
+			const availableStock = parseFloat($row.find('.available_stock').val()) || 0; // ✅ Use stored value instead of looking up in itemsData
 
 			console.log('🧪 validateStockForRow called:', {
 				itemId,
 				itemName,
 				qty,
-				qtyField: qtyField.length
+				qtyField: qtyField.length,
+				availableStock
 			});
 
 			// Clear previous validation
@@ -2420,15 +2439,6 @@
 				return true;
 			}
 
-			const itemData = itemsData.find(item => item.id == itemId);
-			console.log('🔍 itemData found:', itemData);
-
-			if (!itemData) {
-				console.log('❌ No itemData found for itemId:', itemId);
-				return true;
-			}
-
-			
 			const requestedQty = parseFloat(qty);
 
 			console.log('📊 Stock check:', {

@@ -25,20 +25,40 @@ use App\Models\InspectionChecklist;
 use App\Models\InspectionChecklistDetail;
 use App\Models\InspectionChecklistDetailValue;
 use Carbon\Carbon;
+use DB;
 use App\Models\StockLedger;
 use App\Models\ErpEquipMaintenanceChecklist;
 use Exception;
 
 class MaintWoController extends Controller
 {
+    private function calculateBatchStock(array $itemCodes): array
+    {
+        if (empty($itemCodes)) {
+            return [];
+        }
+
+        $stockResults = StockLedger::whereIn('item_code', $itemCodes)
+            ->whereIn('document_status', ['approved', 'approval_not_required', 'posted'])
+            ->selectRaw("item_code, SUM(COALESCE(receipt_qty,0) - COALESCE(reserved_qty,0)) as confirmed_stock")
+            ->groupBy('item_code')
+            ->pluck('confirmed_stock', 'item_code')
+            ->toArray();
+
+        // Return stock for all requested items (0 if not found)
+        $result = [];
+        foreach ($itemCodes as $itemCode) {
+            $result[$itemCode] = $stockResults[$itemCode] ?? 0;
+        }
+
+        return $result;
+    }
     public function index(Request $request)
     {
-        // Handle DataTables AJAX request
         if ($request->ajax()) {
             return $this->getDataTableData($request);
         }
 
-        // Return view for initial page load
         return view('plant.maint_wo.index');
     }
 
@@ -275,34 +295,9 @@ class MaintWoController extends Controller
 
         $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$data->document_status] ?? '';
 
-        $items = Item::where("type", "goods")
-            ->with(["uom", "category", "itemAttributes"])
-            ->get()
-            ->map(function ($item) {
-                $itemAttributes = $item->itemAttributes ?? [];
-                $processedData = collect($itemAttributes)->map(function ($attribute) {
-                    $attributeValueData = ErpAttribute::whereIn('id', $attribute->attribute_id)
-                        ->select('id', 'value')
-                        ->where('status', 'active')
-                        ->get();
-
-                    return [
-                        'id' => $attribute->id,
-                        'group_name' => $attribute->group?->name,
-                        'values_data' => $attributeValueData,
-                        'attribute_group_id' => $attribute->attribute_group_id,
-                    ];
-                });
-
-                return [
-                    'id' => $item->id,
-                    'item_code' => $item->item_code,
-                    'item_name' => $item->item_name,
-                    'uom_name' => optional($item->uom)->name,
-                    'uom_id' => optional($item->uom)->id,
-                    'item_attributes' => $processedData,
-                ];
-            });
+        // ✅ OPTIMIZED: Remove unnecessary full item loading for show method
+        // The show method doesn't need all items data since it only displays existing work order data
+        $items = collect(); // Empty collection since show doesn't need item selection
 
         $locations = InventoryHelper::getAccessibleLocations();
         $defectTypes = ErpDefectType::select('id', 'name')->get();
@@ -363,17 +358,16 @@ class MaintWoController extends Controller
 
         $items = Item::where("type", "goods")
             ->with(["uom", "category", "itemAttributes"])
+            ->limit(10)  
+            ->orderBy('item_code')  
             ->get();
-       
-        
 
-        
         foreach ($items as $item) {
             $itemAttributes = ItemAttribute::where('item_id', $item->id)->get();
             $processedData = [];
             foreach ($itemAttributes as $attribute) {
                 $attribute->group_name = $attribute->group?->name;
-               
+
                 $attributeValueData = ErpAttribute::whereIn('id', $attribute->attribute_id)
                     ->select('id', 'value')
                     ->where('status', 'active')
@@ -390,12 +384,11 @@ class MaintWoController extends Controller
             $item->attributes = collect($processedData);
         }
 
-        $items = $items->map(function ($item) {
-            $confirmedStock = StockLedger::where('item_code', 'IT4326')
-            ->whereIn('document_status', ['approved', 'approval_not_required', 'posted'])
-            ->selectRaw("SUM(COALESCE(receipt_qty,0) - COALESCE(reserved_qty,0)) as confirmed_stock")
-            ->value('confirmed_stock');          
-        
+        // ✅ OPTIMIZED: Batch calculate stock for all items in one query
+        $itemCodes = $items->pluck('item_code')->toArray();
+        $stockLookup = $this->calculateBatchStock($itemCodes);
+
+        $items = $items->map(function ($item) use ($stockLookup) {
             return [
                 'id'              => $item->id,
                 'item_code'       => $item->item_code,
@@ -403,7 +396,7 @@ class MaintWoController extends Controller
                 'uom_name'        => optional($item->uom)->name,
                 'uom_id'          => optional($item->uom)->id,
                 'item_attributes' => $item->attributes,
-                'available_stock' => $confirmedStock, 
+                'available_stock' => $stockLookup[$item->item_code] ?? 0, // ✅ Use batch lookup
             ];
         });
 
@@ -467,6 +460,71 @@ class MaintWoController extends Controller
             'maintenanceBoms',
             'defectSeries'
         ));
+    }
+
+    // ✅ NEW: API endpoint for searching items dynamically
+    public function searchItems(Request $request)
+    {
+        $query = $request->get('q', '');
+        $page = $request->get('page', 1);
+        $perPage = $request->get('per_page', 20); // Load 20 items per search request
+
+        $itemsQuery = Item::where("type", "goods")
+            ->with(["uom", "category", "itemAttributes"])
+            ->where(function ($q) use ($query) {
+                $q->where('item_code', 'LIKE', "%{$query}%")
+                  ->orWhere('item_name', 'LIKE', "%{$query}%");
+            })
+            ->orderBy('item_code');
+
+        $total = $itemsQuery->count();
+        $items = $itemsQuery->skip(($page - 1) * $perPage)->take($perPage)->get();
+
+        // Process items same way as create method
+        $processedItems = $items->map(function ($item) {
+            $itemAttributes = ItemAttribute::where('item_id', $item->id)->get();
+            $processedData = [];
+            foreach ($itemAttributes as $attribute) {
+                $attribute->group_name = $attribute->group?->name;
+
+                $attributeValueData = ErpAttribute::whereIn('id', $attribute->attribute_id)
+                    ->select('id', 'value')
+                    ->where('status', 'active')
+                    ->get();
+
+                $processedData[] = [
+                    'id' => $attribute->id,
+                    'group_name' => $attribute->group_name,
+                    'values_data' => $attributeValueData,
+                    'attribute_group_id' => $attribute->attribute_group_id,
+                ];
+            }
+
+            // Calculate stock (same logic as create method)
+            // ✅ OPTIMIZED: Use batch stock calculation
+            $itemCodes = [$item->item_code]; // Single item
+            $stockLookup = $this->calculateBatchStock($itemCodes);
+
+            return [
+                'id' => $item->id,
+                'item_code' => $item->item_code,
+                'item_name' => $item->item_name,
+                'uom_name' => optional($item->uom)->name,
+                'uom_id' => optional($item->uom)->id,
+                'item_attributes' => collect($processedData),
+                'available_stock' => $stockLookup[$item->item_code] ?? 0, // ✅ Use batch lookup
+            ];
+        });
+
+        return response()->json([
+            'items' => $processedItems,
+            'pagination' => [
+                'page' => $page,
+                'per_page' => $perPage,
+                'total' => $total,
+                'has_more' => (($page * $perPage) < $total)
+            ]
+        ]);
     }
 
     public function store(Request $request)
@@ -722,6 +780,8 @@ class MaintWoController extends Controller
 
         $items = Item::where("type", "goods")
             ->with(["uom", "category", "itemAttributes"])
+            ->limit(10) 
+            ->orderBy('item_code') 
             ->get();
 
         foreach ($items as $item) {
@@ -749,12 +809,12 @@ class MaintWoController extends Controller
         }
 
         // Calculate stock for all items once (for both existing spare parts and JS validation)
-        $items = $items->map(function ($item) {
+        $itemCodes = $items->pluck('item_code')->toArray();
+        $stockLookup = $this->calculateBatchStock($itemCodes);
 
-            $confirmedStock = StockLedger::where('item_code', 'IT4326')
-                ->whereIn('document_status', ['approved', 'approval_not_required', 'posted'])
-                ->selectRaw("SUM(COALESCE(receipt_qty,0) - COALESCE(reserved_qty,0)) as confirmed_stock")
-                ->value('confirmed_stock');    
+        $items = $items->map(function ($item) use ($stockLookup) {
+
+            $confirmedStock = $stockLookup[$item->item_code] ?? 0; // ✅ Use batch lookup instead of individual query
 
             return [
                 'id' => $item->id,
@@ -1505,14 +1565,13 @@ class MaintWoController extends Controller
             if ($bomData->spare_parts) {
                 $rawSparePartsData = json_decode($bomData->spare_parts, true);
                 
+                // ✅ OPTIMIZED: Extract all item codes and calculate stock in batch
+                $itemCodes = collect($rawSparePartsData)->pluck('item_code')->filter()->unique()->toArray();
+                $stockLookup = $this->calculateBatchStock($itemCodes);
+                
                 foreach ($rawSparePartsData as $sparePart) {
                     
-                    $confirmedStock = StockLedger::where('item_code', 'IT4326')
-                ->whereIn('document_status', ['approved', 'approval_not_required', 'posted'])
-                ->selectRaw("SUM(COALESCE(receipt_qty,0) - COALESCE(reserved_qty,0)) as confirmed_stock")
-                ->value('confirmed_stock');   
-                  
-                    
+                    $confirmedStock = $stockLookup[$sparePart['item_code']] ?? 0; // ✅ Use batch lookup instead of individual query
                     $sparePartData = [
                         'item_id' => $sparePart['item_id'],
                         'item_code' => $sparePart['item_code'] ?? 'N/A',

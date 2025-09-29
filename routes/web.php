@@ -2982,6 +2982,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('plant/bom/approval', [MaintBomController::class, 'documentApproval'])->name('maint-bom.approval');
 
 
+    Route::get('plant/maint-bom/search-items', [MaintBomController::class, 'searchItems'])->name('maint-bom.search-items');
     Route::resource('plant/maint-bom', MaintBomController::class)->names([
         'index' => 'maint-bom.index',
         'create' => 'maint-bom.create',
@@ -3008,6 +3009,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('plant/maint-wo/approve', [MaintWoController::class, 'documentApproval'])->name('maint-wo.approval');
     Route::post('plant/maint-wo/filter', [MaintWoController::class, 'filter'])->name('maint-wo.filter');
 
+    Route::get('plant/maint-wo/search-items', [MaintWoController::class, 'searchItems'])->name('maint-wo.search-items');
     Route::resource('plant/maint-wo', MaintWoController::class)->names([
         'index' => 'maint-wo.index',
         'create' => 'maint-wo.create',
