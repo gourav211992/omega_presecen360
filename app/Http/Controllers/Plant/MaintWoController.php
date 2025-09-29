@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Plant;
 use App\Helpers\ConstantHelper;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Yajra\DataTables\DataTables;
 use App\Models\Item;
 use App\Models\ItemAttribute;
 use App\Models\ErpAttribute;
@@ -26,35 +28,151 @@ use Carbon\Carbon;
 use App\Models\StockLedger;
 use App\Models\ErpEquipMaintenanceChecklist;
 use Exception;
-use Illuminate\Support\Facades\DB;
 
 class MaintWoController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $data = PlantMaintWo::select('id', 'equipment_details','document_number','document_date','document_status','book_id')
-            ->get()
-            ->map(function ($row) {
+        // Handle DataTables AJAX request
+        if ($request->ajax()) {
+            return $this->getDataTableData($request);
+        }
+
+        // Return view for initial page load
+        return view('plant.maint_wo.index');
+    }
+
+    private function getDataTableData(Request $request): JsonResponse
+    {
+        $query = PlantMaintWo::select([
+            'id',
+            'equipment_details',
+            'document_number',
+            'document_date',
+            'document_status',
+            'book_id'
+        ])->with(['book:id,book_code']);
+
+        // Apply global search if provided
+        if (!empty($request->search['value'])) {
+            $searchValue = $request->search['value'];
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('document_number', 'LIKE', "%{$searchValue}%")
+                  ->orWhere('document_status', 'LIKE', "%{$searchValue}%")
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(equipment_details, '$.equipment_category')) LIKE ?", ["%{$searchValue}%"])
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(equipment_details, '$.equipment_maintenance_type_name')) LIKE ?", ["%{$searchValue}%"])
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(equipment_details, '$.maintenance_type_name')) LIKE ?", ["%{$searchValue}%"]);
+            });
+        }
+
+        if (!empty($request->order)) {
+            $columnIndex = $request->order[0]['column'];
+            $direction = $request->order[0]['dir'];
+
+            $columns = [
+                0 => 'id', 
+                1 => 'document_date', 
+                2 => 'book_id', 
+                3 => 'document_number', 
+                4 => 'equipment_details', 
+                5 => 'equipment_details', 
+                6 => 'equipment_details', 
+                7 => 'document_status', 
+            ];
+
+            if (isset($columns[$columnIndex])) {
+                $column = $columns[$columnIndex];
+
+                if (in_array($column, ['equipment_details'])) {
+                    // For JSON fields, we can't order directly, so we'll handle this in collection
+                    // For now, skip ordering on these columns or implement custom ordering
+                } else {
+                    $query->orderBy($column, $direction);
+                }
+            }
+        } else {
+            $query->orderBy('document_date', 'desc');
+        }
+
+        return DataTables::of($query)
+            ->addIndexColumn()
+            ->editColumn('document_date', function ($row) {
+                return $row->document_date ? \Carbon\Carbon::parse($row->document_date)->format('d-m-Y') : '-';
+            })
+            ->addColumn('series', function ($row) {
+                return $row->book?->book_code ?? '-';
+            })
+            ->addColumn('equipment_name', function ($row) {
                 $details = $row->equipment_details;
 
                 if (is_string($details)) {
                     $details = json_decode($details, true);
                 }
 
-                // Default values
-                $row->equipment_category = $details['equipment_category'] ?? null;
-                $row->equipment_defect_type = $details['equipment_defect_type'] ?? null;
-
-                $row->equipment_name = null;
                 if (!empty($details['equipment_id'])) {
-                    $row->equipment_name = ErpEquipment::where('id', $details['equipment_id'])
-                        ->value('name');
+                    return ErpEquipment::where('id', $details['equipment_id'])->value('name') ?? '-';
                 }
 
-                return $row;
-            });
+                return '-';
+            })
+            ->addColumn('equipment_category', function ($row) {
+                $details = $row->equipment_details;
 
-        return view('plant.maint_wo.index', compact('data'));
+                if (is_string($details)) {
+                    $details = json_decode($details, true);
+                }
+
+                return $details['equipment_category'] ?? '';
+            })
+            ->addColumn('equipment_maintenance_type', function ($row) {
+                $details = $row->equipment_details;
+
+                if (is_string($details)) {
+                    $details = json_decode($details, true);
+                }
+
+                return $details['equipment_maintenance_type_name'] ??
+                       $details['maintenance_type_name'] ?? '';
+            })
+            ->addColumn('status', function ($row) {
+                $status = $row->document_status;
+                if (empty($status)) {
+                    $status = "draft";
+                }
+
+                $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$status] ?? 'badge-light-secondary';
+
+                $statusText = ($row->document_status == ConstantHelper::APPROVAL_NOT_REQUIRED)
+                    ? 'Approved'
+                    : ucfirst($row->document_status);
+
+                return '<span class="badge rounded-pill ' . $statusClass . ' badgeborder-radius text-nowrap">' . $statusText . '</span>';
+            })
+            ->addColumn('action', function ($row) {
+                $showUrl = url('plant/maint-wo/' . $row->id);
+                $editUrl = url('plant/maint-wo/' . $row->id . '/edit');
+
+                return '
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
+                            <i data-feather="more-vertical"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item" href="' . $showUrl . '">
+                                <i data-feather="eye" class="me-50"></i>
+                                <span>View</span>
+                            </a>
+                            ' . (($row->document_status == 'draft' && $row->document_status != 'closed') ? '
+                            <a class="dropdown-item" href="' . $editUrl . '">
+                                <i data-feather="edit-3" class="me-50"></i>
+                                <span>Edit</span>
+                            </a>' : '') . '
+                        </div>
+                    </div>
+                ';
+            })
+            ->rawColumns(['status', 'action'])
+            ->make(true);
     }
 
 
