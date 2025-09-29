@@ -39,8 +39,11 @@
                                         <line x1="15" y1="9" x2="9" y2="15"></line>
                                         <line x1="9" y1="9" x2="15" y2="15"></line>
                                     </svg> Reject</button>
-                                <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-                                    class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
+							@endif
+
+							@if($buttons['amend'])
+								<button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
+										class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
 							@endif
                             
 						</div>

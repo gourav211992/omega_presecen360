@@ -672,14 +672,14 @@
 				}
 
 				// Validate uom
-				const uom = row.find('.uom');
-				if (!uom.val()) {
-					allInputsFilled = false;
-					uom.addClass('is-invalid')[0].reportValidity();
-					return false;
-				} else {
-					uom.removeClass('is-invalid');
-				}
+				// const uom = row.find('.uom');
+				// if (!uom.val()) {
+				// 	allInputsFilled = false;
+				// 	uom.addClass('is-invalid')[0].reportValidity();
+				// 	return false;
+				// } else {
+				// 	uom.removeClass('is-invalid');
+				// }
 
 				// Validate qty
 				const qty = row.find('.qty');
@@ -694,29 +694,29 @@
 				const attributeInput = row.find('.attribute');
 				let attributeVal = attributeInput.val();
 
-				// Parse JSON safely
-				let attrArray = [];
-				try {
-					attrArray = attributeVal ? JSON.parse(attributeVal) : [];
-				} catch (e) {
-					attrArray = [];
-				}
+				// // Parse JSON safely
+				// let attrArray = [];
+				// try {
+				// 	attrArray = attributeVal ? JSON.parse(attributeVal) : [];
+				// } catch (e) {
+				// 	attrArray = [];
+				// }
 
 				// Validation: must contain at least 1 {item_attribute_id, value_id}
-				if (!Array.isArray(attrArray) || attrArray.length === 0) {
-					allInputsFilled = false;
+				// if (!Array.isArray(attrArray) || attrArray.length === 0) {
+				// 	allInputsFilled = false;
 
-					Swal.fire({
-						icon: 'warning',
-						title: 'Attribute Required',
-						text: 'Please select at least one attribute before adding a new row.'
-					});
+				// 	Swal.fire({
+				// 		icon: 'warning',
+				// 		title: 'Attribute Required',
+				// 		text: 'Please select at least one attribute before adding a new row.'
+				// 	});
 
-					row.find('.attribute-badges').addClass('border border-danger rounded p-1');
-					return false; 
-				} else {
-					row.find('.attribute-badges').removeClass('border border-danger rounded p-1');
-				}
+				// 	row.find('.attribute-badges').addClass('border border-danger rounded p-1');
+				// 	return false; 
+				// } else {
+				// 	row.find('.attribute-badges').removeClass('border border-danger rounded p-1');
+				// }
 				
 			});
 

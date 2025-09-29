@@ -94,7 +94,6 @@
         <input type="hidden" name="doc_prefix" id="doc_prefix" value="{{ $workOrder->doc_prefix ?? '' }}">
         <input type="hidden" name="doc_suffix" id="doc_suffix" value="{{ $workOrder->doc_suffix ?? '' }}">
         <input type="hidden" name="document_number" id="" value="{{ $workOrder->document_number ?? '' }}">
-		<input type="hidden" name="doc_no" id="doc_no" value="{{ $workOrder->document_number ?? '' }}">
         <input type="hidden" name="book_id" id="book_id" value="{{ $workOrder->book_id ?? '' }}">
         <input type="hidden" name="document_date" id="document_date" value="{{ $workOrder->document_date ?? '' }}">
         <input type="hidden" name="document_status" id="document_status" value="submitted">
@@ -2928,17 +2927,17 @@ function processDefectSelection() {
 				allValid = false;
 				return false;
 			}
-			if (attribute.length && (!attribute.val() || attribute.val() === '[]')) {
-				$(this).addClass('table-danger');
-				setTimeout(() => $(this).removeClass('table-danger'), 2000);
-				allValid = false;
-				return false;
-			}
-			if (uom.length && !uom.val()) {
-				uom.addClass('is-invalid').focus();
-				allValid = false;
-				return false;
-			}
+			// if (attribute.length && (!attribute.val() || attribute.val() === '[]')) {
+			// 	$(this).addClass('table-danger');
+			// 	setTimeout(() => $(this).removeClass('table-danger'), 2000);
+			// 	allValid = false;
+			// 	return false;
+			// }
+			// if (uom.length && !uom.val()) {
+			// 	uom.addClass('is-invalid').focus();
+			// 	allValid = false;
+			// 	return false;
+			// }
 			if (qty.length && (!qty.val() || parseFloat(qty.val()) <= 0)) {
 				qty.addClass('is-invalid').focus();
 				allValid = false;

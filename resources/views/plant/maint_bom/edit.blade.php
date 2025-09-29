@@ -36,6 +36,11 @@
 									<i data-feather="check-circle"></i> Submit
 								</button>
 							@endif
+							
+							@if($buttons['amend'])
+								<button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
+										class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
+							@endif
 						</div>
 					</div>
 				</div>

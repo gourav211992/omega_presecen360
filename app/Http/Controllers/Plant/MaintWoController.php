@@ -246,6 +246,7 @@ class MaintWoController extends Controller
         $items = Item::where("type", "goods")
             ->with(["uom", "category", "itemAttributes"])
             ->get();
+       
         
 
         
@@ -272,18 +273,10 @@ class MaintWoController extends Controller
         }
 
         $items = $items->map(function ($item) {
-            $confirmedStock = StockLedger::query()
-                ->selectRaw("
-                    SUM(
-                        CASE 
-                            WHEN document_status IN ('approved', 'approval_not_required', 'posted') 
-                            THEN receipt_qty - reserved_qty
-                            ELSE 0
-                        END
-                    ) as confirmed_stock
-                ")
-                ->where('item_code', $item->item_code) 
-                ->value('confirmed_stock');
+            $confirmedStock = StockLedger::where('item_code', 'IT4326')
+            ->whereIn('document_status', ['approved', 'approval_not_required', 'posted'])
+            ->selectRaw("SUM(COALESCE(receipt_qty,0) - COALESCE(reserved_qty,0)) as confirmed_stock")
+            ->value('confirmed_stock');          
         
             return [
                 'id'              => $item->id,
@@ -292,7 +285,7 @@ class MaintWoController extends Controller
                 'uom_name'        => optional($item->uom)->name,
                 'uom_id'          => optional($item->uom)->id,
                 'item_attributes' => $item->attributes,
-                'available_stock' => $confirmedStock ?? 0, 
+                'available_stock' => $confirmedStock, 
             ];
         });
 
@@ -640,18 +633,10 @@ class MaintWoController extends Controller
         // Calculate stock for all items once (for both existing spare parts and JS validation)
         $items = $items->map(function ($item) {
 
-            $confirmedStock = StockLedger::query()
-            ->selectRaw("
-                SUM(
-                    CASE 
-                        WHEN document_status IN ('approved', 'approval_not_required', 'posted') 
-                        THEN receipt_qty - reserved_qty
-                        ELSE 0
-                    END
-                ) as confirmed_stock
-            ")
-            ->where('item_code', $item->item_code) 
-            ->value('confirmed_stock');
+            $confirmedStock = StockLedger::where('item_code', 'IT4326')
+                ->whereIn('document_status', ['approved', 'approval_not_required', 'posted'])
+                ->selectRaw("SUM(COALESCE(receipt_qty,0) - COALESCE(reserved_qty,0)) as confirmed_stock")
+                ->value('confirmed_stock');    
 
             return [
                 'id' => $item->id,
@@ -660,7 +645,7 @@ class MaintWoController extends Controller
                 'uom_name' => optional($item->uom)->name,
                 'uom_id' => optional($item->uom)->id,
                 'item_attributes' => $item->attributes,
-                'available_stock' => 100, 
+                'available_stock' => $confirmedStock, 
             ];
         });
 
@@ -1404,18 +1389,10 @@ class MaintWoController extends Controller
                 
                 foreach ($rawSparePartsData as $sparePart) {
                     
-                    $confirmedStock = StockLedger::query()
-                    ->selectRaw("
-                        SUM(
-                            CASE 
-                                WHEN document_status IN ('approved', 'approval_not_required', 'posted') 
-                                THEN receipt_qty - reserved_qty
-                                ELSE 0
-                            END
-                        ) as confirmed_stock
-                    ")
-                    ->where('item_code', $sparePart['item_code']) // yaha fix kiya
-                    ->value('confirmed_stock');
+                    $confirmedStock = StockLedger::where('item_code', 'IT4326')
+                ->whereIn('document_status', ['approved', 'approval_not_required', 'posted'])
+                ->selectRaw("SUM(COALESCE(receipt_qty,0) - COALESCE(reserved_qty,0)) as confirmed_stock")
+                ->value('confirmed_stock');   
                   
                     
                     $sparePartData = [
@@ -1427,7 +1404,7 @@ class MaintWoController extends Controller
                         'uom_id' => $sparePart['uom_id'] ?? null,
                         'attribute' => $sparePart['attribute'] ?? '[]',
                         'attributes' => [],
-                        'available_stock' => 0,
+                        'available_stock' => $confirmedStock,
                     ];
 
                     // Process attributes if they exist
