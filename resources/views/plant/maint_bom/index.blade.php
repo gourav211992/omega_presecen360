@@ -38,7 +38,7 @@
 								
 								   
                                 <div class="table-responsive">
-									<table class="datatables-basic table myrequesttablecbox "> 
+									<table id="maint-bom-table" class="datatables-basic table myrequesttablecbox"> 
                                         <thead>
                                              <tr>
 												<th>#</th>
@@ -47,61 +47,11 @@
 												<th>Doc No.</th>
 												<th>BOM Name</th>
 												<th class="text-end">Status</th>
+												<th>Action</th>
 										  </tr>
 											</thead>
 											<tbody>
-												@isset($data)
-                                                @foreach($data as $d)
-                                                    <tr>
-                                                        <td class="text-nowrap">{{ $loop->iteration }}</td>
-                                                        <td class="fw-bolder text-dark text-nowrap">
-                                                            {{ \Carbon\Carbon::parse($d->document_date)->format('d-m-Y') ?? '-' }}
-                                                        </td>
-                                                        <td class="text-nowrap">{{ $d?->book?->book_code ?? '-' }}</td>
-                                                        <td class="text-nowrap">{{ $d->document_number ?? '-' }}</td>
-                                                        <td class="text-nowrap">
-                                                            {{ $d->bom_name ?? '-' }}</td>
-                                                        <td class="tableactionnew">
-                                                            <div class="d-flex align-items-center justify-content-end">
-                                                                @php $statusClasss = App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$d->document_status??"draft"];  @endphp
-                                                                <span
-                                                                    class='badge rounded-pill {{ $statusClasss }} badgeborder-radius'>
-                                                                    @if ($d->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED)
-                                                                        Approved
-                                                                    @else
-                                                                        {{ ucfirst($d->document_status) }}
-                                                                    @endif
-                                                                </span>
-
-
-                                                                <div class="dropdown">
-                                                                    <button type="button"
-                                                                        class="btn btn-sm dropdown-toggle hide-arrow p-0"
-                                                                        data-bs-toggle="dropdown">
-                                                                        <i data-feather="more-vertical"></i>
-                                                                    </button>
-                                                                    <div class="dropdown-menu dropdown-menu-end">
-                                                                        @if ($d->document_status == 'draft')
-                                                                            <a class="dropdown-item"
-                                                                                href="{{ route('maint-bom.edit', $d->id) }}">
-                                                                                <i data-feather="edit" class="me-50"></i>
-                                                                                <span>View</span>
-                                                                            </a>
-                                                                        @else
-                                                                            <a class="dropdown-item"
-                                                                                href="{{ route('maint-bom.show', $d->id) }}">
-                                                                                <i data-feather="edit" class="me-50"></i>
-                                                                                <span>View</span>
-                                                                            </a>
-                                                                        @endif
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </td>
-											  </tr>
-                                              @endforeach
-                                              @endisset
-												 </tbody>
+											</tbody>
 
 
 									</table>
@@ -178,52 +128,140 @@
 			</form>
 		</div>
 	</div>
-
 @endsection
 @section('scripts')
-   @section('scripts')
-    <script type="text/javascript" src="{{ asset('assets/js/modules/finance-table.js') }}"></script>
-    <script>
-       $(function() {
-        const dt = initializeBasicDataTable('.datatables-basic', 'Maintenance BOM');
-        $('div.head-label').html('<h6 class="mb-0">Maintenance BOM</h6>');
-    });
-
-
-
-        function showToast(icon, title) {
-            const Toast = Swal.mixin({
-                toast: true,
-                position: "top-end",
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true,
-                didOpen: (toast) => {
-                    toast.onmouseenter = Swal.stopTimer;
-                    toast.onmouseleave = Swal.resumeTimer;
-                },
+<script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
+<script>
+   $(function() {
+      // Initialize DataTable with proper configuration like maint-wo table
+      $('#maint-bom-table').DataTable({
+         processing: true,
+         serverSide: true,
+         colReorder: true,  // Enable column reordering
+         ajax: {
+            url: '{{ route("maint-bom.index") }}',
+            type: 'GET'
+         },
+         columns: [
+            { data: 'DT_RowIndex', orderable: false, searchable: false, className: 'text-nowrap' },
+            { data: 'document_date', name: 'document_date', className: 'fw-bolder text-dark text-nowrap' },
+            { data: 'series', name: 'book_id', orderable: false, className: 'text-nowrap' },
+            { data: 'document_number', name: 'document_number', className: 'text-nowrap' },
+            { data: 'bom_name', name: 'bom_name', className: 'text-nowrap' },
+            { data: 'status', name: 'document_status', orderable: false, searchable: false, className: 'tableactionnew text-end' },
+            { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
+         ],
+         order: [[1, 'desc']], // Default sort by date descending
+         pageLength: 10, // Changed from 25 to 10
+         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+         columnDefs: [
+            {
+                targets: "_all",
+                defaultContent: "N/A", // Set default content like book table
+            },
+         ],
+         dom: '<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-3 dt-action-buttons text-end"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>', // Proper DOM with export buttons
+         buttons: [
+            {
+                extend: 'collection',
+                className: 'btn btn-outline-secondary dropdown-toggle',
+                text: feather.icons['share'].toSvg({ class: 'font-small-4 mr-50' }) + ' Export',
+                buttons: [
+                    {
+                        extend: 'print',
+                        text: feather.icons['printer'].toSvg({ class: 'font-small-4 mr-50' }) + ' Print',
+                        className: 'dropdown-item',
+                        title: 'Maintenance BOM',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5] }
+                    },
+                    {
+                        extend: 'csv',
+                        text: feather.icons['file-text'].toSvg({ class: 'font-small-4 mr-50' }) + ' CSV',
+                        className: 'dropdown-item',
+                        title: 'Maintenance BOM',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5] }
+                    },
+                    {
+                        extend: 'excel',
+                        text: feather.icons['file'].toSvg({ class: 'font-small-4 mr-50' }) + ' Excel',
+                        className: 'dropdown-item',
+                        title: 'Maintenance BOM',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5] }
+                    },
+                    {
+                        extend: 'pdf',
+                        text: feather.icons['clipboard'].toSvg({ class: 'font-small-4 mr-50' }) + ' PDF',
+                        className: 'dropdown-item',
+                        title: 'Maintenance BOM',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5] }
+                    },
+                    {
+                        extend: 'copy',
+                        text: feather.icons['copy'].toSvg({ class: 'font-small-4 mr-50' }) + ' Copy',
+                        className: 'dropdown-item',
+                        title: 'Maintenance BOM',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5] }
+                    }
+                ],
+                init: function (api, node, config) {
+                    $(node).removeClass('btn-secondary').parent().removeClass('btn-group');
+                    setTimeout(function () {
+                        $(node).closest('.dt-buttons').removeClass('btn-group').addClass('d-inline-flex');
+                    }, 50);
+                }
+            }
+         ],
+         drawCallback: function () {
+            feather.replace(); // Initialize Feather icons for action buttons
+            // Add row selection functionality
+            $(document).on("click", "#maint-bom-table tbody tr", (e) => {
+                $("#maint-bom-table tr").removeClass("trselected");
+                $(e.target).closest("tr").addClass("trselected");
             });
-            Toast.fire({
-                icon,
-                title
-            });
-        }
+         },
+         language: {
+            processing: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>',
+            paginate: { previous: '&nbsp;', next: '&nbsp;' }
+         },
+         search: { caseInsensitive: true }
+      });
 
-        @if (session('success'))
-            showToast("success", "{{ session('success') }}");
-        @endif
+      $('div.head-label').html('<h6 class="mb-0">Maintenance BOM</h6>');
 
-        @if (session('error'))
-            showToast("error", "{{ session('error') }}");
-        @endif
+      // Flatpickr for filter input
+      $('#fp-range').flatpickr({
+         mode: 'range',
+         dateFormat: 'Y-m-d'
+      });
+   });
 
+   function showToast(icon, title) {
+      const Toast = Swal.mixin({
+         toast: true,
+         position: "top-end",
+         showConfirmButton: false,
+         timer: 3000,
+         timerProgressBar: true,
+         didOpen: (toast) => {
+            toast.onmouseenter = Swal.stopTimer;
+            toast.onmouseleave = Swal.resumeTimer;
+         },
+      });
+      Toast.fire({ icon, title });
+   }
 
-        @if ($errors->any())
-            showToast('error',
-                "@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach"
-            );
-        @endif
-        handleRowSelection('.datatables-basic');
-    </script>
- 
+   @if (session('success'))
+      showToast("success", "{{ session('success') }}");
+   @endif
+
+   @if (session('error'))
+      showToast("error", "{{ session('error') }}");
+   @endif
+
+   @if ($errors->any())
+      showToast('error',
+         "@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach"
+      );
+   @endif
+</script>
 @endsection

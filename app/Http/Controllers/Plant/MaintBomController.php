@@ -13,20 +13,121 @@ use App\Models\ItemAttribute;
 use App\Models\PlantMaintBom;
 use App\Models\StockLedger;
 use App\Models\PlantMaintBomHistory;
-use Exception;
-
-
-use Illuminate\Support\Facades\DB;
+use Yajra\DataTables\DataTables;
 
 class MaintBomController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $data = PlantMaintBom::orderBy('created_at', 'desc')->get();
-        return view('plant.maint_bom.index', compact('data'));
+        if ($request->ajax()) {
+            return $this->ajaxData($request);
+        }
+
+        return view('plant.maint_bom.index');
+    }
+
+    /**
+     * Get data for DataTables server-side processing
+     */
+    public function ajaxData(Request $request)
+    {
+        $query = PlantMaintBom::select([
+            'id',
+            'bom_name',
+            'document_date',
+            'document_number',
+            'document_status',
+            'book_id'
+        ])->with(['book:id,book_code']);
+
+        // Apply global search if provided
+        if (!empty($request->search['value'])) {
+            $searchValue = $request->search['value'];
+            $query->where(function ($q) use ($searchValue) {
+                $q->where('bom_name', 'LIKE', "%{$searchValue}%")
+                  ->orWhere('document_number', 'LIKE', "%{$searchValue}%");
+            });
+        }
+
+        if (!empty($request->order)) {
+            $columnIndex = $request->order[0]['column'];
+            $direction = $request->order[0]['dir'];
+
+            $columns = [
+                0 => 'id',
+                1 => 'document_date',
+                2 => 'book_id',
+                3 => 'document_number',
+                4 => 'bom_name',
+                5 => 'document_status',
+            ];
+
+            if (isset($columns[$columnIndex])) {
+                $column = $columns[$columnIndex];
+
+                if (in_array($column, ['book_id'])) {
+                    // For foreign key columns, order by the related table column
+                    $query->join('erp_books', 'plant_maint_boms.book_id', '=', 'erp_books.id')
+                          ->orderBy('erp_books.book_code', $direction)
+                          ->select('plant_maint_boms.*');
+                } else {
+                    $query->orderBy($column, $direction);
+                }
+            }
+        } else {
+            $query->orderBy('document_date', 'desc');
+        }
+
+        return DataTables::of($query)
+            ->addIndexColumn()
+            ->editColumn('document_date', function ($row) {
+                return $row->document_date ? \Carbon\Carbon::parse($row->document_date)->format('d-m-Y') : '-';
+            })
+            ->addColumn('series', function ($row) {
+                return $row->book?->book_code ?? '-';
+            })
+            ->addColumn('status', function ($row) {
+                $status = $row->document_status;
+                if (empty($status)) {
+                    $status = "draft";
+                }
+
+                $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$status] ?? 'badge-light-secondary';
+
+                $statusText = ($row->document_status == ConstantHelper::APPROVAL_NOT_REQUIRED)
+                    ? 'Approved'
+                    : ucfirst($row->document_status);
+
+                return '<span class="badge rounded-pill ' . $statusClass . ' badgeborder-radius text-nowrap">' . $statusText . '</span>';
+            })
+            ->addColumn('action', function ($row) {
+                $showUrl = url('plant/maint-bom/' . $row->id);
+                $editUrl = url('plant/maint-bom/' . $row->id . '/edit');
+
+                return '
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
+                            <i data-feather="more-vertical"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            ' . (($row->document_status == 'draft') ? '
+                            <a class="dropdown-item" href="' . $editUrl . '">
+                                <i data-feather="edit-3" class="me-50"></i>
+                                <span>Edit</span>
+                            </a>' : '
+                            <a class="dropdown-item" href="' . $showUrl . '">
+                                <i data-feather="eye" class="me-50"></i>
+                                <span>View</span>
+                            </a>') . '
+                        </div>
+                    </div>
+                ';
+            })
+            ->rawColumns(['status', 'action'])
+            ->make(true);
     }
 
     /**
@@ -210,6 +311,7 @@ class MaintBomController extends Controller
         $approvalHistory = Helper::getApprovalHistory($data->book_id, $id, $revNo, 0,$data->created_by);
 
         $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$data->document_status] ?? '';
+        $documentDate = \Carbon\Carbon::parse($data->document_date)->format('d-m-Y') ?? '-';
         
         $items = Item::where("type", "goods")
             ->with(["uom", "category", "itemAttributes"])
