@@ -693,7 +693,6 @@ class MoController extends Controller
         if($request->has('revisionNumber') && $request->revisionNumber != $bom->revision_number) {
             $bom = $bom->source()->where('revision_number', $request->revisionNumber)->first();
             $buttons['amend']=false;
-            // $view = 'mfgOrder.view';
         }
 
         $stations = Station::where('status', ConstantHelper::ACTIVE)

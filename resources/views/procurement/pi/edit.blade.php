@@ -328,7 +328,7 @@
                                                 <div class="col-md-12">
                                                     <div class="mb-1">
                                                         <label class="form-label">Final Remarks</label>
-                                                        <textarea maxlength="250" type="text" rows="4" name="remarks" class="form-control" placeholder="Enter Remarks here...">{!! $pi->remarks !!}</textarea>
+                                                        <textarea maxlength="250" rows="4" name="remarks" class="form-control" placeholder="Enter Remarks here...">{{ old('remarks', $pi->remarks) }}</textarea>
                                                     </div>
                                                 </div>
                                             </div>

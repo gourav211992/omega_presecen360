@@ -27,13 +27,11 @@
             <tr>
                 <td style="vertical-align: top;">
                     @if (isset($orgLogo) && $orgLogo)
-                        @php
-                            $data = isset($orgLogo) && $orgLogo ? file_get_contents($orgLogo) : '';
-                            $imgType = pathinfo($orgLogo, PATHINFO_EXTENSION);
-                            $base64 = 'data:image/' . $imgType . ';base64,' . base64_encode($data);
-                        @endphp
-                        <img src="{!! $base64 !!}" alt="" height="50px" />
+                        <img src="{!! $orgLogo !!}" alt="" height="50px" />
+                    @else
+                        <img src="{{ $imagePath }}" height="50px" alt="">
                     @endif
+                </td>
                 </td>
                 <td style="text-align: center; vertical-align: bottom; font-weight: bold; font-size: 18px;">
                     Tax Invoice

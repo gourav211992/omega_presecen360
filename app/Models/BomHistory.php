@@ -182,5 +182,14 @@ class BomHistory extends Model
     {
         return $this -> hasMany(ErpBomDynamicField::class, 'header_id');
     }
+      public function bomInstructions()
+    {
+        return $this->hasMany(BomInstructionHistory::class, 'bom_id');
+    }
+
+      public function bomNormAllItems()
+    {
+        return $this->hasMany(BomNormsCalculationHistory::class, 'bom_id');
+    }
 
 }

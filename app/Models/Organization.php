@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Helpers\Helper;
+use P360\Core\Interfaces\FileUploaderInterface;
 
 class Organization extends Model
 {
@@ -77,9 +78,21 @@ class Organization extends Model
         return $this->morphone(Compliance::class, 'morphable');
     }
 
+    // public function getFullLogoPathAttribute(){
+    //     return $this->logo_path
+    //         ? env('AWS_URL').'/'.$this->logo_path
+    //         : null;
+    // }
+
     public function getFullLogoPathAttribute(){
         return $this->logo_path
-            ? env('ADMIN_URL').'/storage/'.$this->logo_path
+            ? app(FileUploaderInterface::class)->getFullPath($this->logo_path)
+            : null;
+    }
+
+    public function getQrCodePathAttribute(){
+        return $this->organization_qr_code
+            ? app(FileUploaderInterface::class)->getFullPath($this->organization_qr_code)
             : null;
     }
 

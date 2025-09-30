@@ -612,7 +612,7 @@ class AutocompleteController extends Controller
                             $subQuery -> whereHas('subTypes', function ($subTypeQuery) use($subTypeIds) {
                                 $subTypeQuery -> whereIn('sub_type_id', $subTypeIds);
                             }) ->orWhere(function ($tradedQuery) {
-                                $tradedQuery -> where('is_traded_item', 1) -> orWhere('is_asset', 1);
+                                $tradedQuery -> where('is_traded_item', 1) -> orWhere('is_asset', 1) -> orWhere('is_scrap', 1);
                             });
                         });
                     })

@@ -1072,15 +1072,18 @@ class BomController extends Controller
             $actionType = $request->action_type;
             $bom->bom_type = ConstantHelper::FIXED;
             $bom->customizable = $request->customizable ?? 'no';
-            if ($currentStatus == ConstantHelper::APPROVED && $actionType == 'amendment') {
-                // $revisionData = [
-                //     ['model_type' => 'header', 'model_name' => 'Bom', 'relation_column' => ''],
-                //     ['model_type' => 'detail', 'model_name' => 'BomDetail', 'relation_column' => 'bom_id'],
-                //     ['model_type' => 'sub_detail', 'model_name' => 'BomAttribute', 'relation_column' => 'bom_detail_id'],
-                //     ['model_type' => 'sub_detail', 'model_name' => 'BomOverhead', 'relation_column' => 'bom_detail_id'],
-                //     ['model_type' => 'sub_detail', 'model_name' => 'BomNormsCalculation', 'relation_column' => 'bom_detail_id']
-                // ];
-                // $a = Helper::documentAmendment($revisionData, $id);
+            if(($currentStatus == ConstantHelper::APPROVED || $currentStatus == ConstantHelper::APPROVAL_NOT_REQUIRED) && $request->action_type == 'amendment')
+            {
+                $revisionData = [
+                    ['model_type' => 'header', 'model_name' => 'Bom', 'relation_column' => ''],
+                    ['model_type' => 'detail', 'model_name' => 'ErpBomDynamicField', 'relation_column' => 'header_id'],
+                    ['model_type' => 'detail', 'model_name' => 'BomInstruction', 'relation_column' => 'bom_id'],
+                    ['model_type' => 'detail', 'model_name' => 'BomDetail', 'relation_column' => 'bom_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'BomAttribute', 'relation_column' => 'bom_detail_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'BomOverhead', 'relation_column' => 'bom_detail_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'BomNormsCalculation', 'relation_column' => 'bom_detail_id']
+                ];
+                Helper::documentAmendment($revisionData, $id);
             }
 
             $keys = ['deletedHeaderOverheadIds', 'deletedItemOverheadIds', 'deletedBomItemIds', 'deletedAttachmentIds', 'deletedProdItemIds', 'deletedInstructionItemIds'];

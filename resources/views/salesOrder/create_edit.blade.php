@@ -176,7 +176,7 @@
 
                                                     <div class="row align-items-center mb-1">
                                                         <div class="col-md-3">
-                                                            <label class="form-label">Reference No </label>
+                                                            <label class="form-label">Reference PO No.<span class="text-danger">*</span></label>
                                                         </div>
 
                                                         <div class="col-md-5">
@@ -2348,7 +2348,7 @@
             }
         }
 
-        function setItemAttributes(elementId, index, readOnly = false)
+        function setItemAttributes(elementId, itemIndex, readOnly = false)
         {
             var elementIdForDropdown = elementId;
             const dropdown = document.getElementById(elementId);
@@ -2369,7 +2369,7 @@
                     ${element.group_name}
                     </td>
                     <td>
-                    <select ${readOnly ? 'disabled' : ''} class="form-select select2" id = "attribute_val_${index}" style = "max-width:100% !important;" onchange = "changeAttributeVal(this, ${elementIdForDropdown}, ${index});">
+                    <select ${readOnly ? 'disabled' : ''} class="form-select select2" id = "attribute_val_${index}" style = "max-width:100% !important;" onchange = "changeAttributeVal(this, ${elementIdForDropdown}, ${index}, ${itemIndex});">
                         <option>Select</option>
                         ${optionsHtml}
                     </select>
@@ -2398,7 +2398,7 @@
 
         }
 
-        function changeAttributeVal(selectedElement, elementId, index)
+        function changeAttributeVal(selectedElement, elementId, index, itemIndex)
         {
             const attributesJSON = JSON.parse(elementId.getAttribute('attribute-array'));
             const selectedVal = selectedElement.value;

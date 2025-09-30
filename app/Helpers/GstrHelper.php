@@ -1211,7 +1211,7 @@ class GstrHelper
         $documentHeader = ErpSaleInvoice::find($docId);
         if (!isset($documentHeader) && !$documentHeader) {
             return array(
-                'status' => false,
+                'status' => 'error',
                 'message' => 'Transaction not found'
             );
         }
@@ -1221,7 +1221,7 @@ class GstrHelper
                 || ($documentHeader->document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS))
         ) {
             return array(
-                'status' => true,
+                'status' => 'success',
                 'message' => 'Not Required',
                 'data' => array()
             );
@@ -1230,7 +1230,7 @@ class GstrHelper
         $voucher = $documentHeader->voucher;
         if (!isset($voucher) && !$voucher) {
             return array(
-                'status' => false,
+                'status' => 'error',
                 'message' => 'Voucher not found'
             );
         }
@@ -1238,7 +1238,7 @@ class GstrHelper
         $party = $documentHeader?->customer;
         if (!isset($party) && !$party) {
             return array(
-                'status' => false,
+                'status' => 'error',
                 'message' => 'Party details not found'
             );
         }
@@ -1362,7 +1362,7 @@ class GstrHelper
         $documentHeader = ErpSaleReturn::find($docId);
         if (!isset($documentHeader) && !$documentHeader) {
             return array(
-                'status' => false,
+                'status' => 'error',
                 'message' => 'Transaction not found'
             );
         }
@@ -1370,7 +1370,7 @@ class GstrHelper
         $voucher = $documentHeader->voucher;
         if (!isset($voucher) && !$voucher) {
             return array(
-                'status' => false,
+                'status' => 'error',
                 'message' => 'Voucher not found'
             );
         }
@@ -1378,7 +1378,7 @@ class GstrHelper
         $party = $documentHeader?->customer;
         if (!isset($party) && !$party) {
             return array(
-                'status' => false,
+                'status' => 'error',
                 'message' => 'Party details not found'
             );
         }
@@ -1394,7 +1394,7 @@ class GstrHelper
         $organization = Organization::find($documentHeader->organization_id);
         if (!isset($organization) && !$organization) {
             return array(
-                'status' => false,
+                'status' => 'error',
                 'message' => 'Supplier details not found'
             );
         }

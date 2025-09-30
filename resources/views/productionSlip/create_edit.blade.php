@@ -2883,6 +2883,7 @@ function reCheckEditScript()
 
 function openAmendConfirmModal()
 {
+    $("#document_status").val('amendment');
     $("#amendConfirmPopup").modal("show");
 }
 

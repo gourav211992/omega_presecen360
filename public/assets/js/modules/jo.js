@@ -24,11 +24,11 @@ function getTaxSummary()
 {
     let taxSummary = {};
     $("#itemTable [id*='row_']").each(function(index, row) {
-        row = $(row);        
+        row = $(row);
         let qty = Number(row.find('[name*="[qty]"]').val());
         let rate = Number(row.find('[name*="[rate]"]').val());
         let itemDisc = Number(row.find('[name*="[discount_amount]"]').val());
-        let itemHeaderDisc = Number(row.find('[name*="[discount_amount_header]"]').val());        
+        let itemHeaderDisc = Number(row.find('[name*="[discount_amount_header]"]').val());
         let totalItemDisc = itemDisc + itemHeaderDisc;
         let totalItemValue = qty * rate;
         let totalItemValueAfterDisc = totalItemValue - totalItemDisc;
@@ -39,7 +39,7 @@ function getTaxSummary()
                 let tType = $(TaxRow).closest('td').find(`[name*="components[${index+1}][taxes][${taxIndex+1}][t_type]"]`).val();
                 let tPerc = Number($(TaxRow).closest('td').find(`[name*="components[${index+1}][taxes][${taxIndex+1}][t_perc]"]`).val());
                 let tValue = Number($(TaxRow).closest('td').find(`[name*="components[${index+1}][taxes][${taxIndex+1}][t_value]"]`).val());
-                let dynamicKey = `${tType}_${tPerc}`;                
+                let dynamicKey = `${tType}_${tPerc}`;
                 if (taxSummary[dynamicKey]) {
                     taxSummary[dynamicKey].totalTaxValue += tValue;
                 } else {
@@ -61,7 +61,7 @@ function getTaxSummary()
     let rowCount = 1;
     for (let key in taxSummary) {
         let summary = taxSummary[key];
-        let amount = Number(summary.totalTaxableAmount).toFixed(); 
+        let amount = Number(summary.totalTaxableAmount).toFixed();
         taxSummaryHtml += `<tr>
         <td>${rowCount}</td>
         <td>${summary.taxType}</td>
@@ -89,7 +89,7 @@ $(document).on('keydown', function(e) {
    $('.trselected').next('tr').addClass('trselected').siblings().removeClass('trselected');
  }
  // if($('.trselected').length) {
- //   $('html, body').scrollTop($('.trselected').offset().top - 200); 
+ //   $('html, body').scrollTop($('.trselected').offset().top - 200);
  // }
 });
 
@@ -197,7 +197,7 @@ function setTableCalculation() {
                 let discPerc = hiddenPerc || Number($(eachItem).val());
                 let eachDiscAmount = 0;
                 if (discPerc) {
-                    eachDiscAmount = (itemValue * discPerc) / 100; 
+                    eachDiscAmount = (itemValue * discPerc) / 100;
                 } else {
                     eachDiscAmount = Number($(`[name="components[${rowCount}][discounts][${index + 1}][dis_amount]"]`).val()) || 0;
                 }
@@ -221,7 +221,7 @@ function setTableCalculation() {
     $("#totalItemValue").attr('amount',totalItemValue).text(totalItemValue.toFixed(2));
     $("#totalItemDiscount").attr('amount',totalItemDiscount).text(totalItemDiscount.toFixed(2));
     $("#TotalEachRowAmount").attr('amount',totalItemCost).text(totalItemCost.toFixed(2));
-    /*Bind table footer*/ 
+    /*Bind table footer*/
 
     $("#f_sub_total").attr('amount',totalItemValue.toFixed(2)).text(totalItemValue.toFixed(2));
     $("#f_total_discount").attr('amount',totalItemDiscount.toFixed(2)).text(totalItemDiscount.toFixed(2));
@@ -242,7 +242,7 @@ function setTableCalculation() {
             $(`[name="disc_summary[${index + 1}][d_amnt]"]`).closest('td').html(`${eachDiscTypePrice.toFixed(2)}
                 <input type="hidden" value="${eachDiscTypePrice.toFixed(2)}" name="disc_summary[${index + 1}][d_amnt]">
             `);
-            // $(`[name="disc_summary[${index + 1}][d_amnt]"]`).val(eachDiscTypePrice.toFixed(2));            
+            // $(`[name="disc_summary[${index + 1}][d_amnt]"]`).val(eachDiscTypePrice.toFixed(2));
             disHeaderAmnt += eachDiscTypePrice;
         });
     } else {
@@ -329,7 +329,7 @@ function setTableCalculation() {
                     .catch(error => {
                         console.error('Fetch error:', error);
                     });
-                taxPromises.push(promise);    
+                taxPromises.push(promise);
             }
         } else {
             $(item3).find("[name*='t_d_id']").remove();
@@ -361,7 +361,7 @@ function setTableCalculation() {
                         let eachTaxTypePrice = 0;
                         let taxPercTax = Number($(eachItem).val());
                         if(taxPercTax) {
-                            eachTaxTypePrice = ((totalAmountAfterItemDis - Number(itemHeaderDisc)) * taxPercTax) / 100; 
+                            eachTaxTypePrice = ((totalAmountAfterItemDis - Number(itemHeaderDisc)) * taxPercTax) / 100;
                             $(item4).find(`[name="components[${rowCount4}][taxes][${index+1}][t_value]"]`).val(eachTaxTypePrice.toFixed(2));
                         } else {
                             $(item4).find(`[name="components[${rowCount4}][taxes][${index+1}][t_value]"]`).val(eachTaxTypePrice.toFixed(2));
@@ -385,16 +385,16 @@ function setTableCalculation() {
             $("#f_taxable_value").attr('style', 'color: #dc3545 !important;');
         } else {
             $("#f_taxable_value").attr('style', 'color: inherit;');
-        }        
+        }
         $("#f_tax").attr('amount',totalTax.toFixed(2)).text(totalTax.toFixed(2));
-        
+
         if (totalTax < 0) {
             // $("#f_tax").attr('style', 'color: #dc3545 !important;');
             let taxAbs = Number($("#f_tax").attr('amount'));
             $("#f_tax").attr('amount',Math.abs(taxAbs)).text(Math.abs(taxAbs));
         } else {
             $("#f_tax").attr('style', 'color: inherit;');
-        }  
+        }
 
         $("#f_total_after_tax").attr('amount',totalAfterTax.toFixed(2)).text(totalAfterTax.toFixed(2));
 
@@ -402,23 +402,23 @@ function setTableCalculation() {
             $("#f_total_after_tax").attr('style', 'color: #dc3545 !important;');
         } else {
             $("#f_total_after_tax").attr('style', 'color: inherit;');
-        } 
+        }
 
         /*Bind header Expenses*/
         if($(".display_summary_exp_row").find("[name*='[e_perc]']").length && totalAfterTax) {
             $(".display_summary_exp_row").find("[name*='[e_perc]']").each(function(index,eachItem) {
                 let eachExpTypePrice = 0;
-                let hiddenPerc = Number($(`[name="exp_summary[${index+1}][hidden_e_perc]"]`).val()) || 0; 
+                let hiddenPerc = Number($(`[name="exp_summary[${index+1}][hidden_e_perc]"]`).val()) || 0;
                 let expDiscPerc = hiddenPerc || Number($(eachItem).val());
                 if(expDiscPerc) {
-                    eachExpTypePrice = (totalAfterTax * expDiscPerc) / 100; 
+                    eachExpTypePrice = (totalAfterTax * expDiscPerc) / 100;
                     // $(`[name="exp_summary[${index+1}][e_amnt]"]`).val(eachExpTypePrice.toFixed(2));
                     $(`[name="exp_summary[${index+1}][e_amnt]"]`).closest('td').html(`
                     ${eachExpTypePrice.toFixed(2)}
                     <input type="hidden" value="${eachExpTypePrice.toFixed(2)}" name="exp_summary[${index+1}][e_amnt]">
                     `);
                 } else {
-                    eachExpTypePrice = Number($(`[name="exp_summary[${index+1}][e_amnt]"]`).val()) || 0; 
+                    eachExpTypePrice = Number($(`[name="exp_summary[${index+1}][e_amnt]"]`).val()) || 0;
                 }
                 totalHeaderExp += eachExpTypePrice;
             });
@@ -441,17 +441,17 @@ function setTableCalculation() {
             $("#f_exp").attr('style', 'color: #dc3545 !important;');
         } else {
             $("#f_exp").attr('style', 'color: inherit;');
-        } 
+        }
 
         /*Bind header Expenses*/
         grandTotal = totalAfterTax + totalHeaderExp;
         $("#f_total_after_exp").attr('amount',grandTotal.toFixed(2)).text(grandTotal.toFixed(2));
-        
+
         if (grandTotal < 0) {
             $("#f_total_after_exp").attr('style', 'color: #dc3545 !important;');
         } else {
             $("#f_total_after_exp").attr('style', 'color: inherit;');
-        } 
+        }
 
         /*Bind header exp item level*/
         let total_net_total = 0;
@@ -519,7 +519,7 @@ $(document).on('click', '.deleteItemDiscountRow', (e) => {
         let hiddenDis = '';
         let totalAmnt = 0;
         $(".display_discount_row").each(function(index,item) {
-            let id = $(item).find('[name*="[item_d_id]"]').val(); 
+            let id = $(item).find('[name*="[item_d_id]"]').val();
             let name = $(item).find('[name*="[item_d_name]"]').val();
             let perc = $(item).find('[name*="[item_d_perc]"]').val();
             let amnt = $(item).find('[name*="[item_d_amnt]"]').val();
@@ -552,7 +552,7 @@ $(document).on('click', '.addDeliveryScheduleBtn', (e) => {
     let rowHtml = '';
     let curDate = new Date().toISOString().split('T')[0];
     let minDate = $("[name='document_date']").val() ?? curDate;
-    if(!$("#itemTable #row_"+rowCount).find("[name*='[d_qty]']").length) {        
+    if(!$("#itemTable #row_"+rowCount).find("[name*='[d_qty]']").length) {
     let rowHtml = `<tr class="display_delivery_row">
                         <td>1</td>
                         <td>
@@ -644,7 +644,7 @@ $(document).on('click', '.addTaxItemRow', (e) => {
         });
         return false;
     }
-    if(qty != itemQty) {        
+    if(qty != itemQty) {
         let tblRowCount = $('#deliveryScheduleModal .display_delivery_row').length + 1;
         let rowHtml = `<tr class="display_delivery_row">
                             <td>${tblRowCount}</td>
@@ -694,7 +694,7 @@ $(document).on('click', '.itemDeliveryScheduleSubmit', (e) => {
         });
         return false;
     }
-    let rowCount = $('#deliveryScheduleModal .display_delivery_row').find('#row_count').val();    
+    let rowCount = $('#deliveryScheduleModal .display_delivery_row').find('#row_count').val();
     let hiddenHtml = '';
     $("#deliveryScheduleTable .display_delivery_row").each(function(index,item){
         let dQty =  $(item).find("[name*='d_qty']").val();
@@ -715,7 +715,7 @@ $(document).on('click', '.deleteItemDeliveryRow', (e) => {
     let id = $(e.target).closest('a').attr('data-id') || 0;
     let rowIndex = e.target.getAttribute('data-row-index');
     let rowCount = e.target.getAttribute('data-row-count');
-    if (!Number(id)) {        
+    if (!Number(id)) {
         $(e.target).closest('tr').remove();
         setTimeout(() => {
             let rowCount = $(".display_delivery_row").find('#row_count').val();
@@ -770,7 +770,7 @@ $(document).on('click', '.itemRemarkSubmit', (e) => {
     if(!remarkValue.length) {
         rowHidden = `<input type="hidden" value="${textValue}" name="components[${rowCount}][remark]" />`;
         $("#itemTable #row_"+rowCount).find('.addRemarkBtn').after(rowHidden);
-        
+
     } else{
         $("#itemTable #row_"+rowCount).find("[name*='remark']").val(textValue);
     }
@@ -885,7 +885,7 @@ function checkVendorFilledDetail()
         filled = true;
     }
     return filled;
-} 
+}
 /*Check filled component*/
 function checkComponentRowExist()
 {
@@ -910,7 +910,7 @@ function checkComponentRowExist()
 //             e.preventDefault();
 //             e.stopPropagation();
 //         });
-        
+
 //         $('#item_section :input').prop('disabled', true);
 //         $('#item_section').on('click', function(e) {
 //             e.preventDefault();
@@ -918,7 +918,7 @@ function checkComponentRowExist()
 //         });
 //     } else {
 //         $('#vendor_section :input').prop('disabled', false);
-//         $('#vendor_section').off('click');        
+//         $('#vendor_section').off('click');
 //         if (!checkVendorFilledDetail()) {
 //             $('#item_section :input').prop('disabled', true);
 //             $('#item_section').on('click', function(e) {
@@ -1032,10 +1032,10 @@ $(document).on('click', '#add_new_item_dis', (e) => {
     } else {
         $(".display_discount_row:last").after(tr);
     }
-    $("#new_item_dis_name_select").val('');  
-    $("#new_item_discount_id").val('');  
-    $("#new_item_dis_name").val('');  
-    $("#new_item_dis_perc").val('').prop('readonly',false);  
+    $("#new_item_dis_name_select").val('');
+    $("#new_item_discount_id").val('');
+    $("#new_item_dis_name").val('');
+    $("#new_item_dis_perc").val('').prop('readonly',false);
     $("#new_item_dis_value").val('').prop('readonly',false);
     let total_head_dis = 0;
     $("[name*='[item_d_amnt]']").each(function(index,item) {
@@ -1046,8 +1046,8 @@ $(document).on('click', '#add_new_item_dis', (e) => {
     let hiddenDis = '';
     let totalAmnt = 0;
     $(".display_discount_row").each(function(index,item) {
-        let id = $(item).find('[name*="[item_d_id]"]').val(); 
-        let tedId = $(item).find('[name*="[ted_d_id]"]').val(); 
+        let id = $(item).find('[name*="[item_d_id]"]').val();
+        let tedId = $(item).find('[name*="[ted_d_id]"]').val();
         let name = $(item).find('[name*="[item_d_name]"]').val();
         let perc = $(item).find('[name*="[item_d_perc]"]').val();
         let amnt = $(item).find('[name*="[item_d_amnt]"]').val();
@@ -1060,7 +1060,7 @@ $(document).on('click', '#add_new_item_dis', (e) => {
     });
     $(`[name*="components[${rowCount}][discount_amount]"]`).val(totalAmnt);
     $(`[name*="components[${rowCount}][discount_amount]"]`).after(hiddenDis);
-    setTableCalculation();  
+    setTableCalculation();
 });
 /*Header discount perc change*/
 $(document).on('keyup', '#new_item_dis_perc', (e) => {
@@ -1104,7 +1104,7 @@ $(document).on('keyup', '#new_item_dis_value', (e) => {
     let input = $(e.target);
     input.prop('readonly',false);
     let value = parseFloat(input.val());
-    $("#new_item_dis_perc").prop('readonly', Boolean(value)).val('');    
+    $("#new_item_dis_perc").prop('readonly', Boolean(value)).val('');
     return false;
 });
 /*Add New Summary Discount*/
@@ -1155,10 +1155,10 @@ $(document).on('click', '#add_new_head_dis', (e) => {
     } else {
         $(".display_summary_discount_row:last").after(tr);
     }
-    $("#new_discount_id").val('');  
-    $("#new_dis_name_select").val('');  
-    $("#new_dis_name").val('');  
-    $("#new_dis_perc").val('').prop('readonly',false);  
+    $("#new_discount_id").val('');
+    $("#new_dis_name_select").val('');
+    $("#new_dis_name").val('');
+    $("#new_dis_perc").val('').prop('readonly',false);
     $("#new_dis_value").val('').prop('readonly',false);
     let total_head_dis = 0;
     $("[name*='[d_amnt]']").each(function(index,item) {
@@ -1170,7 +1170,7 @@ $(document).on('click', '#add_new_head_dis', (e) => {
         $('#f_header_discount_hidden').addClass('d-none');
     }
     $("#disSummaryFooter #total").text(total_head_dis.toFixed(2));
-    setTableCalculation();  
+    setTableCalculation();
 });
 /*Header discount perc change*/
 $(document).on('keyup', '#new_dis_perc', (e) => {
@@ -1211,7 +1211,7 @@ $(document).on('keyup', '#new_dis_value', (e) => {
     let input = $(e.target);
     input.prop('readonly',false);
     let value = parseFloat(input.val());
-    $("#new_dis_perc").prop('readonly', Boolean(value)).val('');    
+    $("#new_dis_perc").prop('readonly', Boolean(value)).val('');
     return false;
 });
 /*Add New Summary Discount*/
@@ -1262,17 +1262,17 @@ $(document).on('click', '#add_new_head_exp', (e) => {
     } else {
         $(".display_summary_exp_row:last").after(tr);
     }
-    $("#new_exp_name_select").val('');  
-    $("#new_exp_id").val('');  
-    $("#new_exp_name").val('');  
-    $("#new_exp_perc").val('').prop('readonly',false);  
+    $("#new_exp_name_select").val('');
+    $("#new_exp_id").val('');
+    $("#new_exp_name").val('');
+    $("#new_exp_perc").val('').prop('readonly',false);
     $("#new_exp_value").val('').prop('readonly',false);
     let total_head_exp = 0;
     $("[name*='[e_amnt]']").each(function(index,item) {
         total_head_exp+=Number($(item).val());
     });
     $("#expSummaryFooter #total").text(total_head_exp.toFixed(2));
-    setTableCalculation();  
+    setTableCalculation();
 });
 /*Header discount perc change*/
 $(document).on('keyup', '#new_exp_perc', (e) => {
@@ -1313,11 +1313,11 @@ $(document).on('keyup', '#new_exp_value', (e) => {
     let input = $(e.target);
     input.prop('readonly',false);
     let value = parseFloat(input.val());
-    $("#new_exp_perc").prop('readonly', Boolean(value)).val('');    
+    $("#new_exp_perc").prop('readonly', Boolean(value)).val('');
     return false;
 });
 /*Qty enabled and disabled*/
-function qtyEnabledDisabled() {    
+function qtyEnabledDisabled() {
     $("tr[id*='row_']").each(function(index,item) {
         let qtyDisabled = false;
         if($(item).find("[name*='[attr_name]']").length) {
@@ -1498,7 +1498,7 @@ function initializeAutocompleteVendor(selector, type) {
                 return false;
             }
             var itemId = ui.item.id;
-            
+
             vendorOnChange(itemId);
             $(".editAddressBtn").removeClass('d-none');
             return false;
@@ -1522,7 +1522,7 @@ function initializeAutocompleteVendor(selector, type) {
     });
 }
 initializeAutocompleteVendor("#vendor_name");
-function clearVendorData() 
+function clearVendorData()
 {
     $("#vendor_name").val('');
     $("#vendor_id").val('');
@@ -1554,7 +1554,7 @@ function vendorOnChange(vendorId) {
                     icon: 'error',
                 });
                 return false;
-            }                    
+            }
             if(data.status == 200) {
                 $("#vendor_name").val(data?.data?.vendor?.company_name);
                 $("#vendor_id").val(data?.data?.vendor?.id);
@@ -1606,7 +1606,7 @@ function updateTotalAfterExchangeRate() {
 $("#exchange_rate").on('input change', updateTotalAfterExchangeRate);
 
 // Get PWO Code
-function getIndents() 
+function getIndents()
 {
     let selectedPiIds = localStorage.getItem('selectedPiIds') ?? '[]';
     selectedPiIds = JSON.parse(selectedPiIds);
@@ -1677,7 +1677,7 @@ function openPurchaseRequest()
     initializeAutocompleteQt("so_book_code_input_qt", "so_book_id_qt_val", "document_book", "book_code", "");
 }
 
-function initializeAutocompleteQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "") 
+function initializeAutocompleteQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "")
 {
     $("#" + selector).autocomplete({
         source: function(request, response) {
@@ -1698,7 +1698,7 @@ function initializeAutocompleteQt(selector, selectorSibling, typeVal, labelKey1,
                         return {
                             id: item.id,
                             label: `${item[labelKey1]}${labelKey2 ? (item[labelKey2] ? '-' + item[labelKey2] : '') : ''}`,
-                            code: item[labelKey1] || '', 
+                            code: item[labelKey1] || '',
                         };
                     }));
                 },
@@ -1802,7 +1802,7 @@ function initializeAutocompleteTED(selector, idSelector, nameSelector, type, per
             $(this).autocomplete("search", "");
         }
     });
-} 
+}
 
 // Item component
 function initAutoForItem(selector, type) {
@@ -1829,7 +1829,7 @@ function initAutoForItem(selector, type) {
                     return {
                         id: item.id,
                         label: `${item.item_name} (${item.item_code})`,
-                        code: item.item_code || '', 
+                        code: item.item_code || '',
                         item_id: item.id,
                         item_name:item.item_name,
                         uom_name:item.uom?.name,
@@ -1932,7 +1932,7 @@ function initAutoForSow(selector, type) {
                     return {
                         id: item.id,
                         label: `${item.item_name} (${item.item_code})`,
-                        code: item.item_code || '', 
+                        code: item.item_code || '',
                         item_id: item.id,
                         item_name:item.item_name,
                         item_price:item.price
@@ -1955,8 +1955,8 @@ function initAutoForSow(selector, type) {
         $input.closest('tr').find('[name*="[sow_id]"]').val(itemId);
         $input.closest('tr').find('[name*="[sow]"]').val(itemName);
         $input.closest('tr').find('[name*="[rate]"]').val(itemRate);
-        
-        
+
+
         setTableCalculation();
         validateItems($input, true);
         return false;
@@ -1999,7 +1999,7 @@ function checkBomJobWork(itemId = null,$input) {
                 $input.closest('tr').find("input[name*='item_id']").val('');
                 $input.closest('tr').find("input[name*='item_code']").val('');
                 $input.closest('tr').find("input[name*='inventoty_uom_id']").val();
-                $input.closest('tr').find("input[name*='uom_id']").emopty();
+                $input.closest('tr').find("input[name*='uom_id']").empty();
                 $input.closest('tr').find("input[name*='attr_name']").remove();
                 return false;
             }
@@ -2191,7 +2191,7 @@ $(document).on('click', '.prProcess', (e) => {
                 } else {
                     localStorage.setItem('selectedPiIds', JSON.stringify(newIds));
                 }
-                
+
                 let existingIdsUpdate = JSON.parse(localStorage.getItem('selectedPiIds'));
                 if ($("#itemTable .mrntableselectexcel").find("tr[id*='row_']").length) {
                     $("#itemTable .mrntableselectexcel tr[id*='row_']:last").after(data.data.pos);
@@ -2306,7 +2306,7 @@ if($("#deleteConfirm").length) {
             $("select[name='currency_id']").prop('disabled', false);
             $("select[name='payment_term_id']").prop('disabled', false);
             $(".editAddressBtn").removeClass('d-none');
-            $("#vendor_name").prop('readonly',false); 
+            $("#vendor_name").prop('readonly',false);
             getLocation();
             let vendorName = $("#vendor_name").attr("data-name");
             let vendorId = $("#vendor_id").val() || '';
@@ -2318,7 +2318,7 @@ if($("#deleteConfirm").length) {
                     ._trigger('select', null, { item: item });
                 $("#vendor_name").val(vendorId).trigger('change');
             }
-    
+
         }
     });
 }

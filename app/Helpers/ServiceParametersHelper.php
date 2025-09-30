@@ -912,30 +912,30 @@ class ServiceParametersHelper
             'is_multiple' => false,
             'service_level_visibility' => true
         ],
-        // [
-        //     "name" => self::GL_POSTING_REQUIRED_PARAM,
-        //     "applicable_values" => self::GL_POSTING_REQUIRED_PARAM_VALUES,
-        //     "default_value" => ['no'],
-        //     'is_multiple' => false,
-        //     'service_level_visibility' => true,
-        //     'type' => self::GL_PARAMETERS
-        // ],
-        // [
-        //     "name" => self::GL_POSTING_SERIES_PARAM,
-        //     "applicable_values" => [],
-        //     "default_value" => [],
-        //     'is_multiple' => true,
-        //     'service_level_visibility' => false,
-        //     'type' => self::GL_PARAMETERS
-        // ],
-        // [
-        //     "name" => self::POST_ON_ARROVE_PARAM,
-        //     "applicable_values" => self::POST_ON_ARROVE_PARAM_VALUES,
-        //     "default_value" => ['no'],
-        //     'is_multiple' => false,
-        //     'service_level_visibility' => true,
-        //     'type' => self::GL_PARAMETERS
-        // ],
+        [
+            "name" => self::GL_POSTING_REQUIRED_PARAM,
+            "applicable_values" => self::GL_POSTING_REQUIRED_PARAM_VALUES,
+            "default_value" => ['no'],
+            'is_multiple' => false,
+            'service_level_visibility' => true,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::GL_POSTING_SERIES_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => false,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::POST_ON_ARROVE_PARAM,
+            "applicable_values" => self::POST_ON_ARROVE_PARAM_VALUES,
+            "default_value" => ['no'],
+            'is_multiple' => false,
+            'service_level_visibility' => true,
+            'type' => self::GL_PARAMETERS
+        ],
         // // [
         // //     "name" => self::TAX_REQUIRED_PARAM,
         // //     "applicable_values" => self::TAX_REQUIRED_PARAM_VALUES,

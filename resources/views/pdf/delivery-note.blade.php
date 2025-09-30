@@ -23,12 +23,9 @@
                 <!-- Organization Logo (Left) -->
                 <td style="vertical-align: top;">
                     @if (isset($orgLogo) && $orgLogo)
-                        @php
-                            $data = isset($orgLogo) && $orgLogo ? @file_get_contents($orgLogo) : '';
-                            $imgType = pathinfo($orgLogo, PATHINFO_EXTENSION);
-                            $base64 = 'data:image/' . $imgType . ';base64,' . base64_encode($data);
-                        @endphp
-                        <img src="{!! $base64 !!}" alt="" height="50px" />
+                        <img src="{!! $orgLogo !!}" alt="" height="50px" />
+                    @else
+                        <img src="{{ $imagePath }}" height="50px" alt="">
                     @endif
                 </td>
 
@@ -278,6 +275,9 @@
                     @endif
                     @if(isset($order->transporter_name))
                         <b>Transporter Name: </b>{{ $order->transporter_name ?? '' }},
+                    @endif
+                    @if(isset($order->transporter_gstin))
+                        <b>Transporter GSTIN: </b>{{ $order->transporter_gstin ?? '' }},
                     @endif
                     @if(isset($order->vehicle_no))
                         <b>Vehicle No:  </b>

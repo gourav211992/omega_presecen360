@@ -195,6 +195,8 @@ class GstrController extends Controller
             })
         ->whereBetween('erp_gstr_compiled_data.invoice_date', [$startDate, $endDate])
         ->where('invoice_type_id',$id)
+        ->whereNotNull('erp_gstr_compiled_data.invoice_id')
+        ->groupBy('erp_gstr_compiled_data.invoice_id')
         ->paginate($length);
 
         return view('finance.gstr.detail',[

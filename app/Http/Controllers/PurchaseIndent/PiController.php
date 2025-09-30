@@ -518,7 +518,7 @@ class PiController extends Controller
             }
             $pi->document_status = $request->document_status ?? ConstantHelper::DRAFT;
             $pi->document_date = $request->document_date ?? $pi->document_date;
-            $pi->remarks = $request->remarks ?? null;
+            $pi->remarks = $request->approval_remarks ?? $request->remarks ?? $pi->remarks;
             $pi->save();
             if (isset($request->all()['components']) && count($request->all()['components'])) {
                 foreach ($request->all()['components'] as $c_key => $component) {
@@ -1174,7 +1174,7 @@ class PiController extends Controller
                         'erp_pi_so_mapping.so_id',
                         'erp_pi_so_mapping.item_id',
                         DB::raw('erp_pi_so_mapping.attributes'),
-                        DB::raw('ROUND(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty),6) as total_qty')
+                        DB::raw('CEIL(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty)) as total_qty')
                     )
                     ->groupBy('erp_pi_so_mapping.so_id', 'erp_pi_so_mapping.item_id', 'erp_pi_so_mapping.attributes', 'erp_pi_so_mapping.vendor_id')
                     ->havingRaw('total_qty > 0')
@@ -1186,7 +1186,7 @@ class PiController extends Controller
                         'erp_pi_so_mapping.vendor_id',
                         'erp_pi_so_mapping.item_id',
                         DB::raw('erp_pi_so_mapping.attributes'),
-                        DB::raw('ROUND(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty),6) as total_qty')
+                        DB::raw('CEIL(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty)) as total_qty')
                     )
                     ->groupBy('erp_pi_so_mapping.item_id', 'erp_pi_so_mapping.attributes', 'erp_pi_so_mapping.vendor_id')
                     ->havingRaw('total_qty > 0')
@@ -1248,7 +1248,7 @@ class PiController extends Controller
                         'erp_pi_so_mapping.so_id',
                         'erp_pi_so_mapping.item_id',
                         DB::raw('erp_pi_so_mapping.attributes'),
-                        DB::raw('ROUND(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty),6) as total_qty')
+                        DB::raw('CEIL(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty)) as total_qty')
                     )
                     ->groupBy('erp_pi_so_mapping.so_id', 'erp_pi_so_mapping.item_id', 'erp_pi_so_mapping.attributes', 'erp_pi_so_mapping.vendor_id')
                     ->havingRaw('total_qty > 0')
@@ -1260,7 +1260,7 @@ class PiController extends Controller
                         'erp_pi_so_mapping.vendor_id',
                         'erp_pi_so_mapping.item_id',
                         DB::raw('erp_pi_so_mapping.attributes'),
-                        DB::raw('ROUND(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty),6) as total_qty')
+                        DB::raw('CEIL(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty)) as total_qty')
                     )
                     ->groupBy('erp_pi_so_mapping.item_id', 'erp_pi_so_mapping.attributes', 'erp_pi_so_mapping.vendor_id')
                     ->havingRaw('total_qty > 0')
@@ -1337,7 +1337,7 @@ class PiController extends Controller
                     $requiredQty += $requiredQty * $bufferPerc / 100;
                 }
 
-                $requiredQty = ceil($requiredQty);
+                // $requiredQty = ceil($requiredQty);
 
                 if (!in_array($checkBomExist['sub_type'], ['Expense'])) {
                     $mappingData = [
@@ -1869,6 +1869,7 @@ class PiController extends Controller
 
             $soItemIdArr = array_unique($soItemIdArr);
             $soTracking = $request?->so_tracking_required ?? 'no';
+
             if ($soTracking === 'yes') {
                 $soProcessItems = PiSoMapping::whereIn('so_item_id', $soItemIdArr)
                     ->select(
@@ -1876,14 +1877,9 @@ class PiController extends Controller
                         'erp_pi_so_mapping.so_id',
                         'erp_pi_so_mapping.item_id',
                         DB::raw('erp_pi_so_mapping.attributes'),
-                        DB::raw('ROUND(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty),6) as total_qty')
+                        DB::raw('CEIL(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty)) as total_qty')
                     )
-                    ->groupBy(
-                        'erp_pi_so_mapping.so_id',
-                        'erp_pi_so_mapping.item_id',
-                        'erp_pi_so_mapping.attributes',
-                        'erp_pi_so_mapping.vendor_id'
-                    )
+                    ->groupBy('erp_pi_so_mapping.so_id', 'erp_pi_so_mapping.item_id', 'erp_pi_so_mapping.attributes', 'erp_pi_so_mapping.vendor_id')
                     ->havingRaw('total_qty > 0')
                     ->get();
             } else {
@@ -1893,17 +1889,12 @@ class PiController extends Controller
                         'erp_pi_so_mapping.vendor_id',
                         'erp_pi_so_mapping.item_id',
                         DB::raw('erp_pi_so_mapping.attributes'),
-                        DB::raw('ROUND(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty),6) as total_qty')
+                        DB::raw('CEIL(SUM(erp_pi_so_mapping.qty - erp_pi_so_mapping.pi_item_qty)) as total_qty')
                     )
-                    ->groupBy(
-                        'erp_pi_so_mapping.item_id',
-                        'erp_pi_so_mapping.attributes',
-                        'erp_pi_so_mapping.vendor_id'
-                    )
+                    ->groupBy('erp_pi_so_mapping.item_id', 'erp_pi_so_mapping.attributes', 'erp_pi_so_mapping.vendor_id')
                     ->havingRaw('total_qty > 0')
                     ->get();
             }
-
 
             $html = view('procurement.pi.partials.so-process-data', [
                 'soTracking' => $soTracking,

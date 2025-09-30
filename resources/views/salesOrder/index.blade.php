@@ -51,7 +51,7 @@
                                                 <th>Type</th>
                                                 <th>Location</th>
                                                 <th>Rev No</th>
-                                                <th>Ref No</th>
+                                                <th>Ref PO No</th>
                                                 <th>Customer</th>
                                                 <th>Items</th>
                                                 <th>Curr</th>

@@ -473,13 +473,26 @@ class ErpSaleOrderController extends Controller
                 $document_number = $numberPatternData['document_number'] ? $numberPatternData['document_number'] : $request -> document_no;
                 $regeneratedDocExist = ErpSaleOrder::withDefaultGroupCompanyOrg() -> where('book_id',$request->book_id)
                     ->where('document_number',$document_number)->first();
-                    //Again check regenerated doc no
-                    if (isset($regeneratedDocExist)) {
-                        return response()->json([
-                            'message' => ConstantHelper::DUPLICATE_DOCUMENT_NUMBER,
-                            'error' => "",
-                        ], 422);
-                    }
+                //Again check regenerated doc no
+                if ($regeneratedDocExist) {
+                    return response()->json([
+                        'message' => ConstantHelper::DUPLICATE_DOCUMENT_NUMBER,
+                        'error' => "",
+                    ], 422);
+                }
+            }
+            //Check reference No
+            $isReferenceNoExisting = ErpSaleOrder::where('customer_id', $request -> customer_id) 
+                -> where('reference_number', $request -> reference_no) -> when($request -> sale_order_id, function ($ignoreQuery) use($request) {
+                    $ignoreQuery -> where('id', '!=', $request -> sale_order_id);
+                }) -> first();
+            if ($isReferenceNoExisting) {
+                return response() -> json([
+                    'message' => '',
+                    'errors' => array(
+                        'reference_no' => "Reference PO should be unique"
+                    )
+                ], 422);
             }
             $saleOrder = null;
             //Reset Customer Fields
@@ -1083,7 +1096,6 @@ class ErpSaleOrderController extends Controller
                             'sale_order_id' => $saleOrder -> id,
                             'so_item_id' => $soItem -> id,
                         ]) -> whereNotIn('id', $itemAttributeIds) -> delete();
-
                     }
                 } else {
                     DB::rollBack();
@@ -1258,7 +1270,7 @@ class ErpSaleOrderController extends Controller
             if ($customer -> customer_type === ConstantHelper::CASH) {
                 $phoneNo = $request -> phone_no ?? null;
                 $cashCustomerDetail = CashCustomerDetail::where('phone_no', $phoneNo) -> first();
-                $billingAddresses = ErpAddress::where('addressable_id', $cashCustomerDetail ?-> id)->where('addressable_type', CashCustomerDetail::class)->where(function ($subQuery) {
+                    $billingAddresses = ErpAddress::where('addressable_id', $cashCustomerDetail ?-> id)->where('addressable_type', CashCustomerDetail::class)->where(function ($subQuery) {
                     $subQuery -> whereIn('type', ['billing', 'both']) -> orWhere('is_billing', 1);
                 })->get();
                 $shippingAddresses = ErpAddress::where('addressable_id', $cashCustomerDetail ?-> id)->where('addressable_type', CashCustomerDetail::class)->where(function ($subQuery) {
@@ -2166,8 +2178,8 @@ class ErpSaleOrderController extends Controller
             ->addColumn('store_name', function ($row) {
                 return $row -> header ?-> store ?-> store_name;
             })
-            ->addColumn('store_name', function ($row) {
-                return $row -> header ?-> store ?-> store_name;
+            ->addColumn('reference_number', function ($row) {
+                return $row -> header ?-> reference_number;
             })
             ->addColumn('customer_name', function ($row) {
                 return $row -> header ?-> customer ?-> company_name;

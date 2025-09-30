@@ -560,6 +560,13 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">Transporter Name<span class="text-danger">*</span></label>
                                                             <input type="text" class="form-control {{isset($editTransporterFields) && $editTransporterFields ? 'cannot_disable' : ''}}" id = "transporter_name_input" name = "transporter_name" value = "{{isset($order) ? $order -> transporter_name : ''}}" />
+                                                            <input type="hidden" id = "transporter_id_input" name = "transporter_id" value = "{{isset($order) ? $order -> transporter_id : ''}}" />
+                                                        </div>
+                                                </div>
+												<div class="col-md-3">
+                                                        <div class="mb-1">
+                                                            <label class="form-label">Transporter GSTIN</label>
+                                                            <input type="text" class="form-control {{isset($editTransporterFields) && $editTransporterFields ? 'cannot_disable' : ''}}" id = "transporter_gstin_input" name = "transporter_gstin" value = "{{isset($order) ? $order -> transporter_gstin : ''}}" />
                                                         </div>
                                                 </div>
 
@@ -1090,7 +1097,7 @@
 
                      <div class="col">
                             <div class="mb-1">
-                            <label class="form-label">Customer Name <span class="text-danger">*</span></label>
+                            <label class="form-label">Customer Name</label>
                                 <input type="text" id="customer_code_input_so" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
                                 <input type = "hidden" id = "customer_id_so_val"></input>
                             </div>
@@ -1098,24 +1105,31 @@
 
                         <div class="col">
                             <div class="mb-1">
-                                <label class="form-label">Series <span class="text-danger">*</span></label>
+                                <label class="form-label">Series</label>
                                 <input type="text" id="book_code_input_so" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
                                 <input type = "hidden" id = "book_id_so_val"></input>
                             </div>
                         </div>
 
 
-                         <div class="col">
+                        <div class="col">
                             <div class="mb-1">
-                                <label class="form-label">Document No. <span class="text-danger">*</span></label>
-                                <input type="text" id="document_no_input_so" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
+                                <label class="form-label">Document No.</label>
+                                <input type="text" id="document_no_input_so" placeholder="Select" class="form-control mw-100" oninput = "debouncedGetOrders('so')">
                                 <input type = "hidden" id = "document_id_so_val"></input>
+                            </div>
+                        </div>
+
+                        <div class="col">
+                            <div class="mb-1">
+                                <label class="form-label">Ref PO No.</label>
+                                <input type="text" id="ref_no_input_so" placeholder="Search" class="form-control mw-100" oninput = "debouncedGetOrders('so')">
                             </div>
                         </div>
 
                          <div class="col">
                             <div class="mb-1">
-                                <label class="form-label">Item Name <span class="text-danger">*</span></label>
+                                <label class="form-label">Item Name</label>
                                 <input type="text" id="item_name_input_so" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
                                 <input type = "hidden" id = "item_id_so_val"></input>
                             </div>
@@ -1140,6 +1154,7 @@
 											<th>Series</th>
 											<th>Doc No.</th>
 											<th>Doc Date</th>
+											<th>Ref PO No.</th>
                                             <th>Currency</th>
                                             <th>Customer Name</th>
 											<th>Item Code</th>
@@ -1278,7 +1293,7 @@
 
                      <div class="col">
                             <div class="mb-1">
-                            <label class="form-label">Customer Name <span class="text-danger">*</span></label>
+                            <label class="form-label">Customer Name</label>
                                 <input type="text" id="customer_code_input_dnote" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
                                 <input type = "hidden" id = "customer_id_dnote_val"></input>
                             </div>
@@ -1286,7 +1301,7 @@
 
                         <div class="col">
                             <div class="mb-1">
-                                <label class="form-label">Series <span class="text-danger">*</span></label>
+                                <label class="form-label">Series</label>
                                 <input type="text" id="book_code_input_dnote" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
                                 <input type = "hidden" id = "book_id_dnote_val"></input>
                             </div>
@@ -1295,15 +1310,22 @@
 
                          <div class="col">
                             <div class="mb-1">
-                                <label class="form-label">Document No. <span class="text-danger">*</span></label>
-                                <input type="text" id="document_no_input_dnote" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
+                                <label class="form-label">Document No.</label>
+                                <input type="text" id="document_no_input_dnote" placeholder="Select" class="form-control mw-100" oninput = "debouncedGetOrders('dnote')">
                                 <input type = "hidden" id = "document_id_dnote_val"></input>
+                            </div>
+                        </div>
+
+                        <div class="col">
+                            <div class="mb-1">
+                                <label class="form-label">Ref No.</label>
+                                <input type="text" id="ref_no_input_dnote" placeholder="Search" class="form-control mw-100" oninput = "debouncedGetOrders('dnote')">
                             </div>
                         </div>
 
                          <div class="col">
                             <div class="mb-1">
-                                <label class="form-label">Item Name <span class="text-danger">*</span></label>
+                                <label class="form-label">Item Name</label>
                                 <input type="text" id="item_name_input_dnote" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
                                 <input type = "hidden" id = "item_id_dnote_val"></input>
                             </div>
@@ -1328,6 +1350,7 @@
 											<th>Series</th>
 											<th>Doc No.</th>
 											<th>Doc Date</th>
+											<th>Ref No.</th>
                                             <th>Currency</th>
                                             <th>Customer Name</th>
 											<th>Item Code</th>
@@ -2677,6 +2700,7 @@
 @section('scripts')
 <script type="text/javascript" src="{{asset('app-assets/js/file-uploader.js')}}"></script>
 <script type="text/javascript" src="{{asset('app-assets/js/scripts/sales/common.js')}}"></script>
+<script type="text/javascript" src="{{asset('app-assets/js/scripts/sales/debounceUtility.js')}}"></script>
 <script>
     var currentfy = JSON.stringify({!! isset($order) ? $order : " " !!});
     let requesterTypeParam = "{{isset($order) ? $order -> requester_type : 'Department'}}";
@@ -3703,8 +3727,55 @@
         });
     }
 
+    function initializeAutocompleteTransporter(selector) {
+        $("#" + selector).autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "{{ route('sales.autoComplete.transporters') }}",
+                    method: 'GET',
+                    dataType: 'json',
+                    data: {
+                        q: request.term,
+                    },
+                    success: function(data) {
+                        response($.map(data, function(item) {
+                            return {
+                                id: item.id,
+                                label: `${item.company_name}`,
+                                gstin: `${item?.compliances?.gstin_no ? item?.compliances?.gstin_no  : ''}`
+                            };
+                        }));
+                    },
+                    error: function(xhr) {
+                        console.error('Error fetching customer data:', xhr.responseText);
+                    }
+                });
+            },
+            minLength: 0,
+            select: function(event, ui) {
+                var $input = $(this);
+                
+                $input.val(ui.item.label);
+                document.getElementById('transporter_id_input').value = ui.item.id;
+                document.getElementById('transporter_gstin_input').value = ui.item.gstin;
+                return false;
+            },
+            change: function(event, ui) {
+                if (!ui.item) {
+                    document.getElementById('transporter_id_input').value = "";
+                    document.getElementById('transporter_gstin_input').value = "";
+                }
+            }
+        }).focus(function() {
+            if (this.value === "") {
+                $(this).autocomplete("search", "");
+            }
+        });
+    }
+
     initializeAutocompleteCustomer('customer_code_input');
     initializeAutocompleteConsignee('consignee_name_input');
+    initializeAutocompleteTransporter('transporter_name_input');
 
     function checkItemAddValidation()
     {
@@ -3884,6 +3955,7 @@
                             //Basic Details
                             //Disable Header
                         //Basic Details
+                        $("#reference_no_input").val(currentOrder?.reference_number);
                         $("#customer_code_input").val(currentOrder.customer?.company_name);
                         $("#customer_id_input").val(currentOrder.customer_id);
                         $("#customer_code_input_hidden").val(currentOrder.customer?.company_name);
@@ -3931,6 +4003,8 @@
                         }
                         //General Detail
                         $("#transporter_name_input").val(currentOrder?.transporter_name);
+                        $("#transporter_id_input").val(currentOrder?.transporter_id);
+                        $("#transporter_gstin_input").val(currentOrder?.transporter_gstin);
                         // $("#transporter_mode_input").val(currentOrder?.transportation_mode);
                         $("#vehicle_no_input").val(currentOrder.vehicle_no);
                         $("#lr_number_input").val(currentOrder?.lr_number);
@@ -4345,12 +4419,37 @@
                     { data: 'pl_avl_qty', name: 'pl_avl_qty'},
                     { data: 'avl_stock', name: 'avl_stock'}
                 ];
-            } else {
+            } else if (type == 'dnote') {
                 return [
                     checkboxColumn(),
                     { data: 'header.book_code', name: 'book_code' },
                     { data: 'header.document_number', name: 'document_number' },
                     { data: 'header.document_date', name: 'document_date' },
+                    { data: 'header.reference_number', name: 'reference_number' },
+                    { data: 'header.currency_code', name: 'currency_code' },
+                    { data: 'header.customer.company_name', name: 'company_name' },
+                    { data: 'item_code', name: 'item_code' },
+                    { data: 'item_name', name: 'item_name' },
+                    {
+                        data: 'attributes',
+                        name: 'attributes',
+                        render: attrs => attrs?.map(attr =>
+                            `<span class="badge rounded-pill badge-light-primary">${attr.attribute_name} : ${attr.attribute_value}</span>`
+                        ).join('') || ''
+                    },
+                    { data: 'uom.name', name: 'uom'},
+                    { data: 'order_qty', name: 'order_qty'},
+                    { data: 'balance_qty', name: 'balance_qty'},
+                    { data: 'avl_stock', name: 'avl_stock'},
+                    { data: 'rate', name: 'rate'},
+                ];
+            }  else {
+                return [
+                    checkboxColumn(),
+                    { data: 'header.book_code', name: 'book_code' },
+                    { data: 'header.document_number', name: 'document_number' },
+                    { data: 'header.document_date', name: 'document_date' },
+                    { data: 'header.reference_number', name: 'reference_number' },
                     { data: 'header.currency_code', name: 'currency_code' },
                     { data: 'header.customer.company_name', name: 'company_name' },
                     { data: 'item_code', name: 'item_code' },
@@ -4399,7 +4498,6 @@
             sub_store_id : $("#sub_store_id_input"),
             selected_ids: selectedIds
         };
-
         if (type === 'plist') {
             filters.customer_id = $("#customer_id_plist_val");
             filters.book_id = $("#book_id_plist_val");
@@ -4415,11 +4513,18 @@
             filters.book_id = $("#book_id_lr_val");
             filters.item_id = $("#item_id_qt_val");
             filters.document_id = $("#document_id_lr_val");
-        } else {
-            filters.customer_id = $("#customer_id_qt_val");
-            filters.book_id = $("#book_id_qt_val");
-            filters.item_id = $("#item_id_qt_val");
-            filters.document_id = $("#document_id_qt_val");
+        } else if (type == 'dnote') {
+            filters.customer_id = $("#customer_id_dnote_val");
+            filters.book_id = $("#book_id_dnote_val");
+            filters.item_id = $("#item_id_dnote_val");
+            filters.doc_no = $("#document_no_input_dnote");
+            filters.ref_no = $("#ref_no_input_dnote");
+        }  else {
+            filters.customer_id = $("#customer_id_so_val");
+            filters.book_id = $("#book_id_so_val");
+            filters.item_id = $("#item_id_so_val");
+            filters.doc_no = $("#document_no_input_so");
+            filters.ref_no = $("#ref_no_input_so");
         }
 
         console.log("Table Selector", tableSelector);
@@ -4476,12 +4581,14 @@
                     var $input = $(this);
                     $input.val(ui.item.label);
                     $("#" + selectorSibling).val(ui.item.id);
+                    getOrders(openPullType);
                     return false;
                 },
                 change: function(event, ui) {
                     if (!ui.item) {
                         $(this).val("");
                         $("#" + selectorSibling).val("");
+                        getOrders(openPullType);
                     }
                 }
             }).focus(function() {
@@ -4505,14 +4612,10 @@
         if (avlStock) {
             avlStock.style.removeProperty('display');
         }
-        // document.getElementById('qts_data_table').innerHTML = '';
-        // document.getElementById('qts_data_table_land').innerHTML = '';
-        // document.getElementById('qts_data_table_plist').innerHTML = '';
         if (type == "si") {
             openPullType = "so";
             initializeAutocompleteQt("book_code_input_qt", "book_id_qt_val", "book_so", "book_code", "book_name");
             initializeAutocompleteQt("document_no_input_qt", "document_id_qt_val", "sale_order_document", "document_number", "document_number");
-
         } else if (type == 'dnote') {
             if (pslipHeader) {
                 pslipHeader.style.display = "none";
@@ -4521,8 +4624,10 @@
                 avlStock.style.display = "none";
             }
             openPullType = "dnote";
-            initializeAutocompleteQt("book_code_input_qt", "book_id_qt_val", "book_din", "book_code", "book_name");
-            initializeAutocompleteQt("document_no_input_qt", "document_id_qt_val", "din_document", "document_number", "document_number");
+            initializeAutocompleteQt("book_code_input_dnote", "book_id_dnote_val", "book_din", "book_code", "book_name");
+            initializeAutocompleteQt("customer_code_input_dnote", "customer_id_dnote_val", "customer_list", "company_name");
+            initializeAutocompleteQt("item_name_input_dnote", "item_id_dnote_val", "sale_module_items", "item_name", "item_code");
+
         }
         // else if (type === "dnote") {
         //     openPullType = "so";
@@ -4554,12 +4659,13 @@
             initializeAutocompleteQt("item_name_input_pl", "item_id_pl_val", "sale_module_items", "item_code", "item_name");
         }else {
             openPullType = "so";
-            initializeAutocompleteQt("book_code_input_qt", "book_id_qt_val", "book_so", "book_code", "book_name");
-            initializeAutocompleteQt("document_no_input_qt", "document_id_qt_val", "sale_order_document", "document_number", "document_number");
+            initializeAutocompleteQt("book_code_input_so", "book_id_so_val", "book_so", "book_code", "book_name");
+            initializeAutocompleteQt("customer_code_input_so", "customer_id_so_val", "customer_list", "company_name");
+            initializeAutocompleteQt("item_name_input_so", "item_id_so_val", "sale_module_items", "item_name", "item_code");
         }
-        initializeAutocompleteQt("customer_code_input_qt", "customer_id_qt_val", "customer", "customer_code", "company_name");
-        initializeAutocompleteQt("customer_code_input_qt_land", "customer_id_qt_val_land", "customer", "customer_code", "company_name");
-        initializeAutocompleteQt("item_name_input_qt", "item_id_qt_val", "sale_module_items", "item_code", "item_name");
+        // initializeAutocompleteQt("customer_code_input_qt", "customer_id_qt_val", "customer", "customer_code", "company_name");
+        // initializeAutocompleteQt("customer_code_input_qt_land", "customer_id_qt_val_land", "customer", "customer_code", "company_name");
+        // initializeAutocompleteQt("item_name_input_qt", "item_id_qt_val", "sale_module_items", "item_code", "item_name");
         if (type === 'land-lease') {
             getOrders('land-lease');
         } else {
@@ -5770,7 +5876,10 @@ function initializeAutocompleteTed(selector, idSelector, type, percentageVal) {
             `so_no_input_${type}`,
             `so_id_${type}_val`,
             `item_name_input_${type}`,
-            `item_id_${type}_val`
+            `item_id_${type}_val`,
+            `ref_no_input_${type}`,
+            `customer_code_input_${type}`,
+            `customer_id_${type}_val`
         ];
 
         fields.forEach(id => {
@@ -5848,6 +5957,8 @@ function initializeAutocompleteTed(selector, idSelector, type, percentageVal) {
         $("#manual_ewb_dn_id").val(saleInvoiceId);
         openModal('manualEwayBill');
     }
+
+    const debouncedGetOrders = debounce(getOrders, 600);
 
 </script>
 @endsection

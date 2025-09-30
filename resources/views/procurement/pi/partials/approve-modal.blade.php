@@ -16,7 +16,7 @@
               <div class="col-md-12">
                   <div class="mb-2">
                       <label for="remarks" class="form-label">Remarks</label>
-                      <textarea id="remarks" maxlength="250" name="remarks" class="form-control" placeholder="Enter your remarks..."></textarea>
+                      <textarea id="remarks" maxlength="250" name="approval_remarks" class="form-control" placeholder="Enter your remarks..."></textarea>
                   </div>
                   <div class="mb-2">
                       <label for="attachments" class="form-label">Upload Document</label>

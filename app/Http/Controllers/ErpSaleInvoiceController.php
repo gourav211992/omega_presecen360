@@ -727,6 +727,8 @@ class ErpSaleInvoiceController extends Controller
                 $saleInvoice -> vehicle_no = $request -> vehicle_no;
                 $saleInvoice -> lr_number = $request -> lr_number ?? null;
                 $saleInvoice -> transporter_name = $request -> transporter_name;
+                $saleInvoice -> transporter_id = $request -> transporter_id;
+                $saleInvoice -> transporter_gstin = $request -> transporter_gstin;
                 $saleInvoice -> transportation_mode = $transportationMode ?-> description;
                 $saleInvoice -> eway_bill_master_id = $transportationMode ?-> id;
                 // $saleInvoice -> eway_bill_no = $request -> eway_bill_no;
@@ -902,6 +904,8 @@ class ErpSaleInvoiceController extends Controller
                     'vehicle_no' => $request -> vehicle_no,
                     'lr_number' => $request -> lr_number ?? null,
                     'transporter_name' => $request -> transporter_name,
+                    'transporter_id' => $request -> transporter_id,
+                    'transporter_gstin' => $request -> transporter_gstin,
                     'transportation_mode' => $transportationMode ?-> description,
                     'eway_bill_master_id' => $transportationMode ?-> id,
                     // 'eway_bill_no' => $request -> eway_bill_no,
@@ -1544,6 +1548,16 @@ class ErpSaleInvoiceController extends Controller
                                 ], 422);
                             }
                         }
+                        ErpSaleInvoiceTed::where([
+                            'sale_invoice_id' => $saleInvoice -> id,
+                            'invoice_item_id' => $soItem -> id,
+                            'ted_type' => 'Tax',
+                            'ted_level' => 'D',
+                        ]) -> whereNotIn('id', $itemTaxIds) -> delete();
+                        ErpInvoiceItemAttribute::where([
+                            'sale_invoice_id' => $saleInvoice -> id,
+                            'invoice_item_id' => $soItem -> id,
+                        ]) -> whereNotIn('id', $itemAttributeIds) -> delete();
                     }
                 } else {
                     DB::rollBack();
@@ -1552,16 +1566,6 @@ class ErpSaleInvoiceController extends Controller
                         'error' => "",
                     ], 422);
                 }
-                ErpSaleInvoiceTed::where([
-                    'sale_invoice_id' => $saleInvoice -> id,
-                    'invoice_item_id' => $soItem -> id,
-                    'ted_type' => 'Tax',
-                    'ted_level' => 'D',
-                ]) -> whereNotIn('id', $itemTaxIds) -> delete();
-                ErpInvoiceItemAttribute::where([
-                    'sale_invoice_id' => $saleInvoice -> id,
-                    'invoice_item_id' => $soItem -> id,
-                ]) -> whereNotIn('id', $itemAttributeIds) -> delete();
                 //Header TED (Discount)
                 if (isset($request -> order_discount_value) && count($request -> order_discount_value) > 0) {
                     foreach ($request -> order_discount_value as $orderDiscountKey => $orderDiscountVal) {
@@ -1914,10 +1918,12 @@ class ErpSaleInvoiceController extends Controller
                             ->whereIn('book_id', $applicableBookIds)
                             ->when($request->customer_id, fn($q) => $q->where('customer_id', $request->customer_id))
                             ->when($request->book_id, fn($q) => $q->where('book_id', $request->book_id))
-                            ->when($request->document_id, fn($q) => $q->where('id', $request->document_id));
+                            ->when($request->doc_no, fn($q) => $q->where('document_number', 'LIKE', '%' . $request->doc_no . '%'))
+                            ->when($request->ref_no, fn($q) => $q->where('reference_number', 'LIKE', '%' . $request->ref_no . '%'));
                     })
                     ->whereRaw('((order_qty - short_close_qty - GREATEST(picked_qty, plist_qty, dnote_qty)) + srn_qty) > 0')
                     ->where('sale_type', 'sale')
+                    ->when($request->item_id, fn($q) => $q->where('item_id', $request -> item_id))
                     ->when(count($selectedIds) > 0, fn($q) => $q->whereNotIn('id', $selectedIds));
 
             } elseif (in_array($request->doc_type, [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS])) {
@@ -1931,9 +1937,11 @@ class ErpSaleInvoiceController extends Controller
                             ->whereIn('book_id', $applicableBookIds)
                             ->when($request->customer_id, fn($q) => $q->where('customer_id', $request->customer_id)->where('store_id', $request->store_id))
                             ->when($request->book_id, fn($q) => $q->where('book_id', $request->book_id))
-                            ->when($request->document_id, fn($q) => $q->where('id', $request->document_id));
+                            ->when($request->doc_no, fn($q) => $q->where('document_number', 'LIKE', '%' . $request->doc_no . '%'))
+                            ->when($request->ref_no, fn($q) => $q->where('reference_number', 'LIKE', '%' . $request->ref_no . '%'));
                     })
                     ->whereColumn('invoice_qty', '<', 'order_qty')
+                    ->when($request->item_id, fn($q) => $q->where('item_id', $request -> item_id))
                     ->when(count($selectedIds) > 0, fn($q) => $q->whereNotIn('id', $selectedIds));
 
 
@@ -2925,6 +2933,8 @@ class ErpSaleInvoiceController extends Controller
 
         $options = new Options();
         $options->set('defaultFont', 'Helvetica');
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', true);
         $dompdf = new Dompdf($options);
         
         $html = view($pdfFile,

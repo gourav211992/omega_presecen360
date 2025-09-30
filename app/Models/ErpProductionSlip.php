@@ -91,6 +91,10 @@ class ErpProductionSlip extends Model
     {
         return $this -> hasMany(ErpPslipItem::class, 'pslip_id');
     }
+    public function source()
+    {
+        return $this->hasOne(ErpProductionSlipHistory::class, 'source_id');
+    }
     public function last_so()
     {
         $pslipItem = $this->pslip_items?->count() ? $this->pslip_items()->whereNotNull('so_id')->first() : null;

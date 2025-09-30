@@ -29,6 +29,8 @@ class ErpExternalIntegration extends Model
         'organization_id',
         'book_id',
         'store_id',
+        'trip_book_id',
+        'dnote_book_id',
         'customer_id',
         'status',
         'created_by',

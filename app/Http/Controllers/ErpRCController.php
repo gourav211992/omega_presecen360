@@ -51,7 +51,7 @@ class ErpRCController extends Controller
             $returns = ErpRateContract::withDefaultGroupCompanyOrg()
                 ->withDraftListingLogic()
                 ->orderByDesc('id');
-            return DataTables::of($returns)  
+            return DataTables::of($returns)
                 ->addIndexColumn()
                 ->editColumn('document_status', function ($row) use ($orderType) {
                     $statusClasss = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$row->document_status];
@@ -223,7 +223,7 @@ class ErpRCController extends Controller
             $userOrgs = $user->organizations->pluck('id')->toArray();
             array_push($userOrgs,$user->organization_id);
             $organizations = Organization::whereIn('id',$userOrgs)->where('status', ConstantHelper::ACTIVE)->get();
-        
+
             $buttons = Helper::actionButtonDisplay($order->book_id, $order->document_status, $order->id, $totalValue, $order->approval_level, $order->created_by ?? 0, $userType['type'], $revision_number);
             $type = ConstantHelper::RC_SERVICE_ALIAS;
             $books = Helper::getBookSeries($type)->get();
@@ -259,7 +259,7 @@ class ErpRCController extends Controller
                 'series' => $books,
                 'order' => $order,
                 'countries' => $countries,
-                'buttons' => $buttons,                
+                'buttons' => $buttons,
                 'termsAndConditions' => $termsAndConditions,
                 'dynamicFieldsUi' => $dynamicFieldsUI,
                 'approvalHistory' => $approvalHistory,
@@ -273,7 +273,8 @@ class ErpRCController extends Controller
             return view('rate-contract.create_edit', $data);
 
         } catch (Exception $ex) {
-            dd($ex);
+            // dd($ex);
+            throw new Exception('Error: '.$ex->getMessage());
         }
     }
     public function store(ErpRateContractRequest $request)
@@ -305,7 +306,7 @@ class ErpRCController extends Controller
             if ($currencyExchangeData['status'] == false) {
                 return response()->json([
                     'message' => $currencyExchangeData['message']
-                ], 422); 
+                ], 422);
             }
             if (!$request -> rate_contract_id) {
                 $numberPatternData = Helper::generateDocumentNumberNew($request -> book_id, $request -> document_date);
@@ -383,7 +384,7 @@ class ErpRCController extends Controller
                 }
             } else { //Create
                 $party = null;
-                
+
                 if ($request->filled("party_type") && $request->party_type == 'vendor') {
                     $party = Vendor::find($request->vendor_id);
                 }
@@ -398,7 +399,7 @@ class ErpRCController extends Controller
                     'book_id' => $request->book_id,
                     'book_code' => $request->book_code,
                     'start_date' => $request -> start_date,
-                    'end_date' => $request -> end_date, 
+                    'end_date' => $request -> end_date,
                     'document_number' => $document_number,
                     'doc_number_type' => $numberPatternData['type'],
                     'doc_reset_pattern' => $numberPatternData['reset_pattern'],
@@ -423,7 +424,7 @@ class ErpRCController extends Controller
                     'remarks' => $request->final_remarks,
                 ]);
             }
-               
+
                 $rateContract -> save();
                 //Seperate array to store each item calculation
                 $itemsData = array();
@@ -526,7 +527,7 @@ class ErpRCController extends Controller
                                 'from_date' => isset($request -> effective_from[$itemKey]) ? $request -> effective_from[$itemKey] : null,
                                 'to_date' => isset($request -> effective_to[$itemKey]) ? $request -> effective_to[$itemKey] : (isset($request -> end_date) ? $request -> end_date : null),
                                 'remarks' => isset($request -> item_remarks[$itemKey]) ? $request -> item_remarks[$itemKey] : null,
-                            ]);   
+                            ]);
                         }
                     }
 
@@ -552,7 +553,7 @@ class ErpRCController extends Controller
                             'lead_time' => $itemDataValue['lead'],
                             'remarks' => $itemDataValue['remarks'],
                         ];
-                        
+
                         if (isset($request -> rc_item_id[$itemDataKey])) {
                             $oldRcItem = ErpRateContractItem::find($request -> rc_item_id[$itemDataKey]);
                             $rcItem = ErpRateContractItem::updateOrCreate(['id' => $request -> rc_item_id[$itemDataKey]], $itemRowData);
@@ -634,7 +635,7 @@ class ErpRCController extends Controller
                 ]) -> whereNotIn('id', $itemAttributeIds) -> delete();
                 //Approval check
                 if ($request -> rate_contract_id) { //Update condition
-                    $bookId = $rateContract->book_id; 
+                    $bookId = $rateContract->book_id;
                     $docId = $rateContract->id;
                     $amendRemarks = $request->amend_remarks ?? null;
                     $remarks = $rateContract->remarks;
@@ -764,7 +765,7 @@ class ErpRCController extends Controller
                     }
 
                 // $status = self::maintainStockLedger($rateContract);
-                // if (!$status) {     
+                // if (!$status) {
                 //     DB::rollBack();
                 //     return response() -> json([
                 //         'message' => 'Stock not available'
@@ -794,11 +795,11 @@ class ErpRCController extends Controller
         }
     }
 
-  
+
 
     public function amend()
     {
-        
+
     }
     public function revoke(Request $request)
     {
@@ -832,7 +833,7 @@ class ErpRCController extends Controller
             DB::rollBack();
             throw new ApiGenericException($ex->getMessage());
         }
-    
+
     }
 
     public function checkExistingRateContract(Request $request)
@@ -1255,7 +1256,7 @@ class ErpRCController extends Controller
                 return $row->to_date ?? '';
             });
             // Status column already exists above in your code
-            
+
             foreach ($dynamicFields as $field) {
                 $datatables = $datatables->addColumn($field -> name, function ($row) use ($field) {
                     $value = '';

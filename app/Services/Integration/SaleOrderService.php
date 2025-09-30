@@ -69,7 +69,7 @@ class SaleOrderService
 
             DB::beginTransaction();
 
-            $erpTripPlan = ErpTripPlanHeader::where('book_id', $erpIntegration->transport_book_id)
+            $erpTripPlan = ErpTripPlanHeader::where('book_id', $erpIntegration->trip_book_id)
                 ->where('document_number', $request->document_number)
                 ->first();
 
@@ -166,7 +166,7 @@ class SaleOrderService
         $erpTripPlanHeader = ErpTripPlanHeader::create(array_merge(
             $orderData,
             [
-                'book_id'   => $erpIntegration->transport_book_id,
+                'book_id'   => $erpIntegration->trip_book_id,
                 'book_code' => $erpIntegration->transportBook?->book_code,
             ]
         ));

@@ -16,8 +16,8 @@ class PiService
 
     public function syncPiSoMapping($soId, $soItemId, $itemId, $attr, $soQty, $createdBy, $soItemOrderQty)
     {
-        $so   = ErpSaleOrder::find($soId);
         $item = Item::find($itemId);
+        // $so   = ErpSaleOrder::find($soId);
         $checkBomExist = ItemHelper::checkItemBomExists($itemId, $attr);
 
         if (!$checkBomExist['bom_id']) {
@@ -74,7 +74,7 @@ class PiService
                 $requiredQty += $requiredQty * $bufferPerc / 100;
             }
 
-            $requiredQty = ceil($requiredQty);
+            // $requiredQty = ceil($requiredQty);
 
             if (!in_array($checkBomExist['sub_type'], ['Expense'])) {
                 $mappingData = [

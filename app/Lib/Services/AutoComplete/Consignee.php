@@ -2,6 +2,7 @@
 
 namespace App\Lib\Services\AutoComplete;
 
+use App\Helpers\ConstantHelper;
 use App\Models\ERP\ErpConsignee;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -19,7 +20,7 @@ class Consignee
     {
         $results = [];
         $term = $this->searchTerm;
-        $results = ErpConsignee::select('id', 'consignee_name')
+        $results = ErpConsignee::select('id', 'consignee_name')->where('status',ConstantHelper::ACTIVE)
             ->where('is_customer', 1)->when($this->searchTerm, function ($query) use($term) {
                 $query -> where('consignee_code', 'LIKE', '%' . $term . '%')
                 ->orWhere('consingee_name', 'LIKE', '%'. $term . '%');

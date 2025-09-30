@@ -62,89 +62,89 @@ class ErpProductionSlipController extends Controller
         $typeName = "Production Slip";
         if ($request -> ajax()) {
             try {
-            $docs = ErpProductionSlip::bookViewAccess($pathUrl)
+                $docs = ErpProductionSlip::bookViewAccess($pathUrl)
                     ->withDraftListingLogic();
-            return DataTables::of($docs) ->addIndexColumn()
-            ->editColumn('document_status', function ($row) {
-                return view('partials.action-dropdown', [
-                    'statusClass' => ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$row->document_status ?? ConstantHelper::DRAFT],
-                    'displayStatus' => $row->display_status,
-                    'row' => $row,
-                    'actions' => [
-                        [
-                            'url' => fn($r) => route('production.slip.edit', ['id' => $r->id]),
-                            'icon' => 'edit-3',
-                            'label' => 'View/ Edit Detail',
+                return DataTables::of($docs) ->addIndexColumn()
+                ->editColumn('document_status', function ($row) {
+                    return view('partials.action-dropdown', [
+                        'statusClass' => ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$row->document_status ?? ConstantHelper::DRAFT],
+                        'displayStatus' => $row->display_status,
+                        'row' => $row,
+                        'actions' => [
+                            [
+                                'url' => fn($r) => route('production.slip.edit', ['id' => $r->id]),
+                                'icon' => 'edit-3',
+                                'label' => 'View/ Edit Detail',
+                            ]
                         ]
-                    ]
-                ])->render();
-            })
-            ->addColumn('book_name', function ($row) {
-                return $row->book_code ? $row->book_code : '';
-            })
-            ->addColumn('store_name', function ($row) {
-                return $row->store ? $row->store?->store_name  : '';
-            })
-            ->addColumn('sub_store_name', function ($row) {
-                return $row->sub_store?->name ? $row->sub_store?->name  : '';
-            })
-            ->addColumn('station_name', function ($row) {
-                return $row?->station ? $row->station?->name  : '';
-            })
-            ->addColumn('shift_name', function ($row) {
-                return $row->shift?->label ? $row->shift?->label  : '';
-            })
-            ->addColumn('mo_no', function ($row) {
-                return $row?->mo ? ($row?->mo->book_code .' - '. $row?->mo->document_number)  : '';
-            })
-            ->addColumn('mo_product', function ($row) {
-                return $row?->mo ? $row?->mo?->item?->item_name  : '';
-            })
-            ->addColumn('type', function ($row) {
-                return $row?->is_last_station ? 'Final'  : 'WIP';
-            })
-            ->addColumn('so_no', function ($row) {
-                $bookCode = strtoupper($row?->last_so()?->book_code);
-                return $row?->last_so() ? ($bookCode .' - '. $row?->last_so()?->document_number)  : '';
-            })
-            ->editColumn('document_date', function ($row) {
-                return $row->getFormattedDate('document_date') ?? 'N/A';
-            })
-            ->addColumn('produced_qty', function ($row) {
-                return isset($row?->pslip_items) ? (number_format($row?->pslip_items()->sum('qty'),4)) : ' ';
-            })
-            ->addColumn('accepted_qty', function ($row) {
-                return isset($row?->pslip_items) ? (number_format($row?->pslip_items()->sum('accepted_qty'),4)) : ' ';
-            })
-            ->addColumn('subprime_qty', function ($row) {
-                return isset($row?->pslip_items) ? (number_format($row?->pslip_items()->sum('subprime_qty'),4)) : ' ';
-            })
-            ->addColumn('rejected_qty', function ($row) {
-                return isset($row?->pslip_items) ? (number_format($row?->pslip_items()->sum('rejected_qty'),4)) : ' ';
-            })
-            ->addColumn('wip_qty', function ($row) {
-                return isset($row?->pslip_items) ? (number_format($row?->pslip_items()->sum('wip_qty'),4)) : ' ';
-            })
-            ->addColumn('total_qty', function ($row) {
-                $t = $row?->pslip_items()->sum('qty') + $row?->pslip_items()->sum('wip_qty');
-                return isset($row?->pslip_items) ? (number_format($t,4)) : ' ';
-            })
-            // ->addColumn('value', function ($row) {
-            //     if ($row->pslip_items && $row->pslip_items()->exists()) {
-            //         return number_format(
-            //             $row->pslip_items()->select(DB::raw('SUM(qty * rate) as total'))->value('total'),
-            //             2
-            //         );
-            //     }
-            //     return ' ';
-            // })
-            ->rawColumns(['document_status'])
-            ->make(true);
+                    ])->render();
+                })
+                ->addColumn('book_name', function ($row) {
+                    return $row->book_code ? $row->book_code : '';
+                })
+                ->addColumn('store_name', function ($row) {
+                    return $row->store ? $row->store?->store_name  : '';
+                })
+                ->addColumn('sub_store_name', function ($row) {
+                    return $row->sub_store?->name ? $row->sub_store?->name  : '';
+                })
+                ->addColumn('station_name', function ($row) {
+                    return $row?->station ? $row->station?->name  : '';
+                })
+                ->addColumn('shift_name', function ($row) {
+                    return $row->shift?->label ? $row->shift?->label  : '';
+                })
+                ->addColumn('mo_no', function ($row) {
+                    return $row?->mo ? ($row?->mo->book_code .' - '. $row?->mo->document_number)  : '';
+                })
+                ->addColumn('mo_product', function ($row) {
+                    return $row?->mo ? $row?->mo?->item?->item_name  : '';
+                })
+                ->addColumn('type', function ($row) {
+                    return $row?->is_last_station ? 'Final'  : 'WIP';
+                })
+                ->addColumn('so_no', function ($row) {
+                    $bookCode = strtoupper($row?->last_so()?->book_code);
+                    return $row?->last_so() ? ($bookCode .' - '. $row?->last_so()?->document_number)  : '';
+                })
+                ->editColumn('document_date', function ($row) {
+                    return $row->getFormattedDate('document_date') ?? 'N/A';
+                })
+                ->addColumn('produced_qty', function ($row) {
+                    return isset($row?->pslip_items) ? (number_format($row?->pslip_items()->sum('qty'),4)) : ' ';
+                })
+                ->addColumn('accepted_qty', function ($row) {
+                    return isset($row?->pslip_items) ? (number_format($row?->pslip_items()->sum('accepted_qty'),4)) : ' ';
+                })
+                ->addColumn('subprime_qty', function ($row) {
+                    return isset($row?->pslip_items) ? (number_format($row?->pslip_items()->sum('subprime_qty'),4)) : ' ';
+                })
+                ->addColumn('rejected_qty', function ($row) {
+                    return isset($row?->pslip_items) ? (number_format($row?->pslip_items()->sum('rejected_qty'),4)) : ' ';
+                })
+                ->addColumn('wip_qty', function ($row) {
+                    return isset($row?->pslip_items) ? (number_format($row?->pslip_items()->sum('wip_qty'),4)) : ' ';
+                })
+                ->addColumn('total_qty', function ($row) {
+                    $t = $row?->pslip_items()->sum('qty') + $row?->pslip_items()->sum('wip_qty');
+                    return isset($row?->pslip_items) ? (number_format($t,4)) : ' ';
+                })
+                // ->addColumn('value', function ($row) {
+                //     if ($row->pslip_items && $row->pslip_items()->exists()) {
+                //         return number_format(
+                //             $row->pslip_items()->select(DB::raw('SUM(qty * rate) as total'))->value('total'),
+                //             2
+                //         );
+                //     }
+                //     return ' ';
+                // })
+                ->rawColumns(['document_status'])
+                ->make(true);
             }
             catch (Exception $ex) {
                 return response() -> json([
                     'message' => $ex -> getMessage()
-                ]);
+                ], 500);
             }
         }
         $parentURL = request() -> segments()[0];
@@ -213,20 +213,8 @@ class ErpProductionSlipController extends Controller
             $redirect_url = route('production.slip.index');
 
             $servicesBooks = [];
-            if (isset($request -> revisionNumber))
-            {
-                $doc = ErpProductionSlip::with(['media_files']) -> with('items', function ($query) {
-                    $query -> with(['to_item_locations', 'bundles',
-                    'item' => function ($itemQuery) {
-                        $itemQuery -> with(['specifications', 'alternateUoms.uom', 'uom', 'to_item_locations']);
-                    },
-                    'checklists' => function ($inspQuery) {
-                            $inspQuery->where('header_id', $this->productionSlipId);
-                    }]);
-                })->where('source_id', $request -> id)->first();
-                $ogDoc = ErpProductionSlip::find($id);
-            } else {
-                $doc = ErpProductionSlip::with(['media_files']) -> with('items', function ($query) {
+    
+            $doc = ErpProductionSlip::with(['media_files']) -> with('items', function ($query) {
                     $query->with(['to_item_locations', 'bundles', 'item' => function ($itemQuery) {
                         $itemQuery-> with(['specifications', 'alternateUoms.uom', 'uom']);
                     },
@@ -236,8 +224,20 @@ class ErpProductionSlipController extends Controller
                 })->find($id);
 
                 $ogDoc = $doc;
-            }
+          
 
+            if($request->has('revisionNumber') && $request->revisionNumber != $doc->revision_number) {
+                $doc = $doc->source()->with(['media_files']) -> with('items', function ($query) {
+                    $query->with(['to_item_locations', 'bundles', 'item' => function ($itemQuery) {
+                        $itemQuery-> with(['specifications', 'alternateUoms.uom', 'uom']);
+                    },
+                    'checklists' => function ($inspQuery) {
+                        $inspQuery->where('header_id', $this->productionSlipId);
+                    }]);
+                })->where('revision_number', $request->revisionNumber)->first();
+                $buttons['amend']=false;
+
+            }
 
             if(!$doc) {
                 return redirect('/production-slip')->with('error', 'The provided documnet id is invalid.');
@@ -410,6 +410,21 @@ class ErpProductionSlipController extends Controller
             $productionSlip = ErpProductionSlip::find($request -> pslip_id);
             if ($productionSlip) {
 
+                //Amend backup
+                if(($productionSlip -> document_status == ConstantHelper::APPROVED || $productionSlip -> document_status == ConstantHelper::APPROVAL_NOT_REQUIRED) && $request->document_status == 'amendment')
+                {
+                    $revisionData = [
+                        ['model_type' => 'header', 'model_name' => 'ErpProductionSlip', 'relation_column' => ''],
+                        ['model_type' => 'detail', 'model_name' => 'ErpPslipItem', 'relation_column' => 'pslip_id'],
+                        ['model_type' => 'sub_detail', 'model_name' => 'ErpPslipItemLocation', 'relation_column' => 'pslip_item_id'],
+                        ['model_type' => 'sub_detail', 'model_name' => 'ErpPslipItemAttribute', 'relation_column' => 'pslip_item_id'],
+                        ['model_type' => 'sub_detail', 'model_name' => 'ErpPslipItemDetail', 'relation_column' => 'pslip_item_id'],
+                        ['model_type' => 'detail', 'model_name' => 'PslipBomConsumption', 'relation_column' => 'pslip_id'],
+                        ['model_type' => 'sub_detail', 'model_name' => 'PslipConsumptionLocation', 'relation_column' => 'pslip_consumption_id'],
+                    ];
+                    Helper::documentAmendment($revisionData, $productionSlip->id);
+                }
+
                 // Handle Reject Case
                 if(isset($request->approve_reject_action_type) && $request->approve_reject_action_type == ConstantHelper::REJECTED) {
                     $modelName = get_class($productionSlip);
@@ -446,19 +461,6 @@ class ErpProductionSlipController extends Controller
                 $productionSlip->is_last_station = $request->is_last_station ?? 0;
                 $productionSlip->station_id = $request->mo_station_id;
                 $productionSlip->save();
-
-                //Amend backup
-                // if(($productionSlip -> document_status == ConstantHelper::APPROVED || $productionSlip -> document_status == ConstantHelper::APPROVAL_NOT_REQUIRED) && $actionType == 'amendment')
-                // {
-                //     $revisionData = [
-                //         ['model_type' => 'header', 'model_name' => 'ErpProductionSlip', 'relation_column' => ''],
-                //         ['model_type' => 'detail', 'model_name' => 'ErpMiItem', 'relation_column' => 'material_issue_id'],
-                //         ['model_type' => 'sub_detail', 'model_name' => 'ErpMiItemAttribute', 'relation_column' => 'mi_item_id'],
-                //         ['model_type' => 'sub_detail', 'model_name' => 'ErpMiItemLocation', 'relation_column' => 'mi_item_id'],
-                //     ];
-                //     $a = Helper::documentAmendment($revisionData, $productionSlip->id);
-
-                // }
 
 
                 // ---------------------------------------------------------------

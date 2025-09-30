@@ -93,6 +93,14 @@ class TransactionReportHelper
             'column_style' => '',
         ],
         [
+            'name' => 'Reference PO No.',
+            'field' => 'reference_number',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
             'name' => 'Location',
             'field' => 'store_name',
             'header_class' => '',

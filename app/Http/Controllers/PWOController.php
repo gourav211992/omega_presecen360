@@ -1399,8 +1399,8 @@ class PWOController extends Controller
             $soItems = $soItems->groupBy($groupByColumns)
                     ->selectRaw(implode(',', array_merge($groupByColumns, [
                         'SUM(inventory_uom_qty) as inventory_uom_qty',
-                        'SUM(pwo_qty) as pwo_qty',
-                        'SUM(dnote_qty) as dnote_qty'
+                        'GREATEST(0, SUM(pwo_qty)) as pwo_qty',
+                        'GREATEST(0, SUM(dnote_qty)) as dnote_qty'
                     ])));
         }
         $soItems = $soItems->orderBy('id','desc')->get();
@@ -1446,12 +1446,15 @@ class PWOController extends Controller
                     unset($item['so_item_ids']);
                     foreach ($soItems as $soItem) {
                         $newItem = $item;
+                        $pwoQty   = max(0, $soItem->pwo_qty);
+                        $dnoteQty = max(0, $soItem->dnote_qty);
+
                         $newItem['item_id']      = $soItem->item_id;
                         $newItem['item_name']    = $soItem->item_name;
                         $newItem['item_code']    = $soItem->item_code;
                         $newItem['uom_id']       = $soItem->uom_id;
                         $newItem['uom_name']     = $soItem->uom->name;
-                        $newItem['total_qty']    = $soItem->order_qty-($soItem->pwo_qty+$soItem->dnote_qty);
+                        $newItem['total_qty']    = $soItem->order_qty-($pwoQty+$dnoteQty);
                         $newItem['so_item_id']   = $soItem->id;
                         $newItem['attribute']    = $soItem->item_attributes_array();
                         $newItems[] = $newItem;

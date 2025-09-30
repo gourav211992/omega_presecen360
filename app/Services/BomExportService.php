@@ -346,7 +346,7 @@ class BomExportService
             }
         }
         // Join each attribute on a new line
-        return implode("\n", $lines);
+        return implode(" ,", $lines);
     }
 
     private function isEnabled(string $key, $parameters): bool

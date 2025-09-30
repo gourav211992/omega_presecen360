@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::group(['middleware' => ['user.auth']], function () {
      Route::get('/auto-complete/customer-consignee', [SalesAutoCompleteController::class, 'customerConsigneeList'])->name('autoComplete.customer.consignee');
+     Route::get('/auto-complete/transporters', [SalesAutoCompleteController::class, 'transporterList'])->name('autoComplete.transporters');
      Route::get('/customer-consignee/addresses/{id}', [CustomerConsigneeController::class, 'getCustomerConsigneeAddresses'])->name('customer.consignee.addresses');
 });
 

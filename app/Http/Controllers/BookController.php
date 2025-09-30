@@ -821,7 +821,7 @@ class BookController extends Controller
 
                         $applicableSeries = Book::withDefaultGroupCompanyOrg()
                             ->where('manual_entry', 0)
-                            ->where('service_id', $financialService -> id)
+                            ->where('service_id', $financialService ?-> id)
                             ->get();
 
                         foreach ($applicableSeries as $singleSeries) {

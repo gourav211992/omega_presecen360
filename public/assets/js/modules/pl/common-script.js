@@ -2294,9 +2294,9 @@ function itemOnChange(selectedElementId, index, routeUrl) // Retrieve element an
     }
 }
 
-function setItemAttributes(elementId, index, disabled = false)
+function setItemAttributes(elementId, itemIndex, disabled = false)
 {
-    document.getElementById('attributes_table_modal').setAttribute('item-index',index);
+    document.getElementById('attributes_table_modal').setAttribute('item-index',itemIndex);
     var elementIdForDropdown = elementId;
     const dropdown = document.getElementById(elementId);
     const attributesTable = document.getElementById('attribute_table');
@@ -2316,7 +2316,7 @@ function setItemAttributes(elementId, index, disabled = false)
             ${element.group_name}
             </td>
             <td>
-            <select ${disabled ? 'disabled' : ''} class="form-select select2" id = "attribute_val_${index}" style = "max-width:100% !important;" onchange = "changeAttributeVal(this, ${elementIdForDropdown}, ${index});">
+            <select ${disabled ? 'disabled' : ''} class="form-select select2" id = "attribute_val_${index}" style = "max-width:100% !important;" onchange = "changeAttributeVal(this, ${elementIdForDropdown}, ${index}, ${itemIndex});">
                 <option>Select</option>
                 ${optionsHtml}
             </select>
@@ -2336,7 +2336,7 @@ function setItemAttributes(elementId, index, disabled = false)
 
 }
 
-function changeAttributeVal(selectedElement, elementId, index)
+function changeAttributeVal(selectedElement, elementId, index, itemIndex)
 {
     const attributesJSON = JSON.parse(elementId.getAttribute('attribute-array'));
     const selectedVal = selectedElement.value;
@@ -2353,10 +2353,10 @@ function changeAttributeVal(selectedElement, elementId, index)
     });
     elementId.setAttribute('attribute-array', JSON.stringify(attributesJSON));
     if (menuAlias == 'delivery-note' || menuAlias == 'sale-invoices' || menuAlias == 'delivery-note-cum-invoice' || menuAlias == 'sinv') {
-        getAndSetItemRate(index, 'selling');
+        getAndSetItemRate(itemIndex, 'selling');
     }
     if (menuAlias == 'material-issue') {
-        getAndSetItemRate(index, 'cost');
+        getAndSetItemRate(itemIndex, 'cost');
     }
 }
 
