@@ -5,11 +5,12 @@ use App\Models\MoItem;
 use App\Models\ErpSoItem;
 use App\Models\PwoSoMapping;
 use App\Models\ErpPslipItem;
+use App\Models\ErpPslipMedia;
 use App\Models\ErpPslipItemDetail;
 use App\Models\PslipBomConsumption;
 use App\Models\ErpPslipItemLocation;
 use App\Models\PwoStationConsumption;
-
+use Illuminate\Support\Facades\Storage;
 use App\Helpers\ConstantHelper;
 use App\Helpers\InventoryHelperV2;
 use Illuminate\Support\Facades\Log;
@@ -52,6 +53,31 @@ class PslipDeleteService
         return self::successResponse("Pslip production items deleted successfully.");
     }
 
+    /**
+     * Delete consumption items for a production slip.
+     *
+     * @param array $deletedData      Data containing deleted consumption item IDs
+     * @param object $productionSlip  The production slip instance
+     * @return array                  Success or error response
+     */
+    public function deleteMedia(array $deletedData, $productionSlip)
+    {
+            if (empty($deletedData['deletedAttachmentIds'])) {
+                return self::successResponse("No documents found to delete.");
+            }
+
+            $medias = ErpPslipMedia::whereIn('id', $deletedData['deletedAttachmentIds'])
+                        ->get();
+            foreach ($medias as $media) {
+                if ($productionSlip->document_status == ConstantHelper::DRAFT) {
+                    Storage::delete($media->file_name);
+                }
+                $media->delete();
+            }
+
+        return self::successResponse("Pslip documents deleted successfully.");
+    }
+    
     /**
      * Delete consumption items for a production slip.
      *

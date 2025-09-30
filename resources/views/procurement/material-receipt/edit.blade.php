@@ -20,6 +20,8 @@
         <input type="hidden" name="tax_required" id="tax_required" value="">
         <input type="hidden" name="inspection_required" id="inspection_required" class="inspection_required"
             value="">
+        <input type="hidden" name="is_free_cost" id="is_free_cost" class="is_free_cost"
+            value="{{ $mrn->is_free_cost == 1 ? 'yes' : 'no' }}">
         <div class="app-content content ">
             <div class="content-overlay"></div>
             <div class="header-navbar-shadow"></div>
@@ -86,16 +88,16 @@
                                         </a>
                                     @endif
                                     @if ($mrn->is_inspection_completion === 1 && $buttons['post'])
-                                    <button id="postButton" onclick="onPostVoucherOpen();" type="button"
-                                        class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
-                                            xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round"
-                                            class="feather feather-check-circle">
-                                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                        </svg> Post</button>
-                                @endif
+                                        <button id="postButton" onclick="onPostVoucherOpen();" type="button"
+                                            class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                                xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="feather feather-check-circle">
+                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                            </svg> Post</button>
+                                    @endif
                                 @endif
                                 @if ($buttons['draft'])
                                     <button type="submit"
@@ -128,9 +130,9 @@
                                         </svg> Reject</button>
                                 @endif
                                 @if ($buttons['voucher'])
-                                    <button type="button" onclick="onPostVoucherOpen('posted');"
-                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
-                                            xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                    <button type="button" onclick="onPostVoucherOpen('posted')"
+                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round"
                                             class="feather feather-file-text">
@@ -141,7 +143,8 @@
                                             <line x1="16" y1="17" x2="8" y2="17">
                                             </line>
                                             <polyline points="10 9 9 9 8 9"></polyline>
-                                        </svg> Voucher</button>
+                                        </svg> Voucher
+                                    </button>
                                 @endif
                                 @if ($buttons['amend'] && intval(request('amendment') ?? 0))
                                     <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i
@@ -1223,7 +1226,7 @@
                                 </div>
                             </div>
                             <!-- <div id="deviation-batch-table-wrap" class="mt-3"></div>
-                                                                        <input type="hidden" name="deviation_breakup_json" id="deviation_breakup_json"> -->
+                                                                                                <input type="hidden" name="deviation_breakup_json" id="deviation_breakup_json"> -->
                         </div>
                         <div class="mb-3">
                             <label for="remarks" class="form-label fw-semibold text-dark">Remarks</label>
@@ -1261,7 +1264,7 @@
     <script type="text/javascript" src="{{ asset('app-assets/js/file-uploader.js') }}"></script>
     <script>
         selectedCostCenterId = @json($mrn->cost_center_id);
-        let currentProcessType = @json($mrn->reference_type);
+        currentProcessType = @json($mrn->reference_type);
         var qtyChangeUrl = '{{ route('material-receipt.get.validate-quantity') }}';
         let taxCalUrl = '{{ route('tax.group.calculate') }}';
         let po = @json(\App\Helpers\ConstantHelper::PO_SERVICE_ALIAS);
@@ -1410,6 +1413,7 @@
                         setTableCalculation(true);
                         // checkWarehouseSetup(storeId, subStoreId);
                         $(".inspection_required").val(parameters?.inspection_required[0]);
+                        $(".is_free_cost").val(parameters?.is_free_cost[0]);
                         applyInspectionState();
                     }
                     if (data.status == 404) {
@@ -2997,7 +3001,8 @@
                 }
             }
 
-            ['selectedPoIds', 'selectedJoIds', 'selectedSoIds', 'selectedDnoteIds'].forEach(key => localStorage.removeItem(key));
+            ['selectedPoIds', 'selectedJoIds', 'selectedSoIds', 'selectedDnoteIds'].forEach(key => localStorage
+                .removeItem(key));
 
             const ids = @json($detailsIds);
 
@@ -3066,16 +3071,16 @@
                 selectedSoIds = JSON.parse(selectedSoIds);
                 selectedSoIds = encodeURIComponent(JSON.stringify(selectedSoIds));
                 document_date = $("[name='document_date']").val() || '',
-                header_book_id = $("#book_id").val() || '',
-                series_id = $("#book_id_qt_val").val() || '',
-                document_number = $("#so_document_id_qt_val").val() || '',
-                asn_number = $("#so_asn_id_qt_val").val() || '',
-                ge_number = $("#so_ge_id_qt_val").val() || '',
-                item_id = $("#so_item_id_qt_val").val() || '',
-                vendor_id = $("#so_vendor_id_qt_val").val(),
-                store_id = $(".header_store_id").val() || '',
-                so_id = $("#so_so_qt_val").val() || '',
-                item_search = $("#so_item_name_search").length ? $("#so_item_name_search").val() : '';
+                    header_book_id = $("#book_id").val() || '',
+                    series_id = $("#book_id_qt_val").val() || '',
+                    document_number = $("#so_document_id_qt_val").val() || '',
+                    asn_number = $("#so_asn_id_qt_val").val() || '',
+                    ge_number = $("#so_ge_id_qt_val").val() || '',
+                    item_id = $("#so_item_id_qt_val").val() || '',
+                    vendor_id = $("#so_vendor_id_qt_val").val(),
+                    store_id = $(".header_store_id").val() || '',
+                    so_id = $("#so_so_qt_val").val() || '',
+                    item_search = $("#so_item_name_search").length ? $("#so_item_name_search").val() : '';
                 selected_po_ids = encodeURIComponent(selectedSoIds)
             }
             if (currentProcessType === dnote) {
@@ -3083,16 +3088,16 @@
                 selectedDnoteIds = JSON.parse(selectedDnoteIds);
                 selectedDnoteIds = encodeURIComponent(JSON.stringify(selectedDnoteIds));
                 document_date = $("[name='document_date']").val() || '',
-                header_book_id = $("#book_id").val() || '',
-                series_id = $("#book_id_qt_val").val() || '',
-                document_number = $("#dnote_document_id_qt_val").val() || '',
-                asn_number = $("#so_asn_id_qt_val").val() || '',
-                ge_number = $("#so_ge_id_qt_val").val() || '',
-                item_id = $("#dnote_item_id_qt_val").val() || '',
-                vendor_id = $("#dnote_vendor_id_qt_val").val(),
-                store_id = $(".header_store_id").val() || '',
-                so_id = $("#dnote_so_qt_val").val() || '',
-                item_search = $("#dnote_item_name_search").length ? $("#dnote_item_name_search").val() : '';
+                    header_book_id = $("#book_id").val() || '',
+                    series_id = $("#book_id_qt_val").val() || '',
+                    document_number = $("#dnote_document_id_qt_val").val() || '',
+                    asn_number = $("#so_asn_id_qt_val").val() || '',
+                    ge_number = $("#so_ge_id_qt_val").val() || '',
+                    item_id = $("#dnote_item_id_qt_val").val() || '',
+                    vendor_id = $("#dnote_vendor_id_qt_val").val(),
+                    store_id = $(".header_store_id").val() || '',
+                    so_id = $("#dnote_so_qt_val").val() || '',
+                    item_search = $("#dnote_item_name_search").length ? $("#dnote_item_name_search").val() : '';
                 selected_po_ids = encodeURIComponent(selectedDnoteIds)
             }
 
@@ -5058,7 +5063,8 @@
                 "company_name");
             initializeAutocompleteDQt("dnote_document_no_input_qt", "dnote_document_id_qt_val", "dnote_document_qt",
                 "document_number", "");
-            initializeAutocompleteDQt("po_dnote_no_input_qt", "po_dnote_qt_val", "po_dnote_qt", "book_code", "document_number");
+            initializeAutocompleteDQt("po_dnote_no_input_qt", "po_dnote_qt_val", "po_dnote_qt", "book_code",
+                "document_number");
         }
 
         function initializeAutocompleteDQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "") {
@@ -5490,7 +5496,8 @@
                             localStorage.setItem('selectedDnoteIds', JSON.stringify(newIds));
                         }
 
-                        let existingIdsUpdate = JSON.parse(localStorage.getItem('selectedDnoteIds'));
+                        let existingIdsUpdate = JSON.parse(localStorage.getItem(
+                            'selectedDnoteIds'));
                         $("[name='dnote_item_ids']").val(existingIdsUpdate.join(','));
 
                         let module_type = data?.data?.moduleType || '';

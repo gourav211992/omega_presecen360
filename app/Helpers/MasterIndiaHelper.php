@@ -516,6 +516,8 @@ class MasterIndiaHelper
         $organizationAddress = $documentHeader?->location_address_details;
         $buyerAddress = $documentHeader?->location_address_details;
         $sellerBillingAddress = $documentHeader->latestBillingAddress();
+        $sellerShippingAddress = $documentHeader->latestShippingAddress();
+        $sellerShippingAddressStateCode = self::getStateCode($sellerShippingAddress->state_id);
         $sellerStateCode = self::getStateCode($organizationAddress->state_id);
         $buyerStateCode = self::getStateCode($sellerBillingAddress->state_id);
 
@@ -578,11 +580,11 @@ class MasterIndiaHelper
             "gstin" => $documentHeader?->vendor->compliances->gstin_no,
             "legal_name" => $documentHeader?->vendor?->company_name,
             "trade_name" => null,
-            "address1" => substr($sellerBillingAddress?->address ?? '', 0, 90),
+            "address1" => substr($sellerShippingAddress?->address ?? '', 0, 90),
             "address2" => null,
-            "location" => $sellerBillingAddress?->city?->name,
-            "pincode" => $sellerBillingAddress->pincode,
-            "state_code" => $buyerStateCode->name,
+            "location" => $sellerShippingAddress?->city?->name,
+            "pincode" => $sellerShippingAddress->pincode,
+            "state_code" => $sellerShippingAddressStateCode->name,
         ];
 
         $headerTotalValue = 0;

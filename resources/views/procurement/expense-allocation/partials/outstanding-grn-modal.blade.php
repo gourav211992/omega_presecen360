@@ -1,17 +1,17 @@
-<div class="modal fade text-start poModal" id="poModal" tabindex="-1" aria-labelledby="poModal" aria-hidden="true">
+<div class="modal fade text-start grnModal" id="grnModal" tabindex="-1" aria-labelledby="grnModal" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header d-flex justify-content-between align-items-start">
                 <div>
-                    <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="poModal">
-                        Select Purchase Order
+                    <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="grnModal">
+                        Select GRN
                     </h4>
                     <p class="mb-0">
                         Select from the below list
                     </p>
                 </div>
                 <div class="d-flex align-items-start gap-2">
-                    <button type="button" class="btn btn-primary btn-sm poProcess">
+                    <button type="button" class="btn btn-primary btn-sm grnProcess">
                         <i data-feather="check-circle"></i> Process
                     </button>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -23,61 +23,60 @@
                         <div class="mb-1">
                             <label class="form-label">Vendor</label>
                             <input type="text" id="vendor_code_input_qt" placeholder="Select"
-                                class="form-control mw-100 ledgerselecct ui-autocomplete-input vendor_code_input_qt"
-                                autocomplete="off" value="">
-                            <input type="hidden" id="vendor_id_qt_val" class="vendor_id_qt_val"></input>
+                                class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off"
+                                value="">
+                            <input type="hidden" id="vendor_id_qt_val"></input>
                         </div>
                     </div>
                     <div class="col">
                         <div class="mb-1">
-                            <label class="form-label">PO No.</label>
+                            <label class="form-label">Doc No.</label>
                             <input type="text" id="document_no_input_qt" placeholder="Select"
-                                class="form-control mw-100 ledgerselecct ui-autocomplete-input document_no_input_qt"
-                                autocomplete="off" value="">
-                            <input type = "hidden" id = "document_id_qt_val" class="document_id_qt_val"></input>
+                                class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off"
+                                value="">
+                            <input type = "hidden" id = "document_id_qt_val"></input>
                         </div>
                     </div>
                     <div class="col">
                         <div class="mb-1">
                             <label class="form-label">Item</label>
-                            <input type="text" name="item_name_search" id="item_name_search"
-                                placeholder="Item Name/Code" class="form-control mw-100 item_name_search"
-                                autocomplete="off" value="">
+                            <input type="text" name="grn_item_name_search" id="grn_item_name_search"
+                                placeholder="Item Name/Code" class="form-control mw-100" autocomplete="off"
+                                value="">
                         </div>
                     </div>
                     <div class="col mb-1">
                         <label class="form-label">&nbsp;</label><br />
-                        <button type="button" class="btn btn-warning btn-sm clearPoFilter"><i
-                                data-feather="x-circle"></i> Clear</button>
+                        <button type="button" class="btn btn-warning btn-sm clearGrnFilter">
+                            <i data-feather="x-circle"></i> Clear
+                        </button>
                     </div>
                     <div class="col-md-12">
-                        <div class="po-table-container">
+                        <div class="mrn-table-container">
                             <table
-                                class="table table-striped table-bordered po-order-detail myrequesttablecbox nowrap w-100">
+                                class="table table-striped table-bordered grn-order-detail myrequesttablecbox nowrap w-100">
                                 <thead class="table-light header">
                                     <tr>
                                         <th class="d-none">ID</th>
                                         <th>
                                             <div class="form-check form-check-inline me-0">
-                                                <input class="form-check-input inlineCheckbox1" type="checkbox"
-                                                    name="podetail" id="inlineCheckbox1">
+                                                <input class="form-check-input" type="checkbox" name="mrndetail"
+                                                    id="inlineCheckbox1">
                                             </div>
                                         </th>
                                         <th>SUPPLIER NAME</th>
-                                        <th>PO NO</th>
-                                        <th>PO DATE</th>
+                                        <th>GRN NO.</th>
+                                        <th>GRN Date</th>
                                         <th>ITEM CODE</th>
-                                        <th>ITEM NAME</th>
+                                        <th>Item Name</th>
                                         <th>ATTRIBUTES</th>
-                                        <th class="text-end">PO QTY</th>
-                                        <th class="text-end">INV QTY</th>
-                                        <th class="text-end">Exp QTY</th>
-                                        <th class="text-end">BALANCE QTY</th>
+                                        <th class="text-end">GRN QTY</th>
+                                        <th class="text-end">AVAIL STOCK</th>
                                         <th class="text-end">RATE</th>
                                         <th class="text-end">VALUE</th>
                                     </tr>
                                 </thead>
-                                <tbody id="poDataTable" class="poDataTable">
+                                <tbody id="grnDataTable">
                                 </tbody>
                             </table>
                         </div>

@@ -96,7 +96,8 @@ class SaleOrderService
         $erpIntegration = ErpExternalIntegration::with(['soBook:id,book_code', 'transportBook:id,book_code'])
             ->whereGroupId($request->user()->group_id)
             ->whereCompanyId($request->user()->company_id)
-            // ->whereOrganizationId($request->organization_id)
+            ->whereOrganizationId($request->organization_id)
+            ->whereStoreId($request->store_id)
             ->first();
 
         if (!$erpIntegration) throw new Exception('Integration mapping not found.');

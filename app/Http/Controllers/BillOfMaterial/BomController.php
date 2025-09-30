@@ -1026,7 +1026,6 @@ class BomController extends Controller
     # Bom Update
     public function update(BomRequest $request, $id)
     {
-        // dd($request->all());
 
         $canView = true;
         $parentUrl = request()->segments()[0];
@@ -1181,15 +1180,12 @@ class BomController extends Controller
                 $headerAttr = @$request->all()['attributes'][$key];
                 if (isset($headerAttr['attr_group_id'][$itemAttribute->attribute_group_id])) {
 
-                    // $bomAttrId = @$headerAttr['attr_group_id'][$itemAttribute->attribute_group_id]['attr_id'] ?? null;
-
                     $bomAttr = BomAttribute::firstOrNew([
                         'bom_id' => $bom->id,
                         'item_attribute_id' => $itemAttribute->id,
                         'type' => 'H',
                     ]);
 
-                    // $bomAttr = BomAttribute::find($bomAttrId) ?? new BomAttribute;
                     $bomAttr->bom_id = $bom->id;
                     $bomAttr->item_attribute_id = $itemAttribute->id;
                     $bomAttr->item_id = $bom->item->id;
@@ -1264,18 +1260,13 @@ class BomController extends Controller
                     #Save component Attr
                     foreach ($bomDetail->item->itemAttributes as $itemAttribute) {
                         if (isset($component['attr_group_id'][$itemAttribute->attribute_group_id])) {
-                            // $bomAttrId = @$component['attr_group_id'][$itemAttribute->attribute_group_id]['attr_id'];
+                            
                             $bomAttr = BomAttribute::firstOrNew([
                                 'bom_id' => $bom->id,
                                 'bom_detail_id' => $bomDetail->id,
                                 'item_attribute_id' => $itemAttribute->id,
                                 'type' => 'D',
                             ]);
-                            // $bomAttr = BomAttribute::find($bomAttrId) ?? new BomAttribute;
-                            // $bomAttr->bom_id = $bom->id;
-                            // $bomAttr->bom_detail_id = $bomDetail->id;
-                            // $bomAttr->item_attribute_id = $itemAttribute->id;
-                            // $bomAttr->type = 'D';
                             $bomAttr->item_id = $component['item_id'];
                             $bomAttr->item_code = $component['item_code'];
                             $bomAttr->attribute_name = $itemAttribute->attribute_group_id;
@@ -1306,22 +1297,6 @@ class BomController extends Controller
                         }
                     }
 
-                    #Save item overhead
-                    // if (isset($component['overhead'])) {
-                    //     foreach($component['overhead'] as $overhead) {
-                    //         if (isset($overhead['amnt']) && $overhead['amnt']) {
-                    //             $bomOverheadId = @$overhead['id'];
-                    //             $bomOverhead = BomOverhead::find($bomOverheadId) ?? new BomOverhead;
-                    //             $bomOverhead->bom_id = $bom->id;
-                    //             $bomOverhead->bom_detail_id = $bomDetail->id;
-                    //             $bomOverhead->type = 'D';
-                    //             $bomOverhead->overhead_description = $overhead['description'] ?? null;
-                    //             $bomOverhead->ledger_name = $overhead['leadger'] ?? null;
-                    //             $bomOverhead->overhead_amount = $overhead['amnt'] ?? 0.00;
-                    //             $bomOverhead->save();
-                    //         }
-                    //     }
-                    // }
                     $_index = $_index + 1;
                 }
             } else {
@@ -1331,22 +1306,6 @@ class BomController extends Controller
                     'error' => "",
                 ], 422);
             }
-
-            #Save summary overhead
-            // if (isset($request->overhead) && $bom->id) {
-            //     foreach($request->overhead as $overSummary) {
-            //         if($overSummary['description'] && $overSummary['amnt']) {
-            //             $bomOverhead = BomOverhead::find(@$overSummary['id']) ?? new BomOverhead;
-            //             $bomOverhead->bom_id = $bom->id;
-            //             // $bomOverhead->bom_detail_id = $bomDetail->id;
-            //             $bomOverhead->type = 'H';
-            //             $bomOverhead->overhead_description = $overSummary['description'];
-            //             $bomOverhead->ledger_name = $overSummary['leadger'];
-            //             $bomOverhead->overhead_amount = $overSummary['amnt'] ?? 0.00;
-            //             $bomOverhead->save();
-            //         }
-            //     }
-            // }
 
             $overheadLevelCount = intval($request->orverhead_level_count) ?? 1;
             $normalizedLevel = 1;
@@ -1424,15 +1383,6 @@ class BomController extends Controller
                 $bom->approval_level = 1;
                 $bom->revision_date = now();
                 $amendAfterStatus = $approveDocument['approvalStatus'] ??  $bom->document_status;
-                // $checkAmendment = Helper::checkAfterAmendApprovalRequired($request->book_id);
-                // if(isset($checkAmendment->approval_required) && $checkAmendment->approval_required) {
-                //     $totalValue = $bom->total_value ?? 0;
-                //     $amendAfterStatus = Helper::checkApprovalRequired($request->book_id,$totalValue);
-                // }
-                // if ($amendAfterStatus == ConstantHelper::SUBMITTED) {
-                //     $actionType = 'submit';
-                //     $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, 0, $modelName);
-                // }
                 $bom->document_status = $amendAfterStatus;
                 $bom->save();
             } else {
@@ -1442,8 +1392,6 @@ class BomController extends Controller
                     $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
                 }
                 if ($request->document_status == 'submitted') {
-                    // $totalValue = $bom->total_value ?? 0;
-                    // $document_status = Helper::checkApprovalRequired($request->book_id,$totalValue);
                     $bom->document_status = $approveDocument['approvalStatus'] ?? $bom->document_status;
                 } else {
                     $bom->document_status = $request->document_status ?? ConstantHelper::DRAFT;

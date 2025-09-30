@@ -214,7 +214,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-
+    
                         return $joReferences ?: 'N/A';
                     } elseif ($row->reference_type === 'po') {
                         // Multiple POs from related items
@@ -227,7 +227,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-
+    
                         return $joReferences ?: 'N/A';
                     } else {
                         return '';
@@ -245,9 +245,9 @@ class MaterialReceiptController extends Controller
                 ->addColumn('cost_center', function ($row) {
                     return strval($row->costCenters?->name) ?? 'N/A';
                 })
-                ->addColumn('lot_no', function ($row) {
-                    return strval($row->lot_number) ?? 'N/A';
-                })
+                // ->addColumn('lot_no', function ($row) {
+                //     return strval($row->lot_number) ?? 'N/A';
+                // })
                 ->addColumn('currency', function ($row) {
                     return strval($row->currency->short_name) ?? 'N/A';
                 })
@@ -338,6 +338,7 @@ class MaterialReceiptController extends Controller
                     'message' => "Please update inspection in admin services"
                 ], 422);
             }
+
             $inspectionReqired = ($parameters['inspection_required'][0] === 'no') ? 0 : 1;
             $organization = Organization::where('id', $user->organization_id)->first();
             $organizationId = $organization?->id ?? null;
@@ -381,6 +382,7 @@ class MaterialReceiptController extends Controller
             $mrn->bill_to_follow = $request->bill_to_follow;
             // $mrn->inspection_required = $request->inspection_required;
             $mrn->is_warehouse_required = $request->is_warehouse_required ?? 0;
+            $mrn->is_free_cost = 0;
             $mrn->group_id = $organization->group_id;
             $mrn->book_code = $request->book_code;
             $mrn->series_id = $request->book_id;
@@ -2203,8 +2205,8 @@ class MaterialReceiptController extends Controller
         } catch (Exception $e) {
             DB::rollBack();
             return response()->json([
-                'message' => 'Error occurred while creating the record.'. $e->getMessage(). ' on line '. $e->getLine(),
-                'error' => $e->getMessage(). ' on line '. $e->getLine(),
+                'message' => 'Error occurred while creating the record.' . $e->getMessage() . ' on line ' . $e->getLine(),
+                'error' => $e->getMessage() . ' on line ' . $e->getLine(),
             ], 500);
         }
 
@@ -3423,7 +3425,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-
+    
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     });
@@ -3989,7 +3991,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-
+    
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     })
@@ -4302,7 +4304,7 @@ class MaterialReceiptController extends Controller
                     ? ($request->selected_so_ids[0] ?? 'null')
                     : 'null';
                 // $disabled = ($dataExistingPo !== 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-
+    
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input so_item_checkbox' type='checkbox' name='so_item_check' value='{$row->id}' data-module='{$this->moduleType}' data-current-so='{$dataCurrentSo}' data-existing-so='{$dataExistingSo}'>
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -4726,7 +4728,7 @@ class MaterialReceiptController extends Controller
                     return "<span class='badge rounded-pill badge-light-primary'><strong>{$attr?->headerAttribute?->name}</strong>: {$attr?->headerAttributeValue?->value}</span>";
                 })->implode(' ');
             })
-             ->addColumn('order_qty', function ($row) {
+            ->addColumn('order_qty', function ($row) {
                 if ($this->moduleType === 'gate-entry') {
                     return number_format(($row->order_qty ?? 0), 2);
                 } elseif ($this->moduleType === 'dnote-order') {
@@ -4855,9 +4857,9 @@ class MaterialReceiptController extends Controller
             ->with(['headers', 'item', 'attributes', 'headers.vendors'])
             ->whereHas('headers', function ($dnote) use ($seriesId, $docNumber, $request, $storeId) {
                 $dnote->whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::POSTED])
-                ->whereNot('organization_id', $request->user()->organization_id)
-                ->where('group_id', $request->user()->group_id)
-                ->where('company_id', $request->user()->company_id);
+                    ->whereNot('organization_id', $request->user()->organization_id)
+                    ->where('group_id', $request->user()->group_id)
+                    ->where('company_id', $request->user()->company_id);
                 if ($seriesId) {
                     $dnote->where('erp_sale_invoices.book_id', $seriesId);
                 }
@@ -4882,10 +4884,10 @@ class MaterialReceiptController extends Controller
         } elseif ($request->type == 'edit') {
             if (!empty($header_ids)) {
                 $dnoteItems->whereIn('erp_invoice_items.sale_invoice_id', $header_ids)
-                ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+                    ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
                 if (!empty($details_ids)) {
                     $dnoteItems->whereNotIn('erp_invoice_items.id', $details_ids)
-                    ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+                        ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
                 }
             }
         }
@@ -4997,7 +4999,7 @@ class MaterialReceiptController extends Controller
             $uniquePoIds = $dnoteItems->pluck('sale_invoice_id')->unique()->toArray();
         } else {
             $dnoteItems = ErpInvoiceItem::whereIn('id', $ids)
-            ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->get();
+                ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->get();
             foreach ($dnoteItems as $dnoteItem) {
                 $dnoteItem->avail_order_qty = $dnoteItem->dnote_qty ?? 0;
                 $dnoteItem->available_qty = ((($dnoteItem->dnote_qty ?? 0)) - ($dnoteItem->grn_qty ?? 0));
@@ -5019,7 +5021,7 @@ class MaterialReceiptController extends Controller
             ->get();
 
         $saleInvoice = ErpSaleInvoice::whereIn('id', $uniquePoIds)
-        ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->first();
+            ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->first();
         $finalExpenses = [];
         $dnoteExpenses = ErpSaleInvoice::whereIn('id', $uniquePoIds)
             ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
@@ -5073,8 +5075,8 @@ class MaterialReceiptController extends Controller
             ]);
         } else {
             $vendor = Vendor::whereIn('enter_company_org_id', $invOrg)
-                    ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
-                    ->where('related_party', 'yes')->first();
+                ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
+                ->where('related_party', 'yes')->first();
         }
         $html = view('procurement.material-receipt.partials.dnote-item-row', [
             'pos' => $pos,
@@ -6556,8 +6558,7 @@ class MaterialReceiptController extends Controller
             $joOrderQty = floatval($joItemData?->order_qty ?? 0);
             $existingJoGrnQty = floatval($joItemData?->grn_qty ?? 0);
             $joItemData->grn_qty += floatval($inputQty);
-            if($existingJoGrnQty > $joOrderQty)
-            {
+            if ($existingJoGrnQty > $joOrderQty) {
                 return response()->json(['message' => 'Quantity cannot be greater than JO Quantity.'], 422);
             }
             $joItemData->save();
@@ -6583,8 +6584,7 @@ class MaterialReceiptController extends Controller
             $poOrderQty = floatval($poItemData?->order_qty ?? 0);
             $existingPoGrnQty = floatval($poItemData?->grn_qty ?? 0);
             $poItemData->grn_qty += floatval($inputQty);
-            if($existingPoGrnQty > $poOrderQty)
-            {
+            if ($existingPoGrnQty > $poOrderQty) {
                 return response()->json(['message' => 'Quantity cannot be greater than PO Quantity.'], 422);
             }
             $poItemData->save();
@@ -6595,8 +6595,7 @@ class MaterialReceiptController extends Controller
             $joOrderQty = floatval($joItemData?->order_qty ?? 0);
             $existingJoGrnQty = floatval($joItemData?->grn_qty ?? 0);
             $joItemData->grn_qty += $inputQty;
-            if($existingJoGrnQty > $joOrderQty)
-            {
+            if ($existingJoGrnQty > $joOrderQty) {
                 return response()->json(['message' => 'Quantity cannot be greater than JO Quantity.'], 422);
             }
             $joItemData->save();
@@ -6899,17 +6898,17 @@ class MaterialReceiptController extends Controller
         }
     }
 
-    public static function getInterCompanyCostCenters(int $locationId, int $costCenterId = null) : Collection
+    public static function getInterCompanyCostCenters(int $locationId, int $costCenterId = null): Collection
     {
         $costCenters = CostCenter::select('id', 'name')
-        ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
-        -> when($costCenterId, function ($costQuery) use($costCenterId) {
-            $costQuery -> where('id', $costCenterId);
-        }) -> orWhere(function ($orQuery) use($locationId) {
-            $orQuery ->  whereHas('orgLocationMap', function ($locQuery) use($locationId) {
-                $locQuery -> where('location_id', $locationId);
-            }) -> where('status', ConstantHelper::ACTIVE);
-        }) -> get();
+            ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
+            ->when($costCenterId, function ($costQuery) use ($costCenterId) {
+                $costQuery->where('id', $costCenterId);
+            })->orWhere(function ($orQuery) use ($locationId) {
+                $orQuery->whereHas('orgLocationMap', function ($locQuery) use ($locationId) {
+                    $locQuery->where('location_id', $locationId);
+                })->where('status', ConstantHelper::ACTIVE);
+            })->get();
         return $costCenters;
     }
 

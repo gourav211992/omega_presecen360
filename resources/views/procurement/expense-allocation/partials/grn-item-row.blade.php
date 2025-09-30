@@ -1,20 +1,15 @@
-@foreach ($poItems as $key => $item)
+@foreach ($mrnItems as $key => $item)
     @php
         $rowCount = $tableRowCount + $key + 1;
-        $poQty = ($item->order_qty ?? 0.0) - ($item->short_close_qty ?? 0.0);
-        $readOnly = '';
-        $itemValue = $poQty * $item->rate;
-        $itemDisc = $item->item_discount_amount;
-        $headerDisc = $item->header_discount_amount;
-        $totalAmount = $itemValue - ($itemDisc + $headerDisc);
-        $newRate = $totalAmount / $poQty;
+        $qty = $item->accepted_qty ?? 0.0;
+        $itemTotalValue = $qty * $item->rate - ($item->discount_amount + $item->header_discount_amount);
+        $itemRate = $itemTotalValue / $qty;
     @endphp
-    <tr data-group-item="{{ json_encode($item) }}" id="row_{{ $rowCount }}" data-index="{{ $rowCount }}"
+    <tr id="row_{{ $rowCount }}" data-index="{{ $rowCount }}"
         @if ($rowCount < 2) class="trselected" @endif>
-        <input type="hidden" name="components[{{ $rowCount }}][purchase_order_id]"
-            value="{{ $item->purchase_order_id }}">
-        <input type="hidden" name="components[{{ $rowCount }}][po_detail_id]" value="{{ $item->id }}">
-        <input type="hidden" name="components[{{ $rowCount }}][po_detail_id]" value="{{ $item?->po?->vendor_id }}">
+        <input type="hidden" name="components[{{ $rowCount }}][mrn_header_id]" value="{{ $item->mrn_header_id }}">
+        <input type="hidden" name="components[{{ $rowCount }}][mrn_detail_id]" value="{{ $item->id }}">
+        <input type="hidden" name="components[{{ $rowCount }}][vendor_id]" value="{{ $item->vendor_id }}">
         <td class="customernewsection-form">
             <div class="form-check form-check-primary custom-checkbox">
                 <input type="checkbox" class="form-check-input" id="Email_{{ $rowCount }}"
@@ -24,11 +19,11 @@
         </td>
         <td>
             <input type="text" name="components[{{ $rowCount }}][vendor_name]"
-                value="{{ $item?->po?->vendor?->company_name }}" class="form-control mw-100 mb-25" readonly />
+                value="{{ $item?->vendor_name }}" class="form-control mw-100 mb-25" readonly />
         </td>
         <td>
             <input type="text" name="component_item_name[{{ $rowCount }}]" placeholder="Select"
-                class="form-control mw-100 ledgerselecct comp_item_code" value="{{ $item->item_code }}" readonly />
+                class="form-control mw-100 ledgerselecct comp_item_code" value="{{ $item->item_code }}" />
             <input type="hidden" name="components[{{ $rowCount }}][item_id]" value="{{ @$item->item_id }}" />
             <input type="hidden" name="components[{{ $rowCount }}][item_code]" value="{{ @$item->item_code }}" />
             <input type="hidden" name="components[{{ $rowCount }}][item_name]"
@@ -38,12 +33,12 @@
                 value="{{ $item?->item?->hsn?->code }}" />
             @php
                 $selectedAttr = @$item->attributes
-                    ? @$item->attributes()->whereNotNull('attribute_value')->pluck('attribute_value')->all()
+                    ? @$item->attributes()->whereNotNull('attr_value')->pluck('attr_value')->all()
                     : [];
             @endphp
             @foreach (@$item->attributes as $attributeHidden)
                 <input type="hidden"
-                    name="components[{{ $rowCount }}][attr_group_id][{{ $attributeHidden->attribute_name }}][attr_id]"
+                    name="components[{{ $rowCount }}][attr_group_id][{{ $attributeHidden->attr_name }}][attr_id]"
                     value="{{ $attributeHidden->id }}">
             @endforeach
             @foreach (@$item->item->itemAttributes as $itemAttribute)
@@ -66,50 +61,42 @@
             <input type="text" name="components[{{ $rowCount }}][item_name]"
                 value="{{ $item?->item?->item_name }}" class="form-control mw-100 mb-25" readonly />
         </td>
-        <td class="poprod-decpt" id="itemAttribute_{{ $rowCount }}" data-count="{{ $rowCount }}"
+        <td class="poprod-decpt attributeBtn" id="itemAttribute_{{ $rowCount }}" data-count="{{ $rowCount }}"
             attribute-array="{{ $item->item_attributes_array() }}">
         </td>
         <td>
-            <input type="hidden" name="components[{{ $rowCount }}][inventory_uom_id]"
-                value="{{ $item->inventory_uom_id }}">
+            <input type="hidden" name="components[{{ $rowCount }}][inventoty_uom_id]"
+                value="{{ $item->inventoty_uom_id }}">
             <select class="form-select mw-100 " name="components[{{ $rowCount }}][uom_id]">
                 <option value="{{ $item->uom->id }}">{{ ucfirst($item->uom->name) }}</option>
                 @if ($item?->item?->alternateUOMs)
                     @foreach ($item?->item?->alternateUOMs as $alternateUOM)
                         <option value="{{ $alternateUOM?->uom?->id }}"
                             {{ $alternateUOM?->uom?->id == $item->inventory_uom_id ? 'selected' : '' }}>
-                            {{ $alternateUOM?->uom?->name }}
-                        </option>
+                            {{ $alternateUOM?->uom?->name }}</option>
                     @endforeach
                 @endif
             </select>
         </td>
         <td>
             <input type="number" class="form-control mw-100 accepted_qty text-end checkNegativeVal"
-                name="components[{{ $rowCount }}][accepted_qty]" value="{{ $poQty }}" step="any" />
+                name="components[{{ $rowCount }}][accepted_qty]" value="{{ $qty }}" readonly
+                step="any" />
         </td>
         <td>
-            <input type="number" name="components[{{ $rowCount }}][rate]" value="{{ $newRate }}" readonly
-                class="form-control mw-100 text-end" step="any" />
+            <input type="number" name="components[{{ $rowCount }}][rate]" value="{{ $itemRate }}"
+                class="form-control mw-100 text-end rate checkNegativeVal" step="any" />
+
         </td>
         <td>
-            <select class="form-select mw-100 dist_type" name="components[{{ $rowCount }}][dist_type]">
-                <option value="">Select Type</option>
-                @foreach ($distributionTypes as $key => $value)
-                    <option value="{{ $key }}">{{ $value }}</option>
-                @endforeach
-            </select>
-        </td>
-        <td>
-            <input type="text" id="item_total_cost_{{ $rowCount }}"
-                name="components[{{ $rowCount }}][item_total_cost]" value="{{ $totalAmount }}" readonly
+            <input type="number" id="item_total_cost_{{ $rowCount }}"
+                name="components[{{ $rowCount }}][item_total_cost]" value="{{ $itemTotalValue }}" readonly
                 class="form-control mw-100 text-end item_total_cost" step="any" />
         </td>
         <td>
             <div class="d-flex">
-                <input type="hidden" id="components_remark_{{ $rowCount }}"
-                    name="components[{{ $rowCount }}][remark]" value="{{ $item->remarks }}" />
-                <div class="me-50 cursor-pointer addRemarkBtn" data-row-count="{{ $rowCount }}">
+                <div class="me-50 cursor-pointer addRemarkBtn" data-row-count="{{ $rowCount }}"
+                    {{-- data-bs-toggle="modal" data-bs-target="#Remarks" --}}>
                     <span data-bs-toggle="tooltip" data-bs-placement="top" title="" class="text-primary"
                         data-bs-original-title="Remarks" aria-label="Remarks">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
@@ -117,7 +104,8 @@
                             stroke-linejoin="round" class="feather feather-file-text">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                             <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="13" x2="8" y2="13">
+                            </line>
                             <line x1="16" y1="17" x2="8" y2="17"></line>
                             <polyline points="10 9 9 9 8 9"></polyline>
                         </svg>
@@ -125,11 +113,10 @@
                 </div>
             </div>
         </td>
-        <input type="hidden" name="components[{{ $rowCount }}][po_item_hidden_ids]"
+        <input type="hidden" name="components[{{ $rowCount }}][mrn_item_hidden_ids]"
             value="{{ $item->id }}">
-        <input type="hidden" name="components[{{ $rowCount }}][po_hidden_ids]"
-            value="{{ $item->purchase_order_id }}">
-        <input type="hidden" name="components[{{ $rowCount }}][expense_allocation_qty]"
-            value="{{ $item->expense_advise_qty }}">
+        <input type="hidden" name="components[{{ $rowCount }}][mrn_hidden_ids]"
+            value="{{ $item->mrnHeader->id }}">
+        <input type="hidden" name="components[{{ $rowCount }}][mrn_qty]" value="{{ $item->mrn_qty }}">
     </tr>
 @endforeach

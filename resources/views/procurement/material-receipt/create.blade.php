@@ -154,6 +154,7 @@
         <input type="hidden" name="bill_to_follow" id="bill_to_follow" class="bill_to_follow" value="">
         <input type="hidden" name="inspection_required" id="inspection_required" class="inspection_required"
             value="">
+        <input type="hidden" name="is_free_cost" id="is_free_cost" class="is_free_cost" value="">
         @csrf
         <div class="app-content content ">
             <div class="content-overlay"></div>
@@ -497,8 +498,8 @@
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">
-                                                            Supplier Invoice No.
-                                                            <span class="text-danger">*</span>
+                                                                Supplier Invoice No.
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="supplier_invoice_no"
                                                                 class="form-control bg-white supplier_invoice_no"
@@ -520,8 +521,8 @@
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">
-                                                            Transporter Name
-                                                            <span class="text-danger">*</span>
+                                                                Transporter Name
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="transporter_name"
                                                                 class="form-control bg-white transporter_name"
@@ -545,8 +546,8 @@
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">
-                                                            Manual Entry No.
-                                                            <span class="text-danger">*</span>
+                                                                Manual Entry No.
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="manual_entry_no"
                                                                 class="form-control bg-white"
@@ -1049,6 +1050,7 @@
                         setTableCalculation();
                         $(".bill_to_follow").val(parameters?.bill_to_follow[0]);
                         $(".inspection_required").val(parameters?.inspection_required[0]);
+                        // $(".is_free_cost").val(parameters?.is_free_cost[0]);
                         getSubStores(storeId);
                     }
                     if (data.status == 404) {
@@ -2125,14 +2127,14 @@
                 selectedDnoteIds = JSON.parse(selectedDnoteIds);
                 selectedDnoteIds = encodeURIComponent(JSON.stringify(selectedDnoteIds));
                 document_date = $("[name='document_date']").val() || '',
-                header_book_id = $("#book_id").val() || '',
-                series_id = $("#book_id_qt_val").val() || '',
-                document_number = $("#dnote_document_id_qt_val").val() || '',
-                item_id = $("#dnote_item_id_qt_val").val() || '',
-                vendor_id = $("#dnote_vendor_id_qt_val").val(),
-                store_id = $(".header_store_id").val() || '',
-                so_id = $("#dnote_so_qt_val").val() || '',
-                item_search = $("#dnote_item_name_search").length ? $("#dnote_item_name_search").val() : '';
+                    header_book_id = $("#book_id").val() || '',
+                    series_id = $("#book_id_qt_val").val() || '',
+                    document_number = $("#dnote_document_id_qt_val").val() || '',
+                    item_id = $("#dnote_item_id_qt_val").val() || '',
+                    vendor_id = $("#dnote_vendor_id_qt_val").val(),
+                    store_id = $(".header_store_id").val() || '',
+                    so_id = $("#dnote_so_qt_val").val() || '',
+                    item_search = $("#dnote_item_name_search").length ? $("#dnote_item_name_search").val() : '';
                 selected_po_ids = encodeURIComponent(selectedDnoteIds)
             }
             return {
@@ -4378,7 +4380,8 @@
                 "company_name");
             initializeAutocompleteDQt("dnote_document_no_input_qt", "dnote_document_id_qt_val", "dnote_document_qt",
                 "document_number", "");
-            initializeAutocompleteDQt("po_dnote_no_input_qt", "po_dnote_qt_val", "po_dnote_qt", "book_code", "document_number");
+            initializeAutocompleteDQt("po_dnote_no_input_qt", "po_dnote_qt_val", "po_dnote_qt", "book_code",
+                "document_number");
         }
 
         function initializeAutocompleteDQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "") {
@@ -4809,7 +4812,8 @@
                             localStorage.setItem('selectedDnoteIds', JSON.stringify(newIds));
                         }
 
-                        let existingIdsUpdate = JSON.parse(localStorage.getItem('selectedDnoteIds'));
+                        let existingIdsUpdate = JSON.parse(localStorage.getItem(
+                            'selectedDnoteIds'));
                         $("[name='dnote_item_ids']").val(existingIdsUpdate.join(','));
 
                         let module_type = data?.data?.moduleType || '';

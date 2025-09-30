@@ -199,10 +199,10 @@
                                                                 <th width="50">Storage Point</th>
                                                                 <th width="350">Parent</th>
                                                                 {{-- <th width="200">Hierarchy</th> --}}
-                                                                <th width="100">Max Weight (Kg)</th>
-                                                                <th width="100">Max Volume (CUM)</th>
-                                                                <th width="100">Current Weight (Kg)</th>
-                                                                <th width="100">Current Volume (CUM)</th>
+                                                                <th width="100">Max Weight (KG)</th>
+                                                                <th width="100">Max Volume (CFT)</th>
+                                                                <th width="100">Current Weight (KG)</th>
+                                                                <th width="100">Current Volume (CFT)</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody class="mrntableselectexcel">
@@ -223,8 +223,8 @@
                                                                             value="{{ $val->id }}">
                                                                         <input type="text" placeholder="Enter"
                                                                             class="form-control mw-100 mb-25"
-                                                                            name="details[{{ $loop->iteration }}][name]" readonly
-                                                                            value="{{ $val->name }}">
+                                                                            name="details[{{ $loop->iteration }}][name]"
+                                                                            readonly value="{{ $val->name }}">
                                                                     </td>
                                                                     <td>
                                                                         <div

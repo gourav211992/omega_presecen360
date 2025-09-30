@@ -87,6 +87,7 @@ class MrnHeader extends Model
         'is_warehouse_required',
         'is_enforce_uic_scanning',
         'is_inspection_completion',
+        'is_free_cost',
         'item_remark',
         'final_remarks',
         'status'

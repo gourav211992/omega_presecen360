@@ -1387,7 +1387,7 @@
 
                         <div class="col-md-6 mb-1">
 							<label class="form-label">Country <span class="text-danger">*</span></label>
-							<select class="select2 form-select" name = "billing_country_id" id = "billing_country_id_input" onchange = "changeDropdownOptions(this, ['billing_state_id_input'], ['states'], '/states/', null, ['billing_city_id_input'])">
+							<select class="select2 form-select" name = "popup_billing_country_id" id = "billing_country_id_input" onchange = "changeDropdownOptions(this, ['billing_state_id_input'], ['states'], '/states/', null, ['billing_city_id_input'])">
 								@foreach ($countries as $country)
                                     <option value = "{{$country -> value}}">{{$country -> label}}</option>
                                 @endforeach
@@ -1397,7 +1397,7 @@
 
 						<div class="col-md-6 mb-1">
 							<label class="form-label">State <span class="text-danger">*</span></label>
-							<select class="select2 form-select" name = "billing_state_id" id = "billing_state_id_input" onchange = "changeDropdownOptions(this, ['billing_city_id_input'], ['cities'], '/cities/', null, [])">
+							<select class="select2 form-select" name = "popup_billing_state_id" id = "billing_state_id_input" onchange = "changeDropdownOptions(this, ['billing_city_id_input'], ['cities'], '/cities/', null, [])">
 							</select>
 						</div>
 

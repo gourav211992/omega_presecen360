@@ -720,6 +720,13 @@
                                                                 <span class = "text-primary small">{{__("message.attachment_caption")}}</span>
                                                             </div>
                                                         </div>
+                                                        @if(isset($slip))
+                                                            @include('partials.document-preview', [
+                                                                'documents' => $slip->media_files() ?? [],
+                                                                'document_status' => $slip->document_status ?? null,
+                                                                'elementKey' => 'main_pslip_preview'
+                                                            ])
+                                                        @endif
                                                         <div class = "col-md-6" style = "margin-top:19px;">
                                                             <div class = "row" id = "main_order_file_preview">
                                                             </div>

@@ -95,7 +95,6 @@ class IndexController extends Controller
             'productivity:id,description'
         ])
             ->where('organization_id', $user->organization_id)
-            // ->whereBetween('created_at', [Carbon::now()->subDays(30), Carbon::now()])
             ->whereBetween('created_at', [$fromDate, $toDate]) 
             ->limit(5)
             ->get(array_merge($columns, [
@@ -129,6 +128,7 @@ class IndexController extends Controller
         });
         // top 3 identifier
         $topIdentifiers =  ErpKaizen::with(['organization:id,name', 'createdBy:id,designation_id,name'])
+                ->where('organization_id', $user->organization_id)
                 ->get()
         ->groupBy(function ($item) {
             return $item->createdBy->name;

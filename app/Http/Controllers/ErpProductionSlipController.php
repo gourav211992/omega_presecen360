@@ -327,7 +327,6 @@ class ErpProductionSlipController extends Controller
 
     public function store(PslipRequest $request)
     {
-
         $consuptions = $request->cons;
         $productionSlipId = isset($request->id) ? $request->id : null;
         if(!$productionSlipId && !$consuptions)
@@ -490,6 +489,12 @@ class ErpProductionSlipController extends Controller
                     return null; // Continue if success
                 };
 
+                // ---------------------------------------------------------------
+                // Delete Documents
+                // ---------------------------------------------------------------
+                if ($result = $deletion($pslipDeleteService->deleteMedia($deletedData, $productionSlip))) {
+                    return $result;
+                }  
                 // ---------------------------------------------------------------
                 // Delete Production Items
                 // ---------------------------------------------------------------
@@ -1012,11 +1017,6 @@ class ErpProductionSlipController extends Controller
                         $productionSlip->document_status = $approveDocument['approvalStatus'];
                     }
 
-                    // if ($request->document_status == 'submitted') {
-                        // $totalValue = $productionSlip->total_amount ?? 0;
-                        // $document_status = Helper::checkApprovalRequired($request->book_id,$totalValue);
-                        // $productionSlip->document_status = $document_status;
-                    // }
                     else {
 
                         $productionSlip->document_status = $request->document_status ?? ConstantHelper::DRAFT;
@@ -1025,13 +1025,9 @@ class ErpProductionSlipController extends Controller
                 }
                 $productionSlip -> save();
 
-                //Media
                 if ($request->hasFile('attachments')) {
-                    foreach ($request->file('attachments') as $singleFile) {
-                        $mediaFiles = $productionSlip->uploadDocuments($singleFile, 'production_slips', false);
-                    }
+                        $productionSlip->uploadDocuments($request->file('attachments'), 'production_slips', false);
                 }
-
                 // Issue Raw Materials
                 if ($productionSlip->fresh()->items->count()) {
                     // Maintain stock ledger once (no need to call it in a loop)
@@ -1497,7 +1493,7 @@ class ErpProductionSlipController extends Controller
         {
             $items = $pslip -> consumptions;
         }
-
+        $bundles=ErpPslipItemDetail::with('pslipItem')->where('pslip_id',$id)->get();
         $totalAmount = 0;
         $amountInWords = NumberHelper::convertAmountToWords($totalAmount);
         // Path to your image (ensure the file exists and is accessible)
@@ -1511,6 +1507,7 @@ class ErpProductionSlipController extends Controller
         [
             'order'=> $pslip,
             'items' => $items,
+            'bundles' => $bundles,
             'user'=>$user,
             'products' => $products,
             'organization' => $organization,

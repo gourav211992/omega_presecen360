@@ -1246,4 +1246,17 @@ class ConstantHelper
         ['label' => self::QC_ACTION_APPROVED_WITH_DEVIATION_LABEL, 'value' => self::QC_ACTION_APPROVED_WITH_DEVIATION_VALUE],
         ['label' => self::QC_ACTION_APPROVE_LABEL, 'value' => self::QC_ACTION_APPROVE_VALUE],
     ];
+
+    const DIST_WEIGHT = 'weight';
+    public const DIST_QTY = 'qty';
+    public const DIST_VOLUME = 'volume';
+
+    public static function getDistributionTypes(): array
+    {
+        return [
+            self::DIST_WEIGHT => 'Weight',
+            self::DIST_QTY => 'Quantity',
+            self::DIST_VOLUME => 'Volume',
+        ];
+    }
 }

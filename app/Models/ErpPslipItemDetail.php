@@ -16,4 +16,12 @@ class ErpPslipItemDetail extends Model
         'bundle_type',
         'qty'
     ];
+ 
+    /**
+     * Relation: A bundle belongs to a Pslip Item
+     */
+    public function pslipItem()
+    {
+        return $this->belongsTo(ErpPslipItem::class, 'pslip_item_id', 'id');
+    }
 }

@@ -199,10 +199,10 @@
                                                                 <th width="100">Storage Point</th>
                                                                 <th width="300">Parent</th>
                                                                 {{-- <th width="200">Hierarchy</th> --}}
-                                                                <th width="100">Max Weight (Kg)</th>
-                                                                <th width="100">Max Volume (CUM)</th>
-                                                                <th width="100">Current Weight (Kg)</th>
-                                                                <th width="100">Current Volume (CUM)</th>
+                                                                <th width="100">Max Weight (KG)</th>
+                                                                <th width="100">Max Volume (CFT)</th>
+                                                                <th width="100">Current Weight (KG)</th>
+                                                                <th width="100">Current Volume (CFT)</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody class="mrntableselectexcel">

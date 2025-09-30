@@ -545,17 +545,17 @@
                             <td style="font-weight: bold; padding: 4px; border-left: 1px solid #000; background: #80808070; text-align: center;"> <b>IGST Amt</b></td>
                             <td style="font-weight: bold; padding: 4px; border-left: 1px solid #000; background: #80808070; text-align: center;"> <b>Total Tax</b></td>
                         </tr>
-                        @foreach($hsnGroups as $hsnCode => $hsnData)
-                            <tr>
-                                <td style="padding: 4px; text-align: center;">{{ $hsnCode }}</td>
-                                <td style="padding: 4px; border-left: 1px solid #000; text-align: center;">{{ number_format($hsnData['taxable_rate'], 2) }} %</td>
-                                <td style="padding: 4px; border-left: 1px solid #000; text-align: right;">{{ number_format($hsnData['taxable_value'], 2) }}</td>
-                                <td style="padding: 4px; border-left: 1px solid #000; text-align: right;">{{ isset($hsnData['CGST_amount']) ? number_format($hsnData['CGST_amount'], 2) : "" }}</td>
-                                <td style="padding: 4px; border-left: 1px solid #000; text-align: right;">{{ isset($hsnData['SGST_amount']) ? number_format($hsnData['SGST_amount'], 2) : "" }}</td>
-                                <td style="padding: 4px; border-left: 1px solid #000; text-align: right;">{{ isset($hsnData['IGST_amount']) ? number_format($hsnData['IGST_amount'], 2) : "" }}</td>
-                                <td style="padding: 4px; border-left: 1px solid #000; text-align: right;">{{ number_format($hsnData['tax_amount'], 2) }}</td>
-                            </tr>
-                        @endforeach
+                        @foreach ($hsnSummary as $row)
+                                <tr>
+                                    <td style="padding: 4px; border-left: 1px solid #000; text-align: center;">{{ $row['hsn'] }}</td>
+                                    <td style="padding: 4px; border-left: 1px solid #000; text-align: center;">{{ number_format(($row['total_tax'] / $row['taxable_value']) * 100, 2) }}%</td>
+                                    <td style="padding: 4px; border-left: 1px solid #000; text-align: right;">{{ number_format($row['taxable_value'], 2) }}</td>
+                                    <td style="padding: 4px; border-left: 1px solid #000; text-align: right;">{{ number_format($row['cgst'], 2) }}</td>
+                                    <td style="padding: 4px; border-left: 1px solid #000; text-align: right;">{{ number_format($row['sgst'], 2) }}</td>
+                                    <td style="padding: 4px; border-left: 1px solid #000; text-align: right;">{{ number_format($row['igst'], 2) }}</td>
+                                    <td style="padding: 4px; border-left: 1px solid #000; text-align: right;">{{ number_format($row['total_tax'], 2) }}</td>
+                                </tr>
+                            @endforeach
                     </table>
                 </td>
             </tr>

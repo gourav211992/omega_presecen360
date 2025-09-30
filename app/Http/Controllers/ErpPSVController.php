@@ -239,7 +239,7 @@ class ErpPSVController extends Controller
             $doc -> total_tax_value + $doc -> total_expense_value;
             $userType = $user -> user_type;
             $buttons = Helper::actionButtonDisplay($doc->book_id,$doc->document_status , $doc->id, $totalValue, 
-            $doc->approval_level, $doc -> created_by ?? 0, $userType['type'], $revision_number);
+            $doc->approval_level, $doc -> created_by ?? 0, $userType, $revision_number);
             $books = Helper::getBookSeriesNew(ConstantHelper::PSV_SERVICE_ALIAS, ) -> get();
             $revNo = $doc->revision_number;
             if($request->has('revisionNumber')) {

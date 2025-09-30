@@ -345,7 +345,8 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/group/generate-prefix', [GroupController::class, 'generate_prefix'])->name('generate-group-prefix');
     Route::post('/group/check-prefix', [GroupController::class, 'checkPrefix'])->name('groups-check-prefix');
     Route::resource('ledgers', LedgerController::class)->except(['show']);
-    Route::get('/ledgers/{ledgerId}/groups', [LedgerController::class, 'getLedgerGroups'])->name('ledgers.groups');;
+    Route::get('/ledgers/{ledgerId}/groups', [LedgerController::class, 'getLedgerGroups'])->name('ledgers.groups');
+    ;
     Route::get('/search/ledger', [LedgerController::class, 'getLedger'])->name('ledger.search');
     Route::get('/ledger/import', [LedgerController::class, 'showImportForm'])->name('ledger.show.import');
     Route::post('/ledger/import', [LedgerController::class, 'import'])->name('ledger.import');
@@ -473,8 +474,10 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('/import', 'showImportForm')->name('customers.import');
         Route::post('/import', 'import')->name('customers.import.post');
         Route::post('/revoke', 'revoke')->name('customer.revoke');
-        Route::get('export-successful-customers', 'exportSuccessfulCustomers')->name('customers.export.successful');;
-        Route::get('export-failed-customers', 'exportFailedCustomers')->name('customers.export.failed');;
+        Route::get('export-successful-customers', 'exportSuccessfulCustomers')->name('customers.export.successful');
+        ;
+        Route::get('export-failed-customers', 'exportFailedCustomers')->name('customers.export.failed');
+        ;
         Route::post('/generate-item-code', 'generateCustomerCode')->name('generate-customer-code');
         Route::get('/search', 'getCustomer')->name('customers.search');
         Route::get('/{id}', 'show')->name('customer.show');
@@ -493,7 +496,7 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('/compliance/{id}', 'getComplianceById');
     });
 
-     Route::prefix('consignees')->controller(ConsigneeController::class)->group(function () {
+    Route::prefix('consignees')->controller(ConsigneeController::class)->group(function () {
         Route::get('/', 'index')->name('consignees.index');
         Route::get('/create', 'create')->name('consignees.create');
         Route::post('/', 'store')->name('consignees.store');
@@ -727,7 +730,8 @@ Route::middleware(['user.auth'])->group(function () {
         Route::post('/', 'store')->name('item.store');
         Route::post('/revoke', 'revoke')->name('item.revoke');
         Route::get('/import', 'showImportForm')->name('items.show.import');
-        Route::get('export-successful-items', 'exportSuccessfulItems')->name('items.export.successful');;
+        Route::get('export-successful-items', 'exportSuccessfulItems')->name('items.export.successful');
+        ;
         Route::get('export-failed-items', 'exportFailedItems')->name('items.export.failed');
         Route::post('/import', 'import')->name('items.import');
         Route::post('/generate-item-code', 'generateItemCode')->name('generate-item-code');
@@ -1908,7 +1912,7 @@ Route::middleware(['user.auth'])->group(function () {
             // Route::post('location-listing', 'locationListing')->name('get.locations');
             // Route::post('sub-location-listing', 'subLocationListing')->name('get.sub-locations');
             // Route::post('mrn-listing', 'mrnListing')->name('get.mrn-listing');
-
+    
             /*Remove data*/
             Route::delete('remove-dis-item-level', 'removeDisItemLevel')->name('remove.item.dis');
             Route::delete('remove-dis-header-level', 'removeDisHeaderLevel')->name('remove.header.dis');
@@ -1937,8 +1941,6 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('/{id}/view', 'show')->name('show');
             Route::get('add-item-row', 'addItemRow')->name('item.row');
             Route::get('po-item-row', 'poItemRows')->name('po-item.row');
-            Route::get('so-item-row', 'soItemRows')->name('so-item.row');
-
             Route::get('get-item-attribute', 'getItemAttribute')->name('item.attr');
             Route::get('add-discount-row', 'addDiscountRow')->name('item.discount.row');
             Route::get('/tax-calculation', 'taxCalculation')->name('tax.calculation');
@@ -1946,20 +1948,13 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('/edit-address', 'editAddress')->name('edit.address');
             Route::post('/address-save', 'addressSave')->name('address.save');
             Route::get('/get-itemdetail', 'getItemDetail')->name('get.itemdetail');
-            Route::post('/get-items-by-vendor', 'getPoItemsByVendorId');
-            Route::post('/get-po-items-by-po-id', 'getPoItemsByPoId')->name('get.po-items-by-po-id');
-            Route::post('/get-items-by-customer', 'getSoItemsByCustomerId');
-            Route::post('/get-so-items-by-so-id', 'getSoItemsBySoId')->name('get.so-items-by-so-id');
             Route::get('/{id}/logs', 'logs')->name('logs');
             Route::get('/{id}/pdf', 'generatePdf')->name('generate-pdf');
-            Route::delete('component-delete', 'componentDelete')->name('comp.delete');
             Route::get('/amendment-submit/{id}', 'amendmentSubmit')->name('amendment.submit');
-            Route::get('/get-purchase-orders', 'getPo')->name('get.po');
+            Route::get('/get-po', 'getPo')->name('get.po');
             Route::get('/process-po-item', 'processPoItem')->name('process.po-item');
-            Route::get('/get-job-orders', 'getJo')->name('get.jo');
-            Route::get('/process-jo-item', 'processJoItem')->name('process.jo-item');
-            Route::get('/get-sales-orders', 'getSo')->name('get.so');
-            Route::get('/process-so-item', 'processSoItem')->name('process.so-item');
+            Route::get('/get-grn', 'getGrn')->name('get.grn');
+            Route::get('/process-grn-item', 'processGrnItem')->name('process.grn-item');
             Route::get('/posting/get', 'getPostingDetails')->name('posting.get');
             Route::post('/post', 'postExpenseAdvise')->name('post');
             Route::get('revoke-document', 'revokeDocument')->name('revoke.document');
@@ -2798,7 +2793,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::post('/loan-return', 'loanReturn')->name('loan-return');
             Route::post('/loan-reject', 'loanReject')->name('loan-reject');
             // Route::post('/assessment-proceed', 'assessmentProceed')->name('assessment-proceed');
-
+    
         });
 
     Route::prefix('admin')->name('admin.')->group(function () {

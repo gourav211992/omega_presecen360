@@ -5703,7 +5703,6 @@ class FinancialPostingHelper
             }
         }
         unset($detail); // reference clear
-        // dd($voucherDetails);
 
         return array(
             'status' => true,
@@ -6580,9 +6579,8 @@ class FinancialPostingHelper
                 }
             }
         }
-
         //Break Supplier Account according to payment terms schedule - due date wise
-        $invoicePaymentTerms = $document->payment_term_schedules()
+        $invoicePaymentTerms = $document?->mrn?->payment_term_schedules()
             ->select('due_date', DB::raw('SUM(percent) as total_percentage'))->groupBy('due_date')->get();
         if ($invoicePaymentTerms && count($invoicePaymentTerms)) {
             foreach ($invoicePaymentTerms as $invoicePaymentTerm) {
@@ -7683,12 +7681,10 @@ class FinancialPostingHelper
         $totalDebitAmount = 0;
 
         $ledgerErrorStatus = null;
-        // dd($vocuherdata);
 
         if (!empty($vocuherdata)) {
             $BankLedgerId = $vocuherdata->ledger_id;
             $BankLedgerGroupId = $vocuherdata->ledger_group_id;
-            // dd($BankLedgerGroupId);
             $BankLedger = Ledger::find($BankLedgerId);
             $BankLedgerGroup = Group::find($BankLedgerGroupId);
         }
@@ -8604,7 +8600,6 @@ class FinancialPostingHelper
         $voucherDetails = [];
         foreach ($postingArray as $entryType => $postDetails) {
             foreach ($postDetails as $post) {
-                // dd($post['credit_amount'], $document);
                 $groupCurrencyCreditAmt = CurrencyHelper::convertAmtToGroupCompOrgCurrency($post['credit_amount'], $document->{$currencyIdKey}, $document->{$documentDateKey});
                 $groupCurrencyDebitAmt = CurrencyHelper::convertAmtToGroupCompOrgCurrency($post['debit_amount'], $document->{$currencyIdKey}, $document->{$documentDateKey});
 

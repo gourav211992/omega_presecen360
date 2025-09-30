@@ -2899,7 +2899,24 @@ class ErpSaleInvoiceController extends Controller
         //         }
         //     }
         // }
-        
+        $hsnSummary = $order->items->groupBy(fn($item) => $item->hsn?->code)->map(function($items, $hsn) {
+            $taxableValue = $items->sum(fn($i) =>
+                ($i->order_qty * $i->rate) - $i->item_discount_amount - $i->header_discount_amount
+            );
+            $cgst = $items->sum(fn($i) => floatval($i->cgst_value['value'] ?? 0));
+            $sgst = $items->sum(fn($i) => floatval($i->sgst_value['value'] ?? 0));
+            $igst = $items->sum(fn($i) => floatval($i->igst_value['value'] ?? 0));
+
+            return [
+                'hsn'           => $hsn,
+                'taxable_value' => $taxableValue,
+                'cgst'          => $cgst,
+                'sgst'          => $sgst,
+                'igst'          => $igst,
+                'total_tax'     => $cgst + $sgst + $igst,
+            ];
+        });
+
         $eInvoice = $order->irnDetail()->first();
         $qrCodeBase64 = null;
         if (isset($eInvoice) && isset($eInvoice->signed_qr_code)) {
@@ -2937,7 +2954,8 @@ class ErpSaleInvoiceController extends Controller
                 'allAttributeValues' => $allAttributeValues,
                 'billingAddress' => $billingAddress,
                 'eInvoice' => $eInvoice,
-                'shufabOrg' => $shufabOrg
+                'shufabOrg' => $shufabOrg,
+                'hsnSummary' => $hsnSummary
             ]
         )->render();
 

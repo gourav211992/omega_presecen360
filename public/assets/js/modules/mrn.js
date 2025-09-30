@@ -1677,10 +1677,9 @@ $(document).on("keyup", "#new_exp_perc", (e) => {
 function qtyEnabledDisabled() {
     $("tr[id*='row_']").each(function (index, item) {
         let qtyDisabled = false;
-        if (currentProcessType == 'dnote') {
-            $(item).find("[name*='[order_qty]']").attr("readonly", true)
-        }
-        else {
+        if (currentProcessType == "dnote") {
+            $(item).find("[name*='[order_qty]']").attr("readonly", true);
+        } else {
             if ($(item).find("[name*='[attr_name]']").length) {
                 $(item)
                     .find("[name*='[attr_name]']")
@@ -2781,7 +2780,7 @@ function formatTaxBreakup(breakupJson) {
 }
 
 function allowBackDate() {
-    const maxDate = isoNDaysFromToday(-1);
+    const maxDate = isoNDaysFromToday(0);
     $('input.expiry-date[name="supplier_invoice_date"]').each(function () {
         $(this).attr("max", maxDate);
     });

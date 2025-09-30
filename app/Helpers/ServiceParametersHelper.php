@@ -59,6 +59,8 @@ class ServiceParametersHelper
     const INSPECTION_REQUIRED_PARAM_VALUES = ['yes', 'no'];
     const INVOICE_TO_FOLLOW_PARAM = 'invoice_to_follow';
     const INVOICE_TO_FOLLOW_PARAM_VALUES = ['yes', 'no'];
+    const FREE_COST_PARAM = 'is_free_cost';
+    const FREE_COST_PARAM_VALUES = ['no', 'yes'];
     const BOM_CONSUMPTION_METHOD = 'consumption_method';
     const BOM_CONSUMPTION_METHOD_VALUES = ['manual', 'norms'];
     const BOM_SECTION_REQUIRED = 'section_required';
@@ -157,6 +159,7 @@ class ServiceParametersHelper
         self::BILL_TO_FOLLOW_PARAM => 'Bill To Follow', //Applied
         self::INSPECTION_REQUIRED_PARAM => 'Inspection Required', //Applied
         self::INVOICE_TO_FOLLOW_PARAM => 'Invoice To Follow?', //Applied
+        self::FREE_COST_PARAM => 'Allow Free Cost?', //Applied
         self::BOM_CONSUMPTION_METHOD => 'Consumption Calculation Method',
         self::BOM_SECTION_REQUIRED => 'Product Section Required?',
         self::BOM_SUB_SECTION_REQUIRED => 'Product Sub Section Required?',
@@ -194,6 +197,7 @@ class ServiceParametersHelper
         self::TAX_REQUIRED_PARAM => self::TAX_REQUIRED_PARAM_VALUES, //Applied
         self::BILL_TO_FOLLOW_PARAM => self::BILL_TO_FOLLOW_PARAM_VALUES, //Applied
         self::INVOICE_TO_FOLLOW_PARAM => self::INVOICE_TO_FOLLOW_PARAM_VALUES, //Applied
+        self::FREE_COST_PARAM => self::FREE_COST_PARAM_VALUES, //Applied
         self::PO_PROCUREMENT_TYPE => self::PO_PROCUREMENT_TYPE_VALUES, //Applied
         self::ON_ACCOUNT_REQUIRED_PARAM => self::ON_ACCOUNT_REQUIRED_PARAM_VALUES,
         self::BOM_CONSUMPTION_METHOD => self::BOM_CONSUMPTION_METHOD_VALUES,
@@ -2104,6 +2108,13 @@ class ServiceParametersHelper
             'is_multiple' => false,
             'service_level_visibility' => true
         ]
+        // [
+        //     "name" => self::FREE_COST_PARAM,
+        //     "applicable_values" => self::FREE_COST_PARAM_VALUES,
+        //     "default_value" => ['no'],
+        //     'is_multiple' => false,
+        //     'service_level_visibility' => true
+        // ]
     ];
     const PB_SERVICE_PARAMETERS = [
         [

@@ -37,14 +37,14 @@ class MaterialReceiptRequest extends FormRequest
     protected $organization_id;
     protected $group_id;
 
-     protected function prepareForValidation()
-     {
-         $user = Helper::getAuthenticatedUser();
-         $organization = $user->organization;
-         $this->organization_id = $organization ? $organization->id : null;
-         $this->group_id = $organization ? $organization->group_id : null;
-         $this->processComponentJson('components_json');
-     }
+    protected function prepareForValidation()
+    {
+        $user = Helper::getAuthenticatedUser();
+        $organization = $user->organization;
+        $this->organization_id = $organization ? $organization->id : null;
+        $this->group_id = $organization ? $organization->group_id : null;
+        $this->processComponentJson('components_json');
+    }
 
     public function rules(): array
     {
@@ -124,7 +124,7 @@ class MaterialReceiptRequest extends FormRequest
                 $isPast = false;
             }
         }
-        if($isFeature && $isPast) {
+        if ($isFeature && $isPast) {
             $rules['document_date'] = "required|date";
         }
 
@@ -132,13 +132,13 @@ class MaterialReceiptRequest extends FormRequest
         if ($this->filled('book_id')) {
             $user = Helper::getAuthenticatedUser();
             $numPattern = NumberPattern::where('organization_id', $user->organization_id)
-                        ->where('book_id', $this->book_id)
-                        ->orderBy('id', 'DESC')
-                        ->first();
+                ->where('book_id', $this->book_id)
+                ->orderBy('id', 'DESC')
+                ->first();
 
             // Update document_number rule based on the condition
             if ($numPattern && $numPattern->series_numbering == 'Manually') {
-                if($mrnId) {
+                if ($mrnId) {
                     $rules['document_number'] = 'required|unique:erp_mrn_headers,document_number,' . $mrnId;
                 } else {
                     $rules['document_number'] = 'required|unique:erp_mrn_headers,document_number';
@@ -148,9 +148,9 @@ class MaterialReceiptRequest extends FormRequest
         // $rules['components.*.attr_group_id.*.attr_name'] = 'required';
         $rules['component_item_name.*'] = 'required';
         $rules['components.*.order_qty'] = 'required|numeric|min:0.01';
-        // if ($this->input('components.*.is_inspection') === 0) {
-        //     $rules['components.*.accepted_qty'] = 'required|numeric|min:0.01';
-        // }
+        // $rules['components.*.rate'] = $this->input('is_free_cost') === 'yes'
+        //     ? 'nullable|numeric|min:0'
+        //     : 'required|numeric|min:0.01';
         $rules['components.*.rate'] = 'required|numeric|min:0.01';
         $rules['components.*.remark'] = 'nullable|max:250';
 
@@ -222,6 +222,7 @@ class MaterialReceiptRequest extends FormRequest
         $validator->after(function ($validator) {
             $components = $this->input('components', []);
             $referenceType = $this->input('reference_type');
+            // $isFreeCost = $this->input('is_free_cost');
             $items = [];
             foreach ($components as $key => $component) {
                 $itemValue = floatval($component['item_total_cost'] ?? 0);
@@ -298,24 +299,24 @@ class MaterialReceiptRequest extends FormRequest
                     }
 
                     $selectedAttributes = [];
-                    if(isset($component['attr_group_id']) && count($component['attr_group_id'])) {
-                        foreach($component['attr_group_id'] as $k => $attr_group) {
-                            $ia = ItemAttribute::where('item_id',$itemId)
-                                            ->where('attribute_group_id',$k)
-                                            ->first();
+                    if (isset($component['attr_group_id']) && count($component['attr_group_id'])) {
+                        foreach ($component['attr_group_id'] as $k => $attr_group) {
+                            $ia = ItemAttribute::where('item_id', $itemId)
+                                ->where('attribute_group_id', $k)
+                                ->first();
                             $selectedAttributes[] = ['attribute_id' => @$ia->id, 'attribute_value' => intval(@$attr_group['attr_name'])];
                         }
                     }
 
-                    $balanceQty = PoItem::where('id',$mrnItem->purchase_order_item_id ?? 0)
-                        ->where('item_id',$itemId)
-                        ->where('uom_id',operator: $uomId)
-                        ->where(function($piItemQuery) use($selectedAttributes) {
-                            if(count($selectedAttributes)) {
-                                $piItemQuery->whereHas('attributes',function($piAttributeQuery) use($selectedAttributes) {
-                                    foreach($selectedAttributes as $piAttribute) {
-                                        $piAttributeQuery->where('item_attribute_id',$piAttribute['attribute_id'])
-                                        ->where('attribute_value',$piAttribute['attribute_value']);
+                    $balanceQty = PoItem::where('id', $mrnItem->purchase_order_item_id ?? 0)
+                        ->where('item_id', $itemId)
+                        ->where('uom_id', operator: $uomId)
+                        ->where(function ($piItemQuery) use ($selectedAttributes) {
+                            if (count($selectedAttributes)) {
+                                $piItemQuery->whereHas('attributes', function ($piAttributeQuery) use ($selectedAttributes) {
+                                    foreach ($selectedAttributes as $piAttribute) {
+                                        $piAttributeQuery->where('item_attribute_id', $piAttribute['attribute_id'])
+                                            ->where('attribute_value', $piAttribute['attribute_value']);
                                     }
                                 });
                             }
@@ -323,13 +324,13 @@ class MaterialReceiptRequest extends FormRequest
                         ->selectRaw('SUM(order_qty - grn_qty) as balance_qty')
                         ->value('balance_qty') ?? 0;
 
-                    if($mrnItem) {
+                    if ($mrnItem) {
                         $inputQty = (floatval($component['accepted_qty']) - $mrnItem->accepted_qty) ?? 0;
                     } else {
                         $inputQty = floatval($component['accepted_qty']) ?? 0;
                     }
-                    if($mrnItem && $mrnItem->purchase_order_item_id){
-                        if($inputQty > $balanceQty) {
+                    if ($mrnItem && $mrnItem->purchase_order_item_id) {
+                        if ($inputQty > $balanceQty) {
                             $validator->errors()->add("components.$key.accepted_qty", "MRN is more than PO qty.");
                         }
                     }

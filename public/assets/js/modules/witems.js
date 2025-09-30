@@ -505,7 +505,7 @@ function fetchSubcatsAndItems($row, selectedIds) {
 
                 (response.items || []).forEach(function (item) {
                     itemSelect.append(
-                        `<option value="${item.id}">${item.item_code}</option>`
+                        `<option value="${item.id}">${item.item_name}</option>`
                     );
                 });
 

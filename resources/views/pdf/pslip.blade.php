@@ -209,7 +209,7 @@
                     </td>
                     <td
                     style="font-weight: bold; width:23.44% padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
-                        <div style="">So Date.</div>
+                        <div style="">Bundle Count</div>
                     </td>
                     <td
                     style="font-weight: bold; width:23.44% padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
@@ -281,12 +281,13 @@
                         {{@$val?->so?->customer?->company_name}}
                     </td>
                     <td
-                    style=" vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: center;">
-                        {{ isset($val->so) ? strtoupper($val?->so?->book_code . "-" . $val?->so?->document_number) : " " }}
+                    style=" vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: center;">
+                        {{ isset($val->so) ? strtoupper($val?->so?->book_code . "-" . $val?->so?->document_number) : " " }}</br></br>
+                        {{ isset($val->so) ? date('d-m-Y',strtotime($val?->so?->document_date)) : " " }}
                     </td>
                     <td
                         style=" vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: center;">
-                        {{ isset($val->so) ? strtoupper($val?->so?->document_date) : " " }}
+                       {{ isset($val->bundles) ? count($val->bundles) : " " }}
                     </td>
                     <td
                     style=" vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: center;">
@@ -370,6 +371,47 @@
                     @endforeach
                 </tbody>
             </table>
+            {{-- Start Bundle --}}
+            <table style="width:100%; border-collapse: collapse; margin-bottom:0;" cellspacing="0" cellpadding="0">
+                <thead>
+                    <tr>
+                        <th colspan="5" 
+                            style="padding:6px; border:1px solid #000; background:#80808070; text-align:center; font-weight:bold;">
+                            Item Bundles
+                        </th>
+                    </tr>
+                    <tr>
+                        <th style="padding:6px; border:1px solid #000; background:#80808070; text-align:center; font-weight:bold; width:5%;">#</th>
+                        <th style="padding:6px; border:1px solid #000; background:#80808070; text-align:left; font-weight:bold; width:30%;">Item Name</th>
+                        <th style="padding:6px; border:1px solid #000; background:#80808070; text-align:left; font-weight:bold; width:30%;">Item Code</th>
+                        <th style="padding:6px; border:1px solid #000; background:#80808070; text-align:center; font-weight:bold; width:20%;">Bundle No</th>
+                        <th style="padding:6px; border:1px solid #000; background:#80808070; text-align:right; font-weight:bold; width:15%;">Qty</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($bundles as $key => $bundle)
+                    <tr>
+                        <td style="vertical-align:middle; padding:10px 3px; border:1px solid #000; border-top:none; text-align:center;">
+                            {{ $key + 1 }}
+                        </td>
+                        <td style="vertical-align:middle; padding:10px 3px; border:1px solid #000; border-top:none; border-left:none; text-align:left;">
+                            {{ @$bundle->pslipItem->item_name }}
+                        </td>
+                        <td style="vertical-align:middle; padding:10px 3px; border:1px solid #000; border-top:none; border-left:none; text-align:left;">
+                            {{ @$bundle->pslipItem->item_code }}
+                        </td>
+                        <td style="vertical-align:middle; padding:10px 3px; border:1px solid #000; border-top:none; border-left:none; text-align:center;">
+                            {{ @$bundle?->bundle_no }}
+                        </td>
+                        <td style="vertical-align:middle; padding:10px 3px; border:1px solid #000; border-top:none; border-left:none; text-align:right;">
+                            {{ @$bundle?->qty }}
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+            {{-- End Bundle --}}
+
 
         
         <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">

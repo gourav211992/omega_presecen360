@@ -45,7 +45,7 @@ class ErpSubStore extends Model
     }
     public function employees()
     {
-        return $this->belongsToMany(Employee::class, 'erp_employee_sub_store', 'location_id', 'employee_id');
+        return $this->belongsToMany(Employee::class, 'erp_employee_sub_stores', 'sub_location_id', 'employee_id');
     }
     public function sub_type()
     {

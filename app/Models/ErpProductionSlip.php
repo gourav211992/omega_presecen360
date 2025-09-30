@@ -175,6 +175,6 @@ class ErpProductionSlip extends Model
 
     public function media()
     {
-        return $this->morphMany(DocumentApprovalMedia::class, 'model');
+        return $this->morphMany(ErpPslipMedia::class, 'model');
     }
 }

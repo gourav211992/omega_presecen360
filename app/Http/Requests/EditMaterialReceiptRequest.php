@@ -110,9 +110,9 @@ class EditMaterialReceiptRequest extends FormRequest
         $rules['components.*.attr_group_id.*.attr_name'] = 'required';
         $rules['component_item_name.*'] = 'required';
         $rules['components.*.order_qty'] = 'required|numeric|min:0.01';
-        // if ($this->input('components.*.is_inspection') === 0) {
-        //     $rules['components.*.accepted_qty'] = 'required|numeric|min:0.01';
-        // }
+        // $rules['components.*.rate'] = $this->input('is_free_cost') === 'yes'
+        //     ? 'nullable|numeric|min:0'
+        //     : 'required|numeric|min:0.01';
         $rules['components.*.rate'] = 'required|numeric|min:0.01';
         $rules['components.*.remark'] = 'nullable|max:250';
 
@@ -181,6 +181,7 @@ class EditMaterialReceiptRequest extends FormRequest
         $validator->after(function ($validator) {
             $components = $this->input('components', []);
             $referenceType = $this->input('reference_type');
+            // $isFreeCost = $this->input('is_free_cost');
             $items = [];
             foreach ($components as $key => $component) {
                 $itemValue = floatval($component['item_total_cost'] ?? 0);

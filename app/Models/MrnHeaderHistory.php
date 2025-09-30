@@ -93,7 +93,10 @@ class MrnHeaderHistory extends Model
         'payment_term_id',
         'addressable_id',
         'billing_address',
-        'is_warehouse_required'
+        'is_warehouse_required',
+        'is_enforce_uic_scanning',
+        'is_inspection_completion',
+        'is_free_cost',
     ];
 
     protected $casts = [
@@ -134,7 +137,7 @@ class MrnHeaderHistory extends Model
 
     public function paymentTerm()
     {
-        return $this->belongsTo(PaymentTerm::class,'payment_term_id');
+        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
 
     public function currency()
@@ -184,12 +187,12 @@ class MrnHeaderHistory extends Model
 
     public function mrn_ted()
     {
-        return $this->hasMany(MrnExtraAmountHistory::class,'mrn_header_history_id');
+        return $this->hasMany(MrnExtraAmountHistory::class, 'mrn_header_history_id');
     }
 
     public function mrn_ted_tax()
     {
-        return $this->hasMany(MrnExtraAmountHistory::class,'mrn_header_history_id')->where('ted_type','Tax');
+        return $this->hasMany(MrnExtraAmountHistory::class, 'mrn_header_history_id')->where('ted_type', 'Tax');
     }
 
     public function billingAddress()
@@ -220,7 +223,7 @@ class MrnHeaderHistory extends Model
     /*Header Level Discount*/
     public function headerDiscount()
     {
-        return $this->hasMany(MrnExtraAmountHistory::class, 'mrn_header_history_id')->where('ted_level', 'H')->where('ted_type','Discount');
+        return $this->hasMany(MrnExtraAmountHistory::class, 'mrn_header_history_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
     }
 
     /*Total discount header level total_header_disc_amount*/
@@ -232,7 +235,7 @@ class MrnHeaderHistory extends Model
     /*Header Level Expense*/
     public function expenses()
     {
-        return $this->hasMany(MrnExtraAmountHistory::class,'mrn_header_history_id')->where('ted_type', '=', 'Expense')
+        return $this->hasMany(MrnExtraAmountHistory::class, 'mrn_header_history_id')->where('ted_type', '=', 'Expense')
             ->where('ted_level', '=', 'H');
     }
 
@@ -243,27 +246,27 @@ class MrnHeaderHistory extends Model
 
     public function ship_address()
     {
-        return $this->belongsTo(ErpAddress::class,'shipping_address');
+        return $this->belongsTo(ErpAddress::class, 'shipping_address');
     }
 
     public function bill_address()
     {
-        return $this->belongsTo(ErpAddress::class,'billing_address');
+        return $this->belongsTo(ErpAddress::class, 'billing_address');
     }
 
     public function bill_address_details()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'billing')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'billing')->with(['city', 'state', 'country']);
     }
 
     public function ship_address_details()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'shipping')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'shipping')->with(['city', 'state', 'country']);
     }
 
     public function store_address()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type','location')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'location')->with(['city', 'state', 'country']);
     }
 
     public function getDisplayStatusAttribute()
@@ -303,6 +306,6 @@ class MrnHeaderHistory extends Model
 
     public function dynamic_fields()
     {
-        return $this -> hasMany(ErpMrnDynamicField::class, 'header_id');
+        return $this->hasMany(ErpMrnDynamicField::class, 'header_id');
     }
 }

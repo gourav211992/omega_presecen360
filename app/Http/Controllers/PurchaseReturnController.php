@@ -2978,7 +2978,6 @@ class PurchaseReturnController extends Controller
         ]);
     }
 
-
     public function getPostingDetails(Request $request)
     {
         try {

@@ -79,7 +79,7 @@ class WarehouseItemMappingController extends Controller
                 ->addColumn('item', function ($row) {
                     $itemIds = json_decode($row->item_id, true) ?? [];
                     $items = Item::whereIn('id', $itemIds)
-                        ->pluck('name')
+                        ->pluck('item_name')
                         ->toArray();
                     return implode(', ', $items);
                 })
@@ -397,7 +397,7 @@ class WarehouseItemMappingController extends Controller
 
         // Fetch items that belong to any of the selected parent IDs
         $items = Item::whereIn('subcategory_id', $subCategoryIds)
-            ->select('id', 'item_code')
+            ->select('id', 'item_name')
             ->orderBy('item_code')
             ->get();
 
@@ -460,7 +460,7 @@ class WarehouseItemMappingController extends Controller
             $query->where('status', ConstantHelper::ACTIVE);
         })->get(); // Main categories
         $allSubCategories = Category::whereNotNull('parent_id')->get(); // All subcategories
-        $allItems = Item::select('id', 'item_code as name', 'category_id', 'subcategory_id')->get();
+        $allItems = Item::select('id', 'item_name as name', 'category_id', 'subcategory_id')->get();
 
         $mappingsData = [];
 
