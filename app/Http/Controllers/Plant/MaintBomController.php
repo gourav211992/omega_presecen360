@@ -25,7 +25,7 @@ class MaintBomController extends Controller
      */
     public function index()
     {
-        $data = PlantMaintBom::get();
+        $data = PlantMaintBom::orderBy('created_at', 'desc')->get();
         return view('plant.maint_bom.index', compact('data'));
     }
 
@@ -46,6 +46,8 @@ class MaintBomController extends Controller
 
         $items = Item::where("type", "goods")
             ->with(["uom", "category", "itemAttributes"])
+            ->limit(10)
+            ->orderBy('item_code')
             ->get();
         foreach ($items as $item) {
             $itemId = $item->id;
@@ -74,19 +76,6 @@ class MaintBomController extends Controller
         }
        
         $items = $items->map(function ($item) {
-            $confirmedStock = StockLedger::query()
-                ->selectRaw("
-                    SUM(
-                        CASE 
-                            WHEN document_status IN ('approved', 'approval_not_required', 'posted') 
-                            THEN receipt_qty - reserved_qty
-                            ELSE 0
-                        END
-                    ) as confirmed_stock
-                ")
-                ->where('item_code', $item->item_code) // yaha fix kiya
-                ->value('confirmed_stock');
-        
             return [
                 'id'              => $item->id,
                 'item_code'       => $item->item_code,
@@ -94,7 +83,6 @@ class MaintBomController extends Controller
                 'uom_name'        => optional($item->uom)->name,
                 'uom_id'          => optional($item->uom)->id,
                 'item_attributes' => $item->attributes,
-                'available_stock' => $confirmedStock ?? 0, // agar null ho to 0
             ];
         });
         
@@ -281,6 +269,8 @@ class MaintBomController extends Controller
 
         $items = Item::where("type", "goods")
             ->with(["uom", "category", "itemAttributes"])
+            ->limit(10)
+            ->orderBy('item_code')
             ->get();
         foreach ($items as $item) {
             $itemId = $item->id;
@@ -419,6 +409,64 @@ class MaintBomController extends Controller
     {
         //
     }
+
+    public function searchItems(Request $request)
+    {
+        $search = $request->get('q', '');
+        $limit = $request->get('limit', 50);
+
+        $query = Item::where("type", "goods")
+            ->with(["uom", "category", "itemAttributes"]);
+
+        if (!empty($search)) {
+            $query->where(function ($q) use ($search) {
+                $q->where('item_code', 'LIKE', "%{$search}%")
+                  ->orWhere('item_name', 'LIKE', "%{$search}%");
+            });
+        }
+
+        $items = $query->limit($limit)->get();
+
+        foreach ($items as $item) {
+            $itemId = $item->id;
+
+            if (isset($itemId)) {
+                $itemAttributes = ItemAttribute::where('item_id', $itemId)->get();
+            } else {
+                $itemAttributes = [];
+            }
+            $processedData = [];
+            foreach ($itemAttributes as $key => $attribute) {
+                $attributesArray = array();
+                $attribute_group_id = $attribute->attribute_group_id;
+                $attribute->group_name = $attribute->group?->name;
+
+                $attributeValueData = ErpAttribute::whereIn('id', $attribute->attribute_id)->select('id', 'value')->where('status', 'active')->get();
+
+                $attribute->values_data = $attributeValueData;
+                $attribute = $attribute->only(['id', 'group_name', 'values_data', 'attribute_group_id']);
+
+                array_push($processedData, ['id' => $attribute['id'], 'group_name' => $attribute['group_name'], 'values_data' => $attributeValueData, 'attribute_group_id' => $attribute['attribute_group_id']]);
+            }
+            $processedData = collect($processedData);
+
+            $item->attributes = $processedData;
+        }
+
+        $items = $items->map(function ($item) {
+            return [
+                'id'              => $item->id,
+                'item_code'       => $item->item_code,
+                'item_name'       => $item->item_name,
+                'uom_name'        => optional($item->uom)->name,
+                'uom_id'          => optional($item->uom)->id,
+                'item_attributes' => $item->attributes,
+            ];
+        });
+
+        return response()->json($items);
+    }
+
     public function documentApproval(Request $request)
     {
         $request->validate([

@@ -105,11 +105,8 @@
                             {{ session('success') }}
                         </div>
                     @endif
-
-                  
-                 
+                    
                     @if ($errors->has('voucher_no') || $errors->has('voucher_name'))
-                        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
                         <script>
                             console.log("Validation Errors:", @json($errors->toArray())); // Debugging
 
@@ -609,6 +606,7 @@
 
 @section('scripts')
     <script src="{{ url('/app-assets/js/jquery-ui.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         function getMonthName(ym) {
             // ym = '2024-07'
@@ -863,6 +861,18 @@
 
 
         function submitForm(status) {
+            // Client-side validation for voucher_no
+            var voucherNo = document.getElementById('voucher_no').value.trim();
+            if (!voucherNo) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error !',
+                    text: 'Transaction Not Setup',
+                    confirmButtonColor: '#d33',
+                });
+                return false; // Prevent form submission
+            }
+
             var dateInput = document.getElementById('date');
             if (dateInput && !isDateAuthorized(dateInput.value)) {
                 dateInput.value = '';

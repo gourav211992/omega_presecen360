@@ -980,34 +980,63 @@
 						if (val) selectedItemIds.push(val);
 					});
 
-					// Filter itemsData by search term AND exclude already selected items
-					let filtered = itemsData.filter(item => {
-						let isSelectedElsewhere = selectedItemIds.includes(item.id.toString());
+					// ✅ NEW: Use server-side API for search
+					if (term.trim() === "") {
+						// When clicking on field (empty search), show the initially loaded items
+						let filtered = itemsData.filter(item => {
+							let isSelectedElsewhere = selectedItemIds.includes(item.id.toString());
+							let currentItemId = $(selector).closest('tr').find('.item_id').val();
+							return (item.item_code.toLowerCase().includes(term) || item.item_name.toLowerCase().includes(term)) &&
+								(!isSelectedElsewhere || item.id.toString() === currentItemId);
+						});
 
-						// Allow the current input's item (so it doesn't exclude itself)
-						// Get current input's item_id value:
-						let currentItemId = $(selector).closest('tr').find('.item_id').val();
+						let results = filtered.map(item => ({
+							id: item.id,
+							label: `${item.item_code} - ${item.item_name}`,
+							code: item.item_code,
+							item_id: item.id,
+							item_name: item.item_name,
+							uom_name: item.uom_name,
+							uom_id: item.uom_id,
+							attr: item.item_attributes,
+						}));
 
-						// Include item if:
-						// - it matches the search term
-						// - and (not selected elsewhere OR is the current selected item in this row)
-						return (item.item_code.toLowerCase().includes(term) || item.item_name.toLowerCase().includes(term)) &&
-							(!isSelectedElsewhere || item.id.toString() === currentItemId);
-					});
-					
+						response(results);
+					} else {
+						// When typing search terms, use server-side search
+						$.ajax({
+							url: "{{ route('maint-bom.search-items') }}",
+							method: 'GET',
+							data: {
+								q: term,
+								limit: 50
+							},
+							success: function(data) {
+								// Filter out already selected items and format for autocomplete
+								let filtered = data.filter(item => {
+									let currentItemId = $(selector).closest('tr').find('.item_id').val();
+									return !selectedItemIds.includes(item.id.toString()) || item.id.toString() === currentItemId;
+								});
 
-					let results = filtered.map(item => ({
-						id: item.id,
-						label: `${item.item_code} - ${item.item_name}`,
-						code: item.item_code,
-						item_id: item.id,
-						item_name: item.item_name,
-						uom_name: item.uom_name,
-						uom_id: item.uom_id,
-						attr: item.item_attributes,
-					}));
+								let results = filtered.map(item => ({
+									id: item.id,
+									label: `${item.item_code} - ${item.item_name}`,
+									code: item.item_code,
+									item_id: item.id,
+									item_name: item.item_name,
+									uom_name: item.uom_name,
+									uom_id: item.uom_id,
+									attr: item.item_attributes,
+								}));
 
-					response(results);
+								response(results);
+							},
+							error: function(xhr, status, error) {
+								console.log('Search error:', error);
+								response([]);
+							}
+						});
+					}
 				},
 				select: function (event, ui) {
 					let $input = $(this);
