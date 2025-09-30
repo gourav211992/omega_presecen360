@@ -873,6 +873,7 @@
                 return false; // Prevent form submission
             }
 
+            
             var dateInput = document.getElementById('date');
             if (dateInput && !isDateAuthorized(dateInput.value)) {
                 dateInput.value = '';
