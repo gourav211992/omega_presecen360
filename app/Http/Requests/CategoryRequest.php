@@ -39,10 +39,11 @@ class CategoryRequest extends FormRequest
             'name' => [
                 'required',
                 'string',
-                'max:100',
+                'max:255',
+                'regex:/^[a-zA-Z0-9\s\-]+$/',
             ],
 
-            'cat_initials' => 'required|string|max:100', 
+            'cat_initials' => 'required|string|max:10', 
             'inspection_checklist_id' => 'nullable|exists:erp_inspection_checklists,id', 
             'status' => 'required', 
             'group_id' => 'nullable|exists:groups,id', 
@@ -62,11 +63,12 @@ class CategoryRequest extends FormRequest
             'hsn_id.exists' => 'The selected HSN is invalid.',
             'name.required' => 'The category name is required.',
             'name.string' => 'The category name must be a valid string.',
-            'name.max' => 'The category name may not be greater than 100 characters.',
-            'name.unique' => 'The category name has already been taken.',
+            'name.max' => 'The category name may not be greater than 255 characters.',
+            'name.regex' => 'The category name may only contain letters, numbers, spaces, and hyphens.',
             'cat_initials.required' => 'The category initials are required.',
             'cat_initials.string' => 'The category initials must be a valid string.',
             'cat_initials.max' => 'The category initials may not exceed 10 characters.',
+            'cat_initials.unique' => 'The group initials already exist and must be unique.',
             'status.required' => 'The status field is required.',
             'group_id.exists' => 'The selected group is invalid.',
             'organization_id.exists' => 'The selected organization is invalid.',
@@ -123,6 +125,34 @@ class CategoryRequest extends FormRequest
 
             if ($existing) {
                 $validator->errors()->add('name', "The category name has already been taken.");
+            }
+
+            // Check for unique cat_initials
+            $catInitials = $this->input('cat_initials');
+            $existingInitials = Category::where('cat_initials', $catInitials)
+                ->whereNull('deleted_at')
+                 ->when($this->group_id !== null, function ($query) {
+                    return $query->where('group_id', $this->group_id);
+                })
+                ->when($this->company_id !== null, function ($query) {
+                    return $query->where(function($q) {
+                        $q->where('company_id', $this->company_id)
+                        ->orWhereNull('company_id');
+                    });
+                })
+                ->when($this->organization_id !== null, function ($query) {
+                    return $query->where(function($q) {
+                        $q->where('organization_id', $this->organization_id)
+                        ->orWhereNull('organization_id');
+                    });
+                })
+                ->when($categoryId, function ($query) use ($categoryId) {
+                    return $query->where('id', '!=', $categoryId);
+                })
+                ->exists();
+
+            if ($existingInitials) {
+                $validator->errors()->add('cat_initials', "The group initials already exist and must be unique.");
             }
 
             $subcategories = collect($this->input('subcategories'));

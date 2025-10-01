@@ -29,7 +29,7 @@
                     </div>
                     <div class="content-header-right text-end col-md-6 col-6 mb-2 mb-sm-0">
                         <div class="form-group breadcrumb-right">
-                        <a href="{{ route('categories.index') }}" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
+                        <a href="{{ route('equipment-categories.index') }}" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
                             <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
                                     data-url="{{ route('categories.destroy', $category->id) }}" 
                                     data-redirect="{{ route('categories.index') }}"
@@ -110,7 +110,7 @@
                                                     <label class="form-label">Group Initials<span class="text-danger">*</span></label>
                                                 </div>
                                                 <div class="col-md-5">
-                                                    <input type="text" name ="cat_initials" id="cat_initials_display" value="{{ $category->cat_initials ?? ($category->sub_cat_initials ?? '') }}" class="form-control" />
+                                                    <input type="text" name ="cat_initials" id="cat_initials_display" value="{{ $category->cat_initials ?? ($category->sub_cat_initials ?? '') }}" class="form-control" maxlength="3" />
                                                 </div>
                                             </div>
 
@@ -169,13 +169,12 @@
     </div>
 </form>
 @endsection
-
 @section('scripts')
 <script>
     $(document).ready(function() {
         var lastLevel = @json($isLastLevel);
-        var hsnValue = @json($category->hsn ? $category->hsn->code : ''); 
-        var hsnId = @json($category->hsn_id ?? ''); 
+        var hsnValue = @json($category->hsn ? $category->hsn->code : '');
+        var hsnId = @json($category->hsn_id ?? '');
         var initialVal = $('#cat_initials_display').val().trim();
         var nameVal = $('input[name="name"]').val().trim();
         function handleHSNSectionVisibility() {
@@ -259,6 +258,39 @@
             const categoryName = $(this).val();
             const initials = generateInitials(categoryName);
             $('#cat_initials_display').val(initials);
+
+            // Show Swal alert when reaching 100 characters
+            if (categoryName.length >= 100) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Character Limit Reached',
+                    text: 'Group Name has reached the 100 character limit.',
+                    confirmButtonText: 'OK'
+                });
+                // Prevent further typing by truncating to 100 characters
+                $(this).val(categoryName.substring(0, 100));
+            }
+        });
+
+        // Prevent special characters in category name
+        $('input[name="name"]').on('keypress', function(e) {
+            var charCode = e.which ? e.which : e.keyCode;
+            var char = String.fromCharCode(charCode);
+
+            // Allow letters, numbers, spaces, hyphens, and backspace/delete
+            if (!/[a-zA-Z0-9\s\-]/.test(char) && charCode !== 8 && charCode !== 46) {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // Also restrict paste to only allowed characters
+        $('input[name="name"]').on('paste', function(e) {
+            var pastedData = e.originalEvent.clipboardData.getData('text');
+            if (!/^[a-zA-Z0-9\s\-]*$/.test(pastedData)) {
+                e.preventDefault();
+                return false;
+            }
         });
         if (!hsnValue && !hsnId) {
             var selectedParentId = $('#parent_id').val();

@@ -27,7 +27,7 @@
                             </div>
                         </div>
                         <div class="content-header-right text-end col-md-6 col-6 mb-2 mb-sm-0">
-                            <a href="{{ route('categories.index') }}" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
+                            <a href="{{ route('equipment-categories.index') }}" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
                             <button type="submit" class="btn btn-primary btn-sm"><i data-feather="check-circle"></i> Create</button>
                         </div>
                     </div>
@@ -81,7 +81,7 @@
                                                         <label class="form-label">Group Name <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="text" name="name" class="form-control" placeholder="Enter Category Name" value="{{ old('name') }}" />
+                                                        <input type="text" name="name" class="form-control" placeholder="Enter Category Name" value="{{ old('name') }}"/>
                                                         @error('name')
                                                             <div class="invalid-feedback d-block">{{ $message }}</div>
                                                         @enderror
@@ -92,7 +92,7 @@
                                                         <label class="form-label">Group Initials<span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="text" name ="cat_initials" id="cat_initials_display" class="form-control" />
+                                                        <input type="text" name ="cat_initials" id="cat_initials_display" class="form-control" maxlength="3" />
                                                     </div>
                                                 </div>
                                                  <!-- HSN/SAC Field Section -->
@@ -154,7 +154,7 @@
         </div>
     </form>
 @endsection
-
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @section('scripts')
 <script>
    $(document).ready(function() {
@@ -176,7 +176,7 @@
         handleHSNSectionVisibility();
         var selectedType = $(this).val();
         $.ajax({
-            url: '{{ route("categories.byType") }}', 
+            url: '{{ route("categories.byType") }}',
             method: 'GET',
             data: { type: selectedType },
             success: function(data) {
@@ -239,6 +239,39 @@
         const categoryName = $(this).val();
         const initials = generateInitials(categoryName);
         $('#cat_initials_display').val(initials);
+
+        // Show Swal alert when reaching 100 characters
+        if (categoryName.length >= 100) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Character Limit Reached',
+                text: 'Group Name has reached the 100 character limit.',
+                confirmButtonText: 'OK'
+            });
+            // Prevent further typing by truncating to 100 characters
+            $(this).val(categoryName.substring(0, 100));
+        }
+    });
+
+    // Prevent special characters in category name
+    $('input[name="name"]').on('keypress', function(e) {
+        var charCode = e.which ? e.which : e.keyCode;
+        var char = String.fromCharCode(charCode);
+
+        // Allow letters, numbers, spaces, hyphens, and backspace/delete
+        if (!/[a-zA-Z0-9\s\-]/.test(char) && charCode !== 8 && charCode !== 46) {
+            e.preventDefault();
+            return false;
+        }
+    });
+
+    // Also restrict paste to only allowed characters
+    $('input[name="name"]').on('paste', function(e) {
+        var pastedData = e.originalEvent.clipboardData.getData('text');
+        if (!/^[a-zA-Z0-9\s\-]*$/.test(pastedData)) {
+            e.preventDefault();
+            return false;
+        }
     });
     applyCapsLock();
     handleHSNSectionVisibility();
