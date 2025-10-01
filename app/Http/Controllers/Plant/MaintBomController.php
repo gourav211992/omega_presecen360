@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Plant;
 use App\Helpers\ConstantHelper;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use App\Helpers\Helper;
 use App\Http\Requests\MaintBOMRequest;
 use App\Models\ErpAttribute;
@@ -209,12 +210,12 @@ class MaintBomController extends Controller
         $name = $request->bom_name;
 
         // Check for duplicate BOM name
-        $existingAsset = PlantMaintBOM::where('bom_name', $name)->first();
+        $existingAsset = PlantMaintBom::where('bom_name', $name)->first();
         if ($existingAsset) {
             return redirect()
                 ->route('maint-bom.create')
                 ->withInput()
-                ->withErrors("BOM Name '{$name}' already exists.");
+                ->withErrors(['bom_name' => "BOM Name '{$name}' already exists."]);
         }
 
         $user = Helper::getAuthenticatedUser();
@@ -232,7 +233,7 @@ class MaintBomController extends Controller
 
         try {
             DB::transaction(function () use ($data) {
-                $bom = PlantMaintBOM::create($data);
+                $bom = PlantMaintBom::create($data);
 
                 if ($bom->document_status != ConstantHelper::DRAFT) {
                     $doc = Helper::approveDocument(
@@ -441,11 +442,11 @@ class MaintBomController extends Controller
                 ->withErrors($request->errors());
         }
 
-        $bom = PlantMaintBOM::findOrFail($id);
+        $bom = PlantMaintBom::findOrFail($id);
 
         // Check for duplicate BOM Name except current record
         $name = $request->bom_name;
-        $existingAsset = PlantMaintBOM::where('bom_name', $name)
+        $existingAsset = PlantMaintBom::where('bom_name', $name)
             ->where('id', '!=', $id)
             ->first();
 
@@ -465,7 +466,7 @@ class MaintBomController extends Controller
                 $revisionData = [
                     [
                         "model_type" => "header",
-                        "model_name" => "PlantMaintBOM",
+                        "model_name" => "PlantMaintBom",
                         "relation_column" => "",
                     ],
                 ];

@@ -92,7 +92,7 @@
 															<select class="form-select" id="book_id" name="book_id"
 																required>
 																@foreach ($series as $book)
-																	<option value="{{ $book->id }}">{{ $book->book_code }}
+																	<option value="{{ $book->id }}" {{ old('book_id') == $book->id ? 'selected' : '' }}>{{ $book->book_code }}
 																	</option>
 																@endforeach
 															</select>
@@ -107,7 +107,10 @@
 
 														<div class="col-md-5">
 															<input type="text" class="form-control" id="document_number"
-																name="document_number" required>
+																name="document_number" value="{{ old('document_number') }}" required>
+															@if($errors->has('document_number'))
+																<div class="text-danger small">{{ $errors->first('document_number') }}</div>
+															@endif
 														</div>
 													</div>
 
@@ -119,7 +122,7 @@
 
 														<div class="col-md-5">
 															<input type="date" class="form-control" id="document_date"
-																name="document_date" value="{{ date('Y-m-d') }}" required>
+																name="document_date" value="{{ old('document_date', date('Y-m-d')) }}" required>
 														</div>
 													</div>
 
@@ -132,7 +135,10 @@
 
 														<div class="col-md-5">
 															<input type="text" name="bom_name" id="bom_name"
-																class="form-control" required />
+																class="form-control" value="{{ old('bom_name') }}" required />
+															@if($errors->has('bom_name'))
+																<div class="text-danger small">{{ $errors->first('bom_name') }}</div>
+															@endif
 														</div>
 													</div>
 
@@ -283,7 +289,7 @@
 												<div class="mb-1">
 													<label class="form-label">Final Remarks</label>
 													<textarea type="text" name="remarks" rows="4" class="form-control"
-														placeholder="Enter Remarks here..."></textarea>
+														placeholder="Enter Remarks here...">{{ old('remarks') }}</textarea>
 
 												</div>
 											</div>
@@ -502,7 +508,9 @@
 
 
 @section('scripts')
-	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>														
+	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>	
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+													
 	<script>
 		const itemsData = @json($items);
 		let rowCount = 1;
@@ -514,32 +522,6 @@
 				});
 			}
 		})
-
-
-
-		// $(function () {
-		// 	$(".ledgerselecct").autocomplete({
-		// 		source: [
-		// 			"Indian Oil Corporation Ltd.",
-		// 			"Airports Authority of India",
-		// 			"Bharat Heavy Electricals Ltd.",
-		// 			"Bharat Petroleum Corpn. Ltd.",
-		// 			"NTPC Ltd.",
-		// 			"Gail (India) Ltd.",
-		// 			"Hindustan Petroleum Corpn. Ltd.",
-		// 			"Steel Authority of India Ltd.",
-		// 			"Indian Railway Stations Devpt. Corporation Ltd.",
-		// 			"Oil & Natural Gas Corporation Ltd.",
-		// 			"Oil & Natural Gas Corporation Ltd.",
-		// 			"Hindustan Aeronautics Ltd.",
-		// 		],
-		// 		minLength: 0
-		// 	}).focus(function () {
-		// 		if (this.value == "") {
-		// 			$(this).autocomplete("search");
-		// 		}
-		// 	});
-		// });
 
 		$(".mrntableselectexcel tr").click(function () {
 			$(this).addClass('trselected').siblings().removeClass('trselected');
@@ -643,84 +625,41 @@
 				}
 			}
 		}
+		
 		$('#addNewRowBtn').on('click', function () {
-			let allInputsFilled = true;
+			let isValid = true;
 
-			$('.mrntableselectexcel').find('tr').each(function () {
-				const row = $(this);
+			$('.mrntableselectexcel tr').find('input, select').removeClass('is-invalid');
 
-				// Validate item_code
-				const itemCode = row.find('.item_code');
-				if (!itemCode.prop('readonly')) {
-					if (!itemCode.val()) {
-						allInputsFilled = false;
-						itemCode.addClass('is-invalid')[0].reportValidity();
-						return false;
-					} else {
-						itemCode.removeClass('is-invalid');
-					}
+			$('.mrntableselectexcel tr').each(function () {
+				let $row = $(this);
+				let itemId = $row.find('.item_id').val();
+				let itemName = $row.find('.item_name').val();
+				let uomValue = $row.find('.uom').val();
+				let qtyValue = $row.find('.qty').val();
+
+				if (!itemId || itemId.trim() === '') {
+					$row.find('.item_code').addClass('is-invalid');
+					isValid = false;
+				} else if (!itemName || itemName.trim() === '') {
+					$row.find('.item_name').addClass('is-invalid');
+					isValid = false;
+				} else if (!uomValue || uomValue.trim() === '') {
+					$row.find('.uom').addClass('is-invalid');
+					isValid = false;
+				} else if (!qtyValue || qtyValue.trim() === '' || parseFloat(qtyValue) <= 0) {
+					$row.find('.qty').addClass('is-invalid');
+					isValid = false;
 				}
-
-				// Validate item_name
-				const itemName = row.find('.item_name');
-				if (!itemName.val()) {
-					allInputsFilled = false;
-					itemName.addClass('is-invalid')[0].reportValidity();
-					return false;
-				} else {
-					itemName.removeClass('is-invalid');
-				}
-
-				// Validate uom
-				// const uom = row.find('.uom');
-				// if (!uom.val()) {
-				// 	allInputsFilled = false;
-				// 	uom.addClass('is-invalid')[0].reportValidity();
-				// 	return false;
-				// } else {
-				// 	uom.removeClass('is-invalid');
-				// }
-
-				// Validate qty
-				const qty = row.find('.qty');
-				if (!qty.val()) {
-					allInputsFilled = false;
-					qty.addClass('is-invalid')[0].reportValidity();
-					return false;
-				} else {
-					qty.removeClass('is-invalid');
-				}
-
-				const attributeInput = row.find('.attribute');
-				let attributeVal = attributeInput.val();
-
-				// // Parse JSON safely
-				// let attrArray = [];
-				// try {
-				// 	attrArray = attributeVal ? JSON.parse(attributeVal) : [];
-				// } catch (e) {
-				// 	attrArray = [];
-				// }
-
-				// Validation: must contain at least 1 {item_attribute_id, value_id}
-				// if (!Array.isArray(attrArray) || attrArray.length === 0) {
-				// 	allInputsFilled = false;
-
-				// 	Swal.fire({
-				// 		icon: 'warning',
-				// 		title: 'Attribute Required',
-				// 		text: 'Please select at least one attribute before adding a new row.'
-				// 	});
-
-				// 	row.find('.attribute-badges').addClass('border border-danger rounded p-1');
-				// 	return false; 
-				// } else {
-				// 	row.find('.attribute-badges').removeClass('border border-danger rounded p-1');
-				// }
-				
 			});
 
-			if (!allInputsFilled) {
+			if (!isValid) {
+				Swal.fire({
+					icon: 'warning',
+					title: 'Complete Current Row First',
+					text: 'Please complete all required fields in the current row(s) before adding a new row.',
+					confirmButtonText: 'OK'
+				});
 				return;
 			}
 
@@ -753,7 +692,7 @@
 						<input type="number" class="qty form-control mw-100" name="qty[]" required />
 					</td>
 				</tr>`;
-
+			
 			$('.mrntableselectexcel').append(newRow);
 			initAutoForItem('.item_code');
 		});
@@ -905,6 +844,14 @@
 		document.getElementById('save-draft-btn').addEventListener('click', function () {
 			$('.preloader').show();
 			document.getElementById('document_status').value = 'draft';
+
+			// Validate quantity fields for draft save as well
+			let qtyValidationPassed = validateQuantities();
+			if (!qtyValidationPassed) {
+				$('.preloader').hide();
+				return; // Stop submission if validation fails
+			}
+
 			updateJsonData();
 			document.getElementById('maint-bom-form').submit();
 
@@ -915,6 +862,14 @@
 			$('.preloader').show();
 			document.getElementById('document_status').value = 'submitted';
 			e.preventDefault(); // Always prevent default first
+
+			// Validate quantity fields
+			let qtyValidationPassed = validateQuantities();
+			if (!qtyValidationPassed) {
+				$('.preloader').hide();
+				return; // Stop submission if validation fails
+			}
+
 			updateJsonData();
 			this.submit();
 
@@ -950,9 +905,6 @@
 
 		@if ($errors->any())
 			$('.preloader').hide();
-			showToast('error',
-				"@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach"
-			);
 		@endif
 		$(document).on('input change', '.qty, .uom, .item_name, .item_code, .attribute', function () {
 			updateFooterFromSelected();
@@ -1439,12 +1391,86 @@
             var currentRow = $('#attributeModal').data('currentRow');
             currentRow.data('selectedAttributes', selectedAttrs);
             updateAttributeBadges(currentRow);
-
-            $('#attributeModal').modal('hide');
         });
 
-	
-		document.addEventListener("DOMContentLoaded", function () {
+
+		function validateRowsCompletion() {
+			let isValid = true;
+
+			// Remove existing validation classes
+			$('.mrntableselectexcel tr').find('input, select').removeClass('is-invalid');
+
+			// Loop through all rows
+			$('.mrntableselectexcel tr').each(function(index) {
+				let rowIndex = index + 1;
+				let $row = $(this);
+
+				let itemId = $row.find('.item_id').val();
+				let itemName = $row.find('.item_name').val();
+				let uomValue = $row.find('.uom').val();
+				let qtyValue = $row.find('.qty').val();
+
+				// Check if row has incomplete data
+				if (!itemId || itemId.trim() === '') {
+					$row.find('.item_code').addClass('is-invalid');
+					isValid = false;
+				} else if (!itemName || itemName.trim() === '') {
+					$row.find('.item_name').addClass('is-invalid');
+					isValid = false;
+				} else if (!uomValue || uomValue.trim() === '') {
+					$row.find('.uom').addClass('is-invalid');
+					isValid = false;
+				} else if (!qtyValue || qtyValue.trim() === '' || parseFloat(qtyValue) <= 0) {
+					$row.find('.qty').addClass('is-invalid');
+					isValid = false;
+				}
+			});
+
+			if (!isValid) {
+				// Show SweetAlert error
+				Swal.fire({
+					icon: 'warning',
+					title: 'Complete Current Row First',
+					text: 'Please complete all required fields in the current row(s) before adding a new row.',
+					confirmButtonText: 'OK'
+				});
+			}
+
+			return isValid;
+		}
+
+		function validateQuantities() {
+			let isValid = true;
+			let errorMessages = [];
+
+			// Loop through all quantity fields
+			$('.qty').each(function(index) {
+				let qtyValue = $(this).val().trim();
+				let rowIndex = index + 1; // 1-based row numbering
+
+				// Check if quantity is empty or zero
+				if (!qtyValue || qtyValue === '' || parseFloat(qtyValue) <= 0) {
+					let itemName = $(this).closest('tr').find('.item_name').val() || 'Unknown Item';
+					errorMessages.push(`Item <span style="color: red;">${itemName}</span> quantity can not be 0 or empty`);
+					isValid = false;
+				}
+			});
+
+			if (!isValid) {
+				// Show SweetAlert error
+				Swal.fire({
+					icon: 'error',
+					title: 'Validation Error',
+					html: errorMessages.join('<br>'),
+					confirmButtonText: 'OK'
+				});
+			}
+
+			return isValid;
+		}
+
+		// Wrap DOM-dependent code in DOMContentLoaded to ensure elements exist
+		document.addEventListener('DOMContentLoaded', function() {
 			const partDetails = document.querySelector('td[colspan="7"][rowspan="10"]');
 			if (partDetails) {
 				partDetails.onselectstart = function () {

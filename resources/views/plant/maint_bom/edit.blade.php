@@ -36,11 +36,6 @@
 									<i data-feather="check-circle"></i> Submit
 								</button>
 							@endif
-							
-							@if($buttons['amend'])
-								<button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-										class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
-							@endif
 						</div>
 					</div>
 				</div>
@@ -61,11 +56,31 @@
 									<div class="card-body customernewsection-form">
 										<div class="border-bottom mb-2 pb-25">
 											<div class="row">
-												<div class="col-md-6">
-													<div class="newheader">
-														<h4 class="card-title text-theme">Basic Information</h4>
-														<p class="card-text">Edit the details</p>
+											<div class="col-md-12">
+												<div class="newheader border-bottom mb-2 pb-25 d-flex flex-wrap justify-content-between">
+													<div>
+													<h4 class="card-title text-theme">Basic Information</h4>
+													<p class="card-text">Edit the details</p>
 													</div>
+													<div class="header-right">
+													@php
+														use App\Helpers\Helper;
+													@endphp
+														<div class="col-md-6 text-sm-end">
+														<span
+															class="badge rounded-pill {{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$bom->document_status] ?? ''}} forminnerstatus">
+															<span class="text-dark">Status</span>
+															: <span
+																class="{{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS['CLOSED'] ?? ''}}">
+																@if ($bom->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED)
+																	Approved
+																@else
+																	{{ ucfirst($bom->document_status) }}
+																@endif
+															</span>
+														</span>
+														</div>
+												</div>
 												</div>
 											</div>
 										</div>
@@ -573,6 +588,7 @@
 @section('scripts')
 	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>
 	<script src="{{asset('assets/js/fileshandler.js')}}"></script>
+	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 
 	<script>
@@ -661,6 +677,12 @@
 		}
 
 		$('#addNewRowBtn').on('click', function () {
+			// Validate that all existing rows are complete before adding new row
+			let rowsValidationPassed = validateRowsCompletion();
+			if (!rowsValidationPassed) {
+				return; // Stop adding new row if validation fails
+			}
+
 			rowCount++;
 			let newRow = `<tr>
 																			<td class="customernewsection-form">
@@ -842,12 +864,94 @@
 		}
 
 
+		function validateQuantities() {
+			let isValid = true;
+			let errorMessages = [];
+
+			// Loop through all quantity fields
+			$('.qty').each(function(index) {
+				let qtyValue = $(this).val().trim();
+				let rowIndex = index + 1; // 1-based row numbering
+
+				// Check if quantity is empty or zero
+				if (!qtyValue || qtyValue === '' || parseFloat(qtyValue) <= 0) {
+					let itemName = $(this).closest('tr').find('.item_name').val() || 'Unknown Item';
+					errorMessages.push(`Item <span style="color: red;">${itemName}</span> quantity can not be 0 or empty`);
+					isValid = false;
+				}
+			});
+
+			if (!isValid) {
+				// Show SweetAlert error
+				Swal.fire({
+					icon: 'error',
+					title: 'Validation Error',
+					html: errorMessages.join('<br>'),
+					confirmButtonText: 'OK'
+				});
+			}
+
+			return isValid;
+		}
+
+		function validateRowsCompletion() {
+			let isValid = true;
+
+			// Remove existing validation classes
+			$('.mrntableselectexcel tr').find('input, select').removeClass('is-invalid');
+
+			// Loop through all rows
+			$('.mrntableselectexcel tr').each(function(index) {
+				let rowIndex = index + 1;
+				let $row = $(this);
+
+				let itemId = $row.find('.item_id').val();
+				let itemName = $row.find('.item_name').val();
+				let uomValue = $row.find('.uom').val();
+				let qtyValue = $row.find('.qty').val();
+
+				// Check if row has incomplete data
+				if (!itemId || itemId.trim() === '') {
+					$row.find('.item_code').addClass('is-invalid');
+					isValid = false;
+				} else if (!itemName || itemName.trim() === '') {
+					$row.find('.item_name').addClass('is-invalid');
+					isValid = false;
+				} else if (!uomValue || uomValue.trim() === '') {
+					$row.find('.uom').addClass('is-invalid');
+					isValid = false;
+				} else if (!qtyValue || qtyValue.trim() === '' || parseFloat(qtyValue) <= 0) {
+					$row.find('.qty').addClass('is-invalid');
+					isValid = false;
+				}
+			});
+
+			if (!isValid) {
+				// Show SweetAlert error
+				Swal.fire({
+					icon: 'warning',
+					title: 'Complete Current Row First',
+					text: 'Please complete all required fields in the current row(s) before adding a new row.',
+					confirmButtonText: 'OK'
+				});
+			}
+
+			return isValid;
+		}
+
 		// Wrap DOM-dependent code in DOMContentLoaded to ensure elements exist
 		document.addEventListener('DOMContentLoaded', function() {
 			const saveDraftBtn = document.getElementById('save-draft-btn');
 			if (saveDraftBtn) {
 				saveDraftBtn.addEventListener('click', function () {
 					document.getElementById('document_status').value = 'draft';
+
+					// Validate quantity fields for draft save as well
+					let qtyValidationPassed = validateQuantities();
+					if (!qtyValidationPassed) {
+						return; // Stop submission if validation fails
+					}
+
 					updateJsonData();
 					if ($('#action_type').val() === "amendment") {
 						$("#amendmentModal").modal('show');
@@ -864,6 +968,13 @@
 				submitBtn.addEventListener('click', function (e) {
 					document.getElementById('document_status').value = 'submitted';
 					e.preventDefault(); // Always prevent default first
+
+					// Validate quantity fields
+					let qtyValidationPassed = validateQuantities();
+					if (!qtyValidationPassed) {
+						return; // Stop submission if validation fails
+					}
+
 					updateJsonData();
 					if ($('#action_type').val() === "amendment")
 						{
