@@ -133,14 +133,19 @@ class Helper
         return $series;
     }
 
-    public static function getBookSeriesNew($serviceAlias, $menuServiceAlias = '', $isEdit = false)
+    public static function getBookSeriesNew($serviceAlias, $menuServiceAlias = '', $isEdit = false,$is_manually = false)
     {
         $servicesBooks = self::getAccessibleServicesFromMenuAlias($menuServiceAlias, $isEdit ? $serviceAlias : '');
         $bookIds = $servicesBooks['books'];
         $allBookAccess = $servicesBooks['all_book_access'];
+        $getCurrentOrg =OrganizationHelper::getAuthenticatedOrganization();
         $series = Book::withDefaultGroupCompanyOrg()
             ->whereHas('org_service', function ($orgService) use ($serviceAlias) {
-                $orgService->where('alias', $serviceAlias);
+                $orgService->where('alias', $serviceAlias); 
+            })->when($is_manually, function ($query) use($getCurrentOrg) {
+                $query->whereHas('patterns', function ($patterns) use ($getCurrentOrg) {
+                    $patterns->where('series_numbering', 'Manually')->where('organization_id',$getCurrentOrg->id);
+                });
             })->when($allBookAccess === false, function ($bookQuery) use ($bookIds) {
                 $bookQuery->whereIn('id', $bookIds);
             })->where('status', ConstantHelper::ACTIVE)->where('manual_entry', 1);

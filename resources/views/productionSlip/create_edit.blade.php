@@ -2527,6 +2527,8 @@
         const documentDate = document.getElementById('order_date_input').value;
 
         if (bookId && bookCode && documentDate) {
+            var CHECK_IS_APPROVED = @json(isset($slip->document_status) && in_array($slip->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED));
+
         //     let siButton = document.getElementById('select_si_button');
         //     if (siButton) {
         //         siButton.disabled = false;
@@ -2540,7 +2542,7 @@
         //         leaseButton.disabled = false;
         //     }
             let orderButton = document.getElementById('select_pwo_button');
-            if (orderButton) {
+            if (orderButton && !CHECK_IS_APPROVED) {
                 orderButton.disabled = false;
             }
         } else {
@@ -2867,6 +2869,8 @@ function amendConfirm()
     }
 
     reCheckEditScript();
+    $('#select_pwo_button').prop('disabled', false);
+
 }
 
 function reCheckEditScript()

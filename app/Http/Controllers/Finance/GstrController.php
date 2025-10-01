@@ -13,6 +13,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Exports\finance\GstrDetailExport;
+use App\Helpers\Common\OrganizationHelper;
 use App\Helpers\GstrHelper;
 use App\Helpers\Helper;
 
@@ -35,9 +36,8 @@ class GstrController extends Controller
 
         $connection = config('database.connections.mysql.database');
 
-        $organizationId = Helper::getAuthenticatedUser()->organization_id;
-        $organization = Organization::where('id', $organizationId)->first();
-        $gstin = $organization->gst_number ?? env('EINVOICE_GSTIN', '');
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $gstin = $organization->gst_number;
 
         $gstrInvoiceTypes = ErpGstInvoiceType::on('mysql_master') // Set connection for master
                 ->where(function ($query) use ($request) {
@@ -56,9 +56,8 @@ class GstrController extends Controller
                     DB::raw("COALESCE(SUM(erp_gstr_compiled_data.cgst)) as cgst"),
                     DB::raw("COALESCE(SUM(erp_gstr_compiled_data.igst)) as igst"),
                     DB::raw("COALESCE(SUM(erp_gstr_compiled_data.cess)) as cess"),
-                    // DB::raw("COALESCE(SUM(erp_gstr_compiled_data.taxable_amt)) as tax_amt"),
                     DB::raw("COALESCE(SUM(erp_gstr_compiled_data.invoice_amt)) as invoice_amt"),
-                    DB::raw("COUNT(erp_gstr_compiled_data.id) as invoice_count")
+                    DB::raw("COUNT(DISTINCT erp_gstr_compiled_data.invoice_id) as invoice_count")
                 )
                 ->leftJoin("{$connection}.erp_gstr_compiled_data", "erp_gstr_compiled_data.invoice_type_id", '=', 'erp_gst_invoice_types.id')
                 ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
@@ -94,9 +93,8 @@ class GstrController extends Controller
     }
 
     public function json(Request $request){
-        $organizationId = Helper::getAuthenticatedUser()->organization_id;
-        $organization = Organization::where('id', $organizationId)->first();
-        $supplierGstin = $organization->gst_number ?? env('EINVOICE_GSTIN', '');
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $supplierGstin = $organization->gst_number;
         
         $startDate = Carbon::now()->startOfMonth(); // Start of the current month
         $endDate = Carbon::now()->endOfMonth(); 
@@ -140,6 +138,8 @@ class GstrController extends Controller
                 ->where('invoice_type_id', $invoiceType->id)
                 ->where('supplier_gstin', $supplierGstin)
                 ->whereBetween('erp_gstr_compiled_data.invoice_date', [$startDate, $endDate])
+                ->whereNotNull('erp_gstr_compiled_data.invoice_id')
+                ->groupBy('erp_gstr_compiled_data.invoice_id')
                 ->get();
 
                 
@@ -181,6 +181,9 @@ class GstrController extends Controller
             $startDate = $dates[0] ? Carbon::parse($dates[0])->startOfDay() : null;
             $endDate = isset($dates[1]) ? Carbon::parse($dates[1])->startOfDay():  Carbon::parse($dates[0])->startOfDay();
         }
+
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $supplierGstin = $organization->gst_number;
         
         $type = ErpGstInvoiceType::on('mysql_master')->where('id',$id)->first();
 
@@ -195,6 +198,7 @@ class GstrController extends Controller
             })
         ->whereBetween('erp_gstr_compiled_data.invoice_date', [$startDate, $endDate])
         ->where('invoice_type_id',$id)
+        ->where('supplier_gstin', $supplierGstin)
         ->whereNotNull('erp_gstr_compiled_data.invoice_id')
         ->groupBy('erp_gstr_compiled_data.invoice_id')
         ->paginate($length);
@@ -228,20 +232,6 @@ class GstrController extends Controller
 
     }
 
-    private function currentFinancialYear(){
-        $month = date('n'); // numeric month (1 to 12)
-        $year = date('Y');
-
-        if ($month >= 4) {
-            // If current month is April (4) or later
-            $financialYear = $year . '-' . ($year + 1);
-        } else {
-            // If current month is Jan-Mar (1-3), we are in previous FY
-            $financialYear = ($year - 1) . '-' . $year;
-        }
-        return $financialYear;
-    }
-
     private function masterData(){
         $groups = OrganizationGroup::select('id','name')->get();
         $organizations = Organization::select('id','name')->get();
@@ -257,9 +247,15 @@ class GstrController extends Controller
     }
 
     public function detailCsv(Request $request, $id){
-        $organizationId = Helper::getAuthenticatedUser()->organization_id;
-        $organization = Organization::where('id', $organizationId)->first();
-        $gstin = $organization->gst_number ?? env('EINVOICE_GSTIN', '');
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $gstin = $organization->gst_number;
+
+        // ✅ Ensure directory exists with correct permissions
+        $directoryPath = public_path('temp/finance/gstr1');
+        if (!file_exists($directoryPath)) {
+            mkdir($directoryPath, 0775, true);
+            chmod($directoryPath, 0775);
+        }
 
         $gstrExport = new GstrDetailExport();
         if ($id === 'all') {

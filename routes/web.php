@@ -164,6 +164,7 @@ use App\Http\Controllers\PurchaseReturnAccountController;
 use App\Http\Controllers\WarehouseMultiMappingController;
 use App\Http\Controllers\FixedAsset\MaintenanceController;
 use App\Http\Controllers\LoanProgress\AppraisalController;
+use App\Http\Controllers\ErpExternalIntegrationController;
 use App\Http\Controllers\FixedAsset\DepreciationController;
 use App\Http\Controllers\FixedAsset\RegistrationController;
 use App\Http\Controllers\LoanProgress\AssessmentController;
@@ -3304,7 +3305,21 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/validate-gst', [GstValidationController::class, 'validateGstNumber']);
 
 
+    /**
+     * ExternalIntegration Requests WEB
+     * Controller: ErpExternalIntegrationController
+     */
+    Route::prefix('external-integration')->controller(ErpExternalIntegrationController::class)->group(function(){
+        Route::get('','index')->name('external-integration.index');
+        Route::get('create','create')->name('external-integration.create');
+        Route::get('getStore','getStore')->name('external-integration.getStore');
+        Route::get('getSubstore','getSubstore')->name('external-integration.getSubstore');
+        Route::post('store','store')->name('external-integration.store'); 
+        Route::post('update/{id}','update')->name('external-integration.update'); 
+        Route::get('edit/{id}','edit')->name('external-integration.edit');
+        Route::delete('destroy/{id}','destroy')->name('external-integration.destroy');
 
+    });
 
     //For testing purpose -> Stock reservation case , please ignore, will remove
     // Route::get('issue-receive-pl', function () {

@@ -9,10 +9,11 @@ use App\Models\OrganizationCompany;
 use App\Models\OrganizationGroup;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ErpExternalIntegration extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes,HasFactory;
 
 
      /**
@@ -27,10 +28,9 @@ class ErpExternalIntegration extends Model
         'group_id',
         'company_id',
         'organization_id',
-        'book_id',
-        'store_id',
         'trip_book_id',
-        'dnote_book_id',
+        'so_book_id',
+        'store_id',
         'customer_id',
         'status',
         'created_by',
@@ -41,7 +41,7 @@ class ErpExternalIntegration extends Model
 
     public function customer()
     {
-        return $this->belongsTo(ErpCustomer::class, 'group_id');
+        return $this->belongsTo(ErpCustomer::class, 'customer_id');
     }
 
     public function soBook()
@@ -49,9 +49,13 @@ class ErpExternalIntegration extends Model
         return $this->belongsTo(Book::class, 'so_book_id');
     }
 
-    public function transportBook()
+    public function tripBook()
     {
-        return $this->belongsTo(Book::class, 'transport_book_id');
+        return $this->belongsTo(Book::class, 'trip_book_id');
+    } 
+     public function dnote()
+    {
+        return $this->belongsTo(Book::class, 'trip_book_id');
     }
 
     public function store()
@@ -73,6 +77,10 @@ class ErpExternalIntegration extends Model
     public function organization()
     {
         return $this->belongsTo(Organization::class, 'organization_id');
+    }
+    public function stockStoreMapping()
+    {
+        return $this->hasMany(ErpStockStoreMapping::class, 'store_id','store_id');
     }
 }
 

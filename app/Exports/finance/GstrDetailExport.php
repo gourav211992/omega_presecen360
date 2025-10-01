@@ -25,8 +25,7 @@ class GstrDetailExport
             $startDate = $dates[0] ? Carbon::parse($dates[0])->startOfDay() : null;
             $endDate = isset($dates[1]) ? Carbon::parse($dates[1])->startOfDay():  Carbon::parse($dates[0])->startOfDay();
         }
-
-        $masterConnection = config('database.connections.mysql_master.database');
+        // $masterConnection = config('database.connections.mysql_master.database');
         
         $gstrData = GstrCompiledData::where(function($q) use($request){
                 if($request->search){
@@ -51,6 +50,8 @@ class GstrDetailExport
         ->whereBetween('erp_gstr_compiled_data.invoice_date', [$startDate, $endDate])
         ->where('invoice_type_id',$id)
         ->where('supplier_gstin',$supplierGstin)
+        ->whereNotNull('erp_gstr_compiled_data.invoice_id')
+        ->groupBy('erp_gstr_compiled_data.invoice_id')
         ->chunk(1000, function ($gstrData) use ($fileName, $invoiceTypeName) {
             $this->writeToCsv($gstrData, $fileName, $invoiceTypeName);
         });

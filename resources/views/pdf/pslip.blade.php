@@ -169,7 +169,8 @@
             <tbody>
                 <tr>
                     @php
-                        $colspan = 12;
+                    $checkCountbundle=(count($bundles) > 0)?1:0;
+                    $colspan = 11+$checkCountbundle;
                     @endphp
                     <td colspan='{{$colspan}}' style="padding: 6px; border: 1px solid #000; background: #80808070; text-align: center; font-weight: bold">
                         Product(s)
@@ -207,10 +208,12 @@
                     style="font-weight: bold; width:23.44% padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
                         <div style="">So No.</div>
                     </td>
+                    @if (isset($val->bundles)&&count($val->bundles)>0)
                     <td
                     style="font-weight: bold; width:23.44% padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
                         <div style="">Bundle Count</div>
                     </td>
+                    @endif
                     <td
                     style="font-weight: bold; width:23.44% padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
                         <div style="">Party Order No.</div>
@@ -285,10 +288,14 @@
                         {{ isset($val->so) ? strtoupper($val?->so?->book_code . "-" . $val?->so?->document_number) : " " }}</br></br>
                         {{ isset($val->so) ? date('d-m-Y',strtotime($val?->so?->document_date)) : " " }}
                     </td>
-                    <td
-                        style=" vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: center;">
-                       {{ isset($val->bundles) ? count($val->bundles) : " " }}
-                    </td>
+                    @if (isset($val->bundles)&&count($val->bundles)>0)
+                        
+                        <td
+                            style=" vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: center;">
+                        {{ isset($val->bundles) ? count($val->bundles) : " " }}
+                        </td>
+                    @endif
+
                     <td
                     style=" vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: center;">
                         {{ isset($val->so) ? strtoupper($val?->so?->reference_number) : " " }}
@@ -371,6 +378,7 @@
                     @endforeach
                 </tbody>
             </table>
+            @if (!empty($bundles) && count($bundles) > 0)
             {{-- Start Bundle --}}
             <table style="width:100%; border-collapse: collapse; margin-bottom:0;" cellspacing="0" cellpadding="0">
                 <thead>
@@ -411,7 +419,7 @@
                 </tbody>
             </table>
             {{-- End Bundle --}}
-
+            @endif
 
         
         <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
