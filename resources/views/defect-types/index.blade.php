@@ -140,7 +140,7 @@
                 </select>
             </td>
             <td>
-                <input type="number" name="rows[${idx}][estimated_time]" value="${row.estimated_time || 30}" class="form-control mw-100" min="1" required />
+                <input type="number" name="rows[${idx}][estimated_time]" value="${row.estimated_time || 30}" class="form-control mw-100" min="1" max="999" maxlength="3" required />
             </td>
             <td>
                 <input type="text" name="rows[${idx}][description]" value="${row.description || ''}" class="form-control mw-100" />
@@ -321,7 +321,7 @@
                             firstEmptyPriority = $tr.find('select[name^="rows["][name$="[priority]"]');
                         }
                     }
-                    if (!timeVal || isNaN(timeVal) || parseInt(timeVal) < 1) {
+                    if (!timeVal || isNaN(timeVal) || parseInt(timeVal) < 1 || parseInt(timeVal) > 999) {
                         emptyTimeFound = true;
                         if (!firstEmptyTime) {
                             firstEmptyTime = $tr.find('input[name^="rows["][name$="[estimated_time]"]');
@@ -330,7 +330,7 @@
                     if (
                         nameVal && nameVal.trim() !== "" &&
                         priorityVal && priorityVal !== "Select" &&
-                        timeVal && !isNaN(timeVal) && parseInt(timeVal) >= 1
+                        timeVal && !isNaN(timeVal) && parseInt(timeVal) >= 1 && parseInt(timeVal) <= 999
                     ) {
                         rows.push(row);
                     }
@@ -360,7 +360,7 @@
                     Swal.fire({
                         icon: 'error',
                         title: 'Validation Error',
-                        text: 'Estimated Time (in days) is required and must be a positive number.',
+                        text: 'Estimated Time (in days) is required and must be between 1 and 999 days.',
                         confirmButtonText: 'OK'
                     });
                     if (firstEmptyTime) firstEmptyTime.focus();

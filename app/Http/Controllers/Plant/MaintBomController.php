@@ -74,12 +74,16 @@ class MaintBomController extends Controller
                     $query->join('erp_books', 'plant_maint_boms.book_id', '=', 'erp_books.id')
                           ->orderBy('erp_books.book_code', $direction)
                           ->select('plant_maint_boms.*');
+                } elseif ($column === 'document_number') {
+                    // Sort document number numerically
+                    $query->orderByRaw('CAST(REGEXP_REPLACE(document_number, "[^0-9]", "") AS UNSIGNED) ' . $direction);
                 } else {
                     $query->orderBy($column, $direction);
                 }
             }
         } else {
-            $query->orderBy('document_date', 'desc');
+            // Sort by document number numerically (extract numbers and sort)
+            $query->orderByRaw('CAST(REGEXP_REPLACE(document_number, "[^0-9]", "") AS UNSIGNED) DESC');
         }
 
         return DataTables::of($query)
@@ -114,7 +118,7 @@ class MaintBomController extends Controller
                             <i data-feather="more-vertical"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end">
-                            ' . (($row->document_status == 'draft') ? '
+                            ' . (($row->document_status == 'draft' && $row->document_status != 'closed') ? '
                             <a class="dropdown-item" href="' . $editUrl . '">
                                 <i data-feather="edit-3" class="me-50"></i>
                                 <span>Edit</span>
@@ -209,13 +213,15 @@ class MaintBomController extends Controller
 
         $name = $request->bom_name;
 
-        // Check for duplicate BOM name
-        $existingAsset = PlantMaintBom::where('bom_name', $name)->first();
-        if ($existingAsset) {
-            return redirect()
-                ->route('maint-bom.create')
-                ->withInput()
-                ->withErrors(['bom_name' => "BOM Name '{$name}' already exists."]);
+        // Check for duplicate BOM name (skip for draft saves)
+        if ($request->document_status !== 'draft') {
+            $existingAsset = PlantMaintBom::where('bom_name', $name)->first();
+            if ($existingAsset) {
+                return redirect()
+                    ->route('maint-bom.create')
+                    ->withInput()
+                    ->withErrors(['bom_name' => "BOM Name '{$name}' already exists."]);
+            }
         }
 
         $user = Helper::getAuthenticatedUser();
@@ -444,17 +450,19 @@ class MaintBomController extends Controller
 
         $bom = PlantMaintBom::findOrFail($id);
 
-        // Check for duplicate BOM Name except current record
-        $name = $request->bom_name;
-        $existingAsset = PlantMaintBom::where('bom_name', $name)
-            ->where('id', '!=', $id)
-            ->first();
+        // Check for duplicate BOM Name except current record (skip for draft saves)
+        if ($request->document_status !== 'draft') {
+            $name = $request->bom_name;
+            $existingAsset = PlantMaintBom::where('bom_name', $name)
+                ->where('id', '!=', $id)
+                ->first();
 
-        if ($existingAsset) {
-            return redirect()
-                ->route('maint-bom.edit', $id)
-                ->withInput()
-                ->withErrors('BOM Name ' . $name . ' already exists.');
+            if ($existingAsset) {
+                return redirect()
+                    ->route('maint-bom.edit', $id)
+                    ->withInput()
+                    ->withErrors('BOM Name ' . $name . ' already exists.');
+            }
         }
 
         $data = $request->all();
@@ -603,6 +611,26 @@ class MaintBomController extends Controller
             return response()->json([
                 'message' => "Error occurred while $actionType",
                 'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function amendment(Request $request, $id)
+    {
+        try {
+            $bom = PlantMaintBom::findOrFail($id);
+
+            $bom->document_status = $request->input('document_status', 'draft');
+            $bom->save();
+            return response()->json([
+                'success' => true,
+                'message' => 'Amendment created successfully',
+                'data' => $bom
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
             ], 500);
         }
     }

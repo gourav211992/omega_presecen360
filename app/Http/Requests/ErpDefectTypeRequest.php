@@ -25,7 +25,7 @@ class ErpDefectTypeRequest extends FormRequest
             'rows' => ['required', 'array', 'min:1'],
             'rows.*.name' => ['required', 'string', 'max:255'],
             'rows.*.priority' => ['required', 'in:High,Medium,Low'],
-            'rows.*.estimated_time' => ['required', 'integer', 'min:1'],
+            'rows.*.estimated_time' => ['required', 'integer', 'min:1', 'max:999'],
             'rows.*.description' => ['nullable', 'string', 'max:255'],
             'rows.*.status' => ['required', 'in:Active,Inactive'],
         ];
@@ -40,6 +40,7 @@ class ErpDefectTypeRequest extends FormRequest
             'rows.*.estimated_time.required' => 'Estimated Time is required.',
             'rows.*.estimated_time.integer' => 'Estimated Time must be an integer.',
             'rows.*.estimated_time.min' => 'Estimated Time must be at least 1 day.',
+            'rows.*.estimated_time.max' => 'Estimated Time cannot exceed 999 days.',
             'rows.*.status.required' => 'Status is required.',
             'rows.*.status.in' => 'Status must be Active or Inactive.',
         ];

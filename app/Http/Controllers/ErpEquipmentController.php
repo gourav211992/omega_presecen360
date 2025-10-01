@@ -34,7 +34,6 @@ class ErpEquipmentController extends Controller
         return view('equipment.index');
     }
 
-
     public function getData(Request $request)
     {
         $details = ErpEquipMaintenanceDetail::with([
@@ -55,14 +54,40 @@ class ErpEquipmentController extends Controller
                 ->limit(1)
         ])
         ->whereHas('checklists')
-        ->whereHas('equipment');
+        ->whereHas('equipment')
+        ->orderBy('id', 'desc'); 
 
         return DataTables::eloquent($details)
+            ->filterColumn('equipment', function($query, $keyword) {
+                $query->whereHas('equipment', function($q) use ($keyword) {
+                    $q->where('name', 'like', "%{$keyword}%")
+                    ->orWhere('alias', 'like', "%{$keyword}%");
+                });
+            })
+            ->filterColumn('organization', function($query, $keyword) {
+                $query->whereHas('equipment.organization', function($q) use ($keyword) {
+                    $q->where('name', 'like', "%{$keyword}%");
+                });
+            })
+            ->filterColumn('location', function($query, $keyword) {
+                $query->whereHas('equipment.location', function($q) use ($keyword) {
+                    $q->where('store_name', 'like', "%{$keyword}%");
+                });
+            })
+            ->filterColumn('category', function($query, $keyword) {
+                $query->whereHas('equipment.category', function($q) use ($keyword) {
+                    $q->where('name', 'like', "%{$keyword}%");
+                });
+            })
+            ->filterColumn('maintenance_type', function($query, $keyword) {
+                $query->whereHas('maintenanceType', function($q) use ($keyword) {
+                    $q->where('name', 'like', "%{$keyword}%");
+                });
+            })
             ->addIndexColumn()
             ->addColumn('equipment', fn($row) => optional($row->equipment)->name ?? '')
             ->addColumn('organization', fn($row) => optional($row->equipment?->organization)->name ?? '')
             ->addColumn('location', fn($row) => optional($row->equipment?->location)->store_name ?? '')
-            ->addColumn('location_full', fn($row) => optional($row->equipment?->location)->full_address ?? '')
             ->addColumn('alias', fn($row) => optional($row->equipment)->alias ?? '')
             ->addColumn('category', fn($row) => optional($row->equipment?->category)->name ?? '')
             ->addColumn('maintenance_type', fn($row) => optional($row->maintenanceType)->name ?? '')
@@ -109,11 +134,7 @@ class ErpEquipmentController extends Controller
             })
             ->addColumn('status', function ($row) {
                 $eqpStatus = optional($row->equipment)->document_status;
-                if ($eqpStatus == ConstantHelper::APPROVAL_NOT_REQUIRED) {
-                    $statusText = 'Approved';
-                } else {
-                    $statusText = ucfirst($eqpStatus);
-                }
+                $statusText = $eqpStatus == ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($eqpStatus);
                 $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$eqpStatus] ?? 'badge-light-secondary';
                 return "<span class='badge rounded-pill {$statusClass}'>{$statusText}</span>";
             })
@@ -124,7 +145,7 @@ class ErpEquipmentController extends Controller
                 }
                 return '
                     <div class="dropdown">
-                        <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
+                        <button type="button" class="btn btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                             <i data-feather="more-vertical"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end">
@@ -138,8 +159,6 @@ class ErpEquipmentController extends Controller
             ->rawColumns(['status','action'])
             ->toJson();
     }
-
-
 
 
 

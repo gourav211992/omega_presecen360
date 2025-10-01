@@ -130,7 +130,7 @@
                           @php
                               use App\Helpers\Helper;
                           @endphp
-                          <div class="col-md-6 text-sm-end">
+                          	<div class="col-md-6 text-sm-end">
                               <span
                                   class="badge rounded-pill {{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$workOrder->document_status] ?? ''}} forminnerstatus">
                                   <span class="text-dark">Status</span>
@@ -143,7 +143,7 @@
                                       @endif
                                   </span>
                               </span>
-                          </div>
+                          	</div>
                       </div>
                     </div>
 
@@ -1169,7 +1169,6 @@
 
 @section('scripts')
 <script type="text/javascript" src="{{asset('app-assets/js/file-uploader.js')}}"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @include('plant.maint_wo.common-js-route',["wo" => isset($wo) ? $wo : null, "route_prefix" => "maint-wo"])
 <script src="{{ asset('assets/js/modules/maint-wo/common-script.js') }}"></script>
 <script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>

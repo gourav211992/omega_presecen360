@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Helpers\Helper;
 use App\Models\ErpMaintenanceType;
+use App\Models\ErpEquipMaintenanceDetail;
 use App\Models\Organization;
 use App\Http\Requests\ErpMaintenanceTypeRequest;
 
@@ -38,7 +39,7 @@ class ErpMaintenanceTypeController extends Controller
             }
 
             if ($query->exists()) {
-                $errors[] = "The name '<strong style='color:red'>{$row['name']}</strong>' has already been added in maintenance types.";
+                $errors[] = "The name <span style=\"color:red\">{$row['name']}</span> has already been added in maintenance types.";
                 continue;
             }
 
@@ -80,6 +81,24 @@ class ErpMaintenanceTypeController extends Controller
         
         $ids = $request->input('ids', []);
         if (!empty($ids)) {
+            // Check if any maintenance types are in use before deleting
+            $usedTypes = [];
+            foreach ($ids as $id) {
+                $usageCount = ErpEquipMaintenanceDetail::where('maintenance_type_id', $id)
+                    ->count();
+                
+                if ($usageCount > 0) {
+                    $typeName = ErpMaintenanceType::where('id', $id)->value('name');
+                    $usedTypes[] = $typeName ?: 'Unknown Type';
+                }
+            }
+            
+            if (!empty($usedTypes)) {
+                return response()->json([
+                    'error' => 'Cannot delete maintenance type as it is currently in use.'
+                ], 422);
+            }
+            
             ErpMaintenanceType::whereIn('id', $ids)->delete();
         }
         return response()->json(['success' => 'Maintenance Types deleted successfully'], 200);

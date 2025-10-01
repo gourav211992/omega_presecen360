@@ -25,18 +25,19 @@ class MaintBOMRequest extends FormRequest
     public function rules()
     {
         $isEdit = in_array($this->method(), ['PUT', 'PATCH']);
+        $isDraft = $this->input('document_status') === 'draft';
 
         return [
-            'book_code' => $isEdit ? 'nullable|string' : 'required|string',
-            'doc_number_type' => $isEdit ? 'nullable|string' : 'required|string',
+            'book_code' => $isEdit ? 'nullable|string' : ($isDraft ? 'nullable|string' : 'required|string'),
+            'doc_number_type' => $isEdit ? 'nullable|string' : ($isDraft ? 'nullable|string' : 'required|string'),
             'doc_prefix' => 'nullable|string',
             'doc_suffix' => 'nullable|string',
-            'doc_no' => $isEdit ? 'nullable|integer' : 'required|integer',
+            'doc_no' => $isEdit ? 'nullable|integer' : ($isDraft ? 'nullable|integer' : 'required|integer'),
             'document_status' => 'required|string',
-            'book_id' => $isEdit ? 'nullable|integer' : 'required|integer',
-            'document_number' => $isEdit ? 'nullable|string' : 'required|string',
-            'document_date' => $isEdit ? 'nullable|date' : 'required|date',
-            'bom_name' => 'required|string',
+            'book_id' => $isEdit ? 'nullable|integer' : ($isDraft ? 'nullable|integer' : 'required|integer'),
+            'document_number' => $isEdit ? 'nullable|string' : ($isDraft ? 'nullable|string' : 'required|string'),
+            'document_date' => $isEdit ? 'nullable|date' : ($isDraft ? 'nullable|date' : 'required|date'),
+            'bom_name' => 'required|string', // Common field - always required
         ];
 
     }

@@ -120,6 +120,45 @@ class InspectionChecklistRequest extends FormRequest
                 if (!isset($item['name']) || trim($item['name']) === '') {
                     $validator->errors()->add("checklist_details.$index.name", "The name field is required.");
                 }
+
+                // Check if data_type is 'list' and mandatory is checked, then value must not be empty
+                if (isset($item['data_type']) && $item['data_type'] === 'list' && 
+                    isset($item['mandatory']) && ($item['mandatory'] == '1' || $item['mandatory'] == 1)) {
+                    if (!isset($item['value']) || trim($item['value']) === '') {
+                        $validator->errors()->add("checklist_details.$index.value", "List type with mandatory field must contain at least one item.");
+                    }
+                }
+
+                // Validate value format based on data type
+                if (isset($item['data_type']) && isset($item['value']) && !empty(trim($item['value']))) {
+                    $value = trim($item['value']);
+                    
+                    switch ($item['data_type']) {
+                        case 'number':
+                            if (!is_numeric($value)) {
+                                $validator->errors()->add("checklist_details.$index.value", "Value field must contain a valid number for Number data type.");
+                            }
+                            break;
+                        case 'date':
+                            $date = date_parse($value);
+                            if ($date['error_count'] > 0 || !checkdate($date['month'], $date['day'], $date['year'])) {
+                                $validator->errors()->add("checklist_details.$index.value", "Value field must contain a valid date for Date data type.");
+                            }
+                            break;
+                        case 'boolean':
+                            $lowerValue = strtolower($value);
+                            if (!in_array($lowerValue, ['true', 'false', '1', '0', 'yes', 'no'])) {
+                                $validator->errors()->add("checklist_details.$index.value", "Value field must be a valid boolean (true/false, yes/no, 1/0) for Boolean data type.");
+                            }
+                            break;
+                        case 'text':
+                            // Text accepts any value, no specific validation needed
+                            break;
+                        case 'list':
+                            // List validation already handled above
+                            break;
+                    }
+                }
             }
 
             $names = $details->pluck('name')->filter()

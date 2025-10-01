@@ -108,6 +108,8 @@
 												value="{{ old('doc_no', $data->doc_no) }}">
 											<input type="hidden" name="document_status" id="document_status"
 												value="{{ old('document_status', $data->document_status) }}">
+											<input type="hidden" name="bom_id" id="bom_id"
+												value="{{ old('bom_id', $data->id) }}">
 
 											<div class="col-md-8">
 
@@ -642,8 +644,6 @@
 @section('scripts')
 	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>
 	<script src="{{asset('assets/js/fileshandler.js')}}"></script>
-        
-
 	<script>
 		$(document).on('click', '#approved-button', (e) => {
                 let actionType = 'approve';
@@ -1195,15 +1195,8 @@
 			$('#organization').prop('disabled', false).prop('readonly', false);
         	$('#financial_year').prop('disabled', false).prop('readonly', false);
         
-            const amendmentRoute = "{{ route('maint-bom.edit', $data->id) }}";
+           
 
-            $(document).on('click', '#amendmentSubmit', (e) => {
-                e.preventDefault();
-                let url = new URL(amendmentRoute, window.location.origin); // full absolute URL
-                url.searchParams.set('amendment', 1);
-                window.location.href = url.toString(); // or window.location.replace(...)
-
-            });
             // # Revision Number On Chage
             $(document).on('change', '#revisionNumber', (e) => {
                 let actionUrl = location.pathname + '?revisionNumber=' + e.target.value;
@@ -1228,5 +1221,60 @@
 				});
 			});
             
+
+			
+			$(document).on('click', '#amendmentSubmit', function (e) {
+				e.preventDefault();
+
+				let id = $('#bom_id').val(); 
+				let url = "{{ route('maint-bom.amendment', ':id') }}".replace(':id', id);
+
+				$.ajax({
+					url: url,
+					type: "POST",
+					data: {
+						_token: $('meta[name="csrf-token"]').attr('content'),
+						id: id,
+						document_status: "draft"
+					},
+					beforeSend: function () {
+						$('#amendmentSubmit').prop('disabled', true).text('Processing...');
+					},
+					success: function (response) {
+						if (response.success) {
+							Swal.fire({
+								icon: 'success',
+								title: 'Success',
+								text: 'Amendment Done',
+								timer: 1500,
+								showConfirmButton: false,
+								willClose: () => {
+									let amendUrl = "{{ route('maint-bom.edit', ':id') }}".replace(':id', id);
+									let redirectUrl = new URL(amendUrl, window.location.origin);
+									redirectUrl.searchParams.set('amendment', 1);
+									window.location.href = redirectUrl.toString();
+								}
+							});
+						}
+						else {
+							Swal.fire({
+								icon: 'error',
+								title: 'Error',
+								text: response.message || 'Something went wrong!'
+							});
+						}
+					},
+					error: function (xhr) {
+						Swal.fire({
+							icon: 'error',
+							title: 'Error',
+							text: xhr.responseJSON?.message || 'Failed to create amendment.'
+						});
+					},
+					complete: function () {
+						$('#amendmentSubmit').prop('disabled', false).text('Confirm');
+					}
+				});
+				});
 	</script>
 @endsection

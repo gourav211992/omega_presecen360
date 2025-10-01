@@ -25,7 +25,7 @@
                             </div>
                         </div>
                         <div class="content-header-right text-end col-md-6 col-6 mb-2 mb-sm-0">
-                            <a href="{{ route('inspection-checklists.index') }}" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
+                            <a href="{{ route('maintenance-inspection-checklists.index') }}" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
                             <button type="submit" class="btn btn-primary btn-sm"><i data-feather="check-circle"></i> Create</button>
                         </div>
                     </div>
@@ -135,12 +135,21 @@
                                                                             </select>
                                                                         </td>
                                                                         <td class="poprod-decpt">
-                                                                            <div class="badge-container">
+                                                                            <div class="value-container">
+                                                                                <!-- For List type -->
+                                                                                <div class="list-value-section" style="display: none;">
+                                                                                    <div class="badge-container">
+                                                                                    </div>
+                                                                                    <input type="hidden" name="checklist_details[0][value]" class="list-value-input" value="">
+                                                                                    <a href="javascript:void(0);" class="btn p-25 btn-sm btn-outline-secondary add-value-btn" style="font-size: 10px">
+                                                                                        Add Value
+                                                                                    </a>
+                                                                                </div>
+                                                                                <!-- For other types -->
+                                                                                <div class="other-value-section">
+                                                                                    <input type="text" name="checklist_details[0][value]" class="form-control mw-100 other-value-input" placeholder="Enter value" style="display: none;" />
+                                                                                </div>
                                                                             </div>
-                                                                            <input type="hidden" name="checklist_details[0][value]" class="list-value-input" value="">
-                                                                            <a href="javascript:void(0);" class="btn p-25 btn-sm btn-outline-secondary add-value-btn" style="font-size: 10px">
-                                                                                Add Value
-                                                                            </a>
                                                                         </td>
                                                                         <td>
                                                                             <div class="form-check form-check-primary mt-25 custom-checkbox">
@@ -248,6 +257,32 @@
             updateBadges($row);
         }
 
+        $(document).on('change', '.data-type-select', function() {
+            var $row = $(this).closest('tr');
+            var selectedType = $(this).val();
+            var $valueContainer = $row.find('.value-container');
+            var $listSection = $valueContainer.find('.list-value-section');
+            var $otherSection = $valueContainer.find('.other-value-section');
+            var $otherInput = $otherSection.find('.other-value-input');
+            
+            if (selectedType === 'list') {
+                $listSection.show();
+                $otherSection.hide();
+                $otherInput.val(''); // Clear other input when switching to list
+            } else if (selectedType) {
+                $listSection.hide();
+                $otherSection.show();
+                $otherInput.show();
+                // Clear list values when switching from list
+                $listSection.find('.badge-container').empty();
+                $listSection.find('.list-value-input').val('');
+            } else {
+                $listSection.hide();
+                $otherSection.hide();
+                $otherInput.val('');
+            }
+        });
+        
         $(document).on('click', '.add-value-btn', function() {
             var $row = $(this).closest('tr');
             var $dataTypeSelect = $row.find('.data-type-select');
@@ -425,7 +460,10 @@
             $newRow.find('input[type="checkbox"]').prop('checked', false);
             $newRow.find('input[type="hidden"][name$="[mandatory]"]').val('0');
             $newRow.find('.ajax-validation-error-span').remove();
-            $newRow.find('.badge-container').empty(); 
+            $newRow.find('.badge-container').empty();
+            $newRow.find('.list-value-section').hide();
+            $newRow.find('.other-value-section').hide();
+            $newRow.find('.other-value-input').val('');
             $tableBody.append($newRow);
             attachEventListeners($newRow);
             updateDynamicFieldNumbers();
@@ -448,9 +486,36 @@
                 e.preventDefault();
                 deleteRow.call(this);
             });
-             $row.find('.mandatory-checkbox').off('change').on('change', function() {
+            
+            $row.find('.mandatory-checkbox').off('change').on('change', function() {
                 var isChecked = $(this).is(':checked');
                 $(this).closest('tr').find('input[name$="[mandatory]"]').val(isChecked ? 1 : 0);
+            });
+            
+            // Attach data type change handler
+            $row.find('.data-type-select').off('change').on('change', function() {
+                var $currentRow = $(this).closest('tr');
+                var selectedType = $(this).val();
+                var $valueContainer = $currentRow.find('.value-container');
+                var $listSection = $valueContainer.find('.list-value-section');
+                var $otherSection = $valueContainer.find('.other-value-section');
+                var $otherInput = $otherSection.find('.other-value-input');
+                
+                if (selectedType === 'list') {
+                    $listSection.show();
+                    $otherSection.hide();
+                    $otherInput.val('');
+                } else if (selectedType) {
+                    $listSection.hide();
+                    $otherSection.show();
+                    $otherInput.show();
+                    $listSection.find('.badge-container').empty();
+                    $listSection.find('.list-value-input').val('');
+                } else {
+                    $listSection.hide();
+                    $otherSection.hide();
+                    $otherInput.val('');
+                }
             });
         }
         attachEventListeners($tableBody.find('tr'));

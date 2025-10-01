@@ -151,7 +151,7 @@
             { data: 'status', name: 'document_status', orderable: false, searchable: false, className: 'tableactionnew text-end' },
             { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
          ],
-         order: [[1, 'desc']], // Default sort by date descending
+         order: [[3, 'desc']], // Default sort by document number descending
          pageLength: 10, // Changed from 25 to 10
          lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
          columnDefs: [

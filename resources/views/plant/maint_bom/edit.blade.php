@@ -113,8 +113,7 @@
 																class="text-danger">*</span></label>
 													</div>
 													<div class="col-md-5">
-														<select class="form-select" id="book_id" name="book_id" disabled
-															required>
+														<select class="form-select" id="book_id" name="book_id" disabled>
 															@foreach ($series as $book)
 																<option value="{{ $book->id }}" {{ old('book_id', $bom->book_id) == $book->id ? 'selected' : '' }}>
 																	{{ $book->book_code }}
@@ -132,8 +131,7 @@
 													<div class="col-md-5">
 														<input type="text" class="form-control" id="document_number"
 															disabled name="document_number"
-															value="{{ old('document_number', $bom->document_number) }}"
-															required>
+															value="{{ old('document_number', $bom->document_number) }}">
 													</div>
 												</div>
 
@@ -145,8 +143,7 @@
 													<div class="col-md-5">
 														<input type="date" class="form-control" id="document_date" disabled
 															name="document_date"
-															value="{{ old('document_date', $bom->document_date) }}"
-															required>
+															value="{{ old('document_date', $bom->document_date) }}">
 													</div>
 												</div>
 
@@ -158,7 +155,7 @@
 													<div class="col-md-5">
 														<input type="text" name="bom_name" id="bom_name"
 															class="form-control"
-															value="{{ old('bom_name', $bom->bom_name) }}" required />
+															value="{{ old('bom_name', $bom->bom_name) }}" />
 													</div>
 												</div>
 
@@ -363,7 +360,8 @@
 											<div class="col-md-4">
 												<div class="mb-1">
 													<label class="form-label">Upload Document</label>
-													<input type="file" name="document" class="form-control">
+													<input type="file" name="document" class="form-control" accept=".png,.jpeg,.jpg,.xls,.docx,.pdf">
+													<small class="text-muted">Accepted formats: PNG, JPEG, JPG, XLS, DOCX, PDF (Max: 5MB)</small>
 													@if($bom->document)
 														<small class="text-muted">Current: {{ $bom->document }}</small>
 													@endif
@@ -939,6 +937,38 @@
 			return isValid;
 		}
 
+		function validateFileUpload() {
+			let isValid = true;
+			const fileInput = document.querySelector('input[name="document"]');
+			const file = fileInput.files[0];
+
+			if (file) {
+				// Check file size (5MB limit)
+				const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+				if (file.size > maxSize) {
+					Swal.fire({
+						icon: 'error',
+						title: 'File Too Large',
+						text: 'File size must be less than 5MB.'
+					});
+					isValid = false;
+				}
+
+				// Check file type
+				const allowedTypes = ['application/pdf', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/jpg', 'image/png'];
+				if (!allowedTypes.includes(file.type)) {
+					Swal.fire({
+						icon: 'error',
+						title: 'Invalid File Type',
+						text: 'Only PNG, JPEG, JPG, XLS, DOCX, and PDF files are allowed.'
+					});
+					isValid = false;
+				}
+			}
+
+			return isValid;
+		}
+
 		// Wrap DOM-dependent code in DOMContentLoaded to ensure elements exist
 		document.addEventListener('DOMContentLoaded', function() {
 			const saveDraftBtn = document.getElementById('save-draft-btn');
@@ -946,12 +976,13 @@
 				saveDraftBtn.addEventListener('click', function () {
 					document.getElementById('document_status').value = 'draft';
 
-					// Validate quantity fields for draft save as well
-					let qtyValidationPassed = validateQuantities();
-					if (!qtyValidationPassed) {
-						return; // Stop submission if validation fails
+					// Only validate file upload for draft save (common field validation)
+					let fileValidationPassed = validateFileUpload();
+					if (!fileValidationPassed) {
+						return; // Stop submission if file validation fails
 					}
 
+					// Skip detailed validations like quantity validation for draft saves
 					updateJsonData();
 					if ($('#action_type').val() === "amendment") {
 						$("#amendmentModal").modal('show');
@@ -968,6 +999,12 @@
 				submitBtn.addEventListener('click', function (e) {
 					document.getElementById('document_status').value = 'submitted';
 					e.preventDefault(); // Always prevent default first
+
+					// Validate file upload
+					let fileValidationPassed = validateFileUpload();
+					if (!fileValidationPassed) {
+						return; // Stop submission if file validation fails
+					}
 
 					// Validate quantity fields
 					let qtyValidationPassed = validateQuantities();

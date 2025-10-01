@@ -508,9 +508,7 @@
 
 
 @section('scripts')
-	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>	
-	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-													
+	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>														
 	<script>
 		const itemsData = @json($items);
 		let rowCount = 1;
@@ -628,42 +626,61 @@
 		
 		$('#addNewRowBtn').on('click', function () {
 			let isValid = true;
+			let incompleteRows = [];
 
+			// Remove existing validation classes
 			$('.mrntableselectexcel tr').find('input, select').removeClass('is-invalid');
 
-			$('.mrntableselectexcel tr').each(function () {
+			// Loop through all rows
+			$('.mrntableselectexcel tr').each(function(index) {
+				let rowIndex = index + 1;
 				let $row = $(this);
+				let hasIncompleteFields = false;
+
 				let itemId = $row.find('.item_id').val();
 				let itemName = $row.find('.item_name').val();
 				let uomValue = $row.find('.uom').val();
 				let qtyValue = $row.find('.qty').val();
 
+				// Check if row has incomplete data
 				if (!itemId || itemId.trim() === '') {
 					$row.find('.item_code').addClass('is-invalid');
-					isValid = false;
-				} else if (!itemName || itemName.trim() === '') {
+					hasIncompleteFields = true;
+				}
+				if (!itemName || itemName.trim() === '') {
 					$row.find('.item_name').addClass('is-invalid');
-					isValid = false;
-				} else if (!uomValue || uomValue.trim() === '') {
+					hasIncompleteFields = true;
+				}
+				if (!uomValue || uomValue.trim() === '') {
 					$row.find('.uom').addClass('is-invalid');
-					isValid = false;
-				} else if (!qtyValue || qtyValue.trim() === '' || parseFloat(qtyValue) <= 0) {
+					hasIncompleteFields = true;
+				}
+				if (!qtyValue || qtyValue.trim() === '' || parseFloat(qtyValue) <= 0) {
 					$row.find('.qty').addClass('is-invalid');
+					hasIncompleteFields = true;
+				}
+
+				if (hasIncompleteFields) {
+					incompleteRows.push(rowIndex);
 					isValid = false;
 				}
 			});
 
 			if (!isValid) {
+				// Show SweetAlert error
+				let message = incompleteRows.length === 1
+					? `Please complete all required fields in row ${incompleteRows[0]} before adding a new row.`
+					: `Please complete all required fields in rows ${incompleteRows.join(', ')} before adding a new row.`;
+
 				Swal.fire({
 					icon: 'warning',
-					title: 'Complete Current Row First',
-					text: 'Please complete all required fields in the current row(s) before adding a new row.',
+					title: 'Complete Current Row(s) First',
+					text: message,
 					confirmButtonText: 'OK'
 				});
 				return;
 			}
 
-			rowCount++;
 			let newRow = `
 				<tr>
 					<td class="customernewsection-form">
@@ -677,8 +694,8 @@
 						<input required type="text" placeholder="Select" name="item[]"
 							class="item_code form-control mw-100 ledgerselecct mb-25" />
 					</td>
-					<td class="poprod-decpt">
-						<input required type="text" placeholder="Select"
+					<td required class="poprod-decpt">
+						<input type="text" placeholder="Select"
 							class="item_name form-control mw-100 ledgerselecct mb-25" />
 					</td>
 					<td class="poprod-decpt">
@@ -845,9 +862,9 @@
 			$('.preloader').show();
 			document.getElementById('document_status').value = 'draft';
 
-			// Validate quantity fields for draft save as well
-			let qtyValidationPassed = validateQuantities();
-			if (!qtyValidationPassed) {
+			// Validate header fields for draft save
+			let headerValidationPassed = validateHeaderFields();
+			if (!headerValidationPassed) {
 				$('.preloader').hide();
 				return; // Stop submission if validation fails
 			}
@@ -862,6 +879,13 @@
 			$('.preloader').show();
 			document.getElementById('document_status').value = 'submitted';
 			e.preventDefault(); // Always prevent default first
+
+			// Validate header fields
+			let headerValidationPassed = validateHeaderFields();
+			if (!headerValidationPassed) {
+				$('.preloader').hide();
+				return; // Stop submission if validation fails
+			}
 
 			// Validate quantity fields
 			let qtyValidationPassed = validateQuantities();
@@ -1394,44 +1418,53 @@
         });
 
 
-		function validateRowsCompletion() {
+		function validateHeaderFields() {
 			let isValid = true;
+			let errorMessages = [];
 
-			// Remove existing validation classes
-			$('.mrntableselectexcel tr').find('input, select').removeClass('is-invalid');
+			// Check required header fields
+			let bookId = $('#book_id').val();
+			let documentNumber = $('#document_number').val().trim();
+			let documentDate = $('#document_date').val();
+			let bomName = $('#bom_name').val().trim();
 
-			// Loop through all rows
-			$('.mrntableselectexcel tr').each(function(index) {
-				let rowIndex = index + 1;
-				let $row = $(this);
+			if (!bookId) {
+				errorMessages.push('Please select a Series');
+				$('#book_id').addClass('is-invalid');
+				isValid = false;
+			} else {
+				$('#book_id').removeClass('is-invalid');
+			}
 
-				let itemId = $row.find('.item_id').val();
-				let itemName = $row.find('.item_name').val();
-				let uomValue = $row.find('.uom').val();
-				let qtyValue = $row.find('.qty').val();
+			if (!documentNumber) {
+				errorMessages.push('Document Number is required');
+				$('#document_number').addClass('is-invalid');
+				isValid = false;
+			} else {
+				$('#document_number').removeClass('is-invalid');
+			}
 
-				// Check if row has incomplete data
-				if (!itemId || itemId.trim() === '') {
-					$row.find('.item_code').addClass('is-invalid');
-					isValid = false;
-				} else if (!itemName || itemName.trim() === '') {
-					$row.find('.item_name').addClass('is-invalid');
-					isValid = false;
-				} else if (!uomValue || uomValue.trim() === '') {
-					$row.find('.uom').addClass('is-invalid');
-					isValid = false;
-				} else if (!qtyValue || qtyValue.trim() === '' || parseFloat(qtyValue) <= 0) {
-					$row.find('.qty').addClass('is-invalid');
-					isValid = false;
-				}
-			});
+			if (!documentDate) {
+				errorMessages.push('Document Date is required');
+				$('#document_date').addClass('is-invalid');
+				isValid = false;
+			} else {
+				$('#document_date').removeClass('is-invalid');
+			}
+
+			if (!bomName) {
+				errorMessages.push('BOM Name is required');
+				$('#bom_name').addClass('is-invalid');
+				isValid = false;
+			} else {
+				$('#bom_name').removeClass('is-invalid');
+			}
 
 			if (!isValid) {
-				// Show SweetAlert error
 				Swal.fire({
-					icon: 'warning',
-					title: 'Complete Current Row First',
-					text: 'Please complete all required fields in the current row(s) before adding a new row.',
+					icon: 'error',
+					title: 'Validation Error',
+					html: errorMessages.join('<br>'),
 					confirmButtonText: 'OK'
 				});
 			}

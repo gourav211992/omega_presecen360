@@ -96,11 +96,18 @@
         </div>
     </div>
 @endsection
-
 @section('scripts')
     <script>
         $(function() {
             fetchRows();
+
+            $(document).on('input', 'input[name*="[name]"]', function() {
+                let value = $(this).val();
+                let sanitizedValue = value.replace(/[^a-zA-Z0-9\s\-_]/g, '');
+                if (value !== sanitizedValue) {
+                    $(this).val(sanitizedValue);
+                }
+            });
 
             // Fetch records and populate table
             function fetchRows() {
@@ -254,12 +261,20 @@
                                     fetchRows();
                                     $('#selectAll').prop('checked', false);
                                 },
-                                error: function() {
-                                    Swal.fire({
-                                        icon: 'error',
-                                        title: 'Error',
-                                        text: 'Error: Could not delete records.'
-                                    });
+                                error: function(xhr) {
+                                    if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.error) {
+                                        Swal.fire({
+                                            icon: 'error',
+                                            title: 'Cannot Delete',
+                                            text: xhr.responseJSON.error
+                                        });
+                                    } else {
+                                        Swal.fire({
+                                            icon: 'error',
+                                            title: 'Error',
+                                            text: 'Error: Could not delete records.'
+                                        });
+                                    }
                                 },
                                 complete: function() {
                                     $('.preloader').hide();

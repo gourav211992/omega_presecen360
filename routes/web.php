@@ -2979,7 +2979,8 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('plant/search', [MaintBomController::class, 'search'])->name('plant.search');
     Route::post('plant/bom/approval', [MaintBomController::class, 'documentApproval'])->name('maint-bom.approval');
 
-
+    Route::post('plant/maint-bom/{id}/amendment', [MaintBomController::class, 'amendment'])
+    ->name('maint-bom.amendment');
     Route::get('plant/maint-bom/search-items', [MaintBomController::class, 'searchItems'])->name('maint-bom.search-items');
     Route::resource('plant/maint-bom', MaintBomController::class)->names([
         'index' => 'maint-bom.index',

@@ -178,15 +178,15 @@ class MaintWoController extends Controller
                             <i data-feather="more-vertical"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end">
-                            <a class="dropdown-item" href="' . $showUrl . '">
-                                <i data-feather="eye" class="me-50"></i>
-                                <span>View</span>
-                            </a>
                             ' . (($row->document_status == 'draft' && $row->document_status != 'closed') ? '
                             <a class="dropdown-item" href="' . $editUrl . '">
                                 <i data-feather="edit-3" class="me-50"></i>
                                 <span>Edit</span>
-                            </a>' : '') . '
+                            </a>' : '
+                            <a class="dropdown-item" href="' . $showUrl . '">
+                                <i data-feather="eye" class="me-50"></i>
+                                <span>Edit</span>
+                            </a>') . '
                         </div>
                     </div>
                 ';

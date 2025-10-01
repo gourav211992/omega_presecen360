@@ -2232,13 +2232,13 @@ function showToast(icon, title) {
                     }
                 });
             }
- else {
+            else {
                   Swal.fire({
                       icon: 'error',
                       title: 'Error',
                       text: response.message || 'Something went wrong!'
                   });
-              }
+            }
           },
           error: function (xhr) {
               Swal.fire({
@@ -2251,7 +2251,7 @@ function showToast(icon, title) {
               $('#amendmentSubmit').prop('disabled', false).text('Confirm');
           }
       });
-  });
+    });
 
 
 </script>

@@ -27,7 +27,7 @@
                             </div>
                         </div>
                         <div class="content-header-right text-end col-md-6 col-6 mb-2 mb-sm-0">
-                           <a href="{{ route('inspection-checklists.index') }}" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
+                           <a href="{{ route('maintenance-inspection-checklists.index') }}" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
                             <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
                                     data-url="{{ route('inspection-checklists.destroy', $inspectionChecklist->id) }}" 
                                     data-redirect="{{ route('inspection-checklists.index') }}"

@@ -114,7 +114,7 @@
                                 icon: 'error',
                                 title: 'Error !',
                                 text: 'Transaction Not Setup',
-                                confirmButtonColor: '#d33',
+                                confirmButtonColor: '#0d6efd',
                             });
                         </script>
                     @endif
@@ -868,7 +868,7 @@
                     icon: 'error',
                     title: 'Error !',
                     text: 'Transaction Not Setup',
-                    confirmButtonColor: '#d33',
+                    confirmButtonColor: '#0d6efd',
                 });
                 return false; // Prevent form submission
             }
@@ -1929,7 +1929,12 @@
                         $('#doc_prefix').val('');
                         $('#doc_suffix').val('');
                         $('#doc_no').val('');
-                        showToast("error", data.message);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error !',
+                            text: 'Transaction Not Setup',
+                            confirmButtonColor: '#0d6efd',
+                        });
                     }
                 });
             });
@@ -2118,24 +2123,18 @@
             });
         }
 
-        function showToast(icon, title) {
-            const Toast = Swal.mixin({
-                toast: true,
-                position: "top-end",
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true,
-                didOpen: (toast) => {
-                    toast.onmouseenter = Swal.stopTimer;
-                    toast.onmouseleave = Swal.resumeTimer;
-                },
+        function showToast(icon, title, text = '', autoClose = false, timer = 3000) {
+            Swal.fire({
+                icon: icon,              // success | error | warning | info | question
+                title: title,            // heading
+                text: text,              // optional body text
+                showConfirmButton: !autoClose, // hide confirm if auto-close
+                timer: autoClose ? timer : null, // only apply timer if autoClose = true
+                timerProgressBar: autoClose,    // show progress bar if autoClose
             });
-            Toast.fire({
-                icon,
-                title
-            });
-
         }
+
+
         $(document).on('change', '.costCenter', function() {
             var selectedValue = $(this).val(); // Get the selected cost center value
             $('.costCenter').val(selectedValue); // Set the same value for all dropdowns
