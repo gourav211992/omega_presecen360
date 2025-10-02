@@ -39,6 +39,7 @@
                                     <thead>
                                         <tr>
                                             <th>#</th>
+                                            <th>Date</th>
                                             <th>Equipment</th>
                                             <th>Organization</th>
                                             <th>Location</th>
@@ -178,6 +179,7 @@ var dt_basic = $('#equipmentsTable').DataTable({
     ],
     columns: [
         {data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false},
+        {data: 'created_at', name: 'created_at'},
         {data: 'equipment', name: 'equipment'},
         {data: 'organization', name: 'organization'},
         {data: 'location', name: 'location'},

@@ -385,14 +385,15 @@
                                                 <div class="col-md-4">
                                                     <div class="mb-1">
                                                         <label class="form-label">Upload Document</label>
-                                                        <input type="file" class="form-control">
+                                                        <input type="file" class="form-control" name="upload_document" accept=".png,.jpeg,.jpg,.xls,.docx,.pdf">
+                                                        <small class="form-text text-muted">Valid File Types and Min/Max File Size for attachments - Accept only .PNG, .JPEG, .JPG, XLS, .DOCX, and .PDF and not more than 5MB in size</small>
                                                     </div>
                                                 </div>
                                             </div>
                                             <div class="col-md-12">
                                                 <div class="mb-1">
                                                     <label class="form-label">Final Remarks</label>
-                                                    <textarea type="text" rows="4" class="form-control" placeholder="Enter Remarks here...">{{ old('remarks', $equipment->remarks) }}</textarea>
+                                                    <textarea name="final_remarks" type="text" rows="4" class="form-control" placeholder="Enter Remarks here...">{{ old('final_remarks', $equipment->final_remarks) }}</textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -759,6 +760,7 @@
     <!-- END: Modal for Checklist -->
 @endsection
 @section('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         .is-invalid {
             border-color: #ea5455 !important;
@@ -957,7 +959,7 @@
                                 </select>
                             </td>
                             <td class="poprod-decpt">
-                                <select name="maintenance[${rowId}][frequency]" class="form-select mw-100">
+                                <select name="maintenance[${rowId}][frequency]" class="form-select mw-100 frequency">
                                     <option value="">Select</option>
                                     <option value="Daily" ${data.frequency == 'Daily' ? 'selected' : ''}>Daily</option>
                                     <option value="Weekly" ${data.frequency == 'Weekly' ? 'selected' : ''}>Weekly</option>
@@ -968,13 +970,13 @@
                                 </select>
                             </td>
                             <td class="poprod-decpt">
-                                    <input type="date" name="maintenance[${rowId}][date]" value="${data.start_date || ''}" required class="form-control mw-100 mb-25" />
+                                    <input type="date" name="maintenance[${rowId}][date]" value="${data.start_date || ''}" class="form-control mw-100 mb-25 date-field" />
                                 </td>
                             <td class="poprod-decpt">
-                                <input type="time" name="maintenance[${rowId}][time]" value="${data.time || ''}" placeholder="Enter Time" class="form-control mw-100 mb-25" />
+                                <input type="time" name="maintenance[${rowId}][time]" value="${data.time || ''}" placeholder="Enter Time" class="form-control mw-100 mb-25 time-field" />
                             </td>
                              <td class="poprod-decpt">
-                                    <select name="maintenance[${rowId}][bom]" required  class="form-select mw-100 maintenance-bom">
+                                    <select name="maintenance[${rowId}][bom]" class="form-select mw-100 maintenance-bom">
                                         ${bomOptions}
                                     </select>
                                 </td>
@@ -1949,18 +1951,143 @@
             });
 
 
-            // Add row based on active tab
-            $('#addRowBtn').on('click', function (e) {
-                e.preventDefault();
-                var activeTab = $('.tab-pane.active').attr('id');
-                if (activeTab === 'Maintenance') {
-                    if (validateMaintenanceRows()) {
-                        $('#maintenanceRows').append(getMaintenanceRow());
-                    }
-                } else if (activeTab === 'Spare') {
-                    $('#spareRows').append(getSparePartRow());
+            // File upload validation
+        $(document).on('change', 'input[name="upload_document"]', function() {
+            const fileInput = $(this);
+            const file = fileInput[0].files[0];
+
+            if (file) {
+                // Check file size (5MB = 5 * 1024 * 1024 bytes)
+                const maxSize = 5 * 1024 * 1024; // 5MB
+                if (file.size > maxSize) {
+                    Swal.fire({
+                        title: 'File Too Large',
+                        text: 'File size must be less than 5MB. Please select a smaller file.',
+                        icon: 'error',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#7367F0'
+                    });
+                    fileInput.val(''); // Clear the file input
+                    return;
+                }
+
+                // Check file type
+                const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf'];
+                const allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'doc', 'docx', 'pdf'];
+
+                const fileType = file.type;
+                const fileName = file.name.toLowerCase();
+                const fileExtension = fileName.split('.').pop();
+
+                // Check if file type is allowed or extension is allowed
+                const isTypeAllowed = allowedTypes.includes(fileType);
+                const isExtensionAllowed = allowedExtensions.includes(fileExtension);
+
+                if (!isTypeAllowed && !isExtensionAllowed) {
+                    Swal.fire({
+                        title: 'Invalid File Type',
+                        text: 'Only PNG, JPEG, JPG, XLS, DOCX, and PDF files are allowed.',
+                        icon: 'error',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#7367F0'
+                    });
+                    fileInput.val(''); // Clear the file input
+                    return;
+                }
+
+                console.log('File validation passed:', {
+                    name: file.name,
+                    size: (file.size / 1024 / 1024).toFixed(2) + 'MB',
+                    type: file.type
+                });
             }
+        });
+
+        // Add row based on active tab with validation
+        $('#addRowBtn').on('click', function (e) {
+            e.preventDefault();
+            var activeTab = $('.tab-pane.active').attr('id');
+
+            // For maintenance tab, validate all existing rows are complete before adding new row
+            if (activeTab === 'Maintenance') {
+                const validationResult = validateAllMaintenanceRowsComplete();
+                if (!validationResult.isValid) {
+                    Swal.fire({
+                        title: 'Complete All Rows First',
+                        html: validationResult.message,
+                        icon: 'warning',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#7367F0'
+                    });
+                    return false;
+                }
+                $('#maintenanceRows').append(getMaintenanceRow());
+            } else if (activeTab === 'Spare') {
+                $('#spareRows').append(getSparePartRow());
+            }
+        });
+
+        // Function to validate that ALL maintenance rows are completely filled
+        function validateAllMaintenanceRowsComplete() {
+            let allValid = true;
+            let errorMessages = [];
+
+            $('#maintenanceRows tr').each(function (index) {
+                const row = $(this);
+                const rowNumber = index + 1;
+                let rowErrors = [];
+
+                const typeSelect = row.find('select[name^="maintenance"][name$="[type]"]');
+                const frequencySelect = row.find('select[name^="maintenance"][name$="[frequency]"]');
+                const dateInput = row.find('input[name^="maintenance"][name$="[date]"]');
+                const timeInput = row.find('input[name^="maintenance"][name$="[time]"]');
+                const bomSelect = row.find('select[name^="maintenance"][name$="[bom]"]');
+                const checklistHidden = row.find('.selected-checklists');
+
+                // Validate each field - ALL fields must be filled
+                if (typeSelect.val() === '') {
+                    rowErrors.push('Maintenance Type');
+                    allValid = false;
+                }
+
+                if (frequencySelect.val() === '') {
+                    rowErrors.push('Frequency');
+                    allValid = false;
+                }
+
+                if (dateInput.val() === '') {
+                    rowErrors.push('Start Date');
+                    allValid = false;
+                }
+
+                if (timeInput.val() === '') {
+                    rowErrors.push('Time');
+                    allValid = false;
+                }
+
+                if (bomSelect.val() === '') {
+                    rowErrors.push('Maintenance BOM');
+                    allValid = false;
+                }
+
+                if (!checklistHidden.val() || checklistHidden.val() === '') {
+                    rowErrors.push('Checklist');
+                    allValid = false;
+                }
+
+                // Add row-specific error message if there are errors
+                if (rowErrors.length > 0) {
+                    errorMessages.push(`<strong>Row ${rowNumber}:</strong> ${rowErrors.join(', ')}`);
+                }
             });
+
+            return {
+                isValid: allValid,
+                message: errorMessages.length > 0
+                    ? `<div style="text-align: left;"><strong>Please complete all fields in the following rows before adding a new row:</strong><br><br>${errorMessages.join('<br>')}</div>`
+                    : ''
+            };
+        }
 
             // Delete selected rows from active tab
             $('#deleteRowBtn').on('click', function (e) {
@@ -1999,55 +2126,184 @@
         });
 
             function submitForm(status) {
+                console.log('submitForm called with status:', status);
                 $('#status').val(status);
 
                 let isValid = true;
                 let errorMessage = '';
 
                 // Basic Information validation
+                console.log('Validating basic information...');
                 if ($('#organization_id').val() === '') {
+                    console.log('Organization is empty');
                     isValid = false;
                     errorMessage += 'Organization is required.<br>';
                 }
 
                 if ($('#location_id').val() === '' && isValid) {
+                    console.log('Location is empty');
                     isValid = false;
                     errorMessage += 'Location is required.<br>';
                 }
 
                 if ($('#category_id').val() === '' && isValid) {
+                    console.log('Category is empty');
                     isValid = false;
                     errorMessage += 'Category is required.<br>';
                 }
 
                 if ($('input[name="name"]').val() === '' && isValid) {
+                    console.log('Name is empty');
                     isValid = false;
                     errorMessage += 'Name is required.<br>';
                 }
 
                 // Validate maintenance rows if any exist
-                $('#maintenanceRows tr').each(function () {
-                    const typeSelect = $(this).find('select[name^="maintenance"][name$="[type]"]');
-                    const frequencyInput = $(this).find('input[name^="maintenance"][name$="[frequency]"]');
+                console.log('Validating maintenance rows...');
+                let hasCompleteMaintenanceRow = false;
+                let maintenanceRowCount = 0;
 
-                    if (typeSelect.val() !== '' || frequencyInput.val() !== '' && isValid) {
-                        if (typeSelect.val() === '') {
-                            isValid = false;
-                            errorMessage += 'Maintenance type is required for all maintenance rows.<br>';
-                        }
+                $('#maintenanceRows tr').each(function (index) {
+                const row = $(this);
+                const rowNumber = index + 1;
+                maintenanceRowCount++;
+                console.log(`Validating maintenance row ${rowNumber}`);
 
-                        if (frequencyInput.val() === '') {
-                            isValid = false;
-                            errorMessage += 'Frequency is required for all maintenance rows.<br>';
-                        }
+                const typeSelect = row.find('select[name^="maintenance"][name$="[type]"]');
+                const frequencySelect = row.find('select[name^="maintenance"][name$="[frequency]"]');
+                const dateInput = row.find('input[name^="maintenance"][name$="[date]"]');
+                const timeInput = row.find('input[name^="maintenance"][name$="[time]"]');
+                const bomSelect = row.find('select[name^="maintenance"][name$="[bom]"]');
+                const checklistHidden = row.find('.selected-checklists');
+
+                console.log(`Row ${rowNumber} field values:`, {
+                    type: typeSelect.val(),
+                    frequency: frequencySelect.val(),
+                    date: dateInput.val(),
+                    time: timeInput.val(),
+                    bom: bomSelect.val(),
+                    checklist: checklistHidden.val()
+                });
+
+                // Check if this row is completely filled
+                const isRowComplete = typeSelect.val() !== '' && frequencySelect.val() !== '' &&
+                                    dateInput.val() !== '' && timeInput.val() !== '' &&
+                                    bomSelect.val() !== '' && checklistHidden.val() !== '';
+
+                if (isRowComplete) {
+                    hasCompleteMaintenanceRow = true;
+                    console.log(`Row ${rowNumber} is completely filled`);
+                }
+
+                // For final submission (not draft), ALL rows must be completely filled
+                if (status === 'submitted') {
+                    console.log(`Final submission - validating ALL fields in row ${rowNumber}`);
+
+                    if (typeSelect.val() === '') {
+                        console.log(`Row ${rowNumber}: Maintenance type is empty`);
+                        isValid = false;
+                        errorMessage += `Maintenance type is required for row ${rowNumber}.<br>`;
                     }
+
+                    if (frequencySelect.val() === '') {
+                        console.log(`Row ${rowNumber}: Frequency is empty`);
+                        isValid = false;
+                        errorMessage += `Frequency is required for row ${rowNumber}.<br>`;
+                    }
+
+                    if (dateInput.val() === '') {
+                        console.log(`Row ${rowNumber}: Date is empty`);
+                        isValid = false;
+                        errorMessage += `Start date is required for row ${rowNumber}.<br>`;
+                    }
+
+                    if (timeInput.val() === '') {
+                        console.log(`Row ${rowNumber}: Time is empty`);
+                        isValid = false;
+                        errorMessage += `Time is required for row ${rowNumber}.<br>`;
+                    }
+
+                    if (bomSelect.val() === '') {
+                        console.log(`Row ${rowNumber}: BOM is empty`);
+                        isValid = false;
+                        errorMessage += `Maintenance BOM is required for row ${rowNumber}.<br>`;
+                    }
+
+                    if (!checklistHidden.val() || checklistHidden.val() === '') {
+                        console.log(`Row ${rowNumber}: Checklist is empty`);
+                        isValid = false;
+                        errorMessage += `Checklist is required for row ${rowNumber}.<br>`;
+                    }
+                } else {
+                    // For draft submission, only validate rows that have some data
+                    const hasAnyValue = typeSelect.val() !== '' || frequencySelect.val() !== '' ||
+                                       dateInput.val() !== '' || timeInput.val() !== '' ||
+                                       bomSelect.val() !== '' || checklistHidden.val() !== '';
+
+                    if (hasAnyValue && isValid) {
+                        console.log(`Draft submission - validating partial row ${rowNumber}`);
+
+                        if (typeSelect.val() === '') {
+                            console.log(`Row ${rowNumber}: Maintenance type is empty`);
+                            isValid = false;
+                            errorMessage += `Maintenance type is required for row ${rowNumber}.<br>`;
+                        }
+
+                        if (frequencySelect.val() === '') {
+                            console.log(`Row ${rowNumber}: Frequency is empty`);
+                            isValid = false;
+                            errorMessage += `Frequency is required for row ${rowNumber}.<br>`;
+                        }
+
+                        if (dateInput.val() === '') {
+                            console.log(`Row ${rowNumber}: Date is empty`);
+                            isValid = false;
+                            errorMessage += `Start date is required for row ${rowNumber}.<br>`;
+                        }
+
+                        if (timeInput.val() === '') {
+                            console.log(`Row ${rowNumber}: Time is empty`);
+                            isValid = false;
+                            errorMessage += `Time is required for row ${rowNumber}.<br>`;
+                        }
+
+                        if (bomSelect.val() === '') {
+                            console.log(`Row ${rowNumber}: BOM is empty`);
+                            isValid = false;
+                            errorMessage += `Maintenance BOM is required for row ${rowNumber}.<br>`;
+                        }
+
+                        if (!checklistHidden.val() || checklistHidden.val() === '') {
+                            console.log(`Row ${rowNumber}: Checklist is empty`);
+                            isValid = false;
+                            errorMessage += `Checklist is required for row ${rowNumber}.<br>`;
+                        }
+                    } else if (!hasAnyValue) {
+                        console.log(`Row ${rowNumber} is completely empty, skipping validation for draft`);
+                    }
+                }
+            });
+
+                // For final submission (not draft), require at least one complete maintenance row
+                if (status === 'submitted' && !hasCompleteMaintenanceRow) {
+                    console.log('No complete maintenance rows found for final submission');
+                    isValid = false;
+                    errorMessage += 'At least one complete maintenance row is required for final submission.<br>';
+                }
+
+                console.log(`Validation summary:`, {
+                    totalRows: maintenanceRowCount,
+                    hasCompleteMaintenanceRow: hasCompleteMaintenanceRow,
+                    status: status,
+                    isValid: isValid
                 });
 
                 // Validate spare parts rows if any exist
+                console.log('Validating spare parts rows...');
                 $('#spareRows tr').each(function () {
                     const itemCodeSelect = $(this).find('select[name^="spareparts"][name$="[item_code]"]');
                     const itemNameInput = $(this).find('input[name^="spareparts"][name$="[item_name]"]');
-                    const uomInput = $(this).find('input[name^="spareparts"][name$="[uom]"]');
+                    const uomInput = $(this).find('select[name^="spareparts"][name$="[uom]"]');
                     const qtyInput = $(this).find('input[name^="spareparts"][name$="[qty]"]');
 
                     if (itemCodeSelect.val() !== '' || itemNameInput.val() !== '' && isValid) {
@@ -2074,11 +2330,13 @@
                 });
 
                 if (!isValid) {
+                    console.log('Form validation failed, showing SweetAlert error');
                     Swal.fire({
                         title: 'Validation Error',
                         html: errorMessage,
                         icon: 'error',
-                        confirmButtonText: 'OK'
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#7367F0'
                     });
                     return false;
                 }
@@ -2308,59 +2566,76 @@
             }
         }
 
-        function validateMaintenanceRows() {
+        function validateMaintenanceRowsWithMessages() {
             let allValid = true;
-            $('#maintenanceRows tr').each(function () {
-                const type      = $(this).find('.maintenance-type');
-                const freq      = $(this).find('.frequency');
-                const date      = $(this).find('.date-field');
-                const time      = $(this).find('.time-field');
-                const bom       = $(this).find('.maintenance-bom');
-                const checklist = $(this).find('.selected-checklists');
+            let errorMessages = [];
+
+            $('#maintenanceRows tr').each(function (index) {
+                const row = $(this);
+                const rowNumber = index + 1;
+                let rowErrors = [];
+
+                const type = row.find('.maintenance-type');
+                const freq = row.find('.frequency');
+                const date = row.find('.date-field');
+                const time = row.find('.time-field');
+                const bom = row.find('.maintenance-bom');
+                const checklist = row.find('.selected-checklists');
 
                 // Reset previous errors
-                $(this).find('select, input').removeClass('is-invalid');
+                row.find('select, input').removeClass('is-invalid');
+                row.removeClass('table-danger');
 
-                // Check fields safely
+                // Validate each field
                 if (type.length && !type.val()) {
                     type.addClass('is-invalid');
-                    if (type[0] && typeof type[0].reportValidity === "function") type[0].reportValidity();
+                    rowErrors.push('Maintenance Type');
                     allValid = false;
-                    return false; // break loop
                 }
+
                 if (freq.length && !freq.val()) {
                     freq.addClass('is-invalid');
-                    if (freq[0] && typeof freq[0].reportValidity === "function") freq[0].reportValidity();
+                    rowErrors.push('Frequency');
                     allValid = false;
-                    return false;
                 }
+
                 if (date.length && !date.val()) {
                     date.addClass('is-invalid');
-                    if (date[0] && typeof date[0].reportValidity === "function") date[0].reportValidity();
+                    rowErrors.push('Start Date');
                     allValid = false;
-                    return false;
                 }
+
                 if (time.length && !time.val()) {
                     time.addClass('is-invalid');
-                    if (time[0] && typeof time[0].reportValidity === "function") time[0].reportValidity();
+                    rowErrors.push('Time');
                     allValid = false;
-                    return false;
                 }
+
                 if (bom.length && !bom.val()) {
                     bom.addClass('is-invalid');
-                    if (bom[0] && typeof bom[0].reportValidity === "function") bom[0].reportValidity();
+                    rowErrors.push('Maintenance BOM');
                     allValid = false;
-                    return false;
                 }
+
                 if (checklist.length && !checklist.val()) {
-                    $(this).addClass('table-danger');
-                    setTimeout(() => $(this).removeClass('table-danger'), 2000);
+                    row.addClass('table-danger');
+                    setTimeout(() => row.removeClass('table-danger'), 2000);
+                    rowErrors.push('Checklist');
                     allValid = false;
-                    return false;
+                }
+
+                // Add row-specific error message if there are errors
+                if (rowErrors.length > 0) {
+                    errorMessages.push(`<strong>Row ${rowNumber}:</strong> ${rowErrors.join(', ')}`);
                 }
             });
 
-            return allValid;
+            return {
+                isValid: allValid,
+                message: errorMessages.length > 0
+                    ? `<div style="text-align: left;"><strong>Please complete the following fields before adding a new row:</strong><br><br>${errorMessages.join('<br>')}</div>`
+                    : ''
+            };
         }
     </script>
 @endsection

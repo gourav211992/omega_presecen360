@@ -21,14 +21,14 @@ class ErpEquipmentRequest extends FormRequest
      */
     public function rules()
     {
-        return [
+        $rules = [
             'organization_id' => 'required|integer',
             'location_id' => 'required|integer',
             'category_id' => 'required|integer',
             'name' => 'required|string|max:255',
             'alias' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            'upload_document' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png',
+            'upload_document' => 'nullable|file|mimes:png,jpeg,jpg,xls,docx,pdf|max:5120',
             'final_remarks' => 'nullable|string',
             'status' => 'required|in:draft,submitted',
             'doc_number_type' => 'nullable|string',
@@ -38,11 +38,13 @@ class ErpEquipmentRequest extends FormRequest
             'book_id' => 'nullable|string',
             'document_number' => 'nullable|string',
 
-            // Maintenance details validation
+            // Maintenance details validation - conditional based on status
             'maintenance' => 'nullable|array',
-            'maintenance.*.type' => 'required_with:maintenance|integer|exists:erp_maintenance_types,id',
-            'maintenance.*.frequency' => 'required_with:maintenance|string',
+            'maintenance.*.type' => 'nullable|integer|exists:erp_maintenance_types,id',
+            'maintenance.*.frequency' => 'nullable|string',
+            'maintenance.*.date' => 'nullable|date',
             'maintenance.*.time' => 'nullable|string',
+            'maintenance.*.bom' => 'nullable|integer|exists:erp_plant_maint_bom,id',
             'maintenance.*.checklists' => 'nullable|array',
 
             // Spare parts validation
@@ -53,5 +55,17 @@ class ErpEquipmentRequest extends FormRequest
             // 'spareparts.*.uom'        => 'required_with:spareparts|string',
             // 'spareparts.*.qty'        => 'required_with:spareparts|numeric|min:0',
         ];
+
+        // If status is 'submitted', make maintenance fields required when maintenance array is present
+        if ($this->input('status') === 'submitted') {
+            $rules['maintenance.*.type'] = 'required_with:maintenance|integer|exists:erp_maintenance_types,id';
+            $rules['maintenance.*.frequency'] = 'required_with:maintenance|string';
+            $rules['maintenance.*.date'] = 'required_with:maintenance|date';
+            $rules['maintenance.*.time'] = 'required_with:maintenance|string';
+            $rules['maintenance.*.bom'] = 'required_with:maintenance|integer|exists:erp_plant_maint_bom,id';
+            $rules['maintenance.*.checklists'] = 'required_with:maintenance|array';
+        }
+
+        return $rules;
     }
 }

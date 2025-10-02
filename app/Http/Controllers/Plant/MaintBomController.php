@@ -71,9 +71,9 @@ class MaintBomController extends Controller
 
                 if (in_array($column, ['book_id'])) {
                     // For foreign key columns, order by the related table column
-                    $query->join('erp_books', 'plant_maint_boms.book_id', '=', 'erp_books.id')
+                    $query->join('erp_books', 'erp_plant_maint_bom.book_id', '=', 'erp_books.id')
                           ->orderBy('erp_books.book_code', $direction)
-                          ->select('plant_maint_boms.*');
+                          ->select('erp_plant_maint_bom.*');
                 } elseif ($column === 'document_number') {
                     // Sort document number numerically
                     $query->orderByRaw('CAST(REGEXP_REPLACE(document_number, "[^0-9]", "") AS UNSIGNED) ' . $direction);

@@ -36,110 +36,91 @@ class ErpEquipmentController extends Controller
 
     public function getData(Request $request)
     {
-        $details = ErpEquipMaintenanceDetail::with([
-            'equipment:id,name,alias,organization_id,location_id,category_id,document_status',
-            'equipment.organization:id,name',
-            'equipment.location:id,store_name',
-            'equipment.category:id,name',
-            'maintenanceType:id,name',
-            'checklists:id,erp_equip_maintenance_id,name',
-            'latestWorkOrder:id,equipment_id,maintenance_type_id,document_status,created_at,equipment_details'
+        // Get all equipment with their maintenance details
+        $equipment = ErpEquipment::with([
+            'organization:id,name',
+            'location:id,store_name',
+            'category:id,name',
+            'maintenanceDetails.maintenanceType:id,name',
+            'maintenanceDetails.checklists:id,erp_equip_maintenance_id,name',
+            'maintenanceDetails' => function($query) {
+                $query->with(['latestWorkOrder:id,equipment_id,maintenance_type_id,document_status,created_at,equipment_details'])
+                      ->addSelect([
+                          'latest_work_order_id' => PlantMaintWo::select('id')
+                              ->whereColumn('erp_plant_maint_wo.equipment_id', 'erp_equip_maintenance_details.erp_equipment_id')
+                              ->whereColumn('erp_plant_maint_wo.maintenance_type_id', 'erp_equip_maintenance_details.maintenance_type_id')
+                              ->where('erp_plant_maint_wo.reference_type', 'equipment')
+                              ->latest('created_at')
+                              ->limit(1)
+                      ]);
+            }
         ])
-        ->addSelect([
-            'latest_work_order_id' => PlantMaintWo::select('id')
-                ->whereColumn('erp_plant_maint_wo.equipment_id', 'erp_equip_maintenance_details.erp_equipment_id')
-                ->whereColumn('erp_plant_maint_wo.maintenance_type_id', 'erp_equip_maintenance_details.maintenance_type_id')
-                ->where('erp_plant_maint_wo.reference_type', 'equipment') 
-                ->latest('created_at')
-                ->limit(1)
-        ])
-        ->whereHas('checklists')
-        ->whereHas('equipment')
-        ->orderBy('id', 'desc'); 
+        ->orderBy('created_at', 'desc'); 
 
-        return DataTables::eloquent($details)
-            ->filterColumn('equipment', function($query, $keyword) {
-                $query->whereHas('equipment', function($q) use ($keyword) {
-                    $q->where('name', 'like', "%{$keyword}%")
-                    ->orWhere('alias', 'like', "%{$keyword}%");
-                });
-            })
-            ->filterColumn('organization', function($query, $keyword) {
-                $query->whereHas('equipment.organization', function($q) use ($keyword) {
-                    $q->where('name', 'like', "%{$keyword}%");
-                });
-            })
-            ->filterColumn('location', function($query, $keyword) {
-                $query->whereHas('equipment.location', function($q) use ($keyword) {
-                    $q->where('store_name', 'like', "%{$keyword}%");
-                });
-            })
-            ->filterColumn('category', function($query, $keyword) {
-                $query->whereHas('equipment.category', function($q) use ($keyword) {
-                    $q->where('name', 'like', "%{$keyword}%");
-                });
-            })
-            ->filterColumn('maintenance_type', function($query, $keyword) {
-                $query->whereHas('maintenanceType', function($q) use ($keyword) {
-                    $q->where('name', 'like', "%{$keyword}%");
-                });
-            })
+        // Process equipment data to create rows for DataTables
+        $data = collect();
+        foreach ($equipment->get() as $equip) {
+            if ($equip->maintenanceDetails && $equip->maintenanceDetails->isNotEmpty()) {
+                // Create one row per maintenance detail
+                foreach ($equip->maintenanceDetails as $maintenanceDetail) {
+                    $data->push([
+                        'id' => $maintenanceDetail->id,
+                        'equipment_id' => $equip->id,
+                        'equipment_name' => $equip->name,
+                        'alias' => $equip->alias,
+                        'organization' => optional($equip->organization)->name,
+                        'location' => optional($equip->location)->store_name,
+                        'category' => optional($equip->category)->name,
+                        'created_at' => $equip->created_at ? Carbon::parse($equip->created_at)->format('d-m-Y') : '',
+                        'maintenance_type' => optional($maintenanceDetail->maintenanceType)->name,
+                        'checklists' => $maintenanceDetail->checklists ? $maintenanceDetail->checklists->pluck('name')->implode(', ') : '',
+                        'last_date' => $this->getLastDate($maintenanceDetail),
+                        'due_date' => $this->getDueDate($maintenanceDetail),
+                        'status' => $equip->document_status,
+                        'equipment' => $equip
+                    ]);
+                }
+            } else {
+                // Create one row for equipment without maintenance details
+                $data->push([
+                    'id' => null,
+                    'equipment_id' => $equip->id,
+                    'equipment_name' => $equip->name,
+                    'alias' => $equip->alias,
+                    'organization' => optional($equip->organization)->name,
+                    'location' => optional($equip->location)->store_name,
+                    'category' => optional($equip->category)->name,
+                    'created_at' => $equip->created_at ? Carbon::parse($equip->created_at)->format('d-m-Y') : '',
+                    'maintenance_type' => '',
+                    'checklists' => '',
+                    'last_date' => '',
+                    'due_date' => '',
+                    'status' => $equip->document_status,
+                    'equipment' => $equip
+                ]);
+            }
+        }
+
+        return DataTables::of($data)
             ->addIndexColumn()
-            ->addColumn('equipment', fn($row) => optional($row->equipment)->name ?? '')
-            ->addColumn('organization', fn($row) => optional($row->equipment?->organization)->name ?? '')
-            ->addColumn('location', fn($row) => optional($row->equipment?->location)->store_name ?? '')
-            ->addColumn('alias', fn($row) => optional($row->equipment)->alias ?? '')
-            ->addColumn('category', fn($row) => optional($row->equipment?->category)->name ?? '')
-            ->addColumn('maintenance_type', fn($row) => optional($row->maintenanceType)->name ?? '')
-            ->addColumn('checklists', fn($row) => $row->checklists->pluck('name')->implode(', '))
-            ->addColumn('last_date', function ($row) {
-                $wo = $row->latestWorkOrder;
-                if ($wo && in_array($wo->document_status, [
-                    ConstantHelper::DOCUMENT_STATUS_APPROVED,
-                    ConstantHelper::APPROVAL_NOT_REQUIRED
-                ])) {
-                    $details = json_decode($wo->equipment_details, true);
-                    if (is_array($details) && !empty($details['due_date'])) {
-                        return Carbon::parse($details['due_date'])->format('d-m-Y');
-                    }
-                }
-                return null;
-            })
-            ->addColumn('due_date', function ($row) {
-                $wo = $row->latestWorkOrder;
-                $lastMaintDate = null;
-                if ($wo && in_array($wo->document_status, [
-                    ConstantHelper::DOCUMENT_STATUS_APPROVED,
-                    ConstantHelper::APPROVAL_NOT_REQUIRED
-                ])) {
-                    $details = json_decode($wo->equipment_details, true);
-                    if (is_array($details) && !empty($details['due_date'])) {
-                        $lastMaintDate = Carbon::parse($details['due_date']);
-                    }
-                }
-                if ($lastMaintDate) {
-                    switch ($row->frequency) {
-                        case 'Daily': return $lastMaintDate->copy()->addDay()->format('d-m-Y');
-                        case 'Weekly': return $lastMaintDate->copy()->addWeek()->format('d-m-Y');
-                        case 'Monthly': return $lastMaintDate->copy()->addMonth()->format('d-m-Y');
-                        case 'Quarterly': return $lastMaintDate->copy()->addMonths(3)->format('d-m-Y');
-                        case 'Semi-Annually': return $lastMaintDate->copy()->addMonths(6)->format('d-m-Y');
-                        case 'Annually':
-                        case 'Yearly': return $lastMaintDate->copy()->addYear()->format('d-m-Y');
-                    }
-                }
-                return $row->start_date
-                    ? Carbon::parse($row->start_date)->format('d-m-Y')
-                    : null;
-            })
+            ->addColumn('equipment', fn($row) => $row['equipment_name'])
+            ->addColumn('organization', fn($row) => $row['organization'])
+            ->addColumn('location', fn($row) => $row['location'])
+            ->addColumn('alias', fn($row) => $row['alias'])
+            ->addColumn('category', fn($row) => $row['category'])
+            ->addColumn('created_at', fn($row) => $row['created_at'])
+            ->addColumn('maintenance_type', fn($row) => $row['maintenance_type'])
+            ->addColumn('checklists', fn($row) => $row['checklists'])
+            ->addColumn('last_date', fn($row) => $row['last_date'])
+            ->addColumn('due_date', fn($row) => $row['due_date'])
             ->addColumn('status', function ($row) {
-                $eqpStatus = optional($row->equipment)->document_status;
+                $eqpStatus = $row['status'];
                 $statusText = $eqpStatus == ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($eqpStatus);
                 $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$eqpStatus] ?? 'badge-light-secondary';
                 return "<span class='badge rounded-pill {$statusClass}'>{$statusText}</span>";
             })
             ->addColumn('action', function ($row) {
-                $equipmentId = optional($row->equipment)->id;
+                $equipmentId = $row['equipment_id'];
                 if (!$equipmentId) {
                     return '';
                 }
@@ -160,7 +141,48 @@ class ErpEquipmentController extends Controller
             ->toJson();
     }
 
+    private function getLastDate($maintenanceDetail)
+    {
+        $latestWorkOrder = $maintenanceDetail->latestWorkOrder;
+        if ($latestWorkOrder && in_array($latestWorkOrder->document_status, [
+            ConstantHelper::DOCUMENT_STATUS_APPROVED,
+            ConstantHelper::APPROVAL_NOT_REQUIRED
+        ])) {
+            $details = json_decode($latestWorkOrder->equipment_details, true);
+            if (is_array($details) && !empty($details['due_date'])) {
+                return Carbon::parse($details['due_date'])->format('d-m-Y');
+            }
+        }
+        return '';
+    }
 
+    private function getDueDate($maintenanceDetail)
+    {
+        $lastMaintDate = null;
+        if ($maintenanceDetail->latestWorkOrder && in_array($maintenanceDetail->latestWorkOrder->document_status, [
+            ConstantHelper::DOCUMENT_STATUS_APPROVED,
+            ConstantHelper::APPROVAL_NOT_REQUIRED
+        ])) {
+            $details = json_decode($maintenanceDetail->latestWorkOrder->equipment_details, true);
+            if (is_array($details) && !empty($details['due_date'])) {
+                $lastMaintDate = Carbon::parse($details['due_date']);
+            }
+        }
+        if ($lastMaintDate) {
+            switch ($maintenanceDetail->frequency) {
+                case 'Daily': return $lastMaintDate->copy()->addDay()->format('d-m-Y');
+                case 'Weekly': return $lastMaintDate->copy()->addWeek()->format('d-m-Y');
+                case 'Monthly': return $lastMaintDate->copy()->addMonth()->format('d-m-Y');
+                case 'Quarterly': return $lastMaintDate->copy()->addMonths(3)->format('d-m-Y');
+                case 'Semi-Annually': return $lastMaintDate->copy()->addMonths(6)->format('d-m-Y');
+                case 'Annually':
+                case 'Yearly': return $lastMaintDate->copy()->addYear()->format('d-m-Y');
+            }
+        }
+        return $maintenanceDetail->start_date
+            ? Carbon::parse($maintenanceDetail->start_date)->format('d-m-Y')
+            : '';
+    }
 
     public function create()
     {
@@ -184,7 +206,7 @@ class ErpEquipmentController extends Controller
         $organizationId = Helper::getAuthenticatedUser()->organization_id;
 
         $locations = InventoryHelper::getAccessibleLocations();
-        $maintenanceTypes = ErpMaintenanceType::all(['id', 'name']);
+        $maintenanceTypes = ErpMaintenanceType::where('status','Active')->get(['id', 'name']);
         $maintenanceBOM = PlantMaintBom::all(['id', 'bom_name as name']);
 
         $checklists = InspectionChecklist::where('type','maintenance')->get();
@@ -196,7 +218,6 @@ class ErpEquipmentController extends Controller
 
     public function store(ErpEquipmentRequest $request)
     {
-        
         DB::beginTransaction();
         try {
             $user = Helper::getAuthenticatedUser();
@@ -396,7 +417,7 @@ class ErpEquipmentController extends Controller
         
         $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$equipment->document_status] ?? '';
         $locations = InventoryHelper::getAccessibleLocations();
-        $maintenanceTypes = ErpMaintenanceType::all(['id', 'name']);
+        $maintenanceTypes = ErpMaintenanceType::where('status','Active')->get(['id', 'name']);
         $maintenanceBOM = PlantMaintBom::all(['id', 'bom_name as name']);
         $items = Item::get();
         $categories = Category::where('type', 'Equipment')->get();
