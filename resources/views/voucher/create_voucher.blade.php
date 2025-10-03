@@ -1922,13 +1922,21 @@
                         }
 
                     }
-                    if (data.status == 404) {
+                    else if (data.status == 404 || data.status == 500) {
                         $("#voucher_no").val('');
                         $('#doc_number_type').val('');
                         $('#doc_reset_pattern').val('');
                         $('#doc_prefix').val('');
                         $('#doc_suffix').val('');
                         $('#doc_no').val('');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error !',
+                            text: 'Transaction Not Setup',
+                            confirmButtonColor: '#0d6efd',
+                        });
+                    }
+                    else{
                         Swal.fire({
                             icon: 'error',
                             title: 'Error !',

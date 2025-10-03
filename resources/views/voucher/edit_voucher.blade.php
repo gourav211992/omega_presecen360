@@ -83,7 +83,7 @@
 
 
                 <input type="hidden" name="status" id="status">
-                  <div class="modal fade" id="amendConfirmPopup" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
+        <div class="modal fade" id="amendConfirmPopup" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
             <div class="modal-header">
@@ -1677,13 +1677,21 @@
                         }
 
                     }
-                    if (data.status == 404) {
+                    else if (data.status == 404) {
                         $("#voucher_no").val('');
                         $('#doc_number_type').val('');
                         $('#doc_reset_pattern').val('');
                         $('#doc_prefix').val('');
                         $('#doc_suffix').val('');
                         $('#doc_no').val('');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error !',
+                            text: 'Transaction Not Setup',
+                            confirmButtonColor: '#0d6efd',
+                        });
+                    }
+                    else{
                         Swal.fire({
                             icon: 'error',
                             title: 'Error !',
