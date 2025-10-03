@@ -235,7 +235,6 @@ class ErpProductionSlipController extends Controller
                         $inspQuery->where('header_id', $this->productionSlipId);
                     }]);
                 })->where('revision_number', $request->revisionNumber)->first();
-                $buttons['amend']=false;
 
             }
 
@@ -251,6 +250,7 @@ class ErpProductionSlipController extends Controller
             $totalValue = 0;
             $userType = Helper::userCheck();
             $buttons = Helper::actionButtonDisplay($doc->book_id,$doc->document_status , $doc->id, $totalValue, $doc->approval_level, $doc -> created_by ?? 0, $userType['type'], $revision_number);
+                            
             $books = Helper::getBookSeriesNew(ConstantHelper::PRODUCTION_SLIP_SERVICE_ALIAS) -> get();
             $revNo = $doc->revision_number;
             if($request->has('revisionNumber')) {

@@ -12,8 +12,8 @@ use App\Models\Organization;
 use App\Models\ErpSubStoreParent;
 use App\Models\ERP\ErpStockStoreMapping;
 use App\Models\ERP\ErpExternalIntegration;
-use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use App\Http\Requests\ErpExternalIntegrationRequest;
+use App\Models\ErpSubStore;
 use Exception;
 use Illuminate\Support\Facades\DB; 
 use Yajra\DataTables\Facades\DataTables;
@@ -24,24 +24,20 @@ class ErpExternalIntegrationController extends Controller
      public function index(Request $request)
     {    
         $user = Helper::getAuthenticatedUser();
-        $authUser = AuthUser::find($user->auth_user_id);
-        $isSuperAdmin = ($authUser && $authUser->user_type === 'IAM-SUPER');
 
-       if (!$isSuperAdmin) {
-            $query = ErpExternalIntegration::with('customer', 'soBook', 'tripBook', 'dnote', 'organization', 'store')->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
-                                    ->orderByDesc('id');
-        } else {
-            $query = ErpExternalIntegration::with('customer', 'soBook', 'tripBook', 'dnote', 'organization', 'store')->orderByDesc('id');
-        }
+        $erpExternalIntegrations = ErpExternalIntegration::with('customer', 'soBook', 'tripBook', 'dnote', 'organization', 'store')
+            ->whereCompanyId($user->company_id)
+            ->whereGroupId($user->group_id);
+       
        if ($request->ajax()) {
-        return DataTables::of($query)
+        return DataTables::of($erpExternalIntegrations)
             ->addIndexColumn()
             ->addColumn('customer', fn($row) => $row->customer?->company_name ?? 'AS')
-            ->editColumn('soBook', fn($row) => $row->soBook?->book_name)
-            ->editColumn('tripBook', fn($row) => $row->tripBook?->book_name)
-            ->editColumn('dnote', fn($row) => $row->dnote?->book_name)
-            ->editColumn('organization', fn($row) => $row->organization?->name)
-            ->editColumn('store', fn($row) => $row->store?->store_name)
+            ->editColumn('soBook', fn($row) => $row->soBook?->book_name ?? 'N/A')
+            ->editColumn('tripBook', fn($row) => $row->tripBook?->book_name ?? 'N/A')
+            ->editColumn('dnote', fn($row) => $row->dnote?->book_name ?? 'N/A')
+            ->editColumn('organization', fn($row) => $row->organization?->name ?? 'N/A')
+            ->editColumn('store', fn($row) => $row->store?->store_name ?? 'N/A')
             ->addColumn('status', fn($row) => '<span class="badge rounded-pill badge-light-' . ($row->status === 'active' ? 'success' : 'danger') . '">'
                 . ucfirst($row->status) . '</span>')
             ->addColumn('action', function ($row) {
@@ -120,26 +116,14 @@ class ErpExternalIntegrationController extends Controller
     public function create()
     {
         $user = Helper::getAuthenticatedUser();
-        $organization = $user->organization;
-        $groupId = $organization?->group_id;
+        $groupId = $user?->group_id;
         $useRole = AuthUser::where('id', $user->auth_user_id)->first();
         $isSuperAdmin = ($useRole && isset($useRole->user_type) && $useRole->user_type === 'IAM-SUPER');
 
-        if ($isSuperAdmin) {
-            $allOrganizations = Organization::where('group_id',$groupId)
-            ->where('status', 'active')
-                ->with('addresses')
-                ->get();
-        } else {
-            $orgIds = $user->organizations()->pluck('organizations.id')->toArray();
-            if ($user->organization_id) {
-                $orgIds[] = $user->organization_id;
-            }
-            $allOrganizations = Organization::whereIn('id', $orgIds)
-                ->with('addresses')
-                ->where('status', 'active')
-                ->get();
-        }
+        $allOrganizations = Organization::where('group_id' ,$groupId)
+            ->where('company_id' ,$user->company_id)->where('status', 'active')
+            ->get();
+        
 
         $dn_parentUrl = 'delivery-note';
         $dn_servicesAliasParam = ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS;
@@ -168,17 +152,19 @@ class ErpExternalIntegrationController extends Controller
             // Validate uniqueness: organization + store
             $exists = ErpExternalIntegration::where('organization_id', $request->organization_id)
                 ->where('store_id', $request->store_id)
+                ->where('group_id' ,$user->group_id)
+                ->where('company_id' ,$user->company_id)
                 ->exists();
 
             if ($exists) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'This store is already mapped to the selected organization and store.',
+                    'message' => 'This store already exists for the selected organization.',
                 ], 422);
             }
 
             // Save main external integration
-            $external = ErpExternalIntegration::create([
+           ErpExternalIntegration::create([
                 'group_id'        => $user->group_id,
                 'company_id'      => $user->company_id,
                 'organization_id' => $request->organization_id,
@@ -189,10 +175,9 @@ class ErpExternalIntegrationController extends Controller
                 'customer_id'     => $request->customer_id,
                 'status'          => $request->status,
             ]);
-
             // Save sub-store mappings
-            foreach ($request->stock_type as $key => $stock_type) {
-                $subStoreId = $request->subLocation_id[$key];
+            foreach ($request->data as $data) {
+                $subStoreId = $data['subLocation_id'];
 
                 $exists = ErpStockStoreMapping::where('organization_id', $request->organization_id)
                     ->where('store_id', $request->store_id)
@@ -201,20 +186,23 @@ class ErpExternalIntegrationController extends Controller
 
                 if ($exists) {
                     DB::rollBack();
+                    $subStore = ErpSubStore::find($subStoreId);
+
                     return response()->json([
                         'status' => false,
-                        'message' => "Sub-store already mapped for this store.",
+                        'message' => ($subStore?->name ?? 'This') . " sub-store is duplicate for this store.",
                     ], 422);
+
                 }
 
                 ErpStockStoreMapping::create([
-                    'stock_type'      => $stock_type,
+                    'stock_type'      => $data['stock_type'],
                     'group_id'        => $user->group_id,
                     'company_id'      => $user->company_id,
                     'organization_id' => $request->organization_id,
                     'store_id'        => $request->store_id,
                     'sub_store_id'    => $subStoreId,
-                    'is_primary'      => $request->is_primary[$key] ?? 0,
+                    'is_primary'      => isset($data['is_primary']) ?$data['is_primary']: 0,
                 ]);
             }
 
@@ -238,46 +226,33 @@ class ErpExternalIntegrationController extends Controller
     public function edit($id)
     {
         $user = Helper::getAuthenticatedUser();
-        $organization = $user->organization;
-        $groupId = $organization?->group_id;
-        $authUser = AuthUser::find($user->auth_user_id);
-        $isSuperAdmin = ($authUser && $authUser->user_type === 'IAM-SUPER');
-       if ($isSuperAdmin) {
-            $allOrganizations = Organization::where('group_id',$groupId)
-            ->where('status', 'active')
-                ->with('addresses')
-                ->get();
-            $external = ErpExternalIntegration::with(['customer','stockStoreMapping'])->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
-                    ->where('id', $id)
-                    ->first();
-        } else {
-            $external = ErpExternalIntegration::with(['customer','stockStoreMapping'])->find($id);
-            $orgIds = $user->organizations()->pluck('organizations.id')->toArray();
-                if ($user->organization_id) {
-                    $orgIds[] = $user->organization_id;
-                }
-            $allOrganizations = Organization::whereIn('id', $orgIds)
-                ->with('addresses')
+      
+        $allOrganizations = Organization::where('group_id',$user->group_id)->where('company_id',$user->company_id)
                 ->where('status', 'active')
                 ->get();
-        }
+        $external = ErpExternalIntegration::with(['customer','stockStoreMapping'])
+                ->where('id', $id)
+                ->first();
+
         if (!$external) {
             return redirect()->back()->with('error', 'External Integration not found.');
         }
-        $dn_parentUrl = 'delivery-note';
+
+        $dnParentUrl = 'delivery-note';
         $dn_servicesAliasParam = SaleModuleHelper::SALES_INVOICE_DN_TYPE;
-        $dnbook = Helper::getBookSeriesNew($dn_servicesAliasParam, $dn_parentUrl, true,true)->get();
+        $dnbook = Helper::getBookSeriesNew($dn_servicesAliasParam, $dnParentUrl, true,true)->get();
         
-        $Sale_parentUrl = 'sales-order';
+        $saleParentUrl = 'sales-order';
         $Sale_servicesAliasParam = ConstantHelper::SO_SERVICE_ALIAS;
-        $sobook = Helper::getBookSeriesNew($Sale_servicesAliasParam, $Sale_parentUrl, true,true)->get();
+        $sobook = Helper::getBookSeriesNew($Sale_servicesAliasParam, $saleParentUrl, true,true)->get();
         
-        $trip_parentUrl = 'trip-plan';
+        $tripParentUrl = 'trip-plan';
         $trip_servicesAliasParam = ConstantHelper::TRIP_SERVICE_ALIAS;
-        $tripbook = Helper::getBookSeriesNew($trip_servicesAliasParam, $trip_parentUrl, true,true)->get();
+        $tripbook = Helper::getBookSeriesNew($trip_servicesAliasParam, $tripParentUrl, true,true)->get();
         
 
         $status = ConstantHelper::STATUS;
+        
         return view('erp-external.edit', compact('status','external','sobook','tripbook','dnbook','allOrganizations'));
     }
 
@@ -297,7 +272,7 @@ class ErpExternalIntegrationController extends Controller
             if ($exists) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'This store is already mapped to the selected organization.',
+                    'message' => 'This store already exists for the selected organization.',
                 ], 422);
             }
 
@@ -312,6 +287,7 @@ class ErpExternalIntegrationController extends Controller
             $deletedData = collect($keys)->mapWithKeys(function ($key) use ($request) {
                 return [$key => json_decode($request->input($key, '[]'), true)];
             })->toArray();
+
             if(isset($deletedData['deletedItemIds'])&&!empty($deletedData['deletedItemIds'])){
                 ErpStockStoreMapping::whereIn('id',$deletedData['deletedItemIds'])->delete();
 
@@ -320,26 +296,32 @@ class ErpExternalIntegrationController extends Controller
                 ->where('store_id', $request->store_id)
                 ->pluck('sub_store_id')
                 ->toArray();
-            if(isset($request->stock_type)&&$request->stock_type!=null){
+            if(isset($request->data)&&$request->data!=null){
 
-                foreach ($request->stock_type as $key => $stock_type) {
-                    $subStoreId = $request->subLocation_id[$key];
+                foreach ($request->data as $data) {
+                    if(isset($data['stock_id'])&&$data['stock_id']){
+                        ErpStockStoreMapping::where('id',$data['stock_id'])->update(['is_primary'=>isset($data['is_primary']) ?$data['is_primary']: 0]);
+                        continue;
+                    }
+                    $subStoreId = $data['subLocation_id'];
                     if (in_array($subStoreId, $existingSubStores)) {
                         DB::rollBack();
+                        $subStore = ErpSubStore::find($subStoreId);
+
                         return response()->json([
                             'status' => false,
-                            'message' => "Duplicate sub-store entry found for Sub-Store ID: $subStoreId",
+                            'message' => ($subStore?->name ?? 'This') . " sub-store is duplicate for this store.",
                         ], 422);
                     }
                 
                     ErpStockStoreMapping::create([
-                        'stock_type'      => $stock_type,
+                        'stock_type'      => $data['stock_type'],
                         'group_id'        => $user->group_id,
                         'company_id'      => $user->company_id,
                         'organization_id' => $external->organization_id,
                         'store_id'        => $external->store_id,
                         'sub_store_id'    => $subStoreId,
-                        'is_primary'      => $request->is_primary[$key] ?? 0,
+                        'is_primary'      => isset($data['is_primary']) ?1: 0,
                     ]);
 
                     $existingSubStores[] = $subStoreId;
@@ -379,7 +361,7 @@ class ErpExternalIntegrationController extends Controller
 
             return response()->json([
                 'status' => true,
-                'message' => 'Record and related sub-store mappings deleted successfully',
+                'message' => 'External Integration data deleted successfully.',
             ], 200);
 
         } catch (Exception $e) {
@@ -401,15 +383,15 @@ class ErpExternalIntegrationController extends Controller
         $type = $request->type;
         $storeId = $request->store_id;
 
-        $parent = ErpSubStoreParent::with('sub_store')->where('store_id', $storeId)
-            ->first(); 
+        $subStoreIds = ErpSubStoreParent::where('store_id', $storeId)
+                ->get()->pluck('sub_store_id')
+                ->toArray(); 
 
-        if ($parent) {
-            $get = $parent->sub_store()->where('type', 'like', "%{$type}%")
-                    ->limit(50)->get();
-        } else {
-            $get = collect(); 
-        }
-        return $get;
+        $subStores = ErpSubStore::select('id', 'name', 'code', 'station_wise_consumption', 'is_warehouse_required')
+                    ->whereIn('id', $subStoreIds)->where('type', 'like', "%{$type}%")
+                    ->where('status', ConstantHelper::ACTIVE)
+                    ->get();
+                        
+        return $subStores;
     }
 }

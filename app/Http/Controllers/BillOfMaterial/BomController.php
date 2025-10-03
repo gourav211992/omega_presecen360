@@ -20,6 +20,7 @@ use App\Models\BomDetail;
 use App\Models\BomMedia;
 use App\Models\BomOverhead;
 use App\Models\Item;
+use App\Models\PwoBomMapping;
 use App\Models\ErpBomDynamicField;
 use App\Models\Organization;
 use App\Models\ItemAttribute;
@@ -899,6 +900,8 @@ class BomController extends Controller
         $isEdit = $buttons['submit'];
         if (!$isEdit) {
             $isEdit = $buttons['amend'] && intval(request('amendment') ?? 0) ? true : false;
+            $bomDetails=$bom->bomItems->pluck('id')->toArray();
+            $pwoBom=PwoBomMapping::where('bom_id',$bom->id)->whereIn('bom_detail_id',$bomDetails)->get();
         }
         $headerOverheads = $bom->bomOverheadItems()->where('type', 'H')->orderBy('level')->get();
         $dynamicFieldsUI = $bom->dynamicfieldsUi();

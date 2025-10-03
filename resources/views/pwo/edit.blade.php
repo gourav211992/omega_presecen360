@@ -45,6 +45,7 @@
              ])
             <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
                <div class="form-group breadcrumb-right">
+                @if(!isset(request() -> revisionNumber))
                   <input type="hidden" name="document_status" id="document_status">
                   <button type="button" onClick="javascript: history.go(-1)" class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i> Back</button> 
                     @if($buttons['draft'])
@@ -95,6 +96,7 @@
 
                     @if($buttons['voucher'])
                         <button id="postButton" type = "button" class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Voucher</button>                   
+                    @endif
                     @endif
                </div>
             </div>

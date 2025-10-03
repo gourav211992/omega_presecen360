@@ -147,7 +147,7 @@
                                                         <div class="demo-inline-spacing">
                                                             @foreach ($status as $option)
                                                                 <div class="form-check form-check-primary mt-25">
-                                                                    <input type="radio" id="status_{{ strtolower($option) }}" name="status" value="{{ $option }}" class="form-check-input"  {{ $option == 'active' ? 'checked' : '' }}>
+                                                                    <input type="radio" id="status_{{ strtolower($option) }}" name="status" value="{{ $option }}" class="form-check-input"  {{ $external->status == $option ? 'checked' : '' }}>
                                                                     <label class="form-check-label fw-bolder" for="status_{{ strtolower($option) }}"> {{ ucfirst($option) }} </label>
                                                                 </div>
                                                             @endforeach
@@ -175,26 +175,27 @@
                                                             </tr>
                                                         </thead>
                                                         <tbody id="item-details-body">
-                                                            @if(isset($external->stockStoreMapping ) && !empty($external->stockStoreMapping ))
+                                                    
+                                                            @if(isset($external->stockStoreMapping) && !empty($external->stockStoreMapping ))
 
                                                                 @foreach ($external->stockStoreMapping as $key=>$item)
                                                                     <tr>
                                                                         <td class="serial-number">{{$key+1}}</td>
                                                                         <td>
-                                                                            <input type="text" id="stock_type{{$key+1}}" placeholder="Enter Stock Type" class="form-control mw-100" name="stock_type[]" onkeyup="getfetchSubStore(event);"  value="{{$item->stock_type}}" readonly required/>
-                                                                            <input type="hidden" id="stock_id{{$key+1}}" class="form-control mw-100 stock_id_hidden" name="stock_id[]" value="{{$item->id}}"/>
+                                                                            <input type="text" id="stock_type_{{$key+1}}" placeholder="Enter Stock Type" class="form-control mw-100" name="data[{{$key+1}}][stock_type]" onkeyup="getfetchSubStore(event);"  value="{{$item->stock_type}}" readonly required/>
+                                                                            <input type="hidden" id="stock_id_{{$key+1}}" class="form-control mw-100 stock_id_hidden" name="data[{{$key+1}}][stock_id]" value="{{$item->id}}"/>
                                                                         </td>
                                                                         
                                                                         <td>
                                                                             <select
-                                                                                class="form-select mw-100 select2 subLocationSelect" data-id="1" name="subLocation_id[]" id="subLocation_id{{$key+1}}" disabled required >
+                                                                                class="form-select mw-100 select2 subLocationSelect" data-id="1" name="data[{{$key+1}}][subLocation_id]" id="subLocation_id_{{$key+1}}" disabled required >
                                                                                
-                                                                                <option disabled selected value="{{$item->subStore->id}}">{{$item->subStore->name}} </option>
+                                                                                <option disabled selected value="{{$item->subStore?->id}}">{{$item->subStore?->name}} </option>
 
                                                                             </select>
                                                                         </td>
                                                                         <td class="text-center">
-                                                                            <input type="checkbox" name="is_primary[]" id="is_primary[]" @if($item->is_primary == 1) checked @endif>
+                                                                            <input type="checkbox" name="data[{{$key+1}}][is_primary]" id="is_primary_{{$key+1}}" value="1" @if($item->is_primary == 1) checked @endif>
                                                                         </td>
                                                                         @if ($key==0)
                                                                             <td class = "center-align-content">
@@ -215,18 +216,18 @@
                                                             <tr>
                                                                 <td class="serial-number">1</td>
                                                                 <td>
-                                                                    <input type="text" id="stock_type1" placeholder="Enter Stock Type" class="form-control mw-100" name="stock_type[]" onkeyup="getfetchSubStore(event);" required/>
+                                                                    <input type="text" id="stock_type_1" placeholder="Enter Stock Type" class="form-control mw-100" name="data[1][stock_type]" onkeyup="getfetchSubStore(event);" required/>
                                                                 </td>
                                                                 
                                                                 <td>
                                                                     <select
-                                                                        class="form-select mw-100 select2 subLocationSelect" data-id="1" name="subLocation_id[]" id="subLocation_id1" required >
+                                                                        class="form-select mw-100 select2 subLocationSelect" data-id="1" name="data[1][subLocation_id]" id="subLocation_id_1" required >
                                                                         <option disabled selected value="">Select </option>
 
                                                                     </select>
                                                                 </td>
                                                                 <td class="text-center">
-                                                                    <input type="checkbox" name="is_primary[]" id="is_primary[]">
+                                                                    <input type="checkbox" name="data[1][is_primary]" id="is_primary_1">
                                                                 </td>
 
                                                                 <td class = "center-align-content">
@@ -340,7 +341,7 @@
 
 
     // add stock type mapping code 
-        document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function() {
                 // Add new item row
                 document.querySelector('.add_number_pattern').addEventListener('click', function(e) {
                     e.preventDefault();
@@ -350,25 +351,22 @@
                                 <td class="serial-number"></td>
                                 <td>
                                     <div class="position-relative">
-                                    <input type="text" id="stock_type1" placeholder="Enter Stock Type" class="form-control mw-100" name="stock_type[]" onkeyup="getfetchSubStore(event);" />
-
+                                        <input type="text" id="stock_type_`+rowCount+`" placeholder="Enter Stock Type" class="form-control mw-100" name="data[`+rowCount+`][stock_type]" onkeyup="getfetchSubStore(event);" />
                                     </div>
                                 </td>
                                 <td>
-                                <div class="position-relative">
-                                        <select
-                                            class="form-select mw-100 select2 subLocationSelect" data-id="1" name="subLocation_id[]" id="subLocation_id1"  >
+                                    <div class="position-relative">
+                                        <select class="form-select mw-100 select2 subLocationSelect" data-id="1" name="data[`+rowCount+`][subLocation_id]" id="subLocation_id_`+rowCount+`"  >
                                             <option disabled selected value="">Select </option>
-
                                         </select>
-                                </div>
+                                    </div>
                                 </td>
-                            
                                 <td class="text-center">
-                                    <input type="checkbox" name="is_primary[]" id="is_primary[]">
+                                    <input type="checkbox" name="data[`+rowCount+`][is_primary]" id="is_primary_`+rowCount+`">
                                 </td>
-
-                                <td class = "center-align-content"><a href="#" class="text-danger remove-item"><i data-feather="trash-2"></i></a></td>
+                                <td class = "center-align-content">
+                                    <a href="#" class="text-danger remove-item"><i data-feather="trash-2"></i></a>
+                                </td>
                             </tr>`;
                     document.querySelector('#item-details-body').insertAdjacentHTML('beforeend', newRow);
 
@@ -382,19 +380,13 @@
                 });
                 initializeDynamicFieldDropdown();
         });
-        function updateSerialNumbers() {
+    function updateSerialNumbers() {
                 $('#item-details-body tr:visible').each(function (index) {
                     $(this).find('.serial-number').text(index + 1);
                 });
             }
 
-            // $(document).on('click', '.remove-item', function () {
-            //     const $row = $(this).closest('tr');
-            //     // resetHiddenRow($row)
-            //     updateSerialNumbers();
-            // });
-
-            function resetHiddenRow($row) {
+    function resetHiddenRow($row) {
                 $row.show();
                 $row.find('input, select, textarea').prop('disabled', false);
                 $row.find('input, select, textarea').each(function () {
@@ -407,18 +399,18 @@
                     }
                 });
                 $row.hide();
-        }
+    }
 
-        function changeOrg(){
+    function changeOrg(){
             let org=$("#organization_id").val();
             if(org){
                 getStore(org);
             }
-        }   
+    }   
         
     
         // get store data
-        function getStore(org) {
+    function getStore(org) {
             $.ajax({
                 url: '{{route("external-integration.getStore")}}',   
                 type: 'GET',
@@ -441,8 +433,8 @@
                     console.error("Error fetching store data:", xhr.responseText);
                 }
             });
-        }  
-        function getfetchSubStore(event) {
+    }  
+    function getfetchSubStore(event) {
             let $input = $(event.target);
             let type = $input.val();
             let $tr = $input.closest('tr');           
@@ -451,7 +443,7 @@
             if (type) {
                 getSubStore(store_id,type, $substoreSelect);
             }
-        }
+    }
     function getSubStore(store_id, type, $select) {
         $.ajax({
             url: '{{ route("external-integration.getSubstore") }}',
@@ -475,12 +467,11 @@
             }
         });
     }
-    // Using event delegation
     document.addEventListener('change', function(e) {
-        if (e.target && e.target.matches('input[name="is_primary"]')) {
+        if (e.target && e.target.matches('input[name^="data"][name$="[is_primary]"]')) {
             if (e.target.checked) {
                 // Uncheck all other checkboxes
-                document.querySelectorAll('input[name="is_primary"]').forEach(function(other) {
+                document.querySelectorAll('input[name^="data"][name$="[is_primary]"]').forEach(function(other) {
                     if (other !== e.target) {
                         other.checked = false;
                     }

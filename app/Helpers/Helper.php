@@ -2681,7 +2681,9 @@ class Helper
                 $user->authenticable_type = $authUser->authenticable_type;
                 $user->auth_user_id = $authUser->id;
                 $user->db_name = $authUser->db_name;
+                $user->user_type = $authUser->user_type;
                 $user->organization_id = $authUser->organization_id;
+
 
                 return $user;
             },

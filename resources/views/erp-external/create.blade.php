@@ -178,18 +178,18 @@
                                                             <tr>
                                                                 <td class="serial-number">1</td>
                                                                 <td>
-                                                                    <input type="text" id="stock_type1" placeholder="Enter Stock Type" class="form-control mw-100" name="stock_type[]" onkeyup="getfetchSubStore(event);" required/>
+                                                                    <input type="text" placeholder="Enter Stock Type" class="form-control mw-100" name="data[1][stock_type]" id="stock_type_1" onkeyup="getfetchSubStore(event);" required/>
                                                                 </td>
                                                                 
                                                                 <td>
                                                                     <select
-                                                                        class="form-select mw-100 select2 subLocationSelect" data-id="1" name="subLocation_id[]" id="subLocation_id1" required >
+                                                                        class="form-select mw-100 select2 subLocationSelect" data-id="1" name="data[1][subLocation_id]" id="subLocation_id_1" required >
                                                                         <option disabled selected value="">Select </option>
 
                                                                     </select>
                                                                 </td>
                                                                 <td class="text-center">
-                                                                    <input type="checkbox" name="is_primary[]" id="is_primary[]" value="0">
+                                                                    <input type="checkbox" name="data[1][is_primary]" id="is_primary_1" value="1">
                                                                 </td>
 
                                                                 <td class = "center-align-content">
@@ -288,14 +288,14 @@
                             <td class="serial-number"></td>
                             <td>
                                 <div class="position-relative">
-                                   <input type="text" id="stock_type`+rowCount+`" placeholder="Enter Stock Type" class="form-control mw-100" name="stock_type[]" onkeyup="getfetchSubStore(event);" required />
+                                   <input type="text" id="stock_type_`+rowCount+`" placeholder="Enter Stock Type" class="form-control mw-100" name="data[`+rowCount+`][stock_type]" onkeyup="getfetchSubStore(event);" required />
 
                                 </div>
                             </td>
                             <td>
                             <div class="position-relative">
                                     <select
-                                        class="form-select mw-100 select2 subLocationSelect" data-id="1" name="subLocation_id[]" id="subLocation_id`+rowCount+`" required  >
+                                        class="form-select mw-100 select2 subLocationSelect" data-id="1" name="data[`+rowCount+`][subLocation_id]" id="subLocation_id_`+rowCount+`" required  >
                                         <option disabled selected value="">Select </option>
 
                                     </select>
@@ -303,7 +303,7 @@
                             </td>
                            
                             <td class="text-center">
-                                <input type="checkbox" name="is_primary[]" id="is_primary[]">
+                                <input type="checkbox" name="data[`+rowCount+`][is_primary]" id="is_primary_`+rowCount+`" value="1">
                             </td>
 
                             <td class = "center-align-content"><a href="#" class="text-danger remove-item"><i data-feather="trash-2"></i></a></td>
