@@ -154,7 +154,6 @@
         </div>
     </form>
 @endsection
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @section('scripts')
 <script>
    $(document).ready(function() {
