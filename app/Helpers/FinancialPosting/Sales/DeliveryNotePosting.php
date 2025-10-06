@@ -62,7 +62,7 @@ class DeliveryNotePosting
             $cogsLedgerGroup = Group::find($cogsLedgerGroupId);
             //LEDGER NOT FOUND
             if (!isset($cogsLedger) || !isset($cogsLedgerGroup)) {
-                $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'COGS Account not setup';
+                $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'COGS Account not setup or Ledger not defined';
                 break;
             }
             //Check for same ledger and group in SALES ACCOUNT
@@ -94,7 +94,7 @@ class DeliveryNotePosting
             $stockLedgerGroup = Group::find($stockLedgerGroupId);
             //LEDGER NOT FOUND
             if (!isset($stockLedger) || !isset($stockLedgerGroup)) {
-                $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'Stock Account not setup';
+                $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'Stock Account not setup or Ledger not defined';
                 break;
             }
 

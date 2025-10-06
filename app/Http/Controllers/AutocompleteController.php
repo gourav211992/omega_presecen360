@@ -2164,7 +2164,18 @@ class AutocompleteController extends Controller
                     return (object) $item; // Cast array to stdClass
                 });
                 $results = $documentStatus;
-            }  else if ($type === 'report_items') {
+            } else if ($type === 'order_pendancy_status') {
+                $pendancyStatuses = [
+                    ['id' => 'dn_pendancy', 'name' => 'Pending for DN'],
+                    ['id' => 'invoice_pendancy', 'name' => 'Pending for Invoice'],
+                    ['id' => 'pwo_pendancy', 'name' => 'Pending for Work Order'],
+                    ['id' => 'pslip_pendancy', 'name' => 'Pending for Production'],
+                ];
+                $pendancyStatuses = collect($pendancyStatuses)->map(function ($item) {
+                    return (object) $item; // Cast array to stdClass
+                });
+                $results = $pendancyStatuses;
+            } else if ($type === 'report_items') {
                 $query = Item::where('status', ConstantHelper::ACTIVE);
                 $results = $query->searchByKeywords($term)
                             ->get(['id', 'item_code', 'item_name']);

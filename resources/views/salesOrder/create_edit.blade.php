@@ -1694,7 +1694,7 @@
 <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
    <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
-        <form class="ajax-submit-2" method="POST" action="{{ route('document.approval.so') }}" data-redirect="javascript: history.go(-1)" enctype='multipart/form-data'>
+        <form class="ajax-submit-2" method="POST" action="{{ route('document.approval.so') }}" data-redirect="{{ $redirectUrl }}" enctype='multipart/form-data'>
           @csrf
           <input type="hidden" name="action_type" id="action_type">
           <input type="hidden" name="id" value="{{isset($order) ? $order -> id : ''}}">
@@ -2342,6 +2342,7 @@
                         itemRowCalculation(index);
                     }
                     checkBomCondition(index, false, true);
+                    getAndSetItemRate(index, 'selling');
                 }).catch(error => {
                     console.log("Error : ", error);
                 })
@@ -2378,13 +2379,13 @@
                     `
                 });
                 attributesTable.innerHTML = innerHtml;
-                let attributeButton = document.getElementById('attribute_button_' + index);
+                let attributeButton = document.getElementById('attribute_button_' + itemIndex);
                 if (attributesJSON.length == 0) {
-                    document.getElementById('item_qty_' + index).focus();
+                    document.getElementById('item_qty_' + itemIndex).focus();
                     if (attributeButton) {
                         attributeButton.disabled = true;
                     }
-                    document.getElementById('attribute_button_' + index).disabled = true;
+                    document.getElementById('attribute_button_' + itemIndex).disabled = true;
                 } else {
                     $("#attribute").modal("show");
                     if (attributeButton) {
@@ -2413,7 +2414,8 @@
                 });
                 }
             });
-            elementId.setAttribute('attribute-array', JSON.stringify(attributesJSON));
+            elementId.setAttribute('attribute-array', JSON.stringify(attributesJSON))
+            getAndSetItemRate(itemIndex, 'selling');
         }
 
         function addItemRow()
@@ -7043,6 +7045,57 @@ $('#attribute').on('hidden.bs.modal', function () {
             $('#proceedBtn').hide();
         }
     });
+
+    function getAndSetItemRate(itemIndex, type)
+    {
+        let rateInput = document.getElementById('item_rate_' + itemIndex);
+        let itemElement = document.getElementById('items_dropdown_' + itemIndex);
+        if (!itemElement) {
+            return;
+        }
+        let payloadAttributes = [];
+        let attributes = JSON.parse(itemElement.getAttribute('attribute-array'));
+        attributes.forEach(element => {
+            element.values_data.forEach(val => {
+                if (val.selected) {
+                    payloadAttributes.push({
+                        attr_name : element.attribute_group_id,
+                        attr_value : val.id
+                    });
+                }
+            });
+        });
+        let payloadUomId = document.getElementById('uom_dropdown_' + itemIndex).value;
+        let itemId = document.getElementById('items_dropdown_' + itemIndex + '_value').value;
+
+        $.ajax({
+            url: "{{route('current.item.getItemSalePrice')}}",
+            method: 'POST',
+            dataType: 'json',
+            data: {
+                quantity: document.getElementById('item_qty_' + itemIndex).value,
+                item_id: itemId,
+                uom_id : payloadUomId,
+                attributes_data : payloadAttributes,
+                customer_id: $("#customer_id_input").val(),
+                currency_id: $("#currency_dropdown").val(),
+                item_qty : $("#item_qty_" + itemIndex).val(),
+                document_date : $("#order_date_input").val(),
+                price_type : type
+            },
+            success: function(data) {
+                    if (data && data.status == "success") {
+                        rateInput.value = data.data;
+                        itemRowCalculation(itemIndex);
+
+                    }
+            },
+            error: function(xhr) {
+                console.error('Error fetching customer data:', xhr.responseText);
+            }
+        });
+
+    }
 
     </script>
 @endsection

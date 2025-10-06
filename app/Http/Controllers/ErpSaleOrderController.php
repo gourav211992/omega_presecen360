@@ -1270,12 +1270,24 @@ class ErpSaleOrderController extends Controller
             if ($customer -> customer_type === ConstantHelper::CASH) {
                 $phoneNo = $request -> phone_no ?? null;
                 $cashCustomerDetail = CashCustomerDetail::where('phone_no', $phoneNo) -> first();
-                    $billingAddresses = ErpAddress::where('addressable_id', $cashCustomerDetail ?-> id)->where('addressable_type', CashCustomerDetail::class)->where(function ($subQuery) {
+                $billingAddresses = ErpAddress::where('addressable_id', $cashCustomerDetail ?-> id)->where('addressable_type', CashCustomerDetail::class)->where(function ($subQuery) {
                     $subQuery -> whereIn('type', ['billing', 'both']) -> orWhere('is_billing', 1);
                 })->get();
+                if (count($billingAddresses) == 0) {
+                    $billingAddresses = ErpAddress::where('addressable_id', $customerId)->where('addressable_type', Customer::class)
+                        ->where(function ($subQuery) {
+                            $subQuery -> whereIn('type', ['billing', 'both']) -> orWhere('is_billing', 1);
+                        }) -> get();
+                }
                 $shippingAddresses = ErpAddress::where('addressable_id', $cashCustomerDetail ?-> id)->where('addressable_type', CashCustomerDetail::class)->where(function ($subQuery) {
                     $subQuery -> whereIn('type', ['shipping', 'both']) -> orWhere('is_shipping', 1);
                 })->get();
+                if (count($shippingAddresses) == 0) {
+                    $shippingAddresses = ErpAddress::where('addressable_id', $customerId)->where('addressable_type', Customer::class)
+                    ->where(function ($subQuery) {
+                        $subQuery -> whereIn('type', ['shipping', 'both']) -> orWhere('is_shipping', 1);
+                    }) -> get();
+                }
             } else {
                 $billingAddresses = ErpAddress::where('addressable_id', $customerId)->where('addressable_type', Customer::class)
                 ->where(function ($subQuery) {
@@ -2144,7 +2156,27 @@ class ErpSaleOrderController extends Controller
                     });
                 });
             });
-        }) -> orderByDesc('id');
+        }) 
+        -> when($request -> pendancy_type, function ($pendancyQuery) use($request) {
+            $pendancyType = $request -> pendancy_type;
+            switch ($pendancyType) {
+                case 'dn_pendancy':
+                    $pendancyQuery->whereRaw('(order_qty - short_close_qty) > (dnote_qty + srn_qty)');
+                    break;
+                case 'invoice_pendancy':
+                    $pendancyQuery->whereRaw('(order_qty - short_close_qty) > (invoice_qty + inv_srn_qty)');
+                    break;
+                case 'pwo_pendancy':
+                    $pendancyQuery->whereRaw('(order_qty - short_close_qty) > GREATEST(pwo_qty, dnote_qty)');
+                    break;
+                case 'pslip_pendancy':
+                    $pendancyQuery->whereRaw('(order_qty - short_close_qty) > GREATEST(pslip_qty, dnote_qty)');  
+                    break;
+                default:
+                    break;
+            }
+        })
+        -> orderByDesc('id');
             $dynamicFields = DynamicFieldHelper::getServiceDynamicFields(ConstantHelper::SO_SERVICE_ALIAS);
             $datatables = DataTables::of($soItems) ->addIndexColumn()
             ->editColumn('status', function ($row) use($orderType) {
@@ -2199,42 +2231,42 @@ class ErpSaleOrderController extends Controller
             ->addColumn('so_qty', function ($row) {
                 return number_format($row -> order_qty, 2);
             })
-            ->editColumn('mi_qty', function ($row) {
-                return number_format($row -> mi_qty, 2);
-            })
-            ->editColumn('balance_mi_qty', function ($row) {
-                return number_format($row -> order_qty -  $row -> mi_qty, 2);
-            })
+            // ->editColumn('mi_qty', function ($row) {
+            //     return number_format($row -> mi_qty, 2);
+            // })
+            // ->editColumn('balance_mi_qty', function ($row) {
+            //     return number_format($row -> order_qty -  $row -> mi_qty, 2);
+            // })
             ->editColumn('pwo_qty', function ($row) {
                 return number_format($row -> pwo_qty, 2);
             })
             ->editColumn('balance_pwo_qty', function ($row) {
-                return number_format($row -> order_qty - max($row -> pwo_qty,$row->dnote_qty), 2);
+                return number_format($row -> order_qty - $row -> short_close_qty - max($row -> pwo_qty,$row->dnote_qty), 2);
             })
             ->editColumn('pslip_qty', function ($row) {
                 return number_format($row -> pslip_qty, 2);
             })
             ->editColumn('balance_pslip_qty', function ($row) {
-                return number_format($row -> order_qty - max($row -> pslip_qty,$row->dnote_qty), 2);
+                return number_format($row -> order_qty - $row -> short_close_qty - max($row -> pslip_qty,$row->dnote_qty), 2);
             })
             ->editColumn('dnote_qty', function ($row) {
                 return number_format($row -> dnote_qty, 2);
             })
             ->editColumn('balance_dnote_qty', function ($row) {
-                return number_format($row -> order_qty - $row -> dnote_qty, 2);
+                return number_format($row -> order_qty - $row -> short_close_qty - $row -> dnote_qty + $row -> srn_qty, 2);
             })
             ->editColumn('invoice_qty', function ($row) {
                 return number_format($row -> invoice_qty, 2);
             })
             ->editColumn('balance_invoice_qty', function ($row) {
-                return number_format($row -> dnote_qty - $row -> invoice_qty, 2);
+                return number_format($row -> order_qty - $row -> short_close_qty - $row -> invoice_qty + $row -> inv_srn_qty, 2);
             })
             ->editColumn('srn_qty', function ($row) {
                 return number_format($row -> srn_qty, 2);
             })
-            ->editColumn('balance_srn_qty', function ($row) {
-                return number_format($row -> invoice_qty - $row -> srn_qty, 2);
-            })
+            // ->editColumn('balance_srn_qty', function ($row) {
+            //     return number_format($row -> invoice_qty - $row -> srn_qty, 2);
+            // })
             ->editColumn('rate', function ($row) {
                 return number_format($row -> rate, 2);
             })

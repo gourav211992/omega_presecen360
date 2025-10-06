@@ -60,7 +60,7 @@ class ServiceInvoicePosting
         if (!isset($customerLedger) || !isset($customerLedgerGroup)) {
             return array(
                 'status' => false,
-                'message' => FinancialPostingHelper::ERROR_PREFIX . 'Customer Account not setup',
+                'message' => FinancialPostingHelper::ERROR_PREFIX . 'Customer Account Ledger not defined',
                 'data' => []
             );
         }
@@ -78,7 +78,7 @@ class ServiceInvoicePosting
             $salesAccountLedgerGroup = Group::find($salesAccountLedgerGroupId);
             //LEDGER NOT FOUND
             if (!isset($salesAccountLedger) || !isset($salesAccountLedgerGroup)) {
-                $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'Sales Account not setup';
+                $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'Sales Account not setup or Ledger not defined';
                 break;
             }
             $salesCreditAmount = $discountSeperatePosting ? $itemValue : $itemValueAfterDiscount;
@@ -111,7 +111,7 @@ class ServiceInvoicePosting
             $taxLedger = Ledger::find($taxLedgerId);
             $taxLedgerGroup = Group::find($taxLedgerGroupId);
             if (!isset($taxLedger) || !isset($taxLedgerGroup)) {
-                $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'Tax Account not setup';
+                $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'Tax Account Ledger not defined';
                 break;
             }
             $existingTaxLedger = array_filter($postingArray[FinancialPostingHelper::TAX_ACCOUNT], function ($posting) use ($taxLedgerId, $taxLedgerGroupId) {
@@ -142,7 +142,7 @@ class ServiceInvoicePosting
             $expenseLedger = Ledger::find($expenseLedgerId);
             $expenseLedgerGroup = Group::find($expenseLedgerGroupId);
             if (!isset($expenseLedger) || !isset($expenseLedgerGroup)) {
-                $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'Expense Account not setup';
+                $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'Expense Account Ledger not defined';
                 break;
             }
             $existingExpenseLedger = array_filter($postingArray[FinancialPostingHelper::EXPENSE_ACCOUNT], function ($posting) use ($expenseLedgerId, $expenseLedgerGroupId) {
@@ -174,7 +174,7 @@ class ServiceInvoicePosting
                 $discountLedger = Ledger::find($discountLedgerId);
                 $discountLedgerGroup = Group::find($discountLedgerGroupId);
                 if (!isset($discountLedger) || !isset($discountLedgerGroup)) {
-                    $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'Discount Account not setup';
+                    $ledgerErrorStatus = FinancialPostingHelper::ERROR_PREFIX . 'Discount Account Ledger not defined';
                     break;
                 }
                 $existingDiscountLedger = array_filter($postingArray[FinancialPostingHelper::DISCOUNT_ACCOUNT], function ($posting) use ($discountLedgerId, $discountLedgerGroupId) {

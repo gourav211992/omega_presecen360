@@ -4,9 +4,37 @@
     "description": "The skeleton application for the Laravel framework.",
     "keywords": ["laravel", "framework"],
     "license": "MIT",
+    "repositories": [
+        {
+            "type": "vcs", "no-api": true,
+            "url" : "git@bitbucket.org:staqo/p360-composer-core.git"
+        },
+        {
+            "type": "vcs", "no-api": true,
+            "url" : "git@bitbucket.org:staqo/p360-composer-sso.git"
+        },
+        {
+            "type": "vcs", "no-api": true,
+            "url" : "git@bitbucket.org:staqo/p360-composer-view.git"
+        },
+        {
+            "type": "vcs", "no-api": true,
+            "url" : "git@bitbucket.org:staqo/p360-composer-iam.git"
+        },
+        {
+            "type": "vcs", "no-api": true,
+            "url" : "git@bitbucket.org:staqo/p360-composer-erp.git"
+        },
+        {
+            "type": "vcs", "no-api": true,
+            "url" : "git@bitbucket.org:staqo/p360-composer-client-config.git"
+        }
+    ],
     "require": {
         "php": "^8.1",
-        "barryvdh/laravel-dompdf": "^3.0",
+        "barryvdh/laravel-dompdf": "3.1.0",
+        "league/flysystem-aws-s3-v3": "^3.0",
+	    "dompdf/dompdf" : "3.1.0",
         "doctrine/dbal": "^3.9",
         "endroid/qr-code": "^5.0",
         "guzzlehttp/guzzle": "^7.2",
@@ -27,12 +55,12 @@
         "symfony/console": "^6.0",
         "symfony/polyfill-iconv": "^1.30",
         "yajra/laravel-datatables-oracle": "*",
-        "p360/core": "^2.0",
-        "p360/erp": "^1.0",
-        "p360/iam": "^2.0",
-        "p360/sso": "^1.0",
-        "p360/view": "^2.0",
-        "p360/client-config": " ^v1.0"
+        "p360/core": "2.2.2",
+        "p360/erp": "1.0.0",
+        "p360/iam": "2.1.2",
+        "p360/sso": "1.1.2",
+        "p360/view": "2.1.4",
+        "p360/client-config": "1.0.3"
     },
     "require-dev": {
         "fakerphp/faker": "^1.9.1",

@@ -663,7 +663,7 @@ class MasterIndiaHelper
 				"attribute_details" => []
             ];
         }
-
+        $headerTotalValue += round($documentHeader->expense_amount, 2);
         $valDtls = (object) [
             "total_assessable_value" => round($headerTotalAmount, 2),
             "total_cgst_value" => round($totalCGSTValue, 2),
