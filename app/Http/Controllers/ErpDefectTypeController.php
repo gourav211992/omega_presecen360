@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Helpers\Helper;
 use App\Models\ErpDefectType;
 use App\Models\Organization;
+use App\Models\DefectNotification;
+
 use App\Http\Requests\ErpDefectTypeRequest;
 
 class ErpDefectTypeController extends Controller
@@ -77,6 +79,10 @@ class ErpDefectTypeController extends Controller
 
     public function delete(Request $request)
     {
+        $check = DefectNotification::whereIn('defect_type_id', $request->ids)->exists();
+        if ($check) {
+            return response()->json(['error' => 'Cannot delete Defect Type as it is currently in use.'], 422);
+        }
         $user = Helper::getAuthenticatedUser();
         $ids = $request->input('ids', []);
         if (!empty($ids)) {

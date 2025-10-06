@@ -184,10 +184,10 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">Priority</label>
                                                             <select class="form-select" name="priority" id="priority">
-                                                                <option>Select</option> 
-                                                                <option>High</option> 
-                                                                <option selected>Medium</option> 
-                                                                <option>Low</option> 
+                                                                <option value="">Select Priority</option> 
+                                                                <option value="High">High</option> 
+                                                                <option value="Medium">Medium</option> 
+                                                                <option value="Low">Low</option> 
                                                             </select>  
                                                         </div>
                                                     </div>
@@ -202,7 +202,9 @@
 													<div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Attachment</label>
-                                                            <input type="file" name="attachment" class="form-control" /> 
+                                                            <input type="file" name="attachment" id="attachment" class="form-control" 
+                                                                   accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" /> 
+																   <span class = "text-primary small">{{__("message.attachment_caption")}}</span>
                                                         </div>
                                                     </div>
 													 
@@ -252,14 +254,14 @@
 					<div class="mb-1">
 						<label class="form-label">Series</label>
 						<select class="form-select">
-							<option>Select</option>
+							<option value="">Select</option>
 						</select>
 					</div> 
                     
                     <div class="mb-1">
 						<label class="form-label">BOM Name</label>
 						<select class="form-select select2">
-							<option>Select</option> 
+							<option value="">Select</option> 
 						</select>
 					</div>
                     
@@ -267,9 +269,9 @@
                     <div class="mb-1">
 						<label class="form-label">Status</label>
 						<select class="form-select">
-							<option>Select</option>
-							<option>Active</option>
-							<option>Inactive</option>
+							<option value="">Select</option>
+							<option value="Active">Active</option>
+							<option value="Inactive">Inactive</option>
 						</select>
 					</div> 
 					 
@@ -500,10 +502,10 @@
                             <div class="mb-1">
                                 <label class="form-label">Priority</label>
                                 <select class="form-select">
-									<option>Select</option>
-									<option>High</option>
-									<option>Medium</option>
-									<option>Low</option>
+									<option value="">Select</option>
+									<option value="High">High</option>
+									<option value="Medium">Medium</option>
+									<option value="Low">Low</option>
 								</select>
                             </div>
                         </div>
@@ -785,7 +787,65 @@
 
 		$('#book_id').trigger('change');
 		
+		// File validation function
+		function validateFile(input) {
+			const file = input.files[0];
+			if (!file) {
+				console.log('No file selected');
+				return true;
+			}
 
+			console.log('File details:', {
+				name: file.name,
+				size: file.size,
+				type: file.type
+			});
+
+			// Check file size (5MB = 5 * 1024 * 1024 bytes)
+			const maxSize = 5 * 1024 * 1024;
+			const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+			
+			if (file.size > maxSize) {
+				console.log('File too large:', fileSizeMB + 'MB');
+				Swal.fire({
+					icon: 'error',
+					title: 'File Too Large!',
+					text: `File size is ${fileSizeMB}MB. Maximum allowed size is 5MB. Please select a smaller file.`,
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				input.value = '';
+				return false;
+			}
+
+			// Check file type
+			const allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'docx', 'pdf'];
+			const fileExtension = file.name.split('.').pop().toLowerCase();
+			
+			console.log('File extension:', fileExtension);
+
+			if (!allowedExtensions.includes(fileExtension)) {
+				console.log('Invalid file type:', fileExtension);
+				Swal.fire({
+					icon: 'error',
+					title: 'Invalid File Type!',
+					text: 'Only PNG, JPEG, JPG, XLS, XLSX, DOCX, and PDF files are allowed.',
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				input.value = '';
+				return false;
+			}
+
+			console.log('File validation passed');
+			return true;
+		}
+
+		// Attach file validation to file input
+		$('#attachment').on('change', function() {
+			console.log('File selected, validating...'); // Debug log
+			validateFile(this);
+		});
 
 		// Form submission functionality
 		$('#defect-notification-form').on('submit', function(e) {
@@ -800,6 +860,12 @@
 		});
 
 		function submitForm() {
+			// Validate file first
+			const attachmentInput = document.getElementById('attachment');
+			if (attachmentInput.files.length > 0 && !validateFile(attachmentInput)) {
+				return; // Stop submission if file validation fails
+			}
+
 			// Validate required fields
 			let isValid = true;
 			let errorMessage = '';

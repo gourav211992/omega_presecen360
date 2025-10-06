@@ -14,6 +14,7 @@ use App\Models\ItemAttribute;
 use App\Models\PlantMaintBom;
 use App\Models\StockLedger;
 use App\Models\PlantMaintBomHistory;
+use App\Models\Book;
 use Yajra\DataTables\DataTables;
 
 class MaintBomController extends Controller
@@ -33,107 +34,98 @@ class MaintBomController extends Controller
     /**
      * Get data for DataTables server-side processing
      */
-    public function ajaxData(Request $request)
-    {
-        $query = PlantMaintBom::select([
-            'id',
-            'bom_name',
-            'document_date',
-            'document_number',
-            'document_status',
-            'book_id'
-        ])->with(['book:id,book_code']);
 
-        // Apply global search if provided
-        if (!empty($request->search['value'])) {
-            $searchValue = $request->search['value'];
-            $query->where(function ($q) use ($searchValue) {
-                $q->where('bom_name', 'LIKE', "%{$searchValue}%")
-                  ->orWhere('document_number', 'LIKE', "%{$searchValue}%");
-            });
-        }
+     public function ajaxData(Request $request)
+     {
+         $query = PlantMaintBom::query()
+             ->with(['book:id,book_code,book_name']);
+     
+         if ($request->has('search') && !empty($request->search['value'])) {
+             $searchValue = trim($request->search['value']);
+           
+     
+             $query->where(function ($q) use ($searchValue) {
+                 $q->orWhere('bom_name', 'like', "%{$searchValue}%")
+                   ->orWhere('document_number', 'like', "%{$searchValue}%")
+                   ->orWhere('document_status', 'like', "%{$searchValue}%")
+                   ->orWhere('book_code', 'like', "%{$searchValue}%") // ✅ direct search on book_code
+                   ->orWhere('document_date', 'like', "%{$searchValue}%")
+                   ->orWhereRaw("DATE_FORMAT(document_date, '%d-%m-%Y') LIKE ?", ["%{$searchValue}%"])
+                   ->orWhereRaw("DATE_FORMAT(document_date, '%d/%m/%Y') LIKE ?", ["%{$searchValue}%"])
+                   ->orWhereRaw("DATE_FORMAT(document_date, '%Y-%m-%d') LIKE ?", ["%{$searchValue}%"]);
+             });
+         }
 
-        if (!empty($request->order)) {
-            $columnIndex = $request->order[0]['column'];
-            $direction = $request->order[0]['dir'];
+         $query->orderByRaw('CAST(REGEXP_REPLACE(document_number, "[^0-9]", "") AS UNSIGNED) DESC')
+          ->orderByDesc('id');
+     
+        
+         return DataTables::of($query)
+             ->addIndexColumn()
+     
+            
+             ->editColumn('document_date', fn($row) =>
+                 $row->document_date
+                     ? \Carbon\Carbon::parse($row->document_date)->format('d-m-Y')
+                     : '-'
+             )
+     
+           
+             ->editColumn('series', fn($row) =>
+                 $row->book?->book_code ?? '-'
+             )
+     
+             ->addColumn('status', function ($row) {
+                 $status = $row->document_status ?: 'draft';
+                 $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$status] ?? 'badge-light-secondary';
+                 $statusText = $row->document_status == ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($status);
+                 return "<span class='badge rounded-pill {$statusClass} badgeborder-radius'>{$statusText}</span>";
+             })
+     
+             
+             ->addColumn('action', function ($row) {
+                 $showUrl = url('plant/maint-bom/'.$row->id);
+                 $editUrl = url('plant/maint-bom/'.$row->id.'/edit');
+     
+                 if ($row->document_status === 'draft') {
+                     return '
+                         <div class="dropdown">
+                             <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
+                                 <i data-feather="more-vertical"></i>
+                             </button>
+                             <div class="dropdown-menu dropdown-menu-end">
+                                 <a class="dropdown-item" href="'.$editUrl.'">
+                                     <i data-feather="edit-3" class="me-50"></i>
+                                     <span>Edit</span>
+                                 </a>
+                             </div>
+                         </div>
+                     ';
+                 }
+     
+                 return '
+                     <div class="dropdown">
+                         <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
+                             <i data-feather="more-vertical"></i>
+                         </button>
+                         <div class="dropdown-menu dropdown-menu-end">
+                             <a class="dropdown-item" href="'.$showUrl.'">
+                                 <i data-feather="eye" class="me-50"></i>
+                                 <span>View</span>
+                             </a>
+                         </div>
+                     </div>
+                 ';
+             })
+     
+             ->rawColumns(['status', 'action'])
+             ->make(true);
+     }
+     
+     
 
-            $columns = [
-                0 => 'id',
-                1 => 'document_date',
-                2 => 'book_id',
-                3 => 'document_number',
-                4 => 'bom_name',
-                5 => 'document_status',
-            ];
 
-            if (isset($columns[$columnIndex])) {
-                $column = $columns[$columnIndex];
 
-                if (in_array($column, ['book_id'])) {
-                    // For foreign key columns, order by the related table column
-                    $query->join('erp_books', 'erp_plant_maint_bom.book_id', '=', 'erp_books.id')
-                          ->orderBy('erp_books.book_code', $direction)
-                          ->select('erp_plant_maint_bom.*');
-                } elseif ($column === 'document_number') {
-                    // Sort document number numerically
-                    $query->orderByRaw('CAST(REGEXP_REPLACE(document_number, "[^0-9]", "") AS UNSIGNED) ' . $direction);
-                } else {
-                    $query->orderBy($column, $direction);
-                }
-            }
-        } else {
-            // Sort by document number numerically (extract numbers and sort)
-            $query->orderByRaw('CAST(REGEXP_REPLACE(document_number, "[^0-9]", "") AS UNSIGNED) DESC');
-        }
-
-        return DataTables::of($query)
-            ->addIndexColumn()
-            ->editColumn('document_date', function ($row) {
-                return $row->document_date ? \Carbon\Carbon::parse($row->document_date)->format('d-m-Y') : '-';
-            })
-            ->addColumn('series', function ($row) {
-                return $row->book?->book_code ?? '-';
-            })
-            ->addColumn('status', function ($row) {
-                $status = $row->document_status;
-                if (empty($status)) {
-                    $status = "draft";
-                }
-
-                $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$status] ?? 'badge-light-secondary';
-
-                $statusText = ($row->document_status == ConstantHelper::APPROVAL_NOT_REQUIRED)
-                    ? 'Approved'
-                    : ucfirst($row->document_status);
-
-                return '<span class="badge rounded-pill ' . $statusClass . ' badgeborder-radius text-nowrap">' . $statusText . '</span>';
-            })
-            ->addColumn('action', function ($row) {
-                $showUrl = url('plant/maint-bom/' . $row->id);
-                $editUrl = url('plant/maint-bom/' . $row->id . '/edit');
-
-                return '
-                    <div class="dropdown">
-                        <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
-                            <i data-feather="more-vertical"></i>
-                        </button>
-                        <div class="dropdown-menu dropdown-menu-end">
-                            ' . (($row->document_status == 'draft' && $row->document_status != 'closed') ? '
-                            <a class="dropdown-item" href="' . $editUrl . '">
-                                <i data-feather="edit-3" class="me-50"></i>
-                                <span>Edit</span>
-                            </a>' : '
-                            <a class="dropdown-item" href="' . $showUrl . '">
-                                <i data-feather="eye" class="me-50"></i>
-                                <span>View</span>
-                            </a>') . '
-                        </div>
-                    </div>
-                ';
-            })
-            ->rawColumns(['status', 'action'])
-            ->make(true);
-    }
 
     /**
      * Show the form for creating a new resource.
@@ -201,6 +193,7 @@ class MaintBomController extends Controller
      */
     public function store(MaintBOMRequest $request)
     {
+      
         // FormRequest handles validation automatically
         $validator = $request->validated();
 
@@ -235,7 +228,21 @@ class MaintBomController extends Controller
             'revision_number' => 0,
         ];
 
+        // Handle document upload first
+        $documentPath = null;
+        if ($request->hasFile('document')) {
+            $file = $request->file('document');
+            $fileName = time() . '_' . $file->getClientOriginalName();
+            $documentPath = $file->storeAs('maint_bom_documents', $fileName, 'public');
+        }
+
         $data = array_merge($request->all(), $additionalData);
+        
+        // Add document path if uploaded
+        if ($documentPath) {
+            $data['document'] = $documentPath;
+        }
+
 
         try {
             DB::transaction(function () use ($data) {
@@ -465,7 +472,20 @@ class MaintBomController extends Controller
             }
         }
 
+        // Handle document upload first
+        $documentPath = null;
+        if ($request->hasFile('document')) {
+            $file = $request->file('document');
+            $fileName = time() . '_' . $file->getClientOriginalName();
+            $documentPath = $file->storeAs('maint_bom_documents', $fileName, 'public');
+        }
+
         $data = $request->all();
+        
+        // Add document path if uploaded
+        if ($documentPath) {
+            $data['document'] = $documentPath;
+        }
 
         DB::beginTransaction();
 
@@ -633,5 +653,31 @@ class MaintBomController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function getSeries(Request $request)
+    {
+        $parentURL = "plant_maint-bom";
+        $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
+        
+        if (count($servicesBooks['services']) == 0) {
+            return response()->json([]);
+        }
+        
+        $firstService = $servicesBooks['services'][0];
+        $series = Helper::getBookSeriesNew($firstService->alias, $parentURL)->get();
+        
+        return response()->json($series);
+    }
+
+    public function getBomNames(Request $request)
+    {
+        $bomNames = PlantMaintBom::select('bom_name')
+            ->distinct()
+            ->orderBy('bom_name')
+            ->get()
+            ->pluck('bom_name');
+            
+        return response()->json($bomNames);
     }
 }

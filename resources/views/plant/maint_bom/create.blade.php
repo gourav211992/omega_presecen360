@@ -275,13 +275,12 @@
 												</tfoot>
 											</table>
 										</div>
-
-
 										<div class="row mt-2">
 											<div class="col-md-4">
 												<div class="mb-1">
 													<label class="form-label">Upload Document</label>
-													<input type="file" name="document" class="form-control">
+													<input type="file" name="document" class="form-control" accept=".png,.jpeg,.jpg,.xls,.docx,.pdf">
+													<span class = "text-primary small">{{__("message.attachment_caption")}}</span>
 												</div>
 											</div>
 
@@ -508,6 +507,7 @@
 
 
 @section('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>																	
 	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>														
 	<script>
 		const itemsData = @json($items);
@@ -797,25 +797,25 @@
 					if (data.status == 200) {
 						resetParametersDependentElements(data.data);
 						$("#book_code_input").val(data.data.book_code);
-						if (!data.data.doc.document_number) {
-							$("#document_number").val('');
-							$('#doc_number_type').val('');
-							$('#doc_reset_pattern').val('');
-							$('#doc_prefix').val('');
-							$('#doc_suffix').val('');
-							$('#doc_no').val('');
-						} else {
-							$("#document_number").val(data.data.doc.document_number);
-							$('#doc_number_type').val(data.data.doc.type);
-							$('#doc_reset_pattern').val(data.data.doc.reset_pattern);
-							$('#doc_prefix').val(data.data.doc.prefix);
-							$('#doc_suffix').val(data.data.doc.suffix);
-							$('#doc_no').val(data.data.doc.doc_no);
-						}
+						// Set document type and related fields
+						$('#doc_number_type').val(data.data.doc.type || '');
+						$('#doc_reset_pattern').val(data.data.doc.reset_pattern || '');
+						$('#doc_prefix').val(data.data.doc.prefix || '');
+						$('#doc_suffix').val(data.data.doc.suffix || '');
+						$('#doc_no').val(data.data.doc.doc_no || '');
+
 						if (data.data.doc.type == 'Manually') {
+							// For manual type, only clear if no document number provided and field is empty
+							if (!data.data.doc.document_number && !$("#document_number").val()) {
+								$("#document_number").val('');
+							}
 							$("#document_number").attr('readonly', false);
+							$("#document_number").attr('placeholder', 'Document Number');
 						} else {
+							// For automatic type, use the provided document number
+							$("#document_number").val(data.data.doc.document_number || '');
 							$("#document_number").attr('readonly', true);
+							$("#document_number").attr('placeholder', '');
 						}
 
 					}
@@ -890,6 +890,13 @@
 			// Validate quantity fields
 			let qtyValidationPassed = validateQuantities();
 			if (!qtyValidationPassed) {
+				$('.preloader').hide();
+				return; // Stop submission if validation fails
+			}
+
+			// Validate attributes
+			let attributeValidationPassed = validateAttributes();
+			if (!attributeValidationPassed) {
 				$('.preloader').hide();
 				return; // Stop submission if validation fails
 			}
@@ -1417,6 +1424,38 @@
             updateAttributeBadges(currentRow);
         });
 
+        $(document).on('change', 'input[name="document"]', function () {
+            const MAX_FILE_SIZE_MB = 5;
+            const ALLOWED_EXTENSIONS = ['png', 'jpeg', 'jpg', 'xls', 'docx', 'pdf'];
+            const file = this.files?.[0];
+
+            if (!file) {
+                return;
+            }
+
+            const extension = file.name.split('.').pop().toLowerCase();
+            if (!ALLOWED_EXTENSIONS.includes(extension)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Invalid File Type',
+                    text: 'Please select a file with one of the allowed formats: PNG, JPEG, JPG, XLS, DOCX, or PDF.',
+                    confirmButtonText: 'OK'
+                });
+                this.value = '';
+                return;
+            }
+
+            if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'File Too Large',
+                    text: 'File size must not exceed 5MB.',
+                    confirmButtonText: 'OK'
+                });
+                this.value = '';
+            }
+        });
+
 
 		function validateHeaderFields() {
 			let isValid = true;
@@ -1436,8 +1475,14 @@
 				$('#book_id').removeClass('is-invalid');
 			}
 
+			// Check document number based on document type
+			let docNumberType = $('#doc_number_type').val();
 			if (!documentNumber) {
-				errorMessages.push('Document Number is required');
+				if (docNumberType === 'Manually') {
+					errorMessages.push('Please enter Document Number manually');
+				} else {
+					errorMessages.push('Document Number is required');
+				}
 				$('#document_number').addClass('is-invalid');
 				isValid = false;
 			} else {
@@ -1502,6 +1547,58 @@
 			return isValid;
 		}
 
+		function validateAttributes() {
+			let isValid = true;
+			let errorMessages = [];
+
+			// Loop through all rows to check for items with attributes
+			$('.mrntableselectexcel tr').each(function(index) {
+				let $row = $(this);
+				let $selectElement = $row.find('.item_code');
+				let itemName = $row.find('.item_name').val();
+				
+				// Skip empty rows
+				if (!$selectElement.val() || !itemName) {
+					return true; // continue to next iteration
+				}
+
+				// Check if item has attributes
+				let attributesJSON = JSON.parse($selectElement.attr('data-attr') || '[]');
+				
+				if (attributesJSON && attributesJSON.length > 0) {
+					// Item has attributes, check if at least one attribute is selected
+					let $hiddenInput = $row.find('.attribute');
+					let selectedAttributes = [];
+					
+					if ($hiddenInput.length && $hiddenInput.val()) {
+						try {
+							selectedAttributes = JSON.parse($hiddenInput.val());
+						} catch (e) {
+							selectedAttributes = [];
+						}
+					}
+
+					// Check if at least one attribute is selected (minimum requirement)
+					if (!selectedAttributes || selectedAttributes.length === 0) {
+						errorMessages.push(`Please select at least one attribute for item: <span style="color: red;">${itemName}</span>`);
+						isValid = false;
+					}
+				}
+			});
+
+			if (!isValid) {
+				// Show SweetAlert error
+				Swal.fire({
+					icon: 'error',
+					title: 'Attribute Selection Required',
+					html: errorMessages.join('<br>'),
+					confirmButtonText: 'OK'
+				});
+			}
+
+			return isValid;
+		}
+
 		// Wrap DOM-dependent code in DOMContentLoaded to ensure elements exist
 		document.addEventListener('DOMContentLoaded', function() {
 			const partDetails = document.querySelector('td[colspan="7"][rowspan="10"]');
@@ -1516,7 +1613,52 @@
 		});
 
 				
+		// File validation function
+		function validateFile(input) {
+			const file = input.files[0];
+			if (!file) return true;
+
+			// Check file extension
+			const allowedExtensions = ['.png', '.jpeg', '.jpg', '.xls', '.xlsx', '.docx', '.pdf'];
+			const fileName = file.name.toLowerCase();
+			const fileExtension = '.' + fileName.split('.').pop();
+			
+			if (!allowedExtensions.includes(fileExtension)) {
+				Swal.fire({
+					icon: 'error',
+					title: 'Invalid File Type',
+					text: 'Please select a PNG, JPEG, JPG, XLS, XLSX, DOCX, or PDF file.',
+					confirmButtonText: 'OK'
+				});
+				input.value = '';
+				return false;
+			}
+
+			// Check file size (5MB = 5 * 1024 * 1024 bytes)
+			const maxSize = 5 * 1024 * 1024;
+			if (file.size > maxSize) {
+				const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+				Swal.fire({
+					icon: 'error',
+					title: 'File Too Large',
+					text: `File size is ${fileSizeMB}MB. Please select a file smaller than 5MB.`,
+					confirmButtonText: 'OK'
+				});
+				input.value = '';
+				return false;
+			}
+
+			return true;
+		}
+
 		document.addEventListener("DOMContentLoaded", function () {
+			// File input validation - only on change
+			const fileInput = document.querySelector('input[name="document"]');
+			if (fileInput) {
+				fileInput.addEventListener('change', function() {
+					validateFile(this);
+				});
+			}
 
 			const els = document.querySelectorAll('.part-details-section');
 

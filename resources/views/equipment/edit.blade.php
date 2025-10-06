@@ -1,3 +1,4 @@
+
 @extends('layouts.app')
 
 @section('content')
@@ -50,7 +51,7 @@
                                     @endif
                     
                                     @if($buttons['amend'])
-                                    <a type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</a>
+                                    <a type="button" onclick="initiateAmendment()" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</a>
                                     @endif
                                     <input id="submitButton" type="submit" value="Submit" class="hidden" />
                             </div>
@@ -211,8 +212,10 @@
                                                         <input type="text" class="form-control" name="description" value="{{ old('description', $equipment->description) }}">
                                                     </div>
                                                 </div>
+
                                             </div>
-                                        @include('partials.approval-history', ['document_status' =>$equipment->document_status, 'revision_number' => $equipment->revision_number])
+                                            
+                                            @include('partials.approval-history', ['document_status' => $equipment->document_status, 'revision_number' => $equipment->revision_number, 'approvalHistory' => $approvalHistory])
                                  
                                         </div>
                                     </div>
@@ -381,19 +384,30 @@
                                             <!-- End Spare Part Tab -->
                                         </div>
                                         <div class="row">
-                                            <div class="col-md-12">
+                                            <div class="col-md-12 row">
                                                 <div class="col-md-4">
                                                     <div class="mb-1">
                                                         <label class="form-label">Upload Document</label>
-                                                        <input type="file" class="form-control" name="upload_document" accept=".png,.jpeg,.jpg,.xls,.docx,.pdf">
-                                                        <small class="form-text text-muted">Valid File Types and Min/Max File Size for attachments - Accept only .PNG, .JPEG, .JPG, XLS, .DOCX, and .PDF and not more than 5MB in size</small>
+                                                        <input type="file" name="upload_document" class="form-control">
+                                                        <span class="text-primary small">Accept only .PNG, .JPEG, .JPG , XLS, .DOCX, and .PDF and not more than 5MB in size</span>
                                                     </div>
                                                 </div>
+                                                @if(!empty($equipment->upload_document))
+                                                <div class="col-md-8" style="margin-top:19px;">
+                                                    <div class="row" id="existing-files">
+                                                        <div class="col-md-1 file-upload-preview" style="cursor: pointer;">
+                                                            <div class="image-uplodasection expenseadd-sign">
+                                                                <i onclick="window.open('{{ asset('storage/equipment_documents/' . $equipment->upload_document) }}', '_blank')" data-feather="file-text"></i>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                @endif
                                             </div>
                                             <div class="col-md-12">
                                                 <div class="mb-1">
-                                                    <label class="form-label">Final Remarks</label>
-                                                    <textarea name="final_remarks" type="text" rows="4" class="form-control" placeholder="Enter Remarks here...">{{ old('final_remarks', $equipment->final_remarks) }}</textarea>
+                                                    <label class="form-label">Final Remarks <span class="text-danger">*</span></label>
+                                                    <textarea name="final_remarks" type="text" rows="4" class="form-control" placeholder="Enter Remarks here..." required>{{ old('final_remarks', $equipment->final_remarks) }}</textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -403,6 +417,52 @@
                         </div>
                         <!-- Modal to add new record -->
                     </section>
+            </div>
+        </div>
+    </div>
+
+    {{-- Amendment Modal --}}
+    <div class="modal fade" id="amendmentconfirm" tabindex="-1" aria-labelledby="amendmentconfirmLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">Amend Equipment</h4>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <input type="hidden" name="action_type" id="action_type_main" value="amendment">
+                </div>
+                <div class="modal-body pb-2">
+                    <div class="row mt-1">
+                        <div class="col-md-12">
+                            <div class="mb-1">
+                                <label class="form-label">Remarks <span class="text-danger">*</span></label>
+                                <textarea name="amend_remarks" class="form-control cannot_disable"></textarea>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="mb-1">
+                                        <label class="form-label">Upload Document</label>
+                                        <input name="amend_attachment" onchange="addFiles(this, 'amend_files_preview')" type="file" class="form-control cannot_disable" accept=".png,.jpeg,.jpg,.xls,.xlsx,.doc,.docx,.pdf"/>
+                                    </div>
+                                </div>
+                                <div class="col-md-4" style="margin-top:19px;">
+                                    <div class="row" id="amend_files_preview">
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="text-primary small">Accept only .PNG, .JPEG, .JPG, XLS, .DOCX, and .PDF files and not more than 5MB in size</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-outline-secondary me-1" onclick="closeModal('amendmentconfirm')">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="submitAmend('equipmentForm');">Submit</button>
+                </div>
+            </div>
+        </div>
+    </div>
+        <!-- END: Content-->
                 </div>
             </form>
         </div>
@@ -734,28 +794,6 @@
                         <button type="submit" class="btn btn-primary" id="submit-button">Submit</button>
                     </div>
                 </form>
-            </div>
-        </div>
-    </div>
-
-    {{-- Amendment Modal --}}
-    <div class="modal fade text-start alertbackdropdisabled" id="amendmentconfirm" tabindex="-1" aria-labelledby="myModalLabel1" aria-hidden="true" data-bs-backdrop="false">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header p-0 bg-transparent">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body alertmsg text-center warning">
-                    <i data-feather='alert-circle'></i>
-                    <h2>Are you sure?</h2>
-                    <p>Are you sure you want to <strong>Amendment</strong> this <strong>Equipment</strong>? After Amendment this action cannot be undone.</p>
-                    <button type="button" class="btn btn-secondary me-25" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" id="amendmentSubmit" class="btn btn-primary">Confirm</button>
-                </div>
-            </div>
-        </div>
-      </div>
-        <!-- END: Content-->
 
     <!-- END: Modal for Checklist -->
 @endsection
@@ -774,10 +812,66 @@
         .hidden {
             display: none;
         }
+        
+        .file-size-info {
+            color: #28a745;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
     </style>
     <script>
         $(document).ready(function () {
+            // File size validation (5MB = 5 * 1024 * 1024 bytes)
+            // Allowed file types: PNG, JPEG, JPG, XLS, DOCX, PDF
+            const MAX_FILE_SIZE = 5 * 1024 * 1024;
+            const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf'];
             
+            $('input[name="upload_document"]').on('change', function() {
+                const file = this.files[0];
+                const fileInput = $(this);
+                
+                // Remove previous messages
+                fileInput.siblings('.file-size-info').remove();
+                fileInput.removeClass('is-invalid');
+                
+                if (file) {
+                    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                    
+                    // Check file type
+                    if (!ALLOWED_TYPES.includes(file.type)) {
+                        fileInput.addClass('is-invalid');
+                        this.value = ''; // Clear the file selection
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Invalid File Type',
+                            text: `Accept only .PNG, .JPEG, .JPG , XLS, .DOCX, and .PDF files.`,
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#ea5455'
+                        });
+                        return;
+                    }
+                    
+                    // Check file size
+                    if (file.size > MAX_FILE_SIZE) {
+                        // File too large - show error and clear selection
+                        fileInput.addClass('is-invalid');
+                        this.value = ''; // Clear the file selection
+                        
+                        // Show SweetAlert error
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'File Too Large',
+                            text: `File size must not exceed 5MB. Selected file "${file.name}" is ${fileSizeMB}MB.`,
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#ea5455'
+                        });
+                    } else {
+                        // File size is OK - show success info
+                        fileInput.after(`<div class="file-size-info">✓ File selected: ${file.name} (${fileSizeMB}MB)</div>`);
+                    }
+                }
+            });
 
             var allLocations = @json($locations);
             // var allCategories = @json($categories);
@@ -1692,49 +1786,6 @@
             $('form').on('submit', function(e) {
                 // Always collect and update checklist data before form submission
                 updateChecklistInputs();
-                
-
-                
-                // Print detailed analysis for each row
-                if (typeof allMaintenanceData !== 'undefined') {
-                    Object.keys(allMaintenanceData).forEach(rowId => {
-                        const rowData = allMaintenanceData[rowId];
-                        
-                        // Check for duplicate IDs
-                        if (rowData && rowData.checklists) {
-                            rowData.checklists.forEach((checklist, index) => {
-                                // Process checklist data if needed
-                            });
-                        }
-                    });
-                }
-                
-                // Check for duplicate IDs across rows
-                const allChecklistIds = [];
-                const allDetailIds = [];
-                Object.keys(allMaintenanceData).forEach(rowId => {
-                    allMaintenanceData[rowId].checklists.forEach(checklist => {
-                        allChecklistIds.push({rowId, checklist_id: checklist.checklist_id, name: checklist.name});
-                        allDetailIds.push({rowId, checklist_detail_id: checklist.checklist_detail_id, name: checklist.name});
-                    });
-                });
-                
-
-
-                
-                // Alert with summary
-                const summary = Object.keys(allMaintenanceData).map(rowId => {
-                    const rowData = allMaintenanceData[rowId];
-                    const checklistSummary = rowData.checklists.map(c => 
-                        `ID:${c.checklist_detail_id} Name:${c.name}`
-                    ).join(', ');
-                    return `Row ${rowId}: ${rowData.checklistCount} checklists (${checklistSummary})`;
-                }).join('\n');
-                
-                // alert(`FORM SUBMISSION STOPPED FOR DEBUGGING\n\nMaintenance Rows Summary:\n${summary}\n\nCheck console for detailed data.`); // Removed for actual submission
-                
-
-                updateChecklistInputs();
             });
 
             // Template row for Spare Part
@@ -2127,6 +2178,17 @@
 
             function submitForm(status) {
                 console.log('submitForm called with status:', status);
+
+                // Check if we're in amendment mode (amendment=1 in URL)
+                const urlParams = new URLSearchParams(window.location.search);
+                const isAmendment = urlParams.get('amendment') === '1';
+
+                if (isAmendment && (status === 'submitted' || status === 'draft')) {
+                    $('#status').val(status);
+                    $('#amendmentconfirm').modal('show');
+                    return;
+                }
+
                 $('#status').val(status);
 
                 let isValid = true;
@@ -2420,40 +2482,115 @@
             $('#myModalLabel178').text('Reject Equipment');
 
         }
-        
-        $(document).on('click', '#amendmentSubmit', (e) => {
-            let actionUrl = "{{ route('equipment.amendment', $equipment->id) }}";
-            fetch(actionUrl).then(response => {
-                return response.json().then(data => {
-                    if (data.status == 200) {
-                        Swal.fire({
-                            title: 'Success!',
-                            text: data.message,
-                            icon: 'success',
-                            showConfirmButton: false,   // OK button hat jayega
-                            timer: 1500                 // 1.5 sec baad auto close
-                        });
 
-                        let url = new URL(window.location.href);
-                        url.search = '';
-                        url.searchParams.set('amendment', 1);
-                        let amendmentUrl = url.toString();
+        // Function to initiate amendment
+        function initiateAmendment() {
+            const actionUrl = "{{ route('equipment.amendment', ['id' => $equipment->id]) }}";
 
-                        // bina OK click kiye direct redirect
-                        setTimeout(() => {
-                            window.location.replace(amendmentUrl);
-                        }, 1500);
+            fetch(actionUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                },
+                credentials: 'same-origin'
+            }).then(async response => {
+                const data = await response.json();
 
-                    } else {
-                        Swal.fire({
-                            title: 'Error!',
-                            text: data.message,
-                            icon: 'error'
-                        });
-                    }
+                if (response.ok && data.status === 200) {
+                    Swal.fire({
+                        title: 'Success!',
+                        text: data.message,
+                        icon: 'success',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+
+                    const url = new URL(window.location.href);
+                    url.search = '';
+                    url.searchParams.set('amendment', 1);
+                    const amendmentUrl = url.toString();
+
+                    setTimeout(() => {
+                        window.location.replace(amendmentUrl);
+                    }, 1500);
+                } else {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: data.message || 'An unexpected error occurred.',
+                        icon: 'error'
+                    });
+                }
+            }).catch(error => {
+                console.error('Amendment request failed:', error);
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Unable to process amendment. Please try again.',
+                    icon: 'error'
                 });
             });
-        });
+        }
+
+        // Amendment modal functions
+        function closeModal(modalId) {
+            $('#' + modalId).modal('hide');
+        }
+
+        function submitAmend(formId) {
+            // Validate amend_remarks
+            const amendRemarks = $('textarea[name="amend_remarks"]').val().trim();
+            if (!amendRemarks || amendRemarks.length < 3) {
+                Swal.fire({
+                    title: 'Validation Error',
+                    text: 'Amendment remarks are required and must be at least 3 characters.',
+                    icon: 'error',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#7367F0'
+                });
+                return;
+            }
+
+            // Set action type to amendment
+            $('#action_type').val('amendment');
+            // Submit the form
+            $('#' + formId).submit();
+        }
+
+        // File preview function for amendment attachment
+        function addFiles(input, previewId) {
+            const previewContainer = $('#' + previewId);
+            previewContainer.empty();
+
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const fileName = file.name;
+                const fileSize = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+
+                const fileElement = `
+                    <div class="col-md-12">
+                        <div class="file-preview-item d-flex align-items-center justify-content-between p-1 border rounded">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-file me-2"></i>
+                                <div>
+                                    <small class="text-truncate d-block" style="max-width: 150px;">${fileName}</small>
+                                    <small class="text-muted">${fileSize}</small>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(this)">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                previewContainer.append(fileElement);
+            }
+        }
+
+        function removeFile(button) {
+            $(button).closest('.file-preview-item').parent().remove();
+            // Clear the file input
+            $('input[name="amend_attachment"]').val('');
+        }
 
 
 
@@ -2637,5 +2774,7 @@
                     : ''
             };
         }
+
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @endsection

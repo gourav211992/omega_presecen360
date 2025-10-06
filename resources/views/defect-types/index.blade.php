@@ -98,342 +98,352 @@
         </div>
     </div>
 @endsection
-
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @section('scripts')
-    <script>
-        $(function() {
-            fetchRows();
+<script>
+    $(function() {
+        fetchRows();
 
-            function fetchRows() {
-                $('.preloader').show();
-                $.get('{{ route('defect-types.index') }}', function(res) {
-                    let html = '';
-                    if (res.data && res.data.length) {
-                        res.data.forEach(function(row, idx) {
-                            html += rowTemplate(row, idx);
-                        });
-                    }
-                    $('#defectTypeTbody').html(html);
-                    $('#selectAll').prop('checked', false);
-                }).always(function() {
-                    $('.preloader').hide();
-                });
-            }
+        function fetchRows() {
+            $('.preloader').show();
+            $.get('{{ route('defect-types.index') }}', function(res) {
+                let html = '';
+                if (res.data && res.data.length) {
+                    res.data.forEach(function(row, idx) {
+                        html += rowTemplate(row, idx);
+                    });
+                }
+                $('#defectTypeTbody').html(html);
+                $('#selectAll').prop('checked', false);
+            }).always(function() {
+                $('.preloader').hide();
+            });
+        }
 
-            function rowTemplate(row, idx) {
-                return `<tr data-row-id="${row.id || ''}">
-            <td>
-                <div class="form-check form-check-primary custom-checkbox">
-                    <input type="checkbox" class="form-check-input selectRow">
-                    <input type="hidden" name="rows[${idx}][id]" value="${row.id || ''}">
-                </div>
-            </td>
-            <td>
-                <input type="text" name="rows[${idx}][name]" value="${row.name || ''}" class="form-control mw-100" required />
-            </td>
-            <td>
-                <select name="rows[${idx}][priority]" class="form-control mw-100" required>
-                    <option value="Select" ${!row.priority || row.priority=='Select' ? 'selected' : ''}>Select</option>
-                    <option value="High" ${row.priority=='High' ? 'selected' : ''}>High</option>
-                    <option value="Medium" ${row.priority=='Medium' ? 'selected' : ''}>Medium</option>
-                    <option value="Low" ${row.priority=='Low' ? 'selected' : ''}>Low</option>
-                </select>
-            </td>
-            <td>
-                <input type="number" name="rows[${idx}][estimated_time]" value="${row.estimated_time || 30}" class="form-control mw-100" min="1" max="999" maxlength="3" required />
-            </td>
-            <td>
-                <input type="text" name="rows[${idx}][description]" value="${row.description || ''}" class="form-control mw-100" />
-            </td>
-            <td>
-                <div class="customernewsection-form ">
-                    <div class="demo-inline-spacing">
-                        <div class="form-check form-check-primary mt-0 me-1">
-                            <input type="radio" name="rows[${idx}][status]" class="form-check-input" value="Active" ${row.status == 'Active' ? 'checked' : ''}>
-                            <label class="form-check-label fw-bolder">Active</label>
-                        </div>
-                        <div class="form-check form-check-primary mt-0 me-0">
-                            <input type="radio" name="rows[${idx}][status]" class="form-check-input" value="Inactive" ${row.status == 'Inactive' ? 'checked' : ''}>
-                            <label class="form-check-label fw-bolder">Inactive</label>
+        function rowTemplate(row, idx) {
+            return `<tr data-row-id="${row.id || ''}">
+                <td>
+                    <div class="form-check form-check-primary custom-checkbox">
+                        <input type="checkbox" class="form-check-input selectRow">
+                        <input type="hidden" name="rows[${idx}][id]" value="${row.id || ''}">
+                    </div>
+                </td>
+                <td>
+                    <input type="text" name="rows[${idx}][name]" value="${row.name || ''}" class="form-control mw-100" required />
+                </td>
+                <td>
+                    <select name="rows[${idx}][priority]" class="form-control mw-100" required>
+                        <option value="Select" ${!row.priority || row.priority=='Select' ? 'selected' : ''}>Select</option>
+                        <option value="High" ${row.priority=='High' ? 'selected' : ''}>High</option>
+                        <option value="Medium" ${row.priority=='Medium' ? 'selected' : ''}>Medium</option>
+                        <option value="Low" ${row.priority=='Low' ? 'selected' : ''}>Low</option>
+                    </select>
+                </td>
+                <td>
+                    <input type="number" name="rows[${idx}][estimated_time]" value="${row.estimated_time || 30}" class="form-control mw-100" min="1" max="999" maxlength="3" required />
+                </td>
+                <td>
+                    <input type="text" name="rows[${idx}][description]" value="${row.description || ''}" class="form-control mw-100" />
+                </td>
+                <td>
+                    <div class="customernewsection-form ">
+                        <div class="demo-inline-spacing">
+                            <div class="form-check form-check-primary mt-0 me-1">
+                                <input type="radio" name="rows[${idx}][status]" class="form-check-input" value="Active" ${row.status == 'Active' ? 'checked' : ''}>
+                                <label class="form-check-label fw-bolder">Active</label>
+                            </div>
+                            <div class="form-check form-check-primary mt-0 me-0">
+                                <input type="radio" name="rows[${idx}][status]" class="form-check-input" value="Inactive" ${row.status == 'Inactive' ? 'checked' : ''}>
+                                <label class="form-check-label fw-bolder">Inactive</label>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </td>
-        </tr>`;
+                </td>
+            </tr>`;
+        }
+
+        // Add Row
+        $('#addRow').click(function(e) {
+            e.preventDefault();
+            let idx = $('#defectTypeTbody tr').length;
+            let row = {
+                id: '',
+                name: '',
+                priority: 'High',
+                estimated_time: 15,
+                description: '',
+                status: 'Active'
+            };
+            $('#defectTypeTbody').append(rowTemplate(row, idx));
+        });
+
+        // Select All
+        $(document).on('change', '#selectAll', function() {
+            $('.selectRow').prop('checked', $(this).is(':checked'));
+        });
+
+        $(document).on('change', '.selectRow', function() {
+            if ($('.selectRow:checked').length === 0) {
+                $('#selectAll').prop('checked', false);
+            } else if ($('.selectRow').length === $('.selectRow:checked').length) {
+                $('#selectAll').prop('checked', true);
             }
+        });
 
-            $('#addRow').click(function(e) {
-                e.preventDefault();
-                let idx = $('#defectTypeTbody tr').length;
-                let row = {
-                    id: '',
-                    name: '',
-                    priority: 'High',
-                    estimated_time: 15,
-                    description: '',
-                    status: 'Active'
-                };
-                $('#defectTypeTbody').append(rowTemplate(row, idx));
-            });
+        // Delete Rows
+        // Delete Rows
+$('#deleteRows').click(function(e) {
+    e.preventDefault();
+    let ids = [];
+    let hasSelection = false;
 
-            $(document).on('change', '#selectAll', function() {
-                $('.selectRow').prop('checked', $(this).is(':checked'));
-            });
+    $('#defectTypeTbody tr').each(function() {
+        let $chk = $(this).find('.selectRow');
+        let $id = $(this).find('input[type="hidden"]').val();
+        if ($chk.is(':checked')) {
+            hasSelection = true;
+            if ($id) {
+                ids.push($id);
+            }
+        }
+    });
 
-            $(document).on('change', '.selectRow', function() {
-                if ($('.selectRow:checked').length === 0) {
-                    $('#selectAll').prop('checked', false);
-                } else if ($('.selectRow').length === $('.selectRow:checked').length) {
-                    $('#selectAll').prop('checked', true);
-                }
-            });
+    if (!hasSelection) {
+        Swal.fire({
+            icon: 'info',
+            title: 'No Selection',
+            text: 'Please select at least one record to delete.',
+            confirmButtonText: 'OK'
+        });
+        return;
+    }
 
-            $('#deleteRows').click(function(e) {
-                e.preventDefault();
-                let ids = [];
-                let hasSelection = false;
+    Swal.fire({
+        icon: 'warning',
+        title: 'Are you sure?',
+        text: 'Selected records will be deleted!',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Delete',
+        cancelButtonText: 'Cancel'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $('.preloader').show();
 
+            if (ids.length === 0) {
+                // Just remove rows from frontend
                 $('#defectTypeTbody tr').each(function() {
-                    let $chk = $(this).find('.selectRow');
-                    let $id = $(this).find('input[type="hidden"]').val();
-                    if ($chk.is(':checked')) {
-                        hasSelection = true;
-                        if ($id) {
-                            ids.push($id);
-                        }
+                    if ($(this).find('.selectRow').is(':checked')) {
+                        $(this).remove();
                     }
                 });
-
-                if (!hasSelection) {
-                    Swal.fire({
-                        icon: 'info',
-                        title: 'No Selection',
-                        text: 'Please select at least one record to delete.',
-                        confirmButtonText: 'OK'
-                    });
-                    return;
-                }
-
+                $('.preloader').hide(); // ✅ loader hide here
                 Swal.fire({
-                    icon: 'warning',
-                    title: 'Are you sure?',
-                    text: 'Selected records will be deleted!',
-                    showCancelButton: true,
-                    confirmButtonText: 'Yes, Delete',
-                    cancelButtonText: 'Cancel'
-                }).then((result) => {
-                    if (result.isConfirmed) {
-                        $('.preloader').show();
-                        if (ids.length === 0) {
-                            $('#defectTypeTbody tr').each(function() {
-                                if ($(this).find('.selectRow').is(':checked')) {
-                                    $(this).remove();
-                                }
-                            });
-                            $('.preloader').hide();
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Deleted!',
-                                text: 'Selected records removed.',
-                                confirmButtonText: 'OK'
-                            });
-                            $('#selectAll').prop('checked', false);
-                        } else {
-                            $.ajax({
-                                url: '{{ route('defect-types.delete') }}',
-                                type: 'DELETE',
-                                data: {
-                                    _token: '{{ csrf_token() }}',
-                                    ids: ids
-                                },
-                                success: function(res) {
-                                    Swal.fire({
-                                        icon: 'success',
-                                        title: 'Deleted!',
-                                        text: res.success ||
-                                            'Records deleted successfully.',
-                                        confirmButtonText: 'OK'
-                                    });
-                                    fetchRows();
-                                    $('#selectAll').prop('checked', false);
-                                },
-                                error: function() {
-                                    Swal.fire({
-                                        icon: 'error',
-                                        title: 'Error',
-                                        text: 'Error: Could not delete records.'
-                                    });
-                                },
-                                complete: function() {
-                                    $('.preloader').hide();
-                                }
-                            });
-                        }
-                    }
+                    icon: 'success',
+                    title: 'Deleted!',
+                    text: 'Selected records removed.',
+                    confirmButtonText: 'OK'
                 });
-            });
-
-            $('#submitBtn, #floatingSubmitBtn').on('click', function(e) {
-                e.preventDefault();
-                submitRows();
-            });
-
-            $(window).on('scroll', function() {
-                if ($(window).scrollTop() > 150) {
-                    $('#floatingSubmitBtn').fadeIn();
-                } else {
-                    $('#floatingSubmitBtn').fadeOut();
-                }
-            });
-
-            function submitRows() {
-                let rows = [];
-                let emptyNameFound = false;
-                let firstEmptyField = null;
-                let emptyPriorityFound = false;
-                let firstEmptyPriority = null;
-                let emptyTimeFound = false;
-                let firstEmptyTime = null;
-
-                $('#defectTypeTbody tr').each(function(idx) {
-                    let $tr = $(this);
-                    let nameVal = $tr.find('input[name^="rows["][name$="[name]"]').val();
-                    let priorityVal = $tr.find('select[name^="rows["][name$="[priority]"]').val();
-                    let timeVal = $tr.find('input[name^="rows["][name$="[estimated_time]"]').val();
-                    let row = {
-                        id: $tr.find('input[type="hidden"]').val() || null,
-                        name: nameVal,
-                        priority: priorityVal,
-                        estimated_time: timeVal,
-                        description: $tr.find('input[name^="rows["][name$="[description]"]').val(),
-                        status: $tr.find('input[type="radio"]:checked').val()
-                    };
-
-                    if (!nameVal || nameVal.trim() === "") {
-                        emptyNameFound = true;
-                        if (!firstEmptyField) {
-                            firstEmptyField = $tr.find('input[name^="rows["][name$="[name]"]');
-                        }
-                    }
-                    if (!priorityVal || priorityVal === "Select") {
-                        emptyPriorityFound = true;
-                        if (!firstEmptyPriority) {
-                            firstEmptyPriority = $tr.find('select[name^="rows["][name$="[priority]"]');
-                        }
-                    }
-                    if (!timeVal || isNaN(timeVal) || parseInt(timeVal) < 1 || parseInt(timeVal) > 999) {
-                        emptyTimeFound = true;
-                        if (!firstEmptyTime) {
-                            firstEmptyTime = $tr.find('input[name^="rows["][name$="[estimated_time]"]');
-                        }
-                    }
-                    if (
-                        nameVal && nameVal.trim() !== "" &&
-                        priorityVal && priorityVal !== "Select" &&
-                        timeVal && !isNaN(timeVal) && parseInt(timeVal) >= 1 && parseInt(timeVal) <= 999
-                    ) {
-                        rows.push(row);
-                    }
-                });
-
-                if (emptyNameFound) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Validation Error',
-                        text: 'Type Name is required for all records.',
-                        confirmButtonText: 'OK'
-                    });
-                    if (firstEmptyField) firstEmptyField.focus();
-                    return;
-                }
-                if (emptyPriorityFound) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Validation Error',
-                        text: 'Please select a valid Priority for all records.',
-                        confirmButtonText: 'OK'
-                    });
-                    if (firstEmptyPriority) firstEmptyPriority.focus();
-                    return;
-                }
-                if (emptyTimeFound) {
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Validation Error',
-                        text: 'Estimated Time (in days) is required and must be between 1 and 999 days.',
-                        confirmButtonText: 'OK'
-                    });
-                    if (firstEmptyTime) firstEmptyTime.focus();
-                    return;
-                }
-
-                if (!rows.length) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Empty Submission',
-                        text: 'Please add at least one valid record.',
-                        confirmButtonText: 'OK'
-                    });
-                    return;
-                }
-
-                let submitBtn = $('#submitBtn');
-                submitBtn.prop('disabled', true);
-                $('.preloader').show();
-                debugger;
+                $('#selectAll').prop('checked', false);
+            } else {
                 $.ajax({
-                    url: '{{ route('defect-types.store') }}',
-                    type: 'POST',
+                    url: '{{ route('defect-types.delete') }}',
+                    type: 'DELETE',
                     data: {
                         _token: '{{ csrf_token() }}',
-                        rows: rows
+                        ids: ids
                     },
                     success: function(res) {
                         Swal.fire({
                             icon: 'success',
-                            title: 'Success!',
-                            text: res.success || 'Records saved successfully.',
+                            title: 'Deleted!',
+                            text: res.success || 'Records deleted successfully.',
                             confirmButtonText: 'OK'
                         }).then(() => {
-                            location.reload(); // Reload the page after user clicks 'OK'
+                            fetchRows();
+                            $('#selectAll').prop('checked', false);
                         });
-                        setTimeout(() => {
-                            location.reload();
-                        }, 3500);
-
-                        fetchRows();
                     },
                     error: function(xhr) {
-                        if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
-                            let errors = xhr.responseJSON.errors;
-                            if (Array.isArray(errors.rows)) {
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Validation Error',
-                                    html: errors.rows.map(msg => `<div>${msg}</div>`).join(''),
-                                });
-                            } else {
-                                let firstMsg = Object.values(errors)[0];
-                                Swal.fire({
-                                    icon: 'error',
-                                    title: 'Validation Error',
-                                    html: firstMsg,
-                                });
-                            }
-                        } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: 'Save failed! Please try again.',
-                            });
+                        let message = 'Failed to delete the selected records.';
+                        if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.error) {
+                            message = xhr.responseJSON.error;
                         }
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error!',
+                            text: message,
+                            confirmButtonText: 'OK'
+                        });
                     },
                     complete: function() {
-                        submitBtn.prop('disabled', false);
-                        $('.preloader').hide();
+                        $('.preloader').hide(); // ✅ always hide loader
                     }
                 });
             }
+        }
+    });
+});
+
+
+        // Submit Buttons
+        $('#submitBtn, #floatingSubmitBtn').on('click', function(e) {
+            e.preventDefault();
+            submitRows();
         });
-    </script>
+
+        // Floating Submit
+        $(window).on('scroll', function() {
+            if ($(window).scrollTop() > 150) {
+                $('#floatingSubmitBtn').fadeIn();
+            } else {
+                $('#floatingSubmitBtn').fadeOut();
+            }
+        });
+
+        // Submit Rows
+        function submitRows() {
+            let rows = [];
+            let emptyNameFound = false;
+            let firstEmptyField = null;
+            let emptyPriorityFound = false;
+            let firstEmptyPriority = null;
+            let emptyTimeFound = false;
+            let firstEmptyTime = null;
+
+            $('#defectTypeTbody tr').each(function(idx) {
+                let $tr = $(this);
+                let nameVal = $tr.find('input[name^="rows["][name$="[name]"]').val();
+                let priorityVal = $tr.find('select[name^="rows["][name$="[priority]"]').val();
+                let timeVal = $tr.find('input[name^="rows["][name$="[estimated_time]"]').val();
+                let row = {
+                    id: $tr.find('input[type="hidden"]').val() || null,
+                    name: nameVal,
+                    priority: priorityVal,
+                    estimated_time: timeVal,
+                    description: $tr.find('input[name^="rows["][name$="[description]"]').val(),
+                    status: $tr.find('input[type="radio"]:checked').val()
+                };
+
+                if (!nameVal || nameVal.trim() === "") {
+                    emptyNameFound = true;
+                    if (!firstEmptyField) firstEmptyField = $tr.find('input[name^="rows["][name$="[name]"]');
+                }
+                if (!priorityVal || priorityVal === "Select") {
+                    emptyPriorityFound = true;
+                    if (!firstEmptyPriority) firstEmptyPriority = $tr.find('select[name^="rows["][name$="[priority]"]');
+                }
+                if (!timeVal || isNaN(timeVal) || parseInt(timeVal) < 1 || parseInt(timeVal) > 999) {
+                    emptyTimeFound = true;
+                    if (!firstEmptyTime) firstEmptyTime = $tr.find('input[name^="rows["][name$="[estimated_time]"]');
+                }
+
+                if (
+                    nameVal && nameVal.trim() !== "" &&
+                    priorityVal && priorityVal !== "Select" &&
+                    timeVal && !isNaN(timeVal) && parseInt(timeVal) >= 1 && parseInt(timeVal) <= 999
+                ) {
+                    rows.push(row);
+                }
+            });
+
+            if (emptyNameFound) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Validation Error',
+                    text: 'Type Name is required for all records.',
+                    confirmButtonText: 'OK'
+                });
+                if (firstEmptyField) firstEmptyField.focus();
+                return;
+            }
+            if (emptyPriorityFound) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Validation Error',
+                    text: 'Please select a valid Priority for all records.',
+                    confirmButtonText: 'OK'
+                });
+                if (firstEmptyPriority) firstEmptyPriority.focus();
+                return;
+            }
+            if (emptyTimeFound) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Validation Error',
+                    text: 'Estimated Time (in days) is required and must be between 1 and 999 days.',
+                    confirmButtonText: 'OK'
+                });
+                if (firstEmptyTime) firstEmptyTime.focus();
+                return;
+            }
+
+            if (!rows.length) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Empty Submission',
+                    text: 'Please add at least one valid record.',
+                    confirmButtonText: 'OK'
+                });
+                return;
+            }
+
+            let submitBtn = $('#submitBtn');
+            submitBtn.prop('disabled', true);
+            $('.preloader').show();
+
+            $.ajax({
+                url: '{{ route('defect-types.store') }}',
+                type: 'POST',
+                data: {
+                    _token: '{{ csrf_token() }}',
+                    rows: rows
+                },
+                success: function(res) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success!',
+                        text: res.success || 'Records saved successfully.',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        location.reload();
+                    });
+                    setTimeout(() => {
+                        location.reload();
+                    }, 3500);
+                    fetchRows();
+                },
+                error: function(xhr) {
+                    if (xhr.status === 422 && xhr.responseJSON && xhr.responseJSON.errors) {
+                        let errors = xhr.responseJSON.errors;
+                        if (Array.isArray(errors.rows)) {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Validation Error',
+                                html: errors.rows.map(msg => `<div>${msg}</div>`).join(''),
+                            });
+                        } else {
+                            let firstMsg = Object.values(errors)[0];
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Validation Error',
+                                html: firstMsg,
+                            });
+                        }
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Save failed! Please try again.',
+                        });
+                    }
+                },
+                complete: function() {
+                    submitBtn.prop('disabled', false);
+                    $('.preloader').hide();
+                }
+            });
+        }
+    });
+</script>
 @endsection
+

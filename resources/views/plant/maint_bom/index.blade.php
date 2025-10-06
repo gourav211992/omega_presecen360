@@ -46,7 +46,7 @@
 												<th>Series</th>
 												<th>Doc No.</th>
 												<th>BOM Name</th>
-												<th class="text-end">Status</th>
+												<th>Status</th>
 												<th>Action</th>
 										  </tr>
 											</thead>
@@ -97,15 +97,15 @@
 					
 					<div class="mb-1">
 						<label class="form-label">Series</label>
-						<select class="form-select">
-							<option>Select</option>
+						<select class="form-select" id="filter-series">
+							<option value="">Select</option>
 						</select>
 					</div> 
                     
                     <div class="mb-1">
 						<label class="form-label">BOM Name</label>
-						<select class="form-select select2">
-							<option>Select</option> 
+						<select class="form-select select2" id="filter-bom-name">
+							<option value="">Select</option> 
 						</select>
 					</div>
                     
@@ -113,10 +113,10 @@
                     
                     <div class="mb-1">
 						<label class="form-label">Status</label>
-						<select class="form-select">
-							<option>Select</option>
-							<option>Active</option>
-							<option>Inactive</option>
+						<select class="form-select" id="filter-status">
+							<option value="">Select</option>
+							<option value="draft">Draft</option>
+							<option value="approved">Approved</option>
 						</select>
 					</div> 
 					 
@@ -132,108 +132,121 @@
 @section('scripts')
 <script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
 <script>
-   $(function() {
-      // Initialize DataTable with proper configuration like maint-wo table
-      $('#maint-bom-table').DataTable({
-         processing: true,
-         serverSide: true,
-         colReorder: true,  // Enable column reordering
-         ajax: {
-            url: '{{ route("maint-bom.index") }}',
-            type: 'GET'
-         },
-         columns: [
-            { data: 'DT_RowIndex', orderable: false, searchable: false, className: 'text-nowrap' },
-            { data: 'document_date', name: 'document_date', className: 'fw-bolder text-dark text-nowrap' },
-            { data: 'series', name: 'book_id', orderable: false, className: 'text-nowrap' },
-            { data: 'document_number', name: 'document_number', className: 'text-nowrap' },
-            { data: 'bom_name', name: 'bom_name', className: 'text-nowrap' },
-            { data: 'status', name: 'document_status', orderable: false, searchable: false, className: 'tableactionnew text-end' },
-            { data: 'action', name: 'action', orderable: false, searchable: false, className: 'text-center' }
-         ],
-         order: [[3, 'desc']], // Default sort by document number descending
-         pageLength: 10, // Changed from 25 to 10
-         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
-         columnDefs: [
-            {
-                targets: "_all",
-                defaultContent: "N/A", // Set default content like book table
-            },
-         ],
-         dom: '<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-3 dt-action-buttons text-end"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>', // Proper DOM with export buttons
-         buttons: [
-            {
-                extend: 'collection',
-                className: 'btn btn-outline-secondary dropdown-toggle',
-                text: feather.icons['share'].toSvg({ class: 'font-small-4 mr-50' }) + ' Export',
-                buttons: [
-                    {
-                        extend: 'print',
-                        text: feather.icons['printer'].toSvg({ class: 'font-small-4 mr-50' }) + ' Print',
-                        className: 'dropdown-item',
-                        title: 'Maintenance BOM',
-                        exportOptions: { columns: [0, 1, 2, 3, 4, 5] }
-                    },
-                    {
-                        extend: 'csv',
-                        text: feather.icons['file-text'].toSvg({ class: 'font-small-4 mr-50' }) + ' CSV',
-                        className: 'dropdown-item',
-                        title: 'Maintenance BOM',
-                        exportOptions: { columns: [0, 1, 2, 3, 4, 5] }
-                    },
-                    {
-                        extend: 'excel',
-                        text: feather.icons['file'].toSvg({ class: 'font-small-4 mr-50' }) + ' Excel',
-                        className: 'dropdown-item',
-                        title: 'Maintenance BOM',
-                        exportOptions: { columns: [0, 1, 2, 3, 4, 5] }
-                    },
-                    {
-                        extend: 'pdf',
-                        text: feather.icons['clipboard'].toSvg({ class: 'font-small-4 mr-50' }) + ' PDF',
-                        className: 'dropdown-item',
-                        title: 'Maintenance BOM',
-                        exportOptions: { columns: [0, 1, 2, 3, 4, 5] }
-                    },
-                    {
-                        extend: 'copy',
-                        text: feather.icons['copy'].toSvg({ class: 'font-small-4 mr-50' }) + ' Copy',
-                        className: 'dropdown-item',
-                        title: 'Maintenance BOM',
-                        exportOptions: { columns: [0, 1, 2, 3, 4, 5] }
-                    }
-                ],
-                init: function (api, node, config) {
-                    $(node).removeClass('btn-secondary').parent().removeClass('btn-group');
-                    setTimeout(function () {
-                        $(node).closest('.dt-buttons').removeClass('btn-group').addClass('d-inline-flex');
-                    }, 50);
-                }
-            }
-         ],
-         drawCallback: function () {
-            feather.replace(); // Initialize Feather icons for action buttons
-            // Add row selection functionality
-            $(document).on("click", "#maint-bom-table tbody tr", (e) => {
-                $("#maint-bom-table tr").removeClass("trselected");
-                $(e.target).closest("tr").addClass("trselected");
+    var table = $('#maint-bom-table').DataTable({
+    processing: true,
+    serverSide: true,
+    colReorder: true,
+    ajax: {
+        url: '{{ route("maint-bom.index") }}',
+        type: 'GET',
+        data: function(d) {
+            console.log('DataTable request data:', d);
+            return d;
+        }
+    },
+    columns: [
+        { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
+        { data: 'document_date', name: 'document_date', searchable: true },
+        { data: 'series', name: 'book_code', searchable: true },
+        { data: 'document_number', name: 'document_number', searchable: true },
+        { data: 'bom_name', name: 'bom_name', searchable: true },
+        { data: 'status', name: 'document_status', orderable: false, searchable: true },
+        { data: 'action', name: 'action', orderable: false, searchable: false }
+    ],
+    order: [[3, 'desc']], // sort by document_number
+    pageLength: 10,
+    lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+    dom: '<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-3 dt-action-buttons text-end"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
+    buttons: [
+        // export buttons...
+    ],
+    drawCallback: function () {
+        feather.replace();
+        $(document).on("click", "#maint-bom-table tbody tr", (e) => {
+            $("#maint-bom-table tr").removeClass("trselected");
+            $(e.target).closest("tr").addClass("trselected");
+        });
+    },
+    language: {
+        processing: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>',
+        paginate: { previous: '&nbsp;', next: '&nbsp;' }
+    },
+    search: { caseInsensitive: true }
+});
+
+// Populate Series Dropdown
+function populateSeriesDropdown() {
+    $.ajax({
+        url: '{{ route("maint-bom.get-series") }}',
+        type: 'GET',
+        success: function(data) {
+            var seriesSelect = $('#filter-series');
+            seriesSelect.empty();
+            seriesSelect.append('<option value="">Select</option>');
+            
+            $.each(data, function(index, series) {
+                seriesSelect.append('<option value="' + series.book_code + '">' + series.book_code + '</option>');
             });
-         },
-         language: {
-            processing: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>',
-            paginate: { previous: '&nbsp;', next: '&nbsp;' }
-         },
-         search: { caseInsensitive: true }
-      });
+        },
+        error: function(xhr, status, error) {
+            console.error('Error loading series:', error);
+        }
+    });
+}
 
-      $('div.head-label').html('<h6 class="mb-0">Maintenance BOM</h6>');
+// Populate BOM Names Dropdown
+function populateBomNamesDropdown() {
+    $.ajax({
+        url: '{{ route("maint-bom.get-bom-names") }}',
+        type: 'GET',
+        success: function(data) {
+            var bomNameSelect = $('#filter-bom-name');
+            bomNameSelect.empty();
+            bomNameSelect.append('<option value="">Select</option>');
+            
+            $.each(data, function(index, bomName) {
+                bomNameSelect.append('<option value="' + bomName + '">' + bomName + '</option>');
+            });
+        },
+        error: function(xhr, status, error) {
+            console.error('Error loading BOM names:', error);
+        }
+    });
+}
 
-      // Flatpickr for filter input
-      $('#fp-range').flatpickr({
-         mode: 'range',
-         dateFormat: 'Y-m-d'
-      });
-   });
+// Apply Filters
+$('.data-submit').on('click', function() {
+    var dateRange = $('#fp-range').val();
+    var series = $('#filter-series').val();
+    var bomName = $('#filter-bom-name').val();
+    var status = $('#filter-status').val();
+    
+    // Apply column-specific filters
+    table.column(1).search(dateRange); // Date column
+    table.column(2).search(series); // Series column
+    table.column(4).search(bomName); // BOM Name column
+    table.column(5).search(status); // Status column
+    
+    table.draw();
+    $('#filter').modal('hide');
+});
+
+// Reset Filters
+$('button[type="reset"]').on('click', function() {
+    $('#fp-range').val('');
+    $('#filter-series').val('');
+    $('#filter-bom-name').val('');
+    $('#filter-status').val('');
+    
+    // Clear all column filters
+    table.columns().search('').draw();
+});
+
+// Initialize dropdowns on page load
+$(document).ready(function() {
+    populateSeriesDropdown();
+    populateBomNamesDropdown();
+});
 
    function showToast(icon, title) {
       const Toast = Swal.mixin({

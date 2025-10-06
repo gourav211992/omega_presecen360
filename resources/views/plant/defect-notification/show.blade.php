@@ -37,27 +37,36 @@
 							<a href="{{ route('defect-notification.index') }}"> <button class="btn btn-secondary btn-sm"><i
 										data-feather="arrow-left-circle"></i> Back</button>
 							</a>
-							@if($buttons['amend'] && intval(request('amendment') ?? 0))
-                                <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i data-feather="check-circle"></i> Submit</button>
-                            @else
-                                @if($buttons['approve'])
-                                    <button type="button" class="btn btn-primary btn-sm" id="approved-button" name="action"
-                                        value="approved"><i data-feather="check-circle"></i> Approve</button>
-                                    <button type="button" id="reject-button"
-                                        class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
-                                            xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                            stroke-linejoin="round" class="feather feather-x-circle">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <line x1="15" y1="9" x2="9" y2="15"></line>
-                                            <line x1="9" y1="9" x2="15" y2="15"></line>
-                                        </svg> Reject</button>
+								@if ($buttons['draft'])
+									<button type="button" onclick = "submitForm('draft');"
+										class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="submit-button"
+										name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
+								@endif
+								@if ($buttons['submit'])
+									<button type="button" onclick = "submitForm('submitted');"
+										class="btn btn-primary btn-sm" id="submit-button" name="action"
+										value="submitted"><i data-feather="check-circle"></i> Submit</button>
+								@endif
+								@if ($buttons['approve'])
+									<button type="button" id="reject-button" data-bs-toggle="modal"
+										data-bs-target="#approveModal" onclick = "setReject();"
+										class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
+											data-feather="x-circle"></i> Reject</button>
+									<button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal"
+										data-bs-target="#approveModal" onclick = "setApproval();"><i
+											data-feather="check-circle"></i> Approve</button>
+								@endif
+
+								@if ($buttons['amend'])
+                                        <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
+                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
+                                            Amendment</button>
                                 @endif
-                                @if($buttons['amend'])
-                                    <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-                                        class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
+                                @if($buttons['revoke'])
+                                    <a id="revokeButton" type="button" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</a>
                                 @endif
-                            @endif
+
+                                <input id="submitButton" type="submit" value="Submit" class="hidden" />
                             
 						</div>
 					</div>
@@ -67,6 +76,7 @@
                 <form id="defect-notification-form" method="POST" action="{{ route('defect-notification.update', $defectNotification->id) }}" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
+                    <input type="hidden" name="status" id="status" value="{{ $defectNotification->document_status }}">
                     <input type="hidden" name="book_code" id="book_code_input" value="{{ $defectNotification->book_code }}">
                     <input type="hidden" name="doc_number_type" id="doc_number_type" value="{{ $defectNotification->doc_number_type }}">
                     <input type="hidden" name="doc_reset_pattern" id="doc_reset_pattern" value="{{ $defectNotification->doc_reset_pattern }}">
@@ -90,6 +100,18 @@
                                                         <h4 class="card-title text-theme">Basic Information</h4>
                                                         <p class="card-text">Update the details</p>
                                                     </div> 
+                                                    <div class="text-end">
+                                                        <span class="badge rounded-pill {{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$defectNotification->document_status] ?? ''}} forminnerstatus">
+                                                            <span class="text-dark">Status</span>
+                                                            : <span class="{{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS[$defectNotification->document_status] ?? ''}}">
+                                                                @if ($defectNotification->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED)
+                                                                    Approved
+                                                                @else
+                                                                    {{ ucfirst($defectNotification->document_status) }}
+                                                                @endif
+                                                            </span>
+                                                        </span>
+                                                    </div>
                                                 </div> 
                                             </div> 
 
@@ -240,7 +262,18 @@
 													<div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Attachment</label>
-                                                            <input type="file" name="upload_document" class="form-control" /> 
+                                                            <div class="d-flex align-items-center">
+                                                                <input type="file" name="upload_document" id="upload_document" class="form-control" 
+                                                                       accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" /> 
+                                                                @if($defectNotification->attachment)
+                                                                <div class="file-upload-preview ms-2" style="cursor: pointer;">
+                                                                    <div class="image-uplodasection expenseadd-sign">
+                                                                        <i onclick="window.open('{{ asset('storage/' . $defectNotification->attachment) }}', '_blank')" data-feather="file-text"></i>
+                                                                    </div>
+                                                                </div>
+                                                                @endif
+                                                            </div>
+                                                            <span class="text-primary small">{{__("message.attachment_caption")}}</span>
                                                         </div>
                                                     </div>
 													 
@@ -776,40 +809,82 @@
 		</div>
 	</div>
 
-	<!-- Amendment Submit Modal -->
-	<div class="modal fade" id="amendmentSubmitModal" tabindex="-1" aria-labelledby="amendmentSubmitModalLabel" aria-hidden="true">
-		<div class="modal-dialog modal-dialog-centered">
-			<div class="modal-content">
-				<div class="modal-header">
-					<h5 class="modal-title" id="amendmentSubmitModalLabel">Submit Amendment</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					<div class="mb-3">
-						<label for="amendment_remarks" class="form-label">Amendment Remarks <span class="text-danger">*</span></label>
-						<textarea class="form-control" id="amendment_remarks" name="amendment_remarks" rows="4" placeholder="Please provide detailed remarks for this amendment..." required></textarea>
-					</div>
-					<div class="mb-3">
-						<label for="amendment_attachment" class="form-label">Supporting Document (Optional)</label>
-						<input type="file" class="form-control" id="amendment_attachment" name="amendment_attachment" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-						<small class="text-muted">Accepted formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB)</small>
-					</div>
-				</div>
-				
-				<div class="modal-footer">
-					<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-					<button type="button" class="btn btn-primary" id="confirmAmendmentSubmit">
-						<i data-feather="check-circle"></i> Submit Amendment
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
 
     </form>
+
+    <!-- Approval Modal -->
+    <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form class="ajax-input-form" method="POST" action="{{ route('approveDefectNotification') }}" enctype='multipart/form-data'>
+                    @csrf
+                    <input type="hidden" name="action_type" id="action_type">
+                    <input type="hidden" name="id" value="{{ $defectNotification->id }}">
+                    <div class="modal-header">
+                        <div>
+                            <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">
+                                Approve Document</h4>
+                            <p class="mb-0 fw-bold voucehrinvocetxt mt-0">
+                                {{ Carbon\Carbon::now()->format('d-m-Y') }}</p>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body pb-2">
+                        <div class="row mt-1">
+                            <div class="col-md-12">
+                                <div class="mb-1">
+                                    <label class="form-label">Remarks <span class="text-danger">*</span></label>
+                                    <textarea name="remarks" id="remarks" class="form-control" rows="3" placeholder="Enter remarks"></textarea>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <div class="mb-1">
+                                            <label class="form-label">Upload Document</label>
+                                            <input type="file" id="ap_file" name="attachment[]" multiple class="form-control cannot_disable" 
+                                                   onchange="addFiles(this, 'approval_files_preview');" max_file_count="2"
+                                                   accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf"/>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4" style="margin-top:19px;">
+                                        <div class="row" id="approval_files_preview">
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="text-primary small">{{__("message.attachment_caption")}}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer justify-content-center">
+                        <button type="reset" class="btn btn-outline-secondary me-1">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="submit-button">Submit</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Amendment Confirmation Modal -->
+    <div class="modal fade" id="amendmentconfirm" tabindex="-1" aria-labelledby="amendmentconfirmLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="amendmentconfirmLabel">Confirm Amendment</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to amend this document? This will redirect you to the edit page where you can make changes.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmAmendment">Confirm Amendment</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @section('scripts')
+	<script src="{{asset('assets/js/fileshandler.js')}}"></script>
 	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>
 
 	<script>
@@ -836,6 +911,71 @@
 			} else {
 				window.open(actionUrl, '_blank');
 			}
+		});
+
+		// File validation function
+		function validateFile(input) {
+			const file = input.files[0];
+			if (!file) {
+				console.log('No file selected');
+				return true;
+			}
+
+			console.log('File details:', {
+				name: file.name,
+				size: file.size,
+				type: file.type
+			});
+
+			// Check file size (5MB = 5 * 1024 * 1024 bytes)
+			const maxSize = 5 * 1024 * 1024;
+			const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+			
+			if (file.size > maxSize) {
+				console.log('File too large:', fileSizeMB + 'MB');
+				Swal.fire({
+					icon: 'error',
+					title: 'File Too Large!',
+					text: `File size is ${fileSizeMB}MB. Maximum allowed size is 5MB. Please select a smaller file.`,
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				input.value = '';
+				return false;
+			}
+
+			// Check file type
+			const allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'docx', 'pdf'];
+			const fileExtension = file.name.split('.').pop().toLowerCase();
+			
+			console.log('File extension:', fileExtension);
+
+			if (!allowedExtensions.includes(fileExtension)) {
+				console.log('Invalid file type:', fileExtension);
+				Swal.fire({
+					icon: 'error',
+					title: 'Invalid File Type!',
+					text: 'Only PNG, JPEG, JPG, XLS, XLSX, DOCX, and PDF files are allowed.',
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				input.value = '';
+				return false;
+			}
+
+			console.log('File validation passed');
+			return true;
+		}
+
+		// Attach file validation to file inputs
+		$('#upload_document').on('change', function() {
+			console.log('Upload document selected, validating...'); // Debug log
+			validateFile(this);
+		});
+
+		$('#amendment_attachment').on('change', function() {
+			console.log('Amendment attachment selected, validating...'); // Debug log
+			validateFile(this);
 		});
 
 		// Form submission functionality
@@ -901,6 +1041,12 @@
 		}
 
 		function submitForm() {
+			// Validate file first
+			const attachmentInput = document.getElementById('upload_document');
+			if (attachmentInput.files.length > 0 && !validateFile(attachmentInput)) {
+				return; // Stop submission if file validation fails
+			}
+
 			// Validate required fields
 			let isValid = true;
 			let errorMessage = '';
@@ -1004,84 +1150,42 @@
 			$('#document_status').val('amendment');
 		@endif
 
-		// Amendment confirmation functionality following standard pattern
+		// Amendment submission following payment voucher pattern
 		$(document).on('click', '#amendmentSubmit', (e) => {
-			e.preventDefault();
-			let url = new URL(window.location.href);
-			url.search = '';
-			url.searchParams.set('amendment', 1);
-			let amendmentUrl = url.toString();
-			window.location.replace(amendmentUrl);
-		});
-
-		// Amendment submit functionality - show modal for remarks and document
-		$(document).on('click', '#amendmentBtn', (e) => {
-			e.preventDefault();
-			$('#amendmentSubmitModal').modal('show');
-		});
-
-		// Handle amendment form submission
-		$(document).on('click', '#confirmAmendmentSubmit', (e) => {
-			e.preventDefault();
-			
-			const remarks = $('#amendment_remarks').val().trim();
-			if (!remarks) {
-				Swal.fire({
-					title: 'Error!',
-					text: 'Amendment remarks are required.',
-					icon: 'error'
-				});
-				return;
-			}
-
-			// Add amendment action type and remarks to the main form
-			$('<input>').attr({
-				type: 'hidden',
-				name: 'action_type',
-				value: 'amendment'
-			}).appendTo('#defect-notification-form');
-			
-			$('<input>').attr({
-				type: 'hidden',
-				name: 'amend_remarks',
-				value: remarks
-			}).appendTo('#defect-notification-form');
-
-			// Handle file attachment if provided
-			const fileInput = $('#amendment_attachment')[0];
-			if (fileInput.files.length > 0) {
-				// Create a new FormData and append the file
-				const formData = new FormData($('#defect-notification-form')[0]);
-				formData.append('amend_attachment', fileInput.files[0]);
-				
-				// Submit via AJAX with file
-				$.ajax({
-					url: $('#defect-notification-form').attr('action'),
-					method: 'POST',
-					data: formData,
-					processData: false,
-					contentType: false,
-					success: function(response) {
-						Swal.fire({
-							title: 'Success!',
-							text: 'Amendment submitted successfully.',
-							icon: 'success'
-						}).then(() => {
-							window.location.href = "{{ route('defect-notification.index') }}";
-						});
-					},
-					error: function(xhr) {
+			let actionUrl = "{{ route('defect-notification.amendment', $defectNotification->id) }}";
+			fetch(actionUrl, {
+				method: 'POST',
+				headers: {
+					'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+					'Content-Type': 'application/json'
+				}
+			}).then(response => {
+				return response.json().then(data => {
+					if (data.status == 200) {
+						// Amendment successful, redirect to edit with amendment parameter
+						let baseEditUrl = "{{ route('defect-notification.edit', $defectNotification->id) }}";
+						let url = new URL(baseEditUrl, window.location.origin);
+						url.searchParams.set('amendment', 1);
+						window.location.href = url.toString();
+					} else {
 						Swal.fire({
 							title: 'Error!',
-							text: 'An error occurred while submitting the amendment.',
+							text: data.message || 'Amendment failed.',
 							icon: 'error'
 						});
 					}
 				});
-			} else {
-				// Submit normally without file
-				$('#defect-notification-form').submit();
-			}
+			}).catch(error => {
+				Swal.fire({
+					title: 'Error!',
+					text: 'An error occurred while processing amendment.',
+					icon: 'error'
+				});
+			});
+			
+			e.preventDefault();
+			$('#amendmentconfirm').modal('hide');
+			$('.preloader').show();
 		});
 
 		@if (session('success'))
@@ -1100,6 +1204,204 @@
 				"@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach"
 			);
 		@endif
+
+		// Submit form function following payment voucher pattern
+		function submitForm(status) {
+			$('#status').val(status);
+			$('#submitButton').click();
+		}
+
+		// Cancel button functionality
+		$(document).on('click', '#cancelButton', (e) => {
+			e.preventDefault();
+			
+			Swal.fire({
+				title: 'Are you sure to cancel?',
+				text: "This action will cancel the document and cannot be undone.",
+				icon: 'warning',
+				showCancelButton: true,
+				confirmButtonText: 'Yes, cancel it!',
+				cancelButtonText: 'No, keep it',
+			}).then((result) => {
+				if (result.isConfirmed) {
+					let actionUrl = '{{ route("defect-notification.cancel.document") }}' + '?id=' + '{{ $defectNotification->id }}';
+					
+					fetch(actionUrl)
+						.then(response => response.json())
+						.then(data => {
+							if (data.status === 'error') {
+								Swal.fire({
+									title: 'Error!',
+									text: data.message,
+									icon: 'error',
+								});
+							} else {
+								Swal.fire({
+									title: 'Success!',
+									text: data.message,
+									icon: 'success',
+								}).then(() => {
+									location.reload();
+								});
+							}
+						})
+						.catch(error => {
+							console.error('Error:', error);
+							Swal.fire({
+								title: 'Error!',
+								text: 'Something went wrong. Please try again.',
+								icon: 'error',
+							});
+						});
+				}
+			});
+		});
+
+		// Revoke button functionality
+		$(document).on('click', '#revokeButton', (e) => {
+			let actionUrl = '{{ route("defect-notification.revoke.document") }}' + '?id=' + '{{ $defectNotification->id }}';
+			fetch(actionUrl).then(response => {
+				return response.json().then(data => {
+					if (data.status == 'error') {
+						Swal.fire({
+							title: 'Error!',
+							text: data.message,
+							icon: 'error',
+						});
+					} else {
+						Swal.fire({
+							title: 'Success!',
+							text: data.message,
+							icon: 'success',
+						});
+					}
+					location.reload();
+				});
+			});
+		});
+
+		// Approval and rejection modal functions
+		function setApproval() {
+			$('#approveModal .modal-title').text('Approve Document');
+			$('#approveModal #action_type').val('approve');
+			$('#approveModal #remarks').attr('placeholder', 'Enter approval remarks (optional)');
+		}
+
+		function setReject() {
+			$('#approveModal .modal-title').text('Reject Document');
+			$('#approveModal #action_type').val('reject');
+			$('#approveModal #remarks').attr('placeholder', 'Enter rejection remarks (required)').attr('required', true);
+		}
+
+		// Amendment confirmation functionality
+		$(document).on('click', '#confirmAmendment', (e) => {
+			$('#amendmentconfirm').modal('hide');
+			// Redirect to edit page with amendment parameter
+			let baseEditUrl = "{{ route('defect-notification.edit', $defectNotification->id) }}";
+			let url = new URL(baseEditUrl, window.location.origin);
+			url.searchParams.set('amendment', 1);
+			window.location.href = url.toString();
+		});
+
+		// Client-side validation for approval form
+		$('#approveModal form').on('submit', function(e) {
+			let actionType = $('#action_type').val();
+			let remarks = $('#remarks').val().trim();
+			
+			// Validate remarks for rejection (required)
+			if (actionType === 'reject' && !remarks) {
+				e.preventDefault();
+				Swal.fire({
+					icon: 'error',
+					title: 'Validation Error!',
+					text: 'Remarks are required for rejection.',
+					confirmButtonText: 'OK'
+				});
+				return false;
+			}
+			
+			// Validate file uploads if any
+			let fileInput = $('#ap_file')[0];
+			if (fileInput && fileInput.files.length > 0) {
+				for (let i = 0; i < fileInput.files.length; i++) {
+					let file = fileInput.files[i];
+					
+					// Check file size (5MB limit)
+					if (file.size > 5 * 1024 * 1024) {
+						e.preventDefault();
+						let fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+						Swal.fire({
+							icon: 'error',
+							title: 'File Too Large!',
+							text: `File "${file.name}" is ${fileSizeMB}MB. Maximum allowed size is 5MB.`,
+							confirmButtonText: 'OK'
+						});
+						return false;
+					}
+					
+					// Check file type
+					let allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'docx', 'pdf'];
+					let fileExtension = file.name.split('.').pop().toLowerCase();
+					
+					if (!allowedExtensions.includes(fileExtension)) {
+						e.preventDefault();
+						Swal.fire({
+							icon: 'error',
+							title: 'Invalid File Type!',
+							text: `File "${file.name}" has invalid type. Only PNG, JPEG, JPG, XLS, XLSX, DOCX, and PDF files are allowed.`,
+							confirmButtonText: 'OK'
+						});
+						return false;
+					}
+				}
+			}
+			
+			return true;
+		});
+
+		// Additional file validation on file input change
+		$('#ap_file').on('change', function() {
+			validateApprovalFiles(this);
+		});
+
+		function validateApprovalFiles(input) {
+			const files = input.files;
+			if (!files || files.length === 0) return true;
+
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				
+				// Check file size (5MB limit)
+				if (file.size > 5 * 1024 * 1024) {
+					const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+					Swal.fire({
+						icon: 'error',
+						title: 'File Too Large!',
+						text: `File "${file.name}" is ${fileSizeMB}MB. Maximum allowed size is 5MB.`,
+						confirmButtonText: 'OK'
+					});
+					input.value = '';
+					return false;
+				}
+				
+				// Check file type
+				const allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'docx', 'pdf'];
+				const fileExtension = file.name.split('.').pop().toLowerCase();
+				
+				if (!allowedExtensions.includes(fileExtension)) {
+					Swal.fire({
+						icon: 'error',
+						title: 'Invalid File Type!',
+						text: `File "${file.name}" has invalid type. Only PNG, JPEG, JPG, XLS, XLSX, DOCX, and PDF files are allowed.`,
+						confirmButtonText: 'OK'
+					});
+					input.value = '';
+					return false;
+				}
+			}
+			
+			return true;
+		}
 	</script>
 
 @endsection

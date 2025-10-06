@@ -17,6 +17,12 @@ class ErpEquipment extends Model
 
     protected $table = 'erp_equipment';
     protected $guarded = [];
+    
+    protected $fillable = [
+        'organization_id', 'group_id', 'company_id', 'category_id', 'location_id', 
+        'name', 'alias', 'description', 'final_remarks', 'book_id', 'document_status', 
+        'created_by', 'asset_code_id', 'upload_document'
+    ];
 
     public function organization(): BelongsTo
     {

@@ -35,7 +35,12 @@
 								<button class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" type="button" id="save-draft-btn">
 									<i data-feather="save"></i> Save as Draft
 								</button>
-								<button type="submit" form="defect-notification-form" class="btn btn-primary btn-sm" id="submit-btn">
+							@endif
+							@if(isset($buttons['cancel']) && $buttons['cancel'])
+                                <a id = "cancelButton" type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0"><i data-feather='x-circle'></i> Cancel</a>
+                            @endif
+							@if ($buttons['submit'] || (request('amendment')==1 && $buttons['amend']))
+								<button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#amendmentModal">
 									<i data-feather="check-circle"></i> Submit
 								</button>
 							@endif
@@ -47,13 +52,13 @@
                 <form id="defect-notification-form" method="POST" action="{{ route('defect-notification.update', $defectNotification->id) }}" enctype="multipart/form-data">
                     @csrf
                     @method('PUT')
+                    <input type="hidden" name="document_status" id="document_status" value="{{ $defectNotification->document_status }}">
                     <input type="hidden" name="book_code" id="book_code_input" value="{{ $defectNotification->book_code }}">
                     <input type="hidden" name="doc_number_type" id="doc_number_type" value="{{ $defectNotification->doc_number_type }}">
                     <input type="hidden" name="doc_reset_pattern" id="doc_reset_pattern" value="{{ $defectNotification->doc_reset_pattern }}">
                     <input type="hidden" name="doc_prefix" id="doc_prefix" value="{{ $defectNotification->doc_prefix }}">
                     <input type="hidden" name="doc_suffix" id="doc_suffix" value="{{ $defectNotification->doc_suffix }}">
                     <input type="hidden" name="doc_no" id="doc_no" value="{{ $defectNotification->doc_no }}">
-                    <input type="hidden" name="document_status" id="document_status" value="{{ $defectNotification->document_status }}">
                     
                    
 				<section id="basic-datatable">
@@ -218,7 +223,9 @@
 													<div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Attachment</label>
-                                                            <input type="file" name="attachment" class="form-control" /> 
+                                                            <input type="file" name="attachment" id="attachment" class="form-control" 
+                                                                   accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" /> 
+                                                            <span class="text-primary small">{{__("message.attachment_caption")}}</span>
                                                         </div>
                                                     </div>
 													 
@@ -799,68 +806,150 @@
 			});
 		});
 
+		// File validation function
+		function validateFile(input) {
+			const file = input.files[0];
+			if (!file) {
+				console.log('No file selected');
+				return true;
+			}
+
+			console.log('File details:', {
+				name: file.name,
+				size: file.size,
+				type: file.type
+			});
+
+			// Check file size (5MB = 5 * 1024 * 1024 bytes)
+			const maxSize = 5 * 1024 * 1024;
+			const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+			
+			if (file.size > maxSize) {
+				console.log('File too large:', fileSizeMB + 'MB');
+				Swal.fire({
+					icon: 'error',
+					title: 'File Too Large!',
+					text: `File size is ${fileSizeMB}MB. Maximum allowed size is 5MB. Please select a smaller file.`,
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				input.value = '';
+				return false;
+			}
+
+			// Check file type
+			const allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'docx', 'pdf'];
+			const fileExtension = file.name.split('.').pop().toLowerCase();
+			
+			console.log('File extension:', fileExtension);
+
+			if (!allowedExtensions.includes(fileExtension)) {
+				console.log('Invalid file type:', fileExtension);
+				Swal.fire({
+					icon: 'error',
+					title: 'Invalid File Type!',
+					text: 'Only PNG, JPEG, JPG, XLS, XLSX, DOCX, and PDF files are allowed.',
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				input.value = '';
+				return false;
+			}
+
+			console.log('File validation passed');
+			return true;
+		}
+
+		// Attach file validation to file input
+		$('#attachment').on('change', function() {
+			console.log('File selected, validating...'); // Debug log
+			validateFile(this);
+		});
+
+		// Attach file validation to amendment attachment field
+		$('#amend_attachment').on('change', function() {
+			console.log('Amendment file selected, validating...'); // Debug log
+			validateFile(this);
+		});
+
 		document.getElementById('save-draft-btn').addEventListener('click', function () {
+			document.getElementById('document_status').value = 'draft';
 			// No validation required for draft - save as is
 			$('.preloader').show();
-			document.getElementById('document_status').value = 'draft';
 			document.getElementById('defect-notification-form').submit();
-
 		});
 
-
-		// Form submission functionality
-		$('#defect-notification-form').on('submit', function(e) {
+		// Amendment modal submission
+		$(document).on('click', '#amendmentBtnSubmit', (e) => {
 			e.preventDefault();
-			$('#document_status').val('submitted');
-			submitForm();
+			let remark = $("#amendmentModal").find('[name="amend_remarks"]').val();
+			if (!remark) {
+				$("#amendRemarkError").removeClass("d-none");
+				return false;
+			} else {
+				$("#amendmentModal").modal('hide');
+				$("#amendRemarkError").addClass("d-none");
+				
+				// Set document status to submitted
+				document.getElementById('document_status').value = 'submitted';
+				
+				// Add hidden fields to main form
+				$('<input>').attr({
+					type: 'hidden',
+					name: 'action_type',
+					value: 'amendment'
+				}).appendTo('#defect-notification-form');
+				
+				$('<input>').attr({
+					type: 'hidden',
+					name: 'amend_remarks',
+					value: remark
+				}).appendTo('#defect-notification-form');
+
+				// Handle file attachment if provided
+				const fileInput = $("#amendmentModal").find('[name="amend_attachment"]')[0];
+				if (fileInput && fileInput.files.length > 0) {
+					// Validate file first
+					if (!validateFile(fileInput)) {
+						return false;
+					}
+					
+					// Create FormData for file upload
+					const formData = new FormData($('#defect-notification-form')[0]);
+					formData.append('amend_attachment', fileInput.files[0]);
+					
+					// Submit via AJAX
+					$.ajax({
+						url: $('#defect-notification-form').attr('action'),
+						method: 'POST',
+						data: formData,
+						processData: false,
+						contentType: false,
+						success: function(response) {
+							window.location.href = "{{ route('defect-notification.index') }}";
+						},
+						error: function(xhr) {
+							console.error('Amendment submission error:', xhr);
+							Swal.fire({
+								title: 'Error!',
+								text: 'Error submitting amendment. Please try again.',
+								icon: 'error'
+							});
+						}
+					});
+				} else {
+					// Submit normally without file
+					$('.preloader').show();
+					$('#defect-notification-form').submit();
+				}
+			}
 		});
 
-		function submitForm() {
-			// Validate required fields for submission (not draft)
-			let isValid = true;
-			let errorMessage = '';
+		// Attach file validation to amendment modal attachment field
+		$(document).on('change', '#amendmentModal [name="amend_attachment"]', function() {
+			validateFile(this);
+		});
 
-			// Check required fields
-			if (!$('#book_id').val()) {
-				isValid = false;
-				errorMessage += 'Series is required.\n';
-			}
-			if (!$('#document_number').val()) {
-				isValid = false;
-				errorMessage += 'Document Number is required.\n';
-			}
-			if (!$('#document_date').val()) {
-				isValid = false;
-				errorMessage += 'Document Date is required.\n';
-			}
-			if (!$('#location_id').val()) {
-				isValid = false;
-				errorMessage += 'Location is required.\n';
-			}
-			if (!$('#defect_type_id').val()) {
-				isValid = false;
-				errorMessage += 'Defect Type is required.\n';
-			}
-			if (!$('input[name="problem"]').val()) {
-				isValid = false;
-				errorMessage += 'Problem description is required.\n';
-			}
-			if (!$('select[name="priority"]').val()) {
-				isValid = false;
-				errorMessage += 'Priority is required.\n';
-			}
-
-			if (!isValid) {
-				showToast('error', errorMessage);
-				return;
-			}
-
-			// Show loading
-			$('.preloader').show();
-
-			// Submit the form
-			$('#defect-notification-form')[0].submit();
-		}
 
 		function showToast(icon, title) {
 			const Toast = Swal.mixin({
@@ -898,63 +987,38 @@
 		@endif
 	</script>
 
-	<!-- Amendment Confirmation Modal -->
-	<div class="modal fade" id="amendmentconfirm" tabindex="-1" aria-labelledby="amendmentconfirmLabel" aria-hidden="true">
+	<!-- Amendment Modal -->
+	<div class="modal fade" id="amendmentModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
 		<div class="modal-dialog modal-dialog-centered">
 			<div class="modal-content">
+				<input type="hidden" name="action_type" value="{{$buttons['amend'] && request('amendment')==1 ? 'amendment':'submit'}}" id="action_type">
+				<input type="hidden" name="id" value="{{ $defectNotification->id }}">
 				<div class="modal-header">
-					<h5 class="modal-title" id="amendmentconfirmLabel">Amendment Confirmation</h5>
+					<div>
+						<h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="popupTitle">Amendment Application</h4>
+					</div>
 					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 				</div>
-				<form id="amendment-form" action="{{ route('defect-notification.update', $defectNotification->id) }}" method="POST" enctype="multipart/form-data">
-					@csrf
-					@method('PUT')
-					<input type="hidden" name="action_type" value="amendment">
-					<input type="hidden" name="book_code" value="{{ $defectNotification->book_code }}">
-                    <input type="hidden" name="book_id" value="{{ $defectNotification->book_id }}">
-					<input type="hidden" name="doc_number_type" value="{{ $defectNotification->doc_number_type }}">
-					<input type="hidden" name="doc_reset_pattern" value="{{ $defectNotification->doc_reset_pattern }}">
-					<input type="hidden" name="doc_prefix" value="{{ $defectNotification->doc_prefix }}">
-					<input type="hidden" name="doc_suffix" value="{{ $defectNotification->doc_suffix }}">
-					<input type="hidden" name="doc_no" value="{{ $defectNotification->doc_no }}">
-					<input type="hidden" name="document_status" value="{{ $defectNotification->document_status }}">
-					<input type="hidden" name="document_number" value="{{ $defectNotification->document_number }}">
-					<input type="hidden" name="document_date" value="{{ $defectNotification->document_date }}">
-					<input type="hidden" name="location_id" value="{{ $defectNotification->location_id }}">
-					<input type="hidden" name="category" value="{{ $defectNotification->category }}">
-					<input type="hidden" name="equipment_id" value="{{ $defectNotification->equipment_id }}">
-					<input type="hidden" name="equipment" value="{{ $defectNotification->equipment }}">
-					<input type="hidden" name="defect_type" value="{{ $defectNotification->defect_type }}">
-					<input type="hidden" name="problem" value="{{ $defectNotification->problem }}">
-					<input type="hidden" name="priority" value="{{ $defectNotification->priority }}">
-					<input type="hidden" name="report_date_time" value="{{ $defectNotification->report_date_time }}">
-					<input type="hidden" name="default_oberservation" value="{{ $defectNotification->default_oberservation }}">
-					
-					<div class="modal-body">
-						<div class="alert alert-warning">
-							<i data-feather="alert-triangle"></i>
-							<strong>Amendment Notice:</strong> This action will create a new revision of the defect notification and submit it for approval.
-						</div>
-						
-						<div class="mb-3">
-							<label for="amend_remarks" class="form-label">Amendment Remarks <span class="text-danger">*</span></label>
-							<textarea class="form-control" id="amend_remarks" name="amend_remarks" rows="3" placeholder="Please provide reason for amendment..." required></textarea>
-						</div>
-						
-						<div class="mb-3">
-							<label for="amend_attachment" class="form-label">Supporting Document (Optional)</label>
-							<input type="file" class="form-control" id="amend_attachment" name="amend_attachment" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-							<small class="text-muted">Accepted formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB)</small>
+				<div class="modal-body pb-2">
+					<div class="row mt-1">
+						<div class="col-md-12">
+							<div class="mb-2">
+								<label class="form-label">Remarks <span class="text-danger">*</span></label>
+								<textarea maxlength="250" name="amend_remarks" class="form-control" placeholder="Please provide reason for amendment..."></textarea>
+								<span id="amendRemarkError" class="ajax-validation-error-span form-label text-danger d-none" style="font-size:12px" role="alert">*Required</span>
+							</div>
+							<div class="mb-2">
+								<label class="form-label">Upload Document</label>
+								<input type="file" name="amend_attachment" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" />
+								<span class="text-primary small">{{__("message.attachment_caption")}}</span>
+							</div>
 						</div>
 					</div>
-					
-					<div class="modal-footer">
-						<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-						<button type="submit" class="btn btn-warning">
-							<i data-feather="edit"></i> Submit Amendment
-						</button>
-					</div>
-				</form>
+				</div>
+				<div class="modal-footer justify-content-center">  
+					<button type="reset" data-bs-dismiss="modal" class="btn btn-outline-secondary me-1">Cancel</button> 
+					<button type="button" id="amendmentBtnSubmit" class="btn btn-primary">Submit</button>
+				</div>
 			</div>
 		</div>
 	</div>

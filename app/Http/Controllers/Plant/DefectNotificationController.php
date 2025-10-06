@@ -16,6 +16,7 @@ use App\Helpers\ConstantHelper;
 use App\Models\DefectNotificationHistory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class DefectNotificationController extends Controller
 {
@@ -126,9 +127,9 @@ class DefectNotificationController extends Controller
      */
     public function getDefectNotificationsData(Request $request)
     {
-        $query = DefectNotification::with(['equipment', 'location', 'category', 'defectType'])
+        $query = DefectNotification::with(['equipment', 'location', 'category', 'defectType', 'book'])
             ->select([
-                'id', 'document_date', 'equipment_id', 'category_id', 'location_id', 
+                'id', 'document_date', 'book_id', 'doc_no', 'equipment_id', 'category_id', 'location_id', 
                 'defect_type_id', 'problem', 'priority', 'document_status', 'revision_number'
             ]);
 
@@ -139,6 +140,15 @@ class DefectNotificationController extends Controller
                     $q->where('problem', 'like', "%{$searchValue}%")
                     ->orWhere('priority', 'like', "%{$searchValue}%")
                     ->orWhere('document_status', 'like', "%{$searchValue}%")
+                    ->orWhere('doc_no', 'like', "%{$searchValue}%")
+                    ->orWhere('document_date', 'like', "%{$searchValue}%")
+                    ->orWhereRaw("DATE_FORMAT(document_date, '%d-%m-%Y') LIKE ?", ["%{$searchValue}%"])
+                    ->orWhereRaw("DATE_FORMAT(document_date, '%d/%m/%Y') LIKE ?", ["%{$searchValue}%"])
+                    ->orWhereRaw("DATE_FORMAT(document_date, '%Y-%m-%d') LIKE ?", ["%{$searchValue}%"])
+                    ->orWhereHas('book', function($book) use ($searchValue) {
+                        $book->where('book_name', 'like', "%{$searchValue}%")
+                             ->orWhere('book_code', 'like', "%{$searchValue}%");
+                    })
                     ->orWhereHas('equipment', function($eq) use ($searchValue) {
                         $eq->where('name', 'like', "%{$searchValue}%");
                     })
@@ -149,11 +159,12 @@ class DefectNotificationController extends Controller
                         $dt->where('name', 'like', "%{$searchValue}%");
                     })
                     ->orWhereHas('location', function($loc) use ($searchValue) {
-                        $loc->where('name', 'like', "%{$searchValue}%");
+                        $loc->where('store_name', 'like', "%{$searchValue}%");
                     });
                 });
             }
 
+           
         $totalRecords = DefectNotification::count();
         $filteredRecords = $query->count();
 
@@ -161,12 +172,12 @@ class DefectNotificationController extends Controller
             $orderColumn = $request->order[0]['column'];
             $orderDirection = $request->order[0]['dir'];
             
-            $columns = ['id', 'document_date', 'equipment_id', 'category_id', 'location_id', 'defect_type_id', 'problem', 'priority', 'document_status'];
+            $columns = ['id', 'document_date', 'book_id', 'doc_no', 'equipment_id', 'category_id', 'location_id', 'defect_type_id', 'problem', 'priority', 'document_status'];
             if (isset($columns[$orderColumn])) {
                 $query->orderBy($columns[$orderColumn], $orderDirection);
             }
         } else {
-            $query->orderBy('created_at', 'desc');
+            $query->orderBy('doc_no', 'desc')->orderBy('document_date', 'desc');
         }
 
         if ($request->has('start') && $request->has('length')) {
@@ -195,7 +206,6 @@ class DefectNotificationController extends Controller
             
             $actions = '
                 <div class="d-flex align-items-center justify-content-end">
-                    ' . $statusBadge . '
                     <div class="dropdown">
                         <button type="button" class="btn btn-sm dropdown-toggle hide-arrow p-0" data-bs-toggle="dropdown">
                             <i data-feather="more-vertical"></i>
@@ -210,15 +220,18 @@ class DefectNotificationController extends Controller
                 </div>';
 
             $data[] = [
-                $request->start + $index + 1, // Row number
-                $notification->document_date ? \Carbon\Carbon::parse($notification->document_date)->format('d-m-Y') : '-',
-                $notification->equipment?->name ?? ($notification->equipment_id ? 'Equipment ID: ' . $notification->equipment_id : '-'),
-                $notification->category?->name ?? ($notification->category_id ? 'Category ID: ' . $notification->category_id : '-'),
-                $notification->location?->store_name ?? ($notification->location_id ? 'Location ID: ' . $notification->location_id : '-'),
-                $notification->defectType?->name ?? ($notification->defect_type_id ? 'Defect Type ID: ' . $notification->defect_type_id : '-'),
-                $notification->problem ?? '-',
-                $notification->priority ?? '-',
-                $actions
+                'DT_RowIndex' => $request->start + $index + 1,
+                'document_date' => $notification->document_date ? '<span style="white-space: nowrap;">' . \Carbon\Carbon::parse($notification->document_date)->format('d-m-Y') . '</span>' : '-',
+                'series' => $notification->book?->book_name ?? '',
+                'document_number' => $notification->doc_no ? '<span style="text-align: center; display: block;">' . $notification->doc_no . '</span>' : '<span style="text-align: center; display: block;">-</span>',
+                'equipment' => $notification->equipment?->name ?? '',
+                'category' => $notification->category?->name ?? '',
+                'location' => $notification->location?->store_name ?? '',
+                'defect_type' => $notification->defectType?->name ?? '',
+                'problem' => $notification->problem ?? '-',
+                'priority' => $notification->priority ?? '-',
+                'status' => $statusBadge,
+                'action' => $actions
             ];
         }
 
@@ -237,11 +250,13 @@ class DefectNotificationController extends Controller
     {
         $parentURL = "plant_defect-noti";
         $series = [];
-        $defectTypes = ErpDefectType::select('id', 'name')->get();
+        $defectTypes = ErpDefectType::select('id', 'name')->where('status','Active')->get();
         $equipments = ErpEquipment::select('id', 'name')->get();
         $categories = Category::orderBy('id', 'desc')
              ->with('parent', 'subCategories')
              ->where('type', strtolower(ConstantHelper::EQUIPMENT))
+             ->where('status','Active')
+             ->where('type','Equipment')
              ->get();
       
 
@@ -333,6 +348,11 @@ class DefectNotificationController extends Controller
             ]);
         }
 
+        // Add file validation if file is uploaded
+        if ($request->hasFile('attachment')) {
+            $rules['attachment'] = 'file|mimes:pdf,doc,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max
+        }
+
         $request->validate($rules);
 
         try {
@@ -407,6 +427,7 @@ class DefectNotificationController extends Controller
      */
     public function show(Request $request, string $id)
     {
+       
         $defectNotification = DefectNotification::findOrFail($id);
        
         $currNumber = $request->has('revisionNumber');
@@ -416,6 +437,8 @@ class DefectNotificationController extends Controller
             $defectNotification = DefectNotificationHistory::where('source_id', $id)
                 ->where('revision_number', $currNumber)->first();
         }
+
+      
       
 
         $parentURL = "plant_defect-noti";
@@ -442,10 +465,22 @@ class DefectNotificationController extends Controller
             $revision_number
         );
 
+       
              
         $revNo = $request->has('revisionNumber') 
             ? intval($request->revisionNumber) 
             : $defectNotification->revision_number;
+        
+        // If a specific revision is requested, fetch that revision's data
+        if ($request->has('revisionNumber') && $revNo != $defectNotification->revision_number) {
+            $revisionDefectNotification = DefectNotification::where('doc_no', $defectNotification->doc_no)
+                ->where('revision_number', $revNo)
+                ->first();
+            
+            if ($revisionDefectNotification) {
+                $defectNotification = $revisionDefectNotification;
+            }
+        }
             
         $approvalHistory = Helper::getApprovalHistory(
             $defectNotification->book_id, 
@@ -454,6 +489,14 @@ class DefectNotificationController extends Controller
             0,
             $defectNotification->created_by
         );
+        
+        // Get all revision numbers for this document for the dropdown
+        $revisionHistory = DefectNotification::where('doc_no', $defectNotification->doc_no)
+            ->select('revision_number')
+            ->orderBy('revision_number', 'desc')
+            ->pluck('revision_number')
+            ->toArray();
+       
 
         $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$defectNotification->document_status] ?? '';
         
@@ -514,6 +557,7 @@ class DefectNotificationController extends Controller
             'revision_number', 
             'currNumber', 
             'approvalHistory',
+            'revisionHistory',
             'categories',
             'equipments', 
             'defectTypes',
@@ -549,11 +593,13 @@ class DefectNotificationController extends Controller
             $buttons['amend'] = false;
 
 
-        $defectTypes = ErpDefectType::select('id', 'name')->get();
+        $defectTypes = ErpDefectType::select('id', 'name')->where('status','Active')->get();
         $equipments = ErpEquipment::select('id', 'name')->get();
         $categories = Category::orderBy('id', 'desc')
              ->with('parent', 'subCategories')
              ->where('type', strtolower(ConstantHelper::EQUIPMENT))
+             ->where('status','Active')
+             ->where('type','Equipment')
              ->get();
         
         $parentURL = "plant_defect-noti";
@@ -581,6 +627,7 @@ class DefectNotificationController extends Controller
             });
 
         $locations = \App\Helpers\InventoryHelper::getAccessibleLocations();
+
 
         $data = $defectNotification;
         $userType = Helper::userCheck();
@@ -613,6 +660,7 @@ class DefectNotificationController extends Controller
      */
     public function update(Request $request, string $id)
     {
+        // dd($request->all());
         $defectNotification = DefectNotification::findOrFail($id);
         $rules = [
             'document_date' => 'required|date',
@@ -633,14 +681,7 @@ class DefectNotificationController extends Controller
 
         // Add file validation if file is uploaded
         if ($request->hasFile('attachment')) {
-            $rules['attachment'] = 'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240'; // 10MB max
-        }
-
-        if ($request->hasFile('attachment')) {
-            $file = $request->file('attachment');
-            $fileName = 'defect_' . time() . '.' . $file->getClientOriginalExtension();
-            $path = $file->storeAs('defect_notifications/documents', $fileName, 'public');
-            $defectNotification->attachment = $path;
+            $rules['attachment'] = 'file|mimes:pdf,doc,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max
         }
 
         $request->validate($rules);
@@ -695,43 +736,42 @@ class DefectNotificationController extends Controller
                     get_class($defectNotification)
                 );
                 
-                // Update defect notification status and revision
-                $defectNotification->document_status = ConstantHelper::DRAFT;
+                // Update defect notification revision and set status to SUBMITTED (following payment voucher pattern)
+                $defectNotification->document_status = ConstantHelper::SUBMITTED;
                 $defectNotification->revision_number = $defectNotification->revision_number + 1;
-                $defectNotification->approval_level = 1;
                 $defectNotification->revision_date = now();
                 $defectNotification->save();
 
                 DB::commit();
-                
-                return redirect()
-                    ->route('defect-notification.index')
-                    ->with('success', 'Amendment submitted successfully! Document has been reset to draft status.');
             }
             
 
-            $defectNotification->fill($request->except(['_token', '_method', 'upload_document']));
+            // Handle file upload if present
+            if ($request->hasFile('attachment')) {
+                // Delete old file if exists
+                if ($defectNotification->attachment && \Storage::disk('public')->exists($defectNotification->attachment)) {
+                    \Storage::disk('public')->delete($defectNotification->attachment);
+                }
+                
+                $file = $request->file('attachment');
+                $fileName = 'defect_' . time() . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('defect_notifications/documents', $fileName, 'public');
+                $defectNotification->attachment = $path;
+            }
+
+            $defectNotification->fill($request->except(['_token', '_method', 'upload_document', 'attachment']));
             
         
             $defectNotification->save();
+            $defectNotification = DefectNotification::find($id);
+           
+            if ($defectNotification->document_status == ConstantHelper::SUBMITTED) {
+                $approveDocument = Helper::approveDocument($defectNotification->book_id, $defectNotification->id, $defectNotification->revision_number, $defectNotification->remarks, $request->file('attachment'), 1, 'submit', 0, get_class($defectNotification));
+                $defectNotification->document_status = $approveDocument['approvalStatus'] ?? ConstantHelper::SUBMITTED;
+                $defectNotification->save();
 
-             if ($defectNotification->document_status != ConstantHelper::DRAFT) {
-                    $doc = Helper::approveDocument(
-                        $defectNotification->book_id,
-                        $defectNotification->id,
-                        $defectNotification->revision_number,
-                        "",
-                        null,
-                        1,
-                        'submit',
-                        0,
-                        get_class($defectNotification)
-                    );
-
-                    $defectNotification->document_status = $doc['approvalStatus'] ?? $defectNotification->document_status;
-                    $defectNotification->save();
-                }
-
+            }
+            
             DB::commit();
             
             return redirect()
@@ -750,6 +790,224 @@ class DefectNotificationController extends Controller
     }
 
 
+
+    /**
+     * Handle amendment request
+     */
+    public function amendment(Request $request, $id)
+    {
+        DB::beginTransaction();
+        try {
+            $defectNotification = DefectNotification::find($id);
+            if (!$defectNotification) {
+                return response()->json(['data' => [], 'message' => "Defect Notification not found.", 'status' => 404]);
+            }
+
+            $revisionData = [
+                ['model_type' => 'header', 'model_name' => 'DefectNotification', 'relation_column' => '']
+            ];
+
+            $a = Helper::documentAmendment($revisionData, $id);
+            if ($a) {
+                Helper::approveDocument($defectNotification->book_id, $defectNotification->id, $defectNotification->revision_number, 'Amendment', $request->file('attachment'), $defectNotification->approval_level, 'amendment');
+
+                $defectNotification->document_status = ConstantHelper::DRAFT;
+                $defectNotification->revision_number = $defectNotification->revision_number + 1;
+                $defectNotification->revision_date = now();
+                $defectNotification->save();
+            }
+
+            DB::commit();
+            return response()->json(['data' => [], 'message' => "Amendment processed successfully.", 'status' => 200]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Amendment error: ' . $e->getMessage());
+            return response()->json(['data' => [], 'message' => "Amendment failed: " . $e->getMessage(), 'status' => 500]);
+        }
+    }
+
+    /**
+     * Handle approval/rejection of defect notification
+     */
+    public function approval(Request $request)
+    {
+        $request->validate([
+            'remarks' => 'nullable|string|max:255',
+            'action_type' => 'required|in:approve,reject',
+            'id' => 'required|exists:erp_defect_notifications,id',
+            'attachment.*' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png,xls,xlsx|max:5120' // 5MB max per file
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $defectNotification = DefectNotification::find($request->id);
+            if (!$defectNotification) {
+                return response()->json([
+                    'message' => 'Defect Notification not found.',
+                    'error' => 'Document not found'
+                ], 404);
+            }
+
+            $bookId = $defectNotification->book_id;
+            $docId = $defectNotification->id;
+            $docValue = 0; // Defect notifications typically don't have monetary value
+            $remarks = $request->remarks;
+            $attachments = $request->file('attachment');
+            $currentLevel = $defectNotification->approval_level ?? 1;
+            $revisionNumber = $defectNotification->revision_number ?? 0;
+            $actionType = $request->action_type;
+            $modelName = get_class($defectNotification);
+            
+
+            $approveDocument = Helper::approveDocument(
+                $bookId,
+                $docId,
+                $revisionNumber,
+                $remarks,
+                $attachments,
+                $currentLevel,
+                $actionType,
+                get_class($defectNotification)
+            );
+
+           
+
+            
+            $defectNotification->approval_level = $approveDocument['nextLevel'];
+            $defectNotification->document_status = $approveDocument['approvalStatus'];
+            $defectNotification->save();
+
+            DB::commit();
+            return response()->json([
+                'message' => "Document {$actionType}d successfully!",
+                'data' => $defectNotification,
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("Error occurred while {$actionType} document: " . $e->getMessage());
+            return response()->json([
+                'message' => "Error occurred while {$actionType} document: " . $e->getMessage(),
+                'status' => 'error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Revoke defect notification
+     */
+    public function revoke(Request $request)
+    {
+        DB::beginTransaction();
+        try {
+            $defectNotification = DefectNotification::find($request->id);
+
+            if (!$defectNotification) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No Document found'
+                ]);
+            }
+
+            // Strict validation: once amended, cannot be revoked
+            if ($defectNotification->revision_number > 0) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'This document has already been amended and cannot be revoked.',
+                ]);
+            }
+
+            $revoke = Helper::approveDocument(
+                $defectNotification->book_id,
+                $defectNotification->id,
+                $defectNotification->revision_number,
+                '',
+                null,
+                1,
+                ConstantHelper::REVOKE,
+                0,
+                get_class($defectNotification)
+            );
+
+            if ($revoke['message']) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $revoke['message'],
+                ]);
+            }
+
+            $defectNotification->document_status = $revoke['approvalStatus'];
+            $defectNotification->save();
+
+            DB::commit();
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Revoked successfully',
+            ]);
+
+        } catch (\Exception $ex) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => $ex->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Cancel defect notification
+     */
+    public function cancel(Request $request)
+    {
+        DB::beginTransaction();
+        try {
+            $defectNotification = DefectNotification::find($request->id);
+            if (isset($defectNotification)) {
+                $cancel = Helper::approveDocument(
+                    $defectNotification->book_id, 
+                    $defectNotification->id, 
+                    $defectNotification->revision_number, 
+                    '', 
+                    null, 
+                    1, 
+                    ConstantHelper::CANCEL, 
+                    0, 
+                    get_class($defectNotification)
+                );
+                
+                if ($cancel['message']) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => $cancel['message'],
+                    ]);
+                } else {
+                    $defectNotification->document_status = ConstantHelper::CANCEL;
+                    $defectNotification->save();
+                    DB::commit();
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => 'Canceled successfully',
+                    ]);
+                }
+            } else {
+                DB::rollBack();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No Document found'
+                ]);
+            }
+        } catch (\Exception $ex) {
+            DB::rollBack();
+            return response()->json([
+                'status' => 'error',
+                'message' => $ex->getMessage()
+            ]);
+        }
+    }
 
     /**
      * Remove the specified resource from storage.

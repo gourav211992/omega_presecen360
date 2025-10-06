@@ -2982,6 +2982,8 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('plant/maint-bom/{id}/amendment', [MaintBomController::class, 'amendment'])
     ->name('maint-bom.amendment');
     Route::get('plant/maint-bom/search-items', [MaintBomController::class, 'searchItems'])->name('maint-bom.search-items');
+    Route::get('plant/maint-bom/get-series', [MaintBomController::class, 'getSeries'])->name('maint-bom.get-series');
+    Route::get('plant/maint-bom/get-bom-names', [MaintBomController::class, 'getBomNames'])->name('maint-bom.get-bom-names');
     Route::resource('plant/maint-bom', MaintBomController::class)->names([
         'index' => 'maint-bom.index',
         'create' => 'maint-bom.create',
@@ -3025,6 +3027,10 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('plant/defect-noti/filter', [DefectNotificationController::class, 'filter'])->name('defect-notification.filter');
     Route::get('plant/defect-noti/{id}/get', [DefectNotificationController::class, 'getDefectNotification'])->name('defect-notification.get');
     Route::post('plant/defect-noti/get-checklists', [DefectNotificationController::class, 'getChecklistsByMaintenanceType'])->name('defect-notification.get-checklists');
+    Route::post('plant/defect-noti/{id}/amendment', [DefectNotificationController::class, 'amendment'])->name('defect-notification.amendment');
+    Route::post('approveDefectNotification', [DefectNotificationController::class, 'approval'])->name('approveDefectNotification');
+    Route::get('defect-notification/cancel', [DefectNotificationController::class, 'cancel'])->name('defect-notification.cancel.document');
+    Route::get('defect-notification/revoke', [DefectNotificationController::class, 'revoke'])->name('defect-notification.revoke.document');
 
     Route::resource('plant/defect-noti', DefectNotificationController::class)
         ->names([

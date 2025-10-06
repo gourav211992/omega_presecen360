@@ -28,7 +28,6 @@
                 </div>
             </div>
             <div class="content-body">
-                 
                 
 				
 				<section id="basic-datatable">
@@ -43,6 +42,8 @@
                                              <tr>
                                                 <th height="18">#</th>
 												<th>Date</th>
+												<th>Series</th>
+												<th>Doc No.</th>
 												<th>Equipment</th>
 												<th>Category</th>
 												<th>Location</th>
@@ -50,6 +51,7 @@
 												<th>Problem</th>
 												<th>Priority</th>
 												<th class="text-end">Status</th>
+												<th class="text-end">Action</th>
 										  </tr>
 											</thead>
 											<tbody>
@@ -130,127 +132,136 @@
 	</div>
 
 @endsection
+
+@section('styles')
+<style>
+    #defect-notifications-table td:nth-child(2) {
+        white-space: nowrap !important;
+        min-width: 100px;
+    }
+    #defect-notifications-table td:nth-child(3) {
+        white-space: nowrap !important;
+        min-width: 120px;
+    }
+    #defect-notifications-table td:nth-child(4) {
+        white-space: nowrap !important;
+        min-width: 100px;
+        text-align: center !important;
+    }
+    .datatables-basic td {
+        vertical-align: middle;
+    }
+    .datatables-basic th {
+        text-align: center;
+        vertical-align: middle;
+    }
+</style>
+@endsection
+
 @section('scripts')
-   @section('scripts')
-    <script type="text/javascript" src="{{ asset('assets/js/modules/finance-table.js') }}"></script>
-    <script>
-       $(function() {
-        const dt = initializeBasicDataTable('.datatables-basic', 'Maintenance BOM');
-        $('div.head-label').html('<h6 class="mb-0">Maintenance BOM</h6>');
-    });
+<script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
+<script>
+    function showToast(icon, title) {
+        const Toast = Swal.mixin({
+            toast: true,
+            position: "top-end",
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.onmouseenter = Swal.stopTimer;
+                toast.onmouseleave = Swal.resumeTimer;
+            },
+        });
+        Toast.fire({
+            icon,
+            title
+        });
+    }
 
+    @if (session('success'))
+        showToast("success", "{{ session('success') }}");
+    @endif
 
+    @if (session('error'))
+        showToast("error", "{{ session('error') }}");
+    @endif
 
-        function showToast(icon, title) {
-            const Toast = Swal.mixin({
-                toast: true,
-                position: "top-end",
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true,
-                didOpen: (toast) => {
-                    toast.onmouseenter = Swal.stopTimer;
-                    toast.onmouseleave = Swal.resumeTimer;
-                },
-            });
-            Toast.fire({
-                icon,
-                title
-            });
-        }
+    @if ($errors->any())
+        showToast('error',
+            "@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach"
+        );
+    @endif
 
-        @if (session('success'))
-            showToast("success", "{{ session('success') }}");
-        @endif
-
-        @if (session('error'))
-            showToast("error", "{{ session('error') }}");
-        @endif
-
-
-        @if ($errors->any())
-            showToast('error',
-                "@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach"
-            );
-        @endif
-
-        $(document).ready(function() {
-            // Check if DataTable is already initialized and destroy it
-            if ($.fn.DataTable.isDataTable('#defect-notifications-table')) {
-                $('#defect-notifications-table').DataTable().destroy();
-            }
-
-            // Initialize Flatpickr for date range filter
-            $('#fp-range').flatpickr({
-                mode: 'range',
-                dateFormat: 'Y-m-d',
-                onChange: function(selectedDates, dateStr, instance) {
-                    if (typeof defectNotificationsTable !== 'undefined') {
-                        defectNotificationsTable.ajax.reload();
-                    }
-                }
-            });
-
-            // Initialize DataTable
-            var defectNotificationsTable = $('#defect-notifications-table').DataTable({
-                processing: true,
-                serverSide: true,
-                responsive: true,
-                ajax: {
-                    url: '{{ route("defect-notification.ajax-data") }}',
-                    data: function(d) {
-                        // Add date range filter
-                        var dateRange = $('#fp-range').val();
-                        if (dateRange) {
-                            var dates = dateRange.split(' to ');
-                            if (dates.length === 2) {
-                                d.start_date = dates[0];
-                                d.end_date = dates[1];
-                            }
-                        }
-                    }
-                },
-                columns: [
-                    { data: 0, name: 'id', orderable: false, searchable: false }, // Row number
-                    { data: 1, name: 'document_date' },
-                    { data: 2, name: 'equipment.name', defaultContent: '-', orderable: false },
-                    { data: 3, name: 'category', orderable: true },
-                    { data: 4, name: 'location.name', defaultContent: '-', orderable: false },
-                    { data: 5, name: 'defect_type', orderable: true },
-                    { data: 6, name: 'problem', orderable: true },
-                    { data: 7, name: 'priority', orderable: true },
-                    { data: 8, name: 'document_status', orderable: false, searchable: false }
-                ],
-                order: [[1, 'desc']], // Order by date column
-                pageLength: 25,
-                lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "All"]],
-                language: {
-                    processing: '<div class="spinner-border text-primary" role="status"><span class="sr-only">Loading...</span></div>',
-                    emptyTable: 'No defect notifications found',
-                    zeroRecords: 'No matching defect notifications found'
-                },
-                drawCallback: function(settings) {
-                    // Re-initialize Feather icons after table draw
-                    if (typeof feather !== 'undefined') {
-                        feather.replace();
-                    }
-                }
-            });
-
-            // Apply filter when modal is closed with date range
-            $('#filter').on('hidden.bs.modal', function() {
+    $('#defect-notifications-table').DataTable({
+        processing: true,
+        serverSide: true,
+        colReorder: true,
+        ajax: {
+            url: '{{ route("defect-notification.ajax-data") }}',
+            type: 'GET',
+            data: function(d) {
+                // Add date range filter
                 var dateRange = $('#fp-range').val();
                 if (dateRange) {
-                    defectNotificationsTable.ajax.reload();
+                    var dates = dateRange.split(' to ');
+                    if (dates.length === 2) {
+                        d.start_date = dates[0];
+                        d.end_date = dates[1];
+                    }
                 }
-            });
+            }
+        },
+        columns: [
+            { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
+            { data: 'document_date', name: 'document_date', searchable: true },
+            { data: 'series', name: 'book_id', searchable: true },
+            { data: 'document_number', name: 'doc_no', searchable: true },
+            { data: 'equipment', name: 'equipment.name', searchable: true },
+            { data: 'category', name: 'category.name', searchable: true },
+            { data: 'location', name: 'location.store_name', searchable: true },
+            { data: 'defect_type', name: 'defectType.name', searchable: true },
+            { data: 'problem', name: 'problem', searchable: true },
+            { data: 'priority', name: 'priority', searchable: true },
+            { data: 'status', name: 'document_status', orderable: false, searchable: true },
+            { data: 'action', name: 'action', orderable: false, searchable: false }
+        ],
+        order: [[3, 'desc']], // sort by document_number
+        pageLength: 10,
+        lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
+        dom: '<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-3 dt-action-buttons text-end"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
+        buttons: [
+            // export buttons can be added here if needed
+        ],
+        language: {
+            processing: '<div class="spinner-border text-primary" role="status"><span class="sr-only">Loading...</span></div>',
+            emptyTable: 'No defect notifications found',
+            zeroRecords: 'No matching defect notifications found'
+        },
+        drawCallback: function(settings) {
+            // Re-initialize Feather icons after table draw
+            if (typeof feather !== 'undefined') {
+                feather.replace();
+            }
+        }
+    });
 
-            // Clear filter functionality
-            window.clearDateFilter = function() {
-                $('#fp-range').val('');
-                defectNotificationsTable.ajax.reload();
-            };
-        });
-    </script>
+    // Initialize Flatpickr for date range filter
+    $('#fp-range').flatpickr({
+        mode: 'range',
+        dateFormat: 'Y-m-d',
+        onChange: function(selectedDates, dateStr, instance) {
+            $('#defect-notifications-table').DataTable().ajax.reload();
+        }
+    });
+
+    // Apply filter when modal is closed with date range
+    $('#filter').on('hidden.bs.modal', function() {
+        var dateRange = $('#fp-range').val();
+        if (dateRange) {
+            $('#defect-notifications-table').DataTable().ajax.reload();
+        }
+    });
+</script>
  
 @endsection

@@ -371,10 +371,18 @@
 											<div class="col-md-4">
 												<div class="mb-1">
 													<label class="form-label">Upload Document</label>
-													<input type="file" name="document" class="form-control">
-													@if($data->document)
-														<small class="text-muted">Current: {{ $data->document }}</small>
-													@endif
+													<div class="d-flex align-items-center">
+														<input type="file" name="document" class="form-control" 
+															   accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" />
+														@if($data->document)
+														<div class="file-upload-preview ms-2" style="cursor: pointer;">
+															<div class="image-uplodasection expenseadd-sign">
+																<i onclick="window.open('{{ asset('storage/' . $data->document) }}', '_blank')" data-feather="file-text"></i>
+															</div>
+														</div>
+														@endif
+													</div>
+													<span class="text-primary small">{{__("message.attachment_caption")}}</span>
 												</div>
 											</div>
 

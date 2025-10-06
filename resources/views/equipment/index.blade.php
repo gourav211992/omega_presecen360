@@ -179,17 +179,17 @@ var dt_basic = $('#equipmentsTable').DataTable({
     ],
     columns: [
         {data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false},
-        {data: 'created_at', name: 'created_at'},
+        {data: 'created_at', name: 'created_at', width: '100px', className: 'text-nowrap'},
         {data: 'equipment', name: 'equipment'},
         {data: 'organization', name: 'organization'},
         {data: 'location', name: 'location'},
         {data: 'alias', name: 'alias', searchable: false},
         {data: 'category', name: 'category'},
         {data: 'maintenance_type', name: 'maintenance_type'},
-        {data: 'checklists', orderable: false, searchable: false},
-        {data: 'last_date', orderable: false, searchable: false},
-        {data: 'due_date', orderable: false, searchable: false},
-        {data: 'status', orderable: false, searchable: false},
+        {data: 'checklists', orderable: false, searchable: true},
+        {data: 'last_date', orderable: false, searchable: true},
+        {data: 'due_date', orderable: false, searchable: true},
+        {data: 'status', orderable: false, searchable: true},
         {data: 'action', orderable: false, searchable: false}
     ],
     drawCallback: function () {

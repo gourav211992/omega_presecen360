@@ -35,9 +35,9 @@
                         </div>
                         <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
                             <div class="form-group breadcrumb-right">
-                                <button onClick="javascript: history.go(-1)"
-                                    class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i>
-                                    Back</button>
+                            <a href="{{ route('equipment.index') }}" class="btn btn-secondary btn-sm" id="back">
+                                        <i data-feather="arrow-left-circle"></i> Back
+                                    </a>
                                 {{-- <button class="btn btn-outline-primary btn-sm mb-50 mb-sm-0"><i
                                         data-feather='save'></i> Save as
                                     Draft</button> --}}
@@ -182,6 +182,7 @@
                                                         <input type="text" class="form-control" name="description">
                                                     </div>
                                                 </div>
+
                                             </div>
                                             <div class="col-md-4" style="display: none;">
                                                 <div
@@ -345,8 +346,8 @@
                                                 <div class="col-md-4">
                                                     <div class="mb-1">
                                                         <label class="form-label">Upload Document</label>
-                                                        <input type="file" class="form-control" name="upload_document" accept=".png,.jpeg,.jpg,.xls,.docx,.pdf">
-                                                        <small class="form-text text-muted">Valid File Types and Min/Max File Size for attachments - Accept only .PNG, .JPEG, .JPG, XLS, .DOCX, and .PDF and not more than 5MB in size</small>
+                                                        <input type="file" name="upload_document" class="form-control">
+                                                        <span class="text-primary small">Accept only .PNG, .JPEG, .JPG , XLS, .DOCX, and .PDF and not more than 5MB in size</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -613,9 +614,63 @@
         .hidden {
             display: none;
         }
+        
+        .file-size-info {
+            color: #28a745;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
     </style>
     <script>
         $(document).ready(function () {
+            // File size validation (5MB = 5 * 1024 * 1024 bytes)
+            // Allowed file types: PNG, JPEG, JPG, XLS, DOCX, PDF
+            const MAX_FILE_SIZE = 5 * 1024 * 1024;
+            const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf'];
+            
+            $('input[name="upload_document"]').on('change', function() {
+                const file = this.files[0];
+                const fileInput = $(this);
+                
+                // Remove previous messages
+                fileInput.siblings('.file-size-info').remove();
+                fileInput.removeClass('is-invalid');
+                
+                if (file) {
+                    const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                    
+                    // Check file type
+                    if (!ALLOWED_TYPES.includes(file.type)) {
+                        fileInput.addClass('is-invalid');
+                        this.value = ''; // Clear the file selection
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Invalid File Type',
+                            text: `Accept only .PNG, .JPEG, .JPG , XLS, .DOCX, and .PDF files.`,
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#ea5455'
+                        });
+                        return;
+                    }
+                    
+                    // Check file size
+                    if (file.size > MAX_FILE_SIZE) {
+                        // File too large - show error and clear selection
+                        fileInput.addClass('is-invalid');
+                        this.value = ''; // Clear the file selection
+                        
+                        // Show SweetAlert error
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'File Too Large',
+                            text: `File size must not exceed 5MB. Selected file "${file.name}" is ${fileSizeMB}MB.`,
+                            confirmButtonText: 'OK',
+                            confirmButtonColor: '#ea5455'
+                        });
+                    } 
+                }
+            });
 
             var allLocations = @json($locations);
             // var allCategories = @json($categories);
@@ -2059,4 +2114,5 @@
 
 
     </script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 @endsection

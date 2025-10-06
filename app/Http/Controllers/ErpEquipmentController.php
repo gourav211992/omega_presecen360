@@ -54,8 +54,37 @@ class ErpEquipmentController extends Controller
                               ->limit(1)
                       ]);
             }
-        ])
-        ->orderBy('created_at', 'desc'); 
+        ]);
+
+        // Add search functionality
+        if ($request->has('search') && !empty($request->search['value'])) {
+            $searchValue = trim($request->search['value']);
+            $equipment->where(function($query) use ($searchValue) {
+                $query->where('name', 'like', "%{$searchValue}%")
+                      ->orWhere('alias', 'like', "%{$searchValue}%")
+                      ->orWhere('document_status', 'like', "%{$searchValue}%")
+                      ->orWhereHas('organization', function($q) use ($searchValue) {
+                          $q->where('name', 'like', "%{$searchValue}%");
+                      })
+                      ->orWhereHas('location', function($q) use ($searchValue) {
+                          $q->where('store_name', 'like', "%{$searchValue}%");
+                      })
+                      ->orWhereHas('category', function($q) use ($searchValue) {
+                          $q->where('name', 'like', "%{$searchValue}%");
+                      });
+
+                // Handle special status search terms (both exact and partial matches)
+                $searchLower = strtolower($searchValue);
+                // if (strpos('approved', $searchLower) !== false) {
+                //     $query->orWhere('document_status', ConstantHelper::APPROVAL_NOT_REQUIRED);
+                // }
+                // if (strpos('draft', $searchLower) !== false) {
+                //     $query->orWhereNull('document_status')->orWhere('document_status', 'draft');
+                // }
+            });
+        }
+
+        $equipment->orderBy('created_at', 'desc'); 
 
         // Process equipment data to create rows for DataTables
         $data = collect();
@@ -212,7 +241,7 @@ class ErpEquipmentController extends Controller
         $checklists = InspectionChecklist::where('type','maintenance')->get();
 
         $items = Item::get();
-        $categories = Category::where('type', 'Equipment')->get();
+        $categories = Category::where('type', 'Equipment')->where('status','Active')->get();
         return view('equipment.create', compact('maintenanceBOM','series', 'organizationId', 'userOrganizations', 'locations', 'categories', 'maintenanceTypes', 'items', 'checklists', 'fixedAssetRegistration','dataTypes'));
     }
 
@@ -243,7 +272,6 @@ class ErpEquipmentController extends Controller
                 'name' => $request->name,
                 'alias' => $request->alias,
                 'description' => $request->description,
-                'upload_document' => null, // Will handle file upload below
                 'final_remarks' => $request->final_remarks,
                 'book_id' => $book_id, // Or get from elsewhere
                 'document_status' => $request->status, // From request
@@ -256,12 +284,23 @@ class ErpEquipmentController extends Controller
                 $equipment->save();
             }
 
-            // If document uploaded
+            // Handle document upload
             if ($request->hasFile('upload_document')) {
                 $file = $request->file('upload_document');
-                $path = $file->store('equipment_documents', 'public');
-                $equipment->upload_document = $path;
-                $equipment->save();
+                
+                try {
+                    $fileName = time() . '_' . $file->getClientOriginalName();
+                    $filePath = $file->storeAs('equipment_documents', $fileName, 'public');
+                    
+                    $equipment->upload_document = $fileName;
+                    $equipment->save();
+                    
+                    \Log::info('File uploaded successfully', ['filename' => $fileName, 'path' => $filePath]);
+                } catch (\Exception $e) {
+                    \Log::error('File upload failed: ' . $e->getMessage());
+                    DB::rollBack();
+                    return redirect()->back()->with('error', 'File upload failed: ' . $e->getMessage());
+                }
             }
 
             // Maintenance Details
@@ -400,8 +439,6 @@ class ErpEquipmentController extends Controller
             
         }
 
-       
-
         $userType = Helper::userCheck();
 
         $buttons = Helper::actionButtonDisplay(
@@ -420,10 +457,19 @@ class ErpEquipmentController extends Controller
         $maintenanceTypes = ErpMaintenanceType::where('status','Active')->get(['id', 'name']);
         $maintenanceBOM = PlantMaintBom::all(['id', 'bom_name as name']);
         $items = Item::get();
-        $categories = Category::where('type', 'Equipment')->get();
+        $categories = Category::where('type', 'Equipment')->where('status','Active')->get();
         $approvalHistory = [];
+       
         if (!empty($equipment->book_id))
             $approvalHistory = Helper::getApprovalHistory($equipment->book_id, $equipment->id, $revNo, 0, $equipment->created_by);
+            Log::info('Approval History Debug', [
+                'book_id' => $equipment->book_id,
+                'equipment_id' => $equipment->id,
+                'revNo' => $revNo,
+                'created_by' => $equipment->created_by,
+                'approvalHistory_count' => count($approvalHistory),
+                'approvalHistory' => $approvalHistory
+            ]);
 
 
         $checklists = InspectionChecklist::where('type','maintenance')->get();
@@ -436,7 +482,6 @@ class ErpEquipmentController extends Controller
         
         $checkListIds = [];
         $mainChecklistNames = []; // Store main checklist names for display
-
         foreach($checkListData as $checkListItem){
             $checkListDetail = json_decode($checkListItem->checklist_detail);
             if(!empty($checkListDetail->checklist_detail_id)){
@@ -474,16 +519,26 @@ class ErpEquipmentController extends Controller
         ));
     }
 
-    public function update(ErpEquipmentRequest $request, $id)
+    public function update(Request $request, $id)
     {
-        
-        DB::beginTransaction();
-        try {
+        // dd($request->all());
+        // DB::beginTransaction();
+        // try {
             $user = Helper::getAuthenticatedUser();
             $equipment = ErpEquipment::findOrFail($id);
 
+            if ($request->action_type == "amendment") {
+                $revisionData = [
+                    ['model_type' => 'header', 'model_name' => 'ErpEquipment', 'relation_column' => ''],
+                ];
+                Helper::documentAmendment($revisionData, $id);
+                // Refresh equipment to get updated revision number
+                $equipment = ErpEquipment::findOrFail($id);
+                Helper::approveDocument($equipment->book_id, $equipment->id, $equipment->revision_number, $request->amend_remarks, $request->file('amend_attachment'), $equipment->approval_level, 'amendment', 0, get_class($equipment));
+            }
+
             // Update Equipment
-            $equipment->update([
+            $updateData = [
                 'organization_id' => $request->organization_id,
                 'category_id' => $request->category_id,
                 'location_id' => $request->location_id,
@@ -492,20 +547,36 @@ class ErpEquipmentController extends Controller
                 'description' => $request->description,
                 'final_remarks' => $request->final_remarks,
                 'document_status' => $request->status,
-            ]);
+            ];
+
+            $equipment->update($updateData);
 
             if ($equipment->document_status != ConstantHelper::DRAFT) {
-                $doc = Helper::approveDocument($equipment->book_id, $equipment->id, $equipment->revision_number, $request->remarks, null, 1, 'submit', 0, get_class($equipment));
+                $currentRevision = $equipment->revision_number;
+                if ($request->action_type == "amendment") {
+                    $currentRevision = $equipment->revision_number + 1;
+                }
+                $doc = Helper::approveDocument($equipment->book_id, $equipment->id, $currentRevision, $request->remarks, null, 1, 'submit', 0, get_class($equipment));
                 $equipment->document_status = $doc['approvalStatus'] ?? $equipment->document_status;
                 $equipment->save();
             }
 
-            // If document uploaded
+            // Handle document upload
             if ($request->hasFile('upload_document')) {
                 $file = $request->file('upload_document');
-                $path = $file->store('equipment_documents', 'public');
-                $equipment->upload_document = $path;
-                $equipment->save();
+                
+                try {
+                    $fileName = time() . '_' . $file->getClientOriginalName();
+                    $filePath = $file->storeAs('equipment_documents', $fileName, 'public');
+                    
+                    $equipment->upload_document = $fileName;
+                    $equipment->save();
+                    
+                    \Log::info('File uploaded successfully', ['filename' => $fileName, 'path' => $filePath]);
+                } catch (\Exception $e) {
+                    \Log::error('File upload failed: ' . $e->getMessage());
+                    return redirect()->back()->with('error', 'File upload failed: ' . $e->getMessage());
+                }
             }
 
            
@@ -625,10 +696,10 @@ class ErpEquipmentController extends Controller
 
             $message = $request->status == 'draft' ? 'Equipment updated as draft successfully' : 'Equipment updated successfully';
             return redirect()->route("equipment.index")->with('success', $message);
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return back()->withErrors(['error' => $e->getMessage()])->withInput();
-        }
+        // } catch (\Throwable $e) {
+        //     DB::rollBack();
+        //     return back()->withErrors(['error' => $e->getMessage()])->withInput();
+        // }
     }
     public function documentApproval(Request $request)
     {
@@ -668,73 +739,34 @@ class ErpEquipmentController extends Controller
     }
     public function amendment(Request $request, $id)
     {
-        $eqpt_id = ErpEquipment::find($id);
-        if (!$eqpt_id) {
-            return response()->json([
-                "data" => [],
-                "message" => "Equipment not found.",
-                "status" => 404,
-            ]);
-        }
+        // DB::beginTransaction();
+        // try {
+            $equipment = ErpEquipment::find($id);
+            if (!$equipment) {
+                return response()->json(['data' => [], 'message' => "Payment Voucher not found.", 'status' => 404]);
+            }
 
-        $revisionData = [
-            [
-                "model_type" => "header",
-                "model_name" => "ErpEquipment",
-                "relation_column" => "",
-            ],
-            [
-                "model_type" => "detail",
-                "model_name" => "ErpEquipSparepartDetail",
-                "relation_column" => "erp_equipment_id",
-            ],
-            [
-                "model_type" => "detail",
-                "model_name" => "ErpEquipMaintenanceDetail",
-                "relation_column" => "erp_equipment_id",
-            ],
-            [
-                "model_type" => "sub_detail",
-                "model_name" => "ErpEquipMaintenanceChecklist",
-                "relation_column" => "erp_equip_maintenance_id",
-            ],
-        ];
+            $revisionData = [
+                ['model_type' => 'header', 'model_name' => 'ErpEquipment', 'relation_column' => ''],
+            ];
 
-        $a = Helper::documentAmendment($revisionData, $id);
-        DB::beginTransaction();
-        try {
+            $a = Helper::documentAmendment($revisionData, $id);
             if ($a) {
-                Helper::approveDocument(
-                    $eqpt_id->book_id,
-                    $eqpt_id->id,
-                    $eqpt_id->revision_number,
-                    "Amendment",
-                    $request->file("attachment") ?? null,
-                    $eqpt_id->approval_level,
-                    "amendment"
-                );
+                Helper::approveDocument($equipment->book_id, $equipment->id, $equipment->revision_number, 'Amendment', $request->file('attachment') ?? null, $equipment->approvalLevel, 'amendment');
 
-                $eqpt_id->document_status = ConstantHelper::DRAFT;
-                $eqpt_id->revision_number = $eqpt_id->revision_number + 1;
-                $eqpt_id->revision_date = now();
-                $eqpt_id->save();
+                $equipment->document_status = ConstantHelper::DRAFT;
+                $equipment->revision_number = $equipment->revision_number + 1;
+                $equipment->revision_date = now();
+                $equipment->save();
             }
 
             DB::commit();
-            return response()->json([
-                "data" => [],
-                "message" => "Amendment done!",
-                "status" => 200,
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error("Amendment Submit Error: " . $e->getMessage());
-            return response()->json([
-                "data" => [],
-                "message" => "An unexpected error occurred. Please try again.",
-                "status" => 500,
-            ]);
-        }
+            return response()->json(['data' => [], 'message' => "Amendment done!", 'status' => 200]);
+        // } catch (Exception $e) {
+        //     DB::rollBack();
+        //     Log::error('Amendment Submit Error: ' . $e->getMessage());
+        //     return response()->json(['data' => [], 'message' => "An unexpected error occurred. Please try again.", 'status' => 500]);
+        // }
     }
 
     /**

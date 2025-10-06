@@ -39,7 +39,7 @@ class ErpMaintenanceTypeController extends Controller
             }
 
             if ($query->exists()) {
-                $errors[] = "The name <span style=\"color:red\">{$row['name']}</span> has already been added in maintenance types.";
+                $errors[] = "The name has already been added in maintenance types.";
                 continue;
             }
 
@@ -95,7 +95,7 @@ class ErpMaintenanceTypeController extends Controller
             
             if (!empty($usedTypes)) {
                 return response()->json([
-                    'error' => 'Cannot delete maintenance type as it is currently in use.'
+                    'error' => 'The name has already been added in maintenance types.'
                 ], 422);
             }
             

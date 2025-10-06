@@ -15,12 +15,19 @@ class ErpEquipmentRequest extends FormRequest
     }
 
     /**
-     * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules()
     {
+        // For amendments, validate the amendment-specific fields
+        if ($this->action_type === 'amendment') {
+            return [
+                'amend_remarks' => 'required|string|min:3',
+                'amend_attachment' => 'nullable|file|mimes:png,jpeg,jpg,xls,xlsx,doc,docx,pdf|max:5120', // 5MB max
+            ];
+        }
+
         $rules = [
             'organization_id' => 'required|integer',
             'location_id' => 'required|integer',
@@ -28,13 +35,12 @@ class ErpEquipmentRequest extends FormRequest
             'name' => 'required|string|max:255',
             'alias' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            'upload_document' => 'nullable|file|mimes:png,jpeg,jpg,xls,docx,pdf|max:5120',
+            'upload_document' => 'nullable|file|mimes:png,jpeg,jpg,xls,docx,pdf|max:5120', // Single file, 5MB max
             'final_remarks' => 'nullable|string',
             'status' => 'required|in:draft,submitted',
             'doc_number_type' => 'nullable|string',
             'doc_prefix' => 'nullable|string',
             'doc_suffix' => 'nullable|string',
-            'doc_no' => 'nullable|string',
             'book_id' => 'nullable|string',
             'document_number' => 'nullable|string',
 

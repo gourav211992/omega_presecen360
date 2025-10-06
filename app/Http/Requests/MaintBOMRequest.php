@@ -26,20 +26,65 @@ class MaintBOMRequest extends FormRequest
     {
         $isEdit = in_array($this->method(), ['PUT', 'PATCH']);
         $isDraft = $this->input('document_status') === 'draft';
+        $isManual = $this->input('doc_number_type') === 'Manually';
 
-        return [
+        // Log all BOM request fields
+        \Log::info('BOM Request Fields:', [
+            'method' => $this->method(),
+            'is_edit' => $isEdit,
+            'is_draft' => $isDraft,
+            'is_manual' => $isManual,
+            'all_fields' => $this->all(),
+            'files' => $this->allFiles(),
+            'url' => $this->url(),
+            'user_agent' => $this->userAgent(),
+            'ip' => $this->ip()
+        ]);
+
+        $rules = [
             'book_code' => $isEdit ? 'nullable|string' : ($isDraft ? 'nullable|string' : 'required|string'),
             'doc_number_type' => $isEdit ? 'nullable|string' : ($isDraft ? 'nullable|string' : 'required|string'),
             'doc_prefix' => 'nullable|string',
             'doc_suffix' => 'nullable|string',
-            'doc_no' => $isEdit ? 'nullable|integer' : ($isDraft ? 'nullable|integer' : 'required|integer'),
+            // For manual document numbers, doc_no can be null since user enters document_number directly
+            'doc_no' => ($isEdit || $isDraft || $isManual) ? 'nullable|integer' : 'required|integer',
             'document_status' => 'required|string',
             'book_id' => $isEdit ? 'nullable|integer' : ($isDraft ? 'nullable|integer' : 'required|integer'),
-            'document_number' => $isEdit ? 'nullable|string' : ($isDraft ? 'nullable|string' : 'required|string'),
             'document_date' => $isEdit ? 'nullable|date' : ($isDraft ? 'nullable|date' : 'required|date'),
             'bom_name' => 'required|string', // Common field - always required
+            'document' => 'nullable|file|mimes:png,jpeg,jpg,xls,xlsx,docx,pdf|max:5120', // 5MB max
+            
+            // Additional fields that are present in request
+            'spare_parts' => 'nullable|string',
+            'item' => 'nullable|array',
+            'uom' => 'nullable|array', 
+            'qty' => 'nullable|array',
+            'remarks' => 'nullable|string',
         ];
 
+        // Add document number uniqueness validation (skip for draft saves)
+        if (!$isDraft && $this->filled('document_number')) {
+            if ($isEdit) {
+                // For edit, exclude current record from uniqueness check
+                $rules['document_number'] = [
+                    'required',
+                    'string',
+                    Rule::unique('erp_plant_maint_bom', 'document_number')->ignore($this->route('maint_bom'))
+                ];
+            } else {
+                // For create, check uniqueness
+                $rules['document_number'] = [
+                    'required',
+                    'string',
+                    Rule::unique('erp_plant_maint_bom', 'document_number')
+                ];
+            }
+        } else {
+            // Keep original rule for draft or empty document number
+            $rules['document_number'] = $isEdit ? 'nullable|string' : ($isDraft ? 'nullable|string' : 'required|string');
+        }
+
+        return $rules;
     }
 
     /**
@@ -60,6 +105,7 @@ class MaintBOMRequest extends FormRequest
             'document_number' => 'Document Number',
             'document_date' => 'Document Date',
             'bom_name' => 'Bom Name',
+            'document' => 'Document',
         ];
     }
 
@@ -85,10 +131,14 @@ class MaintBOMRequest extends FormRequest
             'book_id.integer' => 'The Book ID must be an integer.',
             'document_number.required' => 'The Document Number field is required.',
             'document_number.string' => 'The Document Number must be a valid string.',
+            'document_number.unique' => 'Document number already exists. Please use a different document number.',
             'document_date.required' => 'The Document Date field is required.',
             'document_date.date' => 'The Document Date must be a valid date.',
             'bom_name.string' => 'The Asset Name must be a valid string.',
             'bom_name.unique' => 'The Asset Name has already been taken.',
+            'document.file' => 'The Document must be a valid file.',
+            'document.mimes' => 'The Document must be a file of type: png, jpeg, jpg, xls, xlsx, docx, pdf.',
+            'document.max' => 'The Document may not be greater than 5MB.',
         ];
     }
 }
