@@ -58,7 +58,7 @@
         @php
           // Extract data from the work order for edit view
           $equipmentDetailsArr = $workOrder && $workOrder->equipment_details ? json_decode($workOrder->equipment_details) : (object)[];
-          $refType = $equipmentDetailsArr->reference_type;
+          $refType = $equipmentDetailsArr->reference_type ?? null;
           $sparePartsData = $workOrder && $workOrder->spare_parts ? json_decode($workOrder->spare_parts, true) : [];
           $checklistData = $workOrder && $workOrder->checklist_data ? json_decode($workOrder->checklist_data, true) : [];
         
@@ -712,8 +712,23 @@
         <div class="row mt-2">
           <div class="col-md-4">
             <div class="mb-1">
-              <label class="form-label">Upload Document</label>
-              <input type="file" name="upload_file" class="form-control">
+              <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
+              <div class="d-flex align-items-center">
+                <input type="file" name="upload_file" id="upload_file" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
+                @if(isset($workOrder->upload_file) && $workOrder->upload_file)
+                <div class="file-upload-preview ms-2" style="cursor: pointer;">
+                  <div class="image-uplodasection expenseadd-sign">
+                    <i onclick="window.open('{{ asset('storage/' . $workOrder->upload_file) }}', '_blank')" data-feather="file-text"></i>
+                  </div>
+                </div>
+                @endif
+              </div>
+              <span class="text-primary small">{{__("message.attachment_caption")}}</span>
+              @if(isset($workOrder->upload_file) && $workOrder->upload_file)
+              <div class="mt-1">
+                <small class="text-muted">Current file: {{ basename($workOrder->upload_file) }}</small>
+              </div>
+              @endif
             </div>
           </div>
           <div class="col-md-12">
@@ -958,7 +973,7 @@
                                 <label class="form-check-label" for="defect_header"></label>
                               </div>
                             </th>
-                            <th>Date</th>
+                            <th style="width: 100px;">Date</th>
                             <th>Series</th>
                             <th>Doc No</th>
                             <th>Equipment</th>
@@ -1486,24 +1501,7 @@
 		});
 	}
 
-	// Final Submit
-	$('#maint-wo-form').on('submit', function(e) {
-		e.preventDefault();
-		let referenceType = $('#reference_type').val();
-		if (!referenceType) {
-			Swal.fire({
-				icon: 'error',
-				title: 'Validation Error',
-				text: 'Please select a reference type (Equipment or Defect Notification)',
-				confirmButtonText: 'OK'
-			});
-			return false;
-		}
-		$('.preloader').show();
-		document.getElementById('document_status').value = 'submitted';
-		updateJsonData();
-		this.submit();
-	});
+	// Final Submit - This handler is now consolidated with the submit button click handler above
 
 	// Toast function
 	function showToast(icon, title) {
@@ -2869,6 +2867,20 @@ function processDefectSelection() {
 			submitBtn.addEventListener('click', function (e) {
 				e.preventDefault(); // Always prevent default first
 				
+				// Validate reference type first
+				let referenceType = $('#reference_type').val();
+				if (!referenceType) {
+					Swal.fire({
+						icon: 'error',
+						title: 'Validation Error',
+						text: 'Please select a reference type (Equipment or Defect Notification)',
+						confirmButtonText: 'OK'
+					});
+					$('#reference_type_error').show();
+					return false;
+				}
+				$('#reference_type_error').hide();
+				
 				if (isAmendmentMode) {
 					// Show amendment modal for amendment mode
 					$("#amendmentSubmitModal").modal('show');
@@ -2881,6 +2893,8 @@ function processDefectSelection() {
 					}
 					console.log('✅ Validation passed - submitting form');
 					$('.preloader').show();
+					document.getElementById('document_status').value = 'submitted';
+					updateJsonData();
 					document.getElementById('maint-wo-form').submit();
 				}
 			});
@@ -2889,6 +2903,20 @@ function processDefectSelection() {
 		// Handle amendment modal submission
 		$(document).on('click', '#confirmAmendmentSubmit', function(e) {
 			e.preventDefault();
+			
+			// Validate reference type first
+			let referenceType = $('#reference_type').val();
+			if (!referenceType) {
+				Swal.fire({
+					icon: 'error',
+					title: 'Validation Error',
+					text: 'Please select a reference type (Equipment or Defect Notification)',
+					confirmButtonText: 'OK'
+				});
+				$('#reference_type_error').show();
+				return false;
+			}
+			$('#reference_type_error').hide();
 			
 			let remarks = $("#amendment_remarks").val().trim();
 			if (!remarks) {
@@ -3131,7 +3159,65 @@ function processDefectSelection() {
 		}, 100);
 	});
 
+	// File validation function
+	function validateFile(input) {
+		const file = input.files[0];
+		if (!file) {
+			console.log('No file selected');
+			return true;
+		}
 
+		console.log('File details:', {
+			name: file.name,
+			size: file.size,
+			type: file.type
+		});
+
+		// Check file size (5MB = 5 * 1024 * 1024 bytes)
+		const maxSize = 5 * 1024 * 1024;
+		const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+		
+		if (file.size > maxSize) {
+			console.log('File too large:', fileSizeMB + 'MB');
+			Swal.fire({
+				icon: 'error',
+				title: 'File Too Large!',
+				text: `File size is ${fileSizeMB}MB. Maximum allowed size is 5MB. Please select a smaller file.`,
+				confirmButtonText: 'OK',
+				confirmButtonColor: '#d33'
+			});
+			input.value = '';
+			return false;
+		}
+
+		// Check file type
+		const allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'docx', 'pdf'];
+		const fileExtension = file.name.split('.').pop().toLowerCase();
+		
+		console.log('File extension:', fileExtension);
+
+		if (!allowedExtensions.includes(fileExtension)) {
+			console.log('Invalid file type:', fileExtension);
+			Swal.fire({
+				icon: 'error',
+				title: 'Invalid File Type!',
+				text: 'Only PNG, JPEG, JPG, XLS, XLSX, DOCX, and PDF files are allowed.',
+				confirmButtonText: 'OK',
+				confirmButtonColor: '#d33'
+			});
+			input.value = '';
+			return false;
+		}
+
+		console.log('File validation passed');
+		return true;
+	}
+
+	// Attach file validation to file input
+	$('#upload_file').on('change', function() {
+		console.log('File selected, validating...'); // Debug log
+		validateFile(this);
+	});
 
 </script>
 @endsection

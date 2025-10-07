@@ -47,6 +47,7 @@ class PlantMaintWo extends Model
         'reference_type',
         'equipment_id',
         'maintenance_type_id',
+        'defect_notification_id',
         'updated_by',
         'deleted_by'
     ];
@@ -74,6 +75,11 @@ class PlantMaintWo extends Model
     public function maintenanceType()
     {
         return $this->belongsTo(ErpMaintenanceType::class, 'maintenance_type_id');
+    }
+
+    public function defectNotification()
+    {
+        return $this->belongsTo(DefectNotification::class, 'defect_notification_id');
     }
 
 }

@@ -476,8 +476,9 @@
         <div class="row mt-2">
           <div class="col-md-4">
             <div class="mb-1">
-              <label class="form-label">Upload Document</label>
-              <input type="file" name="upload_file" class="form-control">
+              <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
+              <input type="file" name="upload_file" id="upload_file" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
+              <span class="text-primary small">{{__("message.attachment_caption")}}</span>
             </div>
           </div>
           <div class="col-md-12">
@@ -725,7 +726,7 @@
                                 <label class="form-check-label" for="defect_header"></label>
                               </div>
                             </th>
-                            <th>Date</th>
+                            <th style="width: 100px;">Date</th>
                             <th>Series</th>
                             <th>Doc No</th>
                             <th>Equipment</th>
@@ -2472,20 +2473,84 @@
 			validateStockForRow($row);
 		});
 
+		// File validation function
+		function validateFile(input) {
+			const file = input.files[0];
+			if (!file) {
+				console.log('No file selected');
+				return true;
+			}
+
+			console.log('File details:', {
+				name: file.name,
+				size: file.size,
+				type: file.type
+			});
+
+			// Check file size (5MB = 5 * 1024 * 1024 bytes)
+			const maxSize = 5 * 1024 * 1024;
+			const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+			
+			if (file.size > maxSize) {
+				console.log('File too large:', fileSizeMB + 'MB');
+				Swal.fire({
+					icon: 'error',
+					title: 'File Too Large!',
+					text: `File size is ${fileSizeMB}MB. Maximum allowed size is 5MB. Please select a smaller file.`,
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				input.value = '';
+				return false;
+			}
+
+			// Check file type
+			const allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'docx', 'pdf'];
+			const fileExtension = file.name.split('.').pop().toLowerCase();
+			
+			console.log('File extension:', fileExtension);
+
+			if (!allowedExtensions.includes(fileExtension)) {
+				console.log('Invalid file type:', fileExtension);
+				Swal.fire({
+					icon: 'error',
+					title: 'Invalid File Type!',
+					text: 'Only PNG, JPEG, JPG, XLS, XLSX, DOCX, and PDF files are allowed.',
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				input.value = '';
+				return false;
+			}
+
+			console.log('File validation passed');
+			return true;
+		}
+
+		// Attach file validation to file input
+		$('#upload_file').on('change', function() {
+			console.log('File selected, validating...'); // Debug log
+			validateFile(this);
+		});
+
 		// Form submission validation
 		$(document).on('submit', '#maint-wo-form', function(e) {
 			console.log('🔍 Form submission detected - validating items...');
+			
+			// Validate file first
+			const uploadFileInput = document.getElementById('upload_file');
+			if (uploadFileInput.files.length > 0 && !validateFile(uploadFileInput)) {
+				return; // Stop submission if file validation fails
+			}
+			
 			if (!validateItemRows()) {
 				console.log('❌ Validation failed - preventing form submission');
 				e.preventDefault(); // Prevent form submission
 				return false;
 			}
 			console.log('✅ Validation passed - allowing form submission');
-			$('.preloader').show();
 			return true;
 		});
-
-
 
 	</script>
 @endsection

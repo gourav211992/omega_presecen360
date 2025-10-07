@@ -50,9 +50,11 @@
                         class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
                 @endif
                        
+                @if($buttons['close'])
                 <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light" data-bs-toggle="modal" data-bs-target="#closeModal">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Close
                 </button>
+                @endif
             
                             
 						</div>
@@ -625,12 +627,23 @@
           </div>
         </section>
 
+      
         {{-- Upload + Remarks --}}
         <div class="row mt-2">
           <div class="col-md-4">
             <div class="mb-1">
-              <label class="form-label">Upload Document</label>
-              <input type="file" name="upload_file" class="form-control">
+              <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
+              <div class="d-flex align-items-center">
+                <input type="file" name="upload_file" id="upload_file" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" disabled readonly>
+                @if(isset($workOrder->upload_file) && $workOrder->upload_file)
+                <div class="file-upload-preview ms-2" style="cursor: pointer;">
+                  <div class="image-uplodasection expenseadd-sign">
+                    <i onclick="window.open('{{ asset('storage/' . $workOrder->upload_file) }}', '_blank')" data-feather="file-text"></i>
+                  </div>
+                </div>
+                @endif
+              </div>
+              <span class="text-primary small">{{__("message.attachment_caption")}}</span>
             </div>
           </div>
           <div class="col-md-12">
@@ -831,7 +844,7 @@
                                 <label class="form-check-label" for="defect_header"></label>
                               </div>
                             </th>
-                            <th>Date</th>
+                            <th style="width: 100px;">Date</th>
                             <th>Series</th>
                             <th>Doc No</th>
                             <th>Equipment</th>

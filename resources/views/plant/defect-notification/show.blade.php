@@ -1,4 +1,43 @@
 @extends('layouts.app')
+
+@section('styles')
+<style>
+    /* Force hide all loaders for defect notification show page */
+    .preloader,
+    #erp-overlay-loader {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+    }
+    
+    /* Auto-expand text styles */
+    .auto-expand-text {
+        position: relative;
+    }
+    
+    .auto-expand-text .text-display {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        min-height: 38px;
+        word-wrap: break-word;
+        word-break: break-word;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        font-family: inherit;
+        font-size: 0.875rem;
+        color: #495057;
+    }
+    
+    .auto-expand-text .text-display:empty::before {
+        content: "-";
+        color: #6c757d;
+        font-style: italic;
+    }
+</style>
+@endsection
+
 @section('content')
 
 {{-- If status is DRAFT and not viewing revision history, redirect to edit view --}}
@@ -235,7 +274,10 @@
 													<div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Problem <span class="text-danger">*</span></label>
-                                                            <input type="text" name="problem" value="{{ $defectNotification->problem ?? '' }}" class="form-control" /> 
+                                                            <div class="auto-expand-text">
+                                                                <input type="text" name="problem" value="{{ $defectNotification->problem ?? '' }}" class="form-control" style="display: none;" /> 
+                                                                <div class="text-display">{{ $defectNotification->problem ?? '' }}</div>
+                                                            </div>
                                                         </div>
                                                     </div>
 													
@@ -265,7 +307,7 @@
                                                             <div class="d-flex align-items-center">
                                                                 <input type="file" name="upload_document" id="upload_document" class="form-control" 
                                                                        accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" /> 
-                                                                @if($defectNotification->attachment)
+                                                                @if(isset($defectNotification->attachment) && !empty($defectNotification->attachment))
                                                                 <div class="file-upload-preview ms-2" style="cursor: pointer;">
                                                                     <div class="image-uplodasection expenseadd-sign">
                                                                         <i onclick="window.open('{{ asset('storage/' . $defectNotification->attachment) }}', '_blank')" data-feather="file-text"></i>
@@ -280,7 +322,10 @@
 													<div class="col-md-12">
                                                         <div class="mb-1">
                                                             <label class="form-label">Detailed observations</label>
-                                                            <input type="text" name="detailed_oberservation" class="form-control" value="{{ $defectNotification->detailed_oberservation ?? '' }}" />
+                                                            <div class="auto-expand-text">
+                                                                <input type="text" name="detailed_oberservation" class="form-control" value="{{ $defectNotification->detailed_oberservation ?? '' }}" style="display: none;" />
+                                                                <div class="text-display">{{ $defectNotification->detailed_oberservation ?? '' }}</div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                  </div>
@@ -1152,7 +1197,7 @@
 
 		// Amendment submission following payment voucher pattern
 		$(document).on('click', '#amendmentSubmit', (e) => {
-			let actionUrl = "{{ route('defect-notification.amendment', $defectNotification->id) }}";
+			let actionUrl = "{{ route('defect-notification.amendment', isset($defectNotification->source_id) ? $defectNotification->source_id : $defectNotification->id) }}";
 			fetch(actionUrl, {
 				method: 'POST',
 				headers: {
@@ -1163,7 +1208,7 @@
 				return response.json().then(data => {
 					if (data.status == 200) {
 						// Amendment successful, redirect to edit with amendment parameter
-						let baseEditUrl = "{{ route('defect-notification.edit', $defectNotification->id) }}";
+						let baseEditUrl = "{{ route('defect-notification.edit', isset($defectNotification->source_id) ? $defectNotification->source_id : $defectNotification->id) }}";
 						let url = new URL(baseEditUrl, window.location.origin);
 						url.searchParams.set('amendment', 1);
 						window.location.href = url.toString();
@@ -1187,6 +1232,77 @@
 			$('#amendmentconfirm').modal('hide');
 			$('.preloader').show();
 		});
+
+		// Always hide all loaders when page loads
+		$(document).ready(function() {
+			console.log('Document ready - hiding all loaders');
+			console.log('Preloader elements found:', $('.preloader').length);
+			console.log('ERP overlay loader found:', $('#erp-overlay-loader').length);
+			
+			// Hide both loader elements
+			$('.preloader').hide();
+			$('.preloader').css('display', 'none !important');
+			$('#erp-overlay-loader').hide();
+			$('#erp-overlay-loader').css('display', 'none !important');
+		});
+
+		// Also hide on window load as a fallback
+		$(window).on('load', function() {
+			console.log('Window loaded - hiding all loaders');
+			$('.preloader').hide();
+			$('.preloader').css('display', 'none !important');
+			$('#erp-overlay-loader').hide();
+			$('#erp-overlay-loader').css('display', 'none !important');
+		});
+
+		// Hide all loaders immediately
+		$('.preloader').hide();
+		$('.preloader').css('display', 'none !important');
+		$('#erp-overlay-loader').hide();
+		$('#erp-overlay-loader').css('display', 'none !important');
+
+		// Force hide with timeout as last resort
+		setTimeout(function() {
+			console.log('Timeout - force hiding all loaders');
+			$('.preloader').hide();
+			$('.preloader').css('display', 'none !important');
+			$('#erp-overlay-loader').hide();
+			$('#erp-overlay-loader').css('display', 'none !important');
+			
+			// Check if loaders are still visible and force hide
+			if ($('.preloader').is(':visible')) {
+				console.log('Preloader still visible - applying aggressive hide');
+				$('.preloader').css({
+					'display': 'none !important',
+					'visibility': 'hidden !important',
+					'opacity': '0 !important',
+					'z-index': '-9999 !important'
+				});
+			}
+			
+			if ($('#erp-overlay-loader').is(':visible')) {
+				console.log('ERP overlay loader still visible - applying aggressive hide');
+				$('#erp-overlay-loader').css({
+					'display': 'none !important',
+					'visibility': 'hidden !important',
+					'opacity': '0 !important',
+					'z-index': '-9999 !important'
+				});
+			}
+		}, 100);
+
+		// Additional check after 500ms
+		setTimeout(function() {
+			if ($('.preloader').is(':visible')) {
+				console.log('Preloader still visible after 500ms - final hide attempt');
+				$('.preloader').remove(); // Remove completely as last resort
+			}
+			
+			if ($('#erp-overlay-loader').is(':visible')) {
+				console.log('ERP overlay loader still visible after 500ms - final hide attempt');
+				$('#erp-overlay-loader').remove(); // Remove completely as last resort
+			}
+		}, 500);
 
 		@if (session('success'))
 			$('.preloader').hide();
@@ -1402,6 +1518,7 @@
 			
 			return true;
 		}
+
 	</script>
 
 @endsection
