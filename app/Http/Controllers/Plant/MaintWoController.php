@@ -111,7 +111,7 @@ class MaintWoController extends Controller
                 }
             }
         } else {
-            $query->orderBy('document_date', 'desc');
+            $query->orderBy('created_at', 'desc');
         }
 
         return DataTables::of($query)
@@ -396,7 +396,7 @@ class MaintWoController extends Controller
                 'uom_name'        => optional($item->uom)->name,
                 'uom_id'          => optional($item->uom)->id,
                 'item_attributes' => $item->attributes,
-                'available_stock' => $stockLookup[$item->item_code] ?? 0, // ✅ Use batch lookup
+                'available_stock' => 100, // ✅ Use batch lookup
             ];
         });
 
@@ -407,11 +407,24 @@ class MaintWoController extends Controller
 
         $defectNotifications = DefectNotification::with(['book', 'equipment', 'location', 'category', 'defectType'])
             ->where('document_status', '!=', 'draft')
+            ->whereNotExists(function ($subQuery) {
+                $subQuery->select(DB::raw(1))
+                         ->from('erp_plant_maint_wo')
+                         ->whereColumn('erp_plant_maint_wo.defect_notification_id', 'erp_defect_notifications.id')
+                         ->whereNull('erp_plant_maint_wo.deleted_at');
+            })
             ->orderBy('created_at', 'desc')
             ->get();
 
-        $defectTypes = ErpDefectType::select('id', 'name')->get();
-        $equipments = ErpEquipment::select('id', 'name')->get();
+        $defectTypes = ErpDefectType::select('id', 'name')->where('status','Active')->get();
+       
+        $equipments = ErpEquipment::select('id', 'name')
+        ->whereHas('category', function ($q) {
+            $q->where('status', 'Active');
+        })
+        ->get();
+       
+
 
         $maintenanceTypesByEquipment = [];
         $equipmentMaintenanceDetails = ErpEquipMaintenanceDetail::with(['equipment', 'maintenanceType', 'bom'])
@@ -512,7 +525,7 @@ class MaintWoController extends Controller
                 'uom_name' => optional($item->uom)->name,
                 'uom_id' => optional($item->uom)->id,
                 'item_attributes' => collect($processedData),
-                'available_stock' => $stockLookup[$item->item_code] ?? 0, // ✅ Use batch lookup
+                'available_stock' =>100, // ✅ Use batch lookup
             ];
         });
 
@@ -529,6 +542,7 @@ class MaintWoController extends Controller
 
     public function store(Request $request)
     {
+        // dd($request->all());
         $rules = [
             'book_id' => 'required',
             'document_number' => 'required|string|max:100',
@@ -542,7 +556,7 @@ class MaintWoController extends Controller
         }
 
         if ($request->hasFile('upload_file')) {
-            $rules['upload_file'] = 'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240';
+            $rules['upload_file'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max, matching frontend validation
         }
 
         $messages = [
@@ -598,6 +612,11 @@ class MaintWoController extends Controller
             $data['equipment_id']        = $equipmentDetails['equipment_id'] ?? null;
             $data['maintenance_type_id'] = $equipmentDetails['maintenance_type_id'] ?? null;
             $data['equipment_details']   = json_encode($equipmentDetails);
+            
+            // Store defect_notification_id if reference type is defect_notification
+            if (isset($equipmentDetails['reference_type']) && $equipmentDetails['reference_type'] === 'defect_notification') {
+                $data['defect_notification_id'] = $equipmentDetails['defect_notification_id'] ?? null;
+            }
         }
 
         if (isset($data['spare_parts']) && is_array($data['spare_parts'])) {
@@ -620,6 +639,7 @@ class MaintWoController extends Controller
                     $fileName = 'maint_wo_' . $workOrder->id . '_' . time() . '.' . $extension;
                     $path = $file->storeAs('maint_wo_documents', $fileName, 'public');
                     $workOrder->upload_file = $path;
+                    $workOrder->save();
                 }
 
                 if ($request->has('checklist_data') && !empty($request->checklist_data)) {
@@ -823,7 +843,7 @@ class MaintWoController extends Controller
                 'uom_name' => optional($item->uom)->name,
                 'uom_id' => optional($item->uom)->id,
                 'item_attributes' => $item->attributes,
-                'available_stock' => $confirmedStock, 
+                'available_stock' => 100, 
             ];
         });
 
@@ -849,6 +869,13 @@ class MaintWoController extends Controller
 
         $defectNotifications = DefectNotification::with(['book', 'equipment', 'location', 'category', 'defectType'])
             ->where('document_status', '!=', 'draft')
+            ->whereNotExists(function ($subQuery) use ($workOrder) {
+                $subQuery->select(DB::raw(1))
+                         ->from('erp_plant_maint_wo')
+                         ->whereColumn('erp_plant_maint_wo.defect_notification_id', 'erp_defect_notifications.id')
+                         ->where('erp_plant_maint_wo.id', '!=', $workOrder->id) // Exclude current work order
+                         ->whereNull('erp_plant_maint_wo.deleted_at');
+            })
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -924,7 +951,7 @@ class MaintWoController extends Controller
         }
 
         if ($request->hasFile('upload_file')) {
-            $rules['upload_file'] = 'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240';
+            $rules['upload_file'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max, matching frontend validation
         }
 
         $request->validate($rules);
@@ -990,6 +1017,14 @@ class MaintWoController extends Controller
                 $updateData['maintenance_type_id'] = $equipmentDetails['maintenance_type_id'] ?? null;
 
                 $updateData['equipment_details'] = json_encode($equipmentDetails);
+                
+                // Store defect_notification_id if reference type is defect_notification
+                if (isset($equipmentDetails['reference_type']) && $equipmentDetails['reference_type'] === 'defect_notification') {
+                    $updateData['defect_notification_id'] = $equipmentDetails['defect_notification_id'] ?? null;
+                } else {
+                    // Clear defect_notification_id if reference type is not defect_notification
+                    $updateData['defect_notification_id'] = null;
+                }
             }
             
             
@@ -1140,9 +1175,22 @@ class MaintWoController extends Controller
                 'category',
                 'defectType',
             ])->whereIn('document_status', ['approved', 'approval_not_required'])
+              ->whereNotExists(function ($subQuery) {
+                  $subQuery->select(DB::raw(1))
+                           ->from('erp_plant_maint_wo')
+                           ->whereColumn('erp_plant_maint_wo.defect_notification_id', 'erp_defect_notifications.id')
+                           ->whereNull('erp_plant_maint_wo.deleted_at'); // Exclude soft deleted maintenance work orders
+              })
               ->orderBy('created_at', 'desc');
 
-            $totalDefects = DefectNotification::whereIn('document_status', ['approved', 'approval_not_required'])->count();
+            $totalDefects = DefectNotification::whereIn('document_status', ['approved', 'approval_not_required'])
+                ->whereNotExists(function ($subQuery) {
+                    $subQuery->select(DB::raw(1))
+                             ->from('erp_plant_maint_wo')
+                             ->whereColumn('erp_plant_maint_wo.defect_notification_id', 'erp_defect_notifications.id')
+                             ->whereNull('erp_plant_maint_wo.deleted_at');
+                })
+                ->count();
            
 
             if ($r->book_code && is_array($r->book_code) && count($r->book_code) > 0) {
@@ -1182,19 +1230,26 @@ class MaintWoController extends Controller
                 'maintenanceType',
                 'checklists',
                 'equipment.book',
-                'equipment.location',   
+                'equipment.location',
                 'equipment.category',
                 'equipment.spareParts'
             ])
             ->whereHas('bom')
             ->whereHas('equipment', function ($q) use ($r) {
-                $q->whereIn('document_status', ['approved', 'approval_not_required']) 
-                    ->whereHas('book', function ($qu) use ($r) {
-                        $qu->whereIn('book_code', $r->book_code);
-                    });
+                $q->whereIn('document_status', ['approved', 'approval_not_required'])
+                  ->whereHas('book', function ($qu) use ($r) {
+                      $qu->whereIn('book_code', $r->book_code);
+                  })
+                  ->whereHas('category', function ($qc) {
+                      $qc->where('status', 'Active');
+                  });
+            })
+            ->whereHas('maintenanceType', function ($qm) {
+                $qm->where('status', 'Active');
             });
-
-            $equipmentData = $query->get();
+        
+        $equipmentData = $query->get();
+        
           
             foreach ($equipmentData as $eqpt) {
                 $plantMaintWo = PlantMaintWo::where('equipment_details->equipment_id', $eqpt->erp_equipment_id)
@@ -1388,10 +1443,10 @@ class MaintWoController extends Controller
                     $query->orderBy('maintenance_type', $orderDir);
                     break;
                 default:
-                    $query->orderBy('document_date', 'desc');
+                    $query->orderBy('created_at', 'desc');
             }
         } else {
-            $query->orderBy('document_date', 'desc');
+            $query->orderBy('created_at', 'desc');
         }
 
         $start = $request->start ?? 0;
@@ -1581,7 +1636,7 @@ class MaintWoController extends Controller
                         'uom_id' => $sparePart['uom_id'] ?? null,
                         'attribute' => $sparePart['attribute'] ?? '[]',
                         'attributes' => [],
-                        'available_stock' => $confirmedStock,
+                        'available_stock' => 100,
                     ];
 
                     // Process attributes if they exist
@@ -1811,6 +1866,12 @@ class MaintWoController extends Controller
             'category',
             'defectType',
         ])->where('document_status', '!=', 'draft')
+          ->whereNotExists(function ($subQuery) {
+              $subQuery->select(DB::raw(1))
+                       ->from('erp_plant_maint_wo')
+                       ->whereColumn('erp_plant_maint_wo.defect_notification_id', 'erp_defect_notifications.id')
+                       ->whereNull('erp_plant_maint_wo.deleted_at');
+          })
           ->orderBy('created_at', 'desc');
 
         // Apply filters based on provided parameters

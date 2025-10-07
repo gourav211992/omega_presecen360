@@ -32,6 +32,33 @@ class MaintBomController extends Controller
     }
 
     /**
+     * Check if document number already exists
+     */
+    public function checkDocumentNumber(Request $request)
+    {
+        $documentNumber = $request->get('document_number');
+        $bookId = $request->get('book_id');
+        
+        if (!$documentNumber) {
+            return response()->json(['exists' => false], 200);
+        }
+        
+        // Optimized query - only check existence, no additional data
+        $exists = PlantMaintBom::select('id')
+                              ->where('document_number', $documentNumber)
+                              ->when($bookId, function($query) use ($bookId) {
+                                  return $query->where('book_id', $bookId);
+                              })
+                              ->limit(1)
+                              ->exists();
+        
+        return response()->json([
+            'exists' => $exists,
+            'message' => $exists ? "Document number '{$documentNumber}' already exists." : null
+        ], 200);
+    }
+
+    /**
      * Get data for DataTables server-side processing
      */
 
@@ -39,6 +66,12 @@ class MaintBomController extends Controller
      {
          $query = PlantMaintBom::query()
              ->with(['book:id,book_code,book_name']);
+     
+         // Debug: Log available status values (remove this after debugging)
+         if ($request->get('debug_status')) {
+             $statuses = PlantMaintBom::select('document_status')->distinct()->pluck('document_status');
+             \Log::info('Available BOM statuses: ' . $statuses->toJson());
+         }
      
          if ($request->has('search') && !empty($request->search['value'])) {
              $searchValue = trim($request->search['value']);
@@ -52,7 +85,17 @@ class MaintBomController extends Controller
                    ->orWhere('document_date', 'like', "%{$searchValue}%")
                    ->orWhereRaw("DATE_FORMAT(document_date, '%d-%m-%Y') LIKE ?", ["%{$searchValue}%"])
                    ->orWhereRaw("DATE_FORMAT(document_date, '%d/%m/%Y') LIKE ?", ["%{$searchValue}%"])
-                   ->orWhereRaw("DATE_FORMAT(document_date, '%Y-%m-%d') LIKE ?", ["%{$searchValue}%"]);
+                   ->orWhereRaw("DATE_FORMAT(document_date, '%Y-%m-%d') LIKE ?", ["%{$searchValue}%"])
+                   // Handle "Approved" search - map display text to database values
+                   ->orWhere(function($statusQuery) use ($searchValue) {
+                        $lowerSearchValue = strtolower(trim($searchValue));
+                        
+                        // If searching for "approve" variations, find approval_not_required records
+                        // because frontend shows approval_not_required as "Approved"
+                        if (strpos($lowerSearchValue, 'approv') !== false) {
+                            $statusQuery->where('document_status', 'approval_not_required');
+                        }
+                    });
              });
          }
 
@@ -62,6 +105,7 @@ class MaintBomController extends Controller
         
          return DataTables::of($query)
              ->addIndexColumn()
+
      
             
              ->editColumn('document_date', fn($row) =>

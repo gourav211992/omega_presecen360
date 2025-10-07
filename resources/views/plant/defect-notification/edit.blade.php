@@ -1,4 +1,38 @@
 @extends('layouts.app')
+
+@section('styles')
+<style>
+    /* Expandable input field styles */
+    .expandable-input-container {
+        position: relative;
+    }
+    
+    .expandable-input {
+        min-height: 38px;
+        height: auto;
+        resize: none;
+        overflow: hidden;
+        border: 1px solid #d8d6de;
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        font-family: inherit;
+        font-size: 0.875rem;
+        line-height: 1.4;
+        transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    }
+    
+    .expandable-input:focus {
+        border-color: #7367f0;
+        box-shadow: 0 0 0 0.2rem rgba(115, 103, 240, 0.25);
+        outline: 0;
+    }
+    
+    .expandable-input.is-invalid {
+        border-color: #ea5455;
+    }
+</style>
+@endsection
+
 @section('content')
 
     <!-- BEGIN: Content-->
@@ -75,6 +109,18 @@
                                                         <h4 class="card-title text-theme">Basic Information</h4>
                                                         <p class="card-text">Update the details</p>
                                                     </div> 
+                                                    <div class="text-end">
+                                                        <span class="badge rounded-pill {{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$defectNotification->document_status] ?? ''}} forminnerstatus">
+                                                            <span class="text-dark">Status</span>
+                                                            : <span class="{{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS[$defectNotification->document_status] ?? ''}}">
+                                                                @if ($defectNotification->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED)
+                                                                    Approved
+                                                                @else
+                                                                    {{ ucfirst($defectNotification->document_status) }}
+                                                                @endif
+                                                            </span>
+                                                        </span>
+                                                    </div>
                                                 </div> 
                                             </div> 
 
@@ -196,7 +242,9 @@
 													<div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Problem <span class="text-danger">*</span></label>
-                                                            <input type="text" name="problem" value="{{ $defectNotification->problem ?? '' }}" class="form-control" /> 
+                                                            <div class="expandable-input-container">
+                                                                <textarea name="problem" class="form-control expandable-input" required>{{ $defectNotification->problem ?? '' }}</textarea>
+                                                            </div>
                                                         </div>
                                                     </div>
 													
@@ -222,9 +270,18 @@
 													
 													<div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Attachment</label>
-                                                            <input type="file" name="attachment" id="attachment" class="form-control" 
-                                                                   accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" /> 
+                                                            <label class="form-label"><i data-feather="paperclip"></i> Attachment</label>
+                                                            <div class="d-flex align-items-center">
+                                                                <input type="file" name="attachment" id="attachment" class="form-control" 
+                                                                       accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" /> 
+                                                                @if($defectNotification->attachment)
+                                                                <div class="file-upload-preview ms-2" style="cursor: pointer;">
+                                                                    <div class="image-uplodasection expenseadd-sign">
+                                                                        <i onclick="window.open('{{ asset('storage/' . $defectNotification->attachment) }}', '_blank')" data-feather="file-text"></i>
+                                                                    </div>
+                                                                </div>
+                                                                @endif
+                                                            </div>
                                                             <span class="text-primary small">{{__("message.attachment_caption")}}</span>
                                                         </div>
                                                     </div>
@@ -232,7 +289,9 @@
 													<div class="col-md-12">
                                                         <div class="mb-1">
                                                             <label class="form-label">Detailed observations</label>
-                                                            <input type="text" name="detailed_oberservation" class="form-control" value="{{ $defectNotification->detailed_oberservation ?? '' }}" />
+                                                            <div class="expandable-input-container">
+                                                                <textarea name="detailed_oberservation" class="form-control expandable-input">{{ $defectNotification->detailed_oberservation ?? '' }}</textarea>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                  </div>
@@ -1022,4 +1081,40 @@
 			</div>
 		</div>
 	</div>
+
+<script>
+	$(document).ready(function() {
+		// Auto-expand textarea functionality
+		function autoExpand(textarea) {
+			// Reset height to auto to get the correct scrollHeight
+			textarea.style.height = 'auto';
+			// Set height to scrollHeight to fit content
+			textarea.style.height = textarea.scrollHeight + 'px';
+		}
+
+		// Initialize all expandable inputs on page load
+		$('.expandable-input').each(function() {
+			autoExpand(this);
+		});
+
+		// Auto-expand on input (as user types)
+		$(document).on('input', '.expandable-input', function() {
+			autoExpand(this);
+		});
+
+		// Auto-expand on focus (when user clicks on field)
+		$(document).on('focus', '.expandable-input', function() {
+			autoExpand(this);
+		});
+
+		// Auto-expand on paste
+		$(document).on('paste', '.expandable-input', function() {
+			const textarea = this;
+			setTimeout(function() {
+				autoExpand(textarea);
+			}, 10);
+		});
+	});
+</script>
+
 @endsection

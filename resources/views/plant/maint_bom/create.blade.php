@@ -1651,7 +1651,132 @@
 			return true;
 		}
 
+		// Debounce function to limit API calls
+		let documentCheckTimeout;
+		let lastCheckedValue = '';
+		let isCurrentlyChecking = false;
+		
+		// Optimized document number validation function
+		function checkDocumentNumber() {
+			const documentNumber = document.getElementById('document_number').value.trim();
+			const bookId = document.getElementById('book_id').value;
+			
+			// Only validate if user has typed at least 1 character
+			if (!documentNumber || documentNumber.length < 1) {
+				resetDocumentInputState();
+				lastCheckedValue = '';
+				return;
+			}
+
+			// Don't check if already checking the same value or currently processing
+			if (documentNumber === lastCheckedValue || isCurrentlyChecking) {
+				return;
+			}
+
+			// Clear previous timeout
+			clearTimeout(documentCheckTimeout);
+			
+			// Debounce the API call by 500ms (longer delay for better UX)
+			documentCheckTimeout = setTimeout(() => {
+				performDocumentCheck(documentNumber, bookId);
+			}, 500);
+		}
+		
+		function resetDocumentInputState() {
+			const documentInput = document.getElementById('document_number');
+			documentInput.style.border = '';
+			
+			const existingError = document.getElementById('document-number-error');
+			if (existingError) {
+				existingError.remove();
+			}
+		}
+		
+		function performDocumentCheck(documentNumber, bookId) {
+			const documentInput = document.getElementById('document_number');
+			
+			// Set checking state
+			isCurrentlyChecking = true;
+			lastCheckedValue = documentNumber;
+			
+			// Clear any existing error message
+			resetDocumentInputState();
+
+			// Fast fetch with timeout
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+
+			fetch('{{ route("maint-bom.check-document-number") }}', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+				},
+				body: JSON.stringify({
+					document_number: documentNumber,
+					book_id: bookId
+				}),
+				signal: controller.signal
+			})
+			.then(response => {
+				clearTimeout(timeoutId);
+				return response.json();
+			})
+			.then(data => {
+				// Reset checking state
+				isCurrentlyChecking = false;
+				
+				if (data.exists) {
+					// Create error message element (no red border)
+					const errorDiv = document.createElement('div');
+					errorDiv.id = 'document-number-error';
+					errorDiv.className = 'text-danger small mt-1';
+					errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + data.message;
+					
+					// Insert error message after the input
+					documentInput.parentNode.appendChild(errorDiv);
+					
+					// Show SweetAlert for clear notification
+					Swal.fire({
+						icon: 'error',
+						title: 'Document Number Already Exists',
+						text: data.message,
+						confirmButtonText: 'OK'
+					});
+				}
+			})
+			.catch(error => {
+				clearTimeout(timeoutId);
+				// Reset checking state on error
+				isCurrentlyChecking = false;
+				if (error.name !== 'AbortError') {
+					console.error('Error checking document number:', error);
+				}
+			});
+		}
+
 		document.addEventListener("DOMContentLoaded", function () {
+			// Document number validation
+			const documentNumberInput = document.getElementById('document_number');
+			const bookIdSelect = document.getElementById('book_id');
+			
+			if (documentNumberInput) {
+				// Check on input (real-time as user types) - debounced
+				documentNumberInput.addEventListener('input', checkDocumentNumber);
+				
+				// Also check on blur for final validation
+				documentNumberInput.addEventListener('blur', checkDocumentNumber);
+				
+				// Also check when book_id changes
+				if (bookIdSelect) {
+					bookIdSelect.addEventListener('change', function() {
+						if (documentNumberInput.value.trim()) {
+							checkDocumentNumber();
+						}
+					});
+				}
+			}
+
 			// File input validation - only on change
 			const fileInput = document.querySelector('input[name="document"]');
 			if (fileInput) {

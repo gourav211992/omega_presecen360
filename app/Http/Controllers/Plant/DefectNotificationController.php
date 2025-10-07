@@ -145,6 +145,16 @@ class DefectNotificationController extends Controller
                     ->orWhereRaw("DATE_FORMAT(document_date, '%d-%m-%Y') LIKE ?", ["%{$searchValue}%"])
                     ->orWhereRaw("DATE_FORMAT(document_date, '%d/%m/%Y') LIKE ?", ["%{$searchValue}%"])
                     ->orWhereRaw("DATE_FORMAT(document_date, '%Y-%m-%d') LIKE ?", ["%{$searchValue}%"])
+                    // Handle "Approved" search for approval_not_required status
+                    ->orWhere(function($statusQuery) use ($searchValue) {
+                        $lowerSearchValue = strtolower($searchValue);
+                        $approvedText = 'approved';
+                        
+                        // Check if search term matches "approved" (partial or full)
+                        if (strpos($approvedText, $lowerSearchValue) !== false || strpos($lowerSearchValue, $approvedText) !== false) {
+                            $statusQuery->where('document_status', 'approval_not_required');
+                        }
+                    })
                     ->orWhereHas('book', function($book) use ($searchValue) {
                         $book->where('book_name', 'like', "%{$searchValue}%")
                              ->orWhere('book_code', 'like', "%{$searchValue}%");
