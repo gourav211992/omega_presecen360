@@ -22,6 +22,11 @@
     </style>
 </head>
 <body>
+    @if (isset($eInvoice) && $eInvoice -> cancel_date)
+        @include('components.basic-watermark', [
+            'label' => 'CANCELLED',
+        ])
+    @endif
     <div style="width:700px; font-size: 11px; font-family:Arial;">
     <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
             <tr><td colspan="3" style="width:100%; text-align:center; font-size:18px; font-weight: 900;">Tax Invoice</td></tr>
@@ -84,9 +89,11 @@
                     @endif
                 </td>
                 <td style="border: 1px solid #000;  border-bottom: none; padding: 3px; width: 30%; vertical-align: top;">
-                    <b>Invoice No.:</b>
-                    {{ @$order->book_code . '-' . @$order->document_number }}
-                    
+                    <b>Series:</b>
+                    {{ @$order->book_code }}
+                    <br/>
+                    <b>Invoice No:</b>
+                    {{ @$order->document_number }}
                     @if($order->document_date)
                     <br>
                     <b>Invoice Date:</b>
@@ -245,6 +252,9 @@
                     @if(isset($eInvoice->ack_no))
                         <b>Acknowledgment No : </b>{{ $eInvoice->ack_no ?? '' }}<br>
                     @endif
+                    @if(isset($eInvoice->cancel_date))
+                        <b>IRN Cancelled on : </b>{{ Carbon\Carbon::parse($eInvoice->cancel_date) -> format('d-m-Y h:i A') ?? '' }}<br>
+                    @endif
                     @if(isset($eInvoice->ewb_no))
                         <b>EWB Number: </b>
                         {{ $eInvoice->ewb_no ?? '' }},
@@ -290,11 +300,11 @@
                 </td>
                 <td
                     style="font-weight: bold; padding: 4px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
-                    Quantity
+                    UOM
                 </td>
                 <td
                     style="font-weight: bold; padding: 4px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
-                    UOM
+                    Quantity
                 </td>
                 <td
                     style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
@@ -304,13 +314,19 @@
                     style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
                     Value
                 </td>
-                <td
+                @if ($order -> total_discount_value > 0)
+                    <td
                     style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
                     Discount
-                </td>
+                    </td>
+                @endif
                 <td
                     style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
                     Taxable<br> Value
+                </td>
+                <td
+                    style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; text-align: center; background: #80808070;">
+                    Tax %
                 </td>
                 <td
                     style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; text-align: center; background: #80808070;">
@@ -318,7 +334,7 @@
                 </td>
                 <td
                     style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; text-align: center; background: #80808070;">
-                    Tax <br>Group
+                    Packets
                 </td>
             </tr>
             @php 
@@ -429,11 +445,11 @@
                     </td>
                     <td
                         style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">
-                        {{@$val->order_qty}}
+                        {{@$val->uom->name}}
                     </td>
                     <td
                         style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">
-                        {{@$val->uom->name}}
+                        {{@$val->order_qty}}
                     </td>
                     <td
                         style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">
@@ -446,10 +462,13 @@
                         style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">
                         {{number_format($total, 2) }}
                     </td>
-                    <td
-                        style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none;  text-align: right;">
-                        {{number_format($val->item_discount_amount + $val->header_discount_amount, 2)}}
-                    </td>
+                    @if (($val->item_discount_amount + $val->header_discount_amount) > 0)
+                        <td
+                            style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none;  text-align: right;">
+                            {{number_format($val->item_discount_amount + $val->header_discount_amount, 2)}}
+                        </td>
+                    @endif
+                    
                     @php
                         $total = $val->order_qty * $val->rate;
                         $netValue = $total - ($val->item_discount_amount + $val->header_discount_amount);
@@ -457,6 +476,10 @@
                     <td
                         style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none;  text-align: right;">
                         {{number_format($netValue, 2)}}
+                    </td>
+                    <td
+                        style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none;  text-align: center;">
+                        {{($val->cgst_value['rate'] + $val->sgst_value['rate'] + $val->igst_value['rate']).'%'}}
                     </td>
                     <td
                         style=" vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: right;">
@@ -485,11 +508,11 @@
                             $totalIGSTValue += $val->igst_value['value'];
                             $totalTaxValue = $totalCGSTValue + $totalIGSTValue + $totalSGSTValue;
                         @endphp
-                        {{$totalTaxAmount}}
+                        {{number_format($totalTaxAmount, 2)}}
                     </td>
                     <td
                         style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none;  text-align: center;">
-                        {{isset($val->tax_ted->toArray()[0]['ted_group_code']) ? $val->tax_ted->toArray()[0]['ted_group_code'] : "NA"}}
+                        {{ max($val->dnItem?->bundle?->count(), 1) }}
                     </td>
                 </tr>
             @endforeach
@@ -527,7 +550,8 @@
                                 {{ number_format($totalItemValue, 2) }}
                             </td>
                         </tr>
-                        <tr>
+                        @if ($totalDiscount > 0)
+                            <tr>
                             <td style="text-align: right; padding-top: 3px;">
                                 <b>Discount:</b>
                             </td>
@@ -535,6 +559,7 @@
                                 {{ number_format($totalDiscount, 2) }}
                             </td>
                         </tr>
+                        @endif
                         <tr>
                             <td style="text-align: right; padding-top: 3px;">
                                 <b>Taxable Value:</b>

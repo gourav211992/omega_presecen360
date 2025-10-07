@@ -399,4 +399,8 @@ class ErpInvoiceItem extends Model
     {
         return $this->hasOne(GateEntryDetail::class, 'invoice_item_id', 'id');
     }
+    public function dnItem()
+    {
+        return $this->hasOne(ErpInvoiceItem::class, 'dnote_item_id');
+    }
 }
