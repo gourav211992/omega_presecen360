@@ -113,9 +113,6 @@ class FixedAssetSalesController extends Controller
             // Get values
             $itemCode = $request->input('item_code');
             $assetCode = $request->input('asset_code');
-            $user = AuthUser::find(2);
-            $authUser = P360AuthUser::findOrFail($user->id);
-            $request->setUserResolver(fn () => $authUser);
            
             // Find the asset using the same logic as getAssetCode
             $asset = $this->findAssetByItemCode($itemCode);
@@ -220,10 +217,7 @@ class FixedAssetSalesController extends Controller
 
            $assetcode = $request->input('asset_code');
            $subassetcode = $request->input('sub_assets');
-
-            $user = AuthUser::find(2);
-            $authUser = P360AuthUser::findOrFail($user->id);
-            $request->setUserResolver(fn () => $authUser);
+           $date = $request->input('date');
 
            $assetcodeexist = MrnAssetDetail::where('asset_code',$assetcode)->first();
 
@@ -249,13 +243,13 @@ class FixedAssetSalesController extends Controller
             }
 
             $data = [];
-            $toDateObj = $request->date;
+            $toDateObj = $date;
 
             $subassetsdata = FixedAssetSub::whereIn('sub_asset_code',$subassetcode)->get();
             $financialEndDate = Helper::getFinancialYear(date('Y-m-d'))['end_date'];
             $financialStartDate = Helper::getFinancialYear(date('Y-m-d'))['start_date'];
+            $assetdatadetail = DB::table('erp_finance_fixed_asset_registration')->where('id',$assetcodeexist->asset_id)->first();
             
-           
             foreach ($subassetsdata as $subasset) {
                  
                 $subassetcode = $subasset->sub_asset_code;
@@ -283,8 +277,8 @@ class FixedAssetSalesController extends Controller
                 $diffDays = $toDateObj->diffInDays($fromDateObj) + 1;
                 
                 if ($diffDays > 0) {
-                    $depType = $assetcodeexist->depreciation_method;
-
+                    $depType = $assetdatadetail->depreciation_method;
+            
                     // Determine current value
                     if ($depType === "SLM") {
                         $value = $subasset->current_value;
@@ -303,7 +297,7 @@ class FixedAssetSalesController extends Controller
 
                     // Depreciation calculation
                     $totalDepreciation = (
-                        ($assetcodeexist->depreciation_percentage / 100) * $value
+                        ($assetdatadetail->depreciation_percentage / 100) * $value
                     ) * ($diffDays / 365);
 
                     $after_dep_value = $subasset->current_value_after_dep - $totalDepreciation;
@@ -311,6 +305,7 @@ class FixedAssetSalesController extends Controller
                     $diff = $after_dep_value - $salv;
 
                     if ($expire && $diff > 0.0 && $depType === "WDV") {
+                    
                         $totalDepreciation += $diff;
                         $after_dep_value = $subasset->current_value_after_dep - $totalDepreciation;
                     }
@@ -338,8 +333,8 @@ class FixedAssetSalesController extends Controller
                         'days' => $diffDays,
                         'current_value' => $subasset->current_value,
                         'current_value_after_dep' => $subasset->current_value_after_dep,
-                        'dep_amount' => $totalDepreciation,
-                        'after_dep_value' => $after_dep_value,
+                        'dep_amount' => $totalDepreciation +  $subasset->total_depreciation,
+                        'after_dep_value' => $after_dep_value - $subasset->total_depreciation,
                     ];
 
                     $data[] = $assetData;
