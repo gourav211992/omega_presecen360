@@ -8,6 +8,7 @@ use App\Http\Controllers\CRM\API\ServiceController;
 use App\Http\Controllers\API\Integration\FurlencoController;
 use App\Http\Controllers\API\TransporterRequest\TransporterRequestApiController;
 use App\Http\Controllers\API\Integration\FurbooksController;
+use App\Http\Controllers\API\Integration\FixedAssetSalesController;
 
 /*
 |--------------------------------------------------------------------------
@@ -52,7 +53,17 @@ Route::group(['middleware' => ['apiresponse']], function () {
      */
     Route::group(['middleware' => ['sso-api']], function () {
 
-         Route::controller(FurbooksController::class)->group(function(){
+         /**
+         * Fixed Asset Sales Integration related APIs
+         * Controller: FixedAssetSalesController
+        */
+        Route::controller(FixedAssetSalesController::class)->group(function () {
+            Route::post('get-asset-code', 'getAssetCode')->name('fixed-asset.get-asset-code'); // Get Asset Code by Item Code
+            Route::post('get-sub-assets', 'getSubAssets')->name('fixed-asset.get-sub-assets'); // Get Sub Assets by Item Code and Asset Code
+            Route::post('get-asset-values', 'getAssetValues')->name('fixed-asset.get-asset-values'); // Get Asset Financial Values by Item Code and Asset Code
+        });
+
+        Route::controller(FurbooksController::class)->group(function(){
             Route::post('vouchers/create','create')->name('create'); // Create a new transporter request
         });
         // Get the authenticated user details
