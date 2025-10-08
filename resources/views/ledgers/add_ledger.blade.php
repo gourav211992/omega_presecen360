@@ -257,7 +257,7 @@
                                                     </div>
                                                     <div class="row align-items-center mb-1" id="tds_percentage_label">
                                                         <div class="col-md-2">
-                                                            <label class="form-label"> % TDS With PAN <span
+                                                            <label class="form-label"> % TDS<span
                                                                     class="text-danger">*</span></label>
                                                         </div>
 
@@ -268,7 +268,7 @@
                                                         </div>
                                                     </div>
 
-                                                    <div class="row align-items-center mb-1" id="tds_percentage_label">
+                                                    {{--<div class="row align-items-center mb-1" id="tds_percentage_label">
                                                         <div class="col-md-2">
                                                             <label class="form-label"> % TDS Without PAN <span
                                                                     class="text-danger">*</span></label>
@@ -291,7 +291,7 @@
                                                             <input type="number" class="form-control"
                                                                 id="tds_capping" name="tds_capping" step="any" />
                                                         </div>
-                                                    </div>
+                                                    </div>--}}
 
                                                     <div class="row align-items-center mb-1" id="tcs_section_label">
                                                         <div class="col-md-2">
@@ -315,7 +315,7 @@
 
                                                     <div class="row align-items-center mb-1" id="tcs_percentage_label">
                                                         <div class="col-md-2">
-                                                            <label class="form-label"> % TCS With PAN <span
+                                                            <label class="form-label"> % TCS <span
                                                                     class="text-danger">*</span></label>
                                                         </div>
 
@@ -325,7 +325,7 @@
                                                             pattern="^\d+(\.\d{1,2})?$"/>
                                                         </div>
                                                     </div>
-                                                    <div class="row align-items-center mb-1" id="tcs_percentage_label">
+                                                    {{--<div class="row align-items-center mb-1" id="tcs_percentage_label">
                                                         <div class="col-md-2">
                                                             <label class="form-label"> % TCS Without PAN <span
                                                                     class="text-danger">*</span></label>
@@ -336,8 +336,8 @@
                                                                 id="tcs_without_pan" name="tcs_without_pan" step="0.01"
                                                             pattern="^\d+(\.\d{1,2})?$"/>
                                                         </div>
-                                                    </div>
-                                                    <div class="row align-items-center mb-1" id="tcs_capping_label">
+                                                    </div>--}}
+                                                    {{--<div class="row align-items-center mb-1" id="tcs_capping_label">
                                                         <div class="col-md-2">
                                                             <label class="form-label"> TCS Capping <span
                                                                     class="text-danger">*</span></label>
@@ -347,7 +347,7 @@
                                                             <input type="number" class="form-control"
                                                                 id="tcs_capping" name="tcs_capping"  step="any"/>
                                                         </div>
-                                                    </div>
+                                                    </div>--}}
 
                                                 </div>
                                             </div>
