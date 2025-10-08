@@ -27,23 +27,26 @@
 							<a href="{{ route('maint-bom.index') }}"> <button class="btn btn-secondary btn-sm"><i
 										data-feather="arrow-left-circle"></i> Back</button>
 							</a>
-							@if($buttons['approve'])
-                                <button type="button" class="btn btn-primary btn-sm" id="approved-button" name="action"
-                                    value="approved"><i data-feather="check-circle"></i> Approve</button>
-                                <button type="button" id="reject-button"
-                                    class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
-                                        xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round" class="feather feather-x-circle">
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <line x1="15" y1="9" x2="9" y2="15"></line>
-                                        <line x1="9" y1="9" x2="15" y2="15"></line>
-                                    </svg> Reject</button>
-							@endif
+							
+							@if(!request('revisionNumber'))
+								@if($buttons['approve'])
+	                                <button type="button" class="btn btn-primary btn-sm" id="approved-button" name="action"
+	                                    value="approved"><i data-feather="check-circle"></i> Approve</button>
+	                                <button type="button" id="reject-button"
+	                                    class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+	                                        xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+	                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+	                                        stroke-linejoin="round" class="feather feather-x-circle">
+	                                        <circle cx="12" cy="12" r="10"></circle>
+	                                        <line x1="15" y1="9" x2="9" y2="15"></line>
+	                                        <line x1="9" y1="9" x2="15" y2="15"></line>
+	                                    </svg> Reject</button>
+								@endif
 
-							@if($buttons['amend'])
-								<button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-										class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
+								@if($buttons['amend'])
+									<button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
+											class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
+								@endif
 							@endif
                             
 						</div>
@@ -601,6 +604,7 @@
                                             <label class="form-label">Upload Document</label>
                                             <input type="file" id="ap_file" name="attachment[]" multiple
                                                 class="form-control cannot_disable"
+                                                accept=".pdf,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
                                                 onchange="addFiles(this, 'approval_files_preview');" max_file_count="2" />
                                         </div>
                                     </div>
@@ -638,7 +642,7 @@
                     <p>Are you sure you want to <strong>Amendment</strong> this <strong>Maint. BOM</strong>? After
                         Amendment this action cannot be undone.</p>
                     <button type="button" class="btn btn-secondary me-25" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" id="amendmentSubmit" class="btn btn-primary">Confirm</button>
+                    <button type="button" id="amendmentSubmit" class="btn btn-primary" onclick="window.location.href='{{ route('maint-bom.edit', $data->id) }}?amendment=1'">Confirm</button>
                 </div>
             </div>
         </div>
@@ -1228,61 +1232,8 @@
 					}, true); 
 				});
 			});
-            
-
 			
-			$(document).on('click', '#amendmentSubmit', function (e) {
-				e.preventDefault();
-
-				let id = $('#bom_id').val(); 
-				let url = "{{ route('maint-bom.amendment', ':id') }}".replace(':id', id);
-
-				$.ajax({
-					url: url,
-					type: "POST",
-					data: {
-						_token: $('meta[name="csrf-token"]').attr('content'),
-						id: id,
-						document_status: "draft"
-					},
-					beforeSend: function () {
-						$('#amendmentSubmit').prop('disabled', true).text('Processing...');
-					},
-					success: function (response) {
-						if (response.success) {
-							Swal.fire({
-								icon: 'success',
-								title: 'Success',
-								text: 'Amendment Done',
-								timer: 1500,
-								showConfirmButton: false,
-								willClose: () => {
-									let amendUrl = "{{ route('maint-bom.edit', ':id') }}".replace(':id', id);
-									let redirectUrl = new URL(amendUrl, window.location.origin);
-									redirectUrl.searchParams.set('amendment', 1);
-									window.location.href = redirectUrl.toString();
-								}
-							});
-						}
-						else {
-							Swal.fire({
-								icon: 'error',
-								title: 'Error',
-								text: response.message || 'Something went wrong!'
-							});
-						}
-					},
-					error: function (xhr) {
-						Swal.fire({
-							icon: 'error',
-							title: 'Error',
-							text: xhr.responseJSON?.message || 'Failed to create amendment.'
-						});
-					},
-					complete: function () {
-						$('#amendmentSubmit').prop('disabled', false).text('Confirm');
-					}
-				});
-				});
+			// Amendment confirmation - redirect to edit page with amendment parameter
+			// Following maint WO pattern - no AJAX, no SweetAlert success
 	</script>
 @endsection

@@ -28,35 +28,36 @@
         </div>
         <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
 						<div class="form-group breadcrumb-right">
-							<a href="{{ route('maint-wo.index') }}">
-								<button class="btn btn-secondary btn-sm mb-50 mb-sm-0">
-									<i data-feather="arrow-left-circle"></i> Back
-								</button>
-							</a>
-             
-                @if ($data->document_status == 'draft' || ($buttons['amend'] && request('amendment') == 1))
-                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" 
-                        data-bs-target="#approveModal" onclick="setApproval()">
-                    <i data-feather="check-circle"></i> Approve
-                </button>
-                <button type="button" id="reject-button" class="btn btn-danger btn-sm mb-50 mb-sm-0" 
-                        data-bs-toggle="modal" data-bs-target="#approveModal" onclick="setRejection()">
-                    <i data-feather="x-circle"></i> Reject
-                </button>
-                @endif
+							
+                <a href="{{ route('maint-wo.index') }}">
+                  <button class="btn btn-secondary btn-sm mb-50 mb-sm-0">
+                    <i data-feather="arrow-left-circle"></i> Back
+                  </button>
+                </a>
               
-                @if($buttons['amend'])
-                <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-                        class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
-                @endif
-                       
-                @if($buttons['close'])
-                <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light" data-bs-toggle="modal" data-bs-target="#closeModal">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Close
-                </button>
-                @endif
-            
-                            
+                 
+                  @if($buttons['approve'])
+                  <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#approveModal" onclick = "setApproval();" ><i data-feather="check-circle"></i> Approve</button>
+                  <button type="button" id="reject-button" data-bs-toggle="modal" data-bs-target="#approveModal" onclick = "setRejection();" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Reject</button>
+                  @endif
+                  @if($buttons['amend'])
+                  <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
+                          class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
+                  @endif
+                
+                  @if($data->document_status != App\Helpers\ConstantHelper::CLOSED && ($data->document_status == App\Helpers\ConstantHelper::APPROVED || $data->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED) && $data->created_by == App\Helpers\Helper::getAuthenticatedUser()->auth_user_id)
+                    <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light" data-bs-toggle="modal" data-bs-target="#closeModal">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Close
+                    </button>
+                  @endif
+
+                  @if($data->revision_number==0)
+                    @if ($buttons['revoke'])
+                        <a id = "revokeButton" type="button"
+                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
+                            Revoke</a>
+                    @endif
+                  @endif
 						</div>
 					</div>
       </div>
@@ -712,8 +713,9 @@
                       <textarea class="form-control"></textarea>
                     </div>
                     <div class="mb-1">
-                      <label class="form-label">Upload Document</label>
-                      <input type="file" class="form-control" />
+                      <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
+                      <input type="file" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" />
+                      <span class="text-primary small">{{__("message.attachment_caption")}}</span>
                     </div>
                   </div>
                 </div>
@@ -972,9 +974,9 @@
 						<textarea class="form-control" id="amendment_remarks" name="amendment_remarks" rows="4" placeholder="Please provide detailed remarks for this amendment..." required></textarea>
 					</div>
 					<div class="mb-3">
-						<label for="amendment_attachment" class="form-label">Supporting Document (Optional)</label>
-						<input type="file" class="form-control" id="amendment_attachment" name="amendment_attachment" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-						<small class="text-muted">Accepted formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB)</small>
+						<label for="amendment_attachment" class="form-label"><i data-feather="paperclip"></i> Supporting Document (Optional)</label>
+						<input type="file" class="form-control" id="amendment_attachment" name="amendment_attachment" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
+						<span class="text-primary small">{{__("message.attachment_caption")}}</span>
 					</div>
 				</div>
 				
@@ -1008,9 +1010,17 @@
                         <label class="form-label">Remarks</label>
                         <textarea name="remarks" class="form-control cannot_disable"></textarea>
                     </div>
-                    <div class="mb-1">
-                        <label class="form-label">Upload Document</label>
-                        <input type="file" name="attachment" class="form-control">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-1">
+                                <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
+                                <input type="file" id="approval_attachment" name="attachment[]" multiple class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" onchange="addFiles(this, 'approval_files_preview');" max_file_count="2">
+                            </div>
+                        </div>
+                        <div class="col-md-4" style="margin-top:19px;">
+                            <div class="row" id="approval_files_preview">
+                            </div>
+                        </div>
                     </div>
                     <span class="text-primary small">{{ __("message.attachment_caption") }}</span>
                 </div>
@@ -1039,9 +1049,9 @@
 						<textarea class="form-control" id="close_remarks" name="close_remarks" rows="4" placeholder="Please provide detailed remarks for this close..." required></textarea>
 					</div>
 					<div class="mb-3">
-						<label for="close_attachment" class="form-label">Supporting Document (Optional)</label>
-						<input type="file" class="form-control" id="close_attachment" name="close_attachment" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-						<small class="text-muted">Accepted formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB)</small>
+						<label for="close_attachment" class="form-label"><i data-feather="paperclip"></i> Supporting Document (Optional)</label>
+						<input type="file" class="form-control" id="close_attachment" name="close_attachment" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
+						<span class="text-primary small">{{__("message.attachment_caption")}}</span>
 					</div>
 				</div>
 				
@@ -1966,7 +1976,6 @@ function setApproval() {
     document.getElementById('approve_reject_heading_label').textContent = "Approve Maintenance Work Order";
 }
 
-
 function setRejection() {
     document.getElementById('action_type').value = "reject";
     document.getElementById('approve_reject_heading_label').textContent = "Reject Maintenance Work Order";
@@ -2266,7 +2275,103 @@ function showToast(icon, title) {
       });
     });
 
+	// File validation function
+	function validateFile(input) {
+		const file = input.files[0];
+		if (!file) {
+			console.log('No file selected');
+			return true;
+		}
+
+		console.log('File details:', {
+			name: file.name,
+			size: file.size,
+			type: file.type
+		});
+
+		// Check file size (5MB = 5 * 1024 * 1024 bytes)
+		const maxSize = 5 * 1024 * 1024;
+		if (file.size > maxSize) {
+			const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+			console.log('File too large:', fileSizeMB + 'MB');
+			Swal.fire({
+				icon: 'error',
+				title: 'File Too Large!',
+				text: `File size is ${fileSizeMB}MB. Maximum allowed size is 5MB.`,
+				confirmButtonText: 'OK'
+			});
+			input.value = '';
+			return false;
+		}
+
+		// Check file type
+		const allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'docx', 'pdf'];
+		const fileExtension = file.name.split('.').pop().toLowerCase();
+		console.log('File extension:', fileExtension);
+
+		if (!allowedExtensions.includes(fileExtension)) {
+			console.log('Invalid file type:', fileExtension);
+			Swal.fire({
+				icon: 'error',
+				title: 'Invalid File Type!',
+				text: 'Please select a valid file type: PNG, JPEG, JPG, XLS, XLSX, DOCX, or PDF.',
+				confirmButtonText: 'OK'
+			});
+			input.value = '';
+			return false;
+		}
+
+		console.log('File validation passed');
+		return true;
+	}
+
+	// Modal file inputs validation
+	$('.modal input[type="file"]').on('change', function() {
+		console.log('Modal file selected, validating...');
+		validateFile(this);
+	});
+
+	// Amendment attachment validation
+	$('#amendment_attachment').on('change', function() {
+		console.log('Amendment attachment selected, validating...');
+		validateFile(this);
+	});
+
+	// Close attachment validation
+	$('#close_attachment').on('change', function() {
+		console.log('Close attachment selected, validating...');
+		validateFile(this);
+	});
+
+	// Approval attachment validation
+	$('#approval_attachment').on('change', function() {
+		console.log('Approval attachment selected, validating...');
+		validateFile(this);
+	});
+
+  $(document).on('click', '#revokeButton', (e) => {
+		let actionUrl = '{{ route("plant.maint_wo.revoke.document") }}'+ '?id='+'{{$workOrder->id}}';
+		fetch(actionUrl).then(response => {
+			return response.json().then(data => {
+				if(data.status == 'error') {
+					Swal.fire({
+						title: 'Error!',
+						text: data.message,
+						icon: 'error',
+					});
+				} else {
+					Swal.fire({
+						title: 'Success!',
+						text: data.message,
+						icon: 'success',
+					}).then(() => {
+						// Redirect to edit page after successful revoke
+						window.location.href = '{{ route("maint-wo.edit", $workOrder->id) }}';
+					});
+				}
+			});
+		});
+	});
 
 </script>
-
 @endsection

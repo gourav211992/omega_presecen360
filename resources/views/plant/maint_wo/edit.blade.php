@@ -332,9 +332,10 @@
 
         <div class="col-md-3 equipment-detail-field" id="supporting_documents_field">
           <div class="mb-1">
-            <label class="form-label">Supporting Documents <span class="text-danger">*</span></label><br/>
+            <label class="form-label"><i data-feather="paperclip"></i> Supporting Documents <span class="text-danger">*</span></label><br/>
             <div class="mt-50">
-              <input type="file" name="supporting_documents[]" class="form-control" multiple>
+              <input type="file" name="supporting_documents[]" class="form-control" multiple accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
+              <span class="text-primary small">{{__("message.attachment_caption")}}</span>
             </div>
           </div>
         </div>
@@ -797,8 +798,9 @@
                       <textarea class="form-control"></textarea>
                     </div>
                     <div class="mb-1">
-                      <label class="form-label">Upload Document</label>
-                      <input type="file" class="form-control" />
+                      <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
+                      <input type="file" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" />
+                      <span class="text-primary small">{{__("message.attachment_caption")}}</span>
                     </div>
                   </div>
                 </div>
@@ -3219,5 +3221,16 @@ function processDefectSelection() {
 		validateFile(this);
 	});
 
+	// Supporting documents validation
+	$('input[name="supporting_documents[]"]').on('change', function() {
+		console.log('Supporting documents selected, validating...');
+		validateFile(this);
+	});
+
+	// Modal file inputs validation
+	$('.modal input[type="file"]').on('change', function() {
+		console.log('Modal file selected, validating...');
+		validateFile(this);
+	});
 </script>
 @endsection

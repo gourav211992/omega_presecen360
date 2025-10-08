@@ -3010,7 +3010,8 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('plant/maint-wo/get-equipment-spare-parts', [MaintWoController::class, 'getEquipmentSpareParts'])->name('maint-wo.get-equipment-spare-parts');
     Route::post('plant/maint-wo/approve', [MaintWoController::class, 'documentApproval'])->name('maint-wo.approval');
     Route::post('plant/maint-wo/filter', [MaintWoController::class, 'filter'])->name('maint-wo.filter');
-
+    Route::get('plant/maint-wo/revoke-document', [MaintWoController::class, 'revokeDocument'])->name('plant.maint_wo.revoke.document');
+    
     Route::get('plant/maint-wo/search-items', [MaintWoController::class, 'searchItems'])->name('maint-wo.search-items');
     Route::resource('plant/maint-wo', MaintWoController::class)->names([
         'index' => 'maint-wo.index',

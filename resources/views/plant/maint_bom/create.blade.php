@@ -901,8 +901,23 @@
 				return; // Stop submission if validation fails
 			}
 
-			updateJsonData();
-			this.submit();
+			// Validate document number uniqueness before submission
+			validateDocumentNumberOnSubmit()
+				.then((isValid) => {
+					if (isValid) {
+						updateJsonData();
+						document.getElementById('maint-bom-form').submit();
+					} else {
+						$('.preloader').hide();
+						// Focus on document number field for user to fix
+						document.getElementById('document_number').focus();
+					}
+				})
+				.catch((error) => {
+					$('.preloader').hide();
+					// Focus on document number field for user to fix
+					document.getElementById('document_number').focus();
+				});
 
 		});
 
@@ -1651,35 +1666,74 @@
 			return true;
 		}
 
-		// Debounce function to limit API calls
-		let documentCheckTimeout;
-		let lastCheckedValue = '';
-		let isCurrentlyChecking = false;
+		// Document number validation variables (removed real-time checking)
 		
-		// Optimized document number validation function
-		function checkDocumentNumber() {
-			const documentNumber = document.getElementById('document_number').value.trim();
-			const bookId = document.getElementById('book_id').value;
-			
-			// Only validate if user has typed at least 1 character
-			if (!documentNumber || documentNumber.length < 1) {
+		// Document number and BOM name validation function for form submission
+		function validateDocumentNumberOnSubmit() {
+			return new Promise((resolve, reject) => {
+				const documentNumber = document.getElementById('document_number').value.trim();
+				const bomName = document.getElementById('bom_name').value.trim();
+				const bookId = document.getElementById('book_id').value;
+				
+				// If no document number and no BOM name, resolve as valid (server will handle required validation)
+				if ((!documentNumber || documentNumber.length < 1) && (!bomName || bomName.length < 1)) {
+					resolve(true);
+					return;
+				}
+
+				// Clear any existing error state
 				resetDocumentInputState();
-				lastCheckedValue = '';
-				return;
-			}
+				resetBomNameInputState();
 
-			// Don't check if already checking the same value or currently processing
-			if (documentNumber === lastCheckedValue || isCurrentlyChecking) {
-				return;
-			}
-
-			// Clear previous timeout
-			clearTimeout(documentCheckTimeout);
-			
-			// Debounce the API call by 500ms (longer delay for better UX)
-			documentCheckTimeout = setTimeout(() => {
-				performDocumentCheck(documentNumber, bookId);
-			}, 500);
+				// Check document number and BOM name uniqueness
+				fetch('{{ route("maint-bom.check-document-number") }}', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+					},
+					body: JSON.stringify({
+						document_number: documentNumber,
+						bom_name: bomName,
+						book_id: bookId
+					})
+				})
+				.then(response => response.json())
+				.then(data => {
+					let hasErrors = false;
+					
+					// Check document number validation
+					if (data.document_exists) {
+						const documentInput = document.getElementById('document_number');
+						documentInput.style.border = '1px solid red';
+						hasErrors = true;
+					}
+					
+					// Check BOM name validation
+					if (data.bom_name_exists) {
+						const bomInput = document.getElementById('bom_name');
+						bomInput.style.border = '1px solid red';
+						hasErrors = true;
+					}
+					
+					// Show SweetAlert error if any validation failed
+					if (hasErrors && data.message) {
+						Swal.fire({
+							icon: 'error',
+							title: 'Validation Error',
+							text: data.message,
+							confirmButtonText: 'OK'
+						});
+						reject(false); // Validation failed
+					} else {
+						resolve(true); // Validation passed
+					}
+				})
+				.catch(error => {
+					console.error('Error checking validation:', error);
+					resolve(true); // On error, allow submission (server will handle)
+				});
+			});
 		}
 		
 		function resetDocumentInputState() {
@@ -1692,90 +1746,24 @@
 			}
 		}
 		
-		function performDocumentCheck(documentNumber, bookId) {
-			const documentInput = document.getElementById('document_number');
+		function resetBomNameInputState() {
+			const bomInput = document.getElementById('bom_name');
+			bomInput.style.border = '';
 			
-			// Set checking state
-			isCurrentlyChecking = true;
-			lastCheckedValue = documentNumber;
-			
-			// Clear any existing error message
-			resetDocumentInputState();
-
-			// Fast fetch with timeout
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-
-			fetch('{{ route("maint-bom.check-document-number") }}', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-				},
-				body: JSON.stringify({
-					document_number: documentNumber,
-					book_id: bookId
-				}),
-				signal: controller.signal
-			})
-			.then(response => {
-				clearTimeout(timeoutId);
-				return response.json();
-			})
-			.then(data => {
-				// Reset checking state
-				isCurrentlyChecking = false;
-				
-				if (data.exists) {
-					// Create error message element (no red border)
-					const errorDiv = document.createElement('div');
-					errorDiv.id = 'document-number-error';
-					errorDiv.className = 'text-danger small mt-1';
-					errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + data.message;
-					
-					// Insert error message after the input
-					documentInput.parentNode.appendChild(errorDiv);
-					
-					// Show SweetAlert for clear notification
-					Swal.fire({
-						icon: 'error',
-						title: 'Document Number Already Exists',
-						text: data.message,
-						confirmButtonText: 'OK'
-					});
-				}
-			})
-			.catch(error => {
-				clearTimeout(timeoutId);
-				// Reset checking state on error
-				isCurrentlyChecking = false;
-				if (error.name !== 'AbortError') {
-					console.error('Error checking document number:', error);
-				}
-			});
+			const existingError = document.getElementById('bom-name-error');
+			if (existingError) {
+				existingError.remove();
+			}
 		}
+		
 
 		document.addEventListener("DOMContentLoaded", function () {
 			// Document number validation
 			const documentNumberInput = document.getElementById('document_number');
 			const bookIdSelect = document.getElementById('book_id');
 			
-			if (documentNumberInput) {
-				// Check on input (real-time as user types) - debounced
-				documentNumberInput.addEventListener('input', checkDocumentNumber);
-				
-				// Also check on blur for final validation
-				documentNumberInput.addEventListener('blur', checkDocumentNumber);
-				
-				// Also check when book_id changes
-				if (bookIdSelect) {
-					bookIdSelect.addEventListener('change', function() {
-						if (documentNumberInput.value.trim()) {
-							checkDocumentNumber();
-						}
-					});
-				}
-			}
+			// Document number validation removed from real-time input
+			// Will be checked only during form submission
 
 			// File input validation - only on change
 			const fileInput = document.querySelector('input[name="document"]');

@@ -84,7 +84,7 @@
 												</div>
 											</div>
 										</div>
-										@include('fixed-asset.partials.amendement-submit-modal')
+										@include('fixed-asset.partials.amendement-submit-modal', ['buttons' => $buttons, 'id' => $bom->id])
 
 										<div class="row">
 											{{-- Hidden Inputs --}}
@@ -1557,19 +1557,60 @@
 		}
 
 		$(document).on('click', '#amendmentBtnSubmit', (e) => {
+			e.preventDefault();
 			updateJsonData();
 			let remark = $("#amendmentModal").find('[name="amend_remarks"]').val();
 			if (!remark) {
-				e.preventDefault();
 				$("#amendRemarkError").removeClass("d-none");
 				return false;
 			} else {
 				$("#amendmentModal").modal('hide');
 				$("#amendRemarkError").addClass("d-none");
-				e.preventDefault();
 				$('.preloader').show();
 				
-				$("#maint-bom-form").submit();
+				// Submit form via AJAX to handle success message
+				let formData = new FormData(document.getElementById('maint-bom-form'));
+				
+				$.ajax({
+					url: $('#maint-bom-form').attr('action'),
+					type: 'POST',
+					data: formData,
+					processData: false,
+					contentType: false,
+					headers: {
+						'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+						'X-Requested-With': 'XMLHttpRequest'
+					},
+					success: function(response) {
+						$('.preloader').hide();
+						
+						// Show success message
+						Swal.fire({
+							title: 'Success!',
+							text: 'Amendment Done Successfully',
+							icon: 'success',
+							confirmButtonText: 'OK'
+						}).then((result) => {
+							if (result.isConfirmed) {
+								// Redirect to show page
+								window.location.href = '{{ route("maint-bom.show", $bom->id) }}';
+							}
+						});
+					},
+					error: function(xhr) {
+						$('.preloader').hide();
+						let errorMessage = 'An error occurred while processing the amendment.';
+						if (xhr.responseJSON && xhr.responseJSON.message) {
+							errorMessage = xhr.responseJSON.message;
+						}
+						Swal.fire({
+							title: 'Error!',
+							text: errorMessage,
+							icon: 'error',
+							confirmButtonText: 'OK'
+						});
+					}
+				});
 			}
 		});
 

@@ -71,16 +71,15 @@ class ErpEquipmentController extends Controller
                       })
                       ->orWhereHas('category', function($q) use ($searchValue) {
                           $q->where('name', 'like', "%{$searchValue}%");
+                      })
+                      ->orWhereHas('maintenanceDetails.maintenanceType', function($q) use ($searchValue) {
+                          $q->where('name', 'like', "%{$searchValue}%");
                       });
 
-                // Handle special status search terms (both exact and partial matches)
-                $searchLower = strtolower($searchValue);
-                // if (strpos('approved', $searchLower) !== false) {
-                //     $query->orWhere('document_status', ConstantHelper::APPROVAL_NOT_REQUIRED);
-                // }
-                // if (strpos('draft', $searchLower) !== false) {
-                //     $query->orWhereNull('document_status')->orWhere('document_status', 'draft');
-                // }
+                    if (preg_match('/approv/i', $searchValue)) {
+                        $query->orWhereIn('document_status', ['approved', 'approval_not_required']);
+                    }
+
             });
         }
 

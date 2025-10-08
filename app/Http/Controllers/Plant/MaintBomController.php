@@ -32,30 +32,63 @@ class MaintBomController extends Controller
     }
 
     /**
-     * Check if document number already exists
+     * Check if document number or BOM name already exists
      */
     public function checkDocumentNumber(Request $request)
     {
         $documentNumber = $request->get('document_number');
+        $bomName = $request->get('bom_name');
         $bookId = $request->get('book_id');
+        $currentId = $request->get('current_id'); // For edit mode to exclude current record
         
-        if (!$documentNumber) {
-            return response()->json(['exists' => false], 200);
+        $response = [
+            'document_exists' => false,
+            'bom_name_exists' => false,
+            'message' => null
+        ];
+        
+        // Check document number if provided
+        if ($documentNumber) {
+            $query = PlantMaintBom::select('id')
+                                  ->where('document_number', $documentNumber)
+                                  ->when($bookId, function($query) use ($bookId) {
+                                      return $query->where('book_id', $bookId);
+                                  });
+            
+            if ($currentId) {
+                $query->where('id', '!=', $currentId);
+            }
+            
+            $response['document_exists'] = $query->limit(1)->exists();
+            
+            if ($response['document_exists']) {
+                $response['message'] = "Document number '{$documentNumber}' already exists. Please use a different document number.";
+            }
         }
         
-        // Optimized query - only check existence, no additional data
-        $exists = PlantMaintBom::select('id')
-                              ->where('document_number', $documentNumber)
-                              ->when($bookId, function($query) use ($bookId) {
-                                  return $query->where('book_id', $bookId);
-                              })
-                              ->limit(1)
-                              ->exists();
+        // Check BOM name if provided
+        if ($bomName) {
+            $query = PlantMaintBom::select('id')
+                                  ->where('bom_name', $bomName);
+            
+            // For edit mode, exclude current record
+            if ($currentId) {
+                $query->where('id', '!=', $currentId);
+            }
+            
+            $response['bom_name_exists'] = $query->limit(1)->exists();
+            
+            if ($response['bom_name_exists']) {
+                $response['message'] = $response['message'] 
+                    ? $response['message'] . " BOM name '{$bomName}' already exists. Please use a different BOM name."
+                    : "BOM name '{$bomName}' already exists. Please use a different BOM name.";
+            }
+        }
         
-        return response()->json([
-            'exists' => $exists,
-            'message' => $exists ? "Document number '{$documentNumber}' already exists." : null
-        ], 200);
+        // Set legacy 'exists' field for backward compatibility
+        $response['exists'] = $response['document_exists'] || $response['bom_name_exists'];
+        
+        return response()->json($response, 200);
     }
 
     /**
@@ -329,14 +362,13 @@ class MaintBomController extends Controller
     {
         
         $data = PlantMaintBom::find($id);
-        $currNumber = $r->has('revisionNumber');
-        if ($currNumber && $data->revision_number!=$r->revisionNumber) {
-            $currNumber = $r->revisionNumber;
-            $data = PlantMaintBomHistory::where('source_id', $id)
-                ->where('revision_number', $currNumber)->first();
-        } else {
-            $data = PlantMaintBom::findorFail($id);
+        
+        // Check if the main record exists
+        if (!$data) {
+            abort(404, 'Maintenance BOM not found');
         }
+        
+        $currNumber = $r->has('revisionNumber');
 
         $parentURL = "plant_maint-bom";
         $series = [];
@@ -360,12 +392,7 @@ class MaintBomController extends Controller
             $userType['type'],
             $revision_number
         );
-        $revNo = $data->revision_number;
-        if ($r->has('revisionNumber')) {
-            $revNo = intval($r->revisionNumber);
-        } else {
-            $revNo = $data->revision_number;
-        }
+        $revNo = $r->has('revisionNumber') ? intval($r->revisionNumber) : $data->revision_number;
         $approvalHistory = Helper::getApprovalHistory($data->book_id, $id, $revNo, 0,$data->created_by);
 
         $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$data->document_status] ?? '';
@@ -418,6 +445,11 @@ class MaintBomController extends Controller
     public function edit(string $id)
     {
         $bom = PlantMaintBom::find($id);
+        
+        // Check if the record exists
+        if (!$bom) {
+            abort(404, 'Maintenance BOM not found');
+        }
         $parentURL = "plant_maint-bom";
         $series = [];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
@@ -569,9 +601,28 @@ class MaintBomController extends Controller
             }
 
             DB::commit();
+            
+            // Return JSON response for AJAX requests (amendment)
+            if ($request->ajax() || $request->action_type == "amendment") {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Amendment Done Successfully',
+                    'data' => $bom
+                ]);
+            }
+            
             return redirect()->route("maint-bom.index")->with('success', 'Maintenance BOM updated!');
         } catch (\Exception $e) {
             DB::rollBack();
+            
+            // Return JSON error response for AJAX requests
+            if ($request->ajax() || $request->action_type == "amendment") {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage()
+                ], 500);
+            }
+            
             return redirect()->route("maint-bom.edit", $id)->with('error', $e->getMessage());
         }
     }
@@ -646,11 +697,11 @@ class MaintBomController extends Controller
     {
         $request->validate([
             'remarks' => 'nullable|string|max:255',
-            'attachment' => 'nullable'
+            'attachment.*' => 'nullable|file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120', // 5MB max per file
         ]);
         DB::beginTransaction();
         try {
-            $doc = PlantMaintBom::find($request->id);
+            $doc = PlantMaintBom::findOrFail($request->id);
             $bookId = $doc->book_id;
             $docId = $doc->id;
             $docValue = 0;
@@ -666,14 +717,16 @@ class MaintBomController extends Controller
             $doc->save();
 
             DB::commit();
+
             return response()->json([
-                'message' => "Maint BOM $actionType successfully!",
+                'message' => "Maintenance BOM {$actionType}d successfully!",
                 'data' => $doc,
             ]);
         } catch (Exception $e) {
             DB::rollBack();
+
             return response()->json([
-                'message' => "Error occurred while $actionType",
+                'message' => "Error occurred while processing {$request->action_type}",
                 'error' => $e->getMessage(),
             ], 500);
         }

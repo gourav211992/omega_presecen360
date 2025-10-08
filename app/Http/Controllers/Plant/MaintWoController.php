@@ -29,6 +29,7 @@ use DB;
 use App\Models\StockLedger;
 use App\Models\ErpEquipMaintenanceChecklist;
 use Exception;
+use App\Exceptions\ApiGenericException;
 
 class MaintWoController extends Controller
 {
@@ -1102,7 +1103,7 @@ class MaintWoController extends Controller
     {
         $request->validate([
             'remarks' => 'nullable|string|max:255',
-            'attachment' => 'nullable',
+            'attachment.*' => 'nullable|file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120', // 5MB max per file
         ]);
 
         DB::beginTransaction();
@@ -1138,7 +1139,7 @@ class MaintWoController extends Controller
             DB::commit();
 
             return response()->json([
-                'message' => "Work Order {$actionType}d successfully!",
+                'message' => "Maintenance Work Order {$actionType}d successfully!",
                 'data' => $doc,
             ]);
         } catch (Exception $e) {
@@ -1979,6 +1980,91 @@ class MaintWoController extends Controller
                 'message' => 'Some Error Occured.',
                 'title' =>'Error !',
                 'type' => 'error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Revoke maintenance work order document
+     */
+    public function revokeDocument(Request $request)
+    {
+        DB::beginTransaction();
+        try {
+            $plantWo = PlantMaintWo::find($request->id);
+
+            if (!$plantWo) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'No Document found',
+                ], 404);
+            }
+
+            // Check if document can be revoked (only SUBMITTED documents)
+            if ($plantWo->document_status !== ConstantHelper::SUBMITTED) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Only submitted documents can be revoked.',
+                ]);
+            }
+
+            // Check if user is the creator
+            $user = Helper::getAuthenticatedUser();
+            if ($plantWo->created_by !== $user->auth_user_id) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Only the document creator can revoke this document.',
+                ]);
+            }
+
+            // ✅ Strict validation: once amended, cannot be revoked
+            if ($plantWo->revision_number > 0) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'This document has already been amended and cannot be revoked.',
+                ]);
+            }
+
+            $revoke = Helper::approveDocument(
+                $plantWo->book_id,
+                $plantWo->id,
+                $plantWo->revision_number,
+                'Document revoked by creator',
+                null,
+                $plantWo->approval_level,
+                ConstantHelper::REVOKE,
+                0,
+                get_class($plantWo)
+            );
+
+            if ($revoke['message']) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => $revoke['message'],
+                ]);
+            }
+
+            // update both document_status and approvalStatus
+            $plantWo->document_status = $revoke['approvalStatus'];
+            $plantWo->approvalStatus = $revoke['approvalStatus'];
+            $plantWo->save();
+
+            DB::commit();
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Revoked successfully',
+            ]);
+
+        } catch (Exception $ex) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to revoke document: ' . $ex->getMessage(),
             ], 500);
         }
     }
