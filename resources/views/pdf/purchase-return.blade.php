@@ -27,14 +27,9 @@
     <div style="width:700px; font-size: 11px; font-family:Arial;">
         <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
             <tr>
-                <td style="vertical-align: top;" width="33%">
-                    @php
-                        $data = file_get_contents($orgLogo);
-                        $type = pathinfo($orgLogo, PATHINFO_EXTENSION);
-                        $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
-                    @endphp
+                <td style="vertical-align: top;">
                     @if (isset($orgLogo) && $orgLogo)
-                        <img src="{!! $base64 !!}" alt="" height="50px" />
+                        <img src="{!! $orgLogo !!}" alt="" height="50px" />
                     @else
                         <img src="{{$imagePath}}" height="50px" alt="">
                     @endif
@@ -401,7 +396,7 @@
                     </table>
                 </td>
             </tr>
-            @if($eInvoice->irn_number)
+            @if(isset($eInvoice) && $eInvoice->irn_number)
             <tr>
                 <td colspan="3" style="border: 1px solid #000; padding: 10px 3px; vertical-align: top; border-top: none; text-align: center;">
                     IRN : {{ $eInvoice->irn_number }}

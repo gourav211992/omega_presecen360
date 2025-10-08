@@ -37,59 +37,142 @@ class GstrController extends Controller
         $connection = config('database.connections.mysql.database');
 
         $organization = OrganizationHelper::getAuthenticatedOrganization();
-        $gstin = $organization->gst_number;
-
-        $gstrInvoiceTypes = ErpGstInvoiceType::on('mysql_master') // Set connection for master
-                ->where(function ($query) use ($request) {
-                    if($request->search){
-                        $query->where('erp_gst_invoice_types.name', 'like', '%' . $request->search . '%');
-                    }
-
-                    $this->filter($request,$query);
-                })
-                ->select(
-                    'erp_gst_invoice_types.id',
-                    'erp_gst_invoice_types.name as type',
-                    DB::raw("COALESCE(SUM(erp_gstr_compiled_data.taxable_amt)) as taxable_amt"),
-                    DB::raw("COALESCE(SUM(erp_gstr_compiled_data.rate)) as gst_rate"),
-                    DB::raw("COALESCE(SUM(erp_gstr_compiled_data.sgst)) as sgst"),
-                    DB::raw("COALESCE(SUM(erp_gstr_compiled_data.cgst)) as cgst"),
-                    DB::raw("COALESCE(SUM(erp_gstr_compiled_data.igst)) as igst"),
-                    DB::raw("COALESCE(SUM(erp_gstr_compiled_data.cess)) as cess"),
-                    DB::raw("COALESCE(SUM(erp_gstr_compiled_data.invoice_amt)) as invoice_amt"),
-                    DB::raw("COUNT(DISTINCT erp_gstr_compiled_data.invoice_id) as invoice_count")
-                )
-                ->leftJoin("{$connection}.erp_gstr_compiled_data", "erp_gstr_compiled_data.invoice_type_id", '=', 'erp_gst_invoice_types.id')
-                ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
-                ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
-                ->groupBy('erp_gst_invoice_types.id')
-                ->paginate($length);
+        $organizationGstin = $organization->gst_number;
 
         $masterData = self::masterData();
 
-        $types = ErpGstInvoiceType::on('mysql_master')
-        ->join("{$connection}.erp_gstr_compiled_data", 'erp_gstr_compiled_data.invoice_type_id', '=', 'erp_gst_invoice_types.id')
-        ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
-        ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
-        ->select('erp_gst_invoice_types.id', 'erp_gst_invoice_types.name')
-        ->where(function($q) use($request){
-            if($request->search){
-                $q->where('erp_gst_invoice_types.name', 'like', '%' . $request->search . '%');
-            }
-        })
-        ->groupBy('erp_gst_invoice_types.id')
-        ->get();
+        $types = ErpGstInvoiceType::select('erp_gst_invoice_types.id', 'erp_gst_invoice_types.name')
+            ->where(function($q) use($request){
+                if($request->search){
+                    $q->where('erp_gst_invoice_types.name', 'like', '%' . $request->search . '%');
+                }
+            })
+            ->paginate($length);
+
+        $invoiceData = [];
+        foreach($types as $type){
+            $invoiceData[$type->name] = $this->getSummaryData($request, $type->id, $type->name, $organizationGstin, $startDate, $endDate);
+
+        }
 
         return view('finance.gstr.index',[
             'pageLengths' => $pageLengths,
-            'gstrInvoiceTypes' => $gstrInvoiceTypes,
+            'invoiceData' => $invoiceData,
             'startDate' => $startDate,
             'endDate' => $endDate,
             'groups' => $masterData['groups'],
             'organizationData' => $masterData['organizations'],
             'companies' => $masterData['companies'],
             'types' => $types,
+            'invoiceTypes' => $masterData['types'],
         ]);
+    }
+
+    private function getSummaryData($request, $typeId, $type, $organizationGstin, $startDate, $endDate){
+        switch ($type) {
+            case 'b2b':
+                return self::getB2bSummary($request, $typeId, $organizationGstin, $startDate, $endDate);
+            case 'hsn':
+                return self::getHsnSummary($request, $typeId, $organizationGstin, $startDate, $endDate);
+            default:
+                return self::getInvoiceData($request, $typeId, $organizationGstin, $startDate, $endDate);
+        }
+    }
+
+    private function getB2bSummary($request, $typeId, $gstin, $startDate, $endDate){
+        $data = GstrCompiledData::where(function ($query) use ($request) {
+                    $this->filter($request,$query);
+                })
+                ->where('invoice_type_id',$typeId)
+                ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
+                ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+                ->select(
+                    DB::raw("erp_gstr_compiled_data.taxable_amt as taxable_amt"),
+                    DB::raw("erp_gstr_compiled_data.rate as gst_rate"),
+                    DB::raw("erp_gstr_compiled_data.sgst as sgst"),
+                    DB::raw("erp_gstr_compiled_data.cgst as cgst"),
+                    DB::raw("erp_gstr_compiled_data.igst as igst"),
+                    DB::raw("erp_gstr_compiled_data.cess as cess"),
+                    DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                )
+                ->groupBy('invoice_id')
+                ->get()
+                ->toArray();
+
+        return [
+            'taxable_amt' => array_sum(array_column($data, 'taxable_amt')),
+            'rate' => array_sum(array_column($data, 'rate')),
+            'sgst' => array_sum(array_column($data, 'sgst')),
+            'cgst' => array_sum(array_column($data, 'cgst')),
+            'igst' => array_sum(array_column($data, 'igst')),
+            'cess' => array_sum(array_column($data, 'cess')),
+            'invoice_amt' => array_sum(array_column($data, 'invoice_amt')),
+            'invoice_count' => count($data)
+        ];
+    }
+
+    private function getHsnSummary($request, $typeId, $gstin, $startDate, $endDate){
+        $data = GstrCompiledData::where(function ($query) use ($request) {
+                    $this->filter($request,$query);
+                })
+                ->where('invoice_type_id',$typeId)
+                ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
+                ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+                ->select(
+                    DB::raw("erp_gstr_compiled_data.taxable_amt as taxable_amt"),
+                    DB::raw("erp_gstr_compiled_data.rate as gst_rate"),
+                    DB::raw("erp_gstr_compiled_data.sgst as sgst"),
+                    DB::raw("erp_gstr_compiled_data.cgst as cgst"),
+                    DB::raw("erp_gstr_compiled_data.igst as igst"),
+                    DB::raw("erp_gstr_compiled_data.cess as cess"),
+                    DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                )
+                ->groupBy('hsn_code')
+                ->get()
+                ->toArray();
+
+        return [
+            'taxable_amt' => array_sum(array_column($data, 'taxable_amt')),
+            'rate' => array_sum(array_column($data, 'rate')),
+            'sgst' => array_sum(array_column($data, 'sgst')),
+            'cgst' => array_sum(array_column($data, 'cgst')),
+            'igst' => array_sum(array_column($data, 'igst')),
+            'cess' => array_sum(array_column($data, 'cess')),
+            'invoice_amt' => array_sum(array_column($data, 'invoice_amt')),
+            'invoice_count' => count($data)
+        ];
+    }
+
+    private function getInvoiceData($request, $typeId, $gstin, $startDate, $endDate){
+        $data = GstrCompiledData::where(function ($query) use ($request) {
+                    $this->filter($request,$query);
+                })
+                ->where('invoice_type_id',$typeId)
+                ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
+                ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+                ->select(
+                    DB::raw("erp_gstr_compiled_data.taxable_amt as taxable_amt"),
+                    DB::raw("erp_gstr_compiled_data.rate as gst_rate"),
+                    DB::raw("erp_gstr_compiled_data.sgst as sgst"),
+                    DB::raw("erp_gstr_compiled_data.cgst as cgst"),
+                    DB::raw("erp_gstr_compiled_data.igst as igst"),
+                    DB::raw("erp_gstr_compiled_data.cess as cess"),
+                    DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                )
+                ->groupBy('invoice_id')
+                ->get()
+                ->toArray();
+
+        return [
+            'taxable_amt' => array_sum(array_column($data, 'taxable_amt')),
+            'rate' => array_sum(array_column($data, 'rate')),
+            'sgst' => array_sum(array_column($data, 'sgst')),
+            'cgst' => array_sum(array_column($data, 'cgst')),
+            'igst' => array_sum(array_column($data, 'igst')),
+            'cess' => array_sum(array_column($data, 'cess')),
+            'invoice_amt' => array_sum(array_column($data, 'invoice_amt')),
+            'invoice_count' => count($data)
+        ];
     }
 
     public function json(Request $request){
