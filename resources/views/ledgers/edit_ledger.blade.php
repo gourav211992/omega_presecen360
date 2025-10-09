@@ -316,7 +316,7 @@
                                                     </div>
                                                     <div class="row align-items-center mb-1" id="tds_percentage_label">
                                                         <div class="col-md-2">
-                                                            <label class="form-label">% TDS With PAN <span
+                                                            <label class="form-label">% TDS  <span
                                                                     class="text-danger">*</span></label>
                                                         </div>
                                                         <div class="col-md-3">
@@ -326,7 +326,7 @@
                                                             pattern="^\d+(\.\d{1,2})?$"/>
                                                         </div>
                                                     </div>
-                                                    <div class="row align-items-center mb-1" id="tds_percentage_label">
+                                                    {{--<div class="row align-items-center mb-1" id="tds_percentage_label">
                                                         <div class="col-md-2">
                                                             <label class="form-label"> % TDS Without PAN <span
                                                                     class="text-danger">*</span></label>
@@ -337,7 +337,7 @@
                                                                 id="tds_without_pan" name="tds_without_pan" value="{{ $data->tds_without_pan }}" step="0.01"
                                                             pattern="^\d+(\.\d{1,2})?$" />
                                                         </div>
-                                                    </div>
+                                                    </div>--}}
                                                     <div class="row align-items-center mb-1" id="tcs_section_label">
                                                         <div class="col-md-2">
                                                             <label class="form-label">TCS Section Type<span
@@ -356,7 +356,7 @@
                                                             </select>
                                                         </div>
                                                     </div>
-                                                    <div class="row align-items-center mb-1" id="tds_capping_label">
+                                                    {{--<div class="row align-items-center mb-1" id="tds_capping_label">
                                                         <div class="col-md-2">
                                                             <label class="form-label"> TDS Capping <span
                                                                     class="text-danger">*</span></label>
@@ -366,10 +366,10 @@
                                                             <input type="number" class="form-control"
                                                                 id="tds_capping" name="tds_capping" step="any" value="{{ $data->tds_capping }}" />
                                                         </div>
-                                                    </div>
+                                                    </div>--}}
                                                     <div class="row align-items-center mb-1" id="tcs_percentage_label">
                                                         <div class="col-md-2">
-                                                            <label class="form-label">% TCS With PAN <span
+                                                            <label class="form-label">% TCS<span
                                                                     class="text-danger">*</span></label>
                                                         </div>
                                                         <div class="col-md-3">
@@ -379,7 +379,7 @@
                                                             pattern="^\d+(\.\d{1,2})?$" />
                                                         </div>
                                                     </div>
-                                                    <div class="row align-items-center mb-1" id="tcs_without_pan_label">
+                                                    {{--<div class="row align-items-center mb-1" id="tcs_without_pan_label">
                                                         <div class="col-md-2">
                                                             <label class="form-label"> % TCS Without PAN <span
                                                                     class="text-danger">*</span></label>
@@ -402,7 +402,7 @@
                                                             <input type="number" class="form-control"
                                                                 id="tcs_capping" name="tcs_capping"  step="any" value="{{ $data->tcs_capping }}" />
                                                         </div>
-                                                    </div>
+                                                    </div>--}}
                                                     
                                                 </div>
                                             </div>

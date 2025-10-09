@@ -28,7 +28,31 @@ class MaintBomController extends Controller
             return $this->ajaxData($request);
         }
 
-        return view('plant.maint_bom.index');
+        // Fetch filter data for the view
+        $parentURL = "plant_maint-bom";
+        $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
+        
+        // Get series data
+        $series = collect();
+        if (count($servicesBooks['services']) > 0) {
+            $firstService = $servicesBooks['services'][0];
+            $series = Helper::getBookSeriesNew($firstService->alias, $parentURL)->get();
+        }
+        
+        // Get unique BOM names
+        $bomNames = PlantMaintBom::select('bom_name')
+            ->distinct()
+            ->whereNotNull('bom_name')
+            ->where('bom_name', '!=', '')
+            ->orderBy('bom_name')
+            ->pluck('bom_name');
+            
+        // Get organization data
+        $user = Helper::getAuthenticatedUser();
+        $organizationId = $user->organization_id;
+        $mappings = Helper::access_org();
+
+        return view('plant.maint_bom.index', compact('series', 'bomNames', 'mappings', 'organizationId'));
     }
 
     /**
@@ -100,21 +124,61 @@ class MaintBomController extends Controller
          $query = PlantMaintBom::query()
              ->with(['book:id,book_code,book_name']);
      
-         // Debug: Log available status values (remove this after debugging)
-         if ($request->get('debug_status')) {
-             $statuses = PlantMaintBom::select('document_status')->distinct()->pluck('document_status');
-             \Log::info('Available BOM statuses: ' . $statuses->toJson());
+         // Handle filter parameters
+         if ($request->filled('date_range')) {
+             $dateRange = $request->date_range;
+             if (strpos($dateRange, ' to ') !== false) {
+                 $dates = explode(' to ', $dateRange);
+                 if (count($dates) == 2) {
+                     $startDate = \Carbon\Carbon::createFromFormat('Y-m-d', trim($dates[0]))->startOfDay();
+                     $endDate = \Carbon\Carbon::createFromFormat('Y-m-d', trim($dates[1]))->endOfDay();
+                     $query->whereBetween('document_date', [$startDate, $endDate]);
+                 }
+             }
+         }
+
+         if ($request->filled('series_filter')) {
+             $query->whereHas('book', function($q) use ($request) {
+                 $q->where('book_code', $request->series_filter);
+             });
+         }
+
+         if ($request->filled('bom_name_filter')) {
+             $query->where('bom_name', 'like', '%' . $request->bom_name_filter . '%');
+         }
+
+         if ($request->filled('filter_organization')) {
+             $organizationFilters = is_array($request->filter_organization) 
+                 ? $request->filter_organization 
+                 : [$request->filter_organization];
+             
+             $query->whereIn('organization_id', $organizationFilters);
+         }
+
+         if ($request->filled('status_filter')) {
+             $statusFilter = $request->status_filter;
+             if ($statusFilter === 'approved') {
+                 $query->where('document_status', ConstantHelper::APPROVAL_NOT_REQUIRED);
+             } elseif ($statusFilter === 'submitted') {
+                 $query->where('document_status', ConstantHelper::SUBMITTED);
+             } elseif ($statusFilter === 'rejected') {
+                 $query->where('document_status', ConstantHelper::REJECTED);
+             } else {
+                 $query->where('document_status', $statusFilter);
+             }
          }
      
+         // Handle global search
          if ($request->has('search') && !empty($request->search['value'])) {
              $searchValue = trim($request->search['value']);
            
-     
              $query->where(function ($q) use ($searchValue) {
                  $q->orWhere('bom_name', 'like', "%{$searchValue}%")
                    ->orWhere('document_number', 'like', "%{$searchValue}%")
                    ->orWhere('document_status', 'like', "%{$searchValue}%")
-                   ->orWhere('book_code', 'like', "%{$searchValue}%") // ✅ direct search on book_code
+                   ->orWhereHas('book', function($bookQuery) use ($searchValue) {
+                       $bookQuery->where('book_code', 'like', "%{$searchValue}%");
+                   })
                    ->orWhere('document_date', 'like', "%{$searchValue}%")
                    ->orWhereRaw("DATE_FORMAT(document_date, '%d-%m-%Y') LIKE ?", ["%{$searchValue}%"])
                    ->orWhereRaw("DATE_FORMAT(document_date, '%d/%m/%Y') LIKE ?", ["%{$searchValue}%"])
@@ -521,6 +585,7 @@ class MaintBomController extends Controller
      */
     public function update(MaintBOMRequest $request, $id)
     {
+        
         // Validation via FormRequest
         $validator = $request->validated();
 

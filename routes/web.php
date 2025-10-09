@@ -3007,6 +3007,7 @@ Route::middleware(['user.auth'])->group(function () {
     });
     Route::post('plant/maint-wo/close-work-order', [MaintWoController::class, 'closeWorkOrder'])->name('maint-wo.close-work-order');
     Route::get('plant/maint-wo/get-ajax-data', [MaintWoController::class, 'ajaxData'])->name('maint-wo.ajax-data');
+    Route::post('plant/maint-wo/validate', [MaintWoController::class, 'validateWorkOrder'])->name('maint-wo.validate');
     Route::get('plant/maint-wo/get-equipment-spare-parts', [MaintWoController::class, 'getEquipmentSpareParts'])->name('maint-wo.get-equipment-spare-parts');
     Route::post('plant/maint-wo/approve', [MaintWoController::class, 'documentApproval'])->name('maint-wo.approval');
     Route::post('plant/maint-wo/filter', [MaintWoController::class, 'filter'])->name('maint-wo.filter');

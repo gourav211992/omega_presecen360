@@ -75,35 +75,29 @@
 						<div class="form-group breadcrumb-right">
 							<a href="{{ route('defect-notification.index') }}"> <button class="btn btn-secondary btn-sm"><i
 										data-feather="arrow-left-circle"></i> Back</button>
-							</a>
-								@if ($buttons['draft'])
-									<button type="button" onclick = "submitForm('draft');"
-										class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="submit-button"
-										name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
-								@endif
-								@if ($buttons['submit'])
-									<button type="button" onclick = "submitForm('submitted');"
-										class="btn btn-primary btn-sm" id="submit-button" name="action"
-										value="submitted"><i data-feather="check-circle"></i> Submit</button>
-								@endif
-								@if ($buttons['approve'])
-									<button type="button" id="reject-button" data-bs-toggle="modal"
-										data-bs-target="#approveModal" onclick = "setReject();"
-										class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
-											data-feather="x-circle"></i> Reject</button>
-									<button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal"
-										data-bs-target="#approveModal" onclick = "setApproval();"><i
-											data-feather="check-circle"></i> Approve</button>
-								@endif
+						</a>
+								
+								@if(!isset(request()->revisionNumber))
+									@if ($buttons['approve'])
+										<button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal"
+											data-bs-target="#approveModal" onclick = "setApproval();"><i
+												data-feather="check-circle"></i> Approve</button>
+										<button type="button" id="reject-button" data-bs-toggle="modal"
+											data-bs-target="#approveModal" onclick = "setReject();"
+											class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
+												data-feather="x-circle"></i> Reject</button>
+									@endif
 
-								@if ($buttons['amend'])
-                                        <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
-                                            Amendment</button>
-                                @endif
-                                @if($buttons['revoke'])
-                                    <a id="revokeButton" type="button" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</a>
-                                @endif
+									@if ($buttons['amend'])
+										<button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
+											class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
+											Amendment</button>
+									@endif
+									
+									@if($buttons['revoke'])
+										<a id="revokeButton" type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</a>
+									@endif
+								@endif
 
                                 <input id="submitButton" type="submit" value="Submit" class="hidden" />
                             
@@ -1513,12 +1507,66 @@
 					});
 					input.value = '';
 					return false;
-				}
 			}
-			
-			return true;
 		}
+		
+		return true;
+	}
+
+	function setApproval() {
+		document.getElementById('action_type').value = "approve";
+		document.getElementById('approve_reject_heading_label').textContent = "Approve Defect Notification";
+	}
+
+	function setReject() {
+		document.getElementById('action_type').value = "reject";
+		document.getElementById('approve_reject_heading_label').textContent = "Reject Defect Notification";
+	}
 
 	</script>
+
+<!-- Approve/Reject Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form class="ajax-submit-2" method="POST" action="{{ route('approveDefectNotification') }}" 
+                  data-redirect="{{ route('defect-notification.index') }}" enctype="multipart/form-data">
+                @csrf
+                <input type="hidden" name="action_type" id="action_type">
+                <input type="hidden" name="id" value="{{ $defectNotification->id }}">
+                
+                <div class="modal-header">
+                    <h5 class="modal-title" id="approve_reject_heading_label">Approve/Reject</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="mb-1">
+                        <label class="form-label">Remarks</label>
+                        <textarea name="remarks" class="form-control cannot_disable"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-1">
+                                <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
+                                <input type="file" id="approval_attachment" name="attachment[]" multiple class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" onchange="validateFile(this);" max_file_count="2">
+                            </div>
+                        </div>
+                        <div class="col-md-4" style="margin-top:19px;">
+                            <div class="row" id="approval_files_preview">
+                            </div>
+                        </div>
+                    </div>
+                    <span class="text-primary small">{{ __("message.attachment_caption") }}</span>
+                </div>
+                
+                <div class="modal-footer justify-content-center">
+                    <button type="button" class="btn btn-outline-secondary me-1" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 @endsection

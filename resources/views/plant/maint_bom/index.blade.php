@@ -1,4 +1,9 @@
 @extends('layouts.app')
+
+@section('styles')
+<link rel="stylesheet" type="text/css" href="{{asset('app-assets/vendors/css/pickers/flatpickr/flatpickr.min.css')}}">
+@endsection
+
 @section('content')
 
    <!-- BEGIN: Content-->
@@ -99,24 +104,45 @@
 						<label class="form-label">Series</label>
 						<select class="form-select" id="filter-series">
 							<option value="">Select</option>
+							@foreach($series as $seriesItem)
+								<option value="{{ $seriesItem->book_code }}">{{ $seriesItem->book_code }}</option>
+							@endforeach
 						</select>
 					</div> 
                     
                     <div class="mb-1">
 						<label class="form-label">BOM Name</label>
 						<select class="form-select select2" id="filter-bom-name">
-							<option value="">Select</option> 
+							<option value="">Select</option>
+							@foreach($bomNames as $bomName)
+								<option value="{{ $bomName }}">{{ $bomName }}</option>
+							@endforeach
 						</select>
 					</div>
                     
                      
                     
                     <div class="mb-1">
+						<label class="form-label">Organization</label>
+						<select id="filter-organization" class="form-select select2" multiple name="filter_organization">
+							<option value="" disabled>Select</option>
+							@foreach($mappings as $organization)
+								<option value="{{ $organization->organization->id }}"
+									{{ $organization->organization->id == $organizationId ? 'selected' : '' }}>
+									{{ $organization->organization->name }}
+								</option>
+							@endforeach
+						</select>
+					</div>
+                    
+                    <div class="mb-1">
 						<label class="form-label">Status</label>
 						<select class="form-select" id="filter-status">
 							<option value="">Select</option>
 							<option value="draft">Draft</option>
+							<option value="submitted">Submitted</option>
 							<option value="approved">Approved</option>
+							<option value="rejected">Rejected</option>
 						</select>
 					</div> 
 					 
@@ -130,6 +156,7 @@
 	</div>
 @endsection
 @section('scripts')
+<script src="{{asset('app-assets/vendors/js/pickers/flatpickr/flatpickr.min.js')}}"></script>
 <script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
 <script>
     var table = $('#maint-bom-table').DataTable({
@@ -140,6 +167,11 @@
         url: '{{ route("maint-bom.index") }}',
         type: 'GET',
         data: function(d) {
+            d.date_range = $('#fp-range').val();
+            d.series_filter = $('#filter-series').val();
+            d.bom_name_filter = $('#filter-bom-name').val();
+            d.filter_organization = $('#filter-organization').val();
+            d.status_filter = $('#filter-status').val();
             console.log('DataTable request data:', d);
             return d;
         }
@@ -158,8 +190,55 @@
     lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
     dom: '<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-3 dt-action-buttons text-end"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
     buttons: [
-        // export buttons...
-    ],
+            {
+                extend: 'collection',
+                className: 'btn btn-outline-secondary dropdown-toggle',
+                text: feather.icons['share'].toSvg({ class: 'font-small-4 mr-50' }) + ' Export',
+                buttons: [
+                    {
+                        extend: 'print',
+                        text: feather.icons['printer'].toSvg({ class: 'font-small-4 mr-50' }) + ' Print',
+                        className: 'dropdown-item',
+                        title: 'Maintenance Work Orders',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    },
+                    {
+                        extend: 'csv',
+                        text: feather.icons['file-text'].toSvg({ class: 'font-small-4 mr-50' }) + ' CSV',
+                        className: 'dropdown-item',
+                        title: 'Maintenance Work Orders',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    },
+                    {
+                        extend: 'excel',
+                        text: feather.icons['file'].toSvg({ class: 'font-small-4 mr-50' }) + ' Excel',
+                        className: 'dropdown-item',
+                        title: 'Maintenance Work Orders',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    },
+                    {
+                        extend: 'pdf',
+                        text: feather.icons['clipboard'].toSvg({ class: 'font-small-4 mr-50' }) + ' PDF',
+                        className: 'dropdown-item',
+                        title: 'Maintenance Work Orders',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    },
+                    {
+                        extend: 'copy',
+                        text: feather.icons['copy'].toSvg({ class: 'font-small-4 mr-50' }) + ' Copy',
+                        className: 'dropdown-item',
+                        title: 'Maintenance Work Orders',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    }
+                ],
+                init: function (api, node, config) {
+                    $(node).removeClass('btn-secondary').parent().removeClass('btn-group');
+                    setTimeout(function () {
+                        $(node).closest('.dt-buttons').removeClass('btn-group').addClass('d-inline-flex');
+                    }, 50);
+                }
+            }
+         ],
     drawCallback: function () {
         feather.replace();
         $(document).on("click", "#maint-bom-table tbody tr", (e) => {
@@ -174,60 +253,12 @@
     search: { caseInsensitive: true }
 });
 
-// Populate Series Dropdown
-function populateSeriesDropdown() {
-    $.ajax({
-        url: '{{ route("maint-bom.get-series") }}',
-        type: 'GET',
-        success: function(data) {
-            var seriesSelect = $('#filter-series');
-            seriesSelect.empty();
-            seriesSelect.append('<option value="">Select</option>');
-            
-            $.each(data, function(index, series) {
-                seriesSelect.append('<option value="' + series.book_code + '">' + series.book_code + '</option>');
-            });
-        },
-        error: function(xhr, status, error) {
-            console.error('Error loading series:', error);
-        }
-    });
-}
-
-// Populate BOM Names Dropdown
-function populateBomNamesDropdown() {
-    $.ajax({
-        url: '{{ route("maint-bom.get-bom-names") }}',
-        type: 'GET',
-        success: function(data) {
-            var bomNameSelect = $('#filter-bom-name');
-            bomNameSelect.empty();
-            bomNameSelect.append('<option value="">Select</option>');
-            
-            $.each(data, function(index, bomName) {
-                bomNameSelect.append('<option value="' + bomName + '">' + bomName + '</option>');
-            });
-        },
-        error: function(xhr, status, error) {
-            console.error('Error loading BOM names:', error);
-        }
-    });
-}
+// Filter data is now loaded directly from controller - no AJAX needed
 
 // Apply Filters
 $('.data-submit').on('click', function() {
-    var dateRange = $('#fp-range').val();
-    var series = $('#filter-series').val();
-    var bomName = $('#filter-bom-name').val();
-    var status = $('#filter-status').val();
-    
-    // Apply column-specific filters
-    table.column(1).search(dateRange); // Date column
-    table.column(2).search(series); // Series column
-    table.column(4).search(bomName); // BOM Name column
-    table.column(5).search(status); // Status column
-    
-    table.draw();
+    // Reload the DataTable with new filter values
+    table.ajax.reload();
     $('#filter').modal('hide');
 });
 
@@ -235,17 +266,47 @@ $('.data-submit').on('click', function() {
 $('button[type="reset"]').on('click', function() {
     $('#fp-range').val('');
     $('#filter-series').val('');
-    $('#filter-bom-name').val('');
     $('#filter-status').val('');
     
-    // Clear all column filters
-    table.columns().search('').draw();
+    // Reset Select2 dropdowns
+    if (typeof $.fn.select2 !== 'undefined') {
+        $('#filter-bom-name').val(null).trigger('change');
+        $('#filter-organization').val(null).trigger('change');
+    } else {
+        $('#filter-bom-name').val('');
+        $('#filter-organization').val('');
+    }
+    
+    // Reload the DataTable to clear filters
+    table.ajax.reload();
 });
 
-// Initialize dropdowns on page load
+// Initialize date picker on page load
 $(document).ready(function() {
-    populateSeriesDropdown();
-    populateBomNamesDropdown();
+    // Initialize flatpickr for date range
+    if (typeof flatpickr !== 'undefined') {
+        flatpickr('#fp-range', {
+            mode: 'range',
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+            placeholder: 'YYYY-MM-DD to YYYY-MM-DD'
+        });
+    }
+    
+    // Initialize Select2 for dropdowns if available
+    if (typeof $.fn.select2 !== 'undefined') {
+        $('#filter-bom-name').select2({
+            placeholder: 'Select BOM Name',
+            allowClear: true,
+            dropdownParent: $('#filter')
+        });
+        
+        $('#filter-organization').select2({
+            placeholder: 'Select Organizations',
+            allowClear: true,
+            dropdownParent: $('#filter')
+        });
+    }
 });
 
    function showToast(icon, title) {

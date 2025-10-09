@@ -31,7 +31,14 @@ class ErpEquipmentController extends Controller
     
     public function index()
     {
-        return view('equipment.index');
+        $user = Helper::getAuthenticatedUser();
+        $organizationId = $user->organization_id;
+        
+        $equipmentCategories = Category::where('type', 'Equipment')->where('status','Active')->pluck('name', 'id') ?? collect();
+        $maintenanceTypes = ErpMaintenanceType::where('status', 'Active')->pluck('name', 'id') ?? collect();
+        $mappings = Helper::access_org();
+
+        return view('equipment.index', compact('equipmentCategories', 'maintenanceTypes', 'mappings', 'organizationId'));
     }
 
     public function getData(Request $request)
@@ -55,6 +62,52 @@ class ErpEquipmentController extends Controller
                       ]);
             }
         ]);
+
+        // Handle filter parameters
+        if ($request->filled('date_range')) {
+            $dateRange = $request->date_range;
+            if (strpos($dateRange, ' to ') !== false) {
+                $dates = explode(' to ', $dateRange);
+                if (count($dates) == 2) {
+                    $startDate = \Carbon\Carbon::createFromFormat('Y-m-d', trim($dates[0]))->startOfDay();
+                    $endDate = \Carbon\Carbon::createFromFormat('Y-m-d', trim($dates[1]))->endOfDay();
+                    $equipment->whereBetween('created_at', [$startDate, $endDate]);
+                }
+            }
+        }
+
+        if ($request->filled('equipment_category_filter')) {
+            $equipment->whereHas('category', function($q) use ($request) {
+                $q->where('name', $request->equipment_category_filter);
+            });
+        }
+
+        if ($request->filled('maintenance_type_filter')) {
+            $equipment->whereHas('maintenanceDetails.maintenanceType', function($q) use ($request) {
+                $q->where('name', $request->maintenance_type_filter);
+            });
+        }
+
+        if ($request->filled('status_filter')) {
+            $statusFilter = $request->status_filter;
+            if ($statusFilter === 'approved') {
+                $equipment->where('document_status', ConstantHelper::APPROVAL_NOT_REQUIRED);
+            } elseif ($statusFilter === 'submitted') {
+                $equipment->where('document_status', ConstantHelper::SUBMITTED);
+            } elseif ($statusFilter === 'rejected') {
+                $equipment->where('document_status', ConstantHelper::REJECTED);
+            } else {
+                $equipment->where('document_status', $statusFilter);
+            }
+        }
+
+        if ($request->filled('filter_organization')) {
+            $organizationFilters = is_array($request->filter_organization) 
+                ? $request->filter_organization 
+                : [$request->filter_organization];
+            
+            $equipment->whereIn('organization_id', $organizationFilters);
+        }
 
         // Add search functionality
         if ($request->has('search') && !empty($request->search['value'])) {
