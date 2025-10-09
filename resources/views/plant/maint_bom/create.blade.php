@@ -858,12 +858,12 @@
 		}
 
 
-		document.getElementById('save-draft-btn').addEventListener('click', function () {
+		document.getElementById('save-draft-btn').addEventListener('click', async function () {
 			$('.preloader').show();
 			document.getElementById('document_status').value = 'draft';
 
 			// Validate header fields for draft save
-			let headerValidationPassed = validateHeaderFields();
+			let headerValidationPassed = await validateHeaderFields();
 			if (!headerValidationPassed) {
 				$('.preloader').hide();
 				return; // Stop submission if validation fails
@@ -875,13 +875,13 @@
 		});
 
 
-		$('#maint-bom-form').on('submit', function (e) {
+		$('#maint-bom-form').on('submit', async function (e) {
 			$('.preloader').show();
 			document.getElementById('document_status').value = 'submitted';
 			e.preventDefault(); // Always prevent default first
 
 			// Validate header fields
-			let headerValidationPassed = validateHeaderFields();
+			let headerValidationPassed = await validateHeaderFields();
 			if (!headerValidationPassed) {
 				$('.preloader').hide();
 				return; // Stop submission if validation fails
@@ -1472,7 +1472,7 @@
         });
 
 
-		function validateHeaderFields() {
+		async function validateHeaderFields() {
 			let isValid = true;
 			let errorMessages = [];
 
@@ -1520,6 +1520,27 @@
 				$('#bom_name').removeClass('is-invalid');
 			}
 
+			// Check for duplicates if basic validation passed
+			if (isValid) {
+				try {
+					const duplicateCheck = await checkForDuplicates(documentNumber, bomName, bookId);
+					if (duplicateCheck.document_exists) {
+						errorMessages.push('Document number already exists. Please use a different document number.');
+						$('#document_number').addClass('is-invalid');
+						isValid = false;
+					}
+					if (duplicateCheck.bom_name_exists) {
+						errorMessages.push('BOM name already exists. Please use a different BOM name.');
+						$('#bom_name').addClass('is-invalid');
+						isValid = false;
+					}
+				} catch (error) {
+					console.error('Error checking duplicates:', error);
+					errorMessages.push('Error validating data. Please try again.');
+					isValid = false;
+				}
+			}
+
 			if (!isValid) {
 				Swal.fire({
 					icon: 'error',
@@ -1530,6 +1551,28 @@
 			}
 
 			return isValid;
+		}
+
+		// Function to check for duplicate document number and BOM name
+		function checkForDuplicates(documentNumber, bomName, bookId) {
+			return new Promise((resolve, reject) => {
+				$.ajax({
+					url: '{{ route("maint-bom.check-document-number") }}',
+					method: 'POST',
+					data: {
+						document_number: documentNumber,
+						bom_name: bomName,
+						book_id: bookId,
+						_token: '{{ csrf_token() }}'
+					},
+					success: function(response) {
+						resolve(response);
+					},
+					error: function(xhr, status, error) {
+						reject(error);
+					}
+				});
+			});
 		}
 
 		function validateQuantities() {

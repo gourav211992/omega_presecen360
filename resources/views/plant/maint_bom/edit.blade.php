@@ -22,6 +22,7 @@
 							</div>
 						</div>
 					</div>
+					@php   $isAmendmentMode = intval(request('amendment') ?? 0) === 1; @endphp
 					<div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
 						<div class="form-group breadcrumb-right">
 							<a href="{{ route('maint-bom.index') }}"> <button class="btn btn-secondary btn-sm"><i
@@ -409,123 +410,33 @@
 	<div class="drag-target"></div>
 
 
-	<div class="modal fade text-start" id="overhead" tabindex="-1" aria-labelledby="myModalLabel17" aria-hidden="true">
-		<div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 1000px">
-			<div class="modal-content">
-				<div class="modal-header">
-					<div>
-						<h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">Enter Overhead
-						</h4>
-						<p class="mb-0">Enter the below list</p>
-					</div>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					<div class="row">
-
-
-						<div class="col-md-12">
-
-
-							<div class="table-responsive-md">
-								<table
-									class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail border">
-									<thead>
-										<tr>
-											<th>#</th>
-											<th>Description</th>
-											<th>Amount</th>
-											<th width="400px">Leadger</th>
-										</tr>
-									</thead>
-									<tbody>
-										<tr>
-											<td>1</td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td>
-												<select class="form-select select2">
-													<option>Select</option>
-												</select>
-											</td>
-										</tr>
-
-										<tr>
-											<td>2</td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td>
-												<select class="form-select select2">
-													<option>Select</option>
-												</select>
-											</td>
-										</tr>
-
-										<tr>
-											<td>2</td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td>
-												<select class="form-select select2">
-													<option>Select</option>
-												</select>
-											</td>
-										</tr>
-
-
-									</tbody>
-
-
-								</table>
-							</div>
-						</div>
-
-
-					</div>
-				</div>
-				<div class="modal-footer text-end">
-					<button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i data-feather="x-circle"></i>
-						Cancel</button>
-					<button class="btn btn-primary btn-sm" data-bs-dismiss="modal"><i data-feather="check-circle"></i>
-						Submit</button>
-				</div>
+    <div class="modal fade" id="amendmentSubmitModal" tabindex="-1" aria-labelledby="amendmentSubmitModalLabel" aria-hidden="true">
+	<div class="modal-dialog modal-dialog-centered">
+		<div class="modal-content">
+		<div class="modal-header">
+			<h5 class="modal-title" id="amendmentSubmitModalLabel">Amendment</h5>
+			<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+		</div>
+		<div class="modal-body">
+			<div class="mb-3">
+			<label for="amend_remarks" class="form-label">Amendment Remarks <span class="text-danger">*</span></label>
+			<textarea class="form-control" id="amend_remarks" name="amend_remarks" rows="4" placeholder="Please provide detailed remarks for this amendment..." required></textarea>
 			</div>
+			<div class="mb-3">
+			<label for="amend_attachment" class="form-label">Supporting Document (Optional)</label>
+			<input type="file" class="form-control" id="amend_attachment" name="amend_attachment" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+			<span class="text-primary small">{{__("message.attachment_caption")}}</span>
+			</div>
+		</div>
+
+		<div class="modal-footer">
+			<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+			<button type="button" class="btn btn-primary" id="confirmAmendmentSubmit">
+			<i data-feather="check-circle"></i> Submit
+			</button>
+		</div>
 		</div>
 	</div>
-
-	<div class="modal fade" id="wastage" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
-		<div class="modal-dialog  modal-dialog-centered">
-			<div class="modal-content">
-				<div class="modal-header p-0 bg-transparent">
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body px-sm-2 mx-50 pb-2">
-					<h1 class="text-center mb-1" id="shareProjectTitle">Wastage Details</h1>
-					<p class="text-center">Enter the details below.</p>
-
-					<div class="row">
-						<div class="col-md-12 mb-1">
-							<label class="form-label">Wastage Type <span class="text-danger">*</span></label>
-							<select class="form-control">
-								<option>Select</option>
-								<option selected>Fixed</option>
-								<option>%age</option>
-							</select>
-						</div>
-
-						<div class="col-md-12 mb-1">
-							<label class="form-label">Wastage Value <span class="text-danger">*</span></label>
-							<input type="text" class="form-control" placeholder="Enter Value">
-						</div>
-					</div>
-				</div>
-
-				<div class="modal-footer justify-content-center">
-					<button type="reset" class="btn btn-outline-secondary me-1">Cancel</button>
-					<button type="reset" class="btn btn-primary">Select</button>
-				</div>
-			</div>
-		</div>
 	</div>
 
 
@@ -590,1040 +501,579 @@
 
 
 @section('scripts')
-	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>
-	<script src="{{asset('assets/js/fileshandler.js')}}"></script>
-	<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>
+<script src="{{asset('assets/js/fileshandler.js')}}"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+<script>
+// ==========================
+// 🔧 Global Config (outside DOMContentLoaded)
+// ==========================
+const itemsData = @json($items ?? []);
+let rowCount = 1;
+const MAX_FILE_SIZE_MB = 10;
 
-	<script>
+// Debug: Check if itemsData is loaded
+console.log('Items Data:', itemsData);
+console.log('Items Count:', itemsData.length);
 
+document.addEventListener('DOMContentLoaded', function() {
 
-		const itemsData = @json($items);
-		let rowCount = 1;
-		$(window).on('load', function () {
-			if (feather) {
-				feather.replace({
-					width: 14,
-					height: 14
-				});
-			}
-		})
-		$(".mrntableselectexcel tr").click(function () {
-			$(this).addClass('trselected').siblings().removeClass('trselected');
-			value = $(this).find('td:first').html();
-		});
+	// ==========================
+	// 🔧 DOM Config
+	// ==========================
+	const isAmendmentMode = {{ request('amendment') == 1 ? 'true' : 'false' }};
+	const form = document.getElementById('maint-bom-form');
 
-		$(document).on('keydown', function (e) {
-			if (e.which == 38) {
-				$('.trselected').prev('tr').addClass('trselected').siblings().removeClass('trselected');
-			} else if (e.which == 40) {
-				$('.trselected').next('tr').addClass('trselected').siblings().removeClass('trselected');
-			}
-			$('html, body').scrollTop($('.trselected').offset().top - 200);
-			updateFooterFromSelected();
-		});
-		$(document).on('click', 'tbody tr', function () {
-			$(this).addClass('trselected').siblings().removeClass('trselected');
-			$('html, body').scrollTop($(this).offset().top - 200);
-			updateFooterFromSelected();
-		});
+	// ==========================
+	// 🔸 Feather refresh
+	// ==========================
+	$(window).on('load', function() {
+		if (feather) feather.replace({ width: 14, height: 14 });
+	});
+
+	// ==========================
+	// 🔸 Table Row Selection
+	// ==========================
+	$(".mrntableselectexcel tr").click(function () {
+		$(this).addClass('trselected').siblings().removeClass('trselected');
 		updateFooterFromSelected();
-		function updateFooterFromSelected() {
-			let $selected = $('.trselected');
-			if ($selected.length) {
-				$('#part_name').text($selected.find('.item_name').val());
-				$('#uom').text($selected.find('.uom option:selected').text());
-				$('#qty').text($selected.find('.qty').val());
-				
-				let $selectElement = $selected.find('.item_code');
-				let $badgesContainer = $('#attributes_badges'); // container for badges
+	});
 
-				if ($selectElement.val() !== "") {
-					let attributesJSON = JSON.parse($selectElement.attr('data-attr') || '[]');
-					let $hiddenInput = $selected.find('.attribute');
-					let existingAttributes = $hiddenInput.length && $hiddenInput.val()
-						? JSON.parse($hiddenInput.val())
-						: [];
-
-					if (!attributesJSON.length) {
-						$badgesContainer.html('<span>No attributes available</span>');
-						return;
-					}
-
-					let badgesHtml = '';
-
-					$.each(attributesJSON, function (index, element) {
-						// Find selected value from existingAttributes
-						let selectedValObj = existingAttributes.find(attr => attr.item_attribute_id === element.id);
-						let selectedVal = selectedValObj ? selectedValObj.value_id : '';
-
-						// Find text for selected value
-						let selectedText = '';
-						if (selectedVal) {
-							let valObj = element.values_data.find(v => v.id === selectedVal);
-							selectedText = valObj ? valObj.value : '';
-						}
-
-						badgesHtml += `
-						<span class="badge rounded-pill badge-light-primary" style="margin-right:5px;">
-							<strong>${element.group_name}</strong>: <span>${selectedText}</span>
-						</span>
-					`;
-					});
-
-					$badgesContainer.html(badgesHtml);
-
-				} else {
-					$badgesContainer.html('');
-				}
-
-			}
+	$(document).on('keydown', function (e) {
+		if (e.which == 38) {
+			$('.trselected').prev('tr').addClass('trselected').siblings().removeClass('trselected');
+		} else if (e.which == 40) {
+			$('.trselected').next('tr').addClass('trselected').siblings().removeClass('trselected');
 		}
+		$('html, body').scrollTop($('.trselected').offset().top - 200);
+		updateFooterFromSelected();
+	});
 
-		$('#addNewRowBtn').on('click', function () {
-			// Validate that all existing rows are complete before adding new row
-			let rowsValidationPassed = validateRowsCompletion();
-			if (!rowsValidationPassed) {
-				return; // Stop adding new row if validation fails
-			}
+	$(document).on('click', 'tbody tr', function () {
+		$(this).addClass('trselected').siblings().removeClass('trselected');
+		$('html, body').scrollTop($(this).offset().top - 200);
+		updateFooterFromSelected();
+	});
 
-			rowCount++;
-			let newRow = `<tr>
-																			<td class="customernewsection-form">
-																				<div class="form-check form-check-primary custom-checkbox">
-																					<input type="checkbox" class="form-check-input row-check"
-																						id="Email">
-																					<label class="form-check-label" for="Email"></label>
-																				</div>
-																			</td>
-																			<td class="poprod-decpt">
-																				<input type="hidden" class="item_id">
-																				<input required type="text" placeholder="Select" name="item[]"
-																					class="item_code form-control mw-100 ledgerselecct mb-25" />
-																			</td>
-																			<td required class="poprod-decpt">
-																				<input type="text" placeholder="Select"
-																					class="item_name form-control mw-100 ledgerselecct mb-25" />
-																			</td>
+	// Initialize footer
+	updateFooterFromSelected();
 
-																			<td class="poprod-decpt">
-																				<input type="hidden" class="attribute">
-																				<div class="d-flex flex-wrap gap-1" id="attribute-badges">
-																					<span class="text-muted" style="font-size:10px;">No attributes available</span>
-																				</div>
-																			</td>
-																			<td>
-																				<select class="uom form-select mw-100" name="uom[]" required>
+	// Initialize autocomplete for existing rows
+	initAutoForItem($('.item_code'));
 
-																				</select>
-																			</td>
-																			<td><input type="number" class="qty form-control mw-100"  name="qty[]"
-																					required /></td>
-																		</tr>																  `;
-			$('.mrntableselectexcel').append(newRow);
-			initAutoForItem('.item_code');
+	// ==========================
+	// 🔸 Event Listeners for Footer Update
+	// ==========================
+	$(document).on('input change', '.qty, .uom, .item_name, .item_code, .attribute', function () {
+		updateFooterFromSelected();
+	});
 
-		});
-		$('#delete').on('click', function () {
-			let $rows = $('.mrntableselectexcel tr');
-			let $checked = $rows.find('.row-check:checked');
+	// ==========================
+	// 🔸 Attribute Modal Functionality
+	// ==========================
+	$('.mrntableselectexcel').on('click', 'td:nth-child(4)', function() {
+		let $tr = $(this).closest('tr');
+		let $selectElement = $tr.find('.item_code');
+		let $attributesTable = $('#attribute_table');
+		$attributesTable.data('currentRow', $tr);
+		
+		if ($selectElement.val() !== "") {
+			let attributesJSON = JSON.parse($selectElement.attr('data-attr') || '[]');
+			let $hiddenInput = $tr.find('.attribute');
+			let existingAttributes = $hiddenInput.length && $hiddenInput.val()
+				? JSON.parse($hiddenInput.val())
+				: [];
 
-			// Prevent deletion if only one row exists
-			if ($rows.length <= 1) {
-				showToast('error', 'At least one row is required.');
+			if (!attributesJSON.length) {
+				$attributesTable.html('<tr><td colspan="2" class="text-center">No attributes available</td></tr>');
 				return;
 			}
 
-			// Prevent deletion if checked rows would remove all
-			if ($rows.length - $checked.length < 1) {
-				showToast('error', 'You must keep at least one row.');
-				return;
-			}
-
-			// Remove only the checked rows
-			$checked.closest('tr').remove();
-
-		});
-		$('#checkAll').on('change', function () {
-			let isChecked = $(this).is(':checked');
-			$('.mrntableselectexcel .row-check').prop('checked', isChecked);
-		});
-		function resetParametersDependentElements(data) {
-			let backDateAllowed = false;
-			let futureDateAllowed = false;
-
-			if (data != null) {
-				if (Array.isArray(data?.parameters?.back_date_allowed)) {
-					for (let i = 0; i < data.parameters.back_date_allowed.length; i++) {
-						if (data.parameters.back_date_allowed[i].trim().toLowerCase() === "yes") {
-							backDateAllowed = true;
-							break; // Exit the loop once we find "yes"
-						}
-					}
-				}
-				if (Array.isArray(data?.parameters?.future_date_allowed)) {
-					for (let i = 0; i < data.parameters.future_date_allowed.length; i++) {
-						if (data.parameters.future_date_allowed[i].trim().toLowerCase() === "yes") {
-							futureDateAllowed = true;
-							break; // Exit the loop once we find "yes"
-						}
-					}
-				}
-				//console.log(backDateAllowed, futureDateAllowed);
-
-			}
-
-			const dateInput = document.getElementById("document_date");
-
-			// Determine the max and min values for the date input
-			const today = moment().format("YYYY-MM-DD");
-
-			if (backDateAllowed && futureDateAllowed) {
-				dateInput.removeAttribute("min");
-				dateInput.removeAttribute("max");
-			} else if (backDateAllowed) {
-				dateInput.setAttribute("max", today);
-				dateInput.removeAttribute("min");
-			} else if (futureDateAllowed) {
-				dateInput.setAttribute("min", today);
-				dateInput.removeAttribute("max");
-			} else {
-				dateInput.setAttribute("min", today);
-				dateInput.setAttribute("max", today);
-
-			}
-		}
-
-		$('#book_id').on('change', function () {
-			resetParametersDependentElements(null);
-			let currentDate = new Date().toISOString().split('T')[0];
-			let document_date = $('#document_date').val();
-			let bookId = $('#book_id').val();
-			let actionUrl = '{{ route('book.get.doc_no_and_parameters') }}' + '?book_id=' + bookId +
-				"&document_date=" + document_date;
-			fetch(actionUrl).then(response => {
-				return response.json().then(data => {
-					if (data.status == 200) {
-						resetParametersDependentElements(data.data);
-						$("#book_code_input").val(data.data.book_code);
-						if (!data.data.doc.document_number) {
-							$("#document_number").val('');
-							$('#doc_number_type').val('');
-							$('#doc_reset_pattern').val('');
-							$('#doc_prefix').val('');
-							$('#doc_suffix').val('');
-							$('#doc_no').val('');
-						} else {
-							$("#document_number").val(data.data.doc.document_number);
-							$('#doc_number_type').val(data.data.doc.type);
-							$('#doc_reset_pattern').val(data.data.doc.reset_pattern);
-							$('#doc_prefix').val(data.data.doc.prefix);
-							$('#doc_suffix').val(data.data.doc.suffix);
-							$('#doc_no').val(data.data.doc.doc_no);
-						}
-						if (data.data.doc.type == 'Manually') {
-							$("#document_number").attr('readonly', false);
-						} else {
-							$("#document_number").attr('readonly', true);
-						}
-
-					}
-					if (data.status == 404) {
-						$("#document_number").val('');
-						$('#doc_number_type').val('');
-						$('#doc_reset_pattern').val('');
-						$('#doc_prefix').val('');
-						$('#doc_suffix').val('');
-						$('#doc_no').val('');
-						showToast('error', data.message);
-					}
+			let innerHtml = '';
+			$.each(attributesJSON, function (index, element) {
+				let optionsHtml = '';
+				$.each(element.values_data, function (i, value) {
+					let isSelected = existingAttributes.some(attr =>
+						attr.item_attribute_id === element.id && attr.value_id === value.id
+					);
+					optionsHtml += `<option value='${value.id}' ${isSelected ? 'selected' : ''}>${value.value}</option>`;
 				});
+				innerHtml += `
+					<tr>
+						<td>${element.group_name}<input type="hidden" name="id" value="${element.id}"></td>
+						<td><select class="form-select select2"><option value="">Select</option>${optionsHtml}</select></td>
+					</tr>
+				`;
 			});
-		});
+			$attributesTable.html(innerHtml);
+			$attributesTable.find('select').select2();
+			$('#attribute').modal('show');
+		} else {
+			$attributesTable.html('<tr><td colspan="2" class="text-center">Please select an item first</td></tr>');
+		}
+	});
 
-		//$('#book_id').trigger('change');
+	// ==========================
+	// 🔸 Session Messages
+	// ==========================
+	@if (session('success'))
+		$('.preloader').hide();
+		showToast("success", "{{ session('success') }}");
+	@endif
 
-		function updateJsonData() {
-			const allRows = [];
+	@if (session('error'))
+		$('.preloader').hide();
+		showToast("error", "{{ session('error') }}");
+	@endif
 
-			$('.mrntableselectexcel tr').each(function () {
-				const row = $(this);
-				const itemId = row.find('.item_id').val();
+	@if ($errors->any())
+		$('.preloader').hide();
+		showToast('error', "@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach");
+	@endif
 
-				if (itemId) { // skip empty rows
-					const rowData = {
-						item_id: itemId,
-						item_code: row.find('.item_code').val() || '',
-						item_name: row.find('.item_name').val() || '',
-						attribute: row.find('.attribute').val() || '',
-						qty: row.find('.qty').val() || 0,
-						uom_id: row.find('.uom').val() || '',
-						uom_name: row.find('.uom option:selected').text() || '',
-					};
-					allRows.push(rowData);
+	// ==========================
+	// 🔸 Update Footer from Selected Row
+	// ==========================
+	function updateFooterFromSelected() {
+		let $selected = $('.trselected');
+		if ($selected.length) {
+			$('#part_name').text($selected.find('.item_name').val());
+			$('#uom').text($selected.find('.uom option:selected').text());
+			$('#qty').text($selected.find('.qty').val());
+			
+			let $selectElement = $selected.find('.item_code');
+			let $badgesContainer = $('#attributes_badges');
+
+			if ($selectElement.val() !== "") {
+				let attributesJSON = JSON.parse($selectElement.attr('data-attr') || '[]');
+				let $hiddenInput = $selected.find('.attribute');
+				let existingAttributes = $hiddenInput.length && $hiddenInput.val()
+					? JSON.parse($hiddenInput.val())
+					: [];
+
+				if (!attributesJSON.length) {
+					$badgesContainer.html('<span>No attributes available</span>');
+					return;
 				}
-			});
 
-			$('#spare_parts').val(JSON.stringify(allRows));
+				let badgesHtml = '';
+				$.each(attributesJSON, function (index, element) {
+					let selectedValObj = existingAttributes.find(attr => attr.item_attribute_id === element.id);
+					let selectedVal = selectedValObj ? selectedValObj.value_id : '';
+					let selectedText = '';
+					if (selectedVal) {
+						let valObj = element.values_data.find(v => v.id === selectedVal);
+						selectedText = valObj ? valObj.value : '';
+					}
+					badgesHtml += `<span class="badge rounded-pill badge-light-primary" style="margin-right:5px;"><strong>${element.group_name}</strong>: <span>${selectedText}</span></span>`;
+				});
+				$badgesContainer.html(badgesHtml);
+			} else {
+				$badgesContainer.html('');
+			}
+		}
+	}
+
+	// ==========================
+	// 🔸 Toast helper
+	// ==========================
+	function showToast(icon, title) {
+		const Toast = Swal.mixin({
+			toast: true,
+			position: "top-end",
+			showConfirmButton: false,
+			timer: 3000,
+			timerProgressBar: true,
+			didOpen: toast => {
+				toast.onmouseenter = Swal.stopTimer;
+				toast.onmouseleave = Swal.resumeTimer;
+			}
+		});
+		Toast.fire({ icon, title });
+	}
+
+	// ==========================
+	// 🔸 Quantity Validation
+	// ==========================
+	function validateQuantities() {
+		let isValid = true;
+		let errors = [];
+		$('.qty').each(function() {
+			let qty = parseFloat($(this).val() || 0);
+			let item = $(this).closest('tr').find('.item_name').val() || 'Unknown Item';
+			if (qty <= 0) {
+				isValid = false;
+				errors.push(`<span style="color:red;">${item}</span> quantity cannot be 0 or empty`);
+			}
+		});
+		if (!isValid) {
+			Swal.fire({ icon: 'error', title: 'Validation Error', html: errors.join('<br>') });
+		}
+		return isValid;
+	}
+
+	// ==========================
+	// 🔸 File Validation (10MB)
+	// ==========================
+	function validateFileUpload(input) {
+		const file = input?.files?.[0];
+		if (!file) return true;
+		const allowed = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png'];
+		if (!allowed.includes(file.type)) {
+			Swal.fire({ icon: 'error', title: 'Invalid File Type', text: 'Only PDF, DOC, DOCX, JPG, PNG allowed.' });
+			input.value = '';
+			return false;
+		}
+		if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+			Swal.fire({ icon: 'error', title: 'File Too Large', text: `Max allowed size is ${MAX_FILE_SIZE_MB} MB.` });
+			input.value = '';
+			return false;
+		}
+		return true;
+	}
+
+	// ==========================
+	// 🔸 Update JSON Data
+	// ==========================
+	function updateJsonData() {
+		let rows = [];
+		$('.mrntableselectexcel tr').each(function() {
+			const id = $(this).find('.item_id').val();
+			if (id) {
+				rows.push({
+					item_id: id,
+					item_code: $(this).find('.item_code').val(),
+					item_name: $(this).find('.item_name').val(),
+					attribute: $(this).find('.attribute').val(),
+					qty: $(this).find('.qty').val(),
+					uom_id: $(this).find('.uom').val(),
+					uom_name: $(this).find('.uom option:selected').text()
+				});
+			}
+		});
+		$('#spare_parts').val(JSON.stringify(rows));
+	}
+
+	// ==========================
+// 🟢 Add New Row Logic
+// ==========================
+$('#addNewRowBtn').on('click', function () {
+	let rowsValidationPassed = validateRowsCompletion();
+	if (!rowsValidationPassed) return;
+
+	rowCount++;
+	let newRow = `
+	<tr>
+		<td class="customernewsection-form">
+			<div class="form-check form-check-primary custom-checkbox">
+				<input type="checkbox" class="form-check-input row-check">
+				<label class="form-check-label"></label>
+			</div>
+		</td>
+		<td>
+			<input type="hidden" class="item_id">
+			<input type="text" placeholder="Select" name="item[]" class="item_code form-control mw-100 ledgerselecct mb-25" />
+		</td>
+		<td>
+			<input type="text" placeholder="Select" class="item_name form-control mw-100 ledgerselecct mb-25" />
+		</td>
+		<td>
+			<input type="hidden" class="attribute">
+			<div class="d-flex flex-wrap gap-1" id="attribute-badges">
+				<span class="text-muted" style="font-size:10px;">No attributes available</span>
+			</div>
+		</td>
+		<td>
+			<select class="uom form-select mw-100" name="uom[]" required></select>
+		</td>
+		<td>
+			<input type="number" class="qty form-control mw-100" name="qty[]" required />
+		</td>
+	</tr>
+	`;
+
+	$('.mrntableselectexcel').append(newRow);
+	// Initialize autocomplete for the newly added row only
+	let $newRow = $('.mrntableselectexcel tr:last');
+	console.log('Initializing autocomplete for new row:', $newRow.find('.item_code'));
+	initAutoForItem($newRow.find('.item_code'));
+	
+	// Make the new row selected
+	$newRow.addClass('trselected').siblings().removeClass('trselected');
+	updateFooterFromSelected();
+});
+
+// ==========================
+// 🔴 Delete Rows
+// ==========================
+$('#delete').on('click', function () {
+	let $rows = $('.mrntableselectexcel tr');
+	let $checked = $rows.find('.row-check:checked');
+
+	if ($rows.length <= 1) {
+		showToast('error', 'At least one row is required.');
+		return;
+	}
+
+	if ($rows.length - $checked.length < 1) {
+		showToast('error', 'You must keep at least one row.');
+		return;
+	}
+
+	$checked.closest('tr').remove();
+});
+
+// ==========================
+// 🔸 Check All Functionality
+// ==========================
+$('#checkAll').on('change', function () {
+	let isChecked = $(this).is(':checked');
+	$('.mrntableselectexcel .row-check').prop('checked', isChecked);
+});
+
+// ==========================
+// 🔸 Row Validation Before Add
+// ==========================
+function validateRowsCompletion() {
+	let isValid = true;
+	$('.mrntableselectexcel tr').find('input, select').removeClass('is-invalid');
+
+	$('.mrntableselectexcel tr').each(function () {
+		let $row = $(this);
+		let itemId = $row.find('.item_id').val();
+		let itemName = $row.find('.item_name').val();
+		let uomValue = $row.find('.uom').val();
+		let qtyValue = $row.find('.qty').val();
+
+		if (!itemId || !itemName || !uomValue || !qtyValue || parseFloat(qtyValue) <= 0) {
+			isValid = false;
+			$row.find('input, select').addClass('is-invalid');
+		}
+	});
+
+	if (!isValid) {
+		Swal.fire({
+			icon: 'warning',
+			title: 'Complete Current Row First',
+			text: 'Please complete all required fields before adding a new row.',
+		});
+	}
+
+	return isValid;
+}
+
+
+	// ==========================
+	// 🔸 Save as Draft
+	// ==========================
+	const saveDraftBtn = document.getElementById('save-draft-btn');
+	if (saveDraftBtn) {
+		saveDraftBtn.addEventListener('click', function(e) {
+			e.preventDefault();
+			$('#document_status').val('draft');
+			updateJsonData();
+			$('.preloader').show();
+			form.submit();
+			setTimeout(() => {
+				showToast('success', 'Draft saved successfully!');
+			}, 700);
+		});
+	}
+
+	// ==========================
+	// 🔸 Submit Button
+	// ==========================
+	const submitBtn = document.getElementById('submit-btn');
+	if (submitBtn) {
+		submitBtn.addEventListener('click', function(e) {
+			e.preventDefault();
+			$('#document_status').val('submitted');
+
+			if (!validateQuantities()) return;
+			updateJsonData();
+
+			if (isAmendmentMode) {
+				$('#amendmentSubmitModal').modal('show');
+			} else {
+				$('.preloader').show();
+				form.submit();
+			}
+		});
+	}
+
+	// ==========================
+	// 🔸 Amendment Modal Submit
+	// ==========================
+	$(document).on('click', '#confirmAmendmentSubmit', function(e) {
+		e.preventDefault();
+
+		let remarks = $('#amend_remarks').val().trim();
+		let fileInput = document.getElementById('amend_attachment');
+
+		if (!remarks) {
+			$('#amend_remarks').addClass('is-invalid');
+			if (!$('#amend_remarks').next('.invalid-feedback').length) {
+				$('#amend_remarks').after('<div class="invalid-feedback">Remarks are required.</div>');
+			}
+			return;
+		}
+		$('#amend_remarks').removeClass('is-invalid').next('.invalid-feedback').remove();
+
+		if (fileInput && fileInput.files.length && !validateFileUpload(fileInput)) return;
+
+		if (!$('#action_type').length) {
+			$('#maint-bom-form').append('<input type="hidden" name="action_type" id="action_type" value="amendment">');
+		} else {
+			$('#action_type').val('amendment');
 		}
 
+		const formData = new FormData(form);
+		formData.append('amend_remarks', remarks);
+		if (fileInput && fileInput.files.length) {
+			formData.append('amend_attachment', fileInput.files[0]);
+		}
 
-		function validateQuantities() {
-			let isValid = true;
-			let errorMessages = [];
+		$('#amendmentSubmitModal').modal('hide');
+		$('.preloader').show();
 
-			// Loop through all quantity fields
-			$('.qty').each(function(index) {
-				let qtyValue = $(this).val().trim();
-				let rowIndex = index + 1; // 1-based row numbering
-
-				// Check if quantity is empty or zero
-				if (!qtyValue || qtyValue === '' || parseFloat(qtyValue) <= 0) {
-					let itemName = $(this).closest('tr').find('.item_name').val() || 'Unknown Item';
-					errorMessages.push(`Item <span style="color: red;">${itemName}</span> quantity can not be 0 or empty`);
-					isValid = false;
-				}
-			});
-
-			if (!isValid) {
-				// Show SweetAlert error
+		$.ajax({
+			url: $(form).attr('action'),
+			type: 'POST',
+			data: formData,
+			processData: false,
+			contentType: false,
+			headers: {
+				'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+			},
+			success: function() {
+				$('.preloader').hide();
+				Swal.fire({
+					icon: 'success',
+					title: 'Amendment Submitted!',
+					text: 'Your amendment has been submitted successfully.',
+					confirmButtonText: 'OK'
+				}).then(() => {
+					window.location.href = '{{ route("maint-bom.show", $bom->id) }}';
+				});
+			},
+			error: function(xhr) {
+				$('.preloader').hide();
 				Swal.fire({
 					icon: 'error',
-					title: 'Validation Error',
-					html: errorMessages.join('<br>'),
-					confirmButtonText: 'OK'
-				});
-			}
-
-			return isValid;
-		}
-
-		function validateRowsCompletion() {
-			let isValid = true;
-
-			// Remove existing validation classes
-			$('.mrntableselectexcel tr').find('input, select').removeClass('is-invalid');
-
-			// Loop through all rows
-			$('.mrntableselectexcel tr').each(function(index) {
-				let rowIndex = index + 1;
-				let $row = $(this);
-
-				let itemId = $row.find('.item_id').val();
-				let itemName = $row.find('.item_name').val();
-				let uomValue = $row.find('.uom').val();
-				let qtyValue = $row.find('.qty').val();
-
-				// Check if row has incomplete data
-				if (!itemId || itemId.trim() === '') {
-					$row.find('.item_code').addClass('is-invalid');
-					isValid = false;
-				} else if (!itemName || itemName.trim() === '') {
-					$row.find('.item_name').addClass('is-invalid');
-					isValid = false;
-				} else if (!uomValue || uomValue.trim() === '') {
-					$row.find('.uom').addClass('is-invalid');
-					isValid = false;
-				} else if (!qtyValue || qtyValue.trim() === '' || parseFloat(qtyValue) <= 0) {
-					$row.find('.qty').addClass('is-invalid');
-					isValid = false;
-				}
-			});
-
-			if (!isValid) {
-				// Show SweetAlert error
-				Swal.fire({
-					icon: 'warning',
-					title: 'Complete Current Row First',
-					text: 'Please complete all required fields in the current row(s) before adding a new row.',
-					confirmButtonText: 'OK'
-				});
-			}
-
-			return isValid;
-		}
-
-		function validateFile(input) {
-			const file = input.files[0];
-			if (!file) return true;
-
-			const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/vnd.ms-excel', 
-								  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-								  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-								  'application/pdf'];
-			const maxSize = 5 * 1024 * 1024; // 5MB
-
-			if (!allowedTypes.includes(file.type)) {
-				Swal.fire({
-					title: 'Invalid File Type!',
-					text: 'Please select PNG, JPEG, JPG, XLS, XLSX, DOCX, or PDF files only.',
-					icon: 'error'
-				});
-				input.value = '';
-				return false;
-			}
-
-			if (file.size > maxSize) {
-				Swal.fire({
-					title: 'File Too Large!',
-					text: `File size should not exceed 5MB. Current size: ${(file.size / (1024 * 1024)).toFixed(2)}MB`,
-					icon: 'error'
-				});
-				input.value = '';
-				return false;
-			}
-
-			return true;
-		}
-
-		function validateFileUpload() {
-			let isValid = true;
-			const fileInput = document.querySelector('input[name="document"]');
-			if (fileInput && fileInput.files[0]) {
-				isValid = validateFile(fileInput);
-			}
-			return isValid;
-		}
-
-		// Wrap DOM-dependent code in DOMContentLoaded to ensure elements exist
-		document.addEventListener('DOMContentLoaded', function() {
-			// File validation event listener
-			const documentInput = document.getElementById('document');
-			if (documentInput) {
-				documentInput.addEventListener('change', function() {
-					validateFile(this);
-				});
-			}
-
-			const saveDraftBtn = document.getElementById('save-draft-btn');
-			if (saveDraftBtn) {
-				saveDraftBtn.addEventListener('click', function () {
-					document.getElementById('document_status').value = 'draft';
-
-					// Only validate file upload for draft save (common field validation)
-					let fileValidationPassed = validateFileUpload();
-					if (!fileValidationPassed) {
-						return; // Stop submission if file validation fails
-					}
-
-					// Skip detailed validations like quantity validation for draft saves
-					updateJsonData();
-					if ($('#action_type').val() === "amendment") {
-						$("#amendmentModal").modal('show');
-					}
-					else {
-						$('.preloader').show();
-						document.getElementById('maint-bom-form').submit();
-					}
-				});
-			}
-
-			const submitBtn = document.getElementById('submit-btn');
-			if (submitBtn) {
-				submitBtn.addEventListener('click', function (e) {
-					document.getElementById('document_status').value = 'submitted';
-					e.preventDefault(); // Always prevent default first
-
-					// Validate file upload
-					let fileValidationPassed = validateFileUpload();
-					if (!fileValidationPassed) {
-						return; // Stop submission if file validation fails
-					}
-
-					// Validate quantity fields
-					let qtyValidationPassed = validateQuantities();
-					if (!qtyValidationPassed) {
-						return; // Stop submission if validation fails
-					}
-
-					updateJsonData();
-					if ($('#action_type').val() === "amendment")
-						{
-							$("#amendmentModal").modal('show');
-						}
-					else {
-						$('.preloader').show();
-						document.getElementById('maint-bom-form').submit();
-					}
+					title: 'Error',
+					text: xhr.responseJSON?.message || 'Something went wrong. Please try again.'
 				});
 			}
 		});
+	});
+});
 
-		function showToast(icon, title) {
-			const Toast = Swal.mixin({
-				toast: true,
-				position: "top-end",
-				showConfirmButton: false,
-				timer: 3000,
-				timerProgressBar: true,
-				didOpen: (toast) => {
-					toast.onmouseenter = Swal.stopTimer;
-					toast.onmouseleave = Swal.resumeTimer;
-				},
+// ==========================
+// 🟣 Autocomplete Item Search
+// ==========================
+function initAutoForItem(selector) {
+	// Safety check for itemsData
+	if (!itemsData || !Array.isArray(itemsData)) {
+		console.error('itemsData is not available or not an array:', itemsData);
+		return;
+	}
+
+	$(selector).autocomplete({
+		minLength: 0,
+		source: function(request, response) {
+			let term = request.term.toLowerCase();
+			let selectedItemIds = [];
+			$('.item_id').each(function() {
+				let val = $(this).val();
+				if (val) selectedItemIds.push(val);
 			});
-			Toast.fire({
-				icon,
-				title
-			});
-		}
 
-		@if (session('success'))
-			$('.preloader').hide();
-			showToast("success", "{{ session('success') }}");
-		@endif
+			if (term.trim() === "") {
+				let filtered = itemsData.filter(item => {
+					let isSelectedElsewhere = selectedItemIds.includes(item.id.toString());
+					let currentItemId = $(selector).closest('tr').find('.item_id').val();
+					return (!isSelectedElsewhere || item.id.toString() === currentItemId);
+				});
 
-		@if (session('error'))
-			$('.preloader').hide();
-			showToast("error", "{{ session('error') }}");
-		@endif
+				let results = filtered.map(item => ({
+					id: item.id,
+					label: `${item.item_code} - ${item.item_name}`,
+					code: item.item_code,
+					item_id: item.id,
+					item_name: item.item_name,
+					uom_name: item.uom_name,
+					uom_id: item.uom_id,
+					attr: item.item_attributes,
+				}));
 
-		@if ($errors->any())
-			$('.preloader').hide();
-			showToast('error',
-				"@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach"
-			);
-		@endif
-		$(document).on('input change', '.qty, .uom, .item_name, .item_code, .attribute', function () {
-			updateFooterFromSelected();
-		});
-
-		$(document).on('click', '.submitAttributeBtn', (e) => {
-			let $currentRow = $('#attribute_table').data('currentRow');
-			if ($currentRow) {
-				changeAttributeVal($currentRow);
-				updateAttributeBadges($currentRow);
+				response(results);
 			} else {
-				console.log('ERROR: No current row found!');
-			}
-			$("#attribute").modal('hide');
-		});
-		initAutoForItem('.item_code');
-
-		function changeAttributeVal($row) {
-			let hiddenInput = $row.find('.attribute');
-
-			if (!hiddenInput) {
-				return;
-			}
-
-			// Find the attributes table and tbody
-			const attributesTable = document.getElementById("attribute_table");
-			
-			if (!attributesTable) {
-				return;
-			}
-			
-			// The tbody is the attributesTable itself since it has id="attribute_table"
-			const tbody = attributesTable;
-
-			let selectedAttributes = [];
-
-			Array.from(tbody.rows).forEach((row, index) => {
-				const hiddenInputAttr = row.querySelector('input[type="hidden"][name="id"]');
-				const selectElement = row.querySelector("select");
-				
-				if (hiddenInputAttr && selectElement) {
-					const attributeId = parseInt(hiddenInputAttr.value, 10);
-					const selectedVal = parseInt(selectElement.value, 10);
-
-					if (!isNaN(attributeId) && !isNaN(selectedVal) && selectedVal > 0) {
-						selectedAttributes.push({
-							item_attribute_id: attributeId,
-							value_id: selectedVal
-						});
-					}
-				}
-			});
-			
-			// Update hidden input with JSON
-			hiddenInput.val(JSON.stringify(selectedAttributes));
-		}
-
-		function updateAttributeBadges($row) {
-			if (!$row) return;
-
-			let $selectElement = $row.find('.item_code');
-			let $badgesContainer = $row.find('#attribute-badges');
-			
-			if ($selectElement.val() !== "") {
-				let $hiddenInput = $row.find('.attribute');
-				let existingAttributes = $hiddenInput.length && $hiddenInput.val()
-					? JSON.parse($hiddenInput.val())
-					: [];
-
-				let attr = JSON.parse($selectElement.attr('data-attr') || '[]');
-				
-				let badgesHtml = '';
-				let selectedCount = 0;
-
-				if (attr && attr.length > 0) {
-					// First count selected attributes
-					attr.forEach(function(attribute) {
-						let selectedAttr = existingAttributes.find(selected => 
-							selected.item_attribute_id === attribute.id
-						);
-						if (selectedAttr) {
-							selectedCount++;
-						}
-					});
-
-					let displayedCount = 0;
-					attr.forEach(function(attribute) {
-						
-						// Check if this attribute has been selected
-						let selectedAttr = existingAttributes.find(selected => 
-							selected.item_attribute_id === attribute.id
-						);
-
-						// Only show selected attributes
-						if (selectedAttr) {
-							if (displayedCount < 2) {
-								// Find the selected value from the attribute's values
-								let valuesData = attribute.values_data || attribute.values || [];
-								
-								let selectedValue = valuesData.find(val => val.id === selectedAttr.value_id);
-								
-								if (selectedValue) {
-									badgesHtml += `<span class="badge rounded-pill badge-light-primary" style="font-size:10px; margin-right:5px; cursor:pointer;">
-										<strong>${attribute.group_name}</strong>: ${selectedValue.value}
-									</span>`;
-								}
-								displayedCount++;
-							}
-						}
-						// Removed the else block that was showing unselected attributes
-					});
-
-					if (selectedCount >= 2) {
-						badgesHtml += '<span style="font-size:10px; margin-right:5px; cursor:pointer;color:black;"><strong>...</strong></span>';
-					}
-				}
-				$badgesContainer.html(badgesHtml);
-				
-				// Update part details attributes section
-				$('#attributes_badges').html(badgesHtml);
-				
-				// Update footer details
-				updateFooterFromSelected();
-			}
-		}
-
-
-		// Add click event for the entire attribute cell
-		$('.mrntableselectexcel').on('click', 'td:nth-child(4)', function() {
-			var $this = $(this);
-			var $tr = $this.closest('tr');
-			var $selectElement = $tr.find('.item_code');
-			var $attributesTable = $('#attribute_table'); // modal table
-			$attributesTable.data('currentRow', $tr);
-			
-			if ($selectElement.val() !== "") {
-				let attributesJSON = JSON.parse($selectElement.attr('data-attr') || '[]');
-				let $hiddenInput = $tr.find('.attribute');
-				let existingAttributes = $hiddenInput.length && $hiddenInput.val()
-					? JSON.parse($hiddenInput.val())
-					: [];
-
-				if (!attributesJSON.length) {
-					$attributesTable.html(`
-						<tr>
-							<td colspan="2" class="text-center">No attributes available</td>
-						</tr>
-					`);
-					return;
-				}
-
-				let innerHtml = ``;
-
-				$.each(attributesJSON, function (index, element) {
-					let optionsHtml = ``;
-
-					$.each(element.values_data, function (i, value) {
-						let isSelected = existingAttributes.some(attr =>
-							attr.item_attribute_id === element.id && attr.value_id === value.id
-						);
-
-						optionsHtml += `
-							<option value='${value.id}' ${isSelected ? 'selected' : ''}>${value.value}</option>
-						`;
-					});
-
-					innerHtml += `
-						<tr>
-							<td>
-								${element.group_name}
-								<input type="hidden" name="id" value="${element.id}">
-							</td>
-							<td>
-								<select class="form-select select2" style="max-width:100% !important;">
-									<option value="">Select</option>
-									${optionsHtml}
-								</select>
-							</td>
-						</tr>
-					`;
+				// Server-side search for typed terms
+				let filtered = itemsData.filter(item => {
+					let isSelectedElsewhere = selectedItemIds.includes(item.id.toString());
+					let currentItemId = $(selector).closest('tr').find('.item_id').val();
+					return (item.item_code.toLowerCase().includes(term) || item.item_name.toLowerCase().includes(term)) &&
+						(!isSelectedElsewhere || item.id.toString() === currentItemId);
 				});
 
-				$attributesTable.html(innerHtml);
+				let results = filtered.map(item => ({
+					id: item.id,
+					label: `${item.item_code} - ${item.item_name}`,
+					code: item.item_code,
+					item_id: item.id,
+					item_name: item.item_name,
+					uom_name: item.uom_name,
+					uom_id: item.uom_id,
+					attr: item.item_attributes,
+				}));
 
-				// Initialize select2
-				$attributesTable.find('select').select2();
+				response(results);
+			}
+		},
+		select: function(event, ui) {
+			let $input = $(this);
+			let attr = ui.item.attr;
+			let tr = $input.closest('tr');
 
-				//Bind change event
-				$attributesTable.find('select').off('change').on('change', function () {
-					changeAttributeVal($tr);
+			tr.find('.item_code').val(ui.item.code);
+			tr.find('.item_name').val(ui.item.item_name);
+			tr.find('.item_id').val(ui.item.id);
+			tr.find('.uom').html(`<option value="${ui.item.uom_id}">${ui.item.uom_name}</option>`);
+
+			// Attributes display
+			let badgesHtml = '';
+			if (attr && attr.length > 0) {
+				attr.forEach(attribute => {
+					badgesHtml += `<span class="badge rounded-pill badge-light-primary me-25" style="font-size:10px;">
+						<strong>${attribute.group_name}</strong>: Not Selected
+					</span>`;
 				});
-
-				// Open the attribute modal
-				$('#attribute').modal('show');
-
+				tr.find('#attribute-badges').html(badgesHtml);
 			} else {
-				$attributesTable.html(`
-					<tr>
-						<td colspan="2" class="text-center">Please select an item first</td>
-					</tr>
-				`);
+				tr.find('#attribute-badges').html('<span class="text-muted" style="font-size:10px;">No attributes available</span>');
 			}
-		});
 
-		$(document).on('click', '.attributeBtn', function (e) {
-			let $tr = $(this).closest('tr');
-			let $selectElement = $tr.find('.item_code');
-			let $attributesTable = $('#attribute_table'); // modal table
-			$attributesTable.data('currentRow', $tr);
-
-			if ($selectElement.val() !== "") {
-				let attributesJSON = JSON.parse($selectElement.attr('data-attr') || '[]');
-				let $hiddenInput = $tr.find('.attribute');
-				let existingAttributes = $hiddenInput.length && $hiddenInput.val()
-					? JSON.parse($hiddenInput.val())
-					: [];
-
-				if (!attributesJSON.length) {
-					$attributesTable.html(`
-							<tr>
-								<td colspan="2" class="text-center">No attributes available</td>
-							</tr>
-						`);
-					return;
-				}
-
-				let innerHtml = ``;
-
-				$.each(attributesJSON, function (index, element) {
-					let optionsHtml = ``;
-
-					$.each(element.values_data, function (i, value) {
-						let isSelected = existingAttributes.some(attr =>
-							attr.item_attribute_id === element.id && attr.value_id === value.id
-						);
-
-						optionsHtml += `
-								<option value='${value.id}' ${isSelected ? 'selected' : ''}>${value.value}</option>
-							`;
-					});
-
-					innerHtml += `
-							<tr>
-								<td>
-									${element.group_name}
-									<input type="hidden" name="id" value="${element.id}">
-								</td>
-								<td>
-									<select class="form-select select2" style="max-width:100% !important;">
-										<option value="">Select</option>
-										${optionsHtml}
-									</select>
-								</td>
-							</tr>
-						`;
-				});
-
-				$attributesTable.html(innerHtml);
-
-				// Initialize select2
-
-				//Bind change event
-				$attributesTable.find('select').off('change').on('change', function () {
-					changeAttributeVal($tr);
-				});
-				$attributesTable.find('select').select2();
-
-				// Open the attribute modal
-				$('#attribute').modal('show');
-
-			} else {
-				$attributesTable.html(`
-						<tr>
-							<td colspan="2" class="text-center">Please select an item first</td>
-						</tr>
-					`);
+			setTimeout(() => {
+				tr.find('.qty').focus();
+			}, 200);
+		},
+		change: function(event, ui) {
+			if (!ui.item) {
+				let tr = $(this).closest('tr');
+				tr.find('.item_code, .item_name, .item_id').val('');
+				tr.find('.uom').empty();
+				tr.find('#attribute-badges').html('');
 			}
-		});
-		function closeModal(id) {
-			$('#' + id).modal('hide');
 		}
-		function initAutoForItem(selector, type) {
-			$(selector).autocomplete({
-				minLength: 0,
-				source: function (request, response) {
-					let term = request.term.toLowerCase();
+	}).focus(function() {
+		if (!this.value.trim()) $(this).autocomplete("search", "");
+	});
 
-					// Gather all already selected item IDs from other rows
-					let selectedItemIds = [];
-					$('.item_id').each(function () {
-						let val = $(this).val();
-						if (val) selectedItemIds.push(val);
-					});
+	$(selector).autocomplete("instance")._renderItem = function(ul, item) {
+		return $("<li>").append(`<div><strong>${item.code}</strong> - ${item.item_name}</div>`).appendTo(ul);
+	};
+}
 
-					// ✅ NEW: Use server-side API for search
-					if (term.trim() === "") {
-						// When clicking on field (empty search), show the initially loaded items
-						let filtered = itemsData.filter(item => {
-							let isSelectedElsewhere = selectedItemIds.includes(item.id.toString());
-							let currentItemId = $(selector).closest('tr').find('.item_id').val();
-							return (item.item_code.toLowerCase().includes(term) || item.item_name.toLowerCase().includes(term)) &&
-								(!isSelectedElsewhere || item.id.toString() === currentItemId);
-						});
-
-						let results = filtered.map(item => ({
-							id: item.id,
-							label: `${item.item_code} - ${item.item_name}`,
-							code: item.item_code,
-							item_id: item.id,
-							item_name: item.item_name,
-							uom_name: item.uom_name,
-							uom_id: item.uom_id,
-							attr: item.item_attributes,
-						}));
-
-						response(results);
-					} else {
-						// When typing search terms, use server-side search
-						$.ajax({
-							url: "{{ route('maint-bom.search-items') }}",
-							method: 'GET',
-							data: {
-								q: term,
-								limit: 50
-							},
-							success: function(data) {
-								// Filter out already selected items and format for autocomplete
-								let filtered = data.filter(item => {
-									let currentItemId = $(selector).closest('tr').find('.item_id').val();
-									return !selectedItemIds.includes(item.id.toString()) || item.id.toString() === currentItemId;
-								});
-
-								let results = filtered.map(item => ({
-									id: item.id,
-									label: `${item.item_code} - ${item.item_name}`,
-									code: item.item_code,
-									item_id: item.id,
-									item_name: item.item_name,
-									uom_name: item.uom_name,
-									uom_id: item.uom_id,
-									attr: item.item_attributes,
-								}));
-
-								response(results);
-							},
-							error: function(xhr, status, error) {
-								console.log('Search error:', error);
-								response([]);
-							}
-						});
-					}
-				},
-				select: function (event, ui) {
-					let $input = $(this);
-					let itemCode = ui.item.code;
-					let attr = ui.item.attr;
-					let itemName = ui.item.item_name;
-					let itemId = ui.item.item_id;
-					let uomId = ui.item.uom_id;
-					let uomName = ui.item.uom_name;
-
-					$input.attr('data-name', itemName);
-					$input.attr('data-code', itemCode);
-					$input.attr('data-attr', JSON.stringify(attr));
-					$input.attr('data-id', itemId);
-					$input.closest('tr').find('.item_id').val(itemId);
-					$input.closest('tr').find('.item_name').val(itemName);
-					$input.val(itemCode);
-
-					let uomOption = `<option value="${uomId}">${uomName}</option>`;
-					$input.closest('tr').find('.uom').empty().append(uomOption);
-					
-					
-				
-					// Display attribute badges if item has attributes
-					if (attr && attr.length > 0) {
-						let badgesHtml = '';
-						// attr.forEach(function(attribute) {
-						// 	badgesHtml += `<span class="badge rounded-pill badge-light-primary">
-						// 		<strong>${attribute.group_name || 'Attribute'}</strong>: Not Selected
-						// 	</span>`;
-						// });
-						$input.closest('tr').find('#attribute-badges').html(badgesHtml);
-						
-						// Automatically open attribute modal if item has attributes
-						setTimeout(() => {
-							let $tr = $input.closest('tr');
-							let $attributesTable = $('#attribute_table');
-							$attributesTable.data('currentRow', $tr);
-							
-							// Populate modal with attributes
-							let attributesJSON = attr;
-							let $hiddenInput = $tr.find('.attribute');
-							let existingAttributes = $hiddenInput.length && $hiddenInput.val()
-								? JSON.parse($hiddenInput.val())
-								: [];
-							
-							if (attributesJSON.length > 0) {
-								let innerHtml = ``;
-								$.each(attributesJSON, function (index, element) {
-									let optionsHtml = ``;
-									let valuesData = element.values_data || element.values || [];
-									$.each(valuesData, function (i, value) {
-										let isSelected = existingAttributes.some(attr =>
-											attr.item_attribute_id === element.id && attr.value_id === value.id
-										);
-										optionsHtml += `<option value='${value.id}' ${isSelected ? 'selected' : ''}>${value.value}</option>`;
-									});
-									innerHtml += `
-										<tr>
-											<td>
-												${element.group_name}
-												<input type="hidden" name="id" value="${element.id}">
-											</td>
-											<td>
-												<select class="form-select select2" style="max-width:100% !important;">
-													<option value="">Select</option>
-													${optionsHtml}
-												</select>
-											</td>
-										</tr>
-									`;
-								});
-								$attributesTable.html(innerHtml);
-								$attributesTable.find('select').off('change').on('change', function () {
-									changeAttributeVal($tr);
-								});
-								$attributesTable.find('select').select2();
-								
-								// Open the modal
-								$('#attribute').modal('show');
-							}
-						}, 100);
-					} else {
-						$input.closest('tr').find('#attribute-badges').html('');
-						setTimeout(() => {
-							$input.closest('tr').find('.qty').val('').focus();
-						}, 100);
-					}
-
-					return false;
-				},
-				change: function (event, ui) {
-					if (!ui.item) {
-						$(this).val("");
-						$(this).attr('data-name', '');
-						$(this).attr('data-code', '');
-						$(this).attr('data-attr', '');
-						$(this).closest('tr').find('.item_id').val('');
-						$(this).closest('tr').find('.item_name').val('');
-						$(this).closest('tr').find('.uom').empty();
-					}
-				}
-			}).focus(function () {
-				if (!this.value.trim()) {
-					$(this).autocomplete("search", "");
-				}
-			}).on("input", function () {
-				if ($(this).val().trim() === "") {
-					$(this).removeData("selected");
-					$(this).closest('tr').find(".item_name").val('');
-					$(this).closest('tr').find(".attribute").val('');
-					$(this).closest('tr').find(".item_id").val('');
-					$(this).closest('tr').find(".item_code").val('');
-				}
-			});
-
-			$(selector).autocomplete("instance")._renderItem = function (ul, item) {
-				return $("<li>")
-					.append(`<div><strong>${item.code}</strong> - ${item.item_name}</div>`)
-					.appendTo(ul);
-			};
-		}
-
-		$(document).on('click', '#amendmentBtnSubmit', (e) => {
-			e.preventDefault();
-			updateJsonData();
-			let remark = $("#amendmentModal").find('[name="amend_remarks"]').val();
-			if (!remark) {
-				$("#amendRemarkError").removeClass("d-none");
-				return false;
-			} else {
-				$("#amendmentModal").modal('hide');
-				$("#amendRemarkError").addClass("d-none");
-				$('.preloader').show();
-				
-				// Submit form via AJAX to handle success message
-				let formData = new FormData(document.getElementById('maint-bom-form'));
-				
-				$.ajax({
-					url: $('#maint-bom-form').attr('action'),
-					type: 'POST',
-					data: formData,
-					processData: false,
-					contentType: false,
-					headers: {
-						'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
-						'X-Requested-With': 'XMLHttpRequest'
-					},
-					success: function(response) {
-						$('.preloader').hide();
-						
-						// Show success message
-						Swal.fire({
-							title: 'Success!',
-							text: 'Amendment Done Successfully',
-							icon: 'success',
-							confirmButtonText: 'OK'
-						}).then((result) => {
-							if (result.isConfirmed) {
-								// Redirect to show page
-								window.location.href = '{{ route("maint-bom.show", $bom->id) }}';
-							}
-						});
-					},
-					error: function(xhr) {
-						$('.preloader').hide();
-						let errorMessage = 'An error occurred while processing the amendment.';
-						if (xhr.responseJSON && xhr.responseJSON.message) {
-							errorMessage = xhr.responseJSON.message;
-						}
-						Swal.fire({
-							title: 'Error!',
-							text: errorMessage,
-							icon: 'error',
-							confirmButtonText: 'OK'
-						});
-					}
-				});
-			}
-		});
-
-		document.addEventListener("DOMContentLoaded", function () {
-
-		const els = document.querySelectorAll('.part-details-section');
-
-		els.forEach(el => {
-			el.addEventListener("click", function (e) {
-				e.stopPropagation(); 
-				e.preventDefault(); 
-			}, true); 
-		});
-		});
-	</script>
+</script>
 @endsection

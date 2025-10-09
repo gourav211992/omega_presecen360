@@ -93,32 +93,61 @@
 				<div class="modal-body flex-grow-1">
 					<div class="mb-1">
 						  <label class="form-label" for="fp-range">Select Date</label>
-<!--                        <input type="text" id="fp-default" class="form-control flatpickr-basic" placeholder="YYYY-MM-DD" />-->
 						  <input type="text" id="fp-range" class="form-control flatpickr-range bg-white" placeholder="YYYY-MM-DD to YYYY-MM-DD" />
 					</div>
 					
 					<div class="mb-1">
 						<label class="form-label">Series</label>
-						<select class="form-select">
-							<option>Select</option>
+						<select class="form-select" id="filter-series">
+							<option value="">Select</option>
+							@foreach($series as $seriesItem)
+								<option value="{{ $seriesItem->book_code }}">{{ $seriesItem->book_code }}</option>
+							@endforeach
 						</select>
 					</div> 
                     
                     <div class="mb-1">
-						<label class="form-label">BOM Name</label>
-						<select class="form-select select2">
-							<option>Select</option> 
+						<label class="form-label">Equipment</label>
+						<select class="form-select select2" id="filter-equipment">
+							<option value="">Select</option>
+							@foreach($equipments as $equipment)
+								<option value="{{ $equipment->id }}">{{ $equipment->name }}</option>
+							@endforeach
 						</select>
 					</div>
                     
-                     
+                    <div class="mb-1">
+						<label class="form-label">Category</label>
+						<select class="form-select select2" id="filter-category">
+							<option value="">Select</option>
+							@foreach($categories as $category)
+								<option value="{{ $category->id }}">{{ $category->name }}</option>
+							@endforeach
+						</select>
+					</div>
+                    
+                    
+                    <div class="mb-1">
+						<label class="form-label">Organization</label>
+						<select id="filter-organization" class="form-select select2" multiple name="filter_organization">
+							<option value="" disabled>Select</option>
+							@foreach($mappings as $organization)
+								<option value="{{ $organization->organization->id }}"
+									{{ $organization->organization->id == $organizationId ? 'selected' : '' }}>
+									{{ $organization->organization->name }}
+								</option>
+							@endforeach
+						</select>
+					</div>
                     
                     <div class="mb-1">
 						<label class="form-label">Status</label>
-						<select class="form-select">
-							<option>Select</option>
-							<option>Active</option>
-							<option>Inactive</option>
+						<select class="form-select" id="filter-status">
+							<option value="">Select</option>
+							<option value="draft">Draft</option>
+							<option value="submitted">Submitted</option>
+							<option value="approved">Approved</option>
+							<option value="rejected">Rejected</option>
 						</select>
 					</div> 
 					 
@@ -198,18 +227,17 @@
         serverSide: true,
         colReorder: true,
         ajax: {
-            url: '{{ route("defect-notification.ajax-data") }}',
+            url: '{{ route("defect-notification.index") }}',
             type: 'GET',
             data: function(d) {
-                // Add date range filter
-                var dateRange = $('#fp-range').val();
-                if (dateRange) {
-                    var dates = dateRange.split(' to ');
-                    if (dates.length === 2) {
-                        d.start_date = dates[0];
-                        d.end_date = dates[1];
-                    }
-                }
+                d.date_range = $('#fp-range').val();
+                d.series_filter = $('#filter-series').val();
+                d.equipment_filter = $('#filter-equipment').val();
+                d.category_filter = $('#filter-category').val();
+                d.filter_organization = $('#filter-organization').val();
+                d.status_filter = $('#filter-status').val();
+                console.log('DataTable request data:', d);
+                return d;
             }
         },
         columns: [
@@ -231,8 +259,55 @@
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         dom: '<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-3 dt-action-buttons text-end"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
         buttons: [
-            // export buttons can be added here if needed
-        ],
+            {
+                extend: 'collection',
+                className: 'btn btn-outline-secondary dropdown-toggle',
+                text: feather.icons['share'].toSvg({ class: 'font-small-4 mr-50' }) + ' Export',
+                buttons: [
+                    {
+                        extend: 'print',
+                        text: feather.icons['printer'].toSvg({ class: 'font-small-4 mr-50' }) + ' Print',
+                        className: 'dropdown-item',
+                        title: 'Maintenance Work Orders',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    },
+                    {
+                        extend: 'csv',
+                        text: feather.icons['file-text'].toSvg({ class: 'font-small-4 mr-50' }) + ' CSV',
+                        className: 'dropdown-item',
+                        title: 'Maintenance Work Orders',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    },
+                    {
+                        extend: 'excel',
+                        text: feather.icons['file'].toSvg({ class: 'font-small-4 mr-50' }) + ' Excel',
+                        className: 'dropdown-item',
+                        title: 'Maintenance Work Orders',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    },
+                    {
+                        extend: 'pdf',
+                        text: feather.icons['clipboard'].toSvg({ class: 'font-small-4 mr-50' }) + ' PDF',
+                        className: 'dropdown-item',
+                        title: 'Maintenance Work Orders',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    },
+                    {
+                        extend: 'copy',
+                        text: feather.icons['copy'].toSvg({ class: 'font-small-4 mr-50' }) + ' Copy',
+                        className: 'dropdown-item',
+                        title: 'Maintenance Work Orders',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7] }
+                    }
+                ],
+                init: function (api, node, config) {
+                    $(node).removeClass('btn-secondary').parent().removeClass('btn-group');
+                    setTimeout(function () {
+                        $(node).closest('.dt-buttons').removeClass('btn-group').addClass('d-inline-flex');
+                    }, 50);
+                }
+            }
+         ],
         language: {
             processing: '<div class="spinner-border text-primary" role="status"><span class="sr-only">Loading...</span></div>',
             emptyTable: 'No defect notifications found',
@@ -246,20 +321,67 @@
         }
     });
 
-    // Initialize Flatpickr for date range filter
-    $('#fp-range').flatpickr({
-        mode: 'range',
-        dateFormat: 'Y-m-d',
-        onChange: function(selectedDates, dateStr, instance) {
-            $('#defect-notifications-table').DataTable().ajax.reload();
-        }
+    // Filter data is now loaded directly from controller - no AJAX needed
+
+    // Apply Filters
+    $('.data-submit').on('click', function() {
+        // Reload the DataTable with new filter values
+        $('#defect-notifications-table').DataTable().ajax.reload();
+        $('#filter').modal('hide');
     });
 
-    // Apply filter when modal is closed with date range
-    $('#filter').on('hidden.bs.modal', function() {
-        var dateRange = $('#fp-range').val();
-        if (dateRange) {
-            $('#defect-notifications-table').DataTable().ajax.reload();
+    // Reset Filters
+    $('button[type="reset"]').on('click', function() {
+        $('#fp-range').val('');
+        $('#filter-series').val('');
+        $('#filter-status').val('');
+        
+        // Reset Select2 dropdowns
+        if (typeof $.fn.select2 !== 'undefined') {
+            $('#filter-equipment').val(null).trigger('change');
+            $('#filter-category').val(null).trigger('change');
+            $('#filter-organization').val(null).trigger('change');
+        } else {
+            $('#filter-equipment').val('');
+            $('#filter-category').val('');
+            $('#filter-organization').val('');
+        }
+        
+        // Reload the DataTable to clear filters
+        $('#defect-notifications-table').DataTable().ajax.reload();
+    });
+
+    // Initialize date picker and select2 on page load
+    $(document).ready(function() {
+        // Initialize flatpickr for date range
+        if (typeof flatpickr !== 'undefined') {
+            flatpickr('#fp-range', {
+                mode: 'range',
+                dateFormat: 'Y-m-d',
+                allowInput: true,
+                placeholder: 'YYYY-MM-DD to YYYY-MM-DD'
+            });
+        }
+        
+        // Initialize Select2 for dropdowns if available
+        if (typeof $.fn.select2 !== 'undefined') {
+            $('#filter-equipment').select2({
+                placeholder: 'Select Equipment',
+                allowClear: true,
+                dropdownParent: $('#filter')
+            });
+            
+            $('#filter-category').select2({
+                placeholder: 'Select Category',
+                allowClear: true,
+                dropdownParent: $('#filter')
+            });
+            
+            $('#filter-organization').select2({
+                placeholder: 'Select Organizations',
+                allowClear: true,
+                dropdownParent: $('#filter')
+            });
         }
     });
 </script>

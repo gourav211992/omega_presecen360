@@ -1,6 +1,8 @@
 
 @extends('layouts.app')
 @section('styles')
+<link rel="stylesheet" type="text/css" href="{{asset('app-assets/vendors/css/pickers/flatpickr/flatpickr.min.css')}}">
+<link rel="stylesheet" type="text/css" href="{{asset('app-assets/vendors/css/forms/select/select2.min.css')}}">
 @endsection
 @section('content')
 <div class="app-content content ">
@@ -114,19 +116,56 @@
 				<div class="modal-body flex-grow-1">
 					<div class="mb-1">
 						  <label class="form-label" for="fp-range">Select Date</label>
-<!--                        <input type="text" id="fp-default" class="form-control flatpickr-basic" placeholder="YYYY-MM-DD" />-->
 						  <input type="text" id="fp-range" class="form-control flatpickr-range bg-white" placeholder="YYYY-MM-DD to YYYY-MM-DD" />
 					</div>
 					
 					<div class="mb-1">
-						<label class="form-label">Equipemnt</label>
-						<select class="form-select">
-							<option>Select</option>
+						<label class="form-label">Equipment Category</label>
+						<select class="form-select" id="filter-equipment-category">
+							<option value="">Select</option>
+							@if(isset($equipmentCategories) && $equipmentCategories)
+								@foreach($equipmentCategories as $id => $name)
+									<option value="{{ $name }}">{{ $name }}</option>
+								@endforeach
+							@endif
 						</select>
-					</div> 
+					</div>
+					
+					<div class="mb-1">
+						<label class="form-label">Maintenance Type</label>
+						<select class="form-select" id="filter-maintenance-type">
+							<option value="">Select</option>
+							@if(isset($maintenanceTypes) && $maintenanceTypes)
+								@foreach($maintenanceTypes as $id => $name)
+									<option value="{{ $name }}">{{ $name }}</option>
+								@endforeach
+							@endif
+						</select>
+					</div>
+					
+					<div class="mb-1">
+						<label class="form-label">Status</label>
+						<select class="form-select" id="filter-status">
+							<option value="">Select</option>
+							<option value="draft">Draft</option>
+							<option value="submitted">Submitted</option>
+							<option value="approved">Approved</option>
+							<option value="rejected">Rejected</option>
+						</select>
+					</div>
+					
                     
-                      
-					 
+					<div class="mb-1">
+						<label class="form-label">Organization</label>
+						<select id="filter-organization" class="form-select select2" multiple name="filter_organization">
+							<option value="" disabled>Select</option>
+							@foreach($mappings as $organization)
+								<option value="{{ $organization->organization->id }}">
+									{{ $organization->organization->name }}
+								</option>
+							@endforeach
+						</select>
+					</div>
 				</div>
 				<div class="modal-footer justify-content-start">
 					<button type="button" class="btn btn-primary data-submit mr-1">Apply</button>
@@ -137,6 +176,8 @@
 	</div>
 @endsection
 @section('scripts')
+<script src="{{asset('app-assets/vendors/js/pickers/flatpickr/flatpickr.min.js')}}"></script>
+<script src="{{asset('app-assets/vendors/js/forms/select/select2.full.min.js')}}"></script>
 <script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
 <script>
     $(window).on('load', function() {
@@ -156,7 +197,19 @@
 var dt_basic = $('#equipmentsTable').DataTable({
     processing: true,
     serverSide: true,
-    ajax: "{{ route('equipments.data') }}",
+    ajax: {
+        url: "{{ route('equipments.data') }}",
+        type: 'GET',
+        data: function(d) {
+            d.date_range = $('#fp-range').val();
+            d.equipment_category_filter = $('#filter-equipment-category').val();
+            d.maintenance_type_filter = $('#filter-maintenance-type').val();
+            d.status_filter = $('#filter-status').val();
+            d.organization_filter = $('#filter-organization').val();
+            console.log('DataTable request data:', d);
+            return d;
+        }
+    },
     pageLength: 10,
     order: [[0, 'asc']],
     dom: 
@@ -219,6 +272,50 @@ var dt_basic = $('#equipmentsTable').DataTable({
             $('html, body').scrollTop($('.trselected').offset().top - 100); 
         }
     });
+
+    // Apply Filters
+    $('.data-submit').on('click', function() {
+        // Reload the DataTable with new filter values
+        dt_basic.ajax.reload();
+        $('#filter').modal('hide');
+    });
+
+    // Reset Filters
+    $('button[type="reset"]').on('click', function() {
+        $('#fp-range').val('');
+        $('#filter-equipment-category').val('');
+        $('#filter-maintenance-type').val('');
+        $('#filter-status').val('');
+        
+        // Reset Select2 dropdown
+        if (typeof $.fn.select2 !== 'undefined') {
+            $('#filter-organization').val(null).trigger('change');
+        } else {
+            $('#filter-organization').val('');
+        }
+        
+        // Reload the DataTable to clear filters
+        dt_basic.ajax.reload();
+    });
+
+    // Initialize flatpickr for date range
+    if (typeof flatpickr !== 'undefined') {
+        flatpickr('#fp-range', {
+            mode: 'range',
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+            placeholder: 'YYYY-MM-DD to YYYY-MM-DD'
+        });
+    }
+    
+    // Initialize Select2 for organization dropdown
+    if (typeof $.fn.select2 !== 'undefined') {
+        $('#filter-organization').select2({
+            placeholder: 'Select Organizations',
+            allowClear: true,
+            dropdownParent: $('#filter')
+        });
+    }
 });
 
 </script>

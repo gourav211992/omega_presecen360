@@ -23,9 +23,41 @@ class DefectNotificationController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return view('plant.defect-notification.index');
+        if ($request->ajax()) {
+            return $this->getDefectNotificationsData($request);
+        }
+
+        // Fetch filter data for the view
+        $parentURL = "plant_defect-noti";
+        $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
+        
+        // Get series data
+        $series = collect();
+        if (count($servicesBooks['services']) > 0) {
+            $firstService = $servicesBooks['services'][0];
+            $series = Helper::getBookSeriesNew($firstService->alias, $parentURL)->get();
+        }
+        
+        // Get equipment data
+        $equipments = ErpEquipment::select('id', 'name')
+            ->orderBy('name')
+            ->get();
+        
+        // Get category data
+        $categories = Category::select('id', 'name')
+            ->where('type', 'Equipment')
+            ->where('status', 'Active')
+            ->orderBy('name')
+            ->get();
+        
+        // Get organization data
+        $user = Helper::getAuthenticatedUser();
+        $organizationId = $user->organization_id;
+        $mappings = Helper::access_org();
+
+        return view('plant.defect-notification.index', compact('series', 'equipments', 'categories', 'mappings', 'organizationId'));
     }
     public function filter(Request $request)
     {
@@ -130,8 +162,51 @@ class DefectNotificationController extends Controller
         $query = DefectNotification::with(['equipment', 'location', 'category', 'defectType', 'book'])
             ->select([
                 'id', 'document_date', 'book_id', 'doc_no', 'equipment_id', 'category_id', 'location_id', 
-                'defect_type_id', 'problem', 'priority', 'document_status', 'revision_number'
+                'defect_type_id', 'problem', 'priority', 'document_status', 'revision_number', 'organization_id'
             ]);
+
+            // Apply date range filter
+            if ($request->filled('date_range')) {
+                $dateRange = $request->date_range;
+                if (strpos($dateRange, ' to ') !== false) {
+                    $dates = explode(' to ', $dateRange);
+                    if (count($dates) === 2) {
+                        $query->whereBetween('document_date', [trim($dates[0]), trim($dates[1])]);
+                    }
+                }
+            }
+
+            // Apply series filter
+            if ($request->filled('series_filter')) {
+                $query->whereHas('book', function($q) use ($request) {
+                    $q->where('book_code', $request->series_filter);
+                });
+            }
+
+            // Apply equipment filter
+            if ($request->filled('equipment_filter')) {
+                $query->where('equipment_id', $request->equipment_filter);
+            }
+
+            // Apply category filter
+            if ($request->filled('category_filter')) {
+                $query->where('category_id', $request->category_filter);
+            }
+
+            // Apply organization filter
+            if ($request->filled('filter_organization')) {
+                $organizationIds = $request->filter_organization;
+                if (is_array($organizationIds)) {
+                    $query->whereIn('organization_id', $organizationIds);
+                } else {
+                    $query->where('organization_id', $organizationIds);
+                }
+            }
+
+            // Apply status filter
+            if ($request->filled('status_filter')) {
+                $query->where('document_status', $request->status_filter);
+            }
 
             // Apply search filter
             if ($request->has('search') && $request->search['value']) {
@@ -252,6 +327,7 @@ class DefectNotificationController extends Controller
             'data' => $data
         ]);
     }
+
 
     /**
      * Show the form for creating a new resource.

@@ -27,7 +27,6 @@
 							<a href="{{ route('maint-bom.index') }}"> <button class="btn btn-secondary btn-sm"><i
 										data-feather="arrow-left-circle"></i> Back</button>
 							</a>
-							
 							@if(!request('revisionNumber'))
 								@if($buttons['approve'])
 	                                <button type="button" class="btn btn-primary btn-sm" id="approved-button" name="action"
@@ -418,124 +417,8 @@
 
 
 
-	<div class="modal fade text-start" id="overhead" tabindex="-1" aria-labelledby="myModalLabel17" aria-hidden="true">
-		<div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 1000px">
-			<div class="modal-content">
-				<div class="modal-header">
-					<div>
-						<h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">Enter Overhead
-						</h4>
-						<p class="mb-0">Enter the below list</p>
-					</div>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					<div class="row">
 
 
-						<div class="col-md-12">
-
-
-							<div class="table-responsive-md">
-								<table
-									class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail border">
-									<thead>
-										<tr>
-											<th>#</th>
-											<th>Description</th>
-											<th>Amount</th>
-											<th width="400px">Leadger</th>
-										</tr>
-									</thead>
-									<tbody>
-										<tr>
-											<td>1</td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td>
-												<select class="form-select select2">
-													<option>Select</option>
-												</select>
-											</td>
-										</tr>
-
-										<tr>
-											<td>2</td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td>
-												<select class="form-select select2">
-													<option>Select</option>
-												</select>
-											</td>
-										</tr>
-
-										<tr>
-											<td>2</td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td><input type="text" class="form-control mw-100"></td>
-											<td>
-												<select class="form-select select2">
-													<option>Select</option>
-												</select>
-											</td>
-										</tr>
-
-
-									</tbody>
-
-
-								</table>
-							</div>
-						</div>
-
-
-					</div>
-				</div>
-				<div class="modal-footer text-end">
-					<button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i data-feather="x-circle"></i>
-						Cancel</button>
-					<button class="btn btn-primary btn-sm" data-bs-dismiss="modal"><i data-feather="check-circle"></i>
-						Submit</button>
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<div class="modal fade" id="wastage" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
-		<div class="modal-dialog  modal-dialog-centered">
-			<div class="modal-content">
-				<div class="modal-header p-0 bg-transparent">
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body px-sm-2 mx-50 pb-2">
-					<h1 class="text-center mb-1" id="shareProjectTitle">Wastage Details</h1>
-					<p class="text-center">Enter the details below.</p>
-
-					<div class="row">
-						<div class="col-md-12 mb-1">
-							<label class="form-label">Wastage Type <span class="text-danger">*</span></label>
-							<select class="form-control">
-								<option>Select</option>
-								<option selected>Fixed</option>
-								<option>%age</option>
-							</select>
-						</div>
-
-						<div class="col-md-12 mb-1">
-							<label class="form-label">Wastage Value <span class="text-danger">*</span></label>
-							<input type="text" class="form-control" placeholder="Enter Value">
-						</div>
-					</div>
-				</div>
-
-				<div class="modal-footer justify-content-center">
-					<button type="reset" class="btn btn-outline-secondary me-1">Cancel</button>
-					<button type="reset" class="btn btn-primary">Select</button>
-				</div>
-			</div>
-		</div>
-	</div>
 
 
 	<div class="modal fade" id="attribute" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
@@ -642,21 +525,65 @@
                     <p>Are you sure you want to <strong>Amendment</strong> this <strong>Maint. BOM</strong>? After
                         Amendment this action cannot be undone.</p>
                     <button type="button" class="btn btn-secondary me-25" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" id="amendmentSubmit" class="btn btn-primary" onclick="window.location.href='{{ route('maint-bom.edit', $data->id) }}?amendment=1'">Confirm</button>
+                    <button type="button" id="amendmentSubmit" class="btn btn-primary">Confirm</button>
                 </div>
             </div>
         </div>
     </div>
 
+
 @endsection
-
-
-
-
 @section('scripts')
 	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>
 	<script src="{{asset('assets/js/fileshandler.js')}}"></script>
 	<script>
+		// Amendment functionality
+		$(document).on('click', '#amendmentSubmit', function (e) {
+		    e.preventDefault();
+
+		    let id = '{{ $data->id }}';
+		    let url = "{{ route('maint-bom.amendment', ':id') }}".replace(':id', id);
+
+		    $.ajax({
+		        url: url,
+		        type: "POST",
+		        data: {
+		            _token: $('meta[name="csrf-token"]').attr('content'),
+		            id: id,
+		            document_status: "draft"
+		        },
+		        beforeSend: function () {
+		            $('#amendmentSubmit').prop('disabled', true).text('Processing...');
+		        },
+		        success: function (response) {
+		            if (response.success) {
+		                    window.location.href = '{{ route("maint-bom.edit", $data->id) }}?amendment=1';
+		            } else {
+		                Swal.fire({
+		                    icon: 'error',
+		                    title: 'Error',
+		                    text: response.message || 'Amendment failed',
+		                });
+		            }
+		        },
+		        error: function (xhr) {
+		            let errorMessage = 'An error occurred while processing the amendment.';
+		            if (xhr.responseJSON && xhr.responseJSON.message) {
+		                errorMessage = xhr.responseJSON.message;
+		            }
+		            Swal.fire({
+		                icon: 'error',
+		                title: 'Error',
+		                text: errorMessage,
+		            });
+		        },
+		        complete: function () {
+		            $('#amendmentSubmit').prop('disabled', false).text('Confirm');
+		            $('#amendmentconfirm').modal('hide');
+		        }
+		    });
+		});
+
 		$(document).on('click', '#approved-button', (e) => {
                 let actionType = 'approve';
                 $("#approveModal").find("#action_type").val(actionType);
