@@ -26,6 +26,9 @@ class ErpSaleReturn extends Model
         'book_code',
         'store_id',
         'store_code',
+        'sub_store_id',
+        'type',
+        'sub_store_code',
         'department_id',
         'department_code',
         'gst_invoice_type',
@@ -35,6 +38,8 @@ class ErpSaleReturn extends Model
         'doc_number_type',
         'doc_prefix',
         'doc_suffix',
+        'reference_id',
+        'reference_doc_type',
         'doc_no',
         'document_date',
         'reference_number',
@@ -127,6 +132,24 @@ class ErpSaleReturn extends Model
     {
         return $this -> hasOne(Customer::class, 'id', 'customer_id');
     }
+    public function reference()
+    {
+        return $this -> belongsTo(ErpSaleInvoice::class , 'reference_id');
+    }
+    public function einvoice_check(): bool
+    {
+        $reference = $this->reference;
+
+        if ($reference && $reference->irnDetail) {
+            $irnNumber = $reference->irnDetail->irn_number ?? null;
+            $cancelStatus = !empty($reference->irnDetail->cancel_date);
+
+            return !empty($irnNumber) && !$cancelStatus;
+        }
+
+        return false;
+    }
+
     public function media()
     {
         return $this->morphMany(ErpSrMedia::class, 'model');
@@ -159,7 +182,11 @@ class ErpSaleReturn extends Model
     public function discount_ted()
     {
         return $this -> hasMany(ErpSaleReturnTed::class, 'sale_return_id') -> where('ted_level', 'H') -> where('ted_type', 'Discount');
-    }    
+    }   
+    public function header_tax()
+    {
+        return $this -> hasMany(ErpSaleReturnTed::class, 'sale_return_id') -> where('ted_level', 'H') -> where('ted_type', 'Tax');
+    } 
     public function addresses()
     {
         return $this->morphMany(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id');
@@ -198,6 +225,10 @@ class ErpSaleReturn extends Model
     public function store()
     {
         return $this -> belongsTo(ErpStore::class, 'store_id');
+    }
+    public function sub_store()
+    {
+        return $this -> belongsTo(ErpSubStore::class, 'sub_store_id');
     }
     
     public function latestBillingAddress()

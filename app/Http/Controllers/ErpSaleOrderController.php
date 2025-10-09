@@ -104,6 +104,7 @@ class ErpSaleOrderController extends Controller
 
             $salesOrder = ErpSaleOrder::where('document_type', $orderType) -> whereIn('store_id',$accessible_locations)
             -> bookViewAccess($pathUrl) -> withDefaultGroupCompanyOrg() -> withDraftListingLogic()
+            -> selfCreatedDocuments($authUser)
             -> whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']])
             -> when($request -> customer_id, function ($custQuery) use($request) {
                 $custQuery -> where('customer_id', $request -> customer_id);
@@ -213,6 +214,9 @@ class ErpSaleOrderController extends Controller
             })
             ->editColumn('grand_total_amount', function ($row) {
                 return number_format($row->total_amount,2);
+            })
+            ->editColumn('created_by', function ($row) {
+                return ucfirst(isset($row->createdBy) ? $row->createdBy->name : '');
             })
             ->rawColumns(['document_status'])
             ->make(true);
@@ -481,18 +485,32 @@ class ErpSaleOrderController extends Controller
                     ], 422);
                 }
             }
-            //Check reference No
-            $isReferenceNoExisting = ErpSaleOrder::where('customer_id', $request -> customer_id) 
-                -> where('reference_number', $request -> reference_no) -> when($request -> sale_order_id, function ($ignoreQuery) use($request) {
+            //Check reference No/ Customer PO no if required
+            $refNoRequiredParam = ServiceParametersHelper::getBookLevelParameterValue(ServiceParametersHelper::SO_CUSTOMER_PO_REQUIRED_PARAM, (int) $request -> book_id);
+            $isRefNoRequired = false;
+            if (count($refNoRequiredParam['data']) > 0) {
+                $isRefNoRequired = $refNoRequiredParam['data'][0] == 'Yes' ? true : false;
+            }
+            if ($isRefNoRequired) {
+                $refNo = $request -> reference_no;
+                if (!$refNo) {
+                    return response() -> json([
+                        'status' => 'error',
+                        'message' =>  'Customer PO No is required'
+                    ], 422);
+                }
+                $isReferenceNoExisting = ErpSaleOrder::where('customer_id', $request -> customer_id) 
+                -> where('reference_number', $refNo) -> when($request -> sale_order_id, function ($ignoreQuery) use($request) {
                     $ignoreQuery -> where('id', '!=', $request -> sale_order_id);
                 }) -> first();
-            if ($isReferenceNoExisting) {
-                return response() -> json([
-                    'message' => '',
-                    'errors' => array(
-                        'reference_no' => "Reference PO should be unique"
-                    )
-                ], 422);
+                if ($isReferenceNoExisting) {
+                    return response() -> json([
+                        'message' => '',
+                        'errors' => array(
+                            'reference_no' => "Customer PO No. should be unique"
+                        )
+                    ], 422);
+                }
             }
             $saleOrder = null;
             //Reset Customer Fields
@@ -2086,10 +2104,11 @@ class ErpSaleOrderController extends Controller
 
     public function salesOrderReport(Request $request)
     {
+        $authUser = Helper::getAuthenticatedUser();
         $pathUrl = route('sale.order.index');
         $orderType = ConstantHelper::SO_SERVICE_ALIAS;
-        $soItems = ErpSoItem::whereHas('header', function ($headerQuery) use($orderType, $pathUrl, $request) {
-            $headerQuery -> where('document_type', $orderType)-> withDefaultGroupCompanyOrg() -> withDraftListingLogic();
+        $soItems = ErpSoItem::whereHas('header', function ($headerQuery) use($orderType, $pathUrl, $request, $authUser) {
+            $headerQuery -> where('document_type', $orderType)-> withDefaultGroupCompanyOrg() -> withDraftListingLogic() -> selfCreatedDocuments($authUser);
             //Customer Filter
             $headerQuery = $headerQuery -> when($request -> customer_id, function ($custQuery) use($request) {
                 $custQuery -> where('customer_id', $request -> customer_id);

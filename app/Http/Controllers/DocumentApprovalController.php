@@ -532,6 +532,7 @@ class DocumentApprovalController extends Controller
             } else {
 
             }
+            ErpSaleReturnController::BundleRemoval($saleReturn);
             DB::commit();
             return response()->json([
                 'message' => "Document $actionType successfully!",

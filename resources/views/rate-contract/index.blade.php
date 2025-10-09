@@ -59,6 +59,7 @@
                                                 <th>Applicable Organizations</th>
                                                 <th>Items</th>
                                                 <th>Curr</th>
+                                                <th>Created By</th>
 												<th>Status</th>
 											  </tr>
 											</thead>
@@ -198,6 +199,10 @@
         { data: 'curr_name', name: 'curr_name', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
                $(td).addClass('no-wrap');
             } 
+        },
+        { data: 'created_by', name: 'created_by', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+               $(td).addClass('no-wrap');
+            }
         },
         { data: 'document_status', name: 'document_status', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
                $(td).addClass('no-wrap');

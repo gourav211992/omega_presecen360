@@ -208,7 +208,7 @@
                     style="font-weight: bold; width:23.44% padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
                         <div style="">So No.</div>
                     </td>
-                    @if (isset($val->bundles)&&count($val->bundles)>0)
+                    @if (isset($checkCountbundle)&& $checkCountbundle>0)
                     <td
                     style="font-weight: bold; width:23.44% padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
                         <div style="">Bundle Count</div>

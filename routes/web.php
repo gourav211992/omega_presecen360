@@ -2328,7 +2328,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('/sale-invoices/challans/get', [ErpSaleInvoiceController::class, 'getDeliveryChallans'])->name('sale.invoice.challans.get');
     Route::get('/sale-invoices/order', [ErpSaleInvoiceController::class, 'processOrder'])->name('sale.invoice.order.get');
     Route::get('/sale-invoices/challan', [ErpSaleInvoiceController::class, 'processDeliveryChallan'])->name('sale.invoice.challan.get');
-    Route::get('/sale-invoices/generate-pdf/{id}/{pattern}', [ErpSaleInvoiceController::class, 'generatePdf'])->name('sale.invoice.generate-pdf');
+    Route::post('/sale-invoices/generate-pdf/', [ErpSaleInvoiceController::class, 'generatePdf'])->name('sale.invoice.generate-pdf');
     Route::post('/sale-invoices/EInvoiceMail', [ErpSaleInvoiceController::class, 'EInvoiceMail'])->name('sale.invoice.eInvoiceMail');
     Route::get('/sale-invoices/pull/items', [ErpSaleInvoiceController::class, 'getSalesItemsForPulling'])->name('sale.invoice.pull.items');
     Route::get('/sale-invoices/pull/land', [ErpSaleInvoiceController::class, 'getSalesLandForPulling'])->name('sale.invoice.pull.land');
@@ -2490,6 +2490,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('/psv/itemList', [ErpPSVController::class, 'itemList'])->name('psv.itemlist');
     Route::get('/psv/getAllItems', [ErpPSVController::class, 'getAllItems'])->name('psv.getAllItems');
     Route::get('/psv/{id}/pdf', [ErpPSVController::class, 'generatePdf'])->name('psv.generate-pdf');
+    Route::post('/select/location',[ErpPSVController::class , 'selectSearch'])->name('select.select.search');
 
     //PL
     Route::get('/pick-list', [ErpPlController::class, 'index'])->name('PL.index');

@@ -276,21 +276,25 @@ class ErpInvoiceItem extends Model
     {
         $totalQty = (float)$this -> getAttribute('order_qty');
         $usedQty = (float) $this -> getAttribute('invoice_qty');
-        $balanceQty = min([$totalQty, ($totalQty - $usedQty)]);
+        $invreturnedQty = (float) $this -> getAttribute('inv_srn_qty'); 
+        $balanceQty = min([$totalQty, ($totalQty - ($usedQty - $invreturnedQty))]);
         return $balanceQty;
     }
     public function getReturnBalanceQtyAttribute()
     {
         $type=$this->header()->first()?->document_type;
-        if($type=="dnote"){
-            $totalQty = (float)$this -> getAttribute('dnote_qty');
-            $usedQty = (float) $this -> getAttribute('srn_qty');
-            $balanceQty = min([$totalQty, ($totalQty - $usedQty)]);
+        if ($type == 'si')
+        {
+            $totalQty = (float)$this -> getAttribute('order_qty');
+            $usedQty = (float) $this -> getAttribute('inv_srn_qty');
+            $balanceQty = $totalQty - $usedQty;    
         }
         else{
-            $totalQty = (float)$this -> getAttribute('invoice_qty');
-            $usedQty = (float) $this -> getAttribute('srn_qty');
-            $balanceQty = min([$totalQty, ($totalQty - $usedQty)]);
+            $totalQty = (float)$this -> getAttribute('order_qty');
+            $srnQty = (float) $this -> getAttribute('srn_qty');
+            $invQty = (float) $this -> getAttribute('invoice_qty');
+            $invreturnedQty = (float) $this -> getAttribute('inv_srn_qty'); 
+            $balanceQty = $totalQty - ($srnQty + $invQty - $invreturnedQty);
         }
         return $balanceQty;
     }
@@ -394,6 +398,11 @@ class ErpInvoiceItem extends Model
     {
         return $this->morphMany(ErpItemUniqueCode::class, 'morphable');
     }
+    public function dnoteItem()
+    {
+        return $this->belongsTo(ErpInvoiceItem::class, 'dnote_item_id', 'id');
+    }
+
 
     public function geItems()
     {
@@ -401,6 +410,6 @@ class ErpInvoiceItem extends Model
     }
     public function dnItem()
     {
-        return $this->hasOne(ErpInvoiceItem::class, 'dnote_item_id');
+        return $this->hasOne(ErpInvoiceItem::class, 'id', 'dnote_item_id');
     }
 }

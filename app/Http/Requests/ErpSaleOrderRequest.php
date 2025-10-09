@@ -30,7 +30,7 @@ class ErpSaleOrderRequest extends FormRequest
             'book_id' => 'required|numeric|integer|exists:erp_books,id',
             'document_no' => ['required'],
             'document_date' => 'required|date',
-            'reference_no' => 'required|string',
+            'reference_no' => 'nullable|string',
             'customer_id' => 'required|numeric|integer|exists:erp_customers,id',
             'currency_id' => 'required|numeric|integer|exists:mysql_master.currency,id',
             'payment_terms_id' => 'required|numeric|integer|exists:erp_payment_terms,id',

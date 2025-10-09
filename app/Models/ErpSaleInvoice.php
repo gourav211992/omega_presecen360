@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Helpers\ConstantHelper;
 use App\Helpers\Helper;
+use App\Models\ERP\ErpConsignee;
 use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use App\Traits\DateFormatTrait;
 use App\Traits\DefaultGroupCompanyOrg;
@@ -273,6 +274,10 @@ class ErpSaleInvoice extends Model
         return $this -> hasMany(ErpInvoicePaymentTerm::class, 'invoice_header_id');
     }
 
+    public function pendingJob()
+    {
+        return $this -> hasOne(WHM\ErpWhmJob::class,'morphable_id');
+    }
     public function getTotalQuantityAttribute()
     {
         return $this->items->sum(function ($item) {
@@ -280,5 +285,9 @@ class ErpSaleInvoice extends Model
             $count = (int) optional($item->item)->storage_uom_count ?? 1;
             return $qty * ($count ?: 1);
         });
+    }
+    public function consignee()
+    {
+        return $this-> belongsTo(ErpConsignee::class,'consignee_id');
     }
 }

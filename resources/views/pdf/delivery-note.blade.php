@@ -123,19 +123,19 @@
                         </tr>
                         <tr>
                             <td style="padding-top: 3px;">GSTIN NO:</td>
-                            <td style="padding-top: 3px;">{{@$organization->compliances->gstin_no}}</td>
+                            <td style="padding-top: 3px;">{{@$organization->gst_number}}</td>
                         </tr>
 
                         <tr>
                             <td style="padding-top: 3px;">PHONE:</td>
                             <td style="padding-top: 3px;">
-                                {{ @$order->location_address_details->contact_phone_no }}
+                                {{ @$organization->mobile }}
                             </td>
                         </tr>
                         <tr>
                             <td style="padding-top: 3px;">EMAIL ID:</td>
                             <td style="padding-top: 3px;">
-                                {{ @$order->location_address_details->contact_email }}
+                                {{ @$organization->email }}
                             </td>
                         </tr>
                         <!-- <tr>
@@ -200,8 +200,7 @@
                     </tr>
                     <tr>
                         <td style="padding-top: 3px; width:60%">
-                            @if(@$shippingAddress->phone)Phone: {{ @$shippingAddress->phone }}, @endif @if(@$organization?->email) Email: {{ @$organization?->email }} @endif
-                        </td>
+                            @if(@$shippingAddress->phone)Phone: {{ @$shippingAddress->phone }}, @endif @if(@$order?->consignee?->email) Email: {{ @$order?->consignee?->email }} @endif
                     </tr>
                 </table>
             </td>
@@ -343,7 +342,7 @@
                 $hsnGroups = [];
                 $taxBracket = [];
             @endphp
-            @foreach($order->items as $key => $val)
+            @foreach($order->items as $idx => $val)
                 @php
                 $bundles = $val->bundles ?? [];
                 $bundleCount = count($bundles);
@@ -392,20 +391,18 @@
                 // Now, calculate total tax_amount for each HSN group
                 foreach ($hsnGroups as &$group) {
                     $taxAmount = 0.00;
-                    foreach ($group as $key => $value) {
-                        if (str_ends_with($key, '_amount') && $key !== 'tax_amount') {
+                    foreach ($group as $keys => $value) {
+                        if (str_ends_with($keys, '_amount') && $keys !== 'tax_amount') {
                             $taxAmount += (float)$value;
                         }
                     }
                     $group['tax_amount'] = $taxAmount;
                 }
-            @endphp
-
-
+                @endphp
                 <tr>
                     <td rowspan="{{isset($val->bundles) && count($val->bundles) > 1 ? count($val->bundles) : 1 }}"
                         style="width:5%; vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: center;">
-                        {{ (int)$key + 1 }}
+                        {{ (int)$idx + 1 }}
                     </td>
                     <td rowspan="{{ isset($val->bundles) && count($val->bundles) > 1 ? count($val->bundles) : 1 }}"
                         style="width:40%;vertical-align: middle; padding:10px 3px; text-align:left; border: 1px solid #000; border-top: none; border-left: none;">
@@ -486,6 +483,7 @@
                             {{ @$val->order_qty }}
                         </td>
                     @endif
+                </tr>
             @endforeach
             <tr>
                 <td colspan="4"

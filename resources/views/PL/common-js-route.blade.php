@@ -20,6 +20,7 @@ window.pageData = {
         docParams: "{{ route('book.get.doc_no_and_parameters') }}",
         serviceSeries: "{{ route('book.service-series.get') }}",
         revoke: "{{ route("$route_prefix.revoke") }}",
+        generatePdf : "{{ route("$route_prefix.generate-pdf", ['id' => 0, 'pattern' => 'Default']) }}",
         invDets :  "{{route("get_item_inventory_details")}}",
         subStores: "{{ route('subStore.get.from.stores') }}",
         storeData : "{{route('get_store_data')}}",

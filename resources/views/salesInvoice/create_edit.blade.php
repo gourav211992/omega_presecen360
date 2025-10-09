@@ -1,7 +1,47 @@
 @extends('layouts.app')
 
-@section('content')
+@section('styles')
+<style>
+.custom-dropdown {
+    position: relative;
+    display: inline-block;
+}
 
+.custom-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    right: 0;
+    min-width: 150px;
+    padding: 0.5rem 0;
+    margin: 0;
+    list-style: none;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 1000;
+}
+
+.custom-dropdown-menu.show {
+    display: block;
+}
+
+.custom-dropdown-item {
+    display: flex;
+    padding: 0.5rem 1rem;
+    color: #333;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.custom-dropdown-item:hover {
+    background: #f2f2f2;
+}
+</style>
+@endsection
+@section('content')
+    
     <!-- BEGIN: Content-->
     <form method="POST" data-completionFunction = "disableHeader" class="ajax-input-form sales_module_form sale_invoice" action = "{{route('sale.invoice.store')}}" data-redirect="{{ $redirect_url }}" id = "sale_invoice_form" enctype='multipart/form-data'>
 
@@ -24,15 +64,85 @@
                         <button type = "button" onclick="javascript: history.go(-1)" class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i> Back</button>
                             @if (isset($order))
                                 @if($buttons['print'])
-                                <button class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                        stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer">
-                                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
-                                        <rect x="6" y="14" width="12" height="8"></rect>
-                                    </svg>
-                                    Print  <i class="fa-regular fa-circle-down"></i>
-                                </button>
+                                    <div class="custom-dropdown">
+                                        <button class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light" type="button" id="printDropdownBtn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer">
+                                                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                                                <rect x="6" y="14" width="12" height="8"></rect>
+                                            </svg>
+                                            Print  <i class="fa-regular fa-circle-down"></i>
+                                        </button>
+
+                                        <ul class="custom-dropdown-menu" id="printDropdownMenu">
+                                            @php
+                                                $options = [];
+                                                if ($order->document_type == "si") {
+                                                    $options = [
+                                                        'Tax Invoice',
+                                                        'Original',
+                                                        'Duplicate',
+                                                        'Triplicate',
+                                                        'Tax Invoice Attribute Grouped',
+                                                    ];
+                                                } elseif ($order->document_type == "dnote") {
+                                                    $options = ['Delivery Note'];
+                                                } elseif ($order->document_type == 'si-dnote') {
+                                                    $options = [
+                                                        'Tax Invoice',
+                                                        'Original',
+                                                        'Duplicate',
+                                                    ];
+                                                } elseif ($order->document_type == "ti") {
+                                                    $options = ['Lorry Receipt'];
+                                                }
+
+                                                if (isset($einvoice) && $einvoice->ewb_url) {
+                                                    $options[] = 'E Way Bill';
+                                                }
+
+                                                $checkboxOptions = array_filter($options, function ($opt) {
+                                                    return str_contains($opt, 'Original') || str_contains($opt, 'Duplicate') || str_contains($opt, 'Triplicate');
+                                                });
+
+                                                $normalOptions = array_diff($options, $checkboxOptions);
+                                            @endphp
+
+                                            {{-- Normal Options --}}
+                                            @foreach ($normalOptions as $key)
+                                                <li>
+                                                    <a class="custom-dropdown-item dropdown-main"
+                                                    href="{{ $key == 'E Way Bill' ? $einvoice->ewb_url : route("sale.invoice.generate-pdf") }}"
+                                                    data-key="{{ $key }}"
+                                                    data-type="{{ str_contains($key, 'Attribute Grouped') ? 'grouped' : '' }}"
+                                                    data-url="{{ $key == 'E Way Bill' ? $einvoice->ewb_url : route("sale.invoice.generate-pdf") }}">
+                                                        {{ $key }}
+                                                    </a>
+                                                </li>
+                                            @endforeach
+
+                                            {{-- Checkbox Options --}}
+                                            @if (count($checkboxOptions))
+                                                <li class="px-3 py-1">
+                                                    <div class="d-flex custom-checkbox align-items-center gap-3">
+                                                        @foreach ($checkboxOptions as $chk)
+                                                            <div class="form-check">
+                                                                <input class="form-check-input lot-checkbox"
+                                                                    type="checkbox"
+                                                                    id="chk_{{ Str::slug($chk, '_') }}"
+                                                                    value="{{ $chk }}">
+                                                                <label class="form-check-label" for="chk_{{ Str::slug($chk, '_') }}">
+                                                                    {{ Str::replace('Tax Invoice', '', $chk) }}
+                                                                </label>
+                                                            </div>
+                                                        @endforeach
+                                                    </div>
+                                                </li>
+                                            @endif
+                                        </ul>
+                                    </div>
+                                @endif
                                 @if(isset($einvoice) && !$einvoice->ewb_no && $order -> total_amount > 50000)
                                     <a type="button" class="btn btn-primary btn-sm" id="eWayBillBtn" href="#" onclick = "generateEwayBill();">
                                         <i data-feather="check-circle"></i> Generate Eway Bill
@@ -55,40 +165,6 @@
                                 @if(isset($order) && $order->delivery_status == 0 && ($order -> document_type !== App\Helpers\ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS || App\Helpers\ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS ))
                                 <button type = "button" data-bs-toggle="modal" data-bs-target="#podModal" onclick = "setPOD();" class="btn btn-success btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i class="fa-solid fa-truck-fast"></i> POD</button>
                                 @endif
-                                @endif
-                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                                    @php
-                                        $options = [];
-                                        if($order->document_type == "si"){
-                                            $options=['Tax Invoice', 'Tax Invoice Attribute Grouped'];
-                                        }
-                                        elseif($order->document_type == "si-dnote")
-                                        {
-                                            $options = [
-                                                'Tax Invoice',
-                                                'Tax Invoice Attribute Grouped',
-                                                'Delivery Note',
-                                            ];
-                                        }
-                                        else if ($order->document_type == "dnote"){
-                                            $options = ['Delivery Note'];
-                                        } else if ($order -> document_type == 'sinv') {
-                                            $options = ['Tax Invoice'];
-                                        }
-                                         else if ($order->document_type == "ti"){
-                                            $options = ['Lorry Receipt'];
-                                        }
-                                        if (isset($einvoice) && $einvoice->ewb_url) {
-                                            $options[]='E Way Bill';
-                                        }
-
-                                    @endphp
-                                    @foreach ($options as $key)
-                                        <li>
-                                            <a class="dropdown-item" href="{{ $key == 'E Way Bill' ? $einvoice->ewb_url : route('sale.invoice.generate-pdf', [$order->id, $key, 'type' => str_contains($key, 'Attribute Grouped') ? 'grouped' : '']) }}" target="_blank">{{ $key }}</a>
-                                        </li>
-                                    @endforeach
-                                </ul>
                                 @if($buttons['draft'])
                                     <button type="button" onclick = "submitForm('draft');" name="action" value="draft" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="save-draft-button" name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
                                 @endif
@@ -2893,7 +2969,7 @@
                 $('#order_discount_row').remove();
                 $('#all_items_total_expenses_summary').val('0.00');
 
-
+                current_doc_id = 0;
                 document.getElementById('all_items_total_value').innerText = '0.00';
                 document.getElementById('total_order_discount').innerText = '0.00';
                 document.getElementById('total_order_expense').innerText = '0.00';

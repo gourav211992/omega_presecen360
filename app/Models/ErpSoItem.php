@@ -210,7 +210,8 @@ class ErpSoItem extends Model
         $pickedQty = $this -> getAttribute('picked_qty');
         $plannedQty = $this -> getAttribute('planned_qty');
         $plistQty = $this -> getAttribute('plist_qty');
-        $balanceQty = min([$totalQty, ($totalQty - ( $usedQty + $shortQty + $pickedQty + $plistQty))]);
+        $srnQty = $this -> getAttribute('srn_qty');
+        $balanceQty = min([$totalQty, ($totalQty - ( $usedQty + $shortQty + $pickedQty + $plistQty) + $srnQty)]);
         return $balanceQty;
     }
     public function getBalanceBundleQtyAttribute()

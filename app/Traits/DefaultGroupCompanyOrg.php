@@ -130,4 +130,14 @@ trait DefaultGroupCompanyOrg
                 });
         });
     }
+    /* Function to handle self created documents -
+        Use only if the table contains - created_by
+    */
+    public function scopeSelfCreatedDocuments($query, $authUser)
+    {
+        $selfTxnOnly = request()->user()->hasPermission('common.self-txn-only') ?? false;
+        if ($selfTxnOnly) {
+            $query -> where('created_by', $authUser -> auth_user_id);
+        }
+    }
 }

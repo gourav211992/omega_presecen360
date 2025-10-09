@@ -1967,6 +1967,24 @@ class AutocompleteController extends Controller
             } else if ($type === "si_document") {
                 $applicableBookIds = ServiceParametersHelper::getBookCodesForReferenceFromParam($request -> header_book_id);
                 $results = ErpSaleInvoice::where('document_number', 'LIKE', "%$term%")
+                    -> where('document_type', ConstantHelper::SI_SERVICE_ALIAS)
+                -> when($request -> header_book_id, function ($applicableQuery) use($applicableBookIds) {
+                    $applicableQuery -> whereIn('book_id', $applicableBookIds);
+                })
+                -> whereIn('document_status', [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED])
+                    ->get(['id', 'document_number']);
+                if ($results->isEmpty()) {
+                    $results = ErpSaleInvoice::limit(10)
+                    -> when($request -> header_book_id, function ($applicableQuery) use($applicableBookIds) {
+                        $applicableQuery -> whereIn('book_id', $applicableBookIds);
+                    })
+                    -> whereIn('document_status', [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED])
+                    ->get(['id', 'document_number']);
+                    }
+            } else if ($type === "si_dn_document") {
+                $applicableBookIds = ServiceParametersHelper::getBookCodesForReferenceFromParam($request -> header_book_id);
+                $results = ErpSaleInvoice::where('document_number', 'LIKE', "%$term%")
+                    -> where('document_type', ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS)
                 -> when($request -> header_book_id, function ($applicableQuery) use($applicableBookIds) {
                     $applicableQuery -> whereIn('book_id', $applicableBookIds);
                 })
@@ -1989,7 +2007,7 @@ class AutocompleteController extends Controller
                         }
                     })
                     ->where('store_code', 'LIKE', "%$term%")
-                    ->get(['id', 'store_code']);
+                    ->get(['id', 'store_code','store_name']);
                 if ($results->isEmpty()) {
                     $results = ErpStore::where('organization_id', $authUser -> organization_id)
                             ->where(function($query) use($storeType) {
@@ -1998,7 +2016,7 @@ class AutocompleteController extends Controller
                                 }
                             })
                         ->limit(10)
-                        ->get(['id', 'store_code']);
+                        ->get(['id', 'store_code','store_name']);
                 }
             } else if ($type === "sub_store_list") {
                 $storeType = $request->store_type ?? '';

@@ -13,6 +13,8 @@ class ErpSrItemLotDetail extends Model
     protected $fillable = [
         'sr_item_id',
         'lot_number',
+        'manufacturing_year',
+        'expiry_date',
         'lot_qty',
         'total_lot_qty',
         'original_receipt_date',

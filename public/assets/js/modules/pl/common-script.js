@@ -24,6 +24,7 @@ let getSeries = window.routes.getSeries;
 let redirectUrl = window.routes.redirectUrl;
 let tripRoute = window.routes.tripRoute;
 let consigneeAddressRoute = window.routes.consigneeAddressRoute;
+let generatePdf = window.routes.generatePdf;
 // Optional: use them in fetch, axios, etc.
 $('#order_date_input').on('blur', function() {
     if(checkDateRange(this)){
@@ -58,10 +59,21 @@ function getItemTax(itemIndex)
     const totalItemDiscount = parseFloat(discountAmount ? discountAmount : 0) + parseFloat(headerDiscountAmount ? headerDiscountAmount : 0);
     const billToCountryId = $("#current_billing_country_id").val();
     const billToStateId = $("#current_billing_state_id").val();
-    let itemPrice = 0;
-    if (itemQty > 0) {
-        itemPrice = (parseFloat(itemValue ? itemValue : 0) + parseFloat(totalItemDiscount ? totalItemDiscount : 0)) / parseFloat(itemQty);
+    function parseNumber(value) {
+        return parseFloat((value ?? 0).toString().replace(/,/g, ''));
     }
+
+    let itemPrice = 0;
+
+    if (itemQty > 0) {
+        const value = parseNumber(itemValue);
+        const discount = parseNumber(totalItemDiscount);
+        const qty = parseNumber(itemQty);
+        console.log(value, discount, qty);
+
+        itemPrice = (value + discount) / qty;
+    }
+
     var headerBookId = order ? order.book_id : null;
     $.ajax({
         url: calTaxUrl,
@@ -104,13 +116,15 @@ function getItemTax(itemIndex)
             const itemTotalInput = document.getElementById('item_total_' + itemIndex);
             itemTotalInput.value = parseFloat(valueAfterHeaderDiscount ? valueAfterHeaderDiscount : 0) +  parseFloat(TotalItemTax ? TotalItemTax : 0);
             //Get All Total Values
-            if (menuAlias === 'sale-invoices' || menuAlias === 'delivery-note-cum-invoice') {
+            console.log(menuAlias);
+            if (menuAlias === 'sale-invoices' || menuAlias === 'delivery-note-cum-invoice' || menuAlias === 'sale-returns') {
                 getTcsTax();
             } else {
                 setAllTotalFields();
                 updateHeaderExpenses();
             }
         },
+
         error: function(xhr) {
             console.error('Error fetching customer data:', xhr.responseText);
             const taxInput = document.getElementById('item_tax_' + itemIndex);
@@ -124,7 +138,7 @@ function getItemTax(itemIndex)
             const itemTotalInput = document.getElementById('item_total_' + itemIndex);
             itemTotalInput.value = parseFloat(valueAfterHeaderDiscount ? valueAfterHeaderDiscount : 0) +  parseFloat(TotalItemTax ? TotalItemTax : 0);
             //Get All Total Values
-            if (menuAlias === 'sale-invoices' || menuAlias === 'delivery-note-cum-invoice') {
+            if (menuAlias === 'sale-invoices' || menuAlias === 'delivery-note-cum-invoice' || menuAlias === 'sale-returns') {
                 getTcsTax();
             } else {
                 setAllTotalFields();
@@ -137,22 +151,35 @@ function getItemTax(itemIndex)
 function getTcsTax()
 {
     //Call TCS TAX
-    let oldTaxValue = order ? order.total_item_value - order.total_discount_value : 0;
+    let oldTaxValue = 0;
+    if(menuAlias == 'sale-returns')
+    {
+        oldTaxValue = order ? order.total_return_value - order.total_discount_value : 0;
+    }
+    else
+    {
+        oldTaxValue = order ? order.total_item_value - order.total_discount_value : 0;
+    }
     oldTaxValue = Number(oldTaxValue.toFixed(2));
+    
     let nonTcsAccessableAmt = $("#order_tcs_assessable_amt").val() ?? 0;
+    console.log(nonTcsAccessableAmt, oldTaxValue);
     if (oldTaxValue  > 0) {
         nonTcsAccessableAmt = oldTaxValue - nonTcsAccessableAmt;
         nonTcsAccessableAmt = Number(nonTcsAccessableAmt.toFixed(2));
     }
     const billToCountryId = $("#current_billing_country_id").val();
     const taxInput = document.getElementById('order_tcs_tax');
+    let totalSummaryText = $("#all_items_total_total_summary").text();
+    // Remove commas and convert to number
+    let totalSummary = parseFloat(totalSummaryText.replace(/,/g, ''));
     $.ajax({
         url: calTaxTcsUrl,
         method: 'GET',
         dataType: 'json',
         data : {
             customer_id : $("#customer_id_input").val(),
-            total_taxable_value : $("#all_items_total_total_summary").text(),
+            total_taxable_value : totalSummary,
             non_tcs_assessable_amt : nonTcsAccessableAmt,
             document_date : $("#order_date_input").val(),
             to_country_id : billToCountryId,
@@ -343,6 +370,11 @@ function disableHeader()
     if (dnButton) {
         dnButton.disabled = true;
     }
+    let sidnButton = document.getElementById('select_si_dn_button');
+    if (sidnButton)
+    {
+        sidnButton.diabled = true;
+    }
 
     let lrButton = document.getElementById('select_lorry_button');
     if (lrButton) {
@@ -417,6 +449,10 @@ function enableHeader()
     let dnButton = document.getElementById('select_dn_button');
     if (dnButton) {
         dnButton.disabled = false;
+    }
+    let sidnButton = document.getElementById('select_si_dn_button');
+    if (sidnButton) {
+        sidnButton.disabled = false;
     }
     let lrButton = document.getElementById('select_lorry_button');
     if (lrButton) {
@@ -556,6 +592,7 @@ function editScript()
         });
         //Order Tax
         order?.header_tax?.forEach((orderTax, orderTaxIndex) => {
+            console.log(orderTax);  
             if (orderTax.ted_name === 'Sale_of_Other_Goods') { //Constant
                 addHiddenInput("order_tcs_master_id", orderTax.id, `order_tcs_id`, 'order_tcs_id', 'main_so_form', orderTax.id);        
                 addHiddenInput("order_tcs_assessable_amt", orderTax.assessment_amount, `order_tcs_assesable_amt`, 'order_tcs_assessable_amt', 'main_so_form', orderTax.id);        
@@ -697,6 +734,10 @@ function resetParametersDependentElements(reset = true)
     if (selectionSectionDN) {
         selectionSectionDN.style.display = "none";
     }
+    var selectionSectionDNIn = document.getElementById('dnote_inv_selection');
+    if (selectionSectionDNIn) {
+        selectionSectionDNIn.style.display = "none";
+    }
     var selectionSectionLease = document.getElementById('land_lease_selection');
     if (selectionSectionLease) {
         selectionSectionLease.style.display = "none";
@@ -803,6 +844,7 @@ function enableDisableQtButton()
     let piButton = document.getElementById('select_pi_button');
     let pslipbutton = document.getElementById('select_pslip_button');
     let dnButton = document.getElementById('select_dn_button');
+    let sidnButton = document.getElementById('select_si_dn_button');
     let lrButton = document.getElementById('select_lorry_button');
     let leaseButton = document.getElementById('select_lease_button');
     let orderButton = document.getElementById('select_order_button');
@@ -834,6 +876,9 @@ function enableDisableQtButton()
         }
         if (dnButton) {
             dnButton.disabled = false;
+        }
+        if (sidnButton) {
+            sidnButton.disabled = false;
         }
         if (lrButton) {
             lrButton.disabled = false;
@@ -878,6 +923,9 @@ function enableDisableQtButton()
         }
         if (dnButton) {
             dnButton.disabled = true;
+        }
+        if (sidnButton) {
+            sidnButton.disabled = true;
         }
         if (leaseButton) {
             leaseButton.disabled = true;
@@ -1051,6 +1099,17 @@ function implementBookParameters(paramData)
                         selectionSectionElement.style.display = "";
                     }
                     var selectionPopupElement = document.getElementById('delivery_note_selection');
+                    if (selectionPopupElement)
+                    {
+                        selectionPopupElement.style.display = ""
+                    }
+                }
+                if (selectSingleVal == 'si-dnote') {
+                    var selectionSectionElement = document.getElementById('selection_section');
+                    if (selectionSectionElement) {
+                        selectionSectionElement.style.display = "";
+                    }
+                    var selectionPopupElement = document.getElementById('dnote_inv_selection');
                     if (selectionPopupElement)
                     {
                         selectionPopupElement.style.display = ""
@@ -1243,13 +1302,13 @@ function implementBookParameters(paramData)
 function setApproval()
 {
     document.getElementById('action_type').value = "approve";
-    document.getElementById('approve_reject_heading_label').textContent = "Approve " + "Invoice";
+    document.getElementById('approve_reject_heading_label').textContent = "Approve " + "Document";
 
 }
 function setReject()
 {
     document.getElementById('action_type').value = "reject";
-    document.getElementById('approve_reject_heading_label').textContent = "Reject " + "Invoice";
+    document.getElementById('approve_reject_heading_label').textContent = "Reject " + "Document";
 }
 function setFormattedNumericValue(element)
 {
@@ -2509,6 +2568,9 @@ function changeItemQty(element, index)
     if (typeof changeItemQtyMi === 'function') {
         changeItemQtyMi(element, index);
     }
+    // if( typeof setSrLotChanges === 'function') {
+    //     setSrLotChanges(element,index);
+    // }
 
 }
 function renderIcons()
@@ -2989,3 +3051,80 @@ function getTripData()
         }
     });
 }
+document.addEventListener("DOMContentLoaded", function () {
+    const dropdownBtn = document.getElementById("printDropdownBtn");
+    const dropdownMenu = document.getElementById("printDropdownMenu");
+
+    // Exit early if dropdown elements don't exist
+    if (!dropdownBtn || !dropdownMenu) return;
+
+    // Toggle menu on button click
+    dropdownBtn.addEventListener("click", function(e) {
+        e.stopPropagation(); // Prevent closing immediately
+        dropdownMenu.classList.toggle("show");
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener("click", function() {
+        dropdownMenu.classList.remove("show");
+    });
+
+    // Prevent menu from closing when clicking checkboxes
+    const checkboxes = dropdownMenu.querySelectorAll('.lot-checkbox, .custom-checkbox');
+    if (checkboxes.length) {
+        checkboxes.forEach(cb => {
+            cb.addEventListener('click', e => e.stopPropagation());
+        });
+    }
+
+    // Handle normal items
+    const dropdownItems = dropdownMenu.querySelectorAll('.dropdown-main');
+    if (dropdownItems.length) {
+        dropdownItems.forEach(el => {
+            el.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                const key = this.dataset.key;
+                const type = this.dataset.type || '';
+
+                // Collect selected checkboxes
+                const selectedCopies = (() => {
+                    const checked = Array.from(dropdownMenu.querySelectorAll('.lot-checkbox:checked')).map(cb => cb.value);
+                    return checked.length ? checked : ['Original Copy'];
+                })();
+
+                if (key === "E Way Bill" && this.dataset.url) {
+                    window.open(this.dataset.url, "_blank");
+                } else if (typeof generatePdf !== "undefined" && typeof order !== "undefined" && typeof csrfToken !== "undefined") {
+                    // Loop over selected copies to trigger separate PDFs
+                    selectedCopies.forEach(copy => {
+                        $.ajax({
+                            url: generatePdf,
+                            method: "POST",
+                            xhrFields: { responseType: 'blob' },
+                            data: {
+                                id: order.id,
+                                pattern: key,
+                                type: type,
+                                label: copy,  // send one copy at a time
+                                _token: csrfToken
+                            },
+                            success: function (data) {
+                                const blob = new Blob([data], { type: 'application/pdf' });
+                                const url = window.URL.createObjectURL(blob);
+                                window.open(url, '_blank'); // Open each PDF in a new tab
+                            },
+                            error: function (xhr) {
+                                alert('Failed: ' + xhr.responseText);
+                            }
+                        });
+                    });
+                }
+
+                // Close menu after click
+                dropdownMenu.classList.remove("show");
+            });
+        });
+    }
+});
+

@@ -60,6 +60,7 @@
                                                 <th class = "numeric-alignment">Tax</th>
                                                 <th class = "numeric-alignment">Expenses</th>
                                                 <th class = "numeric-alignment">Total Amt</th>
+                                                <th>Created By</th>
                                                 <th style = 'text-align:center'>Status</th>
 											  </tr>
 											</thead>
@@ -176,6 +177,10 @@
                $(td).addClass('text-end');
             } 
          },
+         { data: 'created_by', name: 'created_by', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+               $(td).addClass('no-wrap');
+            }
+        },
         { data: 'document_status', name: 'document_status', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
                $(td).addClass('no-wrap');
             }

@@ -393,11 +393,11 @@
                                                                     <th width="240px">Item Name</th>
                                                                     <th max-width='180px'>Attributes</th>
                                                                     <th>UOM</th>
-                                                                    <th width="80px" >MOQ</th>
+                                                                    <th class='d-none' width="80px" >MOQ</th>
                                                                     <th class = "numeric-alignment">From Qty</th>
                                                                     <th class = "numeric-alignment">To Qty</th>
                                                                     <th class = "numeric-alignment">Rate</th>
-                                                                    <th class = "numeric-alignment">Lead Time</th>
+                                                                    <th class = "numeric-alignment d-none">Lead Time</th>
                                                                     <th class = "numeric-alignment">Effective From</th>
                                                                     <th class = "numeric-alignment">Effective Upto</th>
                                                                     <th>Action</th>
@@ -418,7 +418,7 @@
                                                                             </div>
                                                                         </td>
                                                                         <td class="poprod-decpt">
-                                                                            <input type="text" id = "items_dropdown_{{$orderItemIndex}}" name="item_code[{{$orderItemIndex}}]" placeholder="Select" class="form-control mw-100 ledgerselecct comp_item_code ui-autocomplete-input {{$orderItem -> is_editable ? '' : 'restrict'}}" autocomplete="off" data-name="{{$orderItem -> item ?-> item_name}}" data-code="{{$orderItem -> item ?-> item_code}}" data-id="{{$orderItem -> item ?-> id}}" hsn_code = "{{$orderItem -> item ?-> hsn ?-> code}}" item-name = "{{$orderItem -> item ?-> item_name}}" specs = "{{$orderItem -> item ?-> specifications}}" attribute-array = "{{$orderItem -> item_attributes_array()}}"  value = "{{$orderItem -> item ?-> item_code}}" {{$orderItem -> is_editable ? '' : 'readonly'}} item-location = "[]">
+                                                                            <input type="text" readonly id = "items_dropdown_{{$orderItemIndex}}" name="item_code[{{$orderItemIndex}}]" placeholder="Select" class="form-control mw-100 ledgerselecct comp_item_code ui-autocomplete-input {{$orderItem -> is_editable ? '' : 'restrict'}}" autocomplete="off" data-name="{{$orderItem -> item ?-> item_name}}" data-code="{{$orderItem -> item ?-> item_code}}" data-id="{{$orderItem -> item ?-> id}}" hsn_code = "{{$orderItem -> item ?-> hsn ?-> code}}" item-name = "{{$orderItem -> item ?-> item_name}}" specs = "{{$orderItem -> item ?-> specifications}}" attribute-array = "{{$orderItem -> item_attributes_array()}}"  value = "{{$orderItem -> item ?-> item_code}}" {{$orderItem -> is_editable ? '' : 'readonly'}} item-location = "[]">
                                                                             <input type = "hidden" name = "item_id[]" id = "items_dropdown_{{$orderItemIndex}}_value" value = "{{$orderItem -> item_id}}"></input>
                                                                             @if ($orderItem -> mi_item_id)
                                                                                 <input type = "hidden" name = "mi_item_id[{{$orderItemIndex}}]" id = "mi_item_id_{{$orderItemIndex}}" value = "{{$orderItem -> mi_item_id}}"></input>
@@ -441,11 +441,11 @@
 
                                                                             </select>
                                                                         </td>
-                                                                        <td><input type="text" id = "MOQ_{{$orderItemIndex}}" value = "{{$orderItem -> moq}}" name = "MOQ[{{$orderItemIndex}}]"  class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);"/></td>
+                                                                        <td class='d-none'><input type="text" id = "MOQ_{{$orderItemIndex}}" value = "{{$orderItem -> moq}}" name = "MOQ[{{$orderItemIndex}}]"  class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);"/></td>
                                                                         <td><input type="text" id = "from_item_qty_{{$orderItemIndex}}" value = "{{$orderItem -> from_qty}}" name = "from_item_qty[{{$orderItemIndex}}]"  class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);" max = "{{$orderItem -> to_qty - 0.01}}"/></td>
                                                                         <td><input type="text" id = "to_item_qty_{{$orderItemIndex}}" value = "{{$orderItem -> to_qty}}" name = "to_item_qty[{{$orderItemIndex}}]"  class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);" max = "{{$orderItem -> max_qty_attribute}}"/></td>
                                                                         <td><input type="text" id = "item_rate_{{$orderItemIndex}}" value = "{{$orderItem -> rate}}" {{isset($orderItem->mi_item_id)?"readonly" : ""}} name = "item_rate[{{$orderItemIndex}}]" class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);"/></td>
-                                                                        <td><input type="text" id = "item_lead_{{$orderItemIndex}}" value = "{{$orderItem -> lead_time}}" {{isset($orderItem->mi_item_id)?"readonly" : ""}} name = "item_lead[{{$orderItemIndex}}]" class="form-control mw-100 text-end" /></td>
+                                                                        <td class='d-none'><input type="text" id = "item_lead_{{$orderItemIndex}}" value = "{{$orderItem -> lead_time}}" {{isset($orderItem->mi_item_id)?"readonly" : ""}} name = "item_lead[{{$orderItemIndex}}]" class="form-control mw-100 text-end" /></td>
                                                                         <td class = "d-none">
                                                                             <select class="form-select" name="item_currency_id[{{$orderItemIndex}}]" id="item_currency_{{$orderItemIndex}}">
                                                                                     <option value="{{ $orderItem->currency_id }}">
@@ -488,7 +488,7 @@
                                                                                     <h6 class="text-dark mb-0 bg-light-primary py-1 px-50"><strong>Item Details</strong></h6>
                                                                                 </td>
                                                                             </tr>
-                                                                            <tr>
+                                                                            <tr id="current_item_cat_hsn_row">
                                                                                 <td class="poprod-decpt">
                                                                                     <div id ="current_item_cat_hsn">
 
@@ -726,132 +726,7 @@
                 </div>
             </div>
 
-            <div class="modal fade" id="edit-address-shipping" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
-                <div class="modal-dialog  modal-dialog-centered" style="max-width: 700px">
-                    <div class="modal-content">
-                        <div class="modal-header p-0 bg-transparent">
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body px-sm-2 mx-50 pb-2">
-                            <h1 class="text-center mb-1" id="shareProjectTitle">Edit Address</h1>
-                            <p class="text-center">Enter the details below.</p>
-
-
-                            <div class="row mt-2">
-                                <div class = "col-md-12 mb-1">
-                                    <select class="select2 form-select vendor_dependent" id = "shipping_address_dropdown" name = "shipping_address" oninput = "onShippingAddressChange(this);">
-                                        @if (isset($order) && isset($shipping_addresses))
-                                            @foreach ($shipping_addresses as $shipping_address)
-                                                <option value = "{{$shipping_address -> value}}" {{$order -> shipping_to === $shipping_address -> id}}>{{$shipping_address -> label}}</option>
-                                            @endforeach
-                                        @else
-                                            <option value = "">Select</option>
-                                        @endif
-                                    </select>
-                                </div>
-                            <div class="col-md-6 mb-1">
-                                <label class="form-label">Country <span class="text-danger">*</span></label>
-                                <select class="select2 form-select" id = "shipping_country_id_input"  onchange = "changeDropdownOptions(this, ['shipping_state_id_input'], ['states'], '/states/', null, ['shipping_city_id_input'])">
-								@foreach ($countries as $country)
-                                    <option value = "{{$country -> value}}">{{$country -> label}}</option>
-                                @endforeach
-                                </select>
-                            </div>
-
-                            <div class="col-md-6 mb-1">
-                                <label class="form-label">State <span class="text-danger">*</span></label>
-                                <select class="select2 form-select" id = "shipping_state_id_input"  onchange = "changeDropdownOptions(this, ['shipping_city_id_input'], ['cities'], '/cities/', null, [])">
-                                </select>
-                            </div>
-
-                            <div class="col-md-6 mb-1">
-                                <label class="form-label">City <span class="text-danger">*</span></label>
-                                <select class="select2 form-select" name = "shipping_city_id" id = "shipping_city_id_input">
-                                </select>
-                            </div>
-
-                            <div class="col-md-6 mb-1">
-                                <label class="form-label w-100">Pincode <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" value="" placeholder="Enter Pincode" name ="shipping_pincode" id = "shipping_pincode_input"/>
-                            </div>
-
-                            <div class="col-md-12 mb-1">
-                                <label class="form-label">Address <span class="text-danger">*</span></label>
-                                <textarea class="form-control" placeholder="Enter Address" name = "shipping_address_text" id = "shipping_address_input"></textarea>
-                            </div>
-
-                        </div>
-                    </div>
-
-                    <div class="modal-footer justify-content-center">
-                            <button type="button" class="btn btn-outline-secondary me-1">Cancel</button>
-                            <button type="button" onclick = "saveAddressShipping();" class="btn btn-primary">Submit</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="modal fade" id="edit-address-billing" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
-            <div class="modal-dialog  modal-dialog-centered" style="max-width: 700px">
-                <div class="modal-content">
-                    <div class="modal-header p-0 bg-transparent">
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body px-sm-2 mx-50 pb-2">
-                        <h1 class="text-center mb-1" id="shareProjectTitle">Edit Address</h1>
-                        <p class="text-center">Enter the details below.</p>
-                        <div class="row mt-2">
-                            <div class = "col-md-12 mb-1">
-                                <select class="select2 form-select vendor_dependent" id = "billing_address_dropdown" name = "billing_address" oninput = "onBillingAddressChange(this);">
-                                    @if (isset($order) && isset($billing_addresses))
-                                        @foreach ($billing_addresses as $billing_address)
-                                            <option value = "{{$billing_address -> value}}" {{$order -> billing_to === $billing_address -> id}}>{{$billing_address -> label}}</option>
-                                        @endforeach
-                                    @else
-                                        <option value = "">Select</option>
-                                    @endif
-                                </select>
-                            </div>
-                            <div class="col-md-6 mb-1">
-                                <label class="form-label">Country <span class="text-danger">*</span></label>
-                                <select class="select2 form-select" name = "billing_country_id" id = "billing_country_id_input" onchange = "changeDropdownOptions(this, ['billing_state_id_input'], ['states'], '/states/', null, ['billing_city_id_input'])">
-                                    @foreach ($countries as $country)
-                                        <option value = "{{$country -> value}}">{{$country -> label}}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div class="col-md-6 mb-1">
-                                <label class="form-label">State <span class="text-danger">*</span></label>
-                                <select class="select2 form-select" name = "billing_state_id" id = "billing_state_id_input" onchange = "changeDropdownOptions(this, ['billing_city_id_input'], ['cities'], '/cities/', null, [])">
-                                </select>
-                            </div>
-
-                            <div class="col-md-6 mb-1">
-                                <label class="form-label">City <span class="text-danger">*</span></label>
-                                <select class="select2 form-select" name = "billing_city_id" id = "billing_city_id_input">
-                                </select>
-                            </div>
-
-                            <div class="col-md-6 mb-1">
-                                <label class="form-label w-100">Pincode <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" value="" placeholder="Enter Pincode" name ="billing_pincode" id = "billing_pincode_input"/>
-                            </div>
-
-                            <div class="col-md-12 mb-1">
-                                <label class="form-label">Address <span class="text-danger">*</span></label>
-                                <textarea class="form-control" placeholder="Enter Address" name = "billing_address_text" id = "billing_address_input"></textarea>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="modal-footer justify-content-center">
-                            <button type="button" class="btn btn-outline-secondary me-1">Cancel</button>
-                            <button type="button" onclick = "saveAddressBilling();" class="btn btn-primary">Submit</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
+            
         <div class="modal fade" id="Remarks" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
             <div class="modal-dialog  modal-dialog-centered" >
                 <div class="modal-content">
@@ -1866,14 +1741,14 @@
                     });
                     return;
                 }
-                if (!(parseFloat($('#item_lead_' + (newIndex - 1)).val()) >= 0)) {
-                    Swal.fire({
-                        title: 'Error!',
-                        text: 'Please enter a valid lead time.',
-                        icon: 'error',
-                    });
-                    return;
-                }
+                // if (!(parseFloat($('#item_lead_' + (newIndex - 1)).val()) >= 0)) {
+                //     Swal.fire({
+                //         title: 'Error!',
+                //         text: 'Please enter a valid lead time.',
+                //         icon: 'error',
+                //     });
+                //     return;
+                // }
                 if (!(parseFloat($('#to_item_qty_' + (newIndex - 1)).val()) >= 0)) {
                     Swal.fire({
                         title: 'Error!',
@@ -1914,14 +1789,14 @@
                     });
                     return;
                 }
-                if (!$('#MOQ_' + (newIndex - 1)).val()) {
-                    Swal.fire({
-                        title: 'Error!',
-                        text: 'Please enter the MOQ for the previous row.',
-                        icon: 'error',
-                    });
-                    return;
-                }
+                // if (!$('#MOQ_' + (newIndex - 1)).val()) {
+                //     Swal.fire({
+                //         title: 'Error!',
+                //         text: 'Please enter the MOQ for the previous row.',
+                //         icon: 'error',
+                //     });
+                //     return;
+                // }
                 //vendorId, orgId, itemId, uomId, attributes, startDate, endDate
 
                 const partyId = $('#customer_id').val() ? $('#customer_id').val() : $('#vendor_id').val();
@@ -1993,11 +1868,11 @@
                     <select class="form-select" name = "uom_id[]" id = "uom_dropdown_${newIndex}">
                     </select>
                 </td>
-                <td><input type="text" id = "MOQ_${newIndex}" name = "MOQ[]" class="form-control mw-100 text-end"  value = ""></td>
+                <td class='d-none'><input type="text" id = "MOQ_${newIndex}" name = "MOQ[]" class="form-control mw-100 text-end"  value = ""></td>
                 <td><input type="text" id = "from_item_qty_${newIndex}" name = "from_item_qty[${newIndex}]" oninput = "changeItemQty(this, ${newIndex},'from');" class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);" value="0"/></td>
                 <td><input type="text" id = "to_item_qty_${newIndex}" name = "to_item_qty[${newIndex}]" oninput = "changeItemQty(this, ${newIndex},'to');" class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);" value="0"/></td>
                 <td><input type="text" id = "item_rate_${newIndex}" name = "item_rate[${newIndex}]" class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);"/></td>
-                <td><input type="text" id = "item_lead_${newIndex}" name = "item_lead[${newIndex}]" class="form-control mw-100 text-end" /></td>
+                <td class='d-none'><input type="text" id = "item_lead_${newIndex}" name = "item_lead[${newIndex}]" class="form-control mw-100 text-end" /></td>
                 <td class='d-none'>
                     <select class="form-select" name = "item_currency_id[]" id = "item_currency_${newIndex}">
                     ${currency}
@@ -2477,14 +2352,6 @@
             let leaseEndDate = document.getElementById('land_lease_end_date_' + itemRowId)?.value;
             let leaseDueDate = document.getElementById('land_lease_due_date_' + itemRowId)?.value;
             let repaymentPeriodType = document.getElementById('land_lease_repayment_period_' + itemRowId)?.value;
-
-            if (agreementNo && leaseEndDate && leaseDueDate && repaymentPeriodType) {
-                leaseAgreementDetails.style.display = "table-row";
-                leaseAgreementDetails.innerHTML = `<strong style = "font-size:11px; color : #6a6a6a;">Agreement Details</strong>:<span class="badge rounded-pill badge-light-primary"><strong>Agreement No</strong>: ${agreementNo}</span><span class="badge rounded-pill badge-light-primary"><strong>Lease End Date</strong>: ${leaseEndDate}</span><span class="badge rounded-pill badge-light-primary"><strong>Repayment Schedule</strong>: ${repaymentPeriodType}</span><span class="badge rounded-pill badge-light-primary"><strong>Due Date</strong>: ${leaseDueDate}</span>`;
-            } else {
-                leaseAgreementDetails.style.display = "none";
-                leaseAgreementDetails.innerHTML = "";
-            }
             //assign land plot details
             let parcelName = document.getElementById('land_lease_land_parcel_' + itemRowId)?.value;
             let plotsName = document.getElementById('land_lease_land_plots_' + itemRowId)?.value;
@@ -2588,6 +2455,29 @@
                                     <span class="badge rounded-pill badge-light-primary"><strong>Sub Category</strong>: <span id = "item_sub_category">${ data?.item?.sub_category?.name}</span></span>
                                     <span class="badge rounded-pill badge-light-primary"><strong>HSN</strong>: <span id = "current_item_hsn_code">${hsn_code}</span></span>
                                     `;
+                                }
+                                else {
+                                    document.getElementById('current_item_cat_hsn_row').style.display = 'none';
+                                    document.getElementById('current_item_cat_hsn').innerHTML = ``;
+                                }
+                                console.log(data.item);
+                                if (data?.item) {
+                                    document.getElementById('current_item_land_lease_agreement').innerHTML = `
+                                        ${data.item.minimum_order_qty 
+                                            ? `<span class="badge rounded-pill badge-light-primary">
+                                                <strong>MOQ</strong>: <span>${data.item.minimum_order_qty}</span>
+                                            </span>` 
+                                            : ""
+                                        }
+                                        <span class="badge rounded-pill badge-light-primary">
+                                            <strong>Lead Days</strong>: <span>${data.item.lead_days ?? 0}</span>
+                                        </span>
+                                    `;
+                                }
+
+                                else {
+                                    document.getElementById('current_item_land_lease_agreement_row').style.display = 'none';
+                                    document.getElementById('current_item_land_lease_agreement').innerHTML = ``;
                                 }
                                 //Stocks
                                 //     if (data?.stocks) {
@@ -5184,7 +5074,7 @@ $(function() {
                         <option value="${uomId}" selected>${uomName}</option>
                     </select>
                 </td>
-                <td><input type="text" id="MOQ_${newIndex}" name="MOQ[]" 
+                <td class='d-none'><input type="text" id="MOQ_${newIndex}" name="MOQ[]" 
                         class="form-control mw-100 text-end" value="${moq}"></td>
                 <td><input type="text" id="from_item_qty_${newIndex}" name="from_item_qty[${newIndex}]"
                         class="form-control mw-100 text-end"
@@ -5197,7 +5087,7 @@ $(function() {
                 <td><input type="text" id="item_rate_${newIndex}" name="item_rate[${newIndex}]"
                         class="form-control mw-100 text-end" 
                         onblur="setFormattedNumericValue(this);" value="${rate}"></td>
-                <td><input type="text" id="item_lead_${newIndex}" name="item_lead[${newIndex}]"
+                <td class='d-none'><input type="text" id="item_lead_${newIndex}" name="item_lead[${newIndex}]"
                         class="form-control mw-100 text-end" value="${leadTime}"></td>
                 <td class="d-none">
                     <select class="form-select" name="item_currency_id[]" id="item_currency_${newIndex}">
