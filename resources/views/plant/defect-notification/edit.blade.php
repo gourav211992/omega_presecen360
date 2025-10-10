@@ -89,6 +89,15 @@
                                 <i data-feather="check-circle"></i> Submit
                             </button>
                         @endif
+
+                        @if ($defectNotification->document_status=='rejected')
+                            <button class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" type="button" id="save-draft-btn">
+                                <i data-feather="save"></i> Save as Draft
+                            </button>
+                            <button type="button" class="btn btn-primary btn-sm" id="submit-btn">
+                                <i data-feather="check-circle"></i> Submit
+                            </button>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -437,6 +446,11 @@ $(document).on('click', '#submit-btn', function (e) {
     e.preventDefault();
     e.stopPropagation();
 
+    // Validate required fields before submission
+    if (!validateRequiredFields()) {
+        return;
+    }
+
     $('#document_status').val('submitted');
     if (isAmendmentMode) {
         $('#amendmentModal').modal('show');
@@ -448,10 +462,72 @@ $(document).on('click', '#submit-btn', function (e) {
 });
 
 // ===============================
+// 🔹 Validation Function
+// ===============================
+function validateRequiredFields() {
+    let isValid = true;
+    let errorMessage = '';
+
+    // Check Location
+    if (!$('select[name="location_id"]').val()) {
+        isValid = false;
+        errorMessage += 'Location is required.<br>';
+    }
+
+    // Check Category
+    if (!$('select[name="category_id"]').val()) {
+        isValid = false;
+        errorMessage += 'Category is required.<br>';
+    }
+
+    // Check Equipment
+    if (!$('select[name="equipment_id"]').val()) {
+        isValid = false;
+        errorMessage += 'Equipment is required.<br>';
+    }
+
+    // Check Defect Type
+    if (!$('select[name="defect_type_id"]').val()) {
+        isValid = false;
+        errorMessage += 'Defect Type is required.<br>';
+    }
+
+    // Check Problem description
+    if (!$('input[name="problem"]').val() && !$('textarea[name="problem"]').val()) {
+        isValid = false;
+        errorMessage += 'Problem description is required.<br>';
+    }
+
+    // Check Priority
+    if (!$('select[name="priority"]').val()) {
+        isValid = false;
+        errorMessage += 'Priority is required.<br>';
+    }
+
+    if (!isValid) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Validation Error!',
+            html: errorMessage,
+            confirmButtonText: 'OK'
+        });
+        return false;
+    }
+
+    return true;
+}
+
+// ===============================
 // 🔹 Amendment Modal Submit
 // ===============================
 $(document).on('click', '#amendmentBtnSubmit', function (e) {
     e.preventDefault();
+    
+    // Prevent multiple submissions
+    if ($(this).prop('disabled')) {
+        return;
+    }
+    
     let remark = $('[name="amend_remarks"]').val();
 
     if (!remark) {
@@ -459,17 +535,29 @@ $(document).on('click', '#amendmentBtnSubmit', function (e) {
         return;
     }
 
+    // Disable button to prevent multiple clicks
+    $(this).prop('disabled', true);
+    
     $('#amendRemarkError').addClass('d-none');
     $('#amendmentModal').modal('hide');
     $('#document_status').val('submitted');
     window.allowFormSubmission = true;
 
+    // Remove any existing amendment inputs to prevent duplicates
+    $('input[name="action_type"]').remove();
+    $('input[name="amend_remarks"]').remove();
+    
+    // Add new amendment inputs
     $('<input>').attr({ type: 'hidden', name: 'action_type', value: 'amendment' }).appendTo('#defect-notification-form');
     $('<input>').attr({ type: 'hidden', name: 'amend_remarks', value: remark }).appendTo('#defect-notification-form');
 
     const fileInput = $("#amendmentModal").find('[name="amend_attachment"]')[0];
     if (fileInput && fileInput.files.length > 0) {
-        if (!validateFile(fileInput)) return;
+        if (!validateFile(fileInput)) {
+            // Re-enable button if validation fails
+            $(this).prop('disabled', false);
+            return;
+        }
         const formData = new FormData($('#defect-notification-form')[0]);
         formData.append('amend_attachment', fileInput.files[0]);
 
@@ -492,6 +580,8 @@ $(document).on('click', '#amendmentBtnSubmit', function (e) {
             },
             error: function () {
                 $('.preloader').hide();
+                // Re-enable button on error
+                $('#amendmentBtnSubmit').prop('disabled', false);
                 Swal.fire({
                     title: 'Error!',
                     text: 'Error submitting amendment. Please try again.',

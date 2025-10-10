@@ -720,16 +720,16 @@
 			let $checked = $rows.find('.row-check:checked');
 
 			// Prevent deletion if only one row exists
-			if ($rows.length <= 1) {
-				showToast('error', 'At least one row is required.');
-				return;
-			}
+			// if ($rows.length <= 1) {
+			// 	showToast('error', 'At least one row is required.');
+			// 	return;
+			// }
 
 			// Prevent deletion if checked rows would remove all
-			if ($rows.length - $checked.length < 1) {
-				showToast('error', 'You must keep at least one row.');
-				return;
-			}
+			// if ($rows.length - $checked.length < 1) {
+			// 	showToast('error', 'You must keep at least one row.');
+			// 	return;
+			// }
 
 			// Remove only the checked rows
 			$checked.closest('tr').remove();

@@ -1,4 +1,9 @@
 @extends('layouts.app')
+
+@section('styles')
+<link rel="stylesheet" type="text/css" href="{{asset('app-assets/vendors/css/pickers/flatpickr/flatpickr.min.css')}}">
+@endsection
+
 @section('content')
    <!-- BEGIN: Content-->
    <div class="app-content content">
@@ -80,24 +85,48 @@
                   <label class="form-label" for="fp-range">Select Date</label>
                   <input type="text" id="fp-range" class="form-control flatpickr-range bg-white" placeholder="YYYY-MM-DD to YYYY-MM-DD" />
                </div>
+               
                <div class="mb-1">
                   <label class="form-label">Series</label>
-                  <select class="form-select">
-                     <option>Select</option>
+                  <select class="form-select" id="filter-series">
+                     <option value="">Select</option>
+                     @foreach($series as $seriesItem)
+                        <option value="{{ $seriesItem->book_code }}">{{ $seriesItem->book_code }}</option>
+                     @endforeach
                   </select>
                </div> 
+               
                <div class="mb-1">
-                  <label class="form-label">BOM Name</label>
-                  <select class="form-select select2">
-                     <option>Select</option> 
+                  <label class="form-label">Equipment Category</label>
+                  <select class="form-select" id="filter-equipment-category">
+                     <option value="">Select</option>
+                     @foreach($equipmentCategories as $id => $name)
+                        <option value="{{ $name }}">{{ $name }}</option>
+                     @endforeach
                   </select>
                </div>
+               
+               <div class="mb-1">
+                  <label class="form-label">Organization</label>
+                  <select id="filter-organization" class="form-select select2" multiple name="filter_organization">
+                     <option value="" disabled>Select</option>
+                     @foreach($mappings as $organization)
+                        <option value="{{ $organization->organization->id }}"
+                           {{ $organization->organization->id == $organizationId ? 'selected' : '' }}>
+                           {{ $organization->organization->name }}
+                        </option>
+                     @endforeach
+                  </select>
+               </div>
+               
                <div class="mb-1">
                   <label class="form-label">Status</label>
-                  <select class="form-select">
-                     <option>Select</option>
-                     <option>Active</option>
-                     <option>Inactive</option>
+                  <select class="form-select" id="filter-status">
+                     <option value="">Select</option>
+                     <option value="draft">Draft</option>
+                     <option value="submitted">Submitted</option>
+                     <option value="approved">Approved</option>
+                     <option value="rejected">Rejected</option>
                   </select>
                </div> 
             </div>
@@ -111,6 +140,7 @@
 @endsection
 
 @section('scripts')
+<script src="{{asset('app-assets/vendors/js/pickers/flatpickr/flatpickr.min.js')}}"></script>
 <script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
 <script>
    $(function() {
@@ -122,7 +152,16 @@
          colReorder: true,  // Enable column reordering
          ajax: {
             url: '{{ route("maint-wo.index") }}',
-            type: 'GET'
+            type: 'GET',
+            data: function(d) {
+               d.date_range = $('#fp-range').val();
+               d.series_filter = $('#filter-series').val();
+               d.equipment_category_filter = $('#filter-equipment-category').val();
+               d.filter_organization = $('#filter-organization').val();
+               d.status_filter = $('#filter-status').val();
+               console.log('DataTable request data:', d);
+               return d;
+            }
          },
          columns: [
             { data: 'DT_RowIndex', orderable: false, searchable: false, className: 'text-nowrap' },
@@ -213,11 +252,49 @@
 
       $('div.head-label').html('<h6 class="mb-0">Maintenance Work Orders</h6>');
 
-      // Flatpickr for filter input
-      $('#fp-range').flatpickr({
-         mode: 'range',
-         dateFormat: 'Y-m-d'
-      });
+      // Store table reference for filter functions
+      var table = $('#maint-wo-table').DataTable();
+   });
+
+   // Apply Filters
+   $('.data-submit').on('click', function() {
+      // Reload the DataTable with new filter values
+      $('#maint-wo-table').DataTable().ajax.reload();
+      $('#filter').modal('hide');
+   });
+
+   // Reset Filters
+   $('button[type="reset"]').on('click', function() {
+      $('#fp-range').val('');
+      $('#filter-series').val('');
+      $('#filter-equipment-category').val('');
+      $('#filter-organization').val(null).trigger('change');
+      $('#filter-status').val('');
+      
+      // Reload the DataTable to clear filters
+      $('#maint-wo-table').DataTable().ajax.reload();
+   });
+
+   // Initialize date picker and other components on page load
+   $(document).ready(function() {
+      // Initialize flatpickr for date range
+      if (typeof flatpickr !== 'undefined') {
+         flatpickr('#fp-range', {
+            mode: 'range',
+            dateFormat: 'Y-m-d',
+            allowInput: true,
+            placeholder: 'YYYY-MM-DD to YYYY-MM-DD'
+         });
+      }
+      
+      // Initialize Select2 for organization dropdown
+      if (typeof $.fn.select2 !== 'undefined') {
+         $('#filter-organization').select2({
+            placeholder: 'Select Organizations',
+            allowClear: true,
+            dropdownParent: $('#filter')
+         });
+      }
    });
 
    function showToast(icon, title) {

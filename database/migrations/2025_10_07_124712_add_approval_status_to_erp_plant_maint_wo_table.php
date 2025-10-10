@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('erp_equipment', function (Blueprint $table) {
-            $table->string('document',50)->nullable()->after('description');
+        Schema::table('erp_plant_maint_wo', function (Blueprint $table) {
+            $table->string('approvalStatus', 50)->nullable()->after('document_status');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('erp_equipment', function (Blueprint $table) {
-            $table->dropColumn('document');
+        Schema::table('erp_plant_maint_wo', function (Blueprint $table) {
+            $table->dropColumn('approvalStatus');
         });
     }
 };

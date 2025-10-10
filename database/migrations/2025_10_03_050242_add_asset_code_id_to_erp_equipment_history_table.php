@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('erp_equipment_history', function (Blueprint $table) {
-            $table->string('asset_code_id')->nullable()->after('deleted_by');
+            $table->string('asset_code_id', 50)->nullable()->after('deleted_by');
         });
     }
 

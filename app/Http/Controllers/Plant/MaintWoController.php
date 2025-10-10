@@ -25,10 +25,12 @@ use App\Models\InspectionChecklist;
 use App\Models\InspectionChecklistDetail;
 use App\Models\InspectionChecklistDetailValue;
 use Carbon\Carbon;
+use App\Models\Category;
 use DB;
 use App\Models\StockLedger;
 use App\Models\ErpEquipMaintenanceChecklist;
 use Exception;
+use App\Models\PlantMaintWoHistory;
 use App\Exceptions\ApiGenericException;
 
 class MaintWoController extends Controller
@@ -60,7 +62,26 @@ class MaintWoController extends Controller
             return $this->getDataTableData($request);
         }
 
-        return view('plant.maint_wo.index');
+        // Fetch filter data for the view
+        $parentURL = "plant_maint-wo";
+        $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
+        
+        // Get series data
+        $series = collect();
+        if (count($servicesBooks['services']) > 0) {
+            $firstService = $servicesBooks['services'][0];
+            $series = Helper::getBookSeriesNew($firstService->alias, $parentURL)->get();
+        }
+        
+        // Get unique equipment categories
+        $equipmentCategories = Category::where('type', 'Equipment')->where('status','Active')->pluck('name', 'id');
+        
+        // Get organization data
+        $user = Helper::getAuthenticatedUser();
+        $organizationId = $user->organization_id;
+        $mappings = Helper::access_org();
+
+        return view('plant.maint_wo.index', compact('series', 'equipmentCategories', 'mappings', 'organizationId'));
     }
 
     private function getDataTableData(Request $request): JsonResponse
@@ -74,15 +95,71 @@ class MaintWoController extends Controller
             'book_id'
         ])->with(['book:id,book_code']);
 
+        // Handle filter parameters
+        if ($request->filled('date_range')) {
+            $dateRange = $request->date_range;
+            if (strpos($dateRange, ' to ') !== false) {
+                $dates = explode(' to ', $dateRange);
+                if (count($dates) == 2) {
+                    $startDate = \Carbon\Carbon::createFromFormat('Y-m-d', trim($dates[0]))->startOfDay();
+                    $endDate = \Carbon\Carbon::createFromFormat('Y-m-d', trim($dates[1]))->endOfDay();
+                    $query->whereBetween('document_date', [$startDate, $endDate]);
+                }
+            }
+        }
+
+        if ($request->filled('series_filter')) {
+            $query->whereHas('book', function($q) use ($request) {
+                $q->where('book_code', $request->series_filter);
+            });
+        }
+
+        if ($request->filled('equipment_category_filter')) {
+            $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(equipment_details, '$.equipment_category')) = ?", [$request->equipment_category_filter]);
+        }
+
+        if ($request->filled('filter_organization')) {
+            $organizationFilters = is_array($request->filter_organization) 
+                ? $request->filter_organization 
+                : [$request->filter_organization];
+            
+            $query->whereIn('organization_id', $organizationFilters);
+        }
+
+        if ($request->filled('status_filter')) {
+            $statusFilter = $request->status_filter;
+            if ($statusFilter === 'approved') {
+                $query->where('document_status', ConstantHelper::APPROVAL_NOT_REQUIRED);
+            } elseif ($statusFilter === 'submitted') {
+                $query->where('document_status', ConstantHelper::SUBMITTED);
+            } elseif ($statusFilter === 'rejected') {
+                $query->where('document_status', ConstantHelper::REJECTED);
+            } else {
+                $query->where('document_status', $statusFilter);
+            }
+        }
+
         // Apply global search if provided
         if (!empty($request->search['value'])) {
             $searchValue = $request->search['value'];
             $query->where(function ($q) use ($searchValue) {
                 $q->where('document_number', 'LIKE', "%{$searchValue}%")
                   ->orWhere('document_status', 'LIKE', "%{$searchValue}%")
+                  ->orWhereHas('book', function($bookQuery) use ($searchValue) {
+                      $bookQuery->where('book_code', 'like', "%{$searchValue}%");
+                  })
                   ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(equipment_details, '$.equipment_category')) LIKE ?", ["%{$searchValue}%"])
                   ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(equipment_details, '$.equipment_maintenance_type_name')) LIKE ?", ["%{$searchValue}%"])
-                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(equipment_details, '$.maintenance_type_name')) LIKE ?", ["%{$searchValue}%"]);
+                  ->orWhereRaw("JSON_UNQUOTE(JSON_EXTRACT(equipment_details, '$.maintenance_type_name')) LIKE ?", ["%{$searchValue}%"])
+                  // Handle "Approved" search - map display text to database values
+                  ->orWhere(function($statusQuery) use ($searchValue) {
+                       $lowerSearchValue = strtolower(trim($searchValue));
+                       
+                       // If searching for "approve" variations, find approval_not_required records
+                       if (strpos($lowerSearchValue, 'approv') !== false) {
+                           $statusQuery->where('document_status', 'approval_not_required');
+                       }
+                   });
             });
         }
 
@@ -172,26 +249,29 @@ class MaintWoController extends Controller
             ->addColumn('action', function ($row) {
                 $showUrl = url('plant/maint-wo/' . $row->id);
                 $editUrl = url('plant/maint-wo/' . $row->id . '/edit');
-
+            
+                $isEditable = in_array($row->document_status, ['draft', 'rejected']);
                 return '
                     <div class="dropdown">
                         <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
                             <i data-feather="more-vertical"></i>
                         </button>
                         <div class="dropdown-menu dropdown-menu-end">
-                            ' . (($row->document_status == 'draft' && $row->document_status != 'closed') ? '
+                            ' . ($isEditable ? '
                             <a class="dropdown-item" href="' . $editUrl . '">
                                 <i data-feather="edit-3" class="me-50"></i>
                                 <span>Edit</span>
-                            </a>' : '
+                            </a>
+                            ' : '
                             <a class="dropdown-item" href="' . $showUrl . '">
                                 <i data-feather="eye" class="me-50"></i>
-                                <span>Edit</span>
-                            </a>') . '
+                                <span>View</span>
+                            </a>
+                            ') . '
                         </div>
                     </div>
                 ';
-            })
+            })            
             ->rawColumns(['status', 'action'])
             ->make(true);
     }
@@ -200,6 +280,12 @@ class MaintWoController extends Controller
     public function show(Request $request, string $id)
     {
         $data = PlantMaintWo::find($id);
+        $currNumber = $request->revisionNumber;
+       
+        if ($request->has('revisionNumber') && $data->revision_number != $currNumber) {
+            $data = PlantMaintWoHistory::where('source_id', $id)->where('revision_number', $currNumber)->first();
+        } 
+       
         
         // Enrich spare parts with complete attribute structure including values_data
         if (!empty($data->spare_parts)) {
@@ -543,7 +629,7 @@ class MaintWoController extends Controller
 
     public function store(Request $request)
     {
-        // dd($request->all());
+        
         $rules = [
             'book_id' => 'required',
             'document_number' => 'required|string|max:100',
@@ -608,11 +694,13 @@ class MaintWoController extends Controller
             $equipmentDetails = json_decode($equipmentDetails, true);
         }
 
+
         if (is_array($equipmentDetails)) {
             $data['reference_type']      = $equipmentDetails['reference_type'] ?? null;
             $data['equipment_id']        = $equipmentDetails['equipment_id'] ?? null;
-            $data['maintenance_type_id'] = $equipmentDetails['maintenance_type_id'] ?? null;
+            $data['maintenance_type_id'] = $equipmentDetails['maintenance_type_id'] ?? $equipmentDetails['equipment_maintenance_type_id'] ?? null;
             $data['equipment_details']   = json_encode($equipmentDetails);
+            
             
             // Store defect_notification_id if reference type is defect_notification
             if (isset($equipmentDetails['reference_type']) && $equipmentDetails['reference_type'] === 'defect_notification') {
@@ -642,6 +730,9 @@ class MaintWoController extends Controller
                     $workOrder->upload_file = $path;
                     $workOrder->save();
                 }
+
+                // Only update next due date when work order is closed/completed, not when created
+               
 
                 if ($request->has('checklist_data') && !empty($request->checklist_data)) {
                     try {
@@ -1015,9 +1106,10 @@ class MaintWoController extends Controller
             if (is_array($equipmentDetails)) {
                 $updateData['reference_type']      = $equipmentDetails['reference_type'] ?? null;
                 $updateData['equipment_id']        = $equipmentDetails['equipment_id'] ?? null;
-                $updateData['maintenance_type_id'] = $equipmentDetails['maintenance_type_id'] ?? null;
+                $updateData['maintenance_type_id'] = $equipmentDetails['maintenance_type_id'] ?? $equipmentDetails['equipment_maintenance_type_id'] ?? null;
 
                 $updateData['equipment_details'] = json_encode($equipmentDetails);
+                
                 
                 // Store defect_notification_id if reference type is defect_notification
                 if (isset($equipmentDetails['reference_type']) && $equipmentDetails['reference_type'] === 'defect_notification') {
@@ -1036,7 +1128,6 @@ class MaintWoController extends Controller
             
             $workOrder->update($updateData);
             
-
             if ($request->hasFile('upload_file')) {
                 $file = $request->file('upload_file');
                 $extension = $file->getClientOriginalExtension();
@@ -1084,7 +1175,7 @@ class MaintWoController extends Controller
         try {
             $wo = PlantMaintWo::findOrFail($id);
 
-            $wo->document_status = $request->input('document_status', 'draft');
+            // $wo->document_status = $request->input('document_status', 'draft');
             $wo->save();
             return response()->json([
                 'success' => true,
@@ -1157,13 +1248,19 @@ class MaintWoController extends Controller
         $type = $r->type;
         $data = [];
 
-        $usedEquipmentIds = PlantMaintWo::pluck('equipment_details')
-        ->map(function ($details) {
-            $decoded = json_decode($details, true);
-            return $decoded['equipment_id'] ?? null;
-        })
-        ->filter() 
-        ->toArray();
+        // Validate request parameters
+        if (empty($type)) {
+            return response()->json(['error' => 'Type parameter is required'], 400);
+        }
+
+        try {
+            $usedEquipmentIds = PlantMaintWo::pluck('equipment_details')
+            ->map(function ($details) {
+                $decoded = json_decode($details, true);
+                return $decoded['equipment_id'] ?? null;
+            })
+            ->filter() 
+            ->toArray();
 
        
 
@@ -1175,7 +1272,7 @@ class MaintWoController extends Controller
                 'location',
                 'category',
                 'defectType',
-            ])->whereIn('document_status', ['approved', 'approval_not_required'])
+            ])->where('document_status', '!=', 'draft')
               ->whereNotExists(function ($subQuery) {
                   $subQuery->select(DB::raw(1))
                            ->from('erp_plant_maint_wo')
@@ -1184,7 +1281,7 @@ class MaintWoController extends Controller
               })
               ->orderBy('created_at', 'desc');
 
-            $totalDefects = DefectNotification::whereIn('document_status', ['approved', 'approval_not_required'])
+            $totalDefects = DefectNotification::where('document_status', '!=', 'draft')
                 ->whereNotExists(function ($subQuery) {
                     $subQuery->select(DB::raw(1))
                              ->from('erp_plant_maint_wo')
@@ -1194,11 +1291,15 @@ class MaintWoController extends Controller
                 ->count();
            
 
-            if ($r->book_code && is_array($r->book_code) && count($r->book_code) > 0) {
+            if ($r->book_code && is_array($r->book_code) && !empty($r->book_code)) {
                 $query->whereHas('book', function ($q) use ($r) {
                     $q->whereIn('book_code', $r->book_code);
                 });
-               
+            } elseif ($r->book_code && !is_array($r->book_code) && !empty($r->book_code)) {
+                // Handle single book_code as string
+                $query->whereHas('book', function ($q) use ($r) {
+                    $q->where('book_code', $r->book_code);
+                });
             } 
             $results = $query->get();
            
@@ -1237,13 +1338,22 @@ class MaintWoController extends Controller
             ])
             ->whereHas('bom')
             ->whereHas('equipment', function ($q) use ($r) {
-                $q->whereIn('document_status', ['approved', 'approval_not_required'])
-                  ->whereHas('book', function ($qu) use ($r) {
-                      $qu->whereIn('book_code', $r->book_code);
-                  })
-                  ->whereHas('category', function ($qc) {
-                      $qc->where('status', 'Active');
-                  });
+                $q->whereIn('document_status', ['approved', 'approval_not_required']);
+                
+                // Only apply book_code filter if it's provided and not empty
+                if ($r->book_code && is_array($r->book_code) && !empty($r->book_code)) {
+                    $q->whereHas('book', function ($qu) use ($r) {
+                        $qu->whereIn('book_code', $r->book_code);
+                    });
+                } elseif ($r->book_code && !is_array($r->book_code) && !empty($r->book_code)) {
+                    $q->whereHas('book', function ($qu) use ($r) {
+                        $qu->where('book_code', $r->book_code);
+                    });
+                }
+                
+                $q->whereHas('category', function ($qc) {
+                    $qc->where('status', 'Active');
+                });
             })
             ->whereHas('maintenanceType', function ($qm) {
                 $qm->where('status', 'Active');
@@ -1262,7 +1372,7 @@ class MaintWoController extends Controller
                 $dueDate = null;
                 $base = null;
             
-                if ($plantMaintWo && in_array($plantMaintWo->document_status, ['approved', 'approval_not_required'])) {
+                if ($plantMaintWo && in_array($plantMaintWo->document_status, ['submitted', 'approved', 'approval_not_required', 'closed'])) {
                     $equipmentDetails = json_decode($plantMaintWo->equipment_details, true);
                     $dueDate = $equipmentDetails['due_date'] ?? null;
             
@@ -1305,6 +1415,7 @@ class MaintWoController extends Controller
             
                 // ✅ Always return formatted IST date
                 $eqpt->due_date = $dueDate ? $dueDate->format('d-m-Y') : null;
+                
             
                 $maintenance_type_id = $eqpt->maintenance_type_id;
             
@@ -1397,8 +1508,15 @@ class MaintWoController extends Controller
             }
         }
         
-     
-        return response()->json($data);
+            return response()->json($data);
+            
+        } catch (\Exception $e) {
+            
+            return response()->json([
+                'error' => 'An error occurred while fetching data',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     public function ajaxData(Request $request)
@@ -1850,6 +1968,50 @@ class MaintWoController extends Controller
         return response()->json($data);
     }
 
+    /**
+     * Validate document number and work order name via AJAX
+     */
+    public function validateWorkOrder(Request $request)
+    {
+        try {
+            $documentNumber = $request->document_number;
+            $currentId = $request->current_id; // For edit mode
+            $errors = [];
+
+            // Check document number
+            if ($documentNumber) {
+                $query = PlantMaintWo::where('document_number', $documentNumber);
+                if ($currentId) {
+                    $query->where('id', '!=', $currentId);
+                }
+                $existingDocNumber = $query->first();
+                
+                if ($existingDocNumber) {
+                    $errors['document_number'] = "Work Order Number '{$documentNumber}' already exists.";
+                }
+            }
+
+
+            if (!empty($errors)) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => $errors
+                ], 422);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Validation passed'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Work Order Validation Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed due to server error'
+            ], 500);
+        }
+    }
 
     private function filterByDefectNotification(Request $request)
     {
@@ -1956,6 +2118,9 @@ class MaintWoController extends Controller
             $workOrder =PlantMaintWo::find($request->workorder_id);
             $workOrder->document_status='closed';
             $workOrder->save();
+
+            // Update next due date when work order is closed
+            // $this->updateEquipmentNextDueDate($workOrder);
            
             Helper::approveDocument(
                 $workOrder->book_id,
@@ -1981,6 +2146,93 @@ class MaintWoController extends Controller
                 'title' =>'Error !',
                 'type' => 'error'
             ], 500);
+        }
+    }
+
+    /**
+     * Update equipment's next due date based on frequency
+     */
+    private function updateEquipmentNextDueDate($workOrder)
+    {
+        try {
+            \Log::info("🔍 updateEquipmentNextDueDate called for WO ID: {$workOrder->id}");
+            \Log::info("🔍 Reference type: {$workOrder->reference_type}");
+            \Log::info("🔍 Equipment ID: {$workOrder->equipment_id}");
+            \Log::info("🔍 Maintenance Type ID: {$workOrder->maintenance_type_id}");
+            
+            if ($workOrder->reference_type === 'equipment' && $workOrder->equipment_id && $workOrder->maintenance_type_id) {
+                // Find the equipment maintenance detail record
+                $maintenanceDetail = ErpEquipMaintenanceDetail::where('erp_equipment_id', $workOrder->equipment_id)
+                    ->where('maintenance_type_id', $workOrder->maintenance_type_id)
+                    ->first();
+
+                \Log::info("🔍 Maintenance Detail found: " . ($maintenanceDetail ? 'YES' : 'NO'));
+                if ($maintenanceDetail) {
+                    \Log::info("🔍 Frequency: {$maintenanceDetail->frequency}");
+                }
+
+                if ($maintenanceDetail && $maintenanceDetail->frequency) {
+                    $currentDate = now();
+                    $nextDueDate = null;
+                    
+                    // Get existing equipment details to check for existing due date
+                    $existingEquipmentDetails = json_decode($workOrder->equipment_details, true) ?? [];
+                    $existingDueDate = $existingEquipmentDetails['due_date'] ?? null;
+                    
+                    // Use existing due date as base, or current date if no existing due date
+                    $baseDate = $existingDueDate ? \Carbon\Carbon::parse($existingDueDate) : $currentDate;
+                    
+                    \Log::info("🔍 Base date for calculation: " . $baseDate->format('Y-m-d'));
+                    \Log::info("🔍 Existing due date: " . ($existingDueDate ?? 'none'));
+
+                    // Calculate next due date based on frequency from the base date
+                    switch ($maintenanceDetail->frequency) {
+                        case 'Daily':
+                            $nextDueDate = $baseDate->copy()->addDay();
+                            break;
+                        case 'Weekly':
+                            $nextDueDate = $baseDate->copy()->addWeek();
+                            break;
+                        case 'Monthly':
+                            $nextDueDate = $baseDate->copy()->addMonth();
+                            break;
+                        case 'Quarterly':
+                            $nextDueDate = $baseDate->copy()->addMonths(3);
+                            break;
+                        case 'Semi-Annually':
+                            $nextDueDate = $baseDate->copy()->addMonths(6);
+                            break;
+                        case 'Annually':
+                        case 'Yearly':
+                            $nextDueDate = $baseDate->copy()->addYear();
+                            break;
+                    }
+
+                    if ($nextDueDate) {
+                        // Update the equipment details in the work order with new due date
+                        $equipmentDetails = json_decode($workOrder->equipment_details, true) ?? [];
+                        
+                      
+                        
+                        $equipmentDetails['due_date'] = $nextDueDate->format('Y-m-d');
+                        $equipmentDetails['due_date'] = $currentDate->format('Y-m-d');
+                        
+                        $workOrder->equipment_details = json_encode($equipmentDetails);
+                        $workOrder->save();
+
+                       
+                    } else {
+                       
+                    }
+                } else {
+                   
+                }
+            } else {
+                \Log::warning("⚠️ Conditions not met for due date update");
+            }
+        } catch (\Exception $e) {
+            \Log::error("❌ Error updating equipment due date: " . $e->getMessage());
+            \Log::error("❌ Stack trace: " . $e->getTraceAsString());
         }
     }
 

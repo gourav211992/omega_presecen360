@@ -43,6 +43,16 @@
                     <i data-feather="check-circle"></i> Submit
                 </button>
             @endif
+
+			@if($workOrder->document_status=='rejected')
+				<button class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" type="button" id="save-draft-btn">
+                    <i data-feather="save"></i> Save as Draft
+                </button>
+				    
+                <button type="submit" form="maint-wo-form" class="btn btn-primary btn-sm" id="submit-btn">
+                    <i data-feather="check-circle"></i> Submit
+                </button>
+			@endif
 		    
           </div>
         </div>
@@ -78,12 +88,12 @@
 
           // Amendment mode
           $isAmendmentMode = intval(request('amendment') ?? 0) === 1;
+		
 
           // Disabled logic
-          $commonFieldsDisabled = $isAmendmentMode;
+          $commonFieldsDisabled = true;
           $editableFieldsDisabled = !$isAmendmentMode && ($workOrder->document_status !== 'draft');
 
-          $editableFieldsDisabled = true;
         @endphp
 
 
@@ -476,7 +486,7 @@
                             </div>
                           </div>
                           <div class="col-md-6 text-sm-end">
-                            <a href="#" class="btn btn-sm btn-outline-danger me-50" id="delete">
+                            <a href="#" class="btn btn-sm btn-outline-danger me-50" id="deleteSelected">
                               <i data-feather="x-circle"></i> Delete</a>
                             <a href="#" class="btn btn-sm btn-outline-primary" id="addNewRowBtn">
                               <i data-feather="plus"></i> Add New Item</a>
@@ -1108,7 +1118,7 @@
         <div class="mb-3">
           <label for="amendment_attachment" class="form-label">Supporting Document (Optional)</label>
           <input type="file" class="form-control" id="amendment_attachment" name="amendment_attachment" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-          <small class="text-muted">Accepted formats: PDF, DOC, DOCX, JPG, PNG (Max: 10MB)</small>
+          <span class="text-primary small">{{__("message.attachment_caption")}}</span>
         </div>
       </div>
 
@@ -1830,12 +1840,7 @@
 
 	
 
-	// Delete selected rows functionality
-	$('#delete').on('click', function () {
-		let $rows = $('.mrntableselectexcel tr');
-		let $checked = $rows.find('.row-check:checked');
-		$checked.closest('tr').remove();
-	});
+	// Delete functionality is handled by the #deleteSelected handler below
 
 	// Check all functionality
 	$('#checkAll').on('change', function () {
@@ -3126,10 +3131,63 @@ function processDefectSelection() {
 		$('#spare_parts').val(JSON.stringify(sparePartsData));
 	}
 
+	// Function to collect checklist data and update hidden checklist_data field
+	function collectChecklistData() {
+		let checklistData = [];
+
+		// Group checklist items by main_name (category)
+		let checklistGroups = {};
+
+		$('.checklist-input').each(function() {
+			const $input = $(this);
+			const mainName = $input.closest('tr').find('td:nth-child(2)').text().trim();
+			const name = $input.data('name');
+			const dataType = $input.data('type') || 'text';
+			const mandatory = $input.data('mandatory') || false;
+			let value = $input.val();
+
+			// Handle different input types
+			if ($input.is('select')) {
+				if (dataType === 'boolean') {
+					value = $input.val() === '1' ? true : false;
+				} else {
+					value = $input.val() || '';
+				}
+			} else if ($input.is('input[type="number"]')) {
+				value = $input.val() ? parseFloat($input.val()) : 0;
+			} else {
+				value = $input.val() || '';
+			}
+
+			if (!checklistGroups[mainName]) {
+				checklistGroups[mainName] = {
+					main_name: mainName,
+					checklist: []
+				};
+			}
+
+			checklistGroups[mainName].checklist.push({
+				name: name,
+				data_type: dataType,
+				mandatory: mandatory,
+				value: value,
+				completed_at: new Date().toISOString(),
+				completed_by: '{{ auth()->id() }}'
+			});
+		});
+
+		// Convert groups object to array
+		checklistData = Object.values(checklistGroups);
+
+		// Update hidden field with JSON data
+		$('#checklist_data').val(JSON.stringify(checklistData));
+	}
+
 	// Form submission validation for edit form
 	$(document).on('submit', '#maint-wo-form', function(e) {
-		// Collect current form data and update hidden field
+		// Collect current form data and update hidden fields
 		collectFormData();
+		collectChecklistData();
 		
 		if (!validateItemRows()) {
 			e.preventDefault(); // Prevent form submission
@@ -3159,6 +3217,66 @@ function processDefectSelection() {
 			// Update hidden field when item changes
 			collectFormData();
 		}, 100);
+	});
+
+	// Real-time update for checklist data when inputs change
+	$(document).on('input change', '.checklist-input', function() {
+		// Update checklist data in real-time when user changes values
+		setTimeout(() => {
+			collectChecklistData();
+		}, 100);
+	});
+
+	// Handle delete button click for spare parts
+	$(document).on('click', '#deleteSelected', function(e) {
+		e.preventDefault();
+
+		// Get all checked rows
+		const checkedRows = $('.mrntableselectexcel .row-check:checked');
+
+		if (checkedRows.length === 0) {
+			Swal.fire({
+				icon: 'warning',
+				title: 'No Selection',
+				text: 'Please select at least one item to delete.',
+				confirmButtonText: 'OK'
+			});
+			return;
+		}
+
+		// Direct deletion without confirmation
+		checkedRows.each(function() {
+			$(this).closest('tr').remove();
+		});
+
+		// Update the hidden spare_parts field after deletion
+		collectFormData();
+
+		// Reset the "check all" checkbox if it was checked
+		$('#checkAll').prop('checked', false);
+
+		// Show success message
+		Swal.fire({
+			icon: 'success',
+			title: 'Deleted!',
+			text: `${checkedRows.length} item(s) have been deleted.`,
+			timer: 1500,
+			showConfirmButton: false
+		});
+	});
+
+	// Handle "check all" functionality
+	$(document).on('change', '#checkAll', function() {
+		const isChecked = $(this).is(':checked');
+		$('.mrntableselectexcel .row-check').prop('checked', isChecked);
+	});
+
+	// Handle individual checkbox changes to update "check all" state
+	$(document).on('change', '.row-check', function() {
+		const totalCheckboxes = $('.mrntableselectexcel .row-check').length;
+		const checkedCheckboxes = $('.mrntableselectexcel .row-check:checked').length;
+
+		$('#checkAll').prop('checked', totalCheckboxes === checkedCheckboxes && totalCheckboxes > 0);
 	});
 
 	// File validation function
@@ -3215,7 +3333,12 @@ function processDefectSelection() {
 		return true;
 	}
 
-	// Attach file validation to file input
+	// Initialize data collection on page load
+	$(document).ready(function() {
+		// Collect initial data and populate hidden fields
+		collectFormData();
+		collectChecklistData();
+	});
 	$('#upload_file').on('change', function() {
 		console.log('File selected, validating...'); // Debug log
 		validateFile(this);

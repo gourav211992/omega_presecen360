@@ -381,10 +381,10 @@
 														</td>
 														<td class="poprod-decpt">
 															<input type="hidden" class="item_id">
-															<input required type="text" placeholder="Select" name="item[]"
+															<input type="text" placeholder="Select" name="item[]"
 																class="item_code form-control mw-100 ledgerselecct mb-25" />
 														</td>
-														<td required class="poprod-decpt">
+														<td class="poprod-decpt">
 															<input type="text" placeholder="Select"
 																class="item_name form-control mw-100 ledgerselecct mb-25" />
 														</td>
@@ -396,12 +396,12 @@
 															</div>
 														</td>
 														<td>
-															<select class="uom form-select mw-100" name="uom[]" required>
+															<select class="uom form-select mw-100" name="uom[]">
 
 															</select>
 														</td>
 														<td><input type="number" class="qty form-control mw-100"
-																name="qty[]" required /></td>
+																name="qty[]" /></td>
 														<td><input type="number" class="available_stock form-control mw-100"
 																name="available_stock[]"  readonly /></td>
 													</tr>
@@ -877,10 +877,10 @@
 						</td>
 						<td class="poprod-decpt">
 							<input type="hidden" class="item_id">
-							<input required type="text" placeholder="Select" name="item[]"
+							<input type="text" placeholder="Select" name="item[]"
 								class="item_code form-control mw-100 ledgerselecct mb-25" />
 						</td>
-						<td required class="poprod-decpt">
+						<td class="poprod-decpt">
 							<input type="text" placeholder="Select"
 								class="item_name form-control mw-100 ledgerselecct mb-25" />
 						</td>
@@ -891,10 +891,10 @@
 							</div>
 						</td>
 						<td>
-							<select class="uom form-select mw-100" name="uom[]" required>
+							<select class="uom form-select mw-100" name="uom[]">
 							</select>
 						</td>
-						<td><input type="number" class="qty form-control mw-100" name="qty[]" required /></td>
+						<td><input type="number" class="qty form-control mw-100" name="qty[]" /></td>
 						<td><input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly /></td>
 					</tr>
 				`;
@@ -1048,10 +1048,10 @@
 															</td>
 															<td class="poprod-decpt">
 																<input type="hidden" class="item_id">
-																<input required type="text" placeholder="Select" name="item[]"
+																<input type="text" placeholder="Select" name="item[]"
 																	class="item_code form-control mw-100 ledgerselecct mb-25" />
 															</td>
-															<td required class="poprod-decpt">
+															<td class="poprod-decpt">
 																<input type="text" placeholder="Select"
 																	class="item_name form-control mw-100 ledgerselecct mb-25" />
 															</td>
@@ -1063,12 +1063,11 @@
 																</div>
 															</td>
 															<td>
-																<select class="uom form-select mw-100" name="uom[]" required>
+																<select class="uom form-select mw-100" name="uom[]">
 
 																</select>
 															</td>
-															<td><input type="number" class="qty form-control mw-100"  name="qty[]"
-																	required /></td>
+															<td><input type="number" class="qty form-control mw-100"  name="qty[]" /></td>
 															<td><input type="number" class="available_stock form-control mw-100"
 																	name="available_stock[]"  readonly /></td>
 														</tr>																  `;
@@ -1087,9 +1086,50 @@
 			$('.mrntableselectexcel .row-check').prop('checked', isChecked);
 		});
 		
-		// Use the common function for document number generation
-		$('#book_id').on('change', function() {
-			getDocNumberByBookId(this, true);
+		// Document number generation on book_id change
+		$('#book_id').on('change', function () {
+			let currentDate = new Date().toISOString().split('T')[0];
+			let document_date = $('#document_date').val() || currentDate;
+			let bookId = $('#book_id').val();
+			let actionUrl = '{{ route('book.get.doc_no_and_parameters') }}' + '?book_id=' + bookId +
+				"&document_date=" + document_date;
+			fetch(actionUrl).then(response => {
+				return response.json().then(data => {
+					if (data.status == 200) {
+						$("#book_code_input").val(data.data.book_code);
+						// Set document type and related fields
+						$('#doc_number_type').val(data.data.doc.type || '');
+						$('#doc_reset_pattern').val(data.data.doc.reset_pattern || '');
+						$('#doc_prefix').val(data.data.doc.prefix || '');
+						$('#doc_suffix').val(data.data.doc.suffix || '');
+						$('#doc_no').val(data.data.doc.doc_no || '');
+
+						if (data.data.doc.type == 'Manually') {
+							// For manual type, only clear if no document number provided and field is empty
+							if (!data.data.doc.document_number && !$("#document_number").val()) {
+								$("#document_number").val('');
+							}
+							$("#document_number").attr('readonly', false);
+							$("#document_number").attr('placeholder', 'Document Number');
+						} else {
+							// For automatic type, use the provided document number
+							$("#document_number").val(data.data.doc.document_number || '');
+							$("#document_number").attr('readonly', true);
+							$("#document_number").attr('placeholder', '');
+						}
+
+					}
+					if (data.status == 404) {
+						$("#document_number").val('');
+						$('#doc_number_type').val('');
+						$('#doc_reset_pattern').val('');
+						$('#doc_prefix').val('');
+						$('#doc_suffix').val('');
+						$('#doc_no').val('');
+						showToast('error', data.message);
+					}
+				});
+			});
 		});
 
 		$('#book_id').trigger('change');
@@ -1118,33 +1158,139 @@
 			$('#spare_parts').val(JSON.stringify(allRows));
 		}
 
+		// AJAX validation function
+		function validateWorkOrder(isDraft = false) {
+			const documentNumber = $('#document_number').val();
+			
+			if (!documentNumber) {
+				return Promise.resolve(true); // No validation needed if document number is empty
+			}
+
+			return $.ajax({
+				url: '{{ route("maint-wo.validate") }}',
+				method: 'POST',
+				data: {
+					_token: '{{ csrf_token() }}',
+					document_number: documentNumber
+				}
+			}).then(function(response) {
+				return true; // Validation passed
+			}).catch(function(xhr) {
+				if (xhr.status === 422) {
+					const errors = xhr.responseJSON.errors;
+					let errorMessage = '';
+					
+					if (errors.document_number) {
+						errorMessage = errors.document_number;
+					}
+					
+					Swal.fire({
+						icon: 'error',
+						title: 'Document Number!',
+						text: errorMessage,
+						confirmButtonText: 'OK'
+					});
+				} else {
+					Swal.fire({
+						icon: 'error',
+						title: 'Validation Error!',
+						text: 'Unable to validate document number. Please try again.',
+						confirmButtonText: 'OK'
+					});
+				}
+				return false; // Validation failed
+			});
+		}
 
 		document.getElementById('save-draft-btn').addEventListener('click', function () {
-			// No validation required for draft - save as is
-			$('.preloader').show();
-			document.getElementById('document_status').value = 'draft';
-			updateJsonData();
-			document.getElementById('maint-wo-form').submit();
-
+			// Validate even for draft
+			validateWorkOrder(true).then(function(isValid) {
+				if (isValid) {
+					$('.preloader').show();
+					document.getElementById('document_status').value = 'draft';
+					updateJsonData();
+					document.getElementById('maint-wo-form').submit();
+				}
+			});
 		});
 
 
 		$('#maint-wo-form').on('submit', function (e) {
 			e.preventDefault(); // Always prevent default first
-			
+
+			console.log('🔍 Form submission started - beginning validation...');
+
 			// Validate reference type selection
 			let referenceType = $('#reference_type').val();
 			if (!referenceType) {
-				showToast('error', 'Please select a reference type (Equipment or Defect Notification)');
+				Swal.fire({
+					icon: 'error',
+					title: 'Reference Required!',
+					text: 'Please select a reference type (Equipment or Defect Notification)',
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
 				$('#reference_type_error').show();
 				return false;
 			}
-			
-			$('.preloader').show();
-			document.getElementById('document_status').value = 'submitted';
-			updateJsonData();
-			this.submit();
 
+			// Validate that an item is selected from the chosen reference
+			if (referenceType === 'equipment') {
+				const equipmentId = $('#equipment_id').val();
+				if (!equipmentId) {
+					Swal.fire({
+						icon: 'error',
+						title: 'Equipment Selection Required!',
+						text: 'Please select an equipment from the equipment reference before submitting.',
+						confirmButtonText: 'OK',
+						confirmButtonColor: '#d33'
+					});
+					return false;
+				}
+			} else if (referenceType === 'defect_notification') {
+				const defectNotificationId = $('#defect_notification_id_hidden').val();
+				if (!defectNotificationId) {
+					Swal.fire({
+						icon: 'error',
+						title: 'Defect Notification Selection Required!',
+						text: 'Please select a defect notification from the defect reference before submitting.',
+						confirmButtonText: 'OK',
+						confirmButtonColor: '#d33'
+					});
+					return false;
+				}
+			}
+
+			// Validate file upload
+			const uploadFileInput = document.getElementById('upload_file');
+			if (uploadFileInput.files.length > 0 && !validateFile(uploadFileInput)) {
+				return false; // Stop submission if file validation fails
+			}
+
+			// Validate checklist items
+			if (!validateChecklistItems()) {
+				console.log('❌ Checklist validation failed - preventing form submission');
+				return false;
+			}
+
+			// Validate items (spare parts) - check quantity > 0 and within stock limits
+			console.log('🔍 Validating spare parts items...');
+			if (!validateItemRows()) {
+				console.log('❌ Item validation failed - quantity 0 or exceeds stock');
+				return false;
+			}
+
+			// Validate document number and work order name
+			const formElement = this;
+			validateWorkOrder(false).then(function(isValid) {
+				if (isValid) {
+					console.log('✅ All validations passed - submitting form');
+					$('.preloader').show();
+					document.getElementById('document_status').value = 'submitted';
+					updateJsonData();
+					formElement.submit();
+				}
+			});
 		});
 
 		function showToast(icon, title) {
@@ -2551,24 +2697,253 @@
 			validateFile(this);
 		});
 
-		// Form submission validation
-		$(document).on('submit', '#maint-wo-form', function(e) {
-			console.log('🔍 Form submission detected - validating items...');
-			
-			// Validate file first
-			const uploadFileInput = document.getElementById('upload_file');
-			if (uploadFileInput.files.length > 0 && !validateFile(uploadFileInput)) {
-				return; // Stop submission if file validation fails
+		// Function to validate checklist items
+		function validateChecklistItems() {
+			const checklistRows = document.querySelectorAll('.mrntableselectexcel1 tr');
+			let errorMessages = [];
+			let hasIncompleteMandatory = false;
+
+			console.log('🔍 Validating checklist items. Found rows:', checklistRows.length);
+
+			// Skip if no checklist rows (empty table)
+			if (checklistRows.length === 0) {
+				console.log('⚠️ No checklist rows found');
+				return true;
 			}
-			
-			if (!validateItemRows()) {
-				console.log('❌ Validation failed - preventing form submission');
-				e.preventDefault(); // Prevent form submission
+
+			checklistRows.forEach((row, index) => {
+				// Look for input/select/textarea fields in the checklist row
+				const inputs = row.querySelectorAll('input:not([type="hidden"]), select, textarea');
+
+				inputs.forEach((input) => {
+					// Find the corresponding mandatory hidden field
+					const fieldName = input.name;
+					if (fieldName && fieldName.includes('[value]')) {
+						// Extract the group and item indices from the field name
+						const matches = fieldName.match(/checklist_data\[(\d+)\]\[checklist\]\[(\d+)\]\[value\]/);
+						if (matches) {
+							const groupIndex = matches[1];
+							const itemIndex = matches[2];
+							const mandatoryField = row.querySelector(`input[name="checklist_data[${groupIndex}][checklist][${itemIndex}][mandatory]"]`);
+
+							console.log(`🔍 Checking field ${fieldName}, mandatory field:`, mandatoryField, 'value:', mandatoryField ? mandatoryField.value : 'not found');
+
+							// Check if this field is mandatory and empty
+							if (mandatoryField && mandatoryField.value === '1' && input.value.trim() === '') {
+								const nameField = row.querySelector(`input[name="checklist_data[${groupIndex}][checklist][${itemIndex}][name]"]`);
+								const fieldLabel = nameField ? nameField.value : `Checklist Item ${index + 1}`;
+								console.log(`❌ Found incomplete mandatory field: ${fieldLabel}`);
+								errorMessages.push(`Mandatory checklist item "${fieldLabel}" is required.`);
+								hasIncompleteMandatory = true;
+							}
+						}
+					}
+				});
+			});
+
+			// Show validation errors if any mandatory fields are incomplete
+			if (errorMessages.length > 0) {
+				console.log('❌ Validation failed with errors:', errorMessages);
+				Swal.fire({
+					icon: 'error',
+					title: 'Checklist Validation Error!',
+					html: errorMessages.join('<br>'),
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
 				return false;
 			}
-			console.log('✅ Validation passed - allowing form submission');
+
+			console.log('✅ Checklist validation passed');
 			return true;
-		});
+		}
+		function validateItemRows() {
+			const itemRows = document.querySelectorAll('.mrntableselectexcel tr.trselected');
+			let errorMessages = [];
+			let hasValidItems = false;
+
+			console.log(`🔍 Validating ${itemRows.length} item rows for quantity > 0 and stock limits`);
+
+			// Check if at least one item row exists
+			if (itemRows.length === 0) {
+				errorMessages.push('At least one item is required.');
+				Swal.fire({
+					icon: 'error',
+					title: 'Items Required!',
+					text: 'Please add at least one item to the maintenance work order.',
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				return false;
+			}
+
+			// Validate each item row
+			itemRows.forEach((row, index) => {
+				const itemInput = row.querySelector('input[name="item[]"]');
+				const quantityInput = row.querySelector('input[name="qty[]"]');
+				const availableStockInput = row.querySelector('input[name="available_stock[]"]');
+				const uomSelect = row.querySelector('select[name="uom[]"]');
+				const attributeInput = row.querySelector('input.attribute');
+				const attributeEnrichedInput = row.querySelector('input.attribute-enriched');
+				const itemDataAttr = itemInput ? itemInput.getAttribute('data-attr') : null;
+
+				// Check if item is selected
+				if (!itemInput || !itemInput.value.trim()) {
+					errorMessages.push(`Item ${index + 1}: Please select an item.`);
+				} else {
+					// Check if item has attributes available but none selected
+					let hasAttributesAvailable = false;
+					let hasAttributesSelected = false;
+
+					// Check if item has attributes data
+					if (itemDataAttr && itemDataAttr !== '[]' && itemDataAttr !== 'null') {
+						try {
+							const attrData = JSON.parse(itemDataAttr);
+							if (attrData && attrData.length > 0) {
+								hasAttributesAvailable = true;
+							}
+						} catch (e) {
+							console.log('Error parsing item attributes data:', e);
+						}
+					}
+
+					// Check if attributes have been selected
+					console.log(`🔍 Item ${index + 1} attribute check:`);
+					console.log(`   - attributeInput exists:`, !!attributeInput);
+					console.log(`   - attributeEnrichedInput exists:`, !!attributeEnrichedInput);
+
+					// Debug what values are in the hidden inputs
+					if (attributeInput) {
+						console.log(`   - attributeInput raw value:`, attributeInput.value);
+						if (attributeInput.value && attributeInput.value.trim() !== '[]') {
+							try {
+								const parsed = JSON.parse(attributeInput.value);
+								console.log(`   - attributeInput parsed:`, parsed);
+								console.log(`   - attributeInput has items:`, Array.isArray(parsed) && parsed.length > 0);
+								if (Array.isArray(parsed) && parsed.length > 0) {
+									console.log(`   - attributeInput first item:`, parsed[0]);
+									console.log(`   - attributeInput has value_id:`, parsed.some(attr => attr.value_id && attr.value_id !== '' && attr.value_id !== null));
+								}
+							} catch (e) {
+								console.log(`   - attributeInput parse error:`, e);
+							}
+						}
+					}
+
+					if (attributeEnrichedInput) {
+						console.log(`   - attributeEnrichedInput raw value:`, attributeEnrichedInput.value);
+						if (attributeEnrichedInput.value && attributeEnrichedInput.value.trim() !== '[]') {
+							try {
+								const parsed = JSON.parse(attributeEnrichedInput.value);
+								console.log(`   - attributeEnrichedInput parsed:`, parsed);
+								console.log(`   - attributeEnrichedInput has items:`, Array.isArray(parsed) && parsed.length > 0);
+								if (Array.isArray(parsed) && parsed.length > 0) {
+									console.log(`   - attributeEnrichedInput first item:`, parsed[0]);
+									console.log(`   - attributeEnrichedInput has selected_value_id:`, parsed.some(attr => attr.selected_value_id && attr.selected_value_id !== '' && attr.selected_value_id !== null));
+								}
+							} catch (e) {
+								console.log(`   - attributeEnrichedInput parse error:`, e);
+							}
+						}
+					}
+
+					if (attributeInput && attributeInput.value && attributeInput.value.trim() !== '[]' && attributeInput.value.trim() !== '') {
+						try {
+							const selectedAttrs = JSON.parse(attributeInput.value);
+							if (selectedAttrs && Array.isArray(selectedAttrs) && selectedAttrs.length > 0) {
+								// Check if any attribute has a value_id set
+								const hasValidSelections = selectedAttrs.some(attr =>
+									attr.value_id && attr.value_id !== '' && attr.value_id !== null
+								);
+								if (hasValidSelections) {
+									hasAttributesSelected = true;
+									console.log(`   ✅ Attributes selected via attributeInput`);
+								}
+							}
+						} catch (e) {
+							console.log('Error parsing selected attributes:', e);
+						}
+					} else if (attributeEnrichedInput && attributeEnrichedInput.value && attributeEnrichedInput.value.trim() !== '[]' && attributeEnrichedInput.value.trim() !== '') {
+						try {
+							const selectedAttrs = JSON.parse(attributeEnrichedInput.value);
+							if (selectedAttrs && Array.isArray(selectedAttrs) && selectedAttrs.length > 0) {
+								// Check if any attribute has a selected_value_id set
+								const hasValidSelections = selectedAttrs.some(attr =>
+									attr.selected_value_id && attr.selected_value_id !== '' && attr.selected_value_id !== null
+								);
+								if (hasValidSelections) {
+									hasAttributesSelected = true;
+									console.log(`   ✅ Attributes selected via attributeEnrichedInput`);
+								}
+							}
+						} catch (e) {
+							console.log('Error parsing enriched selected attributes:', e);
+						}
+					}
+
+					console.log(`   - hasAttributesAvailable: ${hasAttributesAvailable}, hasAttributesSelected: ${hasAttributesSelected}`);
+
+					// If item has attributes available but none selected, show error
+					if (hasAttributesAvailable && !hasAttributesSelected) {
+						console.log(`❌ Item ${index + 1}: Has attributes available but none selected`);
+						errorMessages.push(`Item ${index + 1}: Please select attributes for the selected item.`);
+					}
+				}
+
+				// Check if quantity is entered and greater than 0
+				if (!quantityInput || !quantityInput.value || quantityInput.value.trim() === '') {
+					errorMessages.push(`Item ${index + 1}: Quantity is required.`);
+				} else {
+					const qtyValue = parseFloat(quantityInput.value);
+					console.log(`🔍 Item ${index + 1}: quantity = ${qtyValue}, available stock = ${availableStockInput ? availableStockInput.value : 'N/A'}`);
+
+					if (isNaN(qtyValue)) {
+						errorMessages.push(`Item ${index + 1}: Quantity must be a valid number.`);
+					} else if (qtyValue <= 0) {
+						console.log(`❌ Item ${index + 1}: Quantity ${qtyValue} is <= 0 - blocking submission`);
+						errorMessages.push(`Item ${index + 1}: Quantity must be greater than 0.`);
+					} else if (availableStockInput && availableStockInput.value) {
+						const availableStock = parseFloat(availableStockInput.value);
+						if (!isNaN(availableStock) && qtyValue > availableStock) {
+							errorMessages.push(`Item ${index + 1}: Quantity (${qtyValue}) cannot exceed available stock (${availableStock}).`);
+						}
+					}
+				}
+
+				// Check if UOM is selected
+				if (!uomSelect || !uomSelect.value) {
+					errorMessages.push(`Item ${index + 1}: Please select a unit of measurement.`);
+				}
+
+				// If all validations pass for this row, mark as having valid items
+				if (itemInput?.value.trim() &&
+					quantityInput?.value &&
+					!isNaN(parseFloat(quantityInput.value)) &&
+					parseFloat(quantityInput.value) > 0 &&
+					(!availableStockInput?.value || parseFloat(quantityInput.value) <= parseFloat(availableStockInput.value)) &&
+					uomSelect?.value) {
+					hasValidItems = true;
+				}
+			});
+
+			// Show validation errors if any
+			if (errorMessages.length > 0) {
+				console.log('❌ Item validation errors:', errorMessages);
+				Swal.fire({
+					icon: 'error',
+					title: 'Item Validation Error!',
+					html: errorMessages.join('<br>'),
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				return false;
+			}
+
+			console.log('✅ Item validation passed - all quantities > 0 and within stock limits');
+			return hasValidItems;
+		}
+
+		// Form submission validation is now integrated into the main submit handler above
 
 	</script>
 @endsection

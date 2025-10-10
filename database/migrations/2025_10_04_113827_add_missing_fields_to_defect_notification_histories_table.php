@@ -15,7 +15,7 @@ return new class extends Migration
             $table->text('attachment')->nullable()->after('report_date_time');
             $table->text('upload_document')->nullable()->after('attachment');
             $table->text('final_remarks')->nullable()->after('upload_document');
-            $table->string('reference_number')->nullable()->after('final_remarks');
+            $table->string('reference_number',50)->nullable()->after('final_remarks');
         });
     }
 

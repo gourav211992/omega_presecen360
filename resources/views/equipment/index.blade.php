@@ -154,18 +154,19 @@
 						</select>
 					</div>
 					
-                    
-					<div class="mb-1">
+                    <div class="mb-1">
 						<label class="form-label">Organization</label>
 						<select id="filter-organization" class="form-select select2" multiple name="filter_organization">
 							<option value="" disabled>Select</option>
 							@foreach($mappings as $organization)
-								<option value="{{ $organization->organization->id }}">
+								<option value="{{ $organization->organization->id }}"
+									{{ isset($organizationId) && $organization->organization->id == $organizationId ? 'selected' : '' }}>
 									{{ $organization->organization->name }}
 								</option>
 							@endforeach
 						</select>
 					</div>
+
 				</div>
 				<div class="modal-footer justify-content-start">
 					<button type="button" class="btn btn-primary data-submit mr-1">Apply</button>
@@ -176,8 +177,6 @@
 	</div>
 @endsection
 @section('scripts')
-<script src="{{asset('app-assets/vendors/js/pickers/flatpickr/flatpickr.min.js')}}"></script>
-<script src="{{asset('app-assets/vendors/js/forms/select/select2.full.min.js')}}"></script>
 <script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
 <script>
     $(window).on('load', function() {
@@ -210,26 +209,6 @@ var dt_basic = $('#equipmentsTable').DataTable({
             return d;
         }
     },
-    pageLength: 10,
-    order: [[0, 'asc']],
-    dom: 
-      '<"d-flex justify-content-between align-items-center mx-2 row"' +
-        '<"col-sm-12 col-md-6"l>' +
-        '<"col-sm-12 col-md-3 withoutheadbuttin dt-action-buttons text-end"B>' +
-        '<"col-sm-12 col-md-3"f>' +
-      '>t' +
-      '<"d-flex justify-content-between mx-2 row"' +
-        '<"col-sm-12 col-md-6"i>' +
-        '<"col-sm-12 col-md-6"p>' +
-      '>',  
-    buttons: [
-        {
-            extend: 'excel',
-            className: 'btn btn-outline-secondary',
-            text: feather.icons['file'].toSvg({ class: 'font-small-4 me-50' }) + 'Excel',
-            exportOptions: { columns: ':visible' }
-        }
-    ],
     columns: [
         {data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false},
         {data: 'created_at', name: 'created_at', width: '100px', className: 'text-nowrap'},
@@ -245,6 +224,60 @@ var dt_basic = $('#equipmentsTable').DataTable({
         {data: 'status', orderable: false, searchable: true},
         {data: 'action', orderable: false, searchable: false}
     ],
+    pageLength: 10,
+    order: [[0, 'asc']],
+    dom: '<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-3 dt-action-buttons text-end"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
+    buttons: [
+            {
+                extend: 'collection',
+                className: 'btn btn-outline-secondary dropdown-toggle',
+                text: feather.icons['share'].toSvg({ class: 'font-small-4 mr-50' }) + ' Export',
+                buttons: [
+                    {
+                        extend: 'print',
+                        text: feather.icons['printer'].toSvg({ class: 'font-small-4 mr-50' }) + ' Print',
+                        className: 'dropdown-item',
+                        title: 'Equipment',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] }
+                    },
+                    {
+                        extend: 'csv',
+                        text: feather.icons['file-text'].toSvg({ class: 'font-small-4 mr-50' }) + ' CSV',
+                        className: 'dropdown-item',
+                        title: 'Equipment',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] }
+                    },
+                    {
+                        extend: 'excel',
+                        text: feather.icons['file'].toSvg({ class: 'font-small-4 mr-50' }) + ' Excel',
+                        className: 'dropdown-item',
+                        title: 'Equipment',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] }
+                    },
+                    {
+                        extend: 'pdf',
+                        text: feather.icons['clipboard'].toSvg({ class: 'font-small-4 mr-50' }) + ' PDF',
+                        className: 'dropdown-item',
+                        title: 'Equipment',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] }
+                    },
+                    {
+                        extend: 'copy',
+                        text: feather.icons['copy'].toSvg({ class: 'font-small-4 mr-50' }) + ' Copy',
+                        className: 'dropdown-item',
+                        title: 'Equipment',
+                        exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] }
+                    }
+                ],
+                init: function (api, node, config) {
+                    $(node).removeClass('btn-secondary').parent().removeClass('btn-group');
+                    setTimeout(function () {
+                        $(node).closest('.dt-buttons').removeClass('btn-group').addClass('d-inline-flex');
+                    }, 50);
+                }
+            }
+         ],
+   
     drawCallback: function () {
         feather.replace(); // Initialize Feather icons for action buttons
         // Initialize Bootstrap dropdowns

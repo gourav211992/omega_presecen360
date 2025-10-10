@@ -228,7 +228,7 @@ class MaintBomController extends Controller
                  $showUrl = url('plant/maint-bom/'.$row->id);
                  $editUrl = url('plant/maint-bom/'.$row->id.'/edit');
      
-                 if ($row->document_status === 'draft') {
+                 if ($row->document_status === 'draft' || $row->document_status === 'rejected') {
                      return '
                          <div class="dropdown">
                              <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
@@ -424,16 +424,17 @@ class MaintBomController extends Controller
      */
     public function show(Request $r,string $id)
     {
-        
         $data = PlantMaintBom::find($id);
+        $currNumber = $r->revisionNumber;
+       
+        if ($r->has('revisionNumber') && $data->revision_number != $currNumber) {
+            $data = PlantMaintBomHistory::where('source_id', $id)->where('revision_number', $currNumber)->first();
+        } 
         
         // Check if the main record exists
         if (!$data) {
             abort(404, 'Maintenance BOM not found');
         }
-        
-        $currNumber = $r->has('revisionNumber');
-
         $parentURL = "plant_maint-bom";
         $series = [];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
@@ -585,7 +586,7 @@ class MaintBomController extends Controller
      */
     public function update(MaintBOMRequest $request, $id)
     {
-        
+        // dd($request->all());
         // Validation via FormRequest
         $validator = $request->validated();
 
@@ -628,10 +629,13 @@ class MaintBomController extends Controller
             $data['document'] = $documentPath;
         }
 
+        
+
         DB::beginTransaction();
 
         try {
             if ($request->action_type == "amendment") {
+                $PlantMaintBom = PlantMaintBom::find($id);
                 $revisionData = [
                     [
                         "model_type" => "header",
@@ -641,31 +645,14 @@ class MaintBomController extends Controller
                 ];
                 Helper::documentAmendment($revisionData, $id);
                 Helper::approveDocument($bom->book_id, $bom->id, $bom->revision_number, $request->amend_remarks, $request->file('amend_attachment'), $bom->approval_level, 'amendment', 0, get_class($bom));
-                $data['revision_number'] = $bom->revision_number + 1;
-                $data['revision_date']=now();
+                $PlantMaintBom->revision_number = $bom->revision_number + 1;
+                $PlantMaintBom->revision_date =now();
+                $PlantMaintBom->save();
             }
+
             $bom->update($data);
-
-            // Approval handling if not draft
-            if ($bom->document_status != ConstantHelper::DRAFT) {
-                $doc = Helper::approveDocument(
-                    $bom->book_id,
-                    $bom->id,
-                    $bom->revision_number,
-                    "",
-                    null,
-                    1,
-                    'submit',
-          
-                    0,
-                    get_class($bom)
-                );
-
-                $bom->document_status = $doc['approvalStatus'] ?? $bom->document_status;
-                $bom->save();
-            }
-
             DB::commit();
+          
             
             // Return JSON response for AJAX requests (amendment)
             if ($request->ajax() || $request->action_type == "amendment") {
@@ -797,23 +784,59 @@ class MaintBomController extends Controller
         }
     }
 
+    // public function amendment(Request $request, $id)
+    // {
+    //     try {
+    //         $bom = PlantMaintBom::findOrFail($id);
+
+    //         $bom->document_status = $request->input('document_status', 'draft');
+    //         $bom->save();
+    //         return response()->json([
+    //             'success' => true,
+    //             'message' => 'Amendment created successfully',
+    //             'data' => $bom
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'success' => false,
+    //             'message' => $e->getMessage()
+    //         ], 500);
+    //     }
+    // }
+
     public function amendment(Request $request, $id)
     {
+        DB::beginTransaction();
         try {
-            $bom = PlantMaintBom::findOrFail($id);
+            $PlantBom = PlantMaintBom::find($id);
+            if (!$PlantBom) {
+                return response()->json(['success' => false, 'message' => "Maintenance BOM not found.", 'status' => 404]);
+            }
 
-            $bom->document_status = $request->input('document_status', 'draft');
-            $bom->save();
+            $revisionData = [
+                ['model_type' => 'header', 'model_name' => 'PlantMaintBom', 'relation_column' => ''],
+            ];
+
+            $a = Helper::documentAmendment($revisionData, $id);
+            if ($a) {
+                Helper::approveDocument($PlantBom->book_id, $PlantBom->id, $PlantBom->revision_number, 'Amendment', $request->file('attachment'), $PlantBom->approval_level, 'amendment');
+
+                // $PlantBom->document_status = ConstantHelper::DRAFT;
+                $PlantBom->revision_number = $PlantBom->revision_number + 1;
+                $PlantBom->revision_date = now();
+                $PlantBom->save();
+            }
+
+            DB::commit();
             return response()->json([
                 'success' => true,
-                'message' => 'Amendment created successfully',
-                'data' => $bom
+                'message' => 'Amendment done successfully',
+                'data' => $PlantBom
             ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ], 500);
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error('Amendment Submit Error: ' . $e->getMessage());
+            return response()->json(['success' =>false, 'message' => "An unexpected error occurred. Please try again.", 'status' => 500]);
         }
     }
 
@@ -841,5 +864,90 @@ class MaintBomController extends Controller
             ->pluck('bom_name');
             
         return response()->json($bomNames);
+    }
+
+     /**
+     * Revoke maintenance work order document
+     */
+    public function revokeDocument(Request $request)
+    {
+        DB::beginTransaction();
+        try {
+            $plantWo = PlantMaintBom::find($request->id);
+
+            if (!$plantWo) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'No Document found',
+                ], 404);
+            }
+
+            // Check if document can be revoked (only SUBMITTED documents)
+            if ($plantWo->document_status !== ConstantHelper::SUBMITTED) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Only submitted documents can be revoked.',
+                ]);
+            }
+
+            // Check if user is the creator
+            $user = Helper::getAuthenticatedUser();
+            if ($plantWo->created_by !== $user->auth_user_id) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'Only the document creator can revoke this document.',
+                ]);
+            }
+
+            // ✅ Strict validation: once amended, cannot be revoked
+            if ($plantWo->revision_number > 0) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => 'This document has already been amended and cannot be revoked.',
+                ]);
+            }
+
+            $revoke = Helper::approveDocument(
+                $plantWo->book_id,
+                $plantWo->id,
+                $plantWo->revision_number,
+                'Document revoked by creator',
+                null,
+                $plantWo->approval_level,
+                ConstantHelper::REVOKE,
+                0,
+                get_class($plantWo)
+            );
+
+            if ($revoke['message']) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => 'error',
+                    'message' => $revoke['message'],
+                ]);
+            }
+
+            // update both document_status and approvalStatus
+            $plantWo->document_status = $revoke['approvalStatus'];
+            $plantWo->approvalStatus = $revoke['approvalStatus'];
+            $plantWo->save();
+
+            DB::commit();
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'Revoked successfully',
+            ]);
+
+        } catch (Exception $ex) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Failed to revoke document: ' . $ex->getMessage(),
+            ], 500);
+        }
     }
 }

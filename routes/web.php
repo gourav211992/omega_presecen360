@@ -2985,6 +2985,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('plant/maint-bom/get-series', [MaintBomController::class, 'getSeries'])->name('maint-bom.get-series');
     Route::get('plant/maint-bom/get-bom-names', [MaintBomController::class, 'getBomNames'])->name('maint-bom.get-bom-names');
     Route::post('plant/maint-bom/check-document-number', [MaintBomController::class, 'checkDocumentNumber'])->name('maint-bom.check-document-number');
+    Route::get('plant/maint-bom/revoke-document', [MaintBomController::class, 'revokeDocument'])->name('plant.maint_bom.revoke.document');
     Route::resource('plant/maint-bom', MaintBomController::class)->names([
         'index' => 'maint-bom.index',
         'create' => 'maint-bom.create',

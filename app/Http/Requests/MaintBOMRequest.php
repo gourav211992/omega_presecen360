@@ -51,7 +51,6 @@ class MaintBOMRequest extends FormRequest
             'document_status' => 'required|string',
             'book_id' => $isEdit ? 'nullable|integer' : ($isDraft ? 'nullable|integer' : 'required|integer'),
             'document_date' => $isEdit ? 'nullable|date' : ($isDraft ? 'nullable|date' : 'required|date'),
-            'bom_name' => 'required|string', // Common field - always required
             'document' => 'nullable|file|mimes:png,jpeg,jpg,xls,xlsx,docx,pdf|max:5120', // 5MB max
             
             // Additional fields that are present in request
@@ -62,8 +61,25 @@ class MaintBOMRequest extends FormRequest
             'remarks' => 'nullable|string',
         ];
 
-        // Add document number uniqueness validation (skip for draft saves)
-        if (!$isDraft && $this->filled('document_number')) {
+        // Add BOM name uniqueness validation (always required, even for drafts)
+        if ($isEdit) {
+            // For edit, exclude current record from uniqueness check
+            $rules['bom_name'] = [
+                'required',
+                'string',
+                Rule::unique('erp_plant_maint_bom', 'bom_name')->ignore($this->route('maint_bom'))
+            ];
+        } else {
+            // For create, check uniqueness (including drafts)
+            $rules['bom_name'] = [
+                'required',
+                'string',
+                Rule::unique('erp_plant_maint_bom', 'bom_name')
+            ];
+        }
+
+        // Add document number uniqueness validation (including draft saves)
+        if ($this->filled('document_number')) {
             if ($isEdit) {
                 // For edit, exclude current record from uniqueness check
                 $rules['document_number'] = [
@@ -72,7 +88,7 @@ class MaintBOMRequest extends FormRequest
                     Rule::unique('erp_plant_maint_bom', 'document_number')->ignore($this->route('maint_bom'))
                 ];
             } else {
-                // For create, check uniqueness
+                // For create, check uniqueness (including drafts)
                 $rules['document_number'] = [
                     'required',
                     'string',
@@ -80,7 +96,7 @@ class MaintBOMRequest extends FormRequest
                 ];
             }
         } else {
-            // Keep original rule for draft or empty document number
+            // Keep original rule for empty document number
             $rules['document_number'] = $isEdit ? 'nullable|string' : ($isDraft ? 'nullable|string' : 'required|string');
         }
 
@@ -134,8 +150,9 @@ class MaintBOMRequest extends FormRequest
             'document_number.unique' => 'Document number already exists. Please use a different document number.',
             'document_date.required' => 'The Document Date field is required.',
             'document_date.date' => 'The Document Date must be a valid date.',
-            'bom_name.string' => 'The Asset Name must be a valid string.',
-            'bom_name.unique' => 'The Asset Name has already been taken.',
+            'bom_name.required' => 'The BOM Name field is required.',
+            'bom_name.string' => 'The BOM Name must be a valid string.',
+            'bom_name.unique' => 'BOM name already exists. Please use a different BOM name.',
             'document.file' => 'The Document must be a valid file.',
             'document.mimes' => 'The Document must be a file of type: png, jpeg, jpg, xls, xlsx, docx, pdf.',
             'document.max' => 'The Document may not be greater than 5MB.',

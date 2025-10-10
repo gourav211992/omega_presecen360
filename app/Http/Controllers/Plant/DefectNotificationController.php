@@ -285,7 +285,7 @@ class DefectNotificationController extends Controller
             $statusBadge = "<span class='badge rounded-pill {$statusClass} badgeborder-radius'>{$statusText}</span>";
 
             // Conditional routing based on document status
-            $route = ($notification->document_status == 'draft') 
+            $route = ($notification->document_status == 'draft' || $notification->document_status == 'rejected') 
                 ? route('defect-notification.edit', $notification->id)
                 : route('defect-notification.show', $notification->id);
             
@@ -821,42 +821,24 @@ class DefectNotificationController extends Controller
                     0,
                     get_class($defectNotification)
                 );
-                
-                // Update defect notification revision and set status to SUBMITTED (following payment voucher pattern)
-                $defectNotification->document_status = ConstantHelper::SUBMITTED;
-                $defectNotification->revision_number = $defectNotification->revision_number + 1;
-                $defectNotification->revision_date = now();
-                $defectNotification->save();
-
                 DB::commit();
             }
-            
-
+        
             // Handle file upload if present
             if ($request->hasFile('attachment')) {
                 // Delete old file if exists
                 if ($defectNotification->attachment && \Storage::disk('public')->exists($defectNotification->attachment)) {
                     \Storage::disk('public')->delete($defectNotification->attachment);
                 }
-                
                 $file = $request->file('attachment');
                 $fileName = 'defect_' . time() . '.' . $file->getClientOriginalExtension();
                 $path = $file->storeAs('defect_notifications/documents', $fileName, 'public');
                 $defectNotification->attachment = $path;
             }
 
-            $defectNotification->fill($request->except(['_token', '_method', 'upload_document', 'attachment']));
-            
-        
+            $defectNotification->fill($request->except(['_token', '_method', 'upload_document', 'attachment']));        
             $defectNotification->save();
             $defectNotification = DefectNotification::find($id);
-           
-            if ($defectNotification->document_status == ConstantHelper::SUBMITTED) {
-                $approveDocument = Helper::approveDocument($defectNotification->book_id, $defectNotification->id, $defectNotification->revision_number, $defectNotification->remarks, $request->file('attachment'), 1, 'submit', 0, get_class($defectNotification));
-                $defectNotification->document_status = $approveDocument['approvalStatus'] ?? ConstantHelper::SUBMITTED;
-                $defectNotification->save();
-
-            }
             
             DB::commit();
             
@@ -897,7 +879,7 @@ class DefectNotificationController extends Controller
             if ($a) {
                 Helper::approveDocument($defectNotification->book_id, $defectNotification->id, $defectNotification->revision_number, 'Amendment', $request->file('attachment'), $defectNotification->approval_level, 'amendment');
 
-                $defectNotification->document_status = ConstantHelper::DRAFT;
+                // $defectNotification->document_status = ConstantHelper::DRAFT;
                 $defectNotification->revision_number = $defectNotification->revision_number + 1;
                 $defectNotification->revision_date = now();
                 $defectNotification->save();
@@ -919,62 +901,37 @@ class DefectNotificationController extends Controller
     {
         $request->validate([
             'remarks' => 'nullable|string|max:255',
-            'action_type' => 'required|in:approve,reject',
-            'id' => 'required|exists:erp_defect_notifications,id',
-            'attachment.*' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png,xls,xlsx|max:5120' // 5MB max per file
+            'attachment.*' => 'nullable|file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120', // 5MB max per file
         ]);
-
         DB::beginTransaction();
         try {
-            $defectNotification = DefectNotification::find($request->id);
-            if (!$defectNotification) {
-                return response()->json([
-                    'message' => 'Defect Notification not found.',
-                    'error' => 'Document not found'
-                ], 404);
-            }
-
-            $bookId = $defectNotification->book_id;
-            $docId = $defectNotification->id;
-            $docValue = 0; // Defect notifications typically don't have monetary value
+            $doc = DefectNotification::findOrFail($request->id);
+            $bookId = $doc->book_id;
+            $docId = $doc->id;
+            $docValue = 0;
             $remarks = $request->remarks;
             $attachments = $request->file('attachment');
-            $currentLevel = $defectNotification->approval_level ?? 1;
-            $revisionNumber = $defectNotification->revision_number ?? 0;
-            $actionType = $request->action_type;
-            $modelName = get_class($defectNotification);
-            
-
-            $approveDocument = Helper::approveDocument(
-                $bookId,
-                $docId,
-                $revisionNumber,
-                $remarks,
-                $attachments,
-                $currentLevel,
-                $actionType,
-                get_class($defectNotification)
-            );
-
-           
-
-            
-            $defectNotification->approval_level = $approveDocument['nextLevel'];
-            $defectNotification->document_status = $approveDocument['approvalStatus'];
-            $defectNotification->save();
+            $currentLevel = $doc->approval_level;
+            $revisionNumber = $doc->revision_number ?? 0;
+            $actionType = $request->action_type; // Approve or reject
+            $modelName = get_class($doc);
+            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            $doc->approval_level = $approveDocument['nextLevel'];
+            $doc->document_status = $approveDocument['approvalStatus'];
+            $doc->save();
 
             DB::commit();
-            return response()->json([
-                'message' => "Document {$actionType}d successfully!",
-                'data' => $defectNotification,
-            ]);
 
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error("Error occurred while {$actionType} document: " . $e->getMessage());
             return response()->json([
-                'message' => "Error occurred while {$actionType} document: " . $e->getMessage(),
-                'status' => 'error'
+                'message' => "Maintenance BOM {$actionType}d successfully!",
+                'data' => $doc,
+            ]);
+        } catch (Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => "Error occurred while processing {$request->action_type}",
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

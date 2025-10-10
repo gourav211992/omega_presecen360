@@ -226,13 +226,24 @@ class ErpEquipmentController extends Controller
     {
         $latestWorkOrder = $maintenanceDetail->latestWorkOrder;
         if ($latestWorkOrder && in_array($latestWorkOrder->document_status, [
+            ConstantHelper::SUBMITTED,
             ConstantHelper::DOCUMENT_STATUS_APPROVED,
-            ConstantHelper::APPROVAL_NOT_REQUIRED
+            ConstantHelper::APPROVAL_NOT_REQUIRED,
+            'closed'
         ])) {
             $details = json_decode($latestWorkOrder->equipment_details, true);
-            if (is_array($details) && !empty($details['due_date'])) {
-                return Carbon::parse($details['due_date'])->format('d-m-Y');
+            
+            // Check for last_maintenance_date first, then due_date, then created_at
+            if (is_array($details)) {
+                if (!empty($details['last_maintenance_date'])) {
+                    return Carbon::parse($details['last_maintenance_date'])->format('d-m-Y');
+                } elseif (!empty($details['due_date'])) {
+                    return Carbon::parse($details['due_date'])->format('d-m-Y');
+                }
             }
+            
+            // Fallback to work order creation date
+            return Carbon::parse($latestWorkOrder->created_at)->format('d-m-Y');
         }
         return '';
     }
@@ -241,8 +252,10 @@ class ErpEquipmentController extends Controller
     {
         $lastMaintDate = null;
         if ($maintenanceDetail->latestWorkOrder && in_array($maintenanceDetail->latestWorkOrder->document_status, [
+            ConstantHelper::SUBMITTED,
             ConstantHelper::DOCUMENT_STATUS_APPROVED,
-            ConstantHelper::APPROVAL_NOT_REQUIRED
+            ConstantHelper::APPROVAL_NOT_REQUIRED,
+            'closed'
         ])) {
             $details = json_decode($maintenanceDetail->latestWorkOrder->equipment_details, true);
             if (is_array($details) && !empty($details['due_date'])) {
@@ -475,6 +488,7 @@ class ErpEquipmentController extends Controller
         $userOrganizations = $userOrganizations->unique(function ($item) {
             return $item->organization->id;
         });
+
         if ($r->has('revisionNumber')) {
             $revNo = intval($r->revisionNumber);
             $equipment = ErpEquipmentHistory::with([
@@ -488,8 +502,8 @@ class ErpEquipmentController extends Controller
                 'maintenanceDetails.checklists'
             ])->findOrFail($id);
             $revNo = $equipment->revision_number;
-            
         }
+
 
         $userType = Helper::userCheck();
 
@@ -513,7 +527,14 @@ class ErpEquipmentController extends Controller
         $approvalHistory = [];
        
         if (!empty($equipment->book_id))
-            $approvalHistory = Helper::getApprovalHistory($equipment->book_id, $equipment->id, $revNo, 0, $equipment->created_by);
+            $approvalHistory = Helper::getApprovalHistory(
+                $equipment->book_id, 
+                $equipment->id, 
+                $revNo, 
+                0,
+                $equipment->created_by
+            );
+
             Log::info('Approval History Debug', [
                 'book_id' => $equipment->book_id,
                 'equipment_id' => $equipment->id,
@@ -522,6 +543,8 @@ class ErpEquipmentController extends Controller
                 'approvalHistory_count' => count($approvalHistory),
                 'approvalHistory' => $approvalHistory
             ]);
+
+           
 
 
         $checklists = InspectionChecklist::where('type','maintenance')->get();
@@ -573,7 +596,6 @@ class ErpEquipmentController extends Controller
 
     public function update(Request $request, $id)
     {
-        // dd($request->all());
         // DB::beginTransaction();
         // try {
             $user = Helper::getAuthenticatedUser();

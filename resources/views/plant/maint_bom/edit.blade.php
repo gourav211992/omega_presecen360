@@ -22,6 +22,7 @@
 							</div>
 						</div>
 					</div>
+					
 					@php   $isAmendmentMode = intval(request('amendment') ?? 0) === 1; @endphp
 					<div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
 						<div class="form-group breadcrumb-right">
@@ -29,6 +30,7 @@
 										data-feather="arrow-left-circle"></i> Back</button>
 							</a>
 							@if ($bom->document_status == 'draft' || ($buttons['amend'] && request('amendment') == 1))
+							   
 								<button class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" type="button" id="save-draft-btn">
 									<i data-feather="save"></i> Save as Draft
 								</button>
@@ -37,6 +39,17 @@
 									<i data-feather="check-circle"></i> Submit
 								</button>
 							@endif
+
+							@if ($bom->document_status=='rejected')
+								<button class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" type="button" id="save-draft-btn">
+									<i data-feather="save"></i> Save as Draft
+								</button>
+							
+								<button type="submit" form="maint-bom-form" class="btn btn-primary btn-sm" id="submit-btn">
+									<i data-feather="check-circle"></i> Submit
+								</button>
+							@endif
+
 						</div>
 					</div>
 				</div>
@@ -811,15 +824,15 @@ $('#delete').on('click', function () {
 	let $rows = $('.mrntableselectexcel tr');
 	let $checked = $rows.find('.row-check:checked');
 
-	if ($rows.length <= 1) {
-		showToast('error', 'At least one row is required.');
-		return;
-	}
+	// if ($rows.length <= 1) {
+	// 	showToast('error', 'At least one row is required.');
+	// 	return;
+	// }
 
-	if ($rows.length - $checked.length < 1) {
-		showToast('error', 'You must keep at least one row.');
-		return;
-	}
+	// if ($rows.length - $checked.length < 1) {
+	// 	showToast('error', 'You must keep at least one row.');
+	// 	return;
+	// }
 
 	$checked.closest('tr').remove();
 });

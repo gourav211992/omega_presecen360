@@ -918,7 +918,12 @@
 			}
 
 			if (!isValid) {
-				showToast('error', errorMessage);
+				Swal.fire({
+					icon: 'error',
+					title: 'Validation Error!',
+					html: errorMessage.replace(/\n/g, '<br>'),
+					confirmButtonText: 'OK'
+				});
 				return;
 			}
 

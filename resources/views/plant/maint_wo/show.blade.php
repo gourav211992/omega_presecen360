@@ -34,30 +34,31 @@
                     <i data-feather="arrow-left-circle"></i> Back
                   </button>
                 </a>
-              
-                 
-                  @if($buttons['approve'])
-                  <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#approveModal" onclick = "setApproval();" ><i data-feather="check-circle"></i> Approve</button>
-                  <button type="button" id="reject-button" data-bs-toggle="modal" data-bs-target="#approveModal" onclick = "setRejection();" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Reject</button>
-                  @endif
-                  @if($buttons['amend'])
-                  <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-                          class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
-                  @endif
                 
-                  @if($data->document_status != App\Helpers\ConstantHelper::CLOSED && ($data->document_status == App\Helpers\ConstantHelper::APPROVED || $data->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED) && $data->created_by == App\Helpers\Helper::getAuthenticatedUser()->auth_user_id)
-                    <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light" data-bs-toggle="modal" data-bs-target="#closeModal">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Close
-                    </button>
-                  @endif
+                @if(!isset(request() -> revisionNumber))
+                    @if($buttons['approve'])
+                    <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#approveModal" onclick = "setApproval();" ><i data-feather="check-circle"></i> Approve</button>
+                    <button type="button" id="reject-button" data-bs-toggle="modal" data-bs-target="#approveModal" onclick = "setRejection();" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg> Reject</button>
+                    @endif
+                    @if($buttons['amend'])
+                    <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
+                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
+                    @endif
+                  
+                    @if($data->document_status != App\Helpers\ConstantHelper::CLOSED && ($data->document_status == App\Helpers\ConstantHelper::APPROVED || $data->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED) && $data->created_by == App\Helpers\Helper::getAuthenticatedUser()->auth_user_id)
+                      <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light" data-bs-toggle="modal" data-bs-target="#closeModal">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-check-circle"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> Close
+                      </button>
+                    @endif
 
-                  @if($data->revision_number==0)
+                    
                     @if ($buttons['revoke'])
                         <a id = "revokeButton" type="button"
-                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
+                            class="btn btn-danger btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
                             Revoke</a>
                     @endif
                   @endif
+                  
 						</div>
 					</div>
       </div>
@@ -2240,19 +2241,10 @@ function showToast(icon, title) {
           },
           success: function (response) {
             if (response.success) {
-                Swal.fire({
-                    icon: 'success',
-                    title: 'Success',
-                    text: 'Amendment Done',
-                    timer: 1500,
-                    showConfirmButton: false,
-                    willClose: () => {
-                        let amendUrl = "{{ route('maint-wo.edit', ':id') }}".replace(':id', id);
-                        let redirectUrl = new URL(amendUrl, window.location.origin);
-                        redirectUrl.searchParams.set('amendment', 1);
-                        window.location.href = redirectUrl.toString();
-                    }
-                });
+                let amendUrl = "{{ route('maint-wo.edit', ':id') }}".replace(':id', id);
+                let redirectUrl = new URL(amendUrl, window.location.origin);
+                redirectUrl.searchParams.set('amendment', 1);
+                window.location.href = redirectUrl.toString();
             }
             else {
                   Swal.fire({

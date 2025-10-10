@@ -406,8 +406,8 @@
                                             </div>
                                             <div class="col-md-12">
                                                 <div class="mb-1">
-                                                    <label class="form-label">Final Remarks <span class="text-danger">*</span></label>
-                                                    <textarea name="final_remarks" type="text" rows="4" class="form-control" placeholder="Enter Remarks here..." required>{{ old('final_remarks', $equipment->final_remarks) }}</textarea>
+                                                    <label class="form-label">Final Remarks</label>
+                                                    <textarea name="final_remarks" type="text" rows="4" class="form-control" placeholder="Enter Remarks here...">{{ old('final_remarks', $equipment->final_remarks) }}</textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -430,7 +430,7 @@
                         <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">Amend Equipment</h4>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    <input type="hidden" name="action_type" id="action_type_main" value="amendment">
+                    <input type="hidden" name="action_type" id="action_type_main" value="submitted">
                 </div>
                 <div class="modal-body pb-2">
                     <div class="row mt-1">
@@ -866,9 +866,6 @@
                             confirmButtonText: 'OK',
                             confirmButtonColor: '#ea5455'
                         });
-                    } else {
-                        // File size is OK - show success info
-                        fileInput.after(`<div class="file-size-info">✓ File selected: ${file.name} (${fileSizeMB}MB)</div>`);
                     }
                 }
             });

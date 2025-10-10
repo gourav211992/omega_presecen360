@@ -46,6 +46,12 @@
 									<button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
 											class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</button>
 								@endif
+
+								@if ($buttons['revoke'])
+									<a id ="revokeButton" type="button"
+										class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
+										Revoke</a>
+								@endif
 							@endif
                             
 						</div>
@@ -1162,5 +1168,28 @@
 			
 			// Amendment confirmation - redirect to edit page with amendment parameter
 			// Following maint WO pattern - no AJAX, no SweetAlert success
+			$(document).on('click', '#revokeButton', (e) => {
+			let actionUrl = '{{ route("plant.maint_bom.revoke.document") }}'+ '?id='+'{{$data->id}}';
+			fetch(actionUrl).then(response => {
+				return response.json().then(data => {
+					if(data.status == 'error') {
+						Swal.fire({
+							title: 'Error!',
+							text: data.message,
+							icon: 'error',
+						});
+					} else {
+						Swal.fire({
+							title: 'Success!',
+							text: data.message,
+							icon: 'success',
+						}).then(() => {
+							// Redirect to edit page after successful revoke
+							window.location.href = '{{ route("maint-bom.edit", $data->id) }}';
+						});
+					}
+				});
+			});
+		});
 	</script>
 @endsection

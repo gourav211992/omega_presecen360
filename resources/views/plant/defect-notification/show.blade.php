@@ -855,7 +855,7 @@
     <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <form class="ajax-input-form" method="POST" action="{{ route('approveDefectNotification') }}" enctype='multipart/form-data'>
+                <form id="approveForm" method="POST" action="{{ route('approveDefectNotification') }}" enctype='multipart/form-data'>
                     @csrf
                     <input type="hidden" name="action_type" id="action_type">
                     <input type="hidden" name="id" value="{{ $defectNotification->id }}">
@@ -1413,20 +1413,32 @@
 			window.location.href = url.toString();
 		});
 
-		// Client-side validation for approval form
-		$('#approveModal form').on('submit', function(e) {
+		// Client-side validation for approval form with duplicate prevention
+		$('#approveForm').off('submit').on('submit', function(e) {
+			e.preventDefault();
+			
+			let form = $(this);
+			let submitBtn = form.find('#submit-button');
 			let actionType = $('#action_type').val();
 			let remarks = $('#remarks').val().trim();
 			
+			// Prevent multiple submissions
+			if (submitBtn.prop('disabled')) {
+				return false;
+			}
+			
+			// Disable button to prevent double clicks
+			submitBtn.prop('disabled', true);
+			
 			// Validate remarks for rejection (required)
 			if (actionType === 'reject' && !remarks) {
-				e.preventDefault();
 				Swal.fire({
 					icon: 'error',
 					title: 'Validation Error!',
 					text: 'Remarks are required for rejection.',
 					confirmButtonText: 'OK'
 				});
+				submitBtn.prop('disabled', false);
 				return false;
 			}
 			
@@ -1438,7 +1450,6 @@
 					
 					// Check file size (5MB limit)
 					if (file.size > 5 * 1024 * 1024) {
-						e.preventDefault();
 						let fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
 						Swal.fire({
 							icon: 'error',
@@ -1446,6 +1457,7 @@
 							text: `File "${file.name}" is ${fileSizeMB}MB. Maximum allowed size is 5MB.`,
 							confirmButtonText: 'OK'
 						});
+						submitBtn.prop('disabled', false);
 						return false;
 					}
 					
@@ -1454,21 +1466,108 @@
 					let fileExtension = file.name.split('.').pop().toLowerCase();
 					
 					if (!allowedExtensions.includes(fileExtension)) {
-						e.preventDefault();
 						Swal.fire({
 							icon: 'error',
 							title: 'Invalid File Type!',
 							text: `File "${file.name}" has invalid type. Only PNG, JPEG, JPG, XLS, XLSX, DOCX, and PDF files are allowed.`,
 							confirmButtonText: 'OK'
 						});
+						submitBtn.prop('disabled', false);
 						return false;
 					}
 				}
 			}
 			
-			return true;
+			// Submit via AJAX to control success message
+			let formData = new FormData(form[0]);
+			
+			$.ajax({
+				url: form.attr('action'),
+				method: 'POST',
+				data: formData,
+				processData: false,
+				contentType: false,
+				success: function(response) {
+					$('#approveModal').modal('hide');
+					Swal.fire({
+						icon: 'success',
+						title: 'Success!',
+						text: actionType === 'approve' ? 'Document approved successfully!' : 'Document rejected successfully!',
+						confirmButtonText: 'OK'
+					}).then(() => {
+						window.location.href = "{{ route('defect-notification.index') }}";
+					});
+				},
+				error: function(xhr) {
+					let errorMessage = 'An error occurred. Please try again.';
+					if (xhr.responseJSON && xhr.responseJSON.message) {
+						errorMessage = xhr.responseJSON.message;
+					}
+					Swal.fire({
+						icon: 'error',
+						title: 'Error!',
+						text: errorMessage,
+						confirmButtonText: 'OK'
+					});
+					submitBtn.prop('disabled', false);
+				}
+			});
 		});
 
+// $('#approveModal form').on('submit', function(e) {
+// 			let actionType = $('#action_type').val();
+// 			let remarks = $('#remarks').val().trim();
+			
+// 			// Validate remarks for rejection (required)
+// 			if (actionType === 'reject' && !remarks) {
+// 				e.preventDefault();
+// 				Swal.fire({
+// 					icon: 'error',
+// 					title: 'Validation Error!',
+// 					text: 'Remarks are required for rejection.',
+// 					confirmButtonText: 'OK'
+// 				});
+// 				return false;
+// 			}
+			
+// 			// Validate file uploads if any
+// 			let fileInput = $('#ap_file')[0];
+// 			if (fileInput && fileInput.files.length > 0) {
+// 				for (let i = 0; i < fileInput.files.length; i++) {
+// 					let file = fileInput.files[i];
+					
+// 					// Check file size (5MB limit)
+// 					if (file.size > 5 * 1024 * 1024) {
+// 						e.preventDefault();
+// 						let fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+// 						Swal.fire({
+// 							icon: 'error',
+// 							title: 'File Too Large!',
+// 							text: `File "${file.name}" is ${fileSizeMB}MB. Maximum allowed size is 5MB.`,
+// 							confirmButtonText: 'OK'
+// 						});
+// 						return false;
+// 					}
+					
+// 					// Check file type
+// 					let allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'docx', 'pdf'];
+// 					let fileExtension = file.name.split('.').pop().toLowerCase();
+					
+// 					if (!allowedExtensions.includes(fileExtension)) {
+// 						e.preventDefault();
+// 						Swal.fire({
+// 							icon: 'error',
+// 							title: 'Invalid File Type!',
+// 							text: `File "${file.name}" has invalid type. Only PNG, JPEG, JPG, XLS, XLSX, DOCX, and PDF files are allowed.`,
+// 							confirmButtonText: 'OK'
+// 						});
+// 						return false;
+// 					}
+// 				}
+// 			}
+			
+// 			return true;
+// 		});
 		// Additional file validation on file input change
 		$('#ap_file').on('change', function() {
 			validateApprovalFiles(this);
@@ -1513,60 +1612,6 @@
 		return true;
 	}
 
-	function setApproval() {
-		document.getElementById('action_type').value = "approve";
-		document.getElementById('approve_reject_heading_label').textContent = "Approve Defect Notification";
-	}
-
-	function setReject() {
-		document.getElementById('action_type').value = "reject";
-		document.getElementById('approve_reject_heading_label').textContent = "Reject Defect Notification";
-	}
-
 	</script>
-
-<!-- Approve/Reject Modal -->
-<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form class="ajax-submit-2" method="POST" action="{{ route('approveDefectNotification') }}" 
-                  data-redirect="{{ route('defect-notification.index') }}" enctype="multipart/form-data">
-                @csrf
-                <input type="hidden" name="action_type" id="action_type">
-                <input type="hidden" name="id" value="{{ $defectNotification->id }}">
-                
-                <div class="modal-header">
-                    <h5 class="modal-title" id="approve_reject_heading_label">Approve/Reject</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                
-                <div class="modal-body">
-                    <div class="mb-1">
-                        <label class="form-label">Remarks</label>
-                        <textarea name="remarks" class="form-control cannot_disable"></textarea>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-8">
-                            <div class="mb-1">
-                                <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
-                                <input type="file" id="approval_attachment" name="attachment[]" multiple class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" onchange="validateFile(this);" max_file_count="2">
-                            </div>
-                        </div>
-                        <div class="col-md-4" style="margin-top:19px;">
-                            <div class="row" id="approval_files_preview">
-                            </div>
-                        </div>
-                    </div>
-                    <span class="text-primary small">{{ __("message.attachment_caption") }}</span>
-                </div>
-                
-                <div class="modal-footer justify-content-center">
-                    <button type="button" class="btn btn-outline-secondary me-1" data-bs-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Submit</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 @endsection
