@@ -681,6 +681,16 @@ class InventoryHelperV2
         return self::successResponse('Receipt qty updated.', $stock);
     }
 
+    public static function getDnoteStockCostRateForReturn(int $detailId)
+    {
+        $stockLedger = StockLedger::whereIn('book_type', [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS])
+            ->where('document_detail_id', $detailId)->first();
+        if (!isset($stockLedger)) {
+            return null;
+        }
+        return $stockLedger -> cost_per_unit;
+    }
+
     // Error Response
     private static function errorResponse($message)
     {

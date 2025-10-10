@@ -2169,9 +2169,9 @@ class FinancialPostingHelper
             $itemValue = 0;
             // $stockLedger = StockLedger::first();
             $isPulled = $docItem;
-            if ($isPulled?->si_item_id && $isPulled?->invoice_item?->header?->document_type == 'dnote') {
-                $doc_detail_id = $docItem->si_item_id ?? null;
-                $doc_header_id = $isPulled->invoice_item->header->id ?? null;
+            if ($isPulled?->si_item_id && $isPulled?->header?->reference_doc_type == 'dnote') {
+                $doc_detail_id = $docItem->id ?? null;
+                $doc_header_id = $isPulled->header->id ?? null;
 
                 if ($doc_header_id && $doc_detail_id) {
                     $stockLedger = StockLedger::where('book_type', ConstantHelper::SR_SERVICE_ALIAS)
@@ -2180,7 +2180,7 @@ class FinancialPostingHelper
                         ->get();
 
                     if ($stockLedger->isNotEmpty()) {
-                        $orgCurrencyCost = StockLedger::whereIn('utilized_id', $stockLedger->pluck('id'))->sum('org_currency_cost');
+                        $orgCurrencyCost = $stockLedger->sum('org_currency_cost');
                     } else {
                         $orgCurrencyCost = $document->total_return_value - $document->total_discount_value ?? 0; // Fallback value
                     }
@@ -2591,9 +2591,9 @@ class FinancialPostingHelper
     {
         $document = ErpSaleReturn::find($documentId);
         //Invoice to follow param has been removed - Now it's based on document_type of Invoice : Jagdeep
-        $invocietofollow = in_array($document?->items[0]?->invoice_item?->header?->document_type, [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::SI_SERVICE_ALIAS]) ? 0 : 1;
+        $invocietofollow = in_array($document?->items[0]?->invoice_item?->header?->document_type, [ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS, ConstantHelper::SI_SERVICE_ALIAS]) ? 0 : 1;
         $type = $document?->items[0]?->invoice_item?->header?->document_type ?? "";
-        if ($type == "si" && !$document->items[0]->invoice_item->dnote_item_id) {
+        if ($type == "si") {
             return self::salesReturnVoucherDetails($documentId, $type);
         } else {
             return self::srdnVoucherDetails($documentId, $invocietofollow);

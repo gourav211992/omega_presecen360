@@ -27,7 +27,7 @@
                         <button type = "button" onclick="javascript: history.go(-1)" class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i> Back</button>
 
                             @if (isset($order))
-                            @if(($einvoice || !$enableEinvoice) && $buttons['print'])
+                            @if( $buttons['print'])
                                 <button class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                         stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer">
@@ -37,7 +37,7 @@
                                     </svg>
                                     Print  <i class="fa-regular fa-circle-down"></i>
                                 </button>
-                                @if(isset($einvoice) && !$einvoice->ewb_no && $order -> total_amount > 50000)
+                                @if(isset($einvoice) && !$einvoice->ewb_no && $order -> total_amount > 50000 && false)
                                     <a type="button" class="btn btn-primary btn-sm" id="eWayBillBtn" href="#" onclick = "generateEwayBill();">
                                         <i data-feather="check-circle"></i> Generate Eway Bill
                                     </a>
@@ -53,7 +53,7 @@
                                     @endphp
                                     @foreach ($options as $key => $label)
                                         <li>
-                                            <a class="dropdown-item" href="{{ route('sale.return.generate-pdf', [$order->id, $key]) }}" target="_blank">{{ $label }}</a>
+                                            <a class="dropdown-item" href="{{ route('sale.return.generate-pdf', ['id' => $order->id ?? 0, 'pattern' => $key ?? 'Sales Return']) }}" target="_blank">{{ $label }}</a>
                                         </li>
                                     @endforeach
                                 </ul>
@@ -79,9 +79,9 @@
                                 @if($buttons['revoke'])
                                     <button id = "revokeButton" type="button" onclick = "revokeDocument();" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</button>
                                 @endif
-                                @if($enableEinvoice && !$einvoice && in_array($order -> document_status, ['approved', 'approval_not_required', 'posted']))
+                                @if($enableEinvoice && !$einvoice && in_array($order -> document_status, ['approved', 'approval_not_required', 'posted']) && $order -> einvoice_check())
                                 <a type="button" class="btn btn-primary btn-sm" id="eEInvoiceBtn" onclick = "generateEInvoice('{{$order -> id}}')">
-                                    <i data-feather="check-circle"></i> Generate E-Invoice
+                                    <i data-feather="check-circle"></i> Generate E-CRN
                                 </a>
 
                                 @endif
@@ -123,7 +123,7 @@
                                            @if (isset($order))
                                                 <input type = "hidden" value = "{{$order -> id}}" name = "sale_return_id"></input>
                                             @endif
-                                            <div class="row align-items-center mb-1">
+                                            <div class="row align-items-center d-none mb-1">
                                                         <div class="col-md-3">
                                                             <label class="form-label">Document Type <span class="text-danger">*</span></label>
                                                         </div>
@@ -174,19 +174,49 @@
                                                          </div>
                                                      </div>
 
-                                                     <div class="row align-items-center mb-1">
+                                                    <div class="row align-items-center mb-1">
                                                         <div class="col-md-3">
                                                             <label class="form-label">Location<span class="text-danger">*</span></label>
                                                         </div>
 
                                                         <div class="col-md-5">
                                                             <select class="disable_on_edit form-select" {{isset($order) && $order -> store_id ? 'readonly' : ''}} name = "store_id" id = "store_id_input">
-                                                                @foreach ($stores as $store)
-                                                                    <option  display-address = "{{$store -> address ?-> display_address}}" value = "{{$store -> id}}" {{isset($order) ? ($order -> store_id == $store -> id ? 'selected' : '') : ''}}>{{$store -> store_name}}</option>
-                                                                @endforeach
+                                                                @if(isset($order) && $order->store_id)
+                                                                    <option  display-address = "{{$order -> store -> address ?-> display_address}}" value = "{{$order -> store_id}}">{{$order -> store -> store_name}}</option>
+                                                                @else
+                                                                    @foreach ($stores as $store)
+                                                                        <option  display-address = "{{$store -> address ?-> display_address}}" value = "{{$store -> id}}" {{isset($order) ? ($order -> store_id == $store -> id ? 'selected' : '') : ''}}>{{$store -> store_name}}</option>
+                                                                    @endforeach
+                                                                @endif
                                                             </select>
                                                         </div>
                                                     </div>
+                                                    
+                                                    <div class="row align-items-center mb-1 sub_store">
+                                                        <div class="col-md-3"> 
+                                                            <label class="form-label">Store<span class="text-danger">*</span></label>  
+                                                        </div>  
+                                                        <div class="col-md-5">  
+                                                            <select class="form-select subStoreSelect disable_on_edit" name="sub_store_id" id="sub_store_id_input">
+                                                                @if(isset($order) && $order->sub_store_id)
+                                                                    <option value="{{ $order->sub_store_id }}" selected> {{ $order->sub_store->name }}</option>
+                                                                @endif
+                                                            </select>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="row align-items-center mb-1 d-none">
+                                                        <div class="col-md-3"> 
+                                                            <label class="form-label">Type<span class="text-danger">*</span></label>  
+                                                        </div>  
+                                                        <div class="col-md-5">  
+                                                            <select class="form-select subStoreSelect disable_on_edit" name="type_input" id="type_input">
+                                                                <option value="0" {{ isset($order) && $order->return_type == 0 ? "selected" : '' }}>Reversal</option>
+                                                                <option value="1" {{ isset($order) && $order->return_type == 1 ? "selected" : '' }}>Customer Return</option>
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
 
                                                     {{--<div class="row align-items-center mb-1">
                                                         <div class="col-md-3">
@@ -204,17 +234,19 @@
                                                     --}}
                                                     <div class="row align-items-center mb-1">
                                                         <div class="col-md-3">
-                                                            <label class="form-label">Reference No </label>
+                                                            <label class="form-label">Customer PO No </label>
                                                         </div>
 
                                                         <div class="col-md-5">
-                                                            <input type="text" value = "{{isset($order) ? $order -> reference_number : ''}}" name = "reference_no" class="form-control" id = "reference_no_input">
+                                                            <input type="text" value = "{{isset($order) ? $order -> reference_number : ''}}" name = "reference_no" class="form-control" readonly id = "reference_no_input">
+                                                            <input type="hidden" value = "{{ isset($order) ? $order -> reference_id : ''}}" name = "reference_id" id = "reference_id_input" >
+                                                            <input type="hidden" value = "{{ isset($order) ? $order -> reference_doc_type : ''}}" name = "reference_doc_type" id = "reference_doc_type" >
                                                         </div>
                                                      </div>
                                                      @if($einvoice && $enableEinvoice)
                                                             <div class="row align-items-center mb-1 lease-hidden">
                                                                 <div class="col-md-3">
-                                                                    <label class="form-label">E-Invoice IRN</label>
+                                                                    <label class="form-label">E-CRN Ref.</label>
                                                                 </div>
 
                                                                 <div class="col-md-5">
@@ -231,37 +263,26 @@
                                                                 </div>
                                                             </div>
                                                         @endif
+
                                                     @if (!isset($order))
 
                                                     <div class="row align-items-center mb-1" id = "selection_section" style = "display:none;">
                                                         <div class="col-md-3">
                                                             <label class="form-label">Reference From</label>
                                                         </div>
-                                                        <div class="col-md-3 action-button" id = "sales_invoice_selection">
-                                                            <button onclick = "openHeaderPullModal('ret');" disabled type = "button" id = "select_order_button" data-bs-toggle="modal" data-bs-target="#rescdule" class="btn btn-outline-primary btn-sm mb-0"><i data-feather="plus-square"></i>
-                                                             Sales Invoice
-                                                        </button>
+                                                        <div class="col-md-9 action-button" >
+                                                                <button id = "sales_invoice_selection" onclick = "openHeaderPullModal('{{App\Helpers\ConstantHelper::SI_SERVICE_ALIAS}}');" type = "button" id = "select_inv_button"  data-bs-toggle="modal" data-bs-target="#resceduleinv" class="btn btn-outline-primary btn-sm mb-0"><i data-feather="plus-square"></i>
+                                                                    Invoice
+                                                                </button>
+                                                                    <button id = "delivery_note_selection" onclick = "openHeaderPullModal('{{App\Helpers\ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS}}');" type = "button" id = "select_dn_button"  data-bs-toggle="modal" data-bs-target="#rescedulednote" class="btn btn-outline-primary btn-sm mb-0"><i data-feather="plus-square"></i>
+                                                                        DNote
+                                                                    </button>
+                                                                    <button id = "dnote_inv_selection" onclick = "openHeaderPullModal('{{App\Helpers\ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS}}');" type = "button" id = "select_si_dn_button"  data-bs-toggle="modal" data-bs-target="#rescedulesinv" class="btn btn-outline-primary btn-sm mb-0"><i data-feather="plus-square"></i>
+                                                                        DN-cum-Inv
+                                                                    </button>
+                                                            </div>
                                                         </div>
-                                                        @if($type == 'dnote')
-                                                            <div class="col-md-3 action-button" id = "sales_return_selection">
-                                                                <button onclick = "openHeaderPullModal('ret');" disabled type = "button" id = "select_sr_button" data-bs-toggle="modal" data-bs-target="#rescdule" class="btn btn-outline-primary btn-sm mb-0"><i data-feather="plus-square"></i>
-                                                                 Sales Return
-                                                            </button>
-                                                            </div>
-                                                        @endif
-                                                        @if ($type == 'sr')
-                                                            <div class="col-md-3 action-button" id = "delivery_note_selection">
-                                                                <button onclick = "openHeaderPullModal('sr');" disabled type = "button" id = "select_dn_button" data-bs-toggle="modal" data-bs-target="#rescdule" class="btn btn-outline-primary btn-sm mb-0"><i data-feather="plus-square"></i>
-                                                                Delivery Note
-                                                            </button>
-                                                            </div>
-                                                            <div class="col-md-3 action-button" id = "land_lease_selection">
-                                                                <button onclick = "openHeaderPullModal('land-lease');" disabled type = "button" id = "select_lease_button" data-bs-toggle="modal" data-bs-target="#rescdule2" class="btn btn-outline-primary btn-sm mb-0"><i data-feather="plus-square"></i>
-                                                                Land Lease
-                                                            </button>
-                                                            </div>
-                                                        @endif
-                                                        </div>
+                                                        
                                                     </div>
                                                     @endif
                                         </div>
@@ -329,103 +350,152 @@
                                         </div>
                                 </div>
                             </div>
+                            
                             <div class="row">
                                 <div class="col-md-12">
-                                        <div class="card quation-card">
-                                            <div class="card-header newheader">
-                                                <div>
-                                                    <h4 class="card-title">Customer Details</h4>
-                                                </div>
+                                    <div class="card quation-card">
+                                        <div class="card-header newheader">
+                                            <div>
+                                                <h4 class="card-title">Customer Details</h4>
                                             </div>
-                                            <div class="card-body">
-                                                <div class="row">
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
 
-                                                    <div class="col-md-3">
-                                                        <div class="mb-1">
-                                                            <label class="form-label">Customer <span class="text-danger">*</span></label>
-                                                        <input type="text" id = "customer_code_input" disabled placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input disable_on_edit" autocomplete="off" value = "{{isset($order) ? $order -> customer_code : ''}}" onblur = "onChangeCustomer('customer_code_input', true);">
-                                                        <input type = "hidden" name = "customer_id" id = "customer_id_input" value = "{{isset($order) ? $order -> customer_id : ''}}"></input>
-                                                        <input type = "hidden" name = "customer_code" id = "customer_code_input_hidden" value = "{{isset($order) ? $order -> customer_code : ''}}"></input>
-                                                        </div>
+                                                <div class="col-md-3">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Customer <span class="text-danger">*</span></label>
+                                                    <input type="text" id = "customer_code_input" disabled placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input disable_on_edit" autocomplete="off" value = "{{isset($order) ? $order -> cust ?-> company_name : ''}}" onblur = "onChangeCustomer('customer_code_input', true)" >
+                                                    <input type = "hidden" name = "customer_id" id = "customer_id_input" value = "{{isset($order) ? $order -> customer_id : ''}}"></input>
+                                                    <input type = "hidden" name = "customer_code" id = "customer_code_input_hidden" value = "{{isset($order) ? $order -> customer_code : ''}}"></input>
                                                     </div>
+                                                </div>
 
-                                                    <div class="col-md-3">
-                                                        <div class="mb-1">
-                                                            <label class="form-label">Currency <span class="text-danger">*</span></label>
-                                                             <select class="form-select disable_on_edit" id = "currency_dropdown" name = "currency_id" readonly>
-                                                                @if (isset($order) && isset($order -> customer))
-                                                                    <option value = "{{$order -> customer -> currency_id}}">{{$order -> customer ?-> currency ?-> name}}</option>
-                                                                @else
-                                                                    <option value = "">Select</option>
-                                                                @endif
-                                                            </select>
-                                                        </div>
-                                                        <input type = "hidden" name = "currency_code" value = "{{isset($order) ? $order -> currency_code : ''}}" id = "currency_code_input"></input>
+                                                <div class="col-md-3">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Phone No.<span class="text-danger">*</span></label>
+                                                        <input type="text" class="form-control ledgerselecct ui-autocomplete-input" autocomplete="off" id = "customer_phone_no_input" name = "customer_phone_no" value = "{{isset($order) ? $order -> cust -> phone : ''}}" />
                                                     </div>
-
-
-                                                    <div class="col-md-3">
-                                                        <div class="mb-1">
-                                                            <label class="form-label">Payment Terms <span class="text-danger">*</span></label>
-                                                            <select class="form-select disable_on_edit" id = "payment_terms_dropdown" name = "payment_terms_id" readonly>
-                                                                @if (isset($order) && isset($order -> customer))
-                                                                    <option value = "{{$order -> customer -> payment_terms_id}}">{{$order -> customer ?-> payment_terms ?-> name}}</option>
-                                                                @else
-                                                                    <option value = "">Select</option>
-                                                                @endif
-                                                            </select>
-                                                        </div>
-                                                        <input type = "hidden" name = "payment_terms_code" value = "{{isset($order) ? $order -> payment_terms_code : ''}}" id = "payment_terms_code_input"></input>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Email<span class="text-danger">*</span></label>
+                                                        <input type="text" class="form-control ledgerselecct ui-autocomplete-input" autocomplete="off"  id = "customer_email_input" name = "customer_email" value = "{{isset($order) ? $order -> customer-> email : ''}}" />
                                                     </div>
-
-                                                    <div class="col-md-3">
-                                                        <div class="mb-1">
-                                                            <label class="form-label">Consignee Name</label>
-                                                            <input type="text" class="form-control" id = "consignee_name_input" name = "consignee_name" value = "{{isset($order) ? $order -> consignee_name : ''}}" />
-                                                        </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Consignee Name</label>
+                                                        <input type="text" class="form-control ledgerselecct ui-autocomplete-input" autocomplete="off"  id = "consignee_name_input" name = "consignee_name" value = "{{isset($order) ? $order -> consignee_name : ''}}" onblur = "onChangeConsignee('consignee_name_input', true)"  />
+                                                        <input type = "hidden" name = "consignee_id" id = "consignee_id_input" value = "{{isset($order) ? $order -> consignee_id : ''}}"></input>
                                                     </div>
-                                                 </div>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">GSTIN No.</label>
+                                                        <input type="text" class="form-control ledgerselecct ui-autocomplete-input" autocomplete="off"  id = "customer_gstin_input" name = "customer_gstin" value = "{{isset($order) ? $order ?-> cust -> compliances -> gstin_no : ''}}" />
+                                                    </div>
+                                                </div>
 
-                                                <div class="row">
-                                                    <div class="col-md-4">
-                                                        <div class="customer-billing-section h-100">
-                                                            <p>Billing Address&nbsp;<span class="text-danger">*</span>
-                                                            <a href="javascript:;" id="billAddressEditBtn" class="float-end"><i data-feather='edit-3'></i></a>
-                                                        </p>
-                                                            <div class="bilnbody">
-                                                                <div class="genertedvariables genertedvariablesnone">
-                                                                    <div class="mrnaddedd-prim" id = "current_billing_address">{{isset($order) ? $order -> billing_address_details ?-> display_address : ''}}</div>
-                                                                    <input type = "hidden" id = "current_billing_address_id"></input>
-                                                                </div>
+
+
+                                                <div class="col-md-3">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Currency <span class="text-danger">*</span></label>
+                                                            <select class="form-select disable_on_edit" id = "currency_dropdown" name = "currency_id" readonly>
+                                                            @if (isset($order) && isset($order -> customer))
+                                                                <option value = "{{$order -> cust -> currency_id}}">{{$order -> cust ?-> currency ?-> name}}</option>
+                                                            @else
+                                                                <option value = "">Select</option>
+                                                            @endif
+                                                        </select>
+                                                    </div>
+                                                    <input type = "hidden" name = "currency_code" value = "{{isset($order) ? $order -> currency_code : ''}}" id = "currency_code_input"></input>
+                                                </div>
+
+
+                                                <div class="col-md-3">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Payment Terms <span class="text-danger">*</span></label>
+                                                        <select class="form-select disable_on_edit" id = "payment_terms_dropdown" name = "payment_terms_id" readonly>
+                                                            @if (isset($order) && isset($order -> customer))
+                                                                <option value = "{{$order -> cust -> payment_terms_id}}">{{$order -> cust ?-> payment_terms ?-> name}}</option>
+                                                            @else
+                                                                <option value = "">Select</option>
+                                                            @endif
+                                                        </select>
+                                                    </div>
+                                                    <input type = "hidden" name = "payment_terms_code" value = "{{isset($order) ? $order -> payment_terms_code : ''}}" id = "payment_terms_code_input"></input>
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Credit Days <span class="text-danger"></span></label>
+                                                        <input type="number" value = "{{isset($order) ? $order -> credit_days : (isset($order->reference->credit_days) ? $order->reference->credit_days : 0)}}" name = "credit_days" class="form-control disable_on_edit" id = "credit_days_input" readonly>
+                                                    </div>
+                                                </div>
+
+                                            </div>
+
+                                                </div>
+
+
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <div class="customer-billing-section h-100">
+                                                        <p>Billing Address&nbsp;<span class="text-danger">*</span>
+                                                        @if (!isset($order))
+                                                        <a href="javascript:;" id="billAddressEditBtn" class="float-end"><i data-feather='edit-3'></i></a>
+                                                        @endif
+                                                    </p>
+                                                        <div class="bilnbody">
+                                                            <div class="genertedvariables genertedvariablesnone">
+                                                                <div class="mrnaddedd-prim" id = "current_billing_address">{{isset($order) ? $order -> billing_address_details ?-> display_address : ''}}</div>
+                                                                <input type = "hidden" id = "current_billing_address_id"></input>
+                                                                <input type = "hidden" id = "current_billing_country_id" name = "billing_country_id" value = "{{isset($order) && isset($order -> billing_address_details) ? $order -> billing_address_details -> country_id : ''}}"></input>
+                                                                <input type = "hidden" id = "current_billing_state_id" name = "billing_state_id" value = "{{isset($order) && isset($order -> billing_address_details) ? $order -> billing_address_details -> state_id : ''}}"></input>
+                                                                <input type="hidden" name="new_billing_country_id" id="new_billing_country_id" value="">
+                                                                <input type="hidden" name="new_billing_state_id" id="new_billing_state_id" value="">
+                                                                <input type="hidden" name="new_billing_city_id" id="new_billing_city_id" value="">
+                                                                <input type="hidden" name="new_billing_address" id="new_billing_address" value="">
+                                                                <input type="hidden" name="new_billing_type" id="new_billing_type" value="">
+                                                                <input type="hidden" name="new_billing_pincode" id="new_billing_pincode" value="">
+                                                                <input type="hidden" name="new_billing_phone" id="new_billing_phone" value="">
                                                             </div>
-
                                                         </div>
+
                                                     </div>
-                                                    <div class="col-md-4">
-                                                        <div class="customer-billing-section">
-                                                            <p>Shipping Address&nbsp;<span class="text-danger">*</span>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="customer-billing-section">
+                                                        <p>Shipping Address&nbsp;<span class="text-danger">*</span><span id = "same_checkbox_as_billing" style = "margin-left:120px; font-weight:100;"></span>
                                                             <a href="javascript:;" id="shipAddressEditBtn" data-bs-toggle="modal" class="float-end"><i data-feather='edit-3'></i></a>
                                                         </p>
-                                                            <div class="bilnbody">
+                                                        <div class="bilnbody">
 
-                                                                <div class="genertedvariables genertedvariablesnone">
-                                                                    <div class="mrnaddedd-prim" id = "current_shipping_address">{{isset($order) ? $order -> shipping_address_details ?-> display_address : ''}}</div>
-                                                                    <input type = "hidden" id = "current_shipping_address_id"></input>
-                                                                    <input type = "hidden" id = "current_shipping_country_id" name = "shipping_country_id" value = "{{isset($order) && isset($order -> shipping_address_details) ? $order -> shipping_address_details -> country_id : ''}}"></input>
-                                                                    <input type = "hidden" id = "current_shipping_state_id" name = "shipping_state_id" value = "{{isset($order) && isset($order -> shipping_address_details) ? $order -> shipping_address_details -> state_id : ''}}"></input>
-                                                                </div>
+                                                            <div class="genertedvariables genertedvariablesnone">
+                                                                <div class="mrnaddedd-prim" id = "current_shipping_address">{{isset($order) ? $order -> shipping_address_details ?-> display_address : ''}}</div>
+                                                                <input type = "hidden" id = "current_shipping_address_id"></input>
+                                                                <input type = "hidden" id = "current_shipping_country_id" name = "shipping_country_id" value = "{{isset($order) && isset($order -> shipping_address_details) ? $order -> shipping_address_details -> country_id : ''}}"></input>
+                                                                <input type = "hidden" id = "current_shipping_state_id" name = "shipping_state_id" value = "{{isset($order) && isset($order -> shipping_address_details) ? $order -> shipping_address_details -> state_id : ''}}"></input>
+                                                                <input type="hidden" name="new_shipping_country_id" id="new_shipping_country_id" value="">
+                                                                <input type="hidden" name="new_shipping_state_id" id="new_shipping_state_id" value="">
+                                                                <input type="hidden" name="new_shipping_city_id" id="new_shipping_city_id" value="">
+                                                                <input type="hidden" name="new_shipping_address" id="new_shipping_address" value="">
+                                                                <input type="hidden" name="new_shipping_type" id="new_shipping_type" value="">
+                                                                <input type="hidden" name="new_shipping_pincode" id="new_shipping_pincode" value="">
+                                                                <input type="hidden" name="new_shipping_phone" id="new_shipping_phone" value="">
                                                             </div>
+                                                        </div>
                                                     </div>
-                                                    </div>
+                                            </div>
 
-                                                    <div class="col-md-4">
-                                                        <div class="customer-billing-section">
-                                                            <p>Pickup Address&nbsp;<span class="text-danger">*</span>
+                                            <div class="col-md-4">
+                                                    <div class="customer-billing-section">
+                                                        <p>Pickup Address&nbsp;<span class="text-danger">*</span>
                                                         </p>
-                                                            <div class="bilnbody">
-                                                                <div class="genertedvariables genertedvariablesnone">
-                                                                    <div class="mrnaddedd-prim" id = "current_pickup_address">{{isset($order) ? $order -> location_address_details ?-> display_address : ''}}</div>
-                                                                </div>
+                                                        <div class="bilnbody">
+                                                            <div class="genertedvariables genertedvariablesnone">
+                                                                <div class="mrnaddedd-prim" id = "current_pickup_address">{{isset($order) ? $order -> location_address_details ?-> display_address : ''}}</div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -434,7 +504,9 @@
                                         </div>
                                     </div>
 
-                                    <div class="col-md-12"  id = "general_information_tab">
+                        
+
+                            <div class="col-md-12"  id = "general_information_tab">
 									<div class="card quation-card">
 										<div class="card-header newheader">
 											<div>
@@ -620,13 +692,32 @@
                                                                          <td>
                                                                             <div class="d-flex">
                                                                                 <div class="me-50 cursor-pointer" data-bs-toggle="modal" data-bs-target="#Remarks" onclick = "setItemRemarks('item_remarks_{{$orderItemIndex}}');"><span data-bs-toggle="tooltip" data-bs-placement="top" title="Remarks" class="text-primary"><i data-feather="file-text"></i></span></div>
-                                                                                    @if(isset($orderItem) && $orderItem->si_item_id)
-                                                                                    <div class="me-50 cursor-pointer" onclick = "setItemLot(this);" lot-data = "{{ $orderItem->erpSrItemLot }}" ><span data-bs-toggle="tooltip" data-bs-placement="top" title="Lot" class="text-primary"><i data-feather="package"></i></span></div>
+                                                                                    @if(isset($orderItem) && $orderItem->si_item_id && isset($orderItem->erpSrItemLot) && count($orderItem->erpSrItemLot))
+                                                                                    <!-- Hidden Batch Input -->
+                                                                                    <input type="hidden" id="batches_{{$orderItemIndex}}" name="batch_details[{{$orderItemIndex}}]" value='{{ isset($orderItem) ? json_encode($orderItem->erpSrItemLot->toArray()) : '' }}' />
+
+                                                                                    <!-- Batch Button -->
+                                                                                    <div class="me-50 cursor-pointer addBatchBtn"
+                                                                                        data-row-count="{{$orderItemIndex}}"
+                                                                                        data-is-batch-number="{{ $orderItem->item?->is_batch_no ? 1 : 0 }}"
+                                                                                        data-is-expiry="{{ $orderItem->item?->is_expiry ? 1 : 0 }}"
+                                                                                        data-bs-toggle="modal"
+                                                                                        data-bs-target="#item-batch-modal">
+                                                                                        <span data-bs-toggle="tooltip" data-bs-placement="top" class="text-primary"
+                                                                                            data-bs-original-title="Item Batch" aria-label="Item Batch">
+                                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                                                                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                                                                stroke-linejoin="round" class="feather feather-map-pin">
+                                                                                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                                                                                <circle cx="12" cy="10" r="3"></circle>
+                                                                                            </svg>
+                                                                                        </span>
+                                                                                    </div>
                                                                                     @endif
                                                                             </div>
                                                                          </td>
                                                                          <input type="hidden" id = "item_remarks_{{$orderItemIndex}}" name = "item_remarks[]" value = "{{$orderItem -> remarks}}"/>
-                                                                         <input type="hidden" id = "item_lot_qty_{{$orderItemIndex}}" name = "item_lot[]" lot-data = "{{ $orderItem->erpSrItemLot }}" value = ""/>
+                                                                         <input type="hidden" id = "item_lot_qty_{{$orderItemIndex}}" name = "item_lot[]" lot-data = '{{ $orderItem->erpSrItemLot }}' value = ""/>
 
                                                                       </tr>
                                                                     @endforeach
@@ -732,6 +823,7 @@
                                                                                     <h6 class="text-dark mb-0 bg-light-primary py-1 px-50 d-flex justify-content-between"><strong>Return Summary</strong>
                                                                                     <div class="addmendisexpbtn">
                                                                                             <button type = "button" id = "taxes_button" data-bs-toggle="modal" data-bs-target="#orderTaxes" class="btn p-25 btn-sm btn-outline-secondary" onclick = "onOrderTaxClick();" >Taxes</button>
+                                                                                            <input class = "item_taxes_input" type = "hidden" id = "order_tcs_tax" value = "" />
                                                                                             <button type = "button" id = "order_discount_button" data-bs-toggle="modal" data-bs-target="#discountOrder" class="btn p-25 btn-sm btn-outline-secondary" onclick = "onOrderDiscountModalOpen();"><i data-feather="plus"></i> Discount</button>
                                                                                             <button type = "button" id = "order_expense_button" data-bs-toggle="modal" data-bs-target="#expenses" class="btn p-25 btn-sm btn-outline-secondary" onclick = "onOrderExpenseModalOpen();"><i data-feather="plus"></i> Expenses</button>
                                                                                         </div>
@@ -856,189 +948,114 @@
             </div>
         </div>
     </div>
-
-    <div class="modal fade text-start" id="rescdule" tabindex="-1" aria-labelledby="header_pull_label" aria-hidden="true">
-		<div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 1000px">
-			<div class="modal-content">
-				<div class="modal-header">
-					<div>
-                        <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="header_pull_label">Select Document</h4>
-                        <p class="mb-0">Select from the below list</p>
+<!-- Item Batch Modal -->
+<div class="modal" id="item-batch-modal" tabindex="-1" aria-labelledby="itemBatchLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="text-center modal-title mb-1" id="itemBatchLabel">Item Batches</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body item-batch-modal-body">
+                <div class="row">
+                    <div class="col-md-12 text-end">
+                        <button type="button" class="btn btn-sm btn-outline-primary add-batch-row-header">
+                            <i data-feather="plus"></i> Add
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger delete-batch-row-header">
+                            <i data-feather="trash"></i> Delete
+                        </button>
                     </div>
+                </div>
+                <table class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail" id="itemBatchTable">
+                    <thead>
+                        <tr>
+                            <th width="30px">#</th>
+                            <th width="100px">Batch Number</th>
+                            <th width="100px">Manufacturing Year</th>
+                            <th width="120px">Expiry Date</th>
+                            <th width="80px">Quantity</th>
+                            <th width="50px">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="4" class="text-end">Total Quantity:</th>
+                            <th id="totalBatchQty">0</th>
+                            <th></th>
+                        </tr>
+                </table>
+
+                <!-- Context for JS -->
+                <input type="hidden" id="itemBatchRowIndex" />
+                <input type="hidden" id="itemBatchIsExpiry" value="0" />
+                <input type="hidden" id="itemBatchIsEdit" value="0" />
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveItemBatchBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Item Batch Modal End -->
+
+<!-- Asset Detail Modal -->
+<div class="modal fade" id="assetDetailModal" tabindex="-1" aria-labelledby="assetDetailLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="text-center modal-title mb-1" id="assetDetailLabel">Asset Details</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body asset-detail-modal-body">
+                <!-- Populated dynamically via JS -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary submitAssetBtn">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Asset Detail Modal End -->
+    <div class="modal fade" id="tax" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
+		<div class="modal-dialog  modal-dialog-centered" style="max-width: 700px">
+			<div class="modal-content">
+				<div class="modal-header p-0 bg-transparent">
 					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 				</div>
-				<div class="modal-body">
-					 <div class="row">
-
-                     <div class="col">
-                            <div class="mb-1">
-                            <label class="form-label">Customer Name <span class="text-danger">*</span></label>
-                                <input type="text" id="customer_code_input_qt" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
-                                <input type = "hidden" id = "customer_id_qt_val"></input>
-                            </div>
-                        </div>
-
-                        <div class="col">
-                            <div class="mb-1">
-                                <label class="form-label">Series <span class="text-danger">*</span></label>
-                                <input type="text" id="book_code_input_qt" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
-                                <input type = "hidden" id = "book_id_qt_val"></input>
-                            </div>
-                        </div>
+				<div class="modal-body px-sm-2 mx-50 pb-2">
+					<h1 class="text-center mb-1" id="shareProjectTitle">Taxes</h1>
+					<p class="text-center">Enter the details below.</p>
 
 
-                         <div class="col">
-                            <div class="mb-1">
-                                <label class="form-label">Document No. <span class="text-danger">*</span></label>
-                                <input type="text" id="document_no_input_qt" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
-                                <input type = "hidden" id = "document_id_qt_val"></input>
-                            </div>
-                        </div>
+                    <!-- <div class="text-end"><a href="#" class="text-primary add-contactpeontxt mt-50"><i data-feather='plus'></i> Add Discount</a></div> -->
 
-                         <div class="col">
-                            <div class="mb-1">
-                                <label class="form-label">Item Name <span class="text-danger">*</span></label>
-                                <input type="text" id="item_name_input_qt" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
-                                <input type = "hidden" id = "item_id_qt_val"></input>
-                            </div>
-                        </div>
-
-                         <div class="col  mb-1">
-                              <label class="form-label">&nbsp;</label><br/>
-                             <button onclick = "getOrders();" type = "button" class="btn btn-warning btn-sm"><i data-feather="search"></i> Search</button>
-                         </div>
-
-						 <div class="col-md-12">
-							<div class="table-responsive">
-								<table class="mt-1 table myrequesttablecbox table-striped po-order-detail">
+					<div class="table-responsive-md customernewsection-form">
+								<table class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail" id = "tax_main_table">
 									<thead>
 										 <tr>
-											<th>
-												<!-- <div class="form-check form-check-inline me-0">
-													<input class="form-check-input" type="checkbox" name="podetail" id="inlineCheckbox1">
-												</div>  -->
-											</th>
-											<th>Series</th>
-											<th>Document No.</th>
-											<th>Document Date</th>
-                                            <th>Customer Code</th>
-                                            <th>Customer Name</th>
-											<th>Item</th>
-											<th>Quantity</th>
-											<th>Balance Qty</th>
-											<th>Rate</th>
+                                            <th>#</th>
+											<th width="150px">Tax Name</th>
+											<th>Tax %</th>
+											<th>Tax Value</th>
 										  </tr>
 										</thead>
-										<tbody id = "qts_data_table">
+										<tbody>
 
 									   </tbody>
 
 
 								</table>
 							</div>
-						</div>
 
-
-					 </div>
 				</div>
-				<div class="modal-footer text-end">
-					<button type = "button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i data-feather="x-circle"></i> Cancel</button>
-					<button type = "button" class="btn btn-primary btn-sm" onclick = "processOrder();" data-bs-dismiss="modal"><i data-feather="check-circle"></i> Process</button>
-				</div>
-			</div>
-		</div>
-	</div>
-    <div class="modal fade text-start" id="rescdule2" tabindex="-1" aria-labelledby="header_pull_label" aria-hidden="true">
-		<div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 1000px">
-			<div class="modal-content">
-				<div class="modal-header">
-					<div>
-                        <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="header_pull_label">Select Document</h4>
-                        <p class="mb-0">Select from the below list</p>
-                    </div>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body">
-					 <div class="row">
 
-                     <div class="col">
-                            <div class="mb-1">
-                            <label class="form-label">Customer <span class="text-danger">*</span></label>
-                                <input type="text" id="customer_code_input_qt_land" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
-                                <input type = "hidden" id = "customer_id_qt_val_land"></input>
-                            </div>
-                        </div>
-
-                        <div class="col">
-                            <div class="mb-1">
-                                <label class="form-label">Series <span class="text-danger">*</span></label>
-                                <input type="text" id="book_code_input_qt_land" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
-                                <input type = "hidden" id = "book_id_qt_val_land"></input>
-                            </div>
-                        </div>
-
-
-                         <div class="col">
-                            <div class="mb-1">
-                                <label class="form-label">Document No. <span class="text-danger">*</span></label>
-                                <input type="text" id="document_no_input_qt_land" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
-                                <input type = "hidden" id = "document_id_qt_val_land"></input>
-                            </div>
-                        </div>
-
-                         <div class="col">
-                            <div class="mb-1">
-                                <label class="form-label">Land Parcel <span class="text-danger">*</span></label>
-                                <input type="text" id="item_name_input_qt_land" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
-                                <input type = "hidden" id = "item_id_qt_val_land"></input>
-                            </div>
-                        </div>
-
-                         <div class="col">
-                            <div class="mb-1">
-                                <label class="form-label">Land Plots <span class="text-danger">*</span></label>
-                                <input type="text" id="item_name_input_qt_land" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
-                                <input type = "hidden" id = "item_id_qt_val_land"></input>
-                            </div>
-                        </div>
-
-                         <div class="col  mb-1">
-                              <label class="form-label">&nbsp;</label><br/>
-                             <button onclick = "getOrders('land-lease');" type = "button" class="btn btn-warning btn-sm"><i data-feather="search"></i> Search</button>
-                         </div>
-
-						 <div class="col-md-12">
-							<div class="table-responsive">
-								<table class="mt-1 table myrequesttablecbox table-striped po-order-detail">
-									<thead>
-										 <tr>
-											<th>
-											</th>
-											<th>Series</th>
-											<th>Document No.</th>
-											<th>Document Date</th>
-                                            <th>Customer</th>
-											<th>Land Parcel</th>
-											<th>Plots</th>
-											<th>Amount</th>
-											<th>Due Date</th>
-										  </tr>
-										</thead>
-										<tbody id = "qts_data_table_land">
-
-									   </tbody>
-
-
-								</table>
-							</div>
-						</div>
-
-
-					 </div>
-				</div>
-				<div class="modal-footer text-end">
-					<button type = "button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i data-feather="x-circle"></i> Cancel</button>
-					<button type = "button" class="btn btn-primary btn-sm" onclick = "processOrder('land-lease');" data-bs-dismiss="modal"><i data-feather="check-circle"></i> Process</button>
+				<div class="modal-footer justify-content-center">
+						<button type="button" class="btn btn-outline-secondary me-1" onclick = "closeModal('tax');">Cancel</button>
+					    <button type="button" class="btn btn-primary" onclick = "closeModal('tax');">Submit</button>
 				</div>
 			</div>
 		</div>
@@ -1119,47 +1136,6 @@
 				<div class="modal-footer justify-content-center">
 						<button type="button" class="btn btn-outline-secondary me-1" onclick = "closeModal('discount');">Cancel</button>
 					    <button type="button" class="btn btn-primary" onclick = "closeModal('discount');">Submit</button>
-				</div>
-			</div>
-		</div>
-	</div>
-
-    <div class="modal fade" id="tax" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
-		<div class="modal-dialog  modal-dialog-centered" style="max-width: 700px">
-			<div class="modal-content">
-				<div class="modal-header p-0 bg-transparent">
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
-				<div class="modal-body px-sm-2 mx-50 pb-2">
-					<h1 class="text-center mb-1" id="shareProjectTitle">Taxes</h1>
-					<p class="text-center">Enter the details below.</p>
-
-
-                    <!-- <div class="text-end"><a href="#" class="text-primary add-contactpeontxt mt-50"><i data-feather='plus'></i> Add Discount</a></div> -->
-
-					<div class="table-responsive-md customernewsection-form">
-								<table class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail" id = "tax_main_table">
-									<thead>
-										 <tr>
-                                            <th>#</th>
-											<th width="150px">Tax Name</th>
-											<th>Tax %</th>
-											<th>Tax Value</th>
-										  </tr>
-										</thead>
-										<tbody>
-
-									   </tbody>
-
-
-								</table>
-							</div>
-
-				</div>
-
-				<div class="modal-footer justify-content-center">
-						<button type="button" class="btn btn-outline-secondary me-1" onclick = "closeModal('tax');">Cancel</button>
-					    <button type="button" class="btn btn-primary" onclick = "closeModal('tax');">Submit</button>
 				</div>
 			</div>
 		</div>
@@ -1781,57 +1757,9 @@
             <button type="button" class="btn btn-primary" onclick = "submitAmend();">Submit</button>
          </div>
       </div>
+      
    </div>
-</div>
-</form>
 
-<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
-   <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <form class="ajax-submit-2" method="POST" action="{{ route('document.approval.saleReturn') }}" data-redirect="{{ route('sale.return.index', ['type' => $type]) }}" enctype='multipart/form-data'>
-          @csrf
-          <input type="hidden" name="action_type" id="action_type">
-          <input type="hidden" name="id" value="{{isset($order) ? $order -> id : ''}}">
-         <div class="modal-header">
-            <div>
-               <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="approve_reject_heading_label">
-               </h4>
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-         </div>
-         <div class="modal-body pb-2">
-            <div class="row mt-1">
-               <div class="col-md-12">
-                  <div class="mb-1">
-                     <label class="form-label">Remarks</label>
-                     <textarea name="remarks" class="form-control cannot_disable"></textarea>
-                  </div>
-                  <div class="row">
-                    <div class = "col-md-8">
-                        <div class="mb-1">
-                            <label class="form-label">Upload Document</label>
-                            <input type="file" name = "attachments[]" multiple class="form-control cannot_disable" onchange = "addFiles(this, 'approval_files_preview');" max_file_count = "2"/>
-                        </div>
-                    </div>
-                    <div class = "col-md-4" style = "margin-top:19px;">
-                        <div class = "row" id = "approval_files_preview">
-
-                        </div>
-                    </div>
-                  </div>
-                  <span class = "text-primary small">{{__("message.attachment_caption")}}</span>
-
-               </div>
-            </div>
-         </div>
-         <div class="modal-footer justify-content-center">
-            <button type="reset" class="btn btn-outline-secondary me-1">Cancel</button>
-            <button type="submit" class="btn btn-primary">Submit</button>
-         </div>
-       </form>
-      </div>
-   </div>
-</div>
 
 <div class="modal fade text-start alertbackdropdisabled" id="amendmentconfirm" tabindex="-1" aria-labelledby="myModalLabel1" aria-hidden="true" data-bs-backdrop="false">
   <div class="modal-dialog">
@@ -1855,7 +1783,7 @@
       <div class="modal-content">
         <form class="ajax-submit-2" method="POST" action="{{ route('sale.return.creditNoteMail') }}" data-redirect="{{ $redirect_url }}" enctype='multipart/form-data'>
           @csrf
-          <input type="hidden" name="action_type" id="action_type">
+          <input type="hidden" name="action_type" id="action_type_mail">
           <input type="hidden" name="id" value="{{isset($order) ? $order -> id : ''}}">
          <div class="modal-header">
             <div>
@@ -1881,12 +1809,8 @@
                 <div class="col-md-12">
                     <div class="mb-1 ">
                         <label class="form-label">CC To</label>
-                        <select name="cc_to[]" class="select2 reset_mail form-control cannot_disable" multiple>
-                            @foreach ($users as $index => $user)
-                                <option value="{{ $user->email }}" {{ isset($order) && $user->id == $order->created_by ? 'selected' : '' }}>
-                                    {{ $user->name }}
-                                </option>
-                            @endforeach
+                        <select name="cc_to[]" id="cc_to" class="select2 reset_mail mail_user form-control cannot_disable" multiple>
+                                <option value="">Select</option>
                         </select>
                     </div>
                 </div>
@@ -1908,7 +1832,7 @@
 </div>
                                     </div>
 
-
+                                    </div>
 <div class="modal fade text-start show" id="postvoucher" tabindex="-1" aria-labelledby="postVoucherModal" aria-modal="true" role="dialog">
 		<div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 1000px">
 			<div class="modal-content">
@@ -1996,6 +1920,8 @@
 										 <tr>
                                             <th width="50px">S.No</th>
 											<th>Lot No</th>
+											<th>Manufacturing Year</th>
+											<th>Expiry Date</th>
 											<th>Lot Qty</th>
 											<th width="50px">Return Qty</th>
 										  </tr>
@@ -2019,15 +1945,72 @@
 		</div>
 	</div>
 
+    
+</div>
+</form>
+                                    </div>
+<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
+   <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form class="ajax-submit-2" method="POST" action="{{ route('document.approval.saleReturn') }}" data-redirect="{{ route('sale.return.index', ['type' => $type]) }}" enctype='multipart/form-data'>
+          @csrf
+          <input type="hidden" name="action_type" id="action_type">
+          <input type="hidden" name="id" value="{{isset($order) ? $order -> id : ''}}">
+         <div class="modal-header">
+            <div>
+               <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="approve_reject_heading_label">
+               </h4>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+         </div>
+         <div class="modal-body pb-2">
+            <div class="row mt-1">
+               <div class="col-md-12">
+                  <div class="mb-1">
+                     <label class="form-label">Remarks</label>
+                     <textarea name="remarks" class="form-control cannot_disable"></textarea>
+                  </div>
+                  <div class="row">
+                    <div class = "col-md-8">
+                        <div class="mb-1">
+                            <label class="form-label">Upload Document</label>
+                            <input type="file" name = "attachments[]" multiple class="form-control cannot_disable" onchange = "addFiles(this, 'approval_files_preview');" max_file_count = "2"/>
+                        </div>
+                    </div>
+                    <div class = "col-md-4" style = "margin-top:19px;">
+                        <div class = "row" id = "approval_files_preview">
 
+                        </div>
+                    </div>
+                  </div>
+                  <span class = "text-primary small">{{__("message.attachment_caption")}}</span>
+
+               </div>
+            </div>
+         </div>
+         <div class="modal-footer justify-content-center">
+            <button type="reset" class="btn btn-outline-secondary me-1">Cancel</button>
+            <button type="submit" class="btn btn-primary">Submit</button>
+         </div>
+       </form>
+      </div>
+   </div>
+</div>
+ @include('salesReturn.invoice-pull-modal')
+ @include('salesReturn.dnote-pull-modal')
+ @include('salesReturn.si-dnote-pull-modal')
+
+@include('PL.common-js-route',["order" => isset($order) ? $order : null, "route_prefix" => "sale.return"])
 @section('scripts')
+<script type="text/javascript" src="{{asset('assets/js/modules/pull-popup-datatable.js')}}"></script>
+<script src="{{ asset("assets\\js\\modules\\pl\\common-script.js") }}"></script>
+<script type="text/javascript" src="{{asset('app-assets/js/scripts/sales/common.js')}}"></script>
 <script type="text/javascript" src="{{asset('app-assets/js/file-uploader.js')}}"></script>
 <script>
     var currentfy = JSON.stringify({!! isset($order) ? $order : " " !!});
     let requesterTypeParam = "{{isset($order) ? $order -> requester_type : 'Department'}}";
     let redirect = "{{$redirect_url}}";
 </script>
-@include('PL.common-js-route',["order" => isset($order) ? $order : null, "route_prefix" => "sale.return"])
 <script>
         $(window).on('load', function() {
             if (feather) {
@@ -2036,6 +2019,10 @@
                     height: 14
                 });
             }
+            if (!order || order.document_status == "{{ \App\Helpers\ConstantHelper::DRAFT }}") {
+                $("#store_id_input").trigger('change');
+            }
+
         });
         function addItemRow()
         {
@@ -2045,7 +2032,7 @@
             const previousElements = document.getElementsByClassName('item_header_rows');
             const newIndex = previousElements.length ? previousElements.length : 0;
             if (newIndex == 0) {
-                let addRow = $('#series_id_input').val() && $("#order_no_input").val() &&  $('#order_no_input').val() && $('#order_date_input').val() && $('#customer_code_input').val();
+                let addRow = $('#series_id_input').val() && $('#sub_store_id_input').val() && $('#store_id_input').val() && $("#order_no_input").val() &&  $('#order_no_input').val() && $('#order_date_input').val() && $('#customer_code_input').val();
                 if (!addRow) {
                 Swal.fire({
                     title: 'Error!',
@@ -2132,6 +2119,26 @@
                     <input type="hidden" id = "item_total_${newIndex}"  disabled class="form-control mw-100 text-end item_totals_input" />
                     <td>
                     <div class="d-flex">
+                        <!-- Hidden Batch Input -->
+                        <input type="hidden" id="batches_${newIndex}" name="batch_details[${newIndex}]" value="" />
+
+                        <!-- Batch Button -->
+                        <div class="me-50 cursor-pointer addBatchBtn"
+                            data-row-count="${newIndex}"
+                            data-is-batch-number=""
+                            data-is-expiry=""
+                            data-bs-toggle="modal"
+                            data-bs-target="#item-batch-modal">
+                            <span data-bs-toggle="tooltip" data-bs-placement="top" class="text-primary"
+                                data-bs-original-title="Item Batch" aria-label="Item Batch">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="feather feather-map-pin">
+                                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                    <circle cx="12" cy="10" r="3"></circle>
+                                </svg>
+                            </span>
+                        </div>
 
                         <div class="me-50 cursor-pointer" data-bs-toggle="modal" data-bs-target="#Remarks" onclick = "setItemRemarks('item_remarks_${newIndex}');">        <span data-bs-toggle="tooltip" data-bs-placement="top" title="Remarks" class="text-primary"><i data-feather="file-text"></i></span></div>
                    </div>
@@ -2192,13 +2199,12 @@
             } else {
                 const allItemsHeaderDiscount = document.getElementsByClassName('order_discount_hidden_fields');
                 const allItemsHeaderExpense = document.getElementsByClassName('order_expense_hidden_fields');
-                console.log(allItemsHeaderExpense,'huhu');
-                console.log(allItemsHeaderDiscount,'hehe');
                 document.querySelectorAll('.order_discount_hidden_fields, .order_expense_hidden_fields, .order_expenses, .order_discounts').forEach(el => el.remove());
                 $('#order_discount_row').remove();
                 $('#all_items_total_expenses_summary').val('0.00');
-
-
+                current_doc_id = 0;
+                $("#refernece_id_input").val('');
+                $("#reference_doc_type").val('');
                 document.getElementById('all_items_total_value').innerText = '0.00';
                 document.getElementById('total_order_discount').innerText = '0.00';
                 document.getElementById('total_order_expense').innerText = '0.00';
@@ -2216,10 +2222,6 @@
                 setAllTotalFields();
             }
 
-        }
-
-        function setItemLot(elementId) {
-            $('#lot').modal('show');
         }
 
 
@@ -2288,7 +2290,6 @@
             }
             else
             {
-                console.log("HERE 3");
                 Swal.fire({
                     title: 'Warning!',
                     text: 'Please enter all the discount details',
@@ -2304,7 +2305,6 @@
             const discountId = document.getElementById('new_order_discount_id').value;
             const discountPercentage = document.getElementById('new_order_discount_percentage').value;
             const discountValue = document.getElementById('new_order_discount_value').value;
-            console.log(discountValue);
             if (discountName && discountId && (discountPercentage || discountValue)) //All fields filled
             {
                 var existingOrderDiscount = document.getElementById('order_discount_summary') ? document.getElementById('order_discount_summary').textContent : 0;
@@ -2325,7 +2325,6 @@
                 const previousHiddenFields = document.getElementsByClassName('order_discount_value_hidden');
                 addOrderDiscountHiddenInput(previousHiddenFields.length ? previousHiddenFields.length : 0, dataId);
             } else {
-                console.log("HERE 1");
                 Swal.fire({
                     title: 'Warning!',
                     text: 'Please enter all the discount details',
@@ -2351,7 +2350,6 @@
 
                 var actualNewOrderExpense = existingOrderExpense + newOrderExpenseVal;
                 var totalItemsValueAfterTax = document.getElementById('all_items_total_after_tax_summary') ? document.getElementById('all_items_total_after_tax_summary').textContent : 0;
-                console.log(parseFloat(totalItemsValueAfterTax),"parsefloast");
                 totalItemsValueAfterTax = parseFloat(totalItemsValueAfterTax.replace(/,/g, ''));
                 // if (actualNewOrderExpense > totalItemsValueAfterTax && enableExceedCheck) {
                 //     Swal.fire({
@@ -2365,7 +2363,6 @@
                 const previousHiddenFields = document.getElementsByClassName('order_expense_value_hidden');
                 addOrderExpenseHiddenInput(previousHiddenFields.length ? previousHiddenFields.length : 0, dataId);
             } else {
-                console.log("HERE 2");
                 Swal.fire({
                     title: 'Warning!',
                     text: 'Please enter all the expense details',
@@ -2657,7 +2654,6 @@
 
             var newData = ``;
             for (let index = 0; index < previousHiddenNameFields.length; index++) {
-                console.log(index,previousHiddenNameFields);
                 const newHTML = document.getElementById('discount_main_table').insertRow(index + 2);
                 newHTML.id = "item_discount_modal_" + index;
                 newHTML.className = "item_discounts";
@@ -2733,7 +2729,6 @@
             for (let index = 0; index < docs.length; index++) {
                 totalDiscountModalVal += parseFloat(docs[index].value ? docs[index].value : 0);
             }
-            console.log(totalDiscountModalVal,"jabba");
             document.getElementById('total_item_discount').textContent = totalDiscountModalVal.toFixed(2);
             document.getElementById(elementId).value = totalDiscountModalVal.toFixed(2);
             // changeItemTotal(index);
@@ -2775,90 +2770,153 @@
             addOrderExpenseInTable(index);
         }
         function initializeAutocomplete1(selector, index) {
-            let modalId = '#'+$("#" + selector).closest('.modal').attr('id');
             $("#" + selector).autocomplete({
-                source: function(request, response) {
+                source: function (request, response) {
                     $.ajax({
                         url: '/search',
                         method: 'GET',
                         dataType: 'json',
                         data: {
                             q: request.term,
-                            type:'sale_module_items',
-                            customer_id : $("#customer_id_input").val(),
-                            header_book_id : $("#series_id_input").val()
+                            type: 'batch_items',
+                            customer_id: null,
+                            header_book_id: $("#series_id_input").val()
                         },
-                        success: function(data) {
-                            response($.map(data, function(item) {
+                        success: function (data) {
+                            response($.map(data, function (item) {
                                 return {
                                     id: item.id,
                                     label: `${item.item_name} (${item.item_code})`,
                                     code: item.item_code || '',
+                                    rate: item.rate || null,
                                     item_id: item.id,
-                                    uom : item.uom,
-                                    alternateUoms : item.alternate_u_o_ms,
-                                    specifications : item.specifications
+                                    uom: item.uom,
+                                    alternateUoms: item.alternate_u_o_ms,
+                                    specifications: item.specifications,
+                                    is_asset: item.is_asset,
+                                    asset_name: item.item_name,
+                                    asset_category_id: item.asset_category_id,
+                                    asset_category_name: item.asset_category?.name,
+                                    brand_name: item.brand_name,
+                                    model_no: item.model_no,
+                                    estimated_life: item.expected_life,
+                                    salvage_percentage: item.salvage_percentage ?? 0,
+                                    salvage_value: 0,
+                                    procurement_type: 'BUY',
+                                    is_batch_number: item.is_batch_no,
+                                    is_expiry: item.is_expiry,
+                                    is_attr: item.is_attr,
+                                    hsn_id: item.hsn_id,
+                                    hsn_code: item.hsn_code,
+                                    is_inspection: item.is_inspection
                                 };
                             }));
                         },
-                        error: function(xhr) {
+                        error: function (xhr) {
                             console.error('Error fetching customer data:', xhr.responseText);
                         }
                     });
                 },
                 minLength: 0,
-                appendTo : modalId,
-                select: function(event, ui) {
-                    var $input = $(this);
-                    var itemCode = ui.item.code;
-                    var itemName = ui.item.value;
-                    var itemId = ui.item.item_id;
+                select: function (event, ui) {
+                    let $input = $(this);
+                    let closestTr = $input.closest("tr");
 
-                    $input.attr('data-name', itemName);
-                    $input.attr('data-code', itemCode);
-                    $input.attr('data-id', itemId);
-                    $input.attr('specs', JSON.stringify(ui.item.specifications));
-                    $input.val(itemCode);
+                    // --- Fill inputs ---
+                    $input.attr("data-name", ui.item.label);
+                    $input.attr("data-code", ui.item.code);
+                    $input.attr("data-id", ui.item.item_id);
+                    $input.attr("specs", JSON.stringify(ui.item.specifications));
+                    $input.val(ui.item.code);
 
+                    // Hidden item_id
+                    closestTr.find(`#${selector}_value`).val(ui.item.item_id);
+
+                    // Item name field
+                    closestTr.find(`#items_name_${index}`).val(ui.item.label);
+                    closestTr.find(`#item_rate_${index}`).val(ui.item.rate ?? 0);
+
+                    // HSN & Inspection (if you have hidden fields for them, adapt here)
+                    closestTr.find('[name*=hsn_id]').val(ui.item.hsn_id || '');
+                    closestTr.find('[name*=hsn_code]').val(ui.item.hsn_code || '');
+
+                    // --- UOM Dropdown ---
                     const uomDropdown = document.getElementById('uom_dropdown_' + index);
-                    var uomInnerHTML = ``;
-                    if (uomDropdown) {
-                        uomInnerHTML += `<option value = '${ui.item.uom.id}'>${ui.item.uom.alias}</option>`;
-                    }
-                    if (ui.item.alternateUoms && ui.item.alternateUoms.length > 0) {
-                        var selected = false;
-                        ui.item.alternateUoms.forEach((saleUom) => {
-                            if (saleUom.is_selling) {
-                                uomInnerHTML += `<option value = '${saleUom.uom?.id}' ${selected == false ? "selected" : ""}>${saleUom.uom?.alias}</option>`;
-                                selected = true;
-                            }
+                    let uomId = ui.item.uom?.id || ui.item.uom_id;
+                    let uomName = ui.item.uom?.alias || ui.item.uom_name;
+                    let uomOption = `<option value="${uomId}" selected>${uomName}</option>`;
+
+                    if (ui.item.alternateUoms) {
+                        ui.item.alternateUoms.forEach(alterItem => {
+                            uomOption += `<option value="${alterItem.uom_id}" ${alterItem.is_purchasing ? 'selected' : ''}>${alterItem.uom?.name}</option>`;
                         });
                     }
-                    uomDropdown.innerHTML = uomInnerHTML;
-                    document.getElementById('')
+                    if (uomDropdown) {
+                        uomDropdown.innerHTML = uomOption;
+                    }
+                    // --- Batch setup ---
+                    closestTr.find('.addBatchBtn')
+                        .attr("data-is-batch-number", ui.item.is_batch_number)
+                        .attr("data-is-expiry", ui.item.is_expiry);
 
+                    // --- Asset setup ---
+                    if (ui.item.is_asset === 1) {
+                        const assetPayload = {
+                            asset_id: null,
+                            asset_name: ui.item.asset_name ?? '',
+                            asset_category_id: ui.item.asset_category_id ?? null,
+                            asset_category_name: ui.item.asset_category_name ?? '',
+                            asset_code: null,
+                            brand_name: ui.item.brand_name ?? '',
+                            model_no: ui.item.model_no ?? '',
+                            estimated_life: ui.item.estimated_life ?? '',
+                            salvage_percentage: ui.item.salvage_percentage ?? 0,
+                            procurement_type: ui.item.procurement_type ?? null,
+                            capitalization_date: new Date().toISOString().split('T')[0]
+                        };
+                        closestTr.find(`#assetDetailData_${index}`).val(JSON.stringify(assetPayload));
+                        closestTr.find('.assetDetailBtn')
+                            .removeClass('d-none')
+                            .attr('data-asset', JSON.stringify(assetPayload));
+                    } else {
+                        closestTr.find(`#assetDetailData_${index}`).val('');
+                        closestTr.find('.assetDetailBtn')
+                            .addClass('d-none')
+                            .removeAttr('data-asset');
+                    }
+
+                    // --- Attributes ---
                     itemOnChange(selector, index, '/item/attributes/');
-                    getItemTax(index);
+
+                    setTimeout(() => {
+                        if (ui.item.is_attr) {
+                            $(`#attribute_button_${index}`).trigger("click");
+                        } else {
+                            $(`#attribute_button_${index}`).trigger("click");
+                            $(`#item_qty_${index}`).val('').focus();
+                        }
+                    }, 100);
+
                     return false;
                 },
-                change: function(event, ui) {
+                change: function (event, ui) {
                     if (!ui.item) {
                         $(this).val("");
-                        // $('#itemId').val('');
-                        $(this).attr('data-name', '');
-                        $(this).attr('data-code', '');
+                        $(this).attr("data-name", "");
+                        $(this).attr("data-code", "");
+                        $(this).attr("data-id", "");
                     }
                 }
-            }).focus(function() {
+            }).focus(function () {
                 if (this.value === "") {
                     $(this).autocomplete("search", "");
                 }
             });
-    }
+        }
+
     initializeAutocomplete1("items_dropdown_0", 0);
 
     function initializeAutocompleteCustomer(selector) {
-        let modalId = '#'+$("#" + selector).closest('.modal').attr('id');
         $("#" + selector).autocomplete({
             source: function(request, response) {
                 $.ajax({
@@ -2882,6 +2940,12 @@
                                 currency_id : item?.currency?.id,
                                 currency : item?.currency?.name,
                                 currency_code : item?.currency?.short_name,
+                                type : item?.customer_type,
+                                phone_no : item?.mobile ?? (item?.phone ?? null),
+                                email : item?.email,
+                                gstin : item?.compliances?.gstin_no,
+                                credit_days : item?.credit_days,
+                                credit_days_editable : item?.credit_days_editable
                             };
                         }));
                     },
@@ -2891,7 +2955,6 @@
                 });
             },
             minLength: 0,
-            appendTo : modalId,
             select: function(event, ui) {
                 var $input = $(this);
                 var paymentTermsId = ui.item.payment_terms_id;
@@ -2900,16 +2963,38 @@
                 var currencyId = ui.item.currency_id;
                 var currency = ui.item.currency;
                 var currencyCode = ui.item.currency_code;
+                var customerType = ui.item.type;
+                var phoneNo = ui.item.phone_no;
+                var email = ui.item.email;
+                var gstIn = ui.item.gstin;
+                var creditDays = ui.item.credit_days ? ui.item.credit_days : 0;
+                var creditDaysEdit = ui.item.credit_days_editable;
+                $input.attr('customer_type', customerType);
+                $input.attr('phone_no', phoneNo);
+                $input.attr('email', email);
+                $input.attr('gstin', gstIn);
                 $input.attr('payment_terms_id', paymentTermsId);
                 $input.attr('payment_terms', paymentTerms);
                 $input.attr('payment_terms_code', paymentTermsCode);
                 $input.attr('currency_id', currencyId);
                 $input.attr('currency', currency);
                 $input.attr('currency_code', currencyCode);
+                //Set Credit Days
+                $("#credit_days_input").val(creditDays);
+                if (creditDaysEdit) {
+                    $("#credit_days_input").removeAttr("readonly");
+                } else {
+                    $("#credit_days_input").attr("readonly", true);
+                }
                 $input.val(ui.item.label);
                 $("#customer_code_input_hidden").val(ui.item.code);
                 document.getElementById('customer_id_input').value = ui.item.id;
                 onChangeCustomer(selector);
+                if (customerType === 'Cash') {
+                    initializeCashCustomerPhoneDropdown();
+                } else {
+                    deInitializeCashCustomerFlow();
+                }
                 return false;
             },
             change: function(event, ui) {
@@ -2925,8 +3010,55 @@
         });
     }
 
-    initializeAutocompleteCustomer('customer_code_input');
+    function initializeAutocompleteConsignee(selector) {
+        $("#" + selector).autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: "{{ route('sales.autoComplete.customer.consignee') }}",
+                    method: 'GET',
+                    dataType: 'json',
+                    data: {
+                        q: request.term,
+                    },
+                    success: function(data) {
+                        response($.map(data, function(item) {
+                            return {
+                                id: item.id,
+                                label: `${item.consignee_name}`,
+                            };
+                        }));
+                    },
+                    error: function(xhr) {
+                        console.error('Error fetching customer data:', xhr.responseText);
+                    }
+                });
+            },
+            minLength: 0,
+            select: function(event, ui) {
+                var $input = $(this);
+                
+                $input.val(ui.item.label);
+                document.getElementById('consignee_id_input').value = ui.item.id;
+                onChangeConsignee('consignee_name_input');
+                return false;
+            },
+            change: function(event, ui) {
+                if (!ui.item) {
+                    $(this).val("");
+                    $("#consignee_name_input").val("");
+                }
+            }
+        }).focus(function() {
+            if (this.value === "") {
+                $(this).autocomplete("search", "");
+            }
+        });
+    }
 
+    initializeAutocompleteCustomer('customer_code_input');
+    initializeAutocompleteConsignee('consignee_name_input');
+
+    
     function checkItemAddValidation()
     {
         let addRow = $('#series_id_input').val &&  $('#order_no_input').val && $('#order_date_input').val && $('#customer_code_input').val;
@@ -2934,86 +3066,6 @@
     }
 
     var taxInputs = [];
-
-    function getItemTax(itemIndex)
-    {
-        const itemId = document.getElementById(`items_dropdown_${itemIndex}_value`).value;
-        const itemQty = document.getElementById('item_qty_' + itemIndex).value;
-        const itemValue = document.getElementById('item_value_' + itemIndex).value;
-        const discountAmount = document.getElementById('item_discount_' + itemIndex).value;
-        const headerDiscountAmount = document.getElementById('header_discount_' + itemIndex).value;
-        const totalItemDiscount = parseFloat(discountAmount ? discountAmount : 0) + parseFloat(headerDiscountAmount ? headerDiscountAmount.replace(/,/g, '') : 0);
-        // const totalItemDiscount = parseFloat(discountAmount ? discountAmount : 0);
-        const shipToCountryId = $("#current_shipping_country_id").val();
-        const shipToStateId = $("#current_shipping_state_id").val();
-        console.log(getItemTax,itemValue,totalItemDiscount,itemQty,discountAmount,headerDiscountAmount);
-        let itemPrice = 0;
-        if (itemQty > 0) {
-            itemPrice = (parseFloat(itemValue ? itemValue : 0) + parseFloat(totalItemDiscount ? totalItemDiscount : 0)) / parseFloat(itemQty);
-        }
-        $.ajax({
-            url: "{{route('tax.calculate.sales',['alias'=>'sr'])}}",
-                        method: 'GET',
-                        dataType: 'json',
-                        data : {
-                            item_id : itemId,
-                            price : itemPrice,
-                            transaction_type : 'sale',
-                            party_country_id : shipToCountryId,
-                            party_state_id : shipToStateId,
-                            customer_id : $("#customer_id_input").val(),
-                            header_book_id : $("#series_id_input").val(),
-                            store_id : $("#store_id_input").val(),
-                            document_id : "{{isset($order) ? $order -> id : ''}}"
-                        },
-                        success: function(data) {
-                            const taxInput = document.getElementById('item_tax_' + itemIndex);
-                            const valueAfterDiscount = document.getElementById('value_after_discount_' + itemIndex).value;
-                            // const valueAfterHeaderDiscount = parseFloat(valueAfterDiscount ? valueAfterDiscount : 0) - parseFloat(headerDiscountAmount ? headerDiscountAmount : 0);
-                            const valueAfterHeaderDiscount = document.getElementById('value_after_header_discount_' + itemIndex).value;
-                            let TotalItemTax = 0;
-                            let taxDetails = [];
-                            data.forEach((tax, taxIndex) => {
-                                const currentTaxValue = ((parseFloat(tax.tax_percentage ? tax.tax_percentage : 0)/100) * parseFloat(valueAfterHeaderDiscount ? valueAfterHeaderDiscount : 0));
-                                TotalItemTax = TotalItemTax + currentTaxValue;
-                                taxDetails.push({
-                                    'tax_index' : taxIndex,
-                                    'tax_name' : tax.tax_type,
-                                    'tax_group' : tax.tax_group,
-                                    'tax_type' : tax.tax_type,
-                                    'taxable_value' : valueAfterHeaderDiscount,
-                                    'tax_percentage' : tax.tax_percentage,
-                                    'tax_value' : (currentTaxValue).toFixed(2),
-                                    'tax_applicability_type' : tax.applicability_type,
-                                });
-                            });
-
-                            taxInput.setAttribute('tax_details', JSON.stringify(taxDetails))
-                            taxInput.value = (TotalItemTax).toFixed(2);
-                            //Total
-                            // let valueAfterDiscountInput = document.getElementById('value_after_discount_' + itemIndex);
-                            // const itemTotalInput = document.getElementById('item_total_' + itemIndex);
-                            // console.log(valueAfterDiscountInput.value, TotalItemTax, "TAX");
-                            // itemTotalInput.value = parseFloat(valueAfterDiscountInput.value ? valueAfterDiscountInput.value : 0) +  parseFloat(TotalItemTax ? TotalItemTax : 0);
-
-                            //
-                            const itemTotalInput = document.getElementById('item_total_' + itemIndex);
-                            itemTotalInput.value = parseFloat(valueAfterHeaderDiscount ? valueAfterHeaderDiscount : 0) +  parseFloat(TotalItemTax ? TotalItemTax : 0);
-
-                        //    if (parseFloat(valueAfterDiscountInput.value ? valueAfterDiscountInput.value : 0) !== parseFloat(valueAfterDiscountInput ? valueAfterDiscountInput : 0)) {
-                        //     getItemTax(itemIndex);
-                        //    }
-                            //Get All Total Values
-                            setAllTotalFields();
-                            updateHeaderExpenses();
-                        },
-                        error: function(xhr) {
-                            console.error('Error fetching customer data:', xhr.responseText);
-                        }
-                    });
-
-            //Stores Data
-    }
 
     function itemRowCalculation(itemRowIndex)
     {
@@ -3030,7 +3082,6 @@
         const discountHiddenPercentageFields = document.getElementsByClassName('discount_percentages_hidden_' + itemRowIndex);
         const discountHiddenValuesFields = document.getElementsByClassName('discount_values_hidden_' + itemRowIndex);
         const mainDiscountInput = document.getElementsByClassName('item_discount_' + itemRowIndex);
-        console.log("check",itemValue,discountHiddenPercentageFields,discountHiddenValuesFields);
         //Multiple Discount
         for (let index = 0; index < discountHiddenPercentageFields.length; index++) {
             if (discountHiddenPercentageFields[index].value)
@@ -3047,7 +3098,6 @@
         mainDiscountInput.value = discountAmount;
         //Value after discount
         const valueAfterDiscount = document.getElementById('value_after_discount_' + itemRowIndex);
-        console.log(itemValue);
         const valueAfterDiscountValue = (itemValue - mainDiscountInput.value).toFixed(2);
         valueAfterDiscount.value = valueAfterDiscountValue;
         //Get exact discount amount from order
@@ -3189,10 +3239,8 @@
         let totalTaxes = 0;
         for (let index = 0; index < itemTotalTaxes.length; index++) {
             let tax_detail = itemTotalTaxes[index].getAttribute('tax_details') ? JSON.parse(itemTotalTaxes[index].getAttribute('tax_details')) : null;
-            console.log(tax_detail,itemTotalTaxes[index]);
             if(tax_detail)
             {
-                console.log(tax_detail);
                 for(let i = 0; i < tax_detail.length; i++)
                 {
                     if(tax_detail[i].tax_applicability_type == "collection")
@@ -3231,14 +3279,10 @@
         //Order Discount
         const orderDiscountContainer = document.getElementById('order_discount_summary');
         let orderDiscount = orderDiscountContainer ? orderDiscountContainer.textContent : null;
-        console.log(orderDiscount,itemValueAfterDiscountValue);
         orderDiscount = parseFloat(orderDiscount ? orderDiscount.toLocaleString('en-US', {minimumFractionDigits: 2,maximumFractionDigits: 2,}).replace(/,/g, '') : 0);
         let taxableValue = itemValueAfterDiscountValue - orderDiscount;
-        console.log(taxableValue,"taxval");
         document.getElementById('all_items_total_total').textContent = (itemValueAfterDiscountValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        console.log(document.getElementById('all_items_total_total_summary').textContent);
         document.getElementById('all_items_total_total_summary').textContent = taxableValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        console.log(document.getElementById('all_items_total_total_summary').textContent);
         if (taxableValue < 0) {
             document.getElementById('all_items_total_total_summary').setAttribute('style', 'color : red !important;')
         } else {
@@ -3246,7 +3290,6 @@
         }
         //Taxable total value
         const totalAfterTax = (totalTaxes + itemDiscountTotalValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        console.log(totalAfterTax);
         document.getElementById('all_items_total_after_tax_summary').textContent = totalAfterTax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         if (totalAfterTax < 0) {
             document.getElementById('all_items_total_after_tax_summary').setAttribute('style', 'color : red !important;')
@@ -3357,55 +3400,110 @@
                  data: {
                     order_id: docId,
                     items_id: soItemsId,
+                    store_id : $("store_id_input").val(),
+                    sub_store_id : $("sub_store_id_input").val(),
                     doc_type: 'si'
                 },
                 success: function(data) {
-                    console.log(data);
                     const currentOrders = data.data;
                     let currentOrderIndexVal = 0;
                     currentOrders.forEach((currentOrder) => {
                         if (currentOrder) { //Set all data
                         //Disable Header
                             disableHeader();
-                            console.log(currentOrder, "CURRENT ORDER");
-                            //Basic Details
-                            $("#customer_code_input").val(currentOrder.customer_code);
-                            $("#customer_id_input").val(currentOrder.customer_id);
-                            $("#customer_code_input_hidden").val(currentOrder.customer_code);
-                            $("#consignee_name_input").val(currentOrder.consignee_name);
-                            //First add options also
-                            $("#currency_dropdown").empty(); // Clear existing options
-                            $("#currency_dropdown").append(new Option(
-                                currentOrder.customer ? currentOrder.customer.currency?.name || 'Default Currency Name' : 'Default Currency Name',
-                                currentOrder.currency_id || 0
-                            ));
-                            $("#currency_code_input").val(currentOrder.currency_code);
-                            //First add options also
-                            $("#payment_terms_dropdown").empty(); // Clear existing options
-                            $("#payment_terms_dropdown").append(new Option(
-                                currentOrder.customer ? currentOrder.customer.payment_terms?.name || 'Default Payment Terms' : 'Default Payment Name',
-                                currentOrder.payment_term_id || 0
-                            ));
-                            $("#payment_terms_code_input").val(currentOrder.payment_term_code);
-                            //Address
-                            $("#current_billing_address").text(currentOrder.billing_address_details?.display_address);
-                            $("#current_shipping_address").text(currentOrder.shipping_address_details?.display_address);
-                            $("#current_pickup_address").text(currentOrder.location_address_details?.display_address);
-                            $("#current_shipping_country_id").val(currentOrder.shipping_address_details?.country_id);
-                            $("#current_shipping_state_id").val(currentOrder.shipping_address_details?.state_id);
-                            const mainTableItem = document.getElementById('item_header');
-                            //Remove previous items if any
-                            // const allRowsCheck = document.getElementsByClassName('item_row_checks');
-                            // for (let index = 0; index < allRowsCheck.length; index++) {
-                            //     allRowsCheck[index].checked = true;
-                            // }
-                            // deleteItemRows();
 
+                            let subStoreId = currentOrder?.sub_store_id ? currentOrder?.sub_store_id : '';
+                        //Disable Header
+                            //Basic Details
+                            //Disable Header
+                        //Basic Details
+                        $("#customer_code_input").val(currentOrder.customer?.company_name);
+                        $("#customer_id_input").val(currentOrder.customer_id);
+                        $("#customer_code_input_hidden").val(currentOrder.customer?.company_name);
+                        $("#consignee_name_input").val(currentOrder.consignee_name);
+                        $("#consignee_id_input").val(currentOrder?.consignee_id);
+                        $("#customer_phone_no_input").val(currentOrder.customer_phone_no);
+                        $("#customer_email_input").val(currentOrder.customer_email);
+                        $("#customer_gstin_input").val(currentOrder.customer_gstin);
+                        //First add options also
+
+                        $("#currency_dropdown").empty(); // Clear existing options
+                        $("#currency_dropdown").append(new Option(
+                            currentOrder.customer ? currentOrder.customer.currency?.name || 'Default Currency Name' : 'Default Currency Name',
+                            currentOrder.currency_id || 0
+                        ));
+                        $("#currency_code_input").val(currentOrder.currency_code);
+                        //First add options also
+                        $("#payment_terms_dropdown").empty(); // Clear existing options
+                        $("#payment_terms_dropdown").append(new Option(
+                            currentOrder.customer ? currentOrder.customer.payment_terms?.name || 'Default Payment Terms' : 'Default Payment Name',
+                            currentOrder.payment_term_id || 0
+                        ));
+                        $("#payment_terms_code_input").val(currentOrder.payment_term_code);
+                        //Address
+                        $("#current_billing_address").text(currentOrder.billing_address_details?.display_address);
+                        $("#current_shipping_address").text(currentOrder.shipping_address_details?.display_address);
+                        $("#current_shipping_country_id").val(currentOrder.shipping_address_details?.country_id);
+                        $("#current_billing_country_id").val(currentOrder.billing_address_details?.country_id);
+                        $("#current_shipping_state_id").val(currentOrder.shipping_address_details?.state_id);
+                        $("#current_billing_state_id").val(currentOrder.billing_address_details?.state_id);
+                        
+                        $("#reference_id_input").val(currentOrder.id);
+                        $("#reference_doc_type").val(currentOrder.document_type);
+                        $("#reference_no_input").val(currentOrder.reference_number);
+
+                        // if (currentOrder?.customer_terms) {
+                        //     $('#summernote1').summernote('code', currentOrder?.customer_terms);
+                        // }
+                        // if (currentOrder?.customer_terms_id) {
+                        //     $("#customer_terms_id").val(currentOrder?.customer_terms_id);
+                        // }
+                        // if (currentOrder?.customer_terms_name) {
+                        //     $("#terms").val(currentOrder?.customer_terms_name);
+                        // }
+                        //Credit Days
+                        if (currentOrder?.credit_days) {
+                            $("#credit_days_input").val(currentOrder.credit_days);
+                        } else {
+                            $("#credit_days_input").val(0);
+                        }
+                        //General Detail
+                        $("#transporter_name_input").val(currentOrder?.transporter_name);
+                        // $("#transporter_mode_input").val(currentOrder?.transportation_mode);
+                        $("#vehicle_no_input").val(currentOrder.vehicle_no);
+                        $("#lr_number_input").val(currentOrder?.lr_number);
+                        let transporterModeInput = currentOrder?.eway_bill_master_id;
+                        if (transporterModeInput) {
+                            $("#transporter_mode_input").val(transporterModeInput)
+                        }
+
+                        $("#current_shipping_address_id").val(currentOrder.shipping_address_details?.id);
+                        $("#current_billing_address_id").val(currentOrder.billing_address_details?.id);
+                        //Main IDs
+                        var newOptionBilling = new Option(currentOrder.billing_address_details?.address, currentOrder.billing_address_details?.id, false, false);
+                        $('#billing_address_dropdown').append(newOptionBilling);
+                        $("#billing_address_dropdown").val(currentOrder.billing_address_details?.id);
+
+                        var newOptionShipping = new Option(currentOrder.shipping_address_details?.address, currentOrder.shipping_address_details?.id, false, false);
+                        $('#shipping_address_dropdown').append(newOptionShipping);
+                        $("#shipping_address_dropdown").val(currentOrder.shipping_address_details?.id);
+
+
+                        const locationElement = document.getElementById('store_id_input');
+                        if (locationElement) {
+                            const displayAddress = locationElement.options[locationElement.selectedIndex].getAttribute('display-address');
+                            $("#current_pickup_address").text(displayAddress);
+                        }
+                        const mainTableItem = document.getElementById('item_header');
+                        //Remove previous items if any
+                        // const allRowsCheck = document.getElementsByClassName('item_row_checks');
+                        // for (let index = 0; index < allRowsCheck.length; index++) {
+                        //     allRowsCheck[index].checked = true;
+                        // }
+                        // deleteItemRows();
                             currentOrder.items.forEach((item, itemIndex) => {
-                                console.log("balance",item.balance_qty,"srn",item.srn_qty,"invoice",item.invoice_qty,"dnote",item.dnote_qty,"return",item.return_balance_qty);
-                                const avl_qty = currentOrder.document_type=== "{{\App\Helpers\ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS}}" ? Number(item.dnote_qty)-Number(item.srn_qty) : Number(item.invoice_qty)-Number(item.srn_qty);
+                                const avl_qty = item.return_balance_qty;
                                 item.balance_qty = avl_qty;``
-                                console.log(item.order_qty,item.srn_qty,item.invoice_qty,item.dnote_qty,currentOrder.document_type,item.balance_qty,avl_qty);
                                 const itemRemarks = item.remarks ? item.remarks : '';
                                 let amountMax = ``;
                                 if (landLease) {
@@ -3448,14 +3546,12 @@
                                     if (!percentage) {
                                         percentage = ted.ted_amount/(ted.assessment_amount ? ted.assessment_amount : itemValue) * 100;
                                     }
-                                    console.log("PRECENTAGE", percentage, itemValue);
 
                                     var itemDiscountValuePrev = ((itemValue * percentage)/100).toFixed(2);
 
                                     discountAmtPrev += parseFloat(itemDiscountValuePrev ? itemDiscountValuePrev : 0);
                                 });
 
-                                console.log(discountAmtPrev, currentOrderIndexVal, "INDEX FOR DISCOUNT AMT");
 
 
                             mainTableItem.innerHTML += `
@@ -3486,7 +3582,7 @@
                                     <input type = "hidden" name = "item_id[]" id = "items_dropdown_${itemIndex}_value" value = "${item?.item_id}"></input>
                                 </td>
                                 <td class="poprod-decpt">
-                                    <input type="text" id = "items_name_${currentOrderIndexVal}" class="form-control mw-100"   value = "${item?.item?.item_name}" readonly>
+                                    <input type="text" id = "items_name_${itemIndex}" class="form-control mw-100"   value = "${item?.item?.item_name}" readonly>
                                 </td>
                                 <td class="poprod-decpt" id='attribute_section_${itemIndex}'>
                                     <button id = "attribute_button_${itemIndex}" ${item?.item_attributes_array?.length > 0 ? '' : 'disabled'} type = "button" data-bs-toggle="modal" onclick = "setItemAttributes('items_dropdown_${itemIndex}', '${itemIndex}','DISABLED');" data-bs-target="#attribute" class="btn p-25 btn-sm btn-outline-secondary" style="font-size: 10px">Attributes</button>
@@ -3508,7 +3604,7 @@
                                         </div>
                                     </td>
                                         </td>
-                                        <td><input type="text" id = "item_qty_${itemIndex}" name = "item_qty[]" oninput = "changeItemQty(this, '${itemIndex}');" value = "${item?.balance_qty}" class="form-control item_store_locations mw-100 text-end" onblur = "setFormattedNumericValue(this);" max = "${item?.balance_qty}"/></td>
+                                        <td><input type="text" disabled id = "item_qty_${itemIndex}" name = "item_qty[]" oninput = "changeItemQty(this, '${itemIndex}');" value = "${item?.balance_qty}" class="form-control item_store_locations mw-100 text-end" onblur = "setFormattedNumericValue(this);" max = "${item?.balance_qty}"/></td>
                                         <td><input type="text" disabled id = "item_rate_${itemIndex}" name = "item_rate[]" oninput = "changeItemRate(this, '${itemIndex}');" ${item.balance_qty} value = "${item?.rate}" class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);" /></td>
                                         <td><input type="text" id = "item_value_${itemIndex}" disabled class="form-control mw-100 text-end item_values_input" value = "${(item?.balance_qty ? item?.balance_qty : 0) * (item?.rate ? item?.rate : 0)}" /></td>
                                         <input type = "hidden" id = "header_discount_${itemIndex}" value = "${item?.header_discount_amount}" ></input>
@@ -3526,17 +3622,44 @@
                                         <input type = "hidden" id = "value_after_header_discount_${itemIndex}" class = "item_val_after_header_discounts_input" value = "${(item?.balance_qty * item?.rate) - item?.item_discount_amount - item?.header_discount_amount}" ></input>
                                         <input type="hidden" id = "item_total_${itemIndex}" value = "${(item?.balance_qty * item?.rate) - item?.item_discount_amount - item?.header_discount_amount + (item?.tax_amount)}" disabled class="form-control mw-100 text-end item_totals_input" />
                                     <td>
-
                                         <div class="d-flex">
-                                            <div class="me-50 cursor-pointer" data-bs-toggle="modal" data-bs-target="#Remarks" onclick = "setItemRemarks('item_remarks_${itemIndex}');">        <span data-bs-toggle="tooltip" data-bs-placement="top" title="Remarks" class="text-primary"><i data-feather="file-text"></i></span></div>
-                                         ${item && item.lotdata ?
-                                            `<div class="me-50 cursor-pointer" lot-data=${ JSON.stringify(item.lotdata)} data-bs-toggle="modal" data-bs-target="#Lot" onclick = "setItemLot(this)"><span data-bs-toggle="tooltip" data-bs-placement="top" title="Lot" class="text-primary"><i data-feather="package"></i></span></div>`
-                                        : ``}
-                                    </div>
-                                    <input type = "hidden" id = "item_remarks_${currentOrderIndexVal}" name = "item_remarks[${currentOrderIndexVal}]" />
-                                    <input type = "hidden" id = "item_lots_${currentOrderIndexVal}" name = "item_lots[${currentOrderIndexVal}]" />
+                                            <!-- Remarks -->
+                                            <div class="me-50 cursor-pointer" data-bs-toggle="modal" data-bs-target="#Remarks" 
+                                                onclick="setItemRemarks('item_remarks_${itemIndex}');">
+                                                <span data-bs-toggle="tooltip" data-bs-placement="top" title="Remarks" class="text-primary">
+                                                    <i data-feather="file-text"></i>
+                                                </span>
+                                            </div>
+
+                                            <input type="hidden" id="item_remarks_${itemIndex}" name="item_remarks[${itemIndex}]" />
+                                            ${item.lotdata && item.lotdata.length > 0 ? `
+                                                <!-- Hidden Batch Input -->
+                                                <input type="hidden" id="batches_${itemIndex}" name="batch_details[${itemIndex}]" value='${JSON.stringify(item.lotdata)}' />
+
+                                                <!-- Batch Button (only if lotdata has items) -->
+                                                <div class="me-50 cursor-pointer addBatchBtn"
+                                                    data-row-count="${itemIndex}"
+                                                    data-is-batch-number="${item.item.is_batch_no}"
+                                                    data-is-expiry="${item.item.is_expiry}"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#item-batch-modal">
+                                                    <span data-bs-toggle="tooltip" data-bs-placement="top" class="text-primary"
+                                                        data-bs-original-title="Item Batch" aria-label="Item Batch">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                                            stroke-linejoin="round" class="feather feather-map-pin">
+                                                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                                            <circle cx="12" cy="10" r="3"></circle>
+                                                        </svg>
+                                                    </span>
+                                                </div>
+                                            ` : ''}
+
+                                            <input type="hidden" id="item_lots_${itemIndex}" name="item_lots[${itemIndex}]" />
+                                        </div>
                                     </td>
-                                                                        </tr>
+
+                                </tr>
                                 `;
                                 initializeAutocomplete1("items_dropdown_" + itemIndex, itemIndex);
                                 renderIcons();
@@ -3547,16 +3670,16 @@
 
                                 item.discount_ted.forEach((ted, tedIndex) => {
 
-                                    addHiddenInput("item_discount_name_" + currentOrderIndexVal + "_" + tedIndex, ted.ted_name, `item_discount_name[${currentOrderIndexVal}][${tedIndex}]`, 'discount_names_hidden_' + currentOrderIndexVal, 'item_row_' + currentOrderIndexVal);
+                                    addHiddenInput("item_discount_name_" + itemIndex + "_" + tedIndex, ted.ted_name, `item_discount_name[${itemIndex}][${tedIndex}]`, 'discount_names_hidden_' + itemIndex, 'item_row_' + itemIndex);
                                     var percentage = ted.ted_percentage;
-                                    var itemValue = document.getElementById('item_value_' + currentOrderIndexVal).value;
+                                    var itemValue = document.getElementById('item_value_' + itemIndex).value;
                                     if (!percentage) {
                                         percentage = ted.ted_amount/itemValue*100;
                                     }
-                                    addHiddenInput("item_discount_percentage_" + currentOrderIndexVal + "_" + tedIndex, percentage, `item_discount_percentage[${currentOrderIndexVal}][${tedIndex}]`, 'discount_percentages_hidden_' + currentOrderIndexVal,  'item_row_' + currentOrderIndexVal);
+                                    addHiddenInput("item_discount_percentage_" + itemIndex + "_" + tedIndex, percentage, `item_discount_percentage[${itemIndex}][${tedIndex}]`, 'discount_percentages_hidden_' + itemIndex,  'item_row_' + itemIndex);
                                     var itemDiscountValue = ((itemValue * percentage)/100).toFixed(2);
 
-                                    addHiddenInput("item_discount_value_" + currentOrderIndexVal + "_" + tedIndex, itemDiscountValue, `item_discount_value[${currentOrderIndexVal}][${tedIndex}]`, 'discount_values_hidden_' + currentOrderIndexVal, 'item_row_' + currentOrderIndexVal);
+                                    addHiddenInput("item_discount_value_" + itemIndex + "_" + tedIndex, itemDiscountValue, `item_discount_value[${itemIndex}][${tedIndex}]`, 'discount_values_hidden_' + itemIndex, 'item_row_' + itemIndex);
 
                                 });
                                 //Item Delivery Schedule
@@ -3580,6 +3703,7 @@
                                 // getStoresData(itemIndex,null,false);
                                 getItemTax(itemIndex);
                                 setAttributesUI(itemIndex);
+                                $(`#item_qty_${itemIndex}`).trigger("change");
                                 });
 
                             if (docType !== "dn") {
@@ -3621,17 +3745,14 @@
                             // $("#billing_address_dropdown").prop('disabled', false);
                             // $("#billing_address_dropdown").val(currentOrder.billing_address_details.id).trigger('change');
 
-                            // console.log(currentOrder.billing_address_details?.id || 0);
-                            // console.log($("#shipping_address_dropdown").val(), "AD1");
-                            // console.log($("#billing_address_dropdown").val(), "AD2");
                         }
-                        currentOrderIndexVal += 1;
+                        itemIndex += 1;
                         $("#order_discount_button").prop('disabled', true);
                         $("#order_expense_button").prop('disabled', true);
                         $("#order_expense_button").prop('disabled', true);
                     });
 
-                    // for (let index = 0; index < currentOrderIndexVal; index++) {
+                    // for (let index = 0; index < itemIndex; index++) {
                     //     getStoresData(index,null,false);
                     // }
                 },
@@ -3647,69 +3768,117 @@
             });
         }
     }
-    function getOrders(landLease = '')
-    {
-        var qtsHTML = ``;
-        const targetTable = landLease ? document.getElementById('qts_data_table_land') : document.getElementById('qts_data_table');
-        const customer_id = landLease ? $("#customer_id_qt_val_land").val() : $("#customer_id_qt_val").val();
-        const book_id = landLease ? $("#book_id_qt_val_land").val() : $("#book_id_qt_val").val();
-        const document_id = landLease ? $("#document_id_qt_val_land").val() : $("#document_id_qt_val").val();
-        const item_id = $("#item_id_qt_val").val();
-        const apiUrl = "{{route('sale.return.pull.items')}}";
-        var selectedIds = [];
-        var headerRows = document.getElementsByClassName("item_header_rows");
-        for (let index = 0; index < headerRows.length; index++) {
-            var referedId = document.getElementById('qt_id_' + index).value;
-            selectedIds.push(referedId);
-        }
-        $.ajax({
-            url: apiUrl,
-            method: 'GET',
-            dataType: 'json',
-            data : {
-                customer_id : customer_id,
-                book_id : book_id,
-                document_id : document_id,
-                item_id : item_id,
-                doc_type : openPullType,
-                header_book_id : $("#series_id_input").val(),
-                selected_ids : selectedIds,
-            },
-            success: function(data) {
-                console.log(data);
-                if (Array.isArray(data.data) && data.data.length > 0) {
+    function getOrders(type = 'si') {
+        let apiUrl = "{{ route('sale.return.pull.items') }}";
 
-                        data.data.forEach((qt, qtIndex) => {
-                            qtsHTML += `
-                                <tr>
-                                    <td>
-                                        <div class="form-check form-check-inline me-0">
-                                            <input class="form-check-input po_checkbox" type="checkbox" name="po_check" id="po_checkbox_${qtIndex}" oninput = "checkQuotation(this);" doc-id = "${qt?.header.id}" current-doc-id = "0" document-id = "${qt?.header?.id}" so-item-id = "${qt.id}">
-                                        </div>
-                                    </td>
-                                    <td>${qt?.header?.book_code}</td>
-                                    <td>${qt?.header?.document_number}</td>
-                                    <td>${qt?.header?.document_date}</td>
-                                    <td class="fw-bolder text-dark">${qt?.header?.customer?.customer_code}</td>
-                                    <td>${qt?.header?.customer?.company_name}</td>
-                                    <td>${qt?.item_code}</td>
-                                    <td>${qt?.order_qty}</td>
-                                    <td>${qt?.return_balance_qty}</td>
-                                    <td>${qt?.rate}</td>
-                                </tr>
-                            `
-                        });
-
-                }
-                targetTable.innerHTML = qtsHTML;
-            },
-            error: function(xhr) {
-                console.error('Error fetching customer data:', xhr.responseText);
-                targetTable.innerHTML = '';
+        // ✅ Checkbox column definition
+        const checkboxColumn = () => ({
+            data: null,
+            name: 'checkbox',
+            orderable: false,
+            searchable: false,
+            render: (row, _, __, meta) => {
+                const docId = row?.header?.id;
+                const soItemId = row?.id;
+                return `<div class="form-check form-check-inline me-0">
+                    <input class="form-check-input pull_checkbox po_checkbox" type="checkbox"
+                        name="po_check"
+                        id="po_checkbox_${meta.row}"
+                        oninput="checkQuotation(this, '', '${type}');"
+                        doc-id="${docId}"
+                        current-doc-id="0"
+                        document-id="${docId}"
+                        so-item-id="${soItemId}">
+                </div>`;
             }
         });
 
+        // ✅ Columns for Sale Return Items
+        const getColumns = () => {
+            return [
+                checkboxColumn(),
+                { data: 'book_code', name: 'book_code' },
+                { data: 'document_number', name: 'document_number' },
+                { data: 'document_date', name: 'document_date' },
+                {
+                    data: 'customer_code',
+                    name: 'customer_code',
+                    render: d => `<span class="fw-bolder text-dark">${d || ''}</span>`
+                },
+                { data: 'customer_name', name: 'customer_name' },
+                { data: 'item_name', name: 'item_name' },
+                { data: 'attributes_data', name: 'attributes_data' },
+                { data: 'order_qty', name: 'order_qty' },
+                { data: 'return_balance_qty', name: 'return_balance_qty' },
+                { data: 'rate', name: 'rate' }
+            ];
+        };
+        let tableSelector = "#invoice_table";
+        // ✅ Table selector for this type
+        if(type == "{{ App\Helpers\ConstantHelper::SI_SERVICE_ALIAS }}")
+        {
+            tableSelector = "#invoice_table";
+        }
+        else if(type == "{{ App\Helpers\ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS }}")
+        {
+            tableSelector = "#dnote_table";
+        }
+        else if(type == "{{ App\Helpers\ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS }}")
+        {
+            tableSelector = "#si_dnote_table";
+        }
+
+        // ✅ Collect selectedIds
+        const selectedIds = Array.from(document.getElementsByClassName("item_header_rows"))
+            .map((_, i) => document.getElementById('qt_id_' + i))
+            .filter(Boolean)
+            .map(el => el.value);
+
+        // ✅ Filters
+        const filters = {
+            customer_id: $("#customer_id_qt_val"),
+            book_id: $("#book_id_qt_val"),
+            document_id: $("#document_id_qt_val"),
+            item_id: $("#item_id_qt_val"),
+            store_id: $("#store_id_input"),
+            sub_store_id: $("#sub_store_id_input"),
+            doc_type: $(tableSelector+"_value"),
+            header_book_id: $("#series_id_input"),
+            selected_ids: selectedIds
+        };
+
+        // ✅ Validation
+        if (!filters.store_id.val()) {
+            Swal.fire({ title: 'Error!', text: 'Please select Location', icon: 'error' });
+            return;
+        }
+        if (!filters.sub_store_id.val()) {
+            Swal.fire({ title: 'Error!', text: 'Please select Store', icon: 'error' });
+            return;
+        }
+
+        // ✅ Destroy old DataTable
+        if ($.fn.DataTable.isDataTable(tableSelector)) {
+            $(tableSelector).DataTable().destroy();
+        }
+
+        // ✅ Initialize with your reusable function
+        initializeDataTable(
+            tableSelector,
+            apiUrl,
+            getColumns(),
+            filters,
+            "Sales Return Items",
+            [],        // Buttons
+            [],        // Order
+            'landscape',
+            'GET',
+            false,     // serverSide
+            false      // processing
+        );
     }
+
+
 
     function initializeAutocompleteQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "") {
         let modalId = '#'+$("#" + selector).closest('.modal').attr('id');
@@ -3759,26 +3928,44 @@
                 }
             });
     }
-    var openPullType = "ret";
+    var openPullType = "si";
 
     function openHeaderPullModal(type = null)
     {
-        console.log(type);
         document.getElementById('qts_data_table').innerHTML = '';
-        document.getElementById('qts_data_table_land').innerHTML = '';
-        if (type == 'ret') {
+        // document.getElementById('qts_data_table_land').innerHTML = '';
+        if(type != openPullType)
+        {
+            current_doc_id = 0;
+        }
+        if (type == 'si') {
             openPullType = "si";
-            initializeAutocompleteQt("book_code_input_qt", "book_id_qt_val", "book_din", "book_code", "book_name");
-            initializeAutocompleteQt("document_no_input_qt", "document_id_qt_val", "din_document", "document_number", "document_number");
-        } else{
+            initializeAutocompleteQt("book_code_input_qt_i", "book_id_qt_i_val", "book_si", "book_code", "book_name");
+            initializeAutocompleteQt("document_no_input_qt_i", "document_id_qt_i_val", "si_document", "document_number", "document_number");
+            initializeAutocompleteQt("customer_code_input_qt_i", "customer_id_qt_i_val", "customer", "customer_code", "company_name");
+            initializeAutocompleteQt("customer_code_input_qt_i_land", "customer_id_qt_i_val_land", "customer", "customer_code", "company_name");
+            initializeAutocompleteQt("item_name_input_qt_i", "item_id_qt_i_val", "sale_module_items", "item_code", "item_name");
+        } else if(type == 'dnote'){
             openPullType = "dnote";
-            initializeAutocompleteQt("book_code_input_qt", "book_id_qt_val", "book_si", "book_code", "book_name");
-            initializeAutocompleteQt("document_no_input_qt", "document_id_qt_val", "si_document", "document_number", "document_number");
+            initializeAutocompleteQt("book_code_input_qt_d", "book_id_qt_d_val", "book_din", "book_code", "book_name");
+            initializeAutocompleteQt("document_no_input_qt_d", "document_id_qt_d_val", "din_document", "document_number", "document_number");
+            initializeAutocompleteQt("customer_code_input_qt_d", "customer_id_qt_d_val", "customer", "customer_code", "company_name");
+            initializeAutocompleteQt("customer_code_input_qt_d_land", "customer_id_qt_d_val_land", "customer", "customer_code", "company_name");
+            initializeAutocompleteQt("item_name_input_qt_d", "item_id_qt_d_val", "sale_module_items", "item_code", "item_name");
+            
+        }
+        else{
+            initializeAutocompleteQt("book_code_input_qt_di", "book_id_qt_di_val", "book_si_dn", "book_code", "book_name");
+            initializeAutocompleteQt("document_no_input_qt_di", "document_id_qt_di_val", "si_dn_document", "document_number", "document_number");
+            initializeAutocompleteQt("customer_code_input_qt_di", "customer_id_qt_di_val", "customer", "customer_code", "company_name");
+            initializeAutocompleteQt("customer_code_input_qt_di_land", "customer_id_qt_di_val_land", "customer", "customer_code", "company_name");
+            initializeAutocompleteQt("item_name_input_qt_di", "item_id_qt_di_val", "sale_module_items", "item_code", "item_name");
+            
         }
         initializeAutocompleteQt("customer_code_input_qt", "customer_id_qt_val", "customer", "customer_code", "company_name");
         initializeAutocompleteQt("customer_code_input_qt_land", "customer_id_qt_val_land", "customer", "customer_code", "company_name");
         initializeAutocompleteQt("item_name_input_qt", "item_id_qt_val", "sale_module_items", "item_code", "item_name");
-        getOrders('');
+        getOrders(type);
     }
 
     let current_doc_id = 0;
@@ -3868,7 +4055,6 @@
         const storeTable = document.getElementById('item_location_table');
         const storeFoot = document.getElementById('item_location_foot');
         let data = item_qty.getAttribute('data-stores') ? JSON.parse(item_qty.getAttribute('data-stores')) : null;
-        console.log(storeElement.value, item_qty.value);
 
         let numberOfRows = $('#item_location_table tr').length;
         let storesInnerHtml = '';
@@ -3883,8 +4069,6 @@
 
         if (storeElement) {
             const storesData = JSON.parse(decodeURIComponent(storeData.getAttribute('data-stores')));
-            console.log(storesData, "storesData");
-            console.log(data,"data");
             if (storesData && storesData.length > 0) {
                 storesData.forEach((store, storeIndex) => {
                     // Loop through the `data` if it exists, otherwise use just 1 iteration
@@ -3899,7 +4083,6 @@
                         let shelfOptions='';
                         // AJAX call to fetch shelf data if required
                         if (data && data.length) {
-                            console.log('if check');
                             $.ajax({
                                 url: "{{route('get_shelfs')}}",
                                 method: 'GET',
@@ -3922,7 +4105,6 @@
                             });
                         } else {
                             // If no AJAX required, use shelf options from store data directly
-                            console.log('else checl');
                             shelfOptions = store.shelf_data
                             ? store.shelf_data.map(shelf => {
                                 const isSelected = data ? data[i].shelf_id === shelf.id ? 'selected' : '' : '';
@@ -3930,7 +4112,6 @@
                             }).join('')
                             : '<option value="">Select Shelf</option>';
                         }
-                        console.log(shelfOptions);
 
                         // Bin options with selected condition
                         const binOptions = store.bin_data
@@ -4008,7 +4189,6 @@ function removeStoreRow(index,storeIndex){
         });
 
         const remainingQty = parseInt(item_qty.value, 10) - totalStoreQty;
-        console.log('Remaining Quantity:', remainingQty);
 
         // Update total value in an input element
         $('#total').text(totalStoreQty);
@@ -4017,7 +4197,6 @@ function removeStoreRow(index,storeIndex){
         if (remainingQty < 0) {
             const currentStoreQty = parseInt($(`#item_qty_${index}_${storeIndex}`).val() || 0, 10);
             const adjustedQty = totalStoreQty - currentStoreQty;
-            console.log(index,storeIndex);
             // Update total and reset the offending row's quantity
             $('#total').text(adjustedQty);
             $(`#item_qty_${index}_${storeIndex}`).val(0);
@@ -4029,17 +4208,16 @@ function removeStoreRow(index,storeIndex){
             return; // Exit the function
         }
     }
-    function setItemLot(element) {
-        console
-        const lotData = JSON.parse(element.getAttribute('lot-data'));
-        const lotTable = document.getElementById('bundle_schedule_table');
-        const itemIndex = element.closest('tr').getAttribute('id').split('_')[2];
-        const itemQtyInput = document.getElementById(`item_qty_${itemIndex}`);
-        const itemQty = parseFloat(itemQtyInput.value);
-        let lotHTML = '';
-        let totalLotQty = 0;
-        let totalSrLotQty = 0;
-        lotData.forEach((lot, index) => {
+        function setItemLot(element) {
+            const lotData = JSON.parse(element.getAttribute('lot-data'));
+            const lotTable = document.getElementById('bundle_schedule_table');
+            const itemIndex = element.closest('tr').getAttribute('id').split('_')[2];
+            const itemQtyInput = document.getElementById(`item_qty_${itemIndex}`);
+            const itemQty = parseFloat(itemQtyInput.value);
+            let lotHTML = '';
+            let totalLotQty = 0;
+            let totalSrLotQty = 0;
+            lotData.forEach((lot, index) => {
                 const remainingQty = Math.min(Number(lot.lot_qty), Number(itemQty) - Number(totalLotQty));
                 totalMrLotQty = lot.total_lot_qty ?? lot.lot_qty;
                 totalLotQty += remainingQty;
@@ -4047,6 +4225,8 @@ function removeStoreRow(index,storeIndex){
                     <tr>
                         <td>${index + 1}</td>
                         <td>${lot.lot_number}</td>
+                        <td>${lot.manufacturing_year ?? " "}</td>
+                        <td>${lot.expiry_date ?? " "}</td>
                         <td>${totalMrLotQty}</td>
                         <td class='d-none'>${lot.original_receipt_date}</td>
                         <td>
@@ -4108,7 +4288,11 @@ function removeStoreRow(index,storeIndex){
 
         lotRows.forEach((row,index) => {
             const lotNumber = row.children[1].textContent;
-            const receiptDate = row.children[3].textContent;
+            const manuf_year = row.children[2].textContent ?? null;
+            const expiry = row.children[3].textContent ?? null;
+            const lot_qty = row.children[4].textContent ?? null;
+            const ret_qty = row.children[5].textContent ?? null;
+            const receiptDate = row.children[6].textContent ?? null;
             const quantity = parseFloat(row.querySelector(`#lot_quantity_${index}`).value || 0);
             if (quantity <= 0) {
                 Swal.fire({
@@ -4123,6 +4307,8 @@ function removeStoreRow(index,storeIndex){
 
             lotData.push({
                 lot_number: lotNumber,
+                manufacturing_year : manuf_year,
+                expiry_date : expiry,
                 original_receipt_date: receiptDate,
                 lot_qty: quantity,
                 total_lot_qty : totalMrLotQty
@@ -4153,24 +4339,20 @@ function removeStoreRow(index,storeIndex){
     function addStore(){
         const index = $('#item_location_table tr').last().attr('item-index');
         const row_no = $('#item_location_table tr').last().attr('row-index');
-        console.log($('#item_location_table tr').last()[0]);
         const storeElement = document.getElementById('item_store_' + index);
         const storeData = document.getElementById('data_stores_' + index);
         const item_qty = document.getElementById('item_qty_'+index);
         const storeTable = document.getElementById('item_location_table');
         let totalStoreQty=0;
         let storesInnerHtml='';
-        console.log(storeElement);
         if (storeElement) {
             // Calculate the sum of all existing quantities
             $(`#item_location_table tr[item-index="${index}"]`).each(function () {
                 const rowQty = parseInt($(this).find(`#item_qty_${index}_${$(this).attr('row-index')}`).val() || 0, 10);
                 totalStoreQty += isNaN(rowQty) ? 0 : rowQty;
             });
-            console.log(totalStoreQty);
             // Check if adding a new store exceeds the total item quantity
             const remainingQty = parseInt(item_qty.value, 10) - totalStoreQty;
-            console.log(remainingQty);
             if (remainingQty <= 0) {
                 Swal.fire({
                     title: 'Error!',
@@ -4183,7 +4365,6 @@ function removeStoreRow(index,storeIndex){
             else{
                 const total_qty=0;
                 const storesData = JSON.parse(decodeURIComponent(storeData.getAttribute('data-stores')));
-                console.log(storesData,"storesData");
                 if (storesData && storesData.length > 0) {
                     storesData.forEach((store, storeIndex) => {
                         const rackOptions = store.rack_data
@@ -4256,22 +4437,19 @@ function removeStoreRow(index,storeIndex){
             }
         }
     }
-
+    
     function SubmitLocation() {
         const rows = $('#item_location_table tr'); // Select all table rows
         const index = $('#item_location_table tr').last().attr('item-index'); // Get item index
         const item_qty = document.getElementById('item_qty_'+index);
 
         let totalStoreQty = 0;
-        console.log(index,rows);
         $(`#item_location_table tr[item-index="${index}"]`).each(function () {
             const rowQty = parseInt($(this).find(`#item_qty_${index}_${$(this).attr('row-index')}`).val() || 0, 10);
             totalStoreQty += isNaN(rowQty) ? 0 : rowQty;
         });
-        console.log(totalStoreQty);
         // Check if adding a new store exceeds the total item quantity
         const remainingQty = parseInt(item_qty.value, 10) - totalStoreQty;
-        console.log(remainingQty);
         if (remainingQty != 0) {
             Swal.fire({
                 title: 'Error!',
@@ -4283,7 +4461,6 @@ function removeStoreRow(index,storeIndex){
         let storeData = [];
         rows.each(function (rowIndex) {
             // Use jQuery's .each() for iteration
-            console.log(index, rowIndex);
 
             // Extract and validate values
             const store_id = $(`#item_store_${index}`).val();
@@ -4320,7 +4497,6 @@ function removeStoreRow(index,storeIndex){
             });
         });
         item_qty.setAttribute('data-stores', JSON.stringify(storeData));
-        console.log(storeData);
         closeModal('deliveryScheduleModal');
     }
 
@@ -4553,7 +4729,6 @@ function removeStoreRow(index,storeIndex){
                 rack_id: rack_id,
             },
             success: function(data) {
-                console.log(data);
                 if(data && data.shelfs){
                     const shelfOptions = `<option value="">Select Shelf</option>` +
                         (data.shelfs.map(shelf => `<option value="${shelf.id}">${shelf.shelf_code}</option>`).join('') ||
@@ -4587,6 +4762,7 @@ function resetPostVoucher()
 
 function onPostVoucherOpen(type = "not_posted")
 {
+    document.getElementById('erp-overlay-loader').style.display = "flex";
     resetPostVoucher();
     const apiURL = "{{route('sale.return.posting.get')}}";
     $.ajax({
@@ -4594,6 +4770,16 @@ function onPostVoucherOpen(type = "not_posted")
         type: "GET",
         dataType: "json",
         success: function(data) {
+            document.getElementById('erp-overlay-loader').style.display = "none";
+
+            if (!data.data.status) {
+                Swal.fire({
+                    title: 'Error!',
+                    text: data.data.message,
+                    icon: 'error',
+                });
+                return;
+            }
             const voucherEntries = data.data.data;
             var voucherEntriesHTML = ``;
             Object.keys(voucherEntries.ledgers).forEach((voucher) => {
@@ -4668,10 +4854,11 @@ function postVoucher(element)
             },
             error: function(jqXHR, textStatus, errorThrown) {
                 let errorReponse = jqXHR.responseJSON;
-                if (errorReponse?.data?.message) {
+                console.log(errorReponse);
+                if (errorReponse?.message) {
                     Swal.fire({
                         title: 'Error!',
-                        text: errorReponse?.data?.message,
+                        text: errorReponse?.message,
                         icon: 'error',
                     });
                 } else {
@@ -4879,9 +5066,438 @@ function initializeAutocompleteTed(selector, idSelector, type, percentageVal) {
             }
         });
     }
+    $("#store_id_input").on('change', function() {
+        const storeId = $(this).val();
+        // $("#item_header").html('');
+        const sub_store_id = "{{ isset($order) && $order->sub_store_id ? $order->sub_store_id : '' }}";
+        if (storeId) {
+            $.ajax({
+                url: "{{ route('subStore.get.from.stores') }}",
+                method: 'GET',
+                dataType: 'json',
+                data: {
+                store_id: storeId,
+                types : ['Stock', 'Shop floor','Vendor','Other'],
+                },
+                success: function(data) {
+                if (data.data && data.data.length > 0) {
+                    let options = '';
+                    data.data.forEach(function(subStore) {
+                        options += `<option value="${subStore.id}" consumption="${subStore.station_wise_consumption}" ${subStore.id == sub_store_id ? 'selected' : ''}>${subStore.name}</option>`;
+                    });
+                    $('#sub_store_id_input').empty().html(options);
+                }
+                else{
+                    $('#sub_store_id_input').empty();
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'No Store Found On this Location.',
+                        icon: 'warning',
+                    });
+                }
+                // Handle the response data as needed
+                },
+                error: function(xhr) {
+                console.error('Error fetching sub-stores:', xhr.responseText);
+                }
+            });
+        }
+    });
+    // Open batch modal
+    $(document).on("click", ".addBatchBtn", function (e) {
+        e.preventDefault();
+        const rowIndex = $(this).data("row-count");
+        const isExpiry = $(this).data("is-expiry") || 0;
+        const batchset = $(this).data("is-batch-number") == 1 ? false : true;
+        currentBatchRowIndex = rowIndex;
+
+        $("#itemBatchRowIndex").val(rowIndex);
+        $("#itemBatchIsExpiry").val(isExpiry);  
+        $("#itemBatchIsEdit").val($(this).data('is-batch-number') || '0');
+        const item = $(`#items_dropdown_${rowIndex}`).val();
+        if (!item) {
+            $("#item-batch-modal").modal("hide");
+            Swal.fire({
+                title: 'Error!',
+                text: 'Please select an Item first.',
+                icon: 'error',
+            });
+            return;
+        }
+        const total_qty = $(`#item_qty_${rowIndex}`).val();
+        if(!total_qty || total_qty <= 0) {
+            $("#item-batch-modal").modal("hide");
+            Swal.fire({
+                title: 'Error!',
+                text: 'Please enter a positive Return Quantity before adding batches.',
+                icon: 'error',
+            });
+            return;
+        }
+        // Clear table
+        $("#itemBatchTable tbody").empty();
+
+        // Load existing batches if any
+        let batchVal = $("#batches_" + rowIndex).val();
+        let existing = [];
+        try {
+            if (batchVal && /^[\[\{]/.test(batchVal)) {
+                existing = JSON.parse(batchVal);
+            }
+        } catch (e) {
+            existing = [];
+        }
+        existing.forEach((batch, idx) => {
+            $("#itemBatchTable tbody").append(generateBatchRow(idx, batch , batchset) );
+        });
+
+        // Ensure one row exists
+        if (existing.length === 0) {
+            batchData = generateNewBatch(rowIndex);
+
+            $("#itemBatchTable tbody").append(generateBatchRow(0 , batchData , batchset) );
+        }
+        $("#totalBatchQty").text(total_qty);
+        $("#item-batch-modal").modal("show");
+        renderIcons();
+    });
+
+    // Add new batch row
+    $(document).on("click", ".add-batch-row-header", function () {
+        const tbody = $("#itemBatchTable tbody");
+        const row = tbody.find("tr");
+        const index = row.length;
+        const totalQty = parseFloat($("#totalBatchQty").text()) || 0;
+
+        // Calculate current total batch qty
+        let batchQtySum = 0;
+        tbody.find(".lot_qty").each(function () {
+            batchQtySum += parseFloat($(this).val()) || 0;
+        });
+
+        // Only allow adding if batchQtySum < totalQty
+        if (batchQtySum >= totalQty) {
+            Swal.fire({
+                title: 'Error!',
+                text: 'Total batch quantity already matches Returned Quantity. Cannot add more batches.',
+                icon: 'error',
+            });
+            return;
+        }
+
+        tbody.append(generateBatchRow(index));
+    });
+
+    // Delete selected batch rows
+    $(document).on("click", ".delete-batch-row-header", function () {
+        const tbody = $("#itemBatchTable tbody");
+        const checkedRows = tbody.find(".batch-row-check:checked");
+        const totalRows = tbody.find("tr").length;
+
+        // Prevent deleting if only one row remains
+        if (checkedRows.length >= totalRows) {
+            Swal.fire({
+                title: 'Error!',
+                text: 'At least one batch row must remain.',
+                icon: 'error',
+            });
+            return;
+        }
+
+        checkedRows.each(function () {
+            // Only remove if more than one row remains
+            if (tbody.find("tr").length > 1) {
+                const currentQty = parseFloat($(this).closest("tr").find(".lot_qty").val()) || 0;
+                const allRows = tbody.find("tr");
+                // Find the last row that is NOT being deleted
+                let lastAvailableRow = null;
+                allRows.each(function () {
+                const checkbox = $(this).find(".batch-row-check");
+                if (!checkbox.is(":checked")) {
+                    lastAvailableRow = $(this);
+                }
+                });
+                // If found, move all qty to the last available row
+                if (lastAvailableRow && currentQty > 0) {
+                const lastQtyInput = lastAvailableRow.find(".lot_qty");
+                let lastQty = parseFloat(lastQtyInput.val()) || 0;
+                lastQtyInput.val(lastQty + currentQty);
+                }
+                $(this).closest("tr").remove();
+            }
+            });
+            // If only one row remains after deletion, ensure its qty equals totalBatchQty
+            if (tbody.find("tr").length === 1) {
+            const totalQty = parseFloat($("#totalBatchQty").text()) || 0;
+            tbody.find(".lot_qty").val(totalQty);
+            }
+
+        // re-index
+        tbody.find("tr").each(function (i) {
+            $(this).find("td:first").text(i + 1);
+        });
+    });
+
+    // Save batch modal
+    // Ensure click is bound only once
+$("#saveItemBatchBtn").off("click").on("click", function () {
+    const rowIndex = $("#itemBatchRowIndex").val();
+    let batches = [];
+    let errorMsg = "";
+    let totalBatchQty = 0;
+    let allFilled = true;
+
+    const isBatchEditable = $(`.addBatchBtn[data-row-count="${rowIndex}"]`).data("is-batch-number") == 1;
+    const currentYear = new Date().getFullYear();
+    const today = new Date().toISOString().split('T')[0];
+
+    // Collect all batch numbers first for duplicate check
+    let batchNumbers = [];
+    $("#itemBatchTable tbody .lot-number").each(function () {
+        batchNumbers.push($(this).val().trim());
+    });
+
+        $("#itemBatchTable tbody tr").each(function (index) {
+            const batchNumber = $(this).find(".lot-number").val().trim();
+            const mfgYear = $(this).find(".mfg-year").val();
+            const expiryDate = $(this).find(".expiry-date").val();
+            const qty = parseFloat($(this).find(".lot_qty").val()) || 0;
+            const receiptDate = $(this).find(".batch-receipt_date").val();
+
+            if (isBatchEditable) {
+                // Validate batch number
+                if (!batchNumber) {
+                    allFilled = false;
+                    errorMsg = "Batch number is required.";
+                } else {
+                    const duplicateCount = batchNumbers.filter(bn => bn === batchNumber).length;
+                    if (duplicateCount > 1) {
+                        allFilled = false;
+                        errorMsg = "Lot number '" + batchNumber + "' is repeated.";
+                    }
+                }
+
+                // Validate manufacturing year
+                if (!mfgYear || mfgYear < 2000 || mfgYear > currentYear) {
+                    allFilled = false;
+                    errorMsg = "Manufacturing year must be between 2000 and " + currentYear + ".";
+                }
+
+                // Validate expiry date if required
+                if ($("#itemBatchIsExpiry").val() == "1") {
+                    if (!expiryDate) {
+                        allFilled = false;
+                        errorMsg = "Expiry date is required.";
+                    } else if (expiryDate <= today) {
+                        allFilled = false;
+                        errorMsg = "Expiry date must be greater than today.";
+                    }
+                }
+
+                // Validate quantity
+                if (qty <= 0) {
+                    allFilled = false;
+                    errorMsg = "Batch quantity must be greater than zero.";
+                }
+            }
+
+            if (batchNumber || qty) {
+                batches.push({
+                    lot_number: batchNumber,
+                    manufacturing_year: mfgYear,
+                    expiry_date: expiryDate,
+                    lot_qty: qty,
+                    receipt_date: receiptDate
+                });
+
+                // Accumulate total batch quantity correctly
+                totalBatchQty += qty;
+            }
+            console.log(totalBatchQty,qty,this);
+        });
+
+        const expectedQty = parseFloat($("#totalBatchQty").text()) || 0;
+
+        // Validation for allFilled and quantity
+        if (!allFilled && isBatchEditable) {
+            errorMsg = errorMsg || "Please fill all batch details before saving.";
+        } else if (totalBatchQty !== expectedQty) {
+            errorMsg = "Total batch quantity must match Returned Quantity.";
+        }
+
+        if (errorMsg) {
+            Swal.fire({
+                title: 'Error!',
+                text: errorMsg,
+                icon: 'error',
+            });
+            return;
+        }
+
+        // Save batches to global object and hidden input
+        $(`#batches_${rowIndex}`).val(JSON.stringify(batches));
+
+        // Close modal
+        $("#item-batch-modal").modal("hide");
+
+        console.log("Batches saved for row", rowIndex, batches);
+        console.log("Total batch quantity:", totalBatchQty);
+    });
+
+    // Generate batch row
+    function generateBatchRow(index, data = {} ,disabled = false) {
+        const batchNumber = data.lot_number || "";
+        const mfgYear = data.manufacturing_year || 0;
+        const receiptDate = data.original_receipt_date;
+        // Parse only the date part from expiry_date
+        let expiryDate = "";
+        if (data.expiry_date) {
+            expiryDate = data.expiry_date.split('T')[0];
+        }
+
+        // Calculate qty: if not present, set to (totalBatchQty - sum of previous rows' qty)
+        let qty = data.lot_qty;
+        if (qty === undefined || qty === null || qty === "") {
+            const totalBatchQty = parseFloat($("#totalBatchQty").text()) || 0;
+
+            let prevQtySum = 0;
+            $("#itemBatchTable tbody tr").each(function (i) {
+                if (i < index) {
+                    prevQtySum += parseFloat($(this).find(".lot_qty").val()) || 0;
+                }
+            });
+
+            qty = (totalBatchQty - prevQtySum) || 0;
+        }
+
+        // always keep qty to 6 decimals if numeric
+        qty = qty !== "" ? parseFloat(qty).toFixed(6) : "";
+
+        if (disabled || (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}")) {
+            setTimeout(() => {
+                $(".add-batch-row-header, .delete-batch-row-header").hide();
+            }, 0);
+        } else {
+            setTimeout(() => {
+                $(".add-batch-row-header, .delete-batch-row-header").show();
+            }, 0);
+        }
+        if (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") {
+            $("#saveItemBatchBtn").hide();
+        }
+
+        return `
+            <tr>
+                <td>${index + 1}</td>
+                <td><input name='lot-number[]' type="text" ${disabled || (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") ? "disabled" : ""} class="form-control mw-100 lot-number" value="${batchNumber}"></td>
+                <td>
+                    <input name='batch-year[]' 
+                        type="number" 
+                        min="2000" 
+                        max="${new Date().getFullYear()}" 
+                        ${disabled || (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") ? "disabled" : ""} 
+                        class="form-control mw-100 mfg-year" 
+                        value="${mfgYear == 0 ? '' : mfgYear}" 
+                        placeholder="YYYY"
+                        oninput="if(this.value == '0'){this.value='';}"
+                    >
+                </td>
+                <td>
+                    <input name='batch-expiry[]' 
+                        type="date" 
+                        min="${new Date().toISOString().split('T')[0]}" 
+                        ${disabled || Number($("#itemBatchIsExpiry").val()) == 0 || (order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") ? "disabled" : ""} 
+                        class="form-control mw-100 expiry-date" 
+                        value="${expiryDate}" 
+                        oninput="if(this.value && this.value <= '${new Date().toISOString().split('T')[0]}'){Swal.fire('Error','Expiry date must be greater than today','error');this.value='';}"
+                    >
+                </td>
+                <td>
+                    <input type="hidden" class="batch-receipt-date" value="${receiptDate ?? null}">
+                    <input name='lot_qty[]'
+                        type = 'text' 
+                        id = 'lot_qty_${index}'
+                        type="number" 
+                        step="0.000001"
+                        ${(order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") ? "disabled" : ""} 
+                        class="form-control mw-100 lot_qty" 
+                        value="${qty}"
+                    >
+                </td>
+                <td class="text-center">
+                    <input type="checkbox" ${(order && order.document_status!="{{ app\Helpers\ConstantHelper::DRAFT }}") ? "disabled" : ""} class="form-check-input batch-row-check">
+                </td>
+            </tr>
+        `;
+    }
+    function generateNewBatch(rowIndex) {
+        return {
+            lot_number:  $("#order_date_input").val()+"/"+$("#book_code_input").val()+"/"+$("#order_no_input").val(),
+            manufacturing_year: "0000",
+            expiry_date: "0000-00-00",
+            quantity: $("#item_qty_"+rowIndex).val() || 0,
+        };
+    }
+    $(document).on('input', '[id^="item_qty_"]', function () {
+        const $input = $(this);
+         // Extract index from id if not passed
+        
+        const matches = $input.attr('id').match(/item_qty_(\d+)/);
+        let index = matches ? matches[1] : 0;
+        const itemQty = parseFloat($input.val()) || 0;
+        console.log($input,index,itemQty);
+        const $batchInput = $("#batches_" + index);
+        const prevItemQty = $input.data('prev') || 0; // store previous value
+        let batches = JSON.parse($batchInput.val());
+        const totalLotQty = batches.reduce((sum, b) => sum + (b.total_lot_qty || 0), 0);
+        console.log($input,index,itemQty,$batchInput,totalLotQty);
+
+        if (itemQty > totalLotQty) {
+            Swal.fire({
+                title: 'Error!',
+                text: 'Entered quantity exceeds total available lot quantity!',
+                icon: 'error',
+            });
+            $input.val(prevItemQty); // reset to previous
+            return;
+        }
+
+        let remainingQty = itemQty;
+
+        // Allocate new lot_qty
+        batches = batches.map(batch => {
+            if (remainingQty <= 0) {
+                batch.lot_qty = 0;
+            } else if (remainingQty >= batch.total_lot_qty) {
+                batch.lot_qty = batch.total_lot_qty;
+                remainingQty -= batch.total_lot_qty;
+            } else {
+                batch.lot_qty = remainingQty;
+                remainingQty = 0;
+            }
+            return batch;
+        });
+
+        // Update hidden input
+        $batchInput.val(JSON.stringify(batches));
+
+        // Store current as previous for next change
+        $input.data('prev', itemQty);
+    });
+    $("#type_input").on('change', function () {
+        const val = $(this).val(); // or this.value
+        if (val === "0") {
+            $("#delivery_note_selection").removeClass('d-none');
+        } else {
+            $("#delivery_note_selection").addClass('d-none');
+        }
+    });
+    // If your inputs are like <input id="lot_qty_0">, <input id="lot_qty_1"> ...
+    $(document).on('input', '[id^="lot_qty_"]', function() {
+        let value = $(this).val(); // ✅ correct way
+        this.setAttribute('value', value); // keep attribute in sync
+    });
 
     </script>
-<script src="{{ asset("assets\\js\\modules\\pl\\common-script.js") }}"></script>
-
 @endsection
 @endsection

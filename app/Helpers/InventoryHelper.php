@@ -2,9 +2,11 @@
 
 namespace App\Helpers;
 
+use App\Helpers\Common\OrganizationHelper;
 use App\Models\ErpPsvBatchDetail;
 use DB;
 use Auth;
+use phpseclib3\File\ASN1\Maps\OrganizationalUnitNames;
 use stdClass;
 use Carbon\Carbon;
 use App\Models\Item;
@@ -749,13 +751,16 @@ class InventoryHelper
                 $stockLedger->vendor_code = @$documentHeader->vendor_code;
                 $stockLedger->receipt_qty = $qty ?? 0;
                 $stockLedger->book_id = @$documentHeader->book_id;
-                $totalItemCost = ($documentLotDetail->lot_qty * $documentDetail->rate) - ($documentDetail->item_discount_amount + $documentDetail->header_discount_amount);
+                $dnoteRate = @$documentDetail->rate;
+                if ($documentDetail -> si_item_id) {
+                    $dnoteRate = InventoryHelperV2::getDnoteStockCostRateForReturn($documentDetail -> si_item_id);
+                }
+                $totalItemCost = ($documentLotDetail->lot_qty * $dnoteRate);
                 $costPerUnit = $totalItemCost / $qty;
-
                 // Item Location Data
-                $stockLedger->store_id = $documentDetail->store_id ?? null;
-                $stockLedger->sub_store_id = $documentDetail->sub_store_id ?? null;
-                $stockLedger->store = @$documentDetail->erpStore->store_code;
+                $stockLedger->store_id = $documentHeader->store_id ?? null;
+                $stockLedger->sub_store_id = $documentHeader->sub_store_id ?? null;
+                $stockLedger->store = @$documentHeader->erpStore->store_code;
 
                 $stockLedger->original_receipt_date = @$documentLotDetail->original_receipt_date;
                 $stockLedger->lot_number = @$documentLotDetail->lot_number;
@@ -1080,9 +1085,16 @@ class InventoryHelper
             }
 
             if ($bookType == ConstantHelper::PSV_SERVICE_ALIAS) {
-                $qty = ItemHelper::convertToBaseUom($documentItemLocation->psvItem->item_id, $documentItemLocation->psvItem->uom_id, abs($documentItemLocation->quantity));
-                $documentHeader = ErpPsvHeader::find($documentItemLocation->header_id);
-                $detailId = $documentItemLocation->detail_id;
+                if ($transactionType == 'receipt') {
+                    $qty = ItemHelper::convertToBaseUom($documentItemLocation->psvItem->item_id, $documentItemLocation->psvItem->uom_id, $documentItemLocation->quantity);
+                    $detailId = $documentItemLocation->detail_id;
+                    $headerId = $documentItemLocation->header_id;
+                } else {
+                    $qty = ItemHelper::convertToBaseUom($documentItemLocation->item_id, $documentItemLocation->uom_id, abs($documentItemLocation->adjusted_qty));
+                    $detailId = $documentItemLocation->id;
+                    $headerId = $documentItemLocation->psv_header_id;
+                }
+                $documentHeader = ErpPsvHeader::find($headerId);
                 $documentDetail = ErpPsvItem::with(['header', 'attributes'])->find($detailId);
                 $stockLedger->vendor_id = null;
                 $stockLedger->vendor_code = null;
@@ -2499,7 +2511,6 @@ class InventoryHelper
     // Settlement For MRN (Receive)
     private static function settlementForMRN($documentHeaderId, $documentDetailId, $bookType, $documentStatus)
     {
-        $user = Helper::getAuthenticatedUser();
         $invoiceLedger = [];
         $transactionType = 'receipt';
         $documentItemLocations = MrnBatchDetail::where('header_id', $documentHeaderId)
@@ -2997,7 +3008,7 @@ class InventoryHelper
     {
         $user = Helper::getAuthenticatedUser();
         $updatedInvoiceLedger = [];
-
+        
         try {
             $documentItems = ErpPsvItem::whereIn('id', $documentDetailId)
                 ->with(
@@ -3378,10 +3389,12 @@ class InventoryHelper
             array_push($lotNoWithQtys, [
                 'lot_qty' => ItemHelper::convertToAltUom($utlStock->item_id, $altUomId, $utlStock->receipt_qty),
                 'lot_number' => $utlStock->lot_number,
-                'original_receipt_date' => $utlStock->original_receipt_date,
+                'manufacturing_year' => $utlStock -> manufacturing_year,
+                'expiry_date' => $utlStock -> expiry_date,
                 'so_no' => $utlStock->so ? $utlStock->so->book_code . "-" . $utlStock->so->document_number : ' ',
                 'so_qty' => $utlStock->so ? $utlStock->so->order_qty : 0,
-
+                'original_receipt_date' => $utlStock->original_receipt_date ?? null,
+                'total_lot_qty' => ItemHelper::convertToAltUom($utlStock->item_id, $altUomId, $utlStock->receipt_qty),
             ]);
         }
         return $lotNoWithQtys;

@@ -29,7 +29,29 @@
     @endif
     <div style="width:700px; font-size: 11px; font-family:Arial;">
     <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
-            <tr><td colspan="3" style="width:100%; text-align:center; font-size:18px; font-weight: 900;">Tax Invoice</td></tr>
+            <tr>
+                <!-- Empty left cell for spacing -->
+                <td style="width: 35%;"></td>
+
+                <!-- Centered Tax Invoice -->
+                <td style="width: 30%; text-align: center; font-size: 18px; font-weight: 900;">
+                    Tax Invoice
+                </td>
+
+                <!-- Right-aligned label -->
+                <td style="width: 35%; text-align: right; font-size: 10px; font-weight: 100; padding: 0;">
+                    @php
+                        $labelText = [
+                            'Original'   => 'Original for Recipient',
+                            'Duplicate'  => 'Duplicate for Transporter',
+                            'Triplicate' => 'Triplicate for Supplier'
+                        ][$label] ?? '';
+                    @endphp
+
+                    {{ $labelText }}
+
+                </td>
+            </tr>
             <tr>
                 <td style="border: 1px solid #000;  border-bottom: none; padding: 3px; width: 30%; vertical-align: top;">
                     @if (isset($orgLogo) && $orgLogo)
@@ -303,6 +325,10 @@
                     UOM
                 </td>
                 <td
+                    style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; text-align: center; background: #80808070;">
+                    Packets
+                </td>
+                <td
                     style="font-weight: bold; padding: 4px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
                     Quantity
                 </td>
@@ -332,10 +358,6 @@
                     style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; text-align: center; background: #80808070;">
                     Tax <br> Amt
                 </td>
-                <td
-                    style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; text-align: center; background: #80808070;">
-                    Packets
-                </td>
             </tr>
             @php 
                 $totalCGSTValue = 0.00;
@@ -346,7 +368,7 @@
                 $hsnGroups = [];
                 $taxBracket = [];
             @endphp
-            @foreach($order->items as $key => $val)
+            @foreach($order->items as $idx => $val)
             @php
                 $totalTaxPercentage = 0.00;
                 if ($val->item && $val->item->hsn) {
@@ -396,7 +418,7 @@
                 <tr>
                     <td
                         style=" vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none;  text-align: center;">
-                        {{ (INT)$key + 1 }}
+                        {{ (INT)$idx + 1 }}
                     </td>
                     <td
                         style="vertical-align: middle; padding:10px 3px; text-align:left; border: 1px solid #000; border-top: none; border-left: none;">
@@ -446,6 +468,10 @@
                     <td
                         style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">
                         {{@$val->uom->name}}
+                    </td>
+                    <td
+                        style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none;  text-align: center;">
+                        {{ max($val->dnItem?->bundles?->count(), 1) }}
                     </td>
                     <td
                         style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">
@@ -509,10 +535,6 @@
                             $totalTaxValue = $totalCGSTValue + $totalIGSTValue + $totalSGSTValue;
                         @endphp
                         {{number_format($totalTaxAmount, 2)}}
-                    </td>
-                    <td
-                        style="vertical-align: middle; padding:10px 3px; border: 1px solid #000; border-top: none; border-left: none;  text-align: center;">
-                        {{ max($val->dnItem?->bundle?->count(), 1) }}
                     </td>
                 </tr>
             @endforeach
@@ -617,6 +639,44 @@
                             </td>
                         </tr>
                     </table>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2"
+                    style="padding: 3px; border: 1px solid #000; width: 50%; border-top: none; vertical-align: top;">
+                    <table style="width: 100%; border-collapse: collapse;" cellspacing="0" cellpadding="0">
+                        @foreach($bankInfo->chunk(3) as $bankChunk) {{-- max 3 banks per row --}}
+                            <tr>
+                                @foreach($bankChunk as $bank)
+                                    <td style="padding: 5px; border: 1px solid #000; width: 33%; vertical-align: top;">
+                                        <table style="width: 100%; margin-bottom: 0;" cellspacing="0" cellpadding="0">
+                                            <tr>
+                                                <td style="font-weight: bold; font-size: 13px;">
+                                                    <b>Bank Details :</b>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td>
+                                                    <span><b>{{ $organization->name }}</b> </span><br>
+                                                    <span><b>Bank Name:</b> {{ $bank->bank_name }}</span><br>
+                                                    @foreach($bank->bankDetails as $detail)
+                                                        <span><b>Account No:</b> {{ $detail->account_number }}</span><br>
+                                                        <span><b>IFSC Code:</b> {{ $detail->ifsc_code }}</span><br>
+                                                    @endforeach
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                @endforeach
+
+                                {{-- fill empty cells if less than 3 banks in this row --}}
+                                @for($i = $bankChunk->count(); $i < 3; $i++)
+                                    <td style="padding: 5px; border: 1px solid #000; width: 33%;"></td>
+                                @endfor
+                            </tr>
+                        @endforeach
+                    </table>
+
                 </td>
             </tr>
             <tr>

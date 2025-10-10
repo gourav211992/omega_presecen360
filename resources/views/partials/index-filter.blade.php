@@ -62,7 +62,6 @@ filtersComponents.forEach(filterData => {
     });
 
     function initializeAutoCompleteFilter(selector, type, valueKey, labelKey, dependentElements = []) {
-        console.log('autocomplete me entry',selector);
         $("#" + selector).autocomplete({
             source: function(request, response) {
                 $.ajax({

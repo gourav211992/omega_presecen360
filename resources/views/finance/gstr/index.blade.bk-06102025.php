@@ -76,25 +76,24 @@
                                                     $totalInvoiceCount = 0;
                                                 @endphp
 
-                                                @forelse ($types as $key => $type)
+                                                @forelse ($gstrInvoiceTypes as $key => $item)
                                                     @php
-                                                        $data = $invoiceData[$type->name];
-                                                        $totalTaxableAmt += $data['taxable_amt'] ?? 0;
-                                                        $totalIgst += $data['igst'] ?? 0;
-                                                        $totalCgst += $data['cgst'] ?? 0;
-                                                        $totalSgst += $data['sgst'] ?? 0;
-                                                        $totalCess += $data['cess'] ?? 0;
-                                                        $totalTax =
-                                                            ($data['igst'] ?? 0) +
-                                                            ($data['cgst'] ?? 0) +
-                                                            ($data['sgst'] ?? 0) +
-                                                            ($data['cess'] ?? 0);
-                                                        $totalTaxAmt += $totalTax;
-                                                        $totalInvoiceAmt += $data['invoice_amt'] ?? 0;
-                                                        $totalInvoiceCount += $data['invoice_count'] ?? 0;
+                                                        $totalTaxableAmt += $item->taxable_amt ?? 0;
+                                                        $totalIgst += $item->igst ?? 0;
+                                                        $totalCgst += $item->cgst ?? 0;
+                                                        $totalSgst += $item->sgst ?? 0;
+                                                        $totalCess += $item->cess ?? 0;
+                                                        $itemTotalTax =
+                                                            ($item->igst ?? 0) +
+                                                            ($item->cgst ?? 0) +
+                                                            ($item->sgst ?? 0) +
+                                                            ($item->cess ?? 0);
+                                                        $totalTaxAmt += $itemTotalTax;
+                                                        $totalInvoiceAmt += $item->invoice_amt ?? 0;
+                                                        $totalInvoiceCount += $item->invoice_count ?? 0;
                                                     @endphp
                                                     <tr class="trail-bal-tabl-none">
-                                                        <td>{{ $types->firstItem() + $key }}</td>
+                                                        <td>{{ $gstrInvoiceTypes->firstItem() + $key }}</td>
                                                         <td>
                                                             <div style="width: 200px">
                                                                 @php
@@ -102,28 +101,27 @@
                                                                     $query = request()->except('page'); // Remove 'page' from query string
                                                                     $queryString = http_build_query($query);
                                                                 @endphp
-                                                                <a href="{{ url('/finance/gstr/details') . '/' . $type->id }}{{ $queryString ? '?' . $queryString : '' }}"
-                                                                    class="fw-bolder text-dark">{{ strtoupper($type->name) }}</a>
+                                                                <a href="{{ url('/finance/gstr/details') . '/' . $item->id }}{{ $queryString ? '?' . $queryString : '' }}"
+                                                                    class="fw-bolder text-dark">{{ strtoupper($item->type) }}</a>
                                                             </div>
                                                         </td>
                                                         <td><span
-                                                                class="badge rounded-pill badge-light-secondary badgeborder-radius">{{ $data['invoice_count'] }}</span>
+                                                                class="badge rounded-pill badge-light-secondary badgeborder-radius">{{ $item->invoice_count }}</span>
                                                         </td>
                                                         <td class="text-end">
-                                                            {{ $data['taxable_amt'] ? number_format($data['taxable_amt'], 2) : 0 }}
+                                                            {{ $item->taxable_amt ? number_format($item->taxable_amt, 2) : 0 }}
                                                         </td>
                                                         <td class="text-end">
-                                                            {{ $data['igst'] ? number_format($data['igst'], 2) : 0 }}</td>
+                                                            {{ $item->igst ? number_format($item->igst, 2) : 0 }}</td>
                                                         <td class="text-end">
-                                                            {{ $data['cgst'] ? number_format($data['cgst'], 2) : 0 }}</td>
+                                                            {{ $item->cgst ? number_format($item->cgst, 2) : 0 }}</td>
                                                         <td class="text-end">
-                                                            {{ $data['sgst'] ? number_format($data['sgst'], 2) : 0 }}</td>
+                                                            {{ $item->sgst ? number_format($item->sgst, 2) : 0 }}</td>
                                                         <td class="text-end">
-                                                            {{ $data['cess'] ? number_format($data['cess'], 2) : 0 }}</td>
+                                                            {{ $item->cess ? number_format($item->cess, 2) : 0 }}</td>
+                                                        <td class="text-end">{{ number_format($itemTotalTax, 2) }}</td>
                                                         <td class="text-end">
-                                                            {{ $totalTax ? number_format($totalTax, 2) : 0 }}</td>
-                                                        <td class="text-end">
-                                                            {{ $data['invoice_amt'] ? number_format($data['invoice_amt'], 2) : 0 }}
+                                                            {{ $item->invoice_amt ? number_format($item->invoice_amt, 2) : 0 }}
                                                         </td>
                                                     </tr>
                                                 @empty
@@ -150,7 +148,7 @@
                                     </div>
                                     <div class="d-flex justify-content-end mx-1 mt-50">
                                         {{-- Pagination --}}
-                                        {{ $types->appends(request()->input())->links('crm.partials.pagination') }}
+                                        {{ $gstrInvoiceTypes->appends(request()->input())->links('crm.partials.pagination') }}
                                         {{-- Pagination End --}}
                                     </div>
                                 </div>
@@ -249,8 +247,8 @@
                             <select class="form-select select2" name="type" id="csvType" required>
                                 <option value="">-- Select Type --</option>
                                 <option value="all">ALL</option>
-                                @forelse($invoiceTypes as $invoiceType)
-                                    <option value="{{ $invoiceType->id }}">{{ strtoupper($invoiceType->name) }}</option>
+                                @forelse($types as $type)
+                                    <option value="{{ $type->id }}">{{ strtoupper($type->name) }}</option>
                                 @empty
                                 @endforelse
                             </select>

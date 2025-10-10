@@ -116,6 +116,9 @@ class ErpRCController extends Controller
                 ->addColumn('end_date', function ($row) {
                     return $row->getFormattedDate('end_date') ?? '';
                 })
+                ->editColumn('created_by', function ($row) {
+                    return ucfirst(isset($row->createdBy) ? $row->createdBy->name : '');
+                })
                 ->rawColumns(['document_status'])
                 ->make(true);
         }
@@ -133,8 +136,7 @@ class ErpRCController extends Controller
         $parentURL = request()->segments()[0];
         $redirectUrl = route('rate.contract.index');
         $user = Helper::getAuthenticatedUser();
-        $users = AuthUser::where('organization_id', $user -> organization_id) -> where('status', ConstantHelper::ACTIVE) -> get();
-
+        $users = [];
         $type = ConstantHelper::RC_SERVICE_ALIAS;
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL,"",$user);
         $termsAndConditions = TermsAndCondition::where('status',ConstantHelper::ACTIVE)->get();
@@ -147,11 +149,9 @@ class ErpRCController extends Controller
         $userOrgs = $user->organizations->pluck('id')->toArray();
         array_push($userOrgs,$user->organization_id);
         $organizations = Organization::whereIn('id',$userOrgs)->where('status', ConstantHelper::ACTIVE)->get();
-        $vendors = Vendor::where('organization_id', $user->organization_id)
-            ->where('status', ConstantHelper::ACTIVE)
-            ->get();
+        $vendors = [];
         $books = Helper::getBookSeries($bookType)->get();
-        $countries = Country::select('id AS value', 'name AS label')->where('status', ConstantHelper::ACTIVE)->get();
+        // $countries = Country::select('id AS value', 'name AS label')->where('status', ConstantHelper::ACTIVE)->get();
         $transportationModes = EwayBillMaster::where('status', 'active')
             ->where('type', '=', 'transportation-mode')
             ->orderBy('id', 'ASC')
@@ -166,7 +166,7 @@ class ErpRCController extends Controller
             'services' => $servicesBooks['services'],
             'selectedService' => $firstService?->id ?? null,
             'series' => $books,
-            'countries' => $countries,
+            // 'countries' => $countries,
             'type' => $type,
             'typeName' => $typeName,
             'termsAndConditions' => $termsAndConditions,
@@ -1234,9 +1234,9 @@ class ErpRCController extends Controller
                 }
                 return $attributesUi;
             })
-            ->addColumn('moq', function ($row) {
-                return number_format($row->moq ?? 0, 2);
-            })
+            // ->addColumn('moq', function ($row) {
+            //     return number_format($row->moq ?? 0, 2);
+            // })
             ->addColumn('from_qty', function ($row) {
                 return number_format($row->from_qty ?? 0, 2);
             })
@@ -1246,9 +1246,9 @@ class ErpRCController extends Controller
             ->addColumn('rate', function ($row) {
                 return number_format($row->rate ?? 0, 2);
             })
-            ->addColumn('lead_time', function ($row) {
-                return $row->lead_time ?? '';
-            })
+            // ->addColumn('lead_time', function ($row) {
+            //     return $row->lead_time ?? '';
+            // })
             ->addColumn('effective_from', function ($row) {
                 return $row->from_date ?? '';
             })

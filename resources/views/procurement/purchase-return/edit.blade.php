@@ -46,12 +46,12 @@
                                             <i data-feather="check-circle"></i> Generate Eway Bill
                                         </a>
                                     @endif --}}
-                                    @if ($eInvoice && $eInvoice->irn_number && $eInvoice->status == 'ACT')
+                                    {{-- @if ($eInvoice && $eInvoice->irn_number && $eInvoice->status == 'ACT')
                                         <a type="button" class="btn btn-primary btn-sm btn-danger" id="cancelEinvoice"
                                             href="#">
                                             <i data-feather="x-circle"></i> Cancel Envoice
                                         </a>
-                                    @endif
+                                    @endif --}}
                                 @endif
                                 @if ($buttons['draft'])
                                     <button type="submit"
@@ -100,12 +100,12 @@
                                                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                                                 <polyline points="22 4 12 14.01 9 11.01"></polyline>
                                             </svg> Post</button>
-                                        @if (!$eInvoice || ($eInvoice->irn_number && $eInvoice->status == 'cancelled'))
+                                        {{-- @if (!$eInvoice || ($eInvoice->irn_number && $eInvoice->status == 'cancelled'))
                                             <a type="button" class="btn btn-primary btn-sm" id="eEnvoiceBtn"
                                                 href="#">
                                                 <i data-feather="check-circle"></i> Generate Envoice
                                             </a>
-                                        @endif
+                                        @endif --}}
                                         <a href="{{ route('purchase-return.generate-pdf', $mrn->id) }}" target="_blank"
                                             class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
@@ -135,6 +135,20 @@
                                             <line x1="16" y1="17" x2="8" y2="17"></line>
                                             <polyline points="10 9 9 9 8 9"></polyline>
                                         </svg> Voucher</button>
+                                        <a href="{{ route('purchase-return.generate-pdf', $mrn->id) }}" target="_blank"
+                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="feather feather-printer">
+                                                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                                <path
+                                                    d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2">
+                                                </path>
+                                                <rect x="6" y="14" width="12" height="8"></rect>
+                                            </svg>
+                                            Print
+                                        </a>
                                     <button type = "button" onclick = "sendMailTo();"
                                         class="btn btn-primary btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
                                             data-feather="mail"></i> E-Mail</button>
@@ -767,7 +781,7 @@
                                                     <div class="col-md-12">
                                                         <div class="mb-1">
                                                             <label class="form-label">Final Remarks</label>
-                                                            <textarea type="text" rows="4" name="remarks" class="form-control" placeholder="Enter Remarks here...">{!! $mrn->final_remark !!}</textarea>
+                                                            <textarea rows="4" name="final_remark" class="form-control" placeholder="Enter Remarks here...">{!! $mrn->final_remark !!}</textarea>
                                                         </div>
                                                     </div>
                                                 </div>

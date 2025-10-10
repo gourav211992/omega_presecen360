@@ -45,8 +45,8 @@ class ErpRateContractRequest extends FormRequest
             'item_id' => 'required|array',
             'item_id.*' => 'required|numeric|integer',
 
-            'MOQ'=> 'array',
-            'MOQ.*' => 'numeric',
+            // 'MOQ'=> 'array',
+            // 'MOQ.*' => 'numeric',
             
             'from_item_qty' => 'required|array',
             'from_item_qty.*' => 'required|numeric',
@@ -57,8 +57,8 @@ class ErpRateContractRequest extends FormRequest
             'item_rate' => 'required|array',
             'item_rate.*' => 'required|numeric|min:0.01',
 
-            'item_lead' => 'array',
-            'item_lead.*' => 'numeric',
+            // 'item_lead' => 'array',
+            // 'item_lead.*' => 'numeric',
             
             'tnc' => [
                 'nullable',
@@ -108,7 +108,7 @@ class ErpRateContractRequest extends FormRequest
             $toItemQty = $this->input('to_item_qty', []);
             $effectiveFrom = $this->input('effective_from', []);
             $effectiveTo = $this->input('effective_to', []);
-            $moqs = $this->input('MOQ', []);
+            // $moqs = $this->input('MOQ', []);
             $start_date = $this->input('start_date');
             $end_date = $this->input('end_date');
             $itemAttributesCombination = [];
@@ -146,7 +146,7 @@ class ErpRateContractRequest extends FormRequest
                             $itemAttributesCombination[$itemKey]['to_item_qty'] = $toItemQty[$itemKey] ?? null;
                             $itemAttributesCombination[$itemKey]['effective_from'] = $effectiveFrom[$itemKey] ?? null;
                             $itemAttributesCombination[$itemKey]['effective_to'] = $effectiveTo[$itemKey] ?? null;
-                            $itemAttributesCombination[$itemKey]['MOQ'] = $moqs[$itemKey] ?? null;
+                            // $itemAttributesCombination[$itemKey]['MOQ'] = $moqs[$itemKey] ?? null;
                         }
                     }
                 }
@@ -158,12 +158,15 @@ class ErpRateContractRequest extends FormRequest
                 $itemAttributesCombination[$itemKey]['to_item_qty'] = $toItemQty[$itemKey] ?? null;
                 $itemAttributesCombination[$itemKey]['effective_from'] = $effectiveFrom[$itemKey] ?? null;
                 $itemAttributesCombination[$itemKey]['effective_to'] = $effectiveTo[$itemKey] ?? null;
-                $itemAttributesCombination[$itemKey]['MOQ'] = $moqs[$itemKey] ?? null;
+                // $itemAttributesCombination[$itemKey]['MOQ'] = $moqs[$itemKey] ?? null;
 
-                if ($moqs[$itemKey] > $toItemQty[$itemKey] && $toItemQty[$itemKey] > 0) {
-                    $validator->errors()->add("to_item_qty.{$itemKey}", "MOQ > To quantity.");
+                // if ($moqs[$itemKey] > $toItemQty[$itemKey] && $toItemQty[$itemKey] > 0) {
+                //     $validator->errors()->add("to_item_qty.{$itemKey}", "MOQ > To quantity.");
+                // }
+                if($fromItemQty[$itemKey] > $toItemQty[$itemKey])
+                {
+                    $validator->errors()->add("from_item_qty.{$itemKey}","Invalid");
                 }
-
                 if ($effectiveFrom[$itemKey] < $start_date || ($end_date && $effectiveFrom[$itemKey] > $end_date)) {
                     $validator->errors()->add("effective_from.{$itemKey}", "date must be within start date and end date.");
                 }
@@ -178,9 +181,9 @@ class ErpRateContractRequest extends FormRequest
                         $itemAttributesCombination[$itemKey]['attributes'] == $otherItem['attributes'] &&
                         $uomIds[$itemKey] == $otherItem['uom_id']
                     ) {
-                        if ($moqs[$itemKey] != $otherItem['MOQ']) {
-                            $validator->errors()->add("MOQ.{$itemKey}", "MOQ must be same.");
-                        }
+                        // if ($moqs[$itemKey] != $otherItem['MOQ']) {
+                        //     $validator->errors()->add("MOQ.{$itemKey}", "MOQ must be same.");
+                        // }
                         // if ($moqs[$itemKey] != $otherItem['MOQ']) {
                         //     $validator->errors()->add("MOQ.{$itemKey}", "MOQ must be same.");
                         // }
@@ -230,23 +233,23 @@ class ErpRateContractRequest extends FormRequest
                             }
                         } else {
                             // Check if only effective dates overlap
-                            if (
-                                ($currentEffectiveFrom <= $otherEffectiveTo && $currentEffectiveFrom >= $otherEffectiveFrom) ||
-                                ($currentEffectiveTo <= $otherEffectiveTo && $currentEffectiveTo >= $otherEffectiveFrom) ||
-                                ($otherEffectiveFrom <= $currentEffectiveTo && $otherEffectiveFrom >= $currentEffectiveFrom) ||
-                                ($otherEffectiveTo <= $currentEffectiveTo && $otherEffectiveTo >= $currentEffectiveFrom)
-                            ) {
-                                if (
-                                    ($currentEffectiveFrom <= $otherEffectiveTo && $currentEffectiveFrom >= $otherEffectiveFrom)
-                                ) {
-                                    $validator->errors()->add("effective_from.{$itemKey}", "Overlapping date.");
-                                }
-                                if (
-                                    ($currentEffectiveTo <= $otherEffectiveTo && $currentEffectiveTo >= $otherEffectiveFrom)
-                                ) {
-                                    $validator->errors()->add("effective_to.{$itemKey}", "Overlapping date.");
-                                }
-                            }
+                            // if (
+                            //     ($currentEffectiveFrom <= $otherEffectiveTo && $currentEffectiveFrom >= $otherEffectiveFrom) ||
+                            //     ($currentEffectiveTo <= $otherEffectiveTo && $currentEffectiveTo >= $otherEffectiveFrom) ||
+                            //     ($otherEffectiveFrom <= $currentEffectiveTo && $otherEffectiveFrom >= $currentEffectiveFrom) ||
+                            //     ($otherEffectiveTo <= $currentEffectiveTo && $otherEffectiveTo >= $currentEffectiveFrom)
+                            // ) {
+                            //     if (
+                            //         ($currentEffectiveFrom <= $otherEffectiveTo && $currentEffectiveFrom >= $otherEffectiveFrom)
+                            //     ) {
+                            //         $validator->errors()->add("effective_from.{$itemKey}", "Overlapping date.");
+                            //     }
+                            //     if (
+                            //         ($currentEffectiveTo <= $otherEffectiveTo && $currentEffectiveTo >= $otherEffectiveFrom)
+                            //     ) {
+                            //         $validator->errors()->add("effective_to.{$itemKey}", "Overlapping date.");
+                            //     }
+                            // }
                         }
                     }
                 }

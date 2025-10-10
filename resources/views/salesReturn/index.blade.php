@@ -67,6 +67,7 @@
                                                 <th>GST Invoice Type</th>
                                                 <th>E Invoice</th>
                                                 <th>E-Way Bill</th>
+                                                <th>Created By</th>
 												<th>Status</th>
 											  </tr>
 											</thead>
@@ -189,6 +190,10 @@
         //     }
         // },
         { data: 'is_ewb_generated', name: 'is_ewb_generated', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+               $(td).addClass('no-wrap');
+            }
+        },
+        { data: 'created_by', name: 'created_by', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
                $(td).addClass('no-wrap');
             }
         },

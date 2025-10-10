@@ -19,7 +19,7 @@
                   </div>
                   <div class="mb-2">
                      <label class="form-label">Upload Document</label>
-                     <input type="file" onchange="addFiles(this, 'file_preview')" name="amend_attachment[]" multiple class="form-control" />
+                     <input type="file" onchange="addFiles(this, 'file_preview')" name="amend_attachment[]" multiple class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" />
                      <span class = "text-primary small">{{__("message.attachment_caption")}}</span>
                   </div>
                   <div class="mt-2">

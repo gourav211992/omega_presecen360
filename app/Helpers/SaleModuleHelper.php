@@ -47,7 +47,7 @@ use stdClass;
 
 class SaleModuleHelper  
 { 
-    const SALES_RETURN_DEFAULT_TYPE = "sale-return";
+    const SALES_RETURN_DEFAULT_TYPE = "sr";
     const SALES_INVOICE_DEFAULT_TYPE = "si";
     const SALES_INVOICE_DN_TYPE = "dnote";
     const SALES_INVOICE_DN_CUM_INV_TYPE = "si-dnote";
@@ -56,10 +56,17 @@ class SaleModuleHelper
     const ORDER_TYPE_DEFAULT = "Order";
     const ORDER_TYPE_JOB_WORK = "Job Work";
     const ORDER_TYPE_SUB_CONTRACTING = "Sub Contracting";
+    const Reversal = '0';
+    const Cust_Return = '1';
     const ORDER_TYPES = [
         self::ORDER_TYPE_DEFAULT,
         self::ORDER_TYPE_JOB_WORK,
         self::ORDER_TYPE_SUB_CONTRACTING
+    ];
+
+    const Return_Types = [
+        self::Reversal,
+        self::Cust_Return
     ];
     public static function getSoImports(): array
     {

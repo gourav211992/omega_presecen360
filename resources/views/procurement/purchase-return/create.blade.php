@@ -494,7 +494,7 @@
                                                     <div class="col-md-12">
                                                         <div class="mb-1">
                                                             <label class="form-label">Final Remarks</label>
-                                                            <textarea type="text" rows="4" name="remarks" class="form-control" placeholder="Enter Remarks here..."></textarea>
+                                                            <textarea rows="4" name="final_remark" class="form-control" placeholder="Enter Remarks here..."></textarea>
                                                         </div>
                                                     </div>
                                                 </div>

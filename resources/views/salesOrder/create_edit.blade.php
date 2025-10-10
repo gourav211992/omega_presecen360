@@ -176,7 +176,7 @@
 
                                                     <div class="row align-items-center mb-1">
                                                         <div class="col-md-3">
-                                                            <label class="form-label">Reference PO No.<span class="text-danger">*</span></label>
+                                                            <label class="form-label">Customer PO No.</label>
                                                         </div>
 
                                                         <div class="col-md-5">
@@ -2318,6 +2318,7 @@
 
         function itemOnChange(selectedElementId, index, routeUrl) // Retrieve element and set item attiributes
         {
+            let bomIcon = document.getElementById('dynamic_bom_div_' + index);
             const selectedElement = document.getElementById(selectedElementId);
             const ItemIdDocument = document.getElementById(selectedElementId + "_value");
             if (selectedElement && ItemIdDocument) {
@@ -2340,6 +2341,9 @@
                     if (rateElement && response.item.sell_price) {
                         rateElement.value = parseFloat(response.item.sell_price);
                         itemRowCalculation(index);
+                    }
+                    if (bomIcon) {
+                        bomIcon.removeAttribute('bom_details');
                     }
                     checkBomCondition(index, false, true);
                     getAndSetItemRate(index, 'selling');

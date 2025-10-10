@@ -69,6 +69,7 @@
                                                 <th>E Invoice</th>
                                                 <th>E-Way Bill</th>
                                                 <th>POD</th>
+                                                <th>Created By</th>
                                                 <th style = 'text-align:center'>Status</th>
 											  </tr>
 											</thead>
@@ -195,6 +196,10 @@
             }
         },
         { data: 'delivery_status', name: 'delivery_status', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+               $(td).addClass('no-wrap');
+            }
+        },
+        { data: 'created_by', name: 'created_by', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
                $(td).addClass('no-wrap');
             }
         },

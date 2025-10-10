@@ -1,12 +1,14 @@
 <?php
 
 namespace App\Http\Controllers;
+use App\Helpers\Common\OrganizationHelper;
 use App\Helpers\GstInvoiceHelper;
 use App\Helpers\MasterIndiaHelper;
 use App\Helpers\TransactionReportHelper;
 use App\Jobs\SendEmailJob;
 use App\Models\AttributeGroup;
 use App\Models\AuthUser;
+use App\Models\Bank;
 use App\Models\Book;
 use App\Models\ErpFinancialYear;
 use App\Models\Item;
@@ -258,6 +260,9 @@ class ErpSaleInvoiceController extends Controller
             })
             ->editColumn('is_ewb_generated', function ($row) {
                 return ucfirst($row->total_amount > EInvoiceHelper::EWAY_BILL_MIN_AMOUNT_LIMIT && $row -> irnDetail ? ($row -> is_ewb_generated ? 'Generated' : 'Pending') : '');
+            })
+            ->editColumn('created_by', function ($row) {
+                return ucfirst(isset($row->createdBy) ? $row->createdBy->name : '');
             })
             ->rawColumns(['document_status'])
             ->make(true);
@@ -1105,10 +1110,15 @@ class ErpSaleInvoiceController extends Controller
                             $uom = Unit::find($request -> uom_id[$itemKey] ?? null);
                             $dnoteQty = 0;
                             $invoiceQty = 0;
-                            if ($saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS || $saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS) {
+                            if (($saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS 
+                                || $saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS)
+                                && !isset($request -> quotation_item_ids))
+                                {
                                 $dnoteQty = isset($request -> item_qty[$itemKey]) ? $request -> item_qty[$itemKey] : 0;
                             }
-                            if ($saleInvoice -> document_type === ConstantHelper::SI_SERVICE_ALIAS || $saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS) {
+                            if (($saleInvoice -> document_type === ConstantHelper::SI_SERVICE_ALIAS 
+                                || $saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS)
+                                && !isset($request -> quotation_item_ids)) {
                                 $invoiceQty = isset($request -> item_qty[$itemKey]) ? $request -> item_qty[$itemKey] : 0;
                             }
                             $customersItemDetails = ItemHelper::getCustomerItemDetails($item -> id, $saleInvoice -> customer_id);
@@ -1940,7 +1950,7 @@ class ErpSaleInvoiceController extends Controller
                             ->when($request->doc_no, fn($q) => $q->where('document_number', 'LIKE', '%' . $request->doc_no . '%'))
                             ->when($request->ref_no, fn($q) => $q->where('reference_number', 'LIKE', '%' . $request->ref_no . '%'));
                     })
-                    ->whereColumn('invoice_qty', '<', 'order_qty')
+                    ->whereRaw('order_qty > (COALESCE(invoice_qty, 0) - COALESCE(inv_srn_qty, 0) + COALESCE(srn_qty, 0))')
                     ->when($request->item_id, fn($q) => $q->where('item_id', $request -> item_id))
                     ->when(count($selectedIds) > 0, fn($q) => $q->whereNotIn('id', $selectedIds));
 
@@ -2069,13 +2079,14 @@ class ErpSaleInvoiceController extends Controller
             ->addColumn('balance_qty', function ($item) use($request) {
                 if ($request -> doc_type === ConstantHelper::SO_SERVICE_ALIAS) {
                     return number_format($item->dnote_pull_balance_qty ?? 0, 6);
+                } else if($request -> doc_type === ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS) {
+                    return number_format($item->return_balance_qty ?? 0, 2);
                 } else {
                     return number_format($item->balance_qty ?? 0, 2);
                 }
             })
                 ->editColumn('order_qty', fn($item) => number_format($item?->order_qty ?? 0, 6))
                 ->editColumn('qty', fn($item) => number_format($item->qty ?? 0, 2))
-                ->editColumn('balance_qty', fn($item) => number_format($item->balance_qty ?? 0, 2))
                 ->editColumn('rate', fn($item) => number_format($item->rate ?? 0, 2))
                 ->addColumn('attributes_array', function ($item) use ($request) {
                     return $item->attributes->map(fn($attr) => [
@@ -2304,7 +2315,8 @@ class ErpSaleInvoiceController extends Controller
                 // }) -> values();
                 foreach ($headers as $header) {
                     if ($request -> doc_type == ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS) {
-                        $header -> customer_terms_name = $header ?-> customerTermDetails ?-> term_name;                        
+                        $header -> customer_terms_name = $header ?-> customerTermDetails ?-> term_name; 
+                                               
                     }
                     // if ($modelName::class == "App\\Models\\ErpSaleInvoice") {
                     //     $saleOrderItems = $header -> sale_order_items();
@@ -2746,167 +2758,135 @@ class ErpSaleInvoiceController extends Controller
     }
 
     // genrate pdf
-    public function generatePdf(Request $request, $id,$pattern,$download = false,$returnRaw = false)
+    public function generatePdf(Request $request, $download = false, $returnRaw = false)
     {
-        $user = Helper::getAuthenticatedUser();
-        $organization = Organization::find($user -> organization_id);
+        $user = request()->user();
+        $id = $request->id;
+        $pattern = $request->pattern;
+        $labels = $request->label ?? ['All Copies']; // Array of copy labels
+
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $shufabOrg = false;
-        $userGroup = OrganizationGroup::find($organization ?-> group_id);
+        $userGroup = $organization?->group;
         if ($userGroup) {
-            $groupName = strtolower($userGroup -> name);
+            $groupName = strtolower($userGroup->name);
             if (str_contains($groupName, 'shufab')) {
                 $shufabOrg = true;
             }
         }
 
-        $organization = Organization::where('id', $user->organization_id)->first();
-        $organizationAddress = Address::with(['city', 'state', 'country'])
-            ->where('addressable_id', $user->organization_id)
-            ->where('addressable_type', Organization::class)
-            ->first();
-       
-        $order = ErpSaleInvoice::with(
-            [
-                'customer',
-                'currency',
-                'discount_ted',
-                'expense_ted',
-                'billing_address_details',
-                'shipping_address_details',
-            ]
-        )
-        ->with('items', function ($query) {
-            $query -> with('discount_ted', 'tax_ted', 'bundles','item_locations') -> with(['item' => function ($itemQuery) {
-                $itemQuery -> with(['specifications', 'alternateUoms.uom', 'uom']);
-            }]);
-        })
-        -> find($id);
+        $bankInfo = Bank::with(['bankDetails'])->where('organization_id',$organization->id)->get();
+        $organizationAddress = $organization -> addresses ->first();
+
+        $order = ErpSaleInvoice::with([
+            'customer',
+            'currency',
+            'discount_ted',
+            'expense_ted',
+            'billing_address_details',
+            'shipping_address_details',
+        ])->with('items', function ($query) {
+            $query->with('discount_ted', 'tax_ted', 'bundles', 'item_locations')
+                ->with(['item' => function ($itemQuery) {
+                    $itemQuery->with(['specifications', 'alternateUoms.uom', 'uom']);
+                }]);
+        })->find($id);
+
+        // Determine PDF template
         $pdfFile = "pdf.sales-invoice-pdf";
-        if ($order -> document_type === ConstantHelper::SI_SERVICE_ALIAS || 
-        ($order -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS))
-        {
+        if ($order->document_type === ConstantHelper::SI_SERVICE_ALIAS ||
+            $order->document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS) {
             $pdfFile = 'pdf.sales-invoice-pdf';
         } else {
             $pdfFile = "pdf.sales-document";
         }
-        if($pattern && $pattern=="Delivery Note"){
+        if ($pattern && $pattern == "Delivery Note") {
             $pdfFile = "pdf.delivery-note";
         }
+
         $maxAttributeCount = 0;
         $allAttributeValues = [];
-        $orderItems = $order -> items;
-        if ($order -> document_type === ConstantHelper::SI_SERVICE_ALIAS || 
-        ($order -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS))
-        {
-            $pdfFile = $request -> type == 'grouped' ? "pdf.sales-invoice-attribute-grouped" : "pdf.sales-invoice-pdf";
-            $maxAttributeCount = 0;
-            $allAttributeValues = [];
-            $siItemAttributes = ErpInvoiceItemAttribute::where('sale_invoice_id', $order -> id)
-                -> select('attribute_name') -> distinct() -> get() -> pluck('attribute_name') -> toArray();
+        $orderItems = $order->items;
+
+        // Attribute-grouped logic
+        if ($order->document_type === ConstantHelper::SI_SERVICE_ALIAS ||
+            $order->document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS) {
+
+            $pdfFile = $request->type == 'grouped' ? "pdf.sales-invoice-attribute-grouped" : "pdf.sales-invoice-pdf";
+            $siItemAttributes = ErpInvoiceItemAttribute::where('sale_invoice_id', $order->id)
+                ->select('attribute_name')->distinct()->get()->pluck('attribute_name')->toArray();
 
             $orderItems = ErpInvoiceItem::where('sale_invoice_id', $order->id)
-            ->select(
-                'item_id', 'item_code', 'item_name', 'hsn_id', 'hsn_code', 'uom_id', 'rate',
-                DB::raw('SUM(order_qty) AS order_qty'),
-                DB::raw('SUM(item_discount_amount) AS item_discount_amount'),
-                DB::raw('SUM(header_discount_amount) AS header_discount_amount'),
-                DB::raw('SUM(tax_amount) AS tax_amount'),
-                DB::raw('COUNT(id) AS attribute_count')
-            )
-            ->groupBy('item_id', 'item_code', 'item_name', 'hsn_id', 'hsn_code', 'uom_id', 'rate')
-            ->get();
+                ->select(
+                    'item_id', 'item_code', 'item_name', 'hsn_id', 'hsn_code', 'uom_id', 'rate',
+                    DB::raw('SUM(order_qty) AS order_qty'),
+                    DB::raw('SUM(item_discount_amount) AS item_discount_amount'),
+                    DB::raw('SUM(header_discount_amount) AS header_discount_amount'),
+                    DB::raw('SUM(tax_amount) AS tax_amount'),
+                    DB::raw('COUNT(id) AS attribute_count')
+                )
+                ->groupBy('item_id', 'item_code', 'item_name', 'hsn_id', 'hsn_code', 'uom_id', 'rate')
+                ->get();
 
-            if (count($siItemAttributes) == 1 && $request -> type == 'grouped' && count($order -> items) > count($orderItems)) {
+            if (count($siItemAttributes) == 1 && $request->type == 'grouped' && count($order->items) > count($orderItems)) {
                 $pdfFile = "pdf.sales-invoice-attribute-grouped";
-    
+
                 foreach ($orderItems as $orderItem) {
-                    if ($orderItem -> attribute_count > $maxAttributeCount) {
-                        $maxAttributeCount = $orderItem -> attribute_count;
+                    if ($orderItem->attribute_count > $maxAttributeCount) {
+                        $maxAttributeCount = $orderItem->attribute_count;
                     }
-                    $siItems = ErpInvoiceItem::where('sale_invoice_id', $order -> id)
-                     -> where('item_id', $orderItem -> item_id) -> where('uom_id', $orderItem -> uom_id)
-                     -> where('rate', $orderItem -> rate) -> with('tax_ted') -> get();
+                    $siItems = ErpInvoiceItem::where('sale_invoice_id', $order->id)
+                        ->where('item_id', $orderItem->item_id)
+                        ->where('uom_id', $orderItem->uom_id)
+                        ->where('rate', $orderItem->rate)
+                        ->with('tax_ted')
+                        ->get();
+
                     foreach ($siItems as $siItem) {
-                        $itemAttributeVal = implode(" ", $siItem -> attributes -> pluck('attribute_value') -> toArray());
+                        $itemAttributeVal = implode(" ", $siItem->attributes->pluck('attribute_value')->toArray());
                         if (!in_array($itemAttributeVal, $allAttributeValues)) {
-                            array_push($allAttributeValues, $itemAttributeVal);
+                            $allAttributeValues[] = $itemAttributeVal;
                         }
-                        $quantity = $siItem -> order_qty;
-                        if (isset($orderItem -> attribute_wise_qty)) {
-                            $previousArray = $orderItem -> attribute_wise_qty;
+                        $quantity = $siItem->order_qty;
+
+                        if (isset($orderItem->attribute_wise_qty)) {
+                            $previousArray = $orderItem->attribute_wise_qty;
                             array_push($previousArray, [
                                 'attribute_value' => $itemAttributeVal,
                                 'qty' => $quantity
                             ]);
-                            $orderItem -> attribute_wise_qty = $previousArray;
-                            $previousTaxTed = $orderItem -> tax_ted;
-                            $previousTaxTed = $previousTaxTed -> concat($siItem -> tax_ted);
-                            $orderItem -> tax_ted = $previousTaxTed;
+                            $orderItem->attribute_wise_qty = $previousArray;
+                            $orderItem->tax_ted = $orderItem->tax_ted->concat($siItem->tax_ted);
                         } else {
-                            $orderItem -> attribute_wise_qty = [[
+                            $orderItem->attribute_wise_qty = [[
                                 'attribute_value' => $itemAttributeVal,
                                 'qty' => $quantity
                             ]];
-                            $orderItem -> tax_ted = $siItem -> tax_ted;
+                            $orderItem->tax_ted = $siItem->tax_ted;
                         }
                     }
                 }
             } else {
                 $pdfFile = "pdf.sales-invoice-pdf";
-                $orderItems = $order -> items;
+                $orderItems = $order->items;
             }
         }
 
         $shippingAddress = $order->shipping_address_details;
         $billingAddress = $order->billing_address_details;
-
         $type = ConstantHelper::SERVICE_LABEL[$order->document_type];
-        
-       
+
         $totalItemValue = $order->total_item_value ?? 0.00;
         $totalDiscount = $order->total_discount_value ?? 0.00;
         $totalTaxes = $order->total_tax_value ?? 0.00;
         $totalTaxableValue = ($totalItemValue - $totalDiscount);
         $totalAfterTax = ($totalTaxableValue + $totalTaxes);
         $totalExpense = $order->total_expense_value ?? 0.00;
-        $totalAmount = $order->total_amount ?? 00.00;
+        $totalAmount = $order->total_amount ?? 0.00;
         $amountInWords = NumberHelper::convertAmountToWords($totalAmount);
-        // Path to your image (ensure the file exists and is accessible)
-        $imagePath = public_path('assets/css/midc-logo.jpg'); // Store the image in the public directory
-        $approvedBy = Helper::getDocStatusUser(get_class($order), $order -> id, $order -> document_status);
-        // $orderItems = $order->items;
-        // foreach ($orderItems as $orderItem) {
-        //     if ($orderItem -> attribute_count > $maxAttributeCount) {
-        //         $maxAttributeCount = $orderItem -> attribute_count;
-        //     }
-        //     $soItems = ErpSoItem::where('sale_order_id', $order -> id)
-        //      -> where('item_id', $orderItem -> item_id) -> where('uom_id', $orderItem -> uom_id)
-        //      -> where('rate', $orderItem -> rate) -> with('tax_ted') -> get();
-        //     foreach ($soItems as $soItem) {
-        //         $itemAttributeVal = implode(" ", $soItem -> attributes -> pluck('attribute_value') -> toArray());
-        //         if (!in_array($itemAttributeVal, $allAttributeValues)) {
-        //             array_push($allAttributeValues, $itemAttributeVal);
-        //         }
-        //         $quantity = $soItem -> order_qty;
-        //         if (isset($orderItem -> attribute_wise_qty)) {
-        //             $previousArray = $orderItem -> attribute_wise_qty;
-        //             array_push($previousArray, [
-        //                 'attribute_value' => $itemAttributeVal,
-        //                 'qty' => $quantity
-        //             ]);
-        //             $orderItem -> attribute_wise_qty = $previousArray;
-        //             $previousTaxTed = $orderItem -> tax_ted;
-        //             $previousTaxTed = $previousTaxTed -> concat($soItem -> tax_ted);
-        //             $orderItem -> tax_ted = $previousTaxTed;
-        //         } else {
-        //             $orderItem -> attribute_wise_qty = [[
-        //                 'attribute_value' => $itemAttributeVal,
-        //                 'qty' => $quantity
-        //             ]];
-        //             $orderItem -> tax_ted = $soItem -> tax_ted;
-        //         }
-        //     }
-        // }
+        $imagePath = public_path('assets/css/midc-logo.jpg');
+        $approvedBy = Helper::getDocStatusUser(get_class($order), $order->id, $order->document_status);
+
         $hsnSummary = $order->items->groupBy(fn($item) => $item->hsn?->code)->map(function($items, $hsn) {
             $taxableValue = $items->sum(fn($i) =>
                 ($i->order_qty * $i->rate) - $i->item_discount_amount - $i->header_discount_amount
@@ -2931,58 +2911,63 @@ class ErpSaleInvoiceController extends Controller
             $qrCodeBase64 = EInvoiceHelper::generateQRCodeBase64($eInvoice->signed_qr_code);
         }
 
+        // Dompdf setup
         $options = new Options();
         $options->set('defaultFont', 'Helvetica');
         $options->set('isHtml5ParserEnabled', true);
         $options->set('isRemoteEnabled', true);
         $dompdf = new Dompdf($options);
-        
-        $html = view($pdfFile,
-            [
-                'pattern' => $pattern,
-                'type' => $pattern,
-                'order' => $order,
-                'orderItems' => $orderItems,
-                'user' => $user,
-                'shippingAddress' => $shippingAddress,
-                'organization' => $organization,
-                'amountInWords' => $amountInWords,
-                'organizationAddress' => $organizationAddress,
-                'totalItemValue' => $totalItemValue,
-                'totalDiscount' => $totalDiscount,
-                'totalTaxes' => $totalTaxes,
-                'totalTaxableValue' => $totalTaxableValue,
-                'totalAfterTax' => $totalAfterTax,
-                'totalExpense' => $totalExpense,
-                'totalAmount' => $totalAmount,
-                'imagePath' => $imagePath,
-                'approvedBy' => $approvedBy,
-                'items' => $orderItems,
-                'maxAttributeCount' => $maxAttributeCount,
-                'attributeName' => isset($siItemAttributes) && count($siItemAttributes) ? $siItemAttributes[0] : null,
-                'qrCodeBase64' => $qrCodeBase64,
-                'allAttributeValues' => $allAttributeValues,
-                'billingAddress' => $billingAddress,
-                'eInvoice' => $eInvoice,
-                'shufabOrg' => $shufabOrg,
-                'hsnSummary' => $hsnSummary
-            ]
-        )->render();
+        // Generate HTML for all copies (labels)
+        $combinedHtml = view($pdfFile, [
+            'pattern' => $pattern,
+            'type' => $type,
+            'label' => $labels,       // pass copy name here
+            'bankInfo' => $bankInfo,
+            'order' => $order,
+            'orderItems' => $orderItems,
+            'user' => $user,
+            'shippingAddress' => $shippingAddress,
+            'organization' => $organization,
+            'amountInWords' => $amountInWords,
+            'organizationAddress' => $organizationAddress,
+            'totalItemValue' => $totalItemValue,
+            'totalDiscount' => $totalDiscount,
+            'totalTaxes' => $totalTaxes,
+            'totalTaxableValue' => $totalTaxableValue,
+            'totalAfterTax' => $totalAfterTax,
+            'totalExpense' => $totalExpense,
+            'totalAmount' => $totalAmount,
+            'imagePath' => $imagePath,
+            'approvedBy' => $approvedBy,
+            'items' => $orderItems,
+            'maxAttributeCount' => $maxAttributeCount,
+            'attributeName' => isset($siItemAttributes) && count($siItemAttributes) ? $siItemAttributes[0] : null,
+            'qrCodeBase64' => $qrCodeBase64,
+            'allAttributeValues' => $allAttributeValues,
+            'billingAddress' => $billingAddress,
+            'eInvoice' => $eInvoice,
+            'hsnSummary' => $hsnSummary,
+            'shufabOrg' => $shufabOrg
+        ])->render();
 
-        $dompdf->loadHtml($html);
+
+        $dompdf->loadHtml($combinedHtml);
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
-        $fileName = ($order->book_code . '-' . $order -> document_number);
+        $fileName = $order->book_code . '-' . $order->document_number;
 
-        $pdfPath = 'invoices/pdfs/invoice_' . $fileName  . '.pdf';
+        $pdfPath = 'invoices/pdfs/invoice_' . $fileName . '.pdf';
         Storage::disk('local')->put($pdfPath, $dompdf->output());
+
         if ($download) {
             return $dompdf->stream($fileName . '.pdf', ['Attachment' => true]);
         }
+
         if ($returnRaw) {
-            return $dompdf->output(); // raw PDF content (string)
+            return $dompdf->output();
         }
+
         return response($dompdf->output())
             ->header('Content-Type', 'application/pdf')
             ->header('Content-Disposition', 'inline; filename="Einvoice_' . $fileName . '.pdf"');
@@ -3261,7 +3246,7 @@ class ErpSaleInvoiceController extends Controller
         $title = "Invoice Generated";
         $pattern = "Tax Invoice";
         $remarks = $request->remarks ?? null;
-
+        $request -> pattern = $pattern;
         $mail_from = '';
         $mail_from_name = '';
         $cc = $request->cc_to ? implode(',', $request->cc_to) : null;
@@ -3293,8 +3278,6 @@ class ErpSaleInvoiceController extends Controller
         try {
             $pdfContent = $this->generatePdf(
                  $request,
-                 $request->id,
-                 $pattern,
                  false,
                  true,
             );

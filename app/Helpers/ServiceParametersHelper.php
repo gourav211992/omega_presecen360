@@ -16,6 +16,7 @@ use App\Helpers\PackingList\Constants as PackingListConstants;
 use App\Helpers\RGR\Constants as RGRConstants;
 use App\Helpers\Inventory\MaterialIssue\Constants as MIConstants;
 use App\Helpers\ASN\Constants as ASNConstants;
+use App\Helpers\Sales\SaleOrderConstants;
 
 /**
  * Helper Class containing all logics related to Parameters Functionality in the project.
@@ -81,6 +82,10 @@ class ServiceParametersHelper
     const LEDGER_CODE_TYPE_PARAM_VALUES = ['Auto', 'Manual'];
     const PROCUREMENT_TYPE_PARAM = "procurement_type";
     const PROCUREMENT_TYPE_VALUES = ['Make to order', 'Buy to order', 'All'];
+    const SO_GATE_ENTRY_REQUIRED_PARAM = 'so_gate_entry_required';
+    const SO_GATE_ENTRY_REQUIRED_PARAM_VALUES = ['Yes', 'No'];
+    const SO_CUSTOMER_PO_REQUIRED_PARAM = 'so_customer_po_required';
+    const SO_CUSTOMER_PO_REQUIRED_PARAM_VALUES = ['Yes', 'No'];
     const ITEM_SERVICE_PARAMETERS = [
         [
             "name" => self::ITEM_CODE_TYPE_PARAM,
@@ -178,7 +183,9 @@ class ServiceParametersHelper
         self::PROCUREMENT_TYPE_PARAM => 'Procurement Type',
         self::BOM_BATCH_INHERIT_REQUIRED => 'Batch Inheritance Required',
         self::PO_PROCUREMENT_TYPE => 'Procurement Type',
-        self::OK_TO_RECIEVE_BOOK_PARAM => 'Ok To Receive Series'
+        self::OK_TO_RECIEVE_BOOK_PARAM => 'Ok To Receive Series',
+        self::SO_GATE_ENTRY_REQUIRED_PARAM => 'Inter Company DN Gate Entry Required?',
+        self::SO_CUSTOMER_PO_REQUIRED_PARAM => 'Customer PO No. Required?',
     ];
 
     // Service Parameters Mapping
@@ -219,7 +226,9 @@ class ServiceParametersHelper
         self::PARTIAL_DELIVERY_ALLOWED => self::PARTIAL_DELIVERY_ALLOWED_VALUES,
         self::BOM_BATCH_INHERIT_REQUIRED => self::BOM_BATCH_INHERIT_REQUIRED_VALUES,
         self::INSPECTION_REQUIRED_PARAM => self::INSPECTION_REQUIRED_PARAM_VALUES,
-        self::OK_TO_RECIEVE_BOOK_PARAM => []
+        self::OK_TO_RECIEVE_BOOK_PARAM => [],
+        self::SO_GATE_ENTRY_REQUIRED_PARAM => self::SO_GATE_ENTRY_REQUIRED_PARAM_VALUES,
+        self::SO_CUSTOMER_PO_REQUIRED_PARAM => self::SO_CUSTOMER_PO_REQUIRED_PARAM_VALUES,
     ];
     const SO_SERVICE_PARAMETERS = [
         [
@@ -696,8 +705,8 @@ class ServiceParametersHelper
     const SR_SERVICE_PARAMETERS = [
         [
             "name" => self::REFERENCE_FROM_SERVICE_PARAM, //Name of the parameter
-            "applicable_values" => ["0", ConstantHelper::SI_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS], //All possible values
-            "default_value" => ["0", ConstantHelper::SI_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS], //Default selected value(s)
+            "applicable_values" => [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS,ConstantHelper::SI_SERVICE_ALIAS,ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS], //All possible values
+            "default_value" => [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS], //Default selected value(s)
             'is_multiple' => true, // Whether or not to allow multiple selection
             'service_level_visibility' => true, // Whether or not to show this parameter in UI
         ],
@@ -729,13 +738,13 @@ class ServiceParametersHelper
             'is_multiple' => false,
             'service_level_visibility' => true
         ],
-        [
-            "name" => self::TAX_REQUIRED_PARAM,
-            "applicable_values" => self::TAX_REQUIRED_PARAM_VALUES,
-            "default_value" => ['yes'],
-            'is_multiple' => false,
-            'service_level_visibility' => true
-        ],
+        // [
+        //     "name" => self::TAX_REQUIRED_PARAM,
+        //     "applicable_values" => self::TAX_REQUIRED_PARAM_VALUES,
+        //     "default_value" => ['yes'],
+        //     'is_multiple' => false,
+        //     'service_level_visibility' => true
+        // ],
         [
             "name" => self::GL_POSTING_REQUIRED_PARAM,
             "applicable_values" => self::GL_POSTING_REQUIRED_PARAM_VALUES,
@@ -752,14 +761,14 @@ class ServiceParametersHelper
             'service_level_visibility' => false,
             'type' => self::GL_PARAMETERS
         ],
-        [
-            "name" => self::GL_SEPERATE_DISCOUNT_PARAM,
-            "applicable_values" => self::GL_SEPERATE_DISCOUNT_PARAM_VALUE,
-            "default_value" => ['no'],
-            'is_multiple' => false,
-            'service_level_visibility' => true,
-            'type' => self::GL_PARAMETERS
-        ],
+        // [
+        //     "name" => self::GL_SEPERATE_DISCOUNT_PARAM,
+        //     "applicable_values" => self::GL_SEPERATE_DISCOUNT_PARAM_VALUE,
+        //     "default_value" => ['no'],
+        //     'is_multiple' => false,
+        //     'service_level_visibility' => true,
+        //     'type' => self::GL_PARAMETERS
+        // ],
         [
             "name" => self::POST_ON_ARROVE_PARAM,
             "applicable_values" => self::POST_ON_ARROVE_PARAM_VALUES,
@@ -2796,7 +2805,7 @@ class ServiceParametersHelper
     const APPLICABLE_SERVICE_PARAMETERS = [
         ConstantHelper::MAINT_WO => self::MAINT_WO_SERVICE_PARAMETERS,
         ConstantHelper::TI_SERVICE_ALIAS => self::TI_SERVICE_PARAMETERS,
-        ConstantHelper::SO_SERVICE_ALIAS => self::SO_SERVICE_PARAMETERS,
+        ConstantHelper::SO_SERVICE_ALIAS => SaleOrderConstants::SERVICE_PARAMETERS,
         ConstantHelper::SQ_SERVICE_ALIAS => self::SQ_SERVICE_PARAMETERS,
         ConstantHelper::SR_SERVICE_ALIAS => self::SR_SERVICE_PARAMETERS,
         ConstantHelper::PWO_SERVICE_ALIAS => self::PWO_SERVICE_PARAMETERS,

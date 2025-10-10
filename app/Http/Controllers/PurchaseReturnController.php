@@ -340,7 +340,7 @@ class PurchaseReturnController extends Controller
 
             $pb->document_number = $document_number;
             $pb->document_date = $request->document_date;
-            $pb->final_remark = $request->remarks ?? null;
+            $pb->final_remark = $request->final_remark ?? null;
 
             $pb->total_item_amount = 0.00;
             $pb->total_discount = 0.00;
@@ -401,7 +401,7 @@ class PurchaseReturnController extends Controller
                 ]);
                 $storeLocation->save();
             }
-            $pb->gst_invoice_type = EInvoiceHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
+            $pb->gst_invoice_type = MasterIndiaHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
 
             $totalItemValue = 0.00;
             $totalTaxValue = 0.00;
@@ -786,19 +786,17 @@ class PurchaseReturnController extends Controller
 
             $redirectUrl = '';
             if (($pb->document_status == ConstantHelper::POSTED)) {
-                $gstInvoiceType = EInvoiceHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
-                if ($pb->document_status === ConstantHelper::POSTED) {
-                    if ($gstInvoiceType === EInvoiceHelper::B2B_INVOICE_TYPE) {
-                        $data = EInvoiceHelper::saveGstIn($pb);
-                        if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
-                            DB::rollBack();
-                            return response()->json([
-                                'error' => 'error',
-                                'message' => $data['message'],
-                            ], 500);
-                        }
-                    }
-                }
+                // $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
+                // if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
+                //     $data = MasterIndiaHelper::saveGstIn($pb, $user);
+                //     if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
+                //         DB::rollBack();
+                //         return response()->json([
+                //             'error' => 'error',
+                //             'message' => $data['message'],
+                //         ], 500);
+                //     }
+                // }
                 $parentUrl = request()->segments()[0];
                 $redirectUrl = url($parentUrl . '/' . $pb->id . '/pdf');
             }
@@ -1031,13 +1029,14 @@ class PurchaseReturnController extends Controller
             $pb->eway_bill_master_id = $request->transportation_mode;
             $pb->transportation_mode = $transportationMode?->description;
             $pb->vehicle_no = $request->vehicle_no;
-            $pb->final_remark = $request->remarks ?? '';
+            $pb->final_remark = $request->final_remark ?? '';
             $pb->document_status = $request->document_status ?? ConstantHelper::DRAFT;
             $pb->cost_center_id = $request->cost_center_id ?? '';
             $pb->save();
 
             $vendorBillingAddress = $pb->billingAddress ?? null;
             $vendorShippingAddress = $pb->shippingAddress ?? null;
+            $invAddress = null;
 
             if ($vendorBillingAddress) {
                 $billingAddress = $pb->bill_address_details()->firstOrNew([
@@ -1053,6 +1052,7 @@ class PurchaseReturnController extends Controller
                     'fax_number' => $vendorBillingAddress->fax_number,
                 ]);
                 $billingAddress->save();
+                $invAddress = $billingAddress;
             }
 
             if ($vendorShippingAddress) {
@@ -1069,6 +1069,7 @@ class PurchaseReturnController extends Controller
                     'fax_number' => $vendorShippingAddress->fax_number,
                 ]);
                 $shippingAddress->save();
+                $invAddress = $shippingAddress;
             }
             # Store location address
             if ($pb?->erpStore) {
@@ -1509,19 +1510,17 @@ class PurchaseReturnController extends Controller
 
             $redirectUrl = '';
             if (($pb->document_status == ConstantHelper::POSTED)) {
-                $gstInvoiceType = EInvoiceHelper::getGstInvoiceType($request->vendor_id, $shippingAddress->country_id, $storeLocation->country_id, 'vendor');
-                if ($pb->document_status === ConstantHelper::POSTED) {
-                    if ($gstInvoiceType === EInvoiceHelper::B2B_INVOICE_TYPE) {
-                        $data = EInvoiceHelper::saveGstIn($pb);
-                        if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
-                            DB::rollBack();
-                            return response()->json([
-                                'error' => 'error',
-                                'message' => $data['message'],
-                            ], 500);
-                        }
-                    }
-                }
+                // $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
+                // if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
+                //     $data = MasterIndiaHelper::saveGstIn($pb, $user);
+                //     if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
+                //         DB::rollBack();
+                //         return response()->json([
+                //             'error' => 'error',
+                //             'message' => $data['message'],
+                //         ], 500);
+                //     }
+                // }
                 $parentUrl = request()->segments()[0];
                 $redirectUrl = url($parentUrl . '/' . $pb->id . '/pdf');
             }
@@ -2109,10 +2108,12 @@ class PurchaseReturnController extends Controller
         $sellerShippingAddress = $purchaseReturn->latestShippingAddress();
         $sellerBillingAddress = $purchaseReturn->latestBillingAddress();
         $eInvoice = $purchaseReturn->irnDetail()->first();
-
-        // QrCode::format('png')->size(300)->generate($eInvoice->signed_qr_code, $qrCodePath);
-        $qrCodeBase64 = $eInvoice->signed_qr_code ? EInvoiceHelper::generateQRCodeBase64($eInvoice->signed_qr_code) : '';
-
+        $qrCodeBase64 = '';
+        if($eInvoice)
+        {
+            // QrCode::format('png')->size(300)->generate($eInvoice->signed_qr_code, $qrCodePath);
+            $qrCodeBase64 = $eInvoice->signed_qr_code ? EInvoiceHelper::generateQRCodeBase64($eInvoice->signed_qr_code) : '';
+        }
 
         $options = new Options();
         $options->set('defaultFont', 'Helvetica');
@@ -2148,7 +2149,7 @@ class PurchaseReturnController extends Controller
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
-        $pdfPath = 'invoices/pdfs/invoice_' . $eInvoice->ack_no . '.pdf';
+        $pdfPath = 'invoices/pdfs/invoice_' . $purchaseReturn->document_number . '.pdf';
         Storage::disk('local')->put($pdfPath, $dompdf->output());
 
         $fileName = 'IRN-' . date('Y-m-d') . '.pdf';
@@ -2156,7 +2157,7 @@ class PurchaseReturnController extends Controller
 
         return response($dompdf->output())
             ->header('Content-Type', 'application/pdf')
-            ->header('Content-Disposition', 'inline; filename="Einvoice_' . $eInvoice->ack_no . '.pdf"');
+            ->header('Content-Disposition', 'inline; filename="Einvoice_' . $purchaseReturn->document_number . '.pdf"');
     }
 
     # Handle calculation update
@@ -2699,9 +2700,9 @@ class PurchaseReturnController extends Controller
                 // $prQty = $qtyTypeRequired === 'rejected'
                 //     ? ((float) $row?->pr_rejected_qty ?? 0)
                 //     : ((float) $row?->pr_qty ?? 0);
-    
+
                 // $qty = ($convertedQty - $prQty);
-    
+
                 return number_format(($convertedQty ?? 0) * ($row->rate ?? 0), 2);
             })
             ->addColumn(
@@ -3109,10 +3110,6 @@ class PurchaseReturnController extends Controller
             $documentHeader = PRHeader::find($request->id);
             $shippingAddress = $documentHeader->billingAddress;
             $storeAddress = $documentHeader->store_address;
-
-            // $gstInvoiceType = EInvoiceHelper::getGstInvoiceType($documentHeader -> vendor_id, $shippingAddress -> country_id, $storeAddress -> country_id, 'vendor');
-            // if ($gstInvoiceType === EInvoiceHelper::B2B_INVOICE_TYPE) {
-            //     $data = EInvoiceHelper::saveGstIn($documentHeader);
             $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($documentHeader->vendor_id, $shippingAddress->country_id, $storeAddress->country_id, 'vendor');
             if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
                 $data = MasterIndiaHelper::saveGstIn($documentHeader, $user);

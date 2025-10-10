@@ -20,7 +20,7 @@
             <tr>
                 <!-- Organization Logo (Left) -->
                  <td style="text-align: left; width: 33%;">
-                     @if (isset($orgLogo) && $orgLogo)
+                    @if (isset($orgLogo) && $orgLogo)
                         <img src="{!! $orgLogo !!}" alt="" height="50px" />
                     @else
                         <img src="{{ $imagePath }}" height="50px" alt="">
@@ -51,7 +51,7 @@
                         <tr>
                             <td colspan="2" style="padding-top: 3px;">
                                 <span style="font-weight: 700; font-size: 13px;">
-                                    <b>{{ Str::ucfirst(@$order->customer->customer_code) }}</b>
+                                    <b>{{ Str::ucfirst(@$order->customer->display_name) }}</b>
                                 </span>
                             </td>
                         </tr>
@@ -122,19 +122,19 @@
                         </tr>
                         <tr>
                             <td style="padding-top: 3px;">GSTIN NO:</td>
-                            <td style="padding-top: 3px;">{{@$organization->compliances->gstin_no}}</td>
+                            <td style="padding-top: 3px;">{{@$organization->gst_number}}</td>
                         </tr>
 
                         <tr>
                             <td style="padding-top: 3px;">PHONE:</td>
                             <td style="padding-top: 3px;">
-                                {{ @$order->location_address_details->contact_phone_no }}
+                                {{ @$organization->mobile }}
                             </td>
                         </tr>
                         <tr>
                             <td style="padding-top: 3px;">EMAIL ID:</td>
                             <td style="padding-top: 3px;">
-                                {{ @$order->location_address_details->contact_email }}
+                                {{ @$organization->email }}
                             </td>
                         </tr>
                         <!-- <tr>
@@ -199,7 +199,7 @@
                     </tr>
                     <tr>
                         <td style="padding-top: 3px; width:60%">
-                            @if(@$shippingAddress->phone)Phone: {{ @$shippingAddress->phone }}, @endif @if(@$organization?->email) Email: {{ @$organization?->email }} @endif
+                            @if(@$shippingAddress->phone)Phone: {{ @$shippingAddress->phone }}, @endif @if(@$order?->customer?->email) Email: {{ @$order?->customer?->email }} @endif
                         </td>
                     </tr>
                 </table>
