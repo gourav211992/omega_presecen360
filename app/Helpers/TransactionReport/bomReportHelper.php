@@ -121,6 +121,16 @@ class bomReportHelper
         ],
         [
             'colSpan' => 'auto',
+            'label' => 'Created By',
+            'id' => 'created_filter',
+            'requestName' => 'created_id',
+            'term' => 'auth_user',
+            'value_key' => 'id',
+            'label_key' => 'name',
+            'type' => 'auto_complete'
+        ],
+        [
+            'colSpan' => 'auto',
             'label' => 'Status',
             'id' => 'status',
             'requestName' => 'status',
@@ -128,39 +138,7 @@ class bomReportHelper
             'value_key' => 'id',
             'label_key' => 'name',
             'type' => 'auto_complete'
-        ],
-        [
-            'colSpan' => 'auto',
-            'label' => 'Company',
-            'id' => 'company_filter',
-            'requestName' => 'company_id',
-            'term' => 'companies',
-            'value_key' => 'id',
-            'label_key' => 'name',
-            'type' => 'auto_complete',
-            'dependent' => ['organization_filter']
-        ],
-        [
-            'colSpan' => 'auto',
-            'label' => 'Organization',
-            'id' => 'organization_filter',
-            'requestName' => 'organization_id',
-            'term' => 'organizations',
-            'value_key' => 'id',
-            'label_key' => 'name',
-            'type' => 'auto_complete',
-            'dependent' => ['location_filter']
-        ],
-        [
-            'colSpan' => 'auto',
-            'label' => 'Location',
-            'id' => 'store_name',
-            'requestName' => 'location_id',
-            'term' => 'location',
-            'value_key' => 'id',
-            'label_key' => 'store_name',
-            'type' => 'auto_complete'
-        ],
+        ]
         
     ];
 }

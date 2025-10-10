@@ -274,6 +274,11 @@ class PbHeader extends Model
         return $this->hasMany(PbTed::class, 'header_id')->where('ted_level', 'H')->where('ted_type','Discount');
     }
 
+    public function header_tax()
+    {
+        return $this -> hasOne(PbTed::class, 'header_id') -> where('ted_level', 'H') -> where('ted_type', 'Tax');
+    }
+
     /*Total discount header level total_header_disc_amount*/
     public function getTotalHeaderDiscAmountAttribute()
     {

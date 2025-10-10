@@ -620,6 +620,7 @@ class InventoryHelper
             $holdQty = 0.00;
             $putawayQty = 0.00;
             $lotNumber = null;
+            $isFocVal = 0;
 
             // Receive
             if ($bookType == ConstantHelper::MRN_SERVICE_ALIAS) {
@@ -653,6 +654,7 @@ class InventoryHelper
                         // If FOC qty > 0 → override cost logic
                         if (($isFoc == true) && $focInvQty > 0) {
                             $putawayQty = $focInvQty;
+                            $isFocVal = 1;
                         } else {
                             $putawayQty = $invQty;
                         }
@@ -662,6 +664,7 @@ class InventoryHelper
                         // If FOC qty > 0 → override cost logic
                         if (($isFoc == true) && $focInvQty > 0) {
                             $qty = $focInvQty;
+                            $isFocVal = 1;
                         } else {
                             $qty = $availQty;
                         }
@@ -671,6 +674,7 @@ class InventoryHelper
                     if (($isFoc == true) && $focInvQty > 0) {
                         $totalItemCost = 0.0;
                         $costPerUnit = 0.0;
+                        $isFocVal = 1;
                     }
                     // else if ($documentHeader->is_free_cost == 1) {
                     //     $totalItemCost = 0.0;
@@ -684,6 +688,7 @@ class InventoryHelper
 
                     // Assign to ledger
                     $stockLedger->receipt_qty = $qty;
+                    $stockLedger->is_foc = $isFocVal;
                     $stockLedger->putaway_pending_qty = $putawayQty;
                     $stockLedger->hold_qty = 0.00;
                     $stockLedger->cost_per_unit = $costPerUnit;           // optional if you set elsewhere
@@ -702,6 +707,7 @@ class InventoryHelper
                     $expiryDate = $documentItemLocation->expiry_date ? date('Y-m-d', strtotime($documentItemLocation->expiry_date)) : null;
                     $stockLedger->expiry_date = ($expiryDate && $expiryDate !== '0000-00-00') ? $expiryDate : null;
                     $stockLedger->so_id = $documentDetail?->so_id ?? null;
+                    $stockLedger->book_id = @$documentHeader->book_id;
                 } else {
                     $qty = @$documentItemLocation->inventory_uom_qty;
                     $documentHeader = MrnHeader::find($documentItemLocation->mrn_header_id);

@@ -650,6 +650,7 @@
                 <td></td>
                 <td></td>
                 <td></td>
+                <td></td>
                 `;
                 tbody.appendChild(totalQtyRow);
                 // Add the closing balance row below the total issue quantity row
@@ -674,6 +675,7 @@
                 <td class="fw-bolder no-wrap text-end ${getBalanceColor(finalClosingBalance)}" style="width: 100%;">Quantity: ${finalClosingBalance}</td>
                 <td></td>
                 <td class="fw-bolder no-wrap text-end ${getBalanceColor(finalClosingValue)}" style="width: 100%;">Value: ${finalClosingValue}</td>
+                <td></td>
                 <td></td>
                 <td></td>
                 <td></td>
@@ -1011,28 +1013,25 @@
             });
 
             $(document).on('submit', '#send-mail', function(e) {
-
                 e.preventDefault();
 
-                const table = $(".datatables-basic").DataTable();
-
                 const displayedDataArray = [];
+                const displayedHeaders = [];
 
-                table.rows({
-                    search: 'applied'
-                }).nodes().each(function(row) {
+                // Collect headers
+                $(".datatables-basic thead th").each(function() {
+                    displayedHeaders.push($(this).text().trim());
+                });
 
+                // Collect all rows in order manually
+                $(".datatables-basic tbody tr").each(function() {
                     const rowValues = [];
-                    $(row).find('td').each(function() {
+                    $(this).find('td').each(function() {
                         rowValues.push($(this).text().trim());
                     });
                     displayedDataArray.push(rowValues);
                 });
 
-                const displayedHeaders = [];
-                $(table.columns().header()).each(function() {
-                    displayedHeaders.push($(this).text().trim());
-                });
                 const formData = {
                     email_to: $('select[name="email_to[]"]').val(),
                     email_cc: $('select[name="email_cc[]"]').val(),

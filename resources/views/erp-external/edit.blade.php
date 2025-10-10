@@ -75,37 +75,33 @@
 
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">Store<span class="text-danger">*</span></label>
+                                                        <label class="form-label">Location<span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
                                                         <select name="store_id" class="form-select select2" id ="store_id" disabled>
-                                                            <option value="">Select Store</option>
+                                                            <option value="">Select Location</option>
 
                                                         </select>
                                                     </div>
                                                 </div>
-
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">Trip Book Series <span
-                                                                class="text-danger">*</span></label>
+                                                        <label class="form-label">Default Customer <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select class="form-select select2" id="trip_book_id" name="trip_book_id">
-                                                            @foreach ($tripbook as $tbook)
-                                                                <option value="{{ $tbook->id }}" {{$tbook->id == $external->trip_book_id?'selected':''}}> {{ ucfirst($tbook->book_code) }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                        <input type="hidden" name="trip_book_code" id="trip_book_code">
+                                                   
+                                                        <input type="text" id="customer" name="customer_code" value="{{ old('customer_code', ($external->customer ? $external->customer->company_name . ' (' . $external->customer->customer_code . ')' : '')) }}" class="form-control">
+                                                        <input type="hidden" id="customer_id" name="customer_id" value="{{ old('customer_id', $external->customer_id ?? '') }}">
                                                     </div>
                                                 </div>
 
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">SO Book Series <span class="text-danger">*</span></label>
+                                                        <label class="form-label">SO Series </label>
                                                     </div>
                                                     <div class="col-md-5">
                                                         <select class="form-select select2" id="so_book_id" name="so_book_id">
+                                                            <option>Select</option>
                                                             @foreach ($sobook as $sbook)
                                                                 <option value="{{ $sbook->id }}" {{$sbook->id == $external->so_book_id?'selected':''}}> {{ ucfirst($sbook->book_code) }} </option>
                                                             @endforeach
@@ -115,26 +111,32 @@
                                                 </div>
 
                                                 <div class="row align-items-center mb-1">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">Trip Series </label>
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <select class="form-select select2" id="trip_book_id" name="trip_book_id">
+                                                            <option>Select</option>
+                                                            @foreach ($tripbook as $tbook)
+                                                                <option value="{{ $tbook->id }}" {{$tbook->id == $external->trip_book_id?'selected':''}}> {{ ucfirst($tbook->book_code) }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        <input type="hidden" name="trip_book_code" id="trip_book_code">
+                                                    </div>
+                                                </div>
+
+                                                <div class="row align-items-center mb-1">
                                                     <div class="col-md-3"> 
-                                                        <label class="form-label">DNote Book Series <span class="text-danger">*</span></label>  
+                                                        <label class="form-label">DNote Series </label>  
                                                     </div>  
                                                     <div class="col-md-5">
-                                                    <select class="form-select select2" id="dn_book_id" name="dn_book_id">
+                                                    <select class="form-select select2" id="dnote_book_id" name="dnote_book_id">
+                                                        <option>Select</option>
                                                         @foreach($dnbook as $dbook)
                                                             <option value="{{$dbook->id}}" {{$dbook->id == $external->dnote_book_id?'selected':''}}>{{ucfirst($dbook->book_code)}}</option>
                                                         @endforeach 
                                                     </select>  
                                                     <input type="hidden" name="dn_book_code" id="dn_book_code">
-                                                    </div>
-                                                </div>
-                                                <div class="row align-items-center mb-1">
-                                                    <div class="col-md-3">
-                                                        <label class="form-label">Customer <span class="text-danger">*</span></label>
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                   
-                                                        <input type="text" id="customer" name="customer_code" value="{{ old('customer_code', ($external->customer ? $external->customer->company_name . ' (' . $external->customer->customer_code . ')' : '')) }}" class="form-control">
-                                                        <input type="hidden" id="customer_id" name="customer_id" value="{{ old('customer_id', $external->customer_id ?? '') }}">
                                                     </div>
                                                 </div>
 
@@ -159,7 +161,18 @@
                                                 </div>
                                             </div>
                                          {{-- write code here add multiple mapping  --}}
-                                    
+                                        <div class="col-md-12" id = "manual_entry_details">
+                                            <div class="mt-2">
+                                                <div class="step-custhomapp bg-light">
+                                                    <ul class="nav nav-tabs my-25 custapploannav" role="tablist">
+                                                        <li class="nav-item">
+                                                            <a class="nav-link active" data-bs-toggle="tab"
+                                                                href="#Pattern">Stock Type Location</a>
+                                                        </li>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <div class="tab-content ">
                                             <div class="tab-pane active transaction_service_tab" id="Pattern">
                                                 <div class="table-responsive-md">
@@ -169,7 +182,7 @@
                                                             <tr>
                                                                 <th width = "20px">#</th>
                                                                 <th width="300px"> Stock Type<span class="text-danger">*</span></th>
-                                                                <th width="300px">Sub Store<span class="text-danger">*</span></th>
+                                                                <th width="300px">Sub Location<span class="text-danger">*</span></th>
                                                                 <th width="150px" class="text-center">Is Primary<span class="text-danger">*</span></th>
                                                                 <th class = "center-align-content" width = "20px">Action</th>
                                                             </tr>
@@ -227,7 +240,7 @@
                                                                     </select>
                                                                 </td>
                                                                 <td class="text-center">
-                                                                    <input type="checkbox" name="data[1][is_primary]" id="is_primary_1">
+                                                                    <input type="checkbox" name="data[1][is_primary]" id="is_primary_1" value="1">
                                                                 </td>
 
                                                                 <td class = "center-align-content">
@@ -304,12 +317,13 @@
         $(selector).autocomplete({
             source: function(request, response) {
                 $.ajax({
-                    url: '/search',
+                    url: '{{route("external-integration.customer")}}',
                     method: 'GET',
                     dataType: 'json',
                     data: {
                         q: request.term,
-                        type: 'customer'
+                        type: 'customer',
+                        org_id:$("#organization_id").val()
                     },
                     success: function(data) {
                         response($.map(data, function(item) {
@@ -351,18 +365,18 @@
                                 <td class="serial-number"></td>
                                 <td>
                                     <div class="position-relative">
-                                        <input type="text" id="stock_type_`+rowCount+`" placeholder="Enter Stock Type" class="form-control mw-100" name="data[`+rowCount+`][stock_type]" onkeyup="getfetchSubStore(event);" />
+                                        <input type="text" id="stock_type_`+rowCount+`" placeholder="Enter Stock Type" class="form-control mw-100" name="data[`+rowCount+`][stock_type]" onkeyup="getfetchSubStore(event);" required />
                                     </div>
                                 </td>
                                 <td>
                                     <div class="position-relative">
-                                        <select class="form-select mw-100 select2 subLocationSelect" data-id="1" name="data[`+rowCount+`][subLocation_id]" id="subLocation_id_`+rowCount+`"  >
+                                        <select class="form-select mw-100 select2 subLocationSelect" data-id="1" name="data[`+rowCount+`][subLocation_id]" id="subLocation_id_`+rowCount+`" required >
                                             <option disabled selected value="">Select </option>
                                         </select>
                                     </div>
                                 </td>
                                 <td class="text-center">
-                                    <input type="checkbox" name="data[`+rowCount+`][is_primary]" id="is_primary_`+rowCount+`">
+                                    <input type="checkbox" name="data[`+rowCount+`][is_primary]" id="is_primary_`+rowCount+`" value="1">
                                 </td>
                                 <td class = "center-align-content">
                                     <a href="#" class="text-danger remove-item"><i data-feather="trash-2"></i></a>
@@ -417,8 +431,11 @@
                 data: { org_id: org }, 
                 dataType: 'json',
                 success: function(response) {
+                    $("#store_id").empty();
                     let $storeSelect = $("#store_id");
-
+                    $storeSelect.append(
+                            `<option value="">Select Location</option>`
+                        );
                     $.each(response, function(index, store) {
                         $storeSelect.append(
                             `<option value="${store.id}">${store.store_name}</option>`
@@ -467,18 +484,64 @@
             }
         });
     }
-    document.addEventListener('change', function(e) {
-        if (e.target && e.target.matches('input[name^="data"][name$="[is_primary]"]')) {
-            if (e.target.checked) {
-                // Uncheck all other checkboxes
-                document.querySelectorAll('input[name^="data"][name$="[is_primary]"]').forEach(function(other) {
-                    if (other !== e.target) {
-                        other.checked = false;
-                    }
-                });
+    $(document).on("change", "input[type='checkbox'][id^='is_primary_']", function () {
+        let currentRow = $(this).closest("tr");
+        let stockType = currentRow.find("input[name*='[stock_type]']").val().trim();
+
+        if (!stockType) {
+            // Prevent checking if stock_type is empty
+            $(this).prop("checked", false);
+            alert("Please enter Stock Type first.");
+            return;
+        }
+
+        if ($(this).is(":checked")) {
+            // Uncheck all other checkboxes having the same stock_type
+            $("tr").each(function () {
+                let otherStockType = $(this).find("input[name*='[stock_type]']").val();
+                console.log(otherStockType);
+                if (otherStockType === stockType && this !== currentRow[0]) {
+                    $(this).find("input[type='checkbox'][id^='is_primary_']").prop("checked", false);
+                }
+            });
+        }
+    });
+$(".ajax-input-form").on("submit", function (e) {
+    let isValid = true;
+    let stockGroups = {};
+
+    $("tr").each(function () {
+        let stockType = $(this).find("input[name*='[stock_type]']").val();
+        let isChecked = $(this).find("input[type='checkbox'][id^='is_primary_']").is(":checked");
+
+        if (stockType) {
+            if (!stockGroups[stockType]) {
+                stockGroups[stockType] = false; // default no primary
+            }
+            if (isChecked) {
+                stockGroups[stockType] = true; // found primary
             }
         }
     });
 
+    // Check if any stock type group has no primary
+    $.each(stockGroups, function (stockType, hasPrimary) {
+        if (!hasPrimary) {
+            Swal.fire({
+                title: 'Validation Error',
+                text: "Please select at least one primary checkbox for Stock Type: " + stockType,
+                icon: 'error',
+                confirmButtonText: 'OK'
+            });
+            isValid = false;
+            return false; // break loop
+        }
+    });
+if (!isValid) {
+        e.stopImmediatePropagation(); 
+        e.preventDefault();
+        return false;
+    }
+});
     </script>
 @endsection

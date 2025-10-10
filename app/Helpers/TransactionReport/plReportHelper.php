@@ -135,6 +135,14 @@ class plReportHelper
             'column_style' => '',
         ],
         [
+            'name' => 'Created By',
+            'field' => 'created_by',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
             'name' => 'Status',
             'field' => 'status',
             'header_class' => '',
@@ -216,6 +224,16 @@ class plReportHelper
             'value_key' => 'id',
             'label_key' => 'store_name',
             'type' => 'auto_complete'
+        ],
+        [
+            'colSpan' => 'auto',
+            'label' => 'Creator',
+            'id' => 'created_by',
+            'requestName' => 'created_by',
+            'term' => 'all_user_list',
+            'value_key' => 'id',
+            'label_key' => 'name',
+            'type' => 'auto_complete',
         ],
         // [
         //     'colSpan' => 'auto',

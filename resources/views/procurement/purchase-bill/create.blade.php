@@ -111,7 +111,7 @@
                                                         <label class="form-label">Purchase Bill Date <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="date" class="form-control" value="{{date('Y-m-d')}}" name="document_date">
+                                                        <input  id="document_date" type="date" class="form-control" value="{{date('Y-m-d')}}" name="document_date">
                                                     </div>
                                                 </div>
                                                 <div class="row align-items-center mb-1">
@@ -390,6 +390,8 @@
                                                                         <tr>
                                                                             <td><strong>Tax</strong></td>
                                                                             <td class="text-end" id="f_tax">0.00</td>
+                                                                            <input id = "tds_id" type="hidden" name="pb_tds_id" />
+                                                                            <input id = "tax_amount_header" type="hidden" name="taxes_amount_header" />
                                                                         </tr>
                                                                         <tr class="totalsubheadpodetail">
                                                                             <td><strong>Total After Tax</strong></td>
@@ -591,6 +593,8 @@
     <script type="text/javascript">
         let actionUrlTax = '{{route("purchase-bill.tax.calculation")}}';
         var qtyChangeUrl = '{{ route("purchase-bill.get.validate-quantity") }}';
+        let calTaxTdsUrl = '{{ route('tax.calculate.tds') }}';
+        let mrnData = null;
     </script>
     <script type="text/javascript" src="{{asset('assets/js/modules/purchase-bill.js')}}"></script>
     <script type="text/javascript" src="{{asset('app-assets/js/file-uploader.js')}}"></script>
@@ -1759,7 +1763,6 @@
                 payment_terms: paymentTerms.paymentTerms,
                 credit_days: paymentTerms.creditDays,
             };
-
             asnProcess(processData, 'mrn-process');
         });
 

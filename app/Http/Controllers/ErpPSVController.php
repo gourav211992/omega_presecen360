@@ -55,7 +55,7 @@ class ErpPSVController extends Controller
     public function index(Request $request)
     {
         $authUser = request()->user();
-        $currentfyYear = Helper::getCurrentFinancialYear();
+        // $currentfyYear = Helper::getCurrentFinancialYear();
         // $selectedfyYear = Helper::getFinancialYear(Carbon::now());
 
         $pathUrl = request()->segments()[0];
@@ -73,7 +73,7 @@ class ErpPSVController extends Controller
         $dateRange = $request -> date_range ?? null;
         if ($request -> ajax()) {
             try {
-                $docs = ErpPsvHeader::withDefaultGroupCompanyOrg() -> whereIn('store_id',$accessible_locations) -> bookViewAccess($pathUrl) ->  withDraftListingLogic()->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']]) -> when($request -> vendor_id, function ($custQuery) use($request) {
+                $docs = ErpPsvHeader::withDefaultGroupCompanyOrg()-> selfCreatedDocuments($authUser) -> whereIn('store_id',$accessible_locations) -> bookViewAccess($pathUrl) ->  withDraftListingLogic()->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']]) -> when($request -> vendor_id, function ($custQuery) use($request) {
                     $custQuery -> where('vendor_id', $request -> vendor_id);
                 }) -> when($request -> book_id, function ($bookQuery) use($request) {
                     $bookQuery -> where('book_id', $request -> book_id);
@@ -89,6 +89,8 @@ class ErpPSVController extends Controller
                     $docQuery -> where('store_id', $request -> company_id);
                 })-> when($request -> organization_id, function ($docQuery) use($request) {
                     $docQuery -> where('organization_id', $request -> organization_id);
+                })-> when($request -> created_by, function ($docQuery) use($request) {
+                    $docQuery -> where('created_by', $request -> created_by);
                 })-> when($request -> status, function ($docStatusQuery) use($request) {
                     $searchDocStatus = [];
                     if ($request -> status === ConstantHelper::DRAFT) {
@@ -164,6 +166,9 @@ class ErpPSVController extends Controller
                 })
                 ->addColumn('items_count', function ($row) {
                     return $row?->items?->count() ?? '0';
+                })
+                ->editColumn('created_by', function ($row) {
+                    return ucfirst(isset($row->createdBy) ? $row->createdBy->name : '');
                 })
                 ->rawColumns(['document_status'])
                 ->make(true);
@@ -498,12 +503,11 @@ class ErpPSVController extends Controller
 
                    
                 // Determine item attributes from request or items array
-                
                 if (is_array($items)) {
                     $itemAtts = $items['item_attributes'] ?? [];
                 } else {
-                    $itemAtts = isset($request->item_attributes[$itemKey]) 
-                        ? json_decode($request->item_attributes[$itemKey], true) 
+                    $itemAtts = isset($request->item_attributes[$itemKey])
+                        ? json_decode($request->item_attributes[$itemKey], true)
                         : ($items['item_attributes'] ?? []);
 
                     // Check if JSON decoding failed
@@ -515,6 +519,21 @@ class ErpPSVController extends Controller
                     }
                 }
 
+                // ✅ Validate that each attribute group has at least one selected value
+                foreach ($itemAtts as $group) {
+                    $groupName = $group['group_name'] ?? 'Unknown';
+                    $values = $group['values_data'] ?? [];
+
+                    // Check if any value in this group has 'selected' == true
+                    $hasSelected = collect($values)->contains(fn($v) => !empty($v['selected']));
+
+                    if (!$hasSelected) {
+                        return response()->json([
+                            'message' => 'Item No. ' . ($itemKey + 1) . ' → Attribute group "' . $groupName . '" requires at least one selected value.',
+                            'error' => ''
+                        ], 422);
+                    }
+                }
                 // Check if item requires attributes
                 $itemRequiredAtts = $item->itemAttributes ?: [];
                 if (!empty($itemRequiredAtts)) {
@@ -1067,7 +1086,8 @@ class ErpPSVController extends Controller
         $pathUrl = request()->segments()[0];
         $orderType = ConstantHelper::PSV_SERVICE_ALIAS;
         $redirectUrl = route('psv.report');
-        $requesters = ErpPsvHeader::with(['requester'])->withDefaultGroupCompanyOrg()->bookViewAccess($pathUrl)->orderByDesc('id')->where('issue_type','Consumption')->where('requester_type',"User")->get()->unique('user_id')
+        $authUser = request()->user();
+        $requesters = ErpPsvHeader::with(['requester'])-> selfCreatedDocuments($authUser)->withDefaultGroupCompanyOrg()->bookViewAccess($pathUrl)->orderByDesc('id')->where('issue_type','Consumption')->where('requester_type',"User")->get()->unique('user_id')
         ->map(function ($item) {
             return [
                 'id' => $item->requester()->first()->id ?? null,
@@ -1622,6 +1642,10 @@ class ErpPSVController extends Controller
         $PSV = $PSV -> when($request -> organization_id, function ($docQuery) use($request) {
             $docQuery -> where('organization_id', $request -> organization_id);
         });
+        //Creator Filter
+        $PSV = $PSV -> when($request -> created_by, function ($docQuery) use($request) {
+            $docQuery -> where('created_by', $request -> created_by);
+        });
         //Document Status Filter
         $PSV = $PSV -> when($request -> doc_status, function ($docStatusQuery) use($request) {
             $searchDocStatus = [];
@@ -1685,7 +1709,8 @@ class ErpPSVController extends Controller
                 $reportRow -> unconfirmed_stock = number_format($psvItem -> unconfirmed_qty ?? 0.00, 2);
                 $reportRow -> adjusted_qty = $psvItem ?-> adjusted_qty ?? " ";
                 $reportRow -> rate = number_format($psvItem -> rate, 2);
-            $reportRow -> total_amount = number_format($psvItem -> total_amount, 2);
+                $reportRow -> total_amount = number_format($psvItem -> total_amount, 2);
+                $reportRow -> created_by = $header -> createdBy ?-> name ?? 'N/A';
                 //Delivery Schedule UI
                 // $deliveryHtml = '';
                 // if (count($psvItem -> item_deliveries) > 0) {

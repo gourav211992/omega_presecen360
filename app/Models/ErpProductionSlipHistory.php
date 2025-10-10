@@ -166,7 +166,7 @@ class ErpProductionSlipHistory extends Model
     }
        public function dynamic_fields()
     {
-        return $this -> hasMany(ErpPslipDynamicField::class, 'header_id');
+        return $this -> hasMany(ErpPslipDynamicFieldHistory::class, 'header_id');
     }
     public function createdBy()
     {

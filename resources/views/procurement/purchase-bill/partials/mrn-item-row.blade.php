@@ -1,7 +1,8 @@
 @foreach ($mrnItems as $key => $item)
     @php
         $rowCount = $tableRowCount + $key + 1;
-        $qty = ($item->accepted_qty ?? 0.0) - ($item->pr_qty ?? 0.0);
+        // $qty = ($item->order_qty ?? 0.0) - ($item->pr_qty ?? 0.0);
+        $qty = ($item->order_qty ?? 0.0);
         $ItemTotalValue = $qty * $item->rate - ($item->discount_amount + $item->header_discount_amount);
         $ItemRate = $ItemTotalValue / $qty;
     @endphp
@@ -141,11 +142,11 @@
         <td>
             <input type="number" id="item_total_cost_{{ $rowCount }}"
                 name="components[{{ $rowCount }}][item_total_cost]"
-                value="{{ $item->accepted_qty * $item->rate - $item->discount_amount }}" readonly
+                value="{{ $item->order_qty * $item->rate - $item->discount_amount }}" readonly
                 class="form-control mw-100 text-end item_total_cost" step="any" />
             <input type="hidden" id="po_total_cost_{{ $rowCount }}"
                 name="components[{{ $rowCount }}][po_total_cost]"
-                value="{{ $item->accepted_qty * $ItemRate - $item->discount_amount }}" readonly
+                value="{{ $item->order_qty * $ItemRate - $item->discount_amount }}" readonly
                 class="form-control mw-100 text-end po_total_cost" step="any" />
             @foreach ($item->taxes as $tax_key => $item_tax)
                 <input type="hidden" value="{{ @$item_tax->id }}"

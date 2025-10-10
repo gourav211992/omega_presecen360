@@ -14,6 +14,7 @@ use App\Helpers\ItemHelper;
 use App\Helpers\NumberHelper;
 use App\Helpers\CurrencyHelper;
 use App\Helpers\FinancialPostingHelper;
+use App\Helpers\TransactionReportHelper;
 use App\Helpers\InventoryHelper;
 use App\Helpers\ServiceParametersHelper;
 use App\Models\MfgOrder;
@@ -53,10 +54,54 @@ class MoController extends Controller
     public function index(Request $request)
     {
         $parentUrl = request()->segments()[0];
+        $servicesAliasParam = ConstantHelper::MO_SERVICE_ALIAS;
         if (request()->ajax()) {
-            $user = Helper::getAuthenticatedUser();
+
             $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
-            $boms = MfgOrder::withDraftListingLogic()->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']]);
+            $boms = MfgOrder::withDraftListingLogic()->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']])
+              // apply filter code
+                ->when($request->book_id, function ($q) use ($request) {
+                    $q->where('book_id', $request->book_id);
+                })
+                ->when($request->created_id, function ($q) use ($request) {
+                    $q->where('created_by', $request->created_id);
+                })
+                ->when($request->document_number, function ($q) use ($request) {
+                    $q->where('document_number', 'LIKE', '%' . $request->document_number . '%');
+                })
+                ->when($request->station_id, function ($q) use ($request) {
+                    $q->where('station_id', $request->station_id);
+                })
+                ->when($request->doc_status, function ($q) use ($request) {
+                    $searchDocStatus = [];
+
+                    if ($request->doc_status === ConstantHelper::DRAFT) {
+                        $searchDocStatus = [ConstantHelper::DRAFT];
+                    } elseif ($request->doc_status === ConstantHelper::SUBMITTED) {
+                        $searchDocStatus = [ConstantHelper::SUBMITTED, ConstantHelper::PARTIALLY_APPROVED];
+                    } else {
+                        $searchDocStatus = [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED];
+                    }
+
+                    $q->whereIn('document_status', $searchDocStatus);
+                })
+                ->when($request->date_range ?? null, function ($q) use ($request) {
+                    $dateRange = $request->date_range ?? Carbon::now()->startOfMonth()->format('Y-m-d') . " to " . Carbon::now()->endOfMonth()->format('Y-m-d');
+                    $dateRanges = explode('to', $dateRange);
+
+                    if (count($dateRanges) == 2) {
+                        $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
+                        $toDate = Carbon::parse(trim($dateRanges[1]))->format('Y-m-d');
+                        $q->whereBetween('document_date', [$fromDate, $toDate]);
+                    } else {
+                        $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
+                        $q->whereDate('document_date', $fromDate);
+                    }
+                })
+                ->when($request->product_id, function ($q) use ($request) {
+                    $q->where('item_id', $request->product_id);
+                });
+
             return DataTables::of($boms)
                 ->addIndexColumn()
                 ->editColumn('document_status', function ($row) {
@@ -104,11 +149,29 @@ class MoController extends Controller
                 ->editColumn('document_date', function ($row) {
                     return $row->getFormattedDate('document_date') ?? ' ';
                 })
+                ->addColumn('created_by', function ($row){
+                    return $row->createdBy?->name;
+                })
                 ->rawColumns(['document_status'])
                 ->make(true);
         }
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
-        return view('mfgOrder.index', ['servicesBooks' => $servicesBooks]);
+
+        $autoCompleteFilters = isset(TransactionReportHelper::FILTERS_MAPPING[$servicesAliasParam]) ? 
+        TransactionReportHelper::FILTERS_MAPPING[$servicesAliasParam] : [];  
+
+        // Terms to exclude
+        $excludeTerms = ['category', 'subcategory', 'report_items'];
+
+        // Remove filters with term in $excludeTerms
+        $autoCompleteFilters = array_filter($autoCompleteFilters, function ($filter) use ($excludeTerms) {
+            return !in_array($filter['term'] ?? '', $excludeTerms);
+        });
+
+        // Reindex array
+        $autoCompleteFilters = array_values($autoCompleteFilters);
+
+        return view('mfgOrder.index', ['servicesBooks' => $servicesBooks,'autoCompleteFilters'=>$autoCompleteFilters]);
     }
 
     # Bill of material Create

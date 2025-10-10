@@ -43,7 +43,11 @@ class PslipDeleteService
 
             // Process Delete Pslip Bom Consumptions
             $result = $this->processDeletePslipBomConsumptions($pslipBomMappings, $productionSlip);
+            // Remove attributes
+            $psItem->attributes()->delete();
 
+            // Delete the item itself
+            $psItem->delete();
             return $result['status'] === 'error'
                 ? self::errorResponse($result['message'])
                 :$result;
@@ -209,7 +213,7 @@ class PslipDeleteService
     private function checkReceiptStock($psItem, $productionSlip, array $selectedAttr)
     {
         $pslipItemData = [
-            'qty' => $productionSlip->accepted_qty,
+            'qty' => $psItem->accepted_qty,
             'document_header_id' => $productionSlip->id,
             'document_detail_id' => $psItem->id,
             'item_id'            => $psItem->item_id,
@@ -233,7 +237,7 @@ class PslipDeleteService
     private function checkReceiptRejectStock($psItem, $productionSlip, array $selectedAttr)
     {
         $pslipItemData = [
-            'qty' => $productionSlip->accepted_qty,
+            'qty' => $psItem->rejected_qty,
             'document_header_id' => $productionSlip->id,
             'document_detail_id' => $psItem->id,
             'item_id'            => $psItem->item_id,
@@ -313,11 +317,6 @@ class PslipDeleteService
             ->delete();
         ErpPslipItemDetail::where('pslip_item_id', $psItem->id)->delete();
 
-        // Remove attributes
-        $psItem->attributes()->delete();
-
-        // Delete the item itself
-        $psItem->delete();
     }
 
     private static function errorResponse($message)

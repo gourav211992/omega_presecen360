@@ -59,6 +59,7 @@
                                                 <th>Curr</th>
                                                 <th class = "numeric-alignment">Item Value</th>
                                                 <th class = "numeric-alignment">Total Amt</th>
+                                                <th>Created By</th>
                                                 <th style = 'text-align:center'>Status</th>
 											  </tr>
 											</thead>
@@ -169,11 +170,15 @@
         { data: 'total_item_value', name: 'total_item_value', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
                $(td).addClass('text-end');
             }
-         },
-         { data: 'total_amount', name: 'total_amount', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
-               $(td).addClass('text-end');
+        },
+        { data: 'total_amount', name: 'total_amount', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                $(td).addClass('text-end');
             } 
-         },
+        },
+        { data: 'created_by', name: 'created_by', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+               $(td).addClass('no-wrap');
+            }
+        },
         { data: 'document_status', name: 'document_status', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
                $(td).addClass('no-wrap');
             }

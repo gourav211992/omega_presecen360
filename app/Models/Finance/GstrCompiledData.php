@@ -78,5 +78,6 @@ class GstrCompiledData extends Model
         'value_of_supplies_made',
         'year',
         'month',
+        'created_by'
     ];
 }

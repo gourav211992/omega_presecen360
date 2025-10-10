@@ -2,11 +2,14 @@
 
 namespace App\Exports\finance;
 
+use App\Helpers\Common\OrganizationHelper;
+use App\Helpers\CommonHelper;
 use App\Helpers\ConstantHelper;
 use App\Helpers\GeneralHelper;
 use App\Models\ErpGstInvoiceType;
 use App\Models\Finance\GstrCompiledData;
 use Carbon\Carbon;
+use DB;
 
 class GstrDetailExport
 {
@@ -14,7 +17,7 @@ class GstrDetailExport
     * @return \Illuminate\Support\Collection
     */
 
-    public function export($fileName,$request,$id, $invoiceTypeName, $supplierGstin)
+    public function export($fileName,$request,$id, $invoiceType, $supplierGstin)
     {
         $startDate = Carbon::now()->startOfMonth(); // Start of the current month
         $endDate = Carbon::now()->endOfMonth(); 
@@ -25,9 +28,10 @@ class GstrDetailExport
             $startDate = $dates[0] ? Carbon::parse($dates[0])->startOfDay() : null;
             $endDate = isset($dates[1]) ? Carbon::parse($dates[1])->startOfDay():  Carbon::parse($dates[0])->startOfDay();
         }
-        // $masterConnection = config('database.connections.mysql_master.database');
         
-        $gstrData = GstrCompiledData::where(function($q) use($request){
+        $organizationId = $request->organization_id ?? OrganizationHelper::getOrganizationId();
+        
+        $query = GstrCompiledData::where(function($q) use($request, $organizationId){
                 if($request->search){
                     $q->where(function($query) use($request){
                         $query->where('erp_gstr_compiled_data.party_name', 'like', '%' . $request->search . '%')
@@ -36,25 +40,106 @@ class GstrDetailExport
                 }
 
                 if($request->group_id){
-                    $q->where('erp_gstr_compiled_data.group_id', 'like', '%' . $request->group_id . '%');
+                    $q->where('erp_gstr_compiled_data.group_id', $request->group_id);
                 }
                 
                 if($request->company_id){
-                    $q->where('erp_gstr_compiled_data.company_id', 'like', '%' . $request->company_id . '%');
+                    $q->where('erp_gstr_compiled_data.company_id', $request->company_id);
                 }
 
-                if($request->organization_id){
-                    $q->where('erp_gstr_compiled_data.organization_id', 'like', '%' . $request->organization_id . '%');
+                if($organizationId){
+                    $q->where('erp_gstr_compiled_data.organization_id', $organizationId);
                 }
             })
         ->whereBetween('erp_gstr_compiled_data.invoice_date', [$startDate, $endDate])
-        ->where('invoice_type_id',$id)
-        ->where('supplier_gstin',$supplierGstin)
-        ->whereNotNull('erp_gstr_compiled_data.invoice_id')
-        ->groupBy('erp_gstr_compiled_data.invoice_id')
-        ->chunk(1000, function ($gstrData) use ($fileName, $invoiceTypeName) {
-            $this->writeToCsv($gstrData, $fileName, $invoiceTypeName);
+        ->where('supplier_gstin',$supplierGstin);
+
+        // Apply invoice type filters
+        $this->applyInvoiceTypeFilter($query, $invoiceType, $id);
+
+        $query->chunk(1000, function ($gstrData) use ($fileName, $invoiceType) {
+            $this->writeToCsv($gstrData, $fileName, $invoiceType);
         });
+    }
+
+    private function applyInvoiceTypeFilter($query, $invoiceType, $id)
+    {
+        switch ($invoiceType) {
+            case CommonHelper::HSN_B2B:
+                $typeIds = ErpGstInvoiceType::whereIn('code', CommonHelper::HSN_B2B_INVOICE_TYPES)
+                    ->where('status',ConstantHelper::ACTIVE)
+                    ->pluck('id');
+                $query->select(
+                        "erp_gstr_compiled_data.hsn_code",
+                        "erp_gstr_compiled_data.description",
+                        "erp_gstr_compiled_data.uqc",
+                        "erp_gstr_compiled_data.qty",
+                        DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
+                        DB::raw("erp_gstr_compiled_data.rate as rate"),
+                        DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
+                        DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
+                        DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
+                        DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
+                        DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                    )
+                    ->whereIn('invoice_type_id', $typeIds)
+                    ->whereNotNull('hsn_code')
+                    ->whereNotNull('uqc')
+                    ->groupBy('hsn_code','uqc');
+                break;
+
+            case CommonHelper::HSN_B2C:
+                $typeIds = ErpGstInvoiceType::whereIn('code', CommonHelper::HSN_B2C_INVOICE_TYPES)
+                    ->where('status',ConstantHelper::ACTIVE)
+                    ->pluck('id');
+                $query->whereIn('invoice_type_id', $typeIds)
+                    ->whereNotNull('hsn_code')
+                    ->whereNotNull('uqc')
+                    ->groupBy('hsn_code','uqc');
+                break;
+
+            case CommonHelper::DOC:
+                $typeIds = ErpGstInvoiceType::whereIn('code', CommonHelper::DOC_INVOICE_TYPES)
+                    ->where('status',ConstantHelper::ACTIVE)
+                    ->pluck('id');
+                $query->whereIn('invoice_type_id', $typeIds)
+                    ->whereNotNull('invoice_id')
+                    ->groupBy('invoice_id');
+                break;
+
+            case CommonHelper::B2B:
+                $query->select(
+                        "erp_gstr_compiled_data.party_gstin",
+                        "erp_gstr_compiled_data.party_name",
+                        "erp_gstr_compiled_data.invoice_no",
+                        "erp_gstr_compiled_data.invoice_date",
+                        "erp_gstr_compiled_data.pos",
+                        "erp_gstr_compiled_data.place_of_supply",
+                        "erp_gstr_compiled_data.reverse_charge",
+                        "erp_gstr_compiled_data.applicable_tax_rate",
+                        "erp_gstr_compiled_data.invoice_type",
+                        "erp_gstr_compiled_data.e_commerce_gstin",
+                        DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
+                        DB::raw("erp_gstr_compiled_data.rate as rate"),
+                        DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
+                        DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
+                        DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
+                        DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
+                        DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                    )
+                    ->where('invoice_type_id', $id)
+                    ->whereNotNull('invoice_id')
+                    ->whereNotNull('invoice_no')
+                    ->whereNotNull('rate')
+                    ->groupBy('invoice_id','invoice_no','rate');
+                break;
+
+            default:
+                $query->where('invoice_type_id', $id)
+                    ->whereNotNull('invoice_id')
+                    ->groupBy('invoice_id');
+                break;
+        }
     }
 
     /**
@@ -63,9 +148,9 @@ class GstrDetailExport
      * @param $gstrInvoiceTypes
      * @param string $fileName
      */
-    private function writeToCsv($data, $fileName, $invoiceTypeName)
+    private function writeToCsv($data, $fileName, $invoiceType)
     {   
-        switch ($invoiceTypeName) {
+        switch ($invoiceType) {
             case 'b2b':
                 $csvData = self::prepareB2bData($data);
                 break;
@@ -150,7 +235,10 @@ class GstrDetailExport
             case 'expa':
                 $csvData = self::prepareExpaData($data);
                 break;
-            case 'hsn':
+            case 'hsnb2b':
+                $csvData = self::prepareHsnData($data);
+                break;
+            case 'hsnb2c':
                 $csvData = self::prepareHsnData($data);
                 break;
             default:
@@ -199,7 +287,7 @@ class GstrDetailExport
         ];
 
         $rows = [];
-
+        
         foreach ($data as $item) {
             $rows[] = [
                 $item->party_gstin,
@@ -207,7 +295,7 @@ class GstrDetailExport
                 $item->invoice_no ? $item->invoice_no : '', 
                 $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '', 
                 $item->invoice_amt ?  $item->invoice_amt : '',
-                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
+                $item->place_of_supply ? $item->pos.'-'.$item->place_of_supply : '',
                 $item->reverse_charge ? $item->reverse_charge : 0, 
                 $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
                 $item->invoice_type ? $item->invoice_type : '', 
@@ -1145,28 +1233,36 @@ class GstrDetailExport
             'Description',	
             'UQC',	
             'Total Quantity',	
+            'Total Value',	
+            'Rate',	
             'Taxable Value',	
             'Integrated Tax Amount',	
             'Central Tax Amount',	
             'State/UT Tax Amount',	
             'Cess Amount',
-            'Rate',	
         ];
 
         $rows = [];
 
         foreach ($data as $item) {
+            $taxableAmt = ($item->taxable_amt ? $item->taxable_amt : 0); 
+            $igst = ($item->igst ? $item->igst : 0); 
+            $cgst = ($item->cgst ? $item->cgst : 0); 
+            $sgst = ($item->sgst ? $item->sgst : 0); 
+            $cess = ($item->cess ? $item->cess : 0);
+            $totalValue = $taxableAmt + $igst + $cgst + $sgst + $cess; 
             $rows[] = [
                 $item->hsn_code,
                 $item->description ? $item->description : '', 
                 $item->uqc ? $item->uqc : '', 
                 $item->qty ? $item->qty : '', 
-                $item->taxable_amt ? $item->taxable_amt : '',
-                $item->igst ? $item->igst : 0, 
-                $item->cgst ? $item->cgst : 0, 
-                $item->sgst ? $item->sgst : 0, 
-                $item->cess ? $item->cess : 0,  
+                $totalValue,
                 $item->rate ? $item->rate.'%' : 0,  
+                $taxableAmt,
+                $igst, 
+                $cgst, 
+                $sgst, 
+                $cess,  
             ];
         }
         return [

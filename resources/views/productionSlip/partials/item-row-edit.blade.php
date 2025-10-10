@@ -29,7 +29,7 @@
             </div>
         </td>
         <td class="poprod-decpt">
-            <input type="text" id="so_doc_{{$slipItemIndex}}" name="so_doc[{{$slipItemIndex}}]" class="form-control mw-100"  value="{{$slipItem?->so?->document_number}}" readonly>
+            <input type="text" id="so_doc_{{$slipItemIndex}}" name="so_doc[{{$slipItemIndex}}]" class="form-control mw-100"  value="{{$slipItem?->so?->book_code}} - {{$slipItem?->so?->document_number}}" readonly>
         </td>
         <td>
             <input type="text" id = "customers_dropdown_{{$slipItemIndex}}" name="customer_code[{{$slipItemIndex}}]" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input {{$slipItem -> is_editable ? '' : 'restrict'}}" autocomplete="off"  value = "{{$slipItem -> customer ?-> company_name}}" {{$slipItem -> is_editable ? '' : 'readonly'}}>

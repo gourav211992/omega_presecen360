@@ -125,7 +125,7 @@ class ErpSaleReturn extends Model
     }
     public function customer()
     {
-        return $this -> hasOne(ErpCustomer::class, 'id', 'customer_id');
+        return $this -> hasOne(Customer::class, 'id', 'customer_id');
     }
         //For GStIn - EInvoice
     public function vendor()
@@ -272,5 +272,13 @@ class ErpSaleReturn extends Model
      public function dynamic_fields()
     {
         return $this -> hasMany(ErpSrDynamicField::class, 'header_id');
+    }
+    public function getDisplayDocNumberAttribute()
+    {
+        if ($this -> doc_number_type === ConstantHelper::DOC_NO_TYPE_MANUAL) {
+            return $this -> document_number;
+        } else {
+            return $this -> book_code . '-' . $this -> document_number;
+        }
     }
 }

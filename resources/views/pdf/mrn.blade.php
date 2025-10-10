@@ -631,6 +631,16 @@
                                 </td>
                             </tr>
                         @endforeach
+                        @if($headerTax)
+                        <tr>
+                            <td style="text-align: right; padding-top: 3px;">
+                                <b>Header Tax ({{ $headerTax?->ted_name }}):</b>
+                            </td>
+                            <td style="text-align: right; padding-top: 3px;">
+                                {{ number_format($headerTax?->ted_amount, 2) }}
+                            </td>
+                        </tr>
+                        @endif
                         @if (isset($mrn?->expenses) && count($mrn?->expenses))
                             <tr>
                                 <td style="text-align: right; padding-top: 3px;">

@@ -33,13 +33,15 @@ if($routeAlias == ConstantHelper::BOM_SERVICE_ALIAS)
                     <input type="hidden" name="document_status" value="{{$bom->document_status}}" id="document_status">
                     <button type="button" onClick="javascript: history.go(-1)" class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i> Back</button>
 
-                    @if($buttons['draft'] || $buttons['amend'] && intval(request('amendment') ?? 0))
+                   @if($buttons['delete'])
                         <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
                             data-url="{{ url('bill-of-material/') }}/{{ $bom->id }}/{{ $buttons['amend'] ? $buttons['amend'] : 0 }}"
                             data-redirect="{{ url($routeAlias) }}"
                             data-message="Are you sure you want to delete this record?">
                         <i data-feather="trash-2" class="me-50"></i> Delete
                         </button>
+                    @endif
+                    @if($buttons['draft'])
                         <button type="submit" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button" name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
                     @endif
                     @if(!intval(request('amendment') ?? 0) && $bom->document_status != ConstantHelper::DRAFT && $bom->document_status != ConstantHelper::REJECTED)
@@ -212,8 +214,9 @@ if($routeAlias == ConstantHelper::BOM_SERVICE_ALIAS)
                                         @if($servicesBooks['services'][0]?->alias == ConstantHelper::BOM_SERVICE_ALIAS)
                                         <div class="col-md-3 production_type_div">
                                             <div class="mb-1">
+                                                {{-- @dd($buttons['amend']); --}}
                                                 <label class="form-label">Production Type <span class="text-danger">*</span></label>
-                                                <select class="form-select" id="production_type" name="production_type" {{ $bom->document_status != 'draft' ? 'disabled' : ' ' }}>
+                                                <select class="form-select" id="production_type" name="production_type" {{ ($bom->document_status == 'draft'||($buttons['amend'] && intval(request('amendment') ?? 0))) ? '' : 'disabled' }}>
                                                     @foreach($productionTypes as $productionType)
                                                     <option value="{{$productionType}}" {{$bom->production_type == $productionType ? 'selected' : ''}}>{{ucfirst($productionType)}}</option>
                                                     @endforeach

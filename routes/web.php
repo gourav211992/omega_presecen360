@@ -347,7 +347,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/group/check-prefix', [GroupController::class, 'checkPrefix'])->name('groups-check-prefix');
     Route::resource('ledgers', LedgerController::class)->except(['show']);
     Route::get('/ledgers/{ledgerId}/groups', [LedgerController::class, 'getLedgerGroups'])->name('ledgers.groups');
-    ;
+    
     Route::get('/search/ledger', [LedgerController::class, 'getLedger'])->name('ledger.search');
     Route::get('/ledger/import', [LedgerController::class, 'showImportForm'])->name('ledger.show.import');
     Route::post('/ledger/import', [LedgerController::class, 'import'])->name('ledger.import');
@@ -1913,7 +1913,7 @@ Route::middleware(['user.auth'])->group(function () {
             // Route::post('location-listing', 'locationListing')->name('get.locations');
             // Route::post('sub-location-listing', 'subLocationListing')->name('get.sub-locations');
             // Route::post('mrn-listing', 'mrnListing')->name('get.mrn-listing');
-    
+
             /*Remove data*/
             Route::delete('remove-dis-item-level', 'removeDisItemLevel')->name('remove.item.dis');
             Route::delete('remove-dis-header-level', 'removeDisHeaderLevel')->name('remove.header.dis');
@@ -2054,6 +2054,7 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('/test-tax-calculation', 'testCalculateTax')->name('tax.test.calculate');
         Route::get('/tax-calculation', 'calculateItemTax')->name('tax.calculate');
         Route::get('/tax-calculation/tcs', 'calculateTcsTax')->name('tax.calculate.tcs');
+        Route::get('/tax-calculation/tds', 'calculateTdsTax')->name('tax.calculate.tds');
         Route::get('/tax-group-calculation', 'calculateTaxGroups')->name('tax.group.calculate');
         Route::get('/tax-calculation', 'calculateItemTax');
         Route::get('/', 'index')->name('tax.index');
@@ -2795,7 +2796,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::post('/loan-return', 'loanReturn')->name('loan-return');
             Route::post('/loan-reject', 'loanReject')->name('loan-reject');
             // Route::post('/assessment-proceed', 'assessmentProceed')->name('assessment-proceed');
-    
+
         });
 
     Route::prefix('admin')->name('admin.')->group(function () {
@@ -3329,6 +3330,7 @@ Route::middleware(['user.auth'])->group(function () {
         Route::post('store','store')->name('external-integration.store'); 
         Route::post('update/{id}','update')->name('external-integration.update'); 
         Route::get('edit/{id}','edit')->name('external-integration.edit');
+        Route::get('customer/search','getCashCustomer')->name('external-integration.customer');
         Route::delete('destroy/{id}','destroy')->name('external-integration.destroy');
 
     });

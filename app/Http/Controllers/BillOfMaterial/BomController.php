@@ -9,6 +9,7 @@ use App\Helpers\ItemHelper;
 use App\Helpers\NumberHelper;
 use App\Helpers\CurrencyHelper;
 use App\Helpers\DynamicFieldHelper;
+use App\Helpers\TransactionReportHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BomRequest;
 use App\Models\Address;
@@ -20,7 +21,9 @@ use App\Models\BomDetail;
 use App\Models\BomMedia;
 use App\Models\BomOverhead;
 use App\Models\Item;
+use App\Models\ErpSoItemBom;
 use App\Models\PwoBomMapping;
+use App\Models\PslipBomConsumption;
 use App\Models\ErpBomDynamicField;
 use App\Models\Organization;
 use App\Models\ItemAttribute;
@@ -50,10 +53,15 @@ class BomController extends Controller
         $parentUrl = request()->segments()[0];
         $servicesAliasParam = $parentUrl == 'quotation-bom' ? ConstantHelper::COMMERCIAL_BOM_SERVICE_ALIAS : ConstantHelper::BOM_SERVICE_ALIAS;
         if ($servicesAliasParam === ConstantHelper::COMMERCIAL_BOM_SERVICE_ALIAS) {
-            $canView = request()->user()?->hasPermission('quotation_bom.item_cost_view') ?? true;
+            $canView = request()->user()->user_type === 'IAM-SUPER'
+                    ? true
+                    : (request()->user()?->hasPermission('quotation_bom.item_cost_view') ?? true);
+        
         }
         if ($servicesAliasParam === ConstantHelper::BOM_SERVICE_ALIAS) {
-            $canView = request()->user()?->hasPermission('production_bom.item_cost_view') ?? true;
+            $canView =  request()->user()->user_type === 'IAM-SUPER'
+                    ? true
+                    : (request()->user()?->hasPermission('production_bom.item_cost_view') ?? true);
         }
         if (request()->ajax()) {
             $search = $request->get('search')['value'] ?? '';
@@ -61,6 +69,53 @@ class BomController extends Controller
             $boms = Bom::where('type', $type)
                 ->where('bom_type', ConstantHelper::FIXED)
                 ->withDraftListingLogic()
+                  // apply filter code
+                ->when($request->book_id, function ($q) use ($request) {
+                    $q->where('book_id', $request->book_id);
+                })
+                ->when($request->created_id, function ($q) use ($request) {
+                    $q->where('created_by', $request->created_id);
+                })
+                ->when($request->document_number, function ($q) use ($request) {
+                    $q->where('document_number', 'LIKE', '%' . $request->document_number . '%');
+                })
+                ->when($request->status, function ($q) use ($request) {
+                    $searchDocStatus = [];
+
+                    if ($request->status === ConstantHelper::DRAFT) {
+                        $searchDocStatus = [ConstantHelper::DRAFT];
+                    } elseif ($request->status === ConstantHelper::SUBMITTED) {
+                        $searchDocStatus = [ConstantHelper::SUBMITTED, ConstantHelper::PARTIALLY_APPROVED];
+                    } else {
+                        $searchDocStatus = [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED];
+                    }
+
+                    $q->whereIn('document_status', $searchDocStatus);
+                })
+                ->when($request->date_range ?? null, function ($q) use ($request) {
+                    $dateRange = $request->date_range ?? Carbon::now()->startOfMonth()->format('Y-m-d') . " to " . Carbon::now()->endOfMonth()->format('Y-m-d');
+                    $dateRanges = explode('to', $dateRange);
+
+                    if (count($dateRanges) == 2) {
+                        $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
+                        $toDate = Carbon::parse(trim($dateRanges[1]))->format('Y-m-d');
+                        $q->whereBetween('document_date', [$fromDate, $toDate]);
+                    } else {
+                        $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
+                        $q->whereDate('document_date', $fromDate);
+                    }
+                })
+                ->when($request->product_id, function ($q) use ($request) {
+                    $q->where('item_id', $request->product_id)
+                        ->when($request->item_category_id, function ($catQ) use ($request) {
+                            $catQ->whereHas('item', function ($itemQuery) use ($request) {
+                                $itemQuery->where('category_id', $request->item_category_id)
+                                    ->when($request->item_sub_category_id, function ($subQ) use ($request) {
+                                        $subQ->where('subcategory_id', $request->item_sub_category_id);
+                                    });
+                            });
+                        });
+                })
                 ->latest();
             return DataTables::of($boms)
                 ->addIndexColumn()
@@ -153,7 +208,19 @@ class BomController extends Controller
                 ->make(true);
         }
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl, $servicesAliasParam);
-        return view('billOfMaterial.index', ['servicesBooks' => $servicesBooks, 'canView' => $canView]);
+        $autoCompleteFilters = isset(TransactionReportHelper::FILTERS_MAPPING[$servicesAliasParam]) ? 
+        TransactionReportHelper::FILTERS_MAPPING[$servicesAliasParam] : [];  
+         // Terms to exclude
+        $excludeTerms = ['all_stations', 'raw_items', 'report_items'];
+
+        // Remove filters with term in $excludeTerms
+        $autoCompleteFilters = array_filter($autoCompleteFilters, function ($filter) use ($excludeTerms) {
+            return !in_array($filter['term'] ?? '', $excludeTerms);
+        });
+
+        // Reindex array
+        $autoCompleteFilters = array_values($autoCompleteFilters);
+        return view('billOfMaterial.index', ['servicesBooks' => $servicesBooks, 'canView' => $canView, 'autoCompleteFilters' => $autoCompleteFilters]);
     }
 
     # Bill of material Create
@@ -898,10 +965,36 @@ class BomController extends Controller
             ->get();
         $customizables = ['yes', 'no'];
         $isEdit = $buttons['submit'];
-        if (!$isEdit) {
+        if (!$isEdit && intval(request('amendment') ?? 0)>0) {
             $isEdit = $buttons['amend'] && intval(request('amendment') ?? 0) ? true : false;
-            $bomDetails=$bom->bomItems->pluck('id')->toArray();
-            $pwoBom=PwoBomMapping::where('bom_id',$bom->id)->whereIn('bom_detail_id',$bomDetails)->get();
+            $bomDetails = $bom->bomItems->pluck('id')->toArray();
+            $pwoBom = PwoBomMapping::with(['pwo'])->where('bom_id', $bom->id)->whereIn('bom_detail_id', $bomDetails)
+                    ->whereHas('pwo', function ($q) {
+                        $q->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED);
+                    })
+                    ->get();
+                   
+            if($pwoBom->isNotEmpty()){
+                return redirect('bill-of-material')->with('error','You cannot amend because Production Work is pending for related item ' . $pwoBom[0]->item_code);
+            }
+            $pslipBom=PslipBomConsumption::with('pslip')->where('bom_id',$bom->id)->whereIn('bom_detail_id',$bomDetails)
+                    ->whereHas('pslip', function ($q) {
+                        $q->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED);
+                    })
+                    ->get();
+                   
+            if($pslipBom->isNotEmpty()){
+                return redirect('bill-of-material')->with('error','You cannot amend because Production Slip is pending for related item ' .$pslipBom[0]->item_code);
+            }
+            $soBom=ErpSoItemBom::with('saleOrder')->where('bom_id',$bom->id)->whereIn('bom_detail_id',$bomDetails)
+                    ->whereHas('saleOrder', function ($q) {
+                        $q->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED);
+                    })
+                    ->get();
+            if($soBom->isNotEmpty()){
+                return redirect('bill-of-material')->with('error','You cannot amend because Sale Order is pending for related item ' .$soBom[0]->item_code);
+            }
+
         }
         $headerOverheads = $bom->bomOverheadItems()->where('type', 'H')->orderBy('level')->get();
         $dynamicFieldsUI = $bom->dynamicfieldsUi();
@@ -1614,6 +1707,18 @@ class BomController extends Controller
         $bom = Bom::with('uom:id,name','media')
             ->whereIn('id', $ids)
             ->first();
+        $bomExists = Bom::where('item_id',$bom->item_id)
+                ->where('type','bom')
+                ->where('status', ConstantHelper::ACTIVE)
+                ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_SUBMITTED)
+                ->first();
+        if ($bomExists) {
+
+            return response()->json([
+                'status' => 422,
+                'message' =>'Bom already exists for this item '.$bomExists->item_code
+            ], 422);  
+        }
 
         $response = BookHelper::fetchBookDocNoAndParameters($request->book_id, $request->d_date);
         $parameters = json_decode(json_encode($response['data']['parameters']), true) ?? [];

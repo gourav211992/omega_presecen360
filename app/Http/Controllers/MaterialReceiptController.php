@@ -214,7 +214,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-    
+
                         return $joReferences ?: 'N/A';
                     } elseif ($row->reference_type === 'po') {
                         // Multiple POs from related items
@@ -227,7 +227,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-    
+
                         return $joReferences ?: 'N/A';
                     } else {
                         return '';
@@ -366,6 +366,7 @@ class MaterialReceiptController extends Controller
             $totalItemLevelDiscValue = 0.00;
             $totalAmount = 0.00;
             $isInspection = 1;
+            $oldNonTdsAccesableAmt = 0;
 
             $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($request->currency_id, $request->document_date);
             if ($currencyExchangeData['status'] == false) {
@@ -472,6 +473,8 @@ class MaterialReceiptController extends Controller
                 ]);
                 $shippingAddress->save();
             }
+            $tdsAssessableAmt = $mrn -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
+            $oldNonTdsAccesableAmt = ($mrn -> total_item_amount - $mrn -> total_discount) - $tdsAssessableAmt;
             # Store location address
             if ($mrn?->erpStore) {
                 $storeAddress = $mrn?->erpStore->address;
@@ -960,6 +963,45 @@ class MaterialReceiptController extends Controller
                     }
                 }
 
+                // TDS Header Level Tax
+                $locationAddress = $mrn -> store_address;
+                $billingAddress = $mrn -> bill_address_details;
+                $vendor = Vendor::find($request -> vendor_id);
+                $totalTaxableValue = ($itemTotalValue - ($itemTotalHeaderDiscount + $itemTotalDiscount));
+                $tdsApplicability = TaxHelper::calculateHeaderTax($vendor, $locationAddress -> country_id, $billingAddress -> country_id, $user, 'purchase',
+                    ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $mrn->document_date, $oldNonTdsAccesableAmt, $totalTaxableValue);
+                    if ($tdsApplicability['status'] == 'error') {
+                    DB::rollBack();
+                    return response() -> json([
+                        'status' => 'error',
+                        'message' => $tdsApplicability['message']
+                    ], 422);
+                }
+                if ($tdsApplicability['data'] && isset($tdsApplicability['data']['id'])) {
+                    $headerTdsRowData = [
+                        'mrn_header_id' => $mrn -> id,
+                        'mrn_detail_id' => null,
+                        'ted_type' => 'Tax',
+                        'ted_level' => 'H',
+                        'ted_id' => $tdsApplicability['data']['id'],
+                        'ted_name' => $tdsApplicability['data']['tax_code'],
+                        'assesment_amount' => $tdsApplicability['data']['assesable_value'],
+                        'ted_code' => $tdsApplicability['data']['tax_group'],
+                        'ted_percentage' => $tdsApplicability['data']['tax_percentage'],
+                        'ted_amount' => $tdsApplicability['data']['tax_amount'],
+                        'applicable_type' => $tdsApplicability['data']['applicability_type'],
+                    ];
+                    if (isset($request -> mrn_tds_id)) {
+                        $tdsTaxTed = MrnExtraAmount::updateOrCreate(['id' => $request -> mrn_tds_id], $headerTdsRowData);
+                    } else {
+                        $tdsTaxTed = MrnExtraAmount::create($headerTdsRowData);
+                    }
+                    $totalTax -= $tdsTaxTed -> ted_amount;
+                } else {
+                    MrnExtraAmount::where('mrn_header_id', $mrn -> id) -> where('ted_type', 'Tax')
+                        -> where('ted_level', 'H') -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> delete();
+                }
+
                 /*Update total in main header MRN*/
                 $mrn->total_item_amount = $itemTotalValue ?? 0.00;
                 $totalDiscValue = ($itemTotalHeaderDiscount + $itemTotalDiscount) ?? 0.00;
@@ -1003,6 +1045,11 @@ class MaterialReceiptController extends Controller
             $mrn->group_currency_code = $currencyExchangeData['data']['group_currency_code'];
             $mrn->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
             $mrn->save();
+
+            $mrn -> refresh();
+            $currentTdsAssessableAmt = $mrn -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
+            $currentNonTdsAssessableAmt = ($mrn -> total_item_amount - $mrn -> total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
+            TaxHelper::buildTaxThresholdUtilization($mrn, 'purchase', ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $currentNonTdsAssessableAmt);
 
             /*Create document submit log*/
             if ($request->document_status == ConstantHelper::SUBMITTED) {
@@ -1099,20 +1146,20 @@ class MaterialReceiptController extends Controller
             }
 
             // Purchase Summary
-            if (in_array($mrn->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)) {
-                // Mrn Purchase Summary
-                $fy = Helper::getFinancialYear($mrn->document_date);
-                $fyYear = ErpFinancialYear::find($fy['id']);
-                if ((int) $revisionNumber > 0) {
-                    $oldMrn = MrnHeaderHistory::where('mrn_header_id', $mrn->id)
-                        ->where('revision_number', $mrn->revision_number - 1)->first();
-                    if ($oldMrn) {
-                        MrnModuleHelper::buildVendorPurchaseSummary($mrn, $fyYear, $oldMrn);
-                    }
-                } else {
-                    MrnModuleHelper::buildVendorPurchaseSummary($mrn, $fyYear);
-                }
-            }
+            // if (in_array($mrn->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)) {
+            //     // Mrn Purchase Summary
+            //     $fy = Helper::getFinancialYear($mrn->document_date);
+            //     $fyYear = ErpFinancialYear::find($fy['id']);
+            //     if ((int) $revisionNumber > 0) {
+            //         $oldMrn = MrnHeaderHistory::where('mrn_header_id', $mrn->id)
+            //             ->where('revision_number', $mrn->revision_number - 1)->first();
+            //         if ($oldMrn) {
+            //             MrnModuleHelper::buildVendorPurchaseSummary($mrn, $fyYear, $oldMrn);
+            //         }
+            //     } else {
+            //         MrnModuleHelper::buildVendorPurchaseSummary($mrn, $fyYear);
+            //     }
+            // }
 
             DB::commit();
 
@@ -1188,7 +1235,8 @@ class MaterialReceiptController extends Controller
             'costCenters',
             'purchaseOrder',
             'jobOrder',
-            'saleOrder'
+            'saleOrder',
+            'header_tax'
         ])
             ->findOrFail($id);
 
@@ -1397,6 +1445,7 @@ class MaterialReceiptController extends Controller
 
             $currentStatus = $mrn->document_status;
             $actionType = $request->action_type;
+            $oldNonTdsAccesableAmt = 0;
 
             if ($currentStatus == ConstantHelper::APPROVED && $actionType == 'amendment') {
                 $revisionData = [
@@ -1491,6 +1540,9 @@ class MaterialReceiptController extends Controller
                 ]);
                 $shippingAddress->save();
             }
+            $tdsAssessableAmt = $mrn -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
+            $oldNonTdsAccesableAmt = ($mrn -> total_item_amount - $mrn -> total_discount) - $tdsAssessableAmt;
+
             # Store location address
             if ($mrn?->erpStore) {
                 $storeAddress = $mrn?->erpStore->address;
@@ -1582,7 +1634,7 @@ class MaterialReceiptController extends Controller
 
                     // ✅ Back Update Qty Capture response
                     $backUpdateService = new BackUpdateService();
-                    $backUpdateResponse = $backUpdateService->updateQuantity($component, $mrnDetail, $order_qty);
+                    $backUpdateResponse = $backUpdateService->updateQuantity($component, $order_qty);
                     if ($backUpdateResponse['status'] === 'error') {
                         \DB::rollBack();
                         return response()->json([
@@ -1595,10 +1647,10 @@ class MaterialReceiptController extends Controller
                     $inventory_uom_code = null;
                     $inventory_uom_qty = 0.00;
                     $accepted_inventory_uom_qty = 0.00;
-                    $orderQty = $order_qty ?? $component['order_qty'];
-                    $reqQty = $accepted_qty ?? $component['accepted_qty'];
-                    $rejQty = $rejected_qty ?? $component['rejected_qty'];
-                    $focQty = $foc_qty ?? $component['foc_qty'];
+                    $orderQty = $component['order_qty'];
+                    $reqQty = $component['accepted_qty'];
+                    $rejQty = $component['rejected_qty'];
+                    $focQty = $component['foc_qty'];
                     $inventoryUom = Unit::find($item->uom_id ?? null);
                     $inventory_uom_id = $inventoryUom->id;
                     $inventory_uom_code = $inventoryUom->name;
@@ -2010,6 +2062,45 @@ class MaterialReceiptController extends Controller
                     }
                 }
 
+                // TDS Header Level Tax
+                $locationAddress = $mrn -> store_address;
+                $billingAddress = $mrn -> bill_address_details;
+                $vendor = Vendor::find($request -> vendor_id);
+                $totalTaxableValue = ($itemTotalValue - ($itemTotalHeaderDiscount + $itemTotalDiscount));
+                $tdsApplicability = TaxHelper::calculateHeaderTax($vendor, $locationAddress -> country_id, $billingAddress -> country_id, $user, 'purchase',
+                    ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $mrn->document_date, $oldNonTdsAccesableAmt, $totalTaxableValue);
+                    if ($tdsApplicability['status'] == 'error') {
+                    DB::rollBack();
+                    return response() -> json([
+                        'status' => 'error',
+                        'message' => $tdsApplicability['message']
+                    ], 422);
+                }
+                if ($tdsApplicability['data'] && isset($tdsApplicability['data']['id'])) {
+                    $headerTdsRowData = [
+                        'mrn_header_id' => $mrn -> id,
+                        'mrn_detail_id' => null,
+                        'ted_type' => 'Tax',
+                        'ted_level' => 'H',
+                        'ted_id' => $tdsApplicability['data']['id'],
+                        'ted_name' => $tdsApplicability['data']['tax_code'],
+                        'assesment_amount' => $tdsApplicability['data']['assesable_value'],
+                        'ted_code' => $tdsApplicability['data']['tax_group'],
+                        'ted_percentage' => $tdsApplicability['data']['tax_percentage'],
+                        'ted_amount' => $tdsApplicability['data']['tax_amount'],
+                        'applicable_type' => $tdsApplicability['data']['applicability_type'],
+                    ];
+                    if (isset($request -> mrn_tds_id)) {
+                        $tdsTaxTed = MrnExtraAmount::updateOrCreate(['id' => $request -> mrn_tds_id], $headerTdsRowData);
+                    } else {
+                        $tdsTaxTed = MrnExtraAmount::create($headerTdsRowData);
+                    }
+                    $totalTax -= $tdsTaxTed -> ted_amount;
+                } else {
+                    MrnExtraAmount::where('mrn_header_id', $mrn -> id) -> where('ted_type', 'Tax')
+                        -> where('ted_level', 'H') -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> delete();
+                }
+
                 /*Update total in main header MRN*/
                 $mrn->total_item_amount = $itemTotalValue ?? 0.00;
                 $totalDiscValue = ($itemTotalHeaderDiscount + $itemTotalDiscount) ?? 0.00;
@@ -2027,6 +2118,45 @@ class MaterialReceiptController extends Controller
                 $totalAmount = (($itemTotalValue - $totalDiscValue) + ($totalTax + $totalHeaderExpense)) ?? 0.00;
                 $mrn->total_amount = $totalAmount ?? 0.00;
                 $mrn->save();
+
+                // TDS Header Level Tax
+                $locationAddress = $mrn -> store_address;
+                $billingAddress = $mrn -> bill_address_details;
+                $vendor = Vendor::find($request -> vendor_id);
+                $totalTaxableValue = ($itemTotalValue - ($itemTotalHeaderDiscount + $itemTotalDiscount));
+                $tdsApplicability = TaxHelper::calculateHeaderTax($vendor, $locationAddress -> country_id, $billingAddress -> country_id, $user, 'purchase',
+                    ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $mrn->document_date, $oldNonTdsAccesableAmt, $totalTaxableValue);
+                    if ($tdsApplicability['status'] == 'error') {
+                    DB::rollBack();
+                    return response() -> json([
+                        'status' => 'error',
+                        'message' => $tdsApplicability['message']
+                    ], 422);
+                }
+                if ($tdsApplicability['data'] && isset($tdsApplicability['data']['id'])) {
+                    $headerTdsRowData = [
+                        'mrn_header_id' => $mrn -> id,
+                        'mrn_detail_id' => null,
+                        'ted_type' => 'Tax',
+                        'ted_level' => 'H',
+                        'ted_id' => $tdsApplicability['data']['id'],
+                        'ted_name' => $tdsApplicability['data']['tax_code'],
+                        'assesment_amount' => $tdsApplicability['data']['assesable_value'],
+                        'ted_code' => $tdsApplicability['data']['tax_group'],
+                        'ted_percentage' => $tdsApplicability['data']['tax_percentage'],
+                        'ted_amount' => $tdsApplicability['data']['tax_amount'],
+                        'applicable_type' => $tdsApplicability['data']['applicability_type'],
+                    ];
+                    if (isset($request -> mrn_tds_id)) {
+                        $tdsTaxTed = MrnExtraAmount::updateOrCreate(['id' => $request -> mrn_tds_id], $headerTdsRowData);
+                    } else {
+                        $tdsTaxTed = MrnExtraAmount::create($headerTdsRowData);
+                    }
+                    $totalTax -= $tdsTaxTed -> ted_amount;
+                } else {
+                    MrnExtraAmount::where('mrn_header_id', $mrn -> id) -> where('ted_type', 'Tax')
+                        -> where('ted_level', 'H') -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> delete();
+                }
             } else {
 
                 if ($request->document_status == ConstantHelper::SUBMITTED) {
@@ -2061,6 +2191,12 @@ class MaterialReceiptController extends Controller
             $mrn->group_currency_code = $currencyExchangeData['data']['group_currency_code'];
             $mrn->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
             $mrn->save();
+
+            $mrn->refresh();
+            $currentTdsAssessableAmt = $mrn -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
+            $currentNonTdsAssessableAmt = ($mrn -> total_item_amount - $mrn -> total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
+            TaxHelper::buildTaxThresholdUtilization($mrn, 'purchase', ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $currentNonTdsAssessableAmt);
+
 
             /*Create document submit log*/
             $bookId = $mrn->book_id;
@@ -2180,20 +2316,20 @@ class MaterialReceiptController extends Controller
                 (new PutawayJob)->createJob($mrn->id, 'App\Models\MrnHeader');
             }
 
-            if (in_array($mrn->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)) {
-                // Mrn Purchase Summary
-                $fy = Helper::getFinancialYear($mrn->document_date);
-                $fyYear = ErpFinancialYear::find($fy['id']);
-                if ((int) $revisionNumber > 0) {
-                    $oldMrn = MrnHeaderHistory::where('mrn_header_id', $mrn->id)
-                        ->where('revision_number', $mrn->revision_number - 1)->first();
-                    if ($oldMrn) {
-                        MrnModuleHelper::buildVendorPurchaseSummary($mrn, $fyYear, $oldMrn);
-                    }
-                } else {
-                    MrnModuleHelper::buildVendorPurchaseSummary($mrn, $fyYear);
-                }
-            }
+            // if (in_array($mrn->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)) {
+            //     // Mrn Purchase Summary
+            //     $fy = Helper::getFinancialYear($mrn->document_date);
+            //     $fyYear = ErpFinancialYear::find($fy['id']);
+            //     if ((int) $revisionNumber > 0) {
+            //         $oldMrn = MrnHeaderHistory::where('mrn_header_id', $mrn->id)
+            //             ->where('revision_number', $mrn->revision_number - 1)->first();
+            //         if ($oldMrn) {
+            //             MrnModuleHelper::buildVendorPurchaseSummary($mrn, $fyYear, $oldMrn);
+            //         }
+            //     } else {
+            //         MrnModuleHelper::buildVendorPurchaseSummary($mrn, $fyYear);
+            //     }
+            // }
 
             DB::commit();
 
@@ -2787,13 +2923,12 @@ class MaterialReceiptController extends Controller
             ->where('addressable_id', $user->organization_id)
             ->where('addressable_type', Organization::class)
             ->first();
-        $mrn = MrnHeader::with(['vendor', 'currency', 'items', 'book', 'expenses', 'items.vendorAsn'])
+        $mrn = MrnHeader::with(['vendor', 'currency', 'items', 'book', 'expenses', 'items.vendorAsn', 'header_tax'])
             ->findOrFail($id);
-
 
         $shippingAddress = $mrn->shippingAddress;
         $billingAddress = $mrn->billingAddress;
-
+        $headerTax = $mrn?->header_tax ?? null;
         $totalItemValue = $mrn->total_item_amount ?? 0.00;
         $totalDiscount = $mrn->total_discount ?? 0.00;
         $totalTaxes = $mrn->total_taxes ?? 0.00;
@@ -2833,6 +2968,7 @@ class MaterialReceiptController extends Controller
                 'imagePath' => $imagePath,
                 'docStatusClass' => $docStatusClass,
                 'taxes' => $taxes,
+                'headerTax' => $headerTax,
                 'sellerShippingAddress' => $sellerShippingAddress,
                 'sellerBillingAddress' => $sellerBillingAddress,
                 'buyerAddress' => $buyerAddress
@@ -3425,7 +3561,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-    
+
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     });
@@ -3991,7 +4127,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-    
+
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     })
@@ -4304,7 +4440,7 @@ class MaterialReceiptController extends Controller
                     ? ($request->selected_so_ids[0] ?? 'null')
                     : 'null';
                 // $disabled = ($dataExistingPo !== 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-    
+
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input so_item_checkbox' type='checkbox' name='so_item_check' value='{$row->id}' data-module='{$this->moduleType}' data-current-so='{$dataCurrentSo}' data-existing-so='{$dataExistingSo}'>
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>

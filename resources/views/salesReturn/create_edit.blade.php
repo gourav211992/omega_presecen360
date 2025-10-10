@@ -3585,7 +3585,7 @@
                                     <input type="text" id = "items_name_${itemIndex}" class="form-control mw-100"   value = "${item?.item?.item_name}" readonly>
                                 </td>
                                 <td class="poprod-decpt" id='attribute_section_${itemIndex}'>
-                                    <button id = "attribute_button_${itemIndex}" ${item?.item_attributes_array?.length > 0 ? '' : 'disabled'} type = "button" data-bs-toggle="modal" onclick = "setItemAttributes('items_dropdown_${itemIndex}', '${itemIndex}','DISABLED');" data-bs-target="#attribute" class="btn p-25 btn-sm btn-outline-secondary" style="font-size: 10px">Attributes</button>
+                                    <button id = "attribute_button_${itemIndex}" ${item?.item_attributes_array?.length > 0 ? '' : 'disabled'} type = "button" data-bs-toggle="modal" onclick = "setItemAttributes('items_dropdown_${itemIndex}', '${itemIndex}','${true}');" data-bs-target="#attribute" class="btn p-25 btn-sm btn-outline-secondary" style="font-size: 10px">Attributes</button>
                                 </td>
                                 <td>
                                     <select class="form-select" disabled name = "uom_id[]" id = "uom_dropdown_${itemIndex}">
@@ -3702,7 +3702,7 @@
                                 document.getElementById('uom_dropdown_' + itemIndex).innerHTML = itemUomsHTML;
                                 // getStoresData(itemIndex,null,false);
                                 getItemTax(itemIndex);
-                                setAttributesUI(itemIndex);
+                                setAttributesUI(itemIndex,true);
                                 $(`#item_qty_${itemIndex}`).trigger("change");
                                 });
 
@@ -3746,7 +3746,7 @@
                             // $("#billing_address_dropdown").val(currentOrder.billing_address_details.id).trigger('change');
 
                         }
-                        itemIndex += 1;
+                        currentOrderIndexVal += 1;
                         $("#order_discount_button").prop('disabled', true);
                         $("#order_expense_button").prop('disabled', true);
                         $("#order_expense_button").prop('disabled', true);
@@ -4963,6 +4963,20 @@ function initializeAutocompleteTed(selector, idSelector, type, percentageVal) {
         const checkedStatus = element.checked;
         for (let index = 0; index < allRowsCheck.length; index++) {
             allRowsCheck[index].checked = checkedStatus;
+        }
+    }
+
+    function checkAllQt(element)
+    {
+        const selectableElements = document.getElementsByClassName('pull_checkbox');
+        for (let index = 0; index < selectableElements.length; index++) {
+            if (!selectableElements[index].disabled) {
+                selectableElements[index].checked = element.checked;
+                // if (openPull)
+                // if (element.checked) {
+                //     checkQuotation(selectableElements[index]);
+                // }
+            }
         }
     }
 

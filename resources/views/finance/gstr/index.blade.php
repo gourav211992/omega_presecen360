@@ -46,9 +46,25 @@
                                 <div class="card">
                                     <div
                                         class="table-responsive trailbalnewdesfinance po-reportnewdesign trailbalnewdesfinancerightpad gsttabreporttotal">
-                                        @include('finance.partials.table-header', [
-                                            'searchPlaceholder' => 'Search...',
-                                        ])
+                                        <div class="p-2">
+                                            <div class="row">
+                                                <div class="col-md-12 d-flex justify-content-end">
+                                                    <form class="d-inline-block">
+                                                        <div class="dataTables_filter">
+                                                            <label class="mb-0">
+                                                                <input type="search" class="form-control" name="search"
+                                                                    value="{{ Request::get('search') }}"
+                                                                    placeholder="Search..." onchange="this.form.submit()">
+                                                            </label>
+                                                        </div>
+                                                        @foreach (request()->except('search') as $key => $value)
+                                                            <input type="hidden" name="{{ $key }}"
+                                                                value="{{ $value }}">
+                                                        @endforeach
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <table class="datatables-basic table myrequesttablecbox">
                                             <thead>
                                                 <tr>
@@ -78,7 +94,8 @@
 
                                                 @forelse ($types as $key => $type)
                                                     @php
-                                                        $data = $invoiceData[$type->name];
+
+                                                        $data = $invoiceData[$type->code];
                                                         $totalTaxableAmt += $data['taxable_amt'] ?? 0;
                                                         $totalIgst += $data['igst'] ?? 0;
                                                         $totalCgst += $data['cgst'] ?? 0;
@@ -92,9 +109,15 @@
                                                         $totalTaxAmt += $totalTax;
                                                         $totalInvoiceAmt += $data['invoice_amt'] ?? 0;
                                                         $totalInvoiceCount += $data['invoice_count'] ?? 0;
+                                                        $totalInvoiceValue =
+                                                            ($data['taxable_amt'] ?? 0) +
+                                                            ($data['igst'] ?? 0) +
+                                                            ($data['cgst'] ?? 0) +
+                                                            ($data['sgst'] ?? 0) +
+                                                            ($data['cess'] ?? 0);
                                                     @endphp
                                                     <tr class="trail-bal-tabl-none">
-                                                        <td>{{ $types->firstItem() + $key }}</td>
+                                                        <td>{{ $loop->iteration }}</td>
                                                         <td>
                                                             <div style="width: 200px">
                                                                 @php
@@ -123,7 +146,7 @@
                                                         <td class="text-end">
                                                             {{ $totalTax ? number_format($totalTax, 2) : 0 }}</td>
                                                         <td class="text-end">
-                                                            {{ $data['invoice_amt'] ? number_format($data['invoice_amt'], 2) : 0 }}
+                                                            {{ $totalInvoiceValue ? number_format($totalInvoiceValue, 2) : 0 }}
                                                         </td>
                                                     </tr>
                                                 @empty
@@ -133,7 +156,7 @@
                                                     </tr>
                                                 @endforelse
                                             </tbody>
-                                            <tfoot>
+                                            {{-- <tfoot>
                                                 <tr>
                                                     <td colspan="3" class="text-center">Total</td>
                                                     <td class="text-end">{{ number_format($totalTaxableAmt, 2) }}</td>
@@ -144,13 +167,13 @@
                                                     <td class="text-end">{{ number_format($totalTaxAmt, 2) }}</td>
                                                     <td class="text-end">{{ number_format($totalInvoiceAmt, 2) }}</td>
                                                 </tr>
-                                            </tfoot>
+                                            </tfoot> --}}
 
                                         </table>
                                     </div>
                                     <div class="d-flex justify-content-end mx-1 mt-50">
                                         {{-- Pagination --}}
-                                        {{ $types->appends(request()->input())->links('crm.partials.pagination') }}
+                                        {{-- {{ $types->appends(request()->input())->links('crm.partials.pagination') }} --}}
                                         {{-- Pagination End --}}
                                     </div>
                                 </div>
@@ -185,7 +208,8 @@
                     <div class="mb-1">
                         <label class="form-label">Group</label>
                         <select class="form-select" name="group_id">
-                            <option value="" {{ request()->get('group_id') == '' ? 'selected' : '' }}>Select</option>
+                            <option value="" {{ request()->get('group_id') == '' ? 'selected' : '' }}>Select
+                            </option>
                             @forelse($groups as $group)
                                 <option value="{{ $group->id }}"
                                     {{ request()->get('group_id') == $group->id ? 'selected' : '' }}>{{ $group->name }}
@@ -249,7 +273,7 @@
                             <select class="form-select select2" name="type" id="csvType" required>
                                 <option value="">-- Select Type --</option>
                                 <option value="all">ALL</option>
-                                @forelse($invoiceTypes as $invoiceType)
+                                @forelse($types as $invoiceType)
                                     <option value="{{ $invoiceType->id }}">{{ strtoupper($invoiceType->name) }}</option>
                                 @empty
                                 @endforelse

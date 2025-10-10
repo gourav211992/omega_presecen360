@@ -140,6 +140,10 @@ class MrnDeleteService
                 $mrnItem->attributes()->delete();
                 $mrnItem->delete();
             }
+            if (empty($mrn->items()))
+                {
+                    $mrn->mrn_ted()->delete();
+                }
         }
 
         $data = self::successResponse($response = "MRN deleted successfully.");

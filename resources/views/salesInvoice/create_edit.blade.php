@@ -128,8 +128,9 @@
                                                     <div class="d-flex custom-checkbox align-items-center gap-3">
                                                         @foreach ($checkboxOptions as $chk)
                                                             <div class="form-check">
-                                                                <input class="form-check-input lot-checkbox"
+                                                                <input class="form-check-input lot-checkbox cannot_disable"
                                                                     type="checkbox"
+                                                                    checked
                                                                     id="chk_{{ Str::slug($chk, '_') }}"
                                                                     value="{{ $chk }}">
                                                                 <label class="form-check-label" for="chk_{{ Str::slug($chk, '_') }}">

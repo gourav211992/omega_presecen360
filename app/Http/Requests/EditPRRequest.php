@@ -53,7 +53,7 @@ class EditPRRequest extends FormRequest
 
         $rules['component_item_name.*'] = 'required';
         $rules['components.*.accepted_qty'] = 'required|numeric|min:1';
-        $rules['components.*.rate'] = 'required|numeric|min:1';
+        $rules['components.*.rate'] = 'nullable|numeric';
         $rules['components.*.remark'] = 'nullable|max:250';
 
         return $rules;
@@ -77,5 +77,27 @@ class EditPRRequest extends FormRequest
             'components.*.rate.numeric' => 'Rate must be integer',
         ];
 
+    }
+
+    protected function withValidator($validator)
+    {
+        $validator->after(function ($validator) {
+            $components = $this->input('components', []);
+            $items = [];
+            foreach ($components as $key => $component) {
+                $isFoc = $component['is_foc'] ?? null;
+                $rate = $component['rate'] ?? null;
+
+                if ($isFoc === '1') {
+                    if (!is_null($rate) && (!is_numeric($rate) || $rate < 0)) {
+                        $validator->errors()->add("components.$key.rate", "Rate must be a number greater than or equal to 0.");
+                    }
+                } elseif ($isFoc === '0') {
+                    if (is_null($rate) || !is_numeric($rate) || $rate < 0.01) {
+                        $validator->errors()->add("components.$key.rate", "Rate must be a number greater than or equal to 0.01.");
+                    }
+                }
+            }
+        });
     }
 }

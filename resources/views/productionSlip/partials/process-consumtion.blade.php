@@ -45,5 +45,6 @@
         <input type="hidden" id="so_id_{{$pwoBomConsIndex}}" name="so_id[{{$pwoBomConsIndex}}]"  value="{{$consumption?->so_id}}">
         <input type="hidden" id="station_id_{{$pwoBomConsIndex}}" name = "station_id[{{$pwoBomConsIndex}}]"  value = "{{$consumption?->station_id}}"> --}}
         <input type="hidden" id="so_item_id_{{$pwoBomConsIndex}}" name="cons[{{$pwoBomConsIndex}}][so_item_id]"  value="{{$consumption?->so_item_id}}">
+        <input type="hidden" id="mo_product_id_{{$pwoBomConsIndex}}" name="cons[{{$pwoBomConsIndex}}][mo_product_id]"  value="{{$consumption?->mo_product_id}}">
     </tr>
 @endforeach

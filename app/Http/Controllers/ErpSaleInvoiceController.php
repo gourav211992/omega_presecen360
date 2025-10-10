@@ -87,6 +87,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use PDF;
 use Exception;
+use App\Services\Common\FinancialYearService;
 use Illuminate\Http\Request;
 use Yajra\DataTables\DataTables;
 use stdClass;
@@ -96,7 +97,8 @@ class ErpSaleInvoiceController extends Controller
     public function index(Request $request)
     {
         $pathUrl = request()->segments()[0];
-        $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
+        $authUser = request() -> user();
+        $selectedfyYear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), $authUser);
         if ($pathUrl === 'sale-invoices') {
             $orderType = SaleModuleHelper::SALES_INVOICE_DEFAULT_TYPE;
             $redirectUrl = route('sale.invoice.index');
@@ -125,14 +127,14 @@ class ErpSaleInvoiceController extends Controller
         
         $typeName = SaleModuleHelper::getAndReturnInvoiceTypeName($orderType);
         request() -> merge(['type' => $orderType]);
-        $autoCompleteFilters = self::getBasicFilters();
+        $autoCompleteFilters = [];
         if ($request -> ajax()) {
             try {
             $accessible_locations = InventoryHelper::getAccessibleLocations()->pluck('id')->toArray();
-            $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
+            $selectedfyYear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), $authUser);
             //Date Filters
             $dateRange = $request -> date_range ??  null;
-            $invoices = ErpSaleInvoice::withDefaultGroupCompanyOrg() -> where('document_type', $orderType) -> withDraftListingLogic() -> bookViewAccess($pathUrl) ->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']]) -> whereIn('store_id',$accessible_locations) ->  when($request -> customer_id, function ($custQuery) use($request) {
+            $invoices = ErpSaleInvoice::withDefaultGroupCompanyOrg() -> where('document_type', $orderType) -> withDraftListingLogic() -> selfCreatedDocuments($authUser) -> bookViewAccess($pathUrl) ->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']]) -> whereIn('store_id',$accessible_locations) ->  when($request -> customer_id, function ($custQuery) use($request) {
                 $custQuery -> where('customer_id', $request -> customer_id);
             }) -> when($request -> book_id, function ($bookQuery) use($request) {
                 $bookQuery -> where('book_id', $request -> book_id);
@@ -144,6 +146,8 @@ class ErpSaleInvoiceController extends Controller
                 $docQuery -> where('store_id', $request -> company_id);
             }) -> when($request -> organization_id, function ($docQuery) use($request) {
                 $docQuery -> where('organization_id', $request -> organization_id);
+            }) -> when($request -> created_by, function ($docQuery) use($request) {
+                $docQuery -> where('created_by', $request -> created_by);
             }) -> when($request -> status, function ($docStatusQuery) use($request) {
                 $searchDocStatus = [];
                 if ($request -> status === ConstantHelper::DRAFT) {
@@ -280,28 +284,6 @@ class ErpSaleInvoiceController extends Controller
             'autoCompleteFilters' => $autoCompleteFilters,]);
     }
 
-    public function getBasicFilters()
-    {
-        //Get the common filters
-        $user = Helper::getAuthenticatedUser();
-        $categories = Category::select('id AS value', 'name AS label') -> withDefaultGroupCompanyOrg() 
-        -> whereNull('parent_id') -> get();
-        $subCategories = Category::select('id AS value', 'name AS label') -> withDefaultGroupCompanyOrg() 
-        -> whereNotNull('parent_id') -> get();
-        $items = Item::select('id AS value', 'item_name AS label') -> withDefaultGroupCompanyOrg()->get();
-        $users = AuthUser::select('id AS value', 'name AS label') -> where('organization_id', $user -> organization_id)->get();
-        $attributeGroups = AttributeGroup::select('id AS value', 'name AS label')->withDefaultGroupCompanyOrg()->get();
-
-        //Custom filters (to be restr)
-
-        return array(
-            'itemCategories' => $categories,
-            'itemSubCategories' => $subCategories,
-            'items' => $items,
-            'users' => $users,
-            'attributeGroups' => $attributeGroups 
-        );
-    }
     public function create(Request $request)
     {
         //Get the menu
@@ -3583,8 +3565,9 @@ class ErpSaleInvoiceController extends Controller
     public function salesInvoiceReport(Request $request)
     {
         $pathUrl = route('sale.invoice.index');
+        $user  = request() -> user();
         $orderType = [ConstantHelper::SI_SERVICE_ALIAS];
-        $salesOrders = ErpSaleInvoice::with('items')->whereIn('document_type', $orderType) -> withDefaultGroupCompanyOrg() -> withDraftListingLogic() -> orderByDesc('id');
+        $salesOrders = ErpSaleInvoice::with('items')->whereIn('document_type', $orderType) -> withDefaultGroupCompanyOrg() -> selfCreatedDocuments($user) -> withDraftListingLogic() -> orderByDesc('id');
         //Customer Filter
         $salesOrders = $salesOrders -> when($request -> customer_id, function ($custQuery) use($request) {
             $custQuery -> where('customer_id', $request -> customer_id);
@@ -3608,6 +3591,10 @@ class ErpSaleInvoiceController extends Controller
         //Organization Filter
         $salesOrders = $salesOrders -> when($request -> organization_id, function ($docQuery) use($request) {
             $docQuery -> where('organization_id', $request -> organization_id);
+        });
+        //Created Filter
+        $salesOrders = $salesOrders -> when($request -> created_by, function ($docQuery) use($request) {
+            $docQuery -> where('created_by', $request -> created_by);
         });
         //Document Status Filter
         $salesOrders = $salesOrders -> when($request -> doc_status, function ($docStatusQuery) use($request) {
@@ -3695,6 +3682,7 @@ class ErpSaleInvoiceController extends Controller
                 $reportRow -> taxable_amount = number_format($soItem -> total_item_amount - $soItem -> tax_amount, 2);
                 $reportRow -> total_item_amount = number_format($soItem -> total_item_amount, 2);
                 $reportRow -> pending_qty = number_format($soItem -> order_qty - $soItem -> srn_qty, 2);
+                $reportRow -> created_by = $header -> createdBy ?-> name;
                 //Delivery Schedule UI
                 // $deliveryHtml = '';
                 // if (count($soItem -> item_deliveries) > 0) {
@@ -3746,8 +3734,9 @@ class ErpSaleInvoiceController extends Controller
     public function deliveryNoteReport(Request $request)
     {
         $pathUrl = route('sale.deliveryNote.index');
+        $user  = request() -> user();
         $orderType = [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS];
-        $salesOrders = ErpSaleInvoice::with('items')->whereIn('document_type', $orderType) -> withDefaultGroupCompanyOrg() -> withDraftListingLogic() -> orderByDesc('id');
+        $salesOrders = ErpSaleInvoice::with('items')->whereIn('document_type', $orderType) -> withDefaultGroupCompanyOrg() -> selfCreatedDocuments($user) -> withDraftListingLogic() -> orderByDesc('id');
         //Customer Filter
         $salesOrders = $salesOrders -> when($request -> customer_id, function ($custQuery) use($request) {
             $custQuery -> where('customer_id', $request -> customer_id);
@@ -3771,6 +3760,10 @@ class ErpSaleInvoiceController extends Controller
         //Organization Filter
         $salesOrders = $salesOrders -> when($request -> organization_id, function ($docQuery) use($request) {
             $docQuery -> where('organization_id', $request -> organization_id);
+        });
+        //User Filter
+        $salesOrders = $salesOrders -> when($request -> user_id, function ($docQuery) use($request) {
+            $docQuery -> where('created_by', $request -> created_by);
         });
         //Document Status Filter
         $salesOrders = $salesOrders -> when($request -> doc_status, function ($docStatusQuery) use($request) {
@@ -3858,6 +3851,7 @@ class ErpSaleInvoiceController extends Controller
                 $reportRow -> taxable_amount = number_format($soItem -> total_item_amount - $soItem -> tax_amount, 2);
                 $reportRow -> total_item_amount = number_format($soItem -> total_item_amount, 2);
                 $reportRow -> pending_qty = number_format($soItem -> order_qty - $soItem -> srn_qty, 2);
+                $reportRow -> created_by = $header -> createdBy ?-> name;
                 //Delivery Schedule UI
                 // $deliveryHtml = '';
                 // if (count($soItem -> item_deliveries) > 0) {

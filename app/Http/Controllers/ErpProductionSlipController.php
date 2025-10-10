@@ -7,16 +7,18 @@ use App\Helpers\Configuration\Constants;
 use App\Helpers\ConstantHelper;
 use App\Helpers\CurrencyHelper;
 use App\Helpers\Common\MathHelper;
-
+use App\Helpers\DynamicFieldHelper;
 use App\Helpers\Helper;
 use App\Helpers\InventoryHelper;
 use App\Helpers\InspectionHelper;
 use App\Helpers\ItemHelper;
 use App\Helpers\NumberHelper;
 use App\Helpers\ServiceParametersHelper;
+use App\Helpers\TransactionReportHelper;
 use App\Http\Requests\PslipRequest;
 use App\Models\Address;
 use App\Models\ErpProductionSlip;
+use App\Models\ErpPslipDynamicField;
 use App\Models\ErpPslipItem;
 use App\Models\ErpPslipItemAttribute;
 use App\Models\ErpPslipItemDetail;
@@ -48,6 +50,7 @@ use Illuminate\Support\Collection;
 use App\Helpers\BookHelper;
 use App\Models\BomDetail;
 use Yajra\DataTables\DataTables;
+use Carbon\Carbon;
 
 class ErpProductionSlipController extends Controller
 {
@@ -60,10 +63,55 @@ class ErpProductionSlipController extends Controller
         $redirectUrl = route('production.slip.index');
         $createRoute = route('production.slip.create');
         $typeName = "Production Slip";
+        $servicesAliasParam = ConstantHelper::PRODUCTION_SLIP_SERVICE_ALIAS;
         if ($request -> ajax()) {
             try {
                 $docs = ErpProductionSlip::bookViewAccess($pathUrl)
-                    ->withDraftListingLogic();
+                    ->withDraftListingLogic()
+                     // apply filter code
+                ->when($request->book_id, function ($q) use ($request) {
+                    $q->where('book_id', $request->book_id);
+                })
+                ->when($request->created_id, function ($q) use ($request) {
+                    $q->where('created_by', $request->created_id);
+                })
+                ->when($request->document_number, function ($q) use ($request) {
+                    $q->where('document_number', 'LIKE', '%' . $request->document_number . '%');
+                })
+                ->when($request->station_id, function ($q) use ($request) {
+                    $q->where('station_id', $request->station_id);
+                })
+                ->when($request->doc_status, function ($q) use ($request) {
+                    $searchDocStatus = [];
+
+                    if ($request->doc_status === ConstantHelper::DRAFT) {
+                        $searchDocStatus = [ConstantHelper::DRAFT];
+                    } elseif ($request->doc_status === ConstantHelper::SUBMITTED) {
+                        $searchDocStatus = [ConstantHelper::SUBMITTED, ConstantHelper::PARTIALLY_APPROVED];
+                    } else {
+                        $searchDocStatus = [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED];
+                    }
+
+                    $q->whereIn('document_status', $searchDocStatus);
+                })
+                ->when($request->date_range ?? null, function ($q) use ($request) {
+                    $dateRange = $request->date_range ?? Carbon::now()->startOfMonth()->format('Y-m-d') . " to " . Carbon::now()->endOfMonth()->format('Y-m-d');
+                    $dateRanges = explode('to', $dateRange);
+
+                    if (count($dateRanges) == 2) {
+                        $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
+                        $toDate = Carbon::parse(trim($dateRanges[1]))->format('Y-m-d');
+                        $q->whereBetween('document_date', [$fromDate, $toDate]);
+                    } else {
+                        $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
+                        $q->whereDate('document_date', $fromDate);
+                    }
+                })
+                ->when($request->product_id, function ($q) use ($request) {
+                    $q->whereHas('mo.item', function ($itemQuery) use ($request) {
+                        $itemQuery->where('id', $request->product_id);
+                    });
+                });
                 return DataTables::of($docs) ->addIndexColumn()
                 ->editColumn('document_status', function ($row) {
                     return view('partials.action-dropdown', [
@@ -138,6 +186,9 @@ class ErpProductionSlipController extends Controller
                 //     }
                 //     return ' ';
                 // })
+                ->addColumn('created_by', function ($row){
+                    return $row->createdBy?->name;
+                })
                 ->rawColumns(['document_status'])
                 ->make(true);
             }
@@ -152,7 +203,10 @@ class ErpProductionSlipController extends Controller
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL, '', $user);
         $groupAlias = $user?->auth_user?->group_alias ?? 'Staqo';
         $isWipQty = in_array($groupAlias, Constants::GROUP_PSLIP_WIP_QTY);
-        return view('productionSlip.index', ['isWipQty' => $isWipQty, 'typeName' => $typeName, 'redirect_url' => $redirectUrl, 'create_route' => $createRoute, 'create_button' => count($servicesBooks['services'])]);
+        $autoCompleteFilters = isset(TransactionReportHelper::FILTERS_MAPPING[$servicesAliasParam]) ? 
+        TransactionReportHelper::FILTERS_MAPPING[$servicesAliasParam] : [];
+          
+        return view('productionSlip.index', ['isWipQty' => $isWipQty, 'typeName' => $typeName, 'redirect_url' => $redirectUrl, 'create_route' => $createRoute, 'create_button' => count($servicesBooks['services']),'autoCompleteFilters'=>$autoCompleteFilters]);
     }
 
     public function create(Request $request)
@@ -175,7 +229,6 @@ class ErpProductionSlipController extends Controller
             $editableBundle = false;
         }
 
-        // $authUser = Helper::getAuthenticatedUser();
         $organization = Organization::find($user ?->organization_id);
         $organizationId = $organization ?-> id ?? null;
         $shifts = Shift::where('organization_id', $organizationId)->where("status", ConstantHelper::ACTIVE)->get();
@@ -294,7 +347,7 @@ class ErpProductionSlipController extends Controller
             if($doc?->mo?->station?->lines) {
                 $stationLines = $doc?->mo?->station?->lines;
             }
-
+            $dynamicFieldsUI = $doc -> dynamicfieldsUi();
             $groupAlias = $user?->auth_user?->group_alias ?? 'Staqo';
             $isWipQty = in_array($groupAlias, Constants::GROUP_PSLIP_WIP_QTY);
             $data = [
@@ -309,18 +362,19 @@ class ErpProductionSlipController extends Controller
                 'docStatusClass' => $docStatusClass,
                 'typeName' => $typeName,
                 'stores' => $stores,
-                'maxFileCount' => isset($order -> mediaFiles) ? (10 - count($doc -> media_files)) : 10,
+                'maxFileCount' => isset($doc -> mediaFiles) ? (10 - count($doc -> media_files)) : 10,
                 'services' => $servicesBooks['services'],
                 'startingBundleNo' => $startingBundleNo,
                 'editableBundle' => $editableBundle,
                 'redirect_url' => $redirect_url,
                 'machines' => $machines,
-                'stationLines' => $stationLines
+                'stationLines' => $stationLines,
+                'dynamicFieldsUi' => $dynamicFieldsUI,
+
             ];
 
             return view('productionSlip.create_edit', $data);
         } catch(Exception $ex) {
-            // dd($ex -> getMessage());
             return back()->with('error', 'Error: '.$ex -> getMessage());
         }
     }
@@ -415,6 +469,7 @@ class ErpProductionSlipController extends Controller
                 {
                     $revisionData = [
                         ['model_type' => 'header', 'model_name' => 'ErpProductionSlip', 'relation_column' => ''],
+                        ['model_type' => 'detail', 'model_name' => 'ErpPslipDynamicField', 'relation_column' => 'header_id'],
                         ['model_type' => 'detail', 'model_name' => 'ErpPslipItem', 'relation_column' => 'pslip_id'],
                         ['model_type' => 'sub_detail', 'model_name' => 'ErpPslipItemLocation', 'relation_column' => 'pslip_item_id'],
                         ['model_type' => 'sub_detail', 'model_name' => 'ErpPslipItemAttribute', 'relation_column' => 'pslip_item_id'],
@@ -571,7 +626,15 @@ class ErpProductionSlipController extends Controller
             }
 
                 $productionSlip -> save();
-
+                //Dynamic Fields
+                $statusDynamic = DynamicFieldHelper::saveDynamicFields(ErpPslipDynamicField::class, $productionSlip -> id, $request -> dynamic_field ?? []);
+                if ($statusDynamic && !$statusDynamic['status'] ) {
+                    DB::rollBack();
+                    return response() -> json([
+                        'message' => $statusDynamic['message'],
+                        'error' => ''
+                    ], 422);
+                }
 
                 //Seperate array to store each item calculation
                 $itemsData = array();
@@ -715,7 +778,10 @@ class ErpProductionSlipController extends Controller
                         // foreach ($bomDetails as $bomDetailKey => $bomDetail) {
                         $alternateId = null;
                         $consArr = [];
-                        foreach ($consuptions as $consuption) {
+                       
+                        $matches = collect($consuptions)->where('mo_product_id', $psItem->mo_product_id)->values();
+                   
+                        foreach ($matches as $consuption) {
 
                             $alternateId = $consuption['alternate_id'] ?? null;
                             $attachments = $request->attachments ?? [];
@@ -858,11 +924,9 @@ class ErpProductionSlipController extends Controller
                         }
 
                         //Bundle data
-                        // if ($item -> storage_type == ConstantHelper::BUNDLE) {
                             $bundlesArray = json_decode($request -> item_bundles[$itemDataKey], true);
                             if (!empty($bundlesArray) && is_array($bundlesArray) && json_last_error() === JSON_ERROR_NONE) {
                                 $itemQtyBundleWise = 0;
-                                ErpPslipItemDetail::where('pslip_item_id', $psItem -> id) -> delete();
                                 foreach ($bundlesArray as $bundleElement) {
                                     $currentBundleNo = (ErpPslipItemDetail::orderByDesc('id')->first() ?-> bundle_no ?? 0) + 1;
 
@@ -903,7 +967,7 @@ class ErpProductionSlipController extends Controller
                                     'error' => ''
                                 ], 422);
                             }
-                        // }
+                        
                     }
                 } else {
 
@@ -993,7 +1057,6 @@ class ErpProductionSlipController extends Controller
                             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, 0, $modelName);
 
                             $totalValue = $productionSlip->grand_total_amount ?? 0;
-                            // $document_status = Helper::checkApprovalRequired($request->book_id,$totalValue);
                             $productionSlip->document_status = $approveDocument['approvalStatus'];
                         } else {
                             $productionSlip->document_status = $request->document_status ?? ConstantHelper::DRAFT;
@@ -1011,7 +1074,7 @@ class ErpProductionSlipController extends Controller
                         $attachments = $request->file('attachment');
                         $currentLevel = $productionSlip->approval_level;
                         $revisionNumber = $productionSlip->revision_number ?? 0;
-                        $actionType = 'submit'; // Approve // reject // submit
+                        $actionType = 'submit'; 
                         $modelName = get_class($productionSlip);
                         $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, 0, $modelName);
                         $totalValue = $productionSlip->total_amount ?? 0;
@@ -1125,7 +1188,6 @@ class ErpProductionSlipController extends Controller
                 DB::commit();
 
                 $module = "Production slip";
-                // $docStatus = $request->document_status;
                 $docStatus = 'updated';
                 return response() -> json([
                     'message' => $module .  " $docStatus successfully",
@@ -1282,7 +1344,14 @@ class ErpProductionSlipController extends Controller
                     ->get();
             }
             $stationLines = $order[0]?->mo?->station?->lines ?? collect();
-            $consumptions = MoBomMapping::whereIn('mo_product_id',$docIds)->orderBy('mo_product_id')->get();
+            $consumptions = MoBomMapping::whereIn('mo_product_id',$docIds)->orderBy('mo_product_id')->get()
+            ->map(function ($consumption) use ($order) {
+                $matchedOrder = $order->firstWhere('id', $consumption->mo_product_id);
+                $consumption->so_item_id = $matchedOrder?->so_item_id;
+
+                return $consumption;
+            });
+
             $consHtml = view('productionSlip.partials.process-consumtion', ['consumptions' => $consumptions])->render();
             $user = Helper::getAuthenticatedUser();
             // $groupAlias = $user->group?->alias ?? '';
@@ -1354,9 +1423,12 @@ class ErpProductionSlipController extends Controller
                 // $pslipConsumption = PslipBomConsumption::where('id',@$val->issuedBy->document_detail_id)->first();
                 // $qty = ItemHelper::convertToAltUom($val->issuedBy->item_id, $pslipConsumption?->uom_id, $val->issuedBy->issue_qty);
                 $qty = $val->issuedBy->issue_qty;
-                PslipConsumptionLocation::create([
+                PslipConsumptionLocation::updateOrCreate(
+                [
                     'pslip_id' => $pslip->id,
-                    'pslip_consumption_id' => @$val->issuedBy->document_detail_id,
+                    'pslip_consumption_id' => $val->issuedBy->document_detail_id,
+                ],
+                [
                     'item_id' => $val->issuedBy->item_id,
                     'store_id' => $pslip->store_id,
                     'sub_store_id' => $pslip->sub_store_id,
@@ -1365,8 +1437,10 @@ class ErpProductionSlipController extends Controller
                     'shelf_id' => $val->issuedBy->shelf_id,
                     'bin_id' => $val->issuedBy->bin_id,
                     'quantity' => $qty,
-                    'inventory_uom_qty' => $qty
-                ]);
+                    'inventory_uom_qty' => $qty,
+                ]
+            );
+
             }
 
             $stockLedgers = StockLedger::where('book_type',ConstantHelper::PRODUCTION_SLIP_SERVICE_ALIAS)
@@ -1595,6 +1669,7 @@ class ErpProductionSlipController extends Controller
     {
         $itemId = $request->item_id;
         $so_item_id = $request->so_item_id;
+        $mo_product_id = $request->mo_product_id;
         $erpAlternateItems = AlternateItem::select('id','item_id','alt_item_id','item_code','item_name')
         ->with(['item:id,item_name,item_code,uom_id',
                 'item.uom:id,name',
@@ -1615,6 +1690,7 @@ class ErpProductionSlipController extends Controller
             'erpAlternateItems' => $erpAlternateItems,
             'itemId' => $itemId,
             'so_item_id' => $so_item_id,
+            'mo_product_id' => $mo_product_id,
             'itemType' => $request->itemType,
             'soDoc' => $request->soDoc,
             'item_qty' => $request->item_qty,

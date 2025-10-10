@@ -117,8 +117,7 @@ trait DefaultGroupCompanyOrg
     public function scopeWithDraftListingLogic($query)
     {
         $currentUser = Helper::getAuthenticatedUser();
-        // $currentUser =  request()->user() ?? Helper::getAuthenticatedUser();
-
+    
         if (strtolower($currentUser?->user_type) === strtolower('IAM-SUPER')) {
             return $query;
         }

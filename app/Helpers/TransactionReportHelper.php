@@ -10,6 +10,8 @@ use App\Helpers\TransactionReport\pqReportHelper;
 use App\Helpers\TransactionReport\prReportHelper;
 use App\Helpers\TransactionReport\plReportHelper;
 use App\Helpers\TransactionReport\bomReportHelper;
+use App\Helpers\TransactionReport\pslipReportHelper;
+use App\Helpers\TransactionReport\pwoReportHelper;
 use App\Helpers\TransactionReport\moReportHelper;
 use App\Helpers\TransactionReport\rfqReportHelper;
 use App\Helpers\TransactionReport\rcReportHelper;
@@ -305,6 +307,14 @@ class TransactionReportHelper
             'field' => 'balance_invoice_qty',
             'header_class' => 'numeric-alignment',
             'column_class' => 'text-end pe-2_5',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
+            'name' => 'Created By',
+            'field' => 'created_by',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
             'header_style' => '',
             'column_style' => '',
         ],
@@ -625,6 +635,14 @@ class TransactionReportHelper
             'column_style' => '',
         ],
         [
+            'name' => 'Created By',
+            'field' => 'created_by',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
             'name' => 'Status',
             'field' => 'status',
             'header_class' => '',
@@ -722,6 +740,16 @@ class TransactionReportHelper
             'id' => 'pendancy_filter',
             'requestName' => 'pendancy_type',
             'term' => 'order_pendancy_status',
+            'value_key' => 'id',
+            'label_key' => 'name',
+            'type' => 'auto_complete',
+        ],
+        [
+            'colSpan' => 'auto',
+            'label' => 'Creator',
+            'id' => 'created_by',
+            'requestName' => 'created_by',
+            'term' => 'all_user_list',
             'value_key' => 'id',
             'label_key' => 'name',
             'type' => 'auto_complete',
@@ -940,6 +968,14 @@ class TransactionReportHelper
             'column_style' => '',
         ],
         [
+            'name' => 'Created By',
+            'field' => 'created_by',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
             'name' => 'Status',
             'field' => 'status',
             'header_class' => '',
@@ -1041,6 +1077,16 @@ class TransactionReportHelper
             'value_key' => 'id',
             'label_key' => 'name',
             'type' => 'auto_complete'
+        ],
+        [
+            'colSpan' => 'auto',
+            'label' => 'Creator',
+            'id' => 'created_by',
+            'requestName' => 'created_by',
+            'term' => 'all_user_list',
+            'value_key' => 'id',
+            'label_key' => 'name',
+            'type' => 'auto_complete',
         ],
         [
             'colSpan' => 'auto',
@@ -1264,6 +1310,14 @@ class TransactionReportHelper
             'column_style' => '',
         ],
         [
+            'name' => 'Created By',
+            'field' => 'created_by',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
             'name' => 'Status',
             'field' => 'status',
             'header_class' => '',
@@ -1365,6 +1419,16 @@ class TransactionReportHelper
             'value_key' => 'id',
             'label_key' => 'name',
             'type' => 'auto_complete'
+        ],
+        [
+            'colSpan' => 'auto',
+            'label' => 'Creator',
+            'id' => 'created_by',
+            'requestName' => 'created_by',
+            'term' => 'all_user_list',
+            'value_key' => 'id',
+            'label_key' => 'name',
+            'type' => 'auto_complete',
         ],
         [
             'colSpan' => 'auto',
@@ -1597,6 +1661,14 @@ class TransactionReportHelper
             'column_style' => '',
         ],
         [
+            'name' => 'Created By',
+            'field' => 'created_by',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
             'name' => 'Status',
             'field' => 'status',
             'header_class' => '',
@@ -1741,6 +1813,16 @@ class TransactionReportHelper
             'label_key' => 'name',
             'type' => 'auto_complete',
             'dependent' => ['location_filter']
+        ],
+        [
+            'colSpan' => 'auto',
+            'label' => 'Creator',
+            'id' => 'created_by',
+            'requestName' => 'created_by',
+            'term' => 'all_user_list',
+            'value_key' => 'id',
+            'label_key' => 'name',
+            'type' => 'auto_complete',
         ],
         [
             'colSpan' => 'auto',
@@ -1964,6 +2046,14 @@ class TransactionReportHelper
             'column_style' => '',
         ],
         [
+            'name' => 'Created By',
+            'field' => 'created_by',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
             'name' => 'Status',
             'field' => 'status',
             'header_class' => '',
@@ -2064,6 +2154,16 @@ class TransactionReportHelper
             'value_key' => 'id',
             'label_key' => 'name',
             'type' => 'auto_complete'
+        ],
+        [
+            'colSpan' => 'auto',
+            'label' => 'Creator',
+            'id' => 'created_by',
+            'requestName' => 'created_by',
+            'term' => 'all_user_list',
+            'value_key' => 'id',
+            'label_key' => 'name',
+            'type' => 'auto_complete',
         ],
         [
             'colSpan' => 'auto',
@@ -2302,6 +2402,14 @@ class TransactionReportHelper
             'column_style' => '',
         ],
         [
+            'name' => 'Created By',
+            'field' => 'created_by',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
             'name' => 'Status',
             'field' => 'status',
             'header_class' => '',
@@ -2424,6 +2532,16 @@ class TransactionReportHelper
             'value_key' => 'id',
             'label_key' => 'store_name',
             'type' => 'auto_complete'
+        ],
+        [
+            'colSpan' => 'auto',
+            'label' => 'Creator',
+            'id' => 'created_by',
+            'requestName' => 'created_by',
+            'term' => 'all_user_list',
+            'value_key' => 'id',
+            'label_key' => 'name',
+            'type' => 'auto_complete',
         ],
     ];
 
@@ -2565,6 +2683,14 @@ class TransactionReportHelper
             'column_style' => '',
         ],
         [
+            'name' => 'Created By',
+            'field' => 'created_by',
+            'header_class' => '',
+            'column_class' => 'no-wrap',
+            'header_style' => '',
+            'column_style' => '',
+        ],
+        [
             'name' => 'Total',
             'field' => 'total_amount',
             'header_class' => 'numeric-alignment',
@@ -2635,6 +2761,16 @@ class TransactionReportHelper
             'value_key' => 'id',
             'label_key' => 'name',
             'type' => 'auto_complete'
+        ],
+        [
+            'colSpan' => 'auto',
+            'label' => 'Creator',
+            'id' => 'created_by',
+            'requestName' => 'created_by',
+            'term' => 'all_user_list',
+            'value_key' => 'id',
+            'label_key' => 'name',
+            'type' => 'auto_complete',
         ],
         [
             'colSpan' => 'auto',
@@ -3268,6 +3404,9 @@ class TransactionReportHelper
         ConstantHelper::PL_SERVICE_ALIAS => plReportHelper::PL_FILTERS,
         ConstantHelper::MO_SERVICE_ALIAS => moReportHelper::MO_FILTERS,
         ConstantHelper::BOM_SERVICE_ALIAS => bomReportHelper::BOM_FILTERS,
+        ConstantHelper::COMMERCIAL_BOM_SERVICE_ALIAS => bomReportHelper::BOM_FILTERS,
+        ConstantHelper::PWO_SERVICE_ALIAS => pwoReportHelper::PWO_FILTERS,
+        ConstantHelper::PRODUCTION_SLIP_SERVICE_ALIAS => pslipReportHelper::PSLIP_FILTERS,
         ConstantHelper::RFQ_SERVICE_ALIAS => rfqReportHelper::RFQ_FILTERS,
         ConstantHelper::PQ_SERVICE_ALIAS => pqReportHelper::PQ_FILTERS,
         ConstantHelper::RC_SERVICE_ALIAS => rcReportHelper::RC_FILTERS,
@@ -3293,6 +3432,8 @@ class TransactionReportHelper
             ConstantHelper::PI_SERVICE_ALIAS => self::PI_TABLE_HEADERS,
             ConstantHelper::PL_SERVICE_ALIAS => plReportHelper::PL_TABLE_HEADERS,
             ConstantHelper::MO_SERVICE_ALIAS => moReportHelper::MO_TABLE_HEADERS,
+            ConstantHelper::PWO_SERVICE_ALIAS => pwoReportHelper::PWO_TABLE_HEADERS,
+            ConstantHelper::PRODUCTION_SLIP_SERVICE_ALIAS => pslipReportHelper::PSLIP_TABLE_HEADERS,
             ConstantHelper::BOM_SERVICE_ALIAS => bomReportHelper::getBomTableHeaders('bill-of-material'),
             ConstantHelper::RFQ_SERVICE_ALIAS => rfqReportHelper::RFQ_TABLE_HEADERS,
             ConstantHelper::PQ_SERVICE_ALIAS => pqReportHelper::PQ_TABLE_HEADERS,

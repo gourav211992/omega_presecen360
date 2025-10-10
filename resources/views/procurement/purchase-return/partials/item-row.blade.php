@@ -12,6 +12,7 @@
         <input type="hidden" name="components[{{$rowCount}}][item_name]"/>
         <input type="hidden" name="components[{{$rowCount}}][hsn_id]"/>
         <input type="hidden" name="components[{{$rowCount}}][hsn_code]"/>
+        <input type="hidden" name="components[{{ $rowCount }}][is_foc]" value="0" />
     </td>
     <td>
         <input type="text" name="components[{{$rowCount}}][item_name]" class="form-control mw-100 mb-25" readonly/>

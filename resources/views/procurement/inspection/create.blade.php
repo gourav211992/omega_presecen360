@@ -679,7 +679,6 @@
             fetch(actionUrl).then(response => {
                 return response.json().then(data => {
                     if (data.status == 200) {
-                        // console.log('data', data.data);
                         $("#book_code").val(data.data.book_code);
                         if (!data.data.doc.document_number) {
                             $("#document_number").val('');
@@ -821,7 +820,6 @@
                     return false;
                 },
                 change: function(event, ui) {
-                    console.log("changess!");
                     if (!ui.item) {
                         $(this).val("");
                         $(this).attr('data-name', '');
@@ -1918,6 +1916,9 @@
                     }
                     initializeAutocomplete2(".comp_item_code");
                     $("#mrnModal").modal('hide');
+                    $('.header_store_id').prop('disabled', true);
+                    $('.sub_store').prop('disabled', true);
+                    $('.rejected_sub_store_id').prop('disabled', true);
                     // focusAndScrollToLastRowInput();
 
                     // UI Locks
@@ -1973,7 +1974,6 @@
         }
 
         function handleProcessError(message = 'Invalid data') {
-            // console.log('message', message);
             $(".editAddressBtn").removeClass('d-none');
             $("#vendor_name").val('').prop('readonly', false);
             $("#vendor_id, #vendor_code, #hidden_state_id, #hidden_country_id").val('');

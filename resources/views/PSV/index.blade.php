@@ -52,6 +52,7 @@
                                                 <th>Sub Location</th>
                                                 <th>Rev No</th>
                                                 <th>Items</th>
+                                                <th>Created By</th>
                                                 <th style = 'text-align:center'>Status</th>
 											  </tr>
                                         </thead>
@@ -139,6 +140,10 @@
             }
         },
         { data: 'items_count', name: 'items_count', render: renderData },
+        { data: 'created_by', name: 'created_by', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+               $(td).addClass('no-wrap');
+            }
+        },
         { data: 'document_status', name: 'document_status', render: function(data, type, row) {
             return row.document_status;
             }, createdCell: function(td, cellData, rowData, row, col) {

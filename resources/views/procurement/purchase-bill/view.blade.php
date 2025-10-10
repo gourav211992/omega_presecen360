@@ -368,6 +368,7 @@
                                                                             <td class="text-end" id="f_taxable_value" amount="">
                                                                                 <!-- {{ number_format(@$mrn->taxable_amount, 2) }} -->
                                                                             </td>
+                                                                            <input id = "tax_amount_header" type="hidden" name="taxes_amount_header" />
                                                                         </tr>
                                                                         <tr>
                                                                             <td><strong>Tax</strong></td>

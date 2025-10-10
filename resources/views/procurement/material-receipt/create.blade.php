@@ -248,7 +248,7 @@
                                                                 class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="date" class="form-control document_date"
+                                                        <input id="document_date" type="date" class="form-control document_date"
                                                             value="{{ date('Y-m-d') }}" name="document_date">
                                                     </div>
                                                 </div>
@@ -348,7 +348,7 @@
                                                             <input type="text" placeholder="Select"
                                                                 class="form-control mw-100 ledgerselecct vendor_name"
                                                                 id="vendor_name" name="vendor_name" />
-                                                            <input type="hidden" id="vendor_id" name="vendor_id" />
+                                                            <input type="hidden" id="vendor_id" name="vendor_id" class="vendor_id"/>
                                                             <input type="hidden" id="vendor_code" name="vendor_code" />
                                                             <input type="hidden" id="shipping_id" name="shipping_id" />
                                                             <input type="hidden" id="billing_id" name="billing_id" />
@@ -704,6 +704,8 @@
                                                                         <tr>
                                                                             <td><strong>Tax</strong></td>
                                                                             <td class="text-end" id="f_tax">0.00</td>
+                                                                            <input id = "tds_id" type="hidden" name="mrn_tds_id" />
+                                                                            <input id = "tax_amount_header" type="hidden" name="taxes_amount_header" />
                                                                         </tr>
                                                                         <tr class="totalsubheadpodetail">
                                                                             <td><strong>Total After Tax</strong></td>
@@ -1006,6 +1008,8 @@
         let so = @json(\App\Helpers\ConstantHelper::SO_SERVICE_ALIAS);
         let dnote = @json(\App\Helpers\ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS);
         let siDnote = @json(\App\Helpers\ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS);
+        let calTaxTdsUrl = '{{ route('tax.calculate.tds') }}';
+        let mrnData = null;
         let tableRowCount = 0;
         let currentIndex = '';
         selectedCostCenterId = "";
@@ -1458,6 +1462,8 @@
                 return false;
             }
             let rowsLength = $("#itemTable > tbody > tr").length;
+            currentProcessType = 'direct';
+            $("#reference_type_input").val('direct');
             /*Check last tr data shoud be required*/
             let lastRow = $('#itemTable .mrntableselectexcel tr:last');
             let lastTrObj = {
@@ -1614,7 +1620,7 @@
         /*For comp attr*/
         function getItemAttribute(itemId, rowCount, selectedAttr, tr) {
             let checkAttr = 0;
-            if (currentProcessType && currentProcessType != null) {
+            if (currentProcessType && currentProcessType != 'direct') {
                 rowCount = tableRowCount;
                 let isPo = $(tr).find('[name*="purchase_order_item_id"]').length ? 1 : 0;
                 let isJo = $(tr).find('[name*="job_order_item_id"]').length ? 1 : 0;
@@ -4104,6 +4110,8 @@
                     initializeAutocomplete2(".comp_item_code");
 
                     $("#poModal, #joModal").modal('hide');
+                    $('.header_store_id').prop('disabled', true);
+                    $('.sub_store').prop('disabled', true);
                     $('.asn_process').prop('disabled', true);
                     $(".supplier_invoice_no").prop('readonly', false);
                     $(".supplier_invoice_date").prop('readonly', false);
@@ -4271,7 +4279,6 @@
                     }
                     $('[name="payment_term_id"]').empty().append(payOption);
                     $('[name="credit_days"]').val(firstCreditDays);
-
                 })
                 .catch(() => {
                     Swal.fire({
@@ -4660,6 +4667,8 @@
             $(".scanQR").addClass('d-none');
             $("#importItem ").hide();
             $("#addNewItemBtn").hide();
+            $('.header_store_id').prop('disabled', true);
+            $('.sub_store').prop('disabled', true);
             if (referenceNo) {
                 $("#referenceNoDiv").show();
                 $("#reference_number_input").val(referenceNo);

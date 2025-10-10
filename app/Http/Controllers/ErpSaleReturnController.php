@@ -77,6 +77,7 @@ class ErpSaleReturnController extends Controller
         if ($request -> ajax()) {
             $returns = ErpSaleReturn::withDefaultGroupCompanyOrg()
                 -> whereIn('store_id',$accessible_locations)
+                -> selfCreatedDocuments($user)
                 ->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']])
                 ->withDraftListingLogic()
                 -> when($request -> customer_id, function ($custQuery) use($request) {
@@ -91,6 +92,8 @@ class ErpSaleReturnController extends Controller
                     $docQuery -> where('store_id', $request -> company_id);
                 }) -> when($request -> organization_id, function ($docQuery) use($request) {
                     $docQuery -> where('organization_id', $request -> organization_id);
+                }) -> when($request -> created_by, function ($docQuery) use($request) {
+                    $docQuery -> where('created_by', $request -> created_by);
                 }) -> when($request -> status, function ($docStatusQuery) use($request) {
                     $searchDocStatus = [];
                     if ($request -> status === ConstantHelper::DRAFT) {
@@ -369,7 +372,7 @@ class ErpSaleReturnController extends Controller
 
             // ---- Stores & e-Invoice ----
             $stores = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCK);
-            $enableEinvoice = $order->gst_invoice_type === EInvoiceHelper::B2B_INVOICE_TYPE;
+            $enableEinvoice = true;
             $einvoice = $order->irnDetail()->first();
 
             // ---- Transportation ----
@@ -812,7 +815,9 @@ class ErpSaleReturnController extends Controller
                     'fax_number' => $orgLocationAddress -> address -> fax_number
                 ]);
             }
-            $saleInvoice -> gst_invoice_type = EInvoiceHelper::getGstInvoiceType($request -> customer_id, $saleInvoice -> shipping_address_details -> country_id, $saleInvoice ?->  location_address_details ?-> country_id);
+
+            $saleInvoice -> gst_invoice_type = $saleInvoice -> reference ?-> gst_invoice_type ? 
+                $saleInvoice -> reference ?-> gst_invoice_type : EInvoiceHelper::getGstInvoiceType($request -> customer_id, $saleInvoice -> billing_address_details -> country_id, $saleInvoice ?-> location_address_details ?-> country_id, 'customer', $saleInvoice);
             //Dynamic Fields
             $status = DynamicFieldHelper::saveDynamicFields(ErpSrDynamicField::class, $saleInvoice -> id, $request -> dynamic_field ?? []);
             if ($status && !$status['status'] ) {
@@ -1567,23 +1572,23 @@ class ErpSaleReturnController extends Controller
             if($saleInvoice && $saleInvoice-> reference -> document_type !== ConstantHelper::SI_SERVICE_ALIAS){
                 $invoiceLedger = self::maintainStockLedger($saleInvoice);
             }
-            $gstInvoiceType = EInvoiceHelper::getGstInvoiceType($saleInvoice -> customer_id, $saleInvoice ?->shipping_address_details  ?-> country_id, $saleInvoice -> location_address_details ?-> country_id);
-                if ($saleInvoice -> document_status === ConstantHelper::POSTED){
-                    if ($gstInvoiceType === EInvoiceHelper::B2B_INVOICE_TYPE) {
-                        SaleModuleHelper::updateEInvoiceDataFromHelper($saleInvoice);
-                        $data = EInvoiceHelper::saveGstIn($saleInvoice);
-                        if (isset($data) && $data['status'] == 'error') {
-                            DB::rollBack();
-                            return response()->json([
-                                'message' => $data['message'],
-                                'error' => $data['message'],
-                            ], 500);
-                        } else {
-                            $saleInvoice->e_invoice_status=ConstantHelper::GENERATED;
-                            $saleInvoice->save();
-                        }
-                    }
-                }
+            $gstInvoiceType = EInvoiceHelper::getReturnGstInvoiceType($saleInvoice -> customer_id, $saleInvoice ?->shipping_address_details  ?-> country_id, $saleInvoice -> location_address_details ?-> country_id, 'customer', $saleInvoice);
+                // if ($saleInvoice -> document_status === ConstantHelper::POSTED){
+                //     if ($gstInvoiceType === EInvoiceHelper::B2B_INVOICE_TYPE) {
+                //         SaleModuleHelper::updateEInvoiceDataFromHelper($saleInvoice);
+                //         $data = EInvoiceHelper::saveGstIn($saleInvoice);
+                //         if (isset($data) && $data['status'] == 'error') {
+                //             DB::rollBack();
+                //             return response()->json([
+                //                 'message' => $data['message'],
+                //                 'error' => $data['message'],
+                //             ], 500);
+                //         } else {
+                //             $saleInvoice->e_invoice_status=ConstantHelper::GENERATED;
+                //             $saleInvoice->save();
+                //         }
+                //     }
+                // }
             $saleInvoice -> e_invoice_status = EInvoiceHelper::getEInvoicePendingDocumentStatus($saleInvoice, $saleInvoice -> gst_invoice_type);
             $saleInvoice -> save();
             DB::commit();
@@ -1611,7 +1616,10 @@ class ErpSaleReturnController extends Controller
     
     public static function BundleRemoval($saleReturn)
     {
-        $bundleItems = $saleReturn->whereIn('reference_doc_type',[ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS,ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS])->items;
+        $bundleItems = collect([]);
+        if(in_array($saleReturn -> reference_doc_type, [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS,ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS])) {
+            $bundleItems = $saleReturn->items;
+        }
         foreach($bundleItems as $bundleItem)
         {
             if(isset($bundleItem->invoice_item->bundles) && count($bundleItem->invoice_item->bundles) > 0)
@@ -2273,11 +2281,11 @@ class ErpSaleReturnController extends Controller
             $shippingAddress = $documentHeader->billing_address_details;
             $storeAddress = $documentHeader->location_address_details;
 
-            // $gstInvoiceType = EInvoiceHelper::getGstInvoiceType($documentHeader -> vendor_id, $shippingAddress -> country_id, $storeAddress -> country_id, 'vendor');
+            // $gstInvoiceType = EInvoiceHelper::getReturnGstInvoiceType($documentHeader -> vendor_id, $shippingAddress -> country_id, $storeAddress -> country_id, 'vendor');
             // if ($gstInvoiceType === EInvoiceHelper::B2B_INVOICE_TYPE) {
             //     $data = EInvoiceHelper::saveGstIn($documentHeader);
-            $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($documentHeader -> customer_id, $shippingAddress -> country_id, $storeAddress -> country_id, 'customer');
-            if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
+            $gstInvoiceType = $documentHeader -> gst_invoice_type ? $documentHeader -> gst_invoice_type : MasterIndiaHelper::getGstInvoiceType($documentHeader -> customer_id, $shippingAddress -> country_id, $storeAddress -> country_id, 'customer', $documentHeader);
+            if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE || $gstInvoiceType === MasterIndiaHelper::CREDIT_NOTE_INVOICE_TYPE || MasterIndiaHelper::CREDIT_NOTE_INVOICE_UNREG_TYPE) {
                 $data = MasterIndiaHelper::saveGstIn($documentHeader, $authUser);
                 if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
                     return response()->json([
@@ -2569,8 +2577,9 @@ class ErpSaleReturnController extends Controller
     public function salesreturnReport(Request $request)
     {
         $pathUrl = route('sale.return.index');
+        $authUser = request() -> user();
         $orderType = [ConstantHelper::SR_SERVICE_ALIAS];
-        $salesOrders = ErpSaleReturn::with('items')->whereIn('document_type', $orderType)-> withDefaultGroupCompanyOrg() -> withDraftListingLogic() -> orderByDesc('id');
+        $salesOrders = ErpSaleReturn::with('items')->whereIn('document_type', $orderType)-> withDefaultGroupCompanyOrg() -> selfCreatedDocuments($authUser) -> withDraftListingLogic() -> orderByDesc('id');
         //Customer Filter
         $salesOrders = $salesOrders -> when($request -> customer_id, function ($custQuery) use($request) {
             $custQuery -> where('customer_id', $request -> customer_id);
@@ -2594,6 +2603,10 @@ class ErpSaleReturnController extends Controller
         //Organization Filter
         $salesOrders = $salesOrders -> when($request -> organization_id, function ($docQuery) use($request) {
             $docQuery -> where('organization_id', $request -> organization_id);
+        });
+        //Creator Filter
+        $salesOrders = $salesOrders -> when($request -> created_by, function ($docQuery) use($request) {
+            $docQuery -> where('created_by', $request -> created_by);
         });
         //Document Status Filter
         $salesOrders = $salesOrders -> when($request -> doc_status, function ($docStatusQuery) use($request) {
@@ -2710,6 +2723,7 @@ class ErpSaleReturnController extends Controller
                 $reportRow -> tax_amount = number_format($soItem -> tax_amount, 2);
                 $reportRow -> taxable_amount = number_format($soItem -> total_item_amount - $soItem -> tax_amount, 2);
                 $reportRow -> total_item_amount = number_format($soItem -> total_item_amount, 2);
+                $reportRow -> created_by = $header -> createdBy ?-> name;
                 //Delivery Schedule UI
                 // $deliveryHtml = '';
                 // if (count($soItem -> item_deliveries) > 0) {

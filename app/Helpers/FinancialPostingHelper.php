@@ -5121,22 +5121,33 @@ class FinancialPostingHelper
                 });
                 //Ledger found
                 if (count($existingTaxLedger) > 0) {
-                    $postingArray[self::TAX_ACCOUNT][0]['debit_amount'] += $tax->ted_amount;
+                    if (trim(strtolower($taxDetail->applicability_type)) === ConstantHelper::DEDUCTION) {
+                        $postingArray[self::TAX_ACCOUNT][0]['credit_amount'] += $tax->ted_amount;
+                    } else {
+                        $postingArray[self::TAX_ACCOUNT][0]['debit_amount'] += $tax->ted_amount;
+                    }
                 } else { //Assign a new ledger
+                    if (trim(strtolower($taxDetail->applicability_type)) === ConstantHelper::DEDUCTION) {
+                        $creditAmount = $tax->ted_amount;
+                        $debitAmount = 0;
+                    } else {
+                        $creditAmount = 0;
+                        $debitAmount = $tax->ted_amount;
+                    }
                     array_push($postingArray[self::TAX_ACCOUNT], [
                         'ledger_id' => $taxLedgerId,
                         'ledger_group_id' => $taxLedgerGroupId,
                         'ledger_code' => $taxLedger?->code,
                         'ledger_name' => $taxLedger?->name,
                         'ledger_group_code' => $taxLedgerGroup?->name,
-                        'credit_amount' => 0,
-                        'debit_amount' => $tax->ted_amount,
+                        'credit_amount' => $creditAmount,
+                        'debit_amount' => $debitAmount,
                     ]);
                 }
                 //Tax for SUPPLIER ACCOUNT
-                $vendorGstAppicable = $document->vendor?->compliances?->gst_applicable ?? '0';
-                $vendorRCMAppicable = $document->vendor?->compliances?->is_rcm ?? '0';
-                if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1) {
+                $vendorGstAppicable = ($document->vendor?->compliances && ($document->vendor?->compliances?->gst_applicable == 1)) ? 1 : 0;
+                $vendorRCMAppicable = ($document->vendor?->compliances && ($document->vendor?->compliances?->is_rcm == 1)) ? 1 : 0;
+                if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1 && ($tax->taxDetail->erpTax->tax_category === ConstantHelper::GST)) {
                     $revTaxLedgerId = $taxDetail->reverse_ledger_id ?? null; //MAKE IT DYNAMIC
                     $revTaxLedgerGroupId = $taxDetail->reverse_ledger_group_id ?? null; //MAKE IT DYNAMIC
                     $revTaxLedger = Ledger::find($revTaxLedgerId);
@@ -5165,7 +5176,11 @@ class FinancialPostingHelper
                     }
                 } else {
                     //Normal Tax Credit to Vendor
-                    $supplierAccountCredit += $tax->ted_amount;
+                    if (trim(strtolower($taxDetail->applicability_type)) === ConstantHelper::DEDUCTION) {
+                        $supplierAccountCredit -= $tax->ted_amount;
+                    } else {
+                        $supplierAccountCredit += $tax->ted_amount;
+                    }
                 }
             }
 
@@ -5685,22 +5700,33 @@ class FinancialPostingHelper
             });
             //Ledger found
             if (count($existingTaxLedger) > 0) {
-                $postingArray[self::TAX_ACCOUNT][0]['debit_amount'] += $tax->ted_amount;
+                if (trim(strtolower($taxDetail->applicability_type)) === ConstantHelper::DEDUCTION) {
+                    $postingArray[self::TAX_ACCOUNT][0]['credit_amount'] += $tax->ted_amount;
+                } else {
+                    $postingArray[self::TAX_ACCOUNT][0]['debit_amount'] += $tax->ted_amount;
+                }
             } else { //Assign a new ledger
+                if (trim(strtolower($taxDetail->applicability_type)) === ConstantHelper::DEDUCTION) {
+                    $creditAmount = $tax->ted_amount;
+                    $debitAmount = 0;
+                } else {
+                    $creditAmount = 0;
+                    $debitAmount = $tax->ted_amount;
+                }
                 array_push($postingArray[self::TAX_ACCOUNT], [
                     'ledger_id' => $taxLedgerId,
                     'ledger_group_id' => $taxLedgerGroupId,
                     'ledger_code' => $taxLedger?->code,
                     'ledger_name' => $taxLedger?->name,
                     'ledger_group_code' => $taxLedgerGroup?->name,
-                    'credit_amount' => 0,
-                    'debit_amount' => $tax->ted_amount,
+                    'credit_amount' => $creditAmount,
+                    'debit_amount' => $debitAmount,
                 ]);
             }
             //Tax for SUPPLIER ACCOUNT
-            $vendorGstAppicable = $document->vendor?->compliances?->gst_applicable ?? '0';
-            $vendorRCMAppicable = $document->vendor?->compliances?->is_rcm ?? '0';
-            if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1) {
+            $vendorGstAppicable = ($document->vendor?->compliances && ($document->vendor?->compliances?->gst_applicable == 1)) ? 1 : 0;
+            $vendorRCMAppicable = ($document->vendor?->compliances && ($document->vendor?->compliances?->is_rcm == 1)) ? 1 : 0;
+            if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1 && ($tax->taxDetail->erpTax->tax_category === ConstantHelper::GST)) {
                 $revTaxLedgerId = $taxDetail->reverse_ledger_id ?? null; //MAKE IT DYNAMIC
                 $revTaxLedgerGroupId = $taxDetail->reverse_ledger_group_id ?? null; //MAKE IT DYNAMIC
                 $revTaxLedger = Ledger::find($revTaxLedgerId);
@@ -5729,7 +5755,11 @@ class FinancialPostingHelper
                 }
             } else {
                 //Normal Tax Credit to Vendor
-                $totalsupplierCredit += $tax->ted_amount;
+                if (trim(strtolower($taxDetail->applicability_type)) === ConstantHelper::DEDUCTION) {
+                        $totalsupplierCredit -= $tax->ted_amount;
+                    } else {
+                        $totalsupplierCredit += $tax->ted_amount;
+                    }
             }
         }
         //EXPENSES
@@ -6060,8 +6090,8 @@ class FinancialPostingHelper
                 if (trim(strtolower($taxDetail->applicability_type)) === ConstantHelper::DEDUCTION) {
                     $postingArray[self::SUPPLIER_ACCOUNT][0]['credit_amount'] -= $tax->ted_amount;
                 } else {
-                    $vendorGstAppicable = $document->vendor?->compliances?->gst_applicable ?? '0';
-                    $vendorRCMAppicable = $document->vendor?->compliances?->is_rcm ?? '0';
+                    $vendorGstAppicable = ($document->vendor?->compliances && ($document->vendor?->compliances?->gst_applicable == 1)) ? 1 : 0;
+                    $vendorRCMAppicable = ($document->vendor?->compliances && ($document->vendor?->compliances?->is_rcm == 1)) ? 1 : 0;
                     if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1) {
                         $revTaxLedgerId = $taxDetail->reverse_ledger_id ?? null; //MAKE IT DYNAMIC
                         $revTaxLedgerGroupId = $taxDetail->reverse_ledger_group_id ?? null; //MAKE IT DYNAMIC
@@ -7597,8 +7627,8 @@ class FinancialPostingHelper
                 ]);
             }
             //Tax for SUPPLIER ACCOUNT
-            $vendorGstAppicable = $document->vendor?->compliances?->gst_applicable ?? '0';
-            $vendorRCMAppicable = $document->vendor?->compliances?->is_rcm ?? '0';
+            $vendorGstAppicable = ($document->vendor?->compliances && ($document->vendor?->compliances?->gst_applicable == 1)) ? 1 : 0;
+            $vendorRCMAppicable = ($document->vendor?->compliances && ($document->vendor?->compliances?->is_rcm == 1)) ? 1 : 0;
             if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1) {
                 $revTaxLedgerId = $taxDetail->reverse_ledger_id ?? null; //MAKE IT DYNAMIC
                 $revTaxLedgerGroupId = $taxDetail->reverse_ledger_group_id ?? null; //MAKE IT DYNAMIC

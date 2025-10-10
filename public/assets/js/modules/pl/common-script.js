@@ -69,7 +69,6 @@ function getItemTax(itemIndex)
         const value = parseNumber(itemValue);
         const discount = parseNumber(totalItemDiscount);
         const qty = parseNumber(itemQty);
-        console.log(value, discount, qty);
 
         itemPrice = (value + discount) / qty;
     }
@@ -116,7 +115,6 @@ function getItemTax(itemIndex)
             const itemTotalInput = document.getElementById('item_total_' + itemIndex);
             itemTotalInput.value = parseFloat(valueAfterHeaderDiscount ? valueAfterHeaderDiscount : 0) +  parseFloat(TotalItemTax ? TotalItemTax : 0);
             //Get All Total Values
-            console.log(menuAlias);
             if (menuAlias === 'sale-invoices' || menuAlias === 'delivery-note-cum-invoice' || menuAlias === 'sale-returns') {
                 getTcsTax();
             } else {
@@ -163,7 +161,6 @@ function getTcsTax()
     oldTaxValue = Number(oldTaxValue.toFixed(2));
     
     let nonTcsAccessableAmt = $("#order_tcs_assessable_amt").val() ?? 0;
-    console.log(nonTcsAccessableAmt, oldTaxValue);
     if (oldTaxValue  > 0) {
         nonTcsAccessableAmt = oldTaxValue - nonTcsAccessableAmt;
         nonTcsAccessableAmt = Number(nonTcsAccessableAmt.toFixed(2));
@@ -592,7 +589,6 @@ function editScript()
         });
         //Order Tax
         order?.header_tax?.forEach((orderTax, orderTaxIndex) => {
-            console.log(orderTax);  
             if (orderTax.ted_name === 'Sale_of_Other_Goods') { //Constant
                 addHiddenInput("order_tcs_master_id", orderTax.id, `order_tcs_id`, 'order_tcs_id', 'main_so_form', orderTax.id);        
                 addHiddenInput("order_tcs_assessable_amt", orderTax.assessment_amount, `order_tcs_assesable_amt`, 'order_tcs_assessable_amt', 'main_so_form', orderTax.id);        
@@ -1946,8 +1942,12 @@ $('#attribute').on('hidden.bs.modal', function () {
 setAttributesUI();
 });
 var currentSelectedItemIndex = null ;
-function setAttributesUI(paramIndex = null) {
-    let editDisable = (order && order?.document_status != 'draft');
+function setAttributesUI(paramIndex = null,disabled = false) {
+    let editDisable = disabled ? true : (order && order?.document_status != 'draft');
+    if (editDisable) {
+        $('#myModal .modal-footer').hide();
+    }
+
     let currentItemIndex = null;
     if (paramIndex != null || paramIndex != undefined) {
         currentItemIndex = paramIndex;
@@ -2385,11 +2385,20 @@ function setItemAttributes(elementId, itemIndex, disabled = false)
         });
         attributesTable.innerHTML = innerHtml;
         if (attributesJSON.length == 0) {
-            document.getElementById('item_qty_' + index).focus();
-            document.getElementById('attribute_button_' + index).disabled = true;
+            const itemQty = document.getElementById('item_qty_' + itemIndex);
+            if(itemQty) {
+                itemQty.focus();
+            }
+            const attrBtn = document.getElementById('attribute_button_' + itemIndex);
+            if (attrBtn) {
+                attrBtn.disabled = true;
+            }
         } else {
             $("#attribute").modal("show");
-            document.getElementById('attribute_button_' + index).disabled = false;
+            const attrBtn = document.getElementById('attribute_button_' + itemIndex);
+            if (attrBtn) {
+                attrBtn.disabled = false;
+            }
         }
     }
 
@@ -3017,7 +3026,6 @@ function getTripData()
             from_store_id : location_id,
         },
         success: function(response) {
-            console.log(response);
 
             if (response?.status === 'success') {
                 const dataRecords = response?.data || [];

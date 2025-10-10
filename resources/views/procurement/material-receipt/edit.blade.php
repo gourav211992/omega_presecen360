@@ -18,8 +18,9 @@
         enctype="multipart/form-data">
         @csrf
         <input type="hidden" name="tax_required" id="tax_required" value="">
+        <input type="hidden" name="bill_to_follow" id="bill_to_follow" class="bill_to_follow" value={{ $mrn->bill_to_follow }}>
         <input type="hidden" name="inspection_required" id="inspection_required" class="inspection_required"
-            value="">
+            value="{{ ($mrn->is_inspection_completion === 1) ? 'no' : 'yes' }}">
         <input type="hidden" name="is_free_cost" id="is_free_cost" class="is_free_cost"
             value="{{ $mrn->is_free_cost == 1 ? 'yes' : 'no' }}">
         <div class="app-content content ">
@@ -278,27 +279,29 @@
                                                             <label class="form-label">Reference From <span
                                                                     class="text-danger">*</span></label>
                                                         </div>
-                                                        <div class="col-md-5 action-button">
-                                                            <button type="button"
-                                                                class="btn btn-outline-primary btn-sm mb-0 poSelect">
-                                                                <i data-feather="plus-square"></i>
-                                                                Outstanding PO
-                                                            </button>
-                                                            <button type="button"
-                                                                class="btn btn-outline-primary btn-sm mb-0 joSelect">
-                                                                <i data-feather="plus-square"></i>
-                                                                Outstanding JO
-                                                            </button>
-                                                            {{-- <button type="button"
-                                                                class="btn btn-outline-primary btn-sm mb-0 soSelect">
-                                                                <i data-feather="plus-square"></i>
-                                                                Work Order
-                                                            </button> --}}
-                                                            <button type="button"
-                                                                class="btn btn-outline-primary btn-sm mb-0 dnoteSelect">
-                                                                <i data-feather="plus-square"></i>
-                                                                D note
-                                                            </button>
+                                                        <div class="col-md-8 action-button">
+                                                            <div class="d-flex flex-wrap gap-1">
+                                                                <button type="button"
+                                                                    class="btn btn-outline-primary btn-sm mb-0 poSelect">
+                                                                    <i data-feather="plus-square"></i>
+                                                                    Outstanding PO
+                                                                </button>
+                                                                <button type="button"
+                                                                    class="btn btn-outline-primary btn-sm mb-0 joSelect">
+                                                                    <i data-feather="plus-square"></i>
+                                                                    Outstanding JO
+                                                                </button>
+                                                                {{-- <button type="button"
+                                                                    class="btn btn-outline-primary btn-sm mb-0 soSelect">
+                                                                    <i data-feather="plus-square"></i>
+                                                                    Work Order
+                                                                </button> --}}
+                                                                <button type="button"
+                                                                    class="btn btn-outline-primary btn-sm mb-0 dnoteSelect">
+                                                                    <i data-feather="plus-square"></i>
+                                                                    D note
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 @endif
@@ -315,6 +318,10 @@
                                                         </div>
                                                     </div>
                                                 @endif
+                                                <input type="hidden" name="mrn_tds_id"
+                                                                class="form-control mrn_tds_id"
+                                                                id="mrn_tds_input"
+                                                                value="{{ $mrn?->header_tax?->id }}" readonly>
                                             </div>
                                             {{-- Approval History Section --}}
                                             @include('partials.approval-history', [
@@ -344,7 +351,7 @@
                                                                 {{ count($mrn->items) > 0 ? 'readonly' : '' }}
                                                                 value="{{ @$mrn->vendor->company_name }}" />
                                                             <input type="hidden" value="{{ @$mrn->vendor_id }}"
-                                                                id="vendor_id" name="vendor_id" />
+                                                                id="vendor_id" name="vendor_id" class="vendor_id"/>
                                                             <input type="hidden" value="{{ @$mrn->vendor_code }}"
                                                                 id="vendor_code" name="vendor_code" />
                                                             @if ($mrn->latestShippingAddress() || $mrn->latestBillingAddress())
@@ -780,6 +787,7 @@
                                                                             <td class="text-end" id="f_tax">
                                                                                 <!-- {{ number_format(@$mrn->total_taxes, 2) }}         -->
                                                                             </td>
+                                                                            <input id = "tax_amount_header" type="hidden" name="taxes_amount_header" />
                                                                         </tr>
                                                                         <tr class="totalsubheadpodetail">
                                                                             <td><strong>Total After Tax</strong></td>
@@ -1264,9 +1272,11 @@
     <script type="text/javascript" src="{{ asset('app-assets/js/file-uploader.js') }}"></script>
     <script>
         selectedCostCenterId = @json($mrn->cost_center_id);
+        let mrnData = @json($mrn);
         currentProcessType = @json($mrn->reference_type);
         var qtyChangeUrl = '{{ route('material-receipt.get.validate-quantity') }}';
         let taxCalUrl = '{{ route('tax.group.calculate') }}';
+        let calTaxTdsUrl = '{{ route('tax.calculate.tds') }}';
         let po = @json(\App\Helpers\ConstantHelper::PO_SERVICE_ALIAS);
         let jo = @json(\App\Helpers\ConstantHelper::JO_SERVICE_ALIAS);
         let so = @json(\App\Helpers\ConstantHelper::SO_SERVICE_ALIAS);
@@ -1307,6 +1317,24 @@
             $(".dnoteSelect").show();
             $("#addNewItemBtn").hide();
             $("#importItem").hide();
+        }
+        if (currentProcessType == 'direct') {
+            document.getElementById('rateHeader').textContent = 'Rate';
+            $(".poSelect").hide();
+            $(".joSelect").hide();
+            $(".soSelect").hide();
+            $(".dnoteSelect").hide();
+            $("#addNewItemBtn").show();
+            $("#importItem").show();
+        }
+        else{
+            document.getElementById('rateHeader').textContent = 'Rate';
+            $(".poSelect").show();
+            $(".joSelect").show();
+            $(".soSelect").show();
+            $(".dnoteSelect").show();
+            $("#addNewItemBtn").show();
+            $("#importItem").show();
         }
 
         let tableRowCount = 0;
@@ -1413,7 +1441,7 @@
                         setTableCalculation(true);
                         // checkWarehouseSetup(storeId, subStoreId);
                         $(".inspection_required").val(parameters?.inspection_required[0]);
-                        $(".is_free_cost").val(parameters?.is_free_cost[0]);
+                        // $(".is_free_cost").val(parameters?.is_free_cost[0]);
                         applyInspectionState();
                     }
                     if (data.status == 404) {
@@ -1767,6 +1795,8 @@
                 return false;
             }
             let rowsLength = $("#itemTable > tbody > tr").length;
+            currentProcessType = 'direct';
+            $("#reference_type_input").val('direct');
             /*Check last tr data shoud be required*/
             let lastRow = $('#itemTable .mrntableselectexcel tr:last');
             let lastTrObj = {
@@ -1919,7 +1949,7 @@
         /*For comp attr*/
         function getItemAttribute(itemId, rowCount, selectedAttr, tr) {
             let checkAttr = 0;
-            if (currentProcessType && currentProcessType != null) {
+            if (currentProcessType && currentProcessType != 'direct') {
                 rowCount = tableRowCount;
                 let isPo = $(tr).find('[name*="purchase_order_item_id"]').val() ? 1 : 0;
                 let isJo = $(tr).find('[name*="job_order_item_id"]').val() ? 1 : 0;
@@ -2969,6 +2999,11 @@
         }
 
         window.onload = function() {
+            if ($(".bill_to_follow").val() === 'no') {
+                setTimeout(() => {
+                    getTdsTax();
+                }, 1000);
+            }
             currentProcessType = @json($mrn->reference_type);
             asnHeaderIds = @json($asnHeaderIds);
             asnDetailsIds = @json($asnDetailsIds);
@@ -2981,25 +3016,50 @@
                 $(".supplier_invoice_no").prop('readonly', true);
                 $(".supplier_invoice_date").prop('readonly', true);
             }
-            if (currentProcessType === null) {
-                $(".joSelect").hide();
-                $(".poSelect").hide();
-                $(".soSelect").hide();
-            } else {
+            // if (currentProcessType === null) {
+            //     $(".poSelect").show();
+            //     $(".joSelect").show();
+            //     $(".soSelect").show();
+            //     $(".dnoteSelect").show();
+            //     $("#addNewItemBtn").show();
+            //     $("#importItem").show();
+            // } else {
                 if (currentProcessType === po) {
                     $(".joSelect").hide();
                     $(".poSelect").show();
                     $(".soSelect").hide();
+                    $("#addNewItemBtn").hide();
+                    $("#importItem").hide();
                 } else if (currentProcessType === jo) {
                     $(".joSelect").show();
                     $(".poSelect").hide();
                     $(".soSelect").hide();
+                    $("#addNewItemBtn").hide();
+                    $("#importItem").hide();
                 } else if (currentProcessType === so) {
                     $(".joSelect").hide();
                     $(".poSelect").hide();
                     $(".soSelect").show();
+                    $("#addNewItemBtn").hide();
+                    $("#importItem").hide();
                 }
-            }
+                else if (currentProcessType === dnote) {
+                    $(".joSelect").hide();
+                    $(".poSelect").hide();
+                    $(".soSelect").hide();
+                    $(".dnoteSelect").show();
+                    $("#addNewItemBtn").hide();
+                    $("#importItem").hide();
+                }
+                else if (currentProcessType === 'direct') {
+                    $(".joSelect").hide();
+                    $(".poSelect").hide();
+                    $(".soSelect").hide();
+                    $(".dnoteSelect").hide();
+                    $("#addNewItemBtn").show();
+                    $("#importItem").show();
+                }
+            // }
 
             ['selectedPoIds', 'selectedJoIds', 'selectedSoIds', 'selectedDnoteIds'].forEach(key => localStorage
                 .removeItem(key));
@@ -3219,8 +3279,8 @@
                     }
                 },
                 {
-                    data: 'dnote_qty',
-                    name: 'dnote_qty',
+                    data: 'inv_order_qty',
+                    name: 'inv_order_qty',
                     render: renderData,
                     orderable: false,
                     searchable: false,
@@ -4823,6 +4883,8 @@
                     initializeAutocomplete2(".comp_item_code");
 
                     $("#poModal, #joModal").modal('hide');
+                    $('.header_store_id').prop('disabled', true);
+                    $('.sub_store').prop('disabled', true);
                     $('.asn_process').prop('disabled', true);
                     $(".supplier_invoice_no").prop('readonly', false);
                     $(".supplier_invoice_date").prop('readonly', false);
@@ -4973,7 +5035,13 @@
                     }
                     $('[name="payment_term_id"]').empty().append(payOption);
                     $('[name="credit_days"]').val(firstCreditDays);
-
+                    setTimeout(() => {
+                        if ($(".bill_to_follow").val() === 'no')
+                        {
+                            getTdsTax();
+                        }
+                        setTableCalculation();
+                    }, 3000);
                 })
                 .catch(() => {
                     Swal.fire({
@@ -5026,11 +5094,6 @@
                 }
             });
         }
-
-        // When page loads
-        // $(document).ready(function () {
-        //     applyInspectionState();
-        // });
 
         let dnoteOrderTable;
         $(document).on('click', '.dnoteSelect', (e) => {
@@ -5341,6 +5404,8 @@
             $(".joSelect").addClass('d-none');
             $(".soSelect").addClass('d-none');
             $(".scanQR").addClass('d-none');
+            $('.header_store_id').prop('disabled', true);
+            $('.sub_store').prop('disabled', true);
             $("#importItem ").hide();
             $("#addNewItemBtn").hide();
             if (referenceNo) {

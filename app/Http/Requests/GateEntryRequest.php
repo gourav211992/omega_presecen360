@@ -69,7 +69,7 @@ class GateEntryRequest extends FormRequest
                 //     ->ignore($mrnId), // ignore when updating
             ],
             // 'supplier_invoice_date' => 'required|date',
-            'supplier_invoice_date' => 'required|date|before:today',
+            'supplier_invoice_date' => 'required|date',
             'manual_entry_no' => 'required|max:50',
             'transporter_name' => 'required|max:50',
             'vehicle_no' => [

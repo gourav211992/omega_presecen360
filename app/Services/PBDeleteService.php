@@ -36,6 +36,10 @@ class PBDeleteService
                     $pbItem->attributes()->delete();
                     $pbItem->delete();
                 }
+                if (empty($pb->items()))
+                {
+                    $pb->pb_ted()->delete();
+                }
             }
         } catch (\Exception $e) {
             \DB::rollBack();

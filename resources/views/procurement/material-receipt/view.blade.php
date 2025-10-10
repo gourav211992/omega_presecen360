@@ -13,6 +13,7 @@
     <form id="mrnEditForm" data-module="mrn" class="ajax-input-form" method="POST" action="{{ route('material-receipt.update', $mrn->id) }}" data-redirect="/{{$routeRedirect}}" enctype="multipart/form-data">
         @csrf
         <input type="hidden" name="tax_required" id="tax_required" value="">
+        <input type="hidden" name="bill_to_follow" id="bill_to_follow" class="bill_to_follow" value={{ $mrn->bill_to_follow }}>
         <input type="hidden" name="inspection_required" id="inspection_required" class="inspection_required" value="">
         <div class="app-content content ">
             <div class="content-overlay"></div>
@@ -122,6 +123,10 @@
                                                     </div>
                                                     <input type="hidden" class="is_warehouse_required" name="is_warehouse_required" id="is_warehouse_required" value="{{$mrn?->is_warehouse_required}}">
                                                 </div>
+                                                <input type="hidden" name="mrn_tds_id"
+                                                                class="form-control mrn_tds_id"
+                                                                id="mrn_tds_input"
+                                                                value="{{ $mrn?->header_tax?->id }}" readonly>
                                             </div>
                                             {{-- Approval History Section --}}
                                             @include('partials.approval-history', ['document_status' => $mrn->document_status, 'revision_number' => $revision_number])
@@ -142,7 +147,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">Vendor <span class="text-danger">*</span></label>
                                                             <input type="text" placeholder="Select" class="form-control mw-100 ledgerselecct vendor_name" id="vendor_name" name="vendor_name" {{(count(($mrn->items)) > 0 ? 'readonly' : '')}} value="{{@$mrn->vendor->company_name}}" />
-                                                            <input type="hidden" value="{{@$mrn->vendor_id}}" id="vendor_id" name="vendor_id" />
+                                                            <input type="hidden" value="{{@$mrn->vendor_id}}" id="vendor_id" name="vendor_id" class="vendor_id"/>
                                                             <input type="hidden" value="{{@$mrn->vendor_code}}" id="vendor_code" name="vendor_code" />
                                                             @if($mrn->latestShippingAddress() || $mrn->latestBillingAddress())
                                                                 <input type="hidden" value="{{$mrn->latestShippingAddress()}}" id="shipping_id" name="shipping_id" />
@@ -500,6 +505,7 @@
                                                                             <td><strong>Tax</strong></td>
                                                                             <td class="text-end" id="f_tax">
                                                                                 <!-- {{ number_format(@$mrn->total_taxes, 2) }}         -->
+                                                                                <input id = "tax_amount_header" type="hidden" name="taxes_amount_header" />
                                                                             </td>
                                                                         </tr>
                                                                         <tr class="totalsubheadpodetail">
@@ -956,6 +962,8 @@
         let currentProcessType = @json($mrn->reference_type);
         var qtyChangeUrl = '{{ route("material-receipt.get.validate-quantity") }}';
         let taxCalUrl = '{{ route('tax.group.calculate') }}';
+        let mrnData = @json($mrn);
+        let calTaxTdsUrl = '{{ route('tax.calculate.tds') }}';
 
         let currentIndex = '';
 
@@ -2632,6 +2640,11 @@
             if (['po', 'jo', 'so'].includes(currentProcessType)) {
                 localStorage.setItem(`selected${currentProcessType.charAt(0).toUpperCase() + currentProcessType.slice(1)}Ids`, JSON.stringify(ids));
             }
+            if ($(".bill_to_follow").val() === 'no') {
+                setTimeout(() => {
+                    getTdsTax();
+                }, 1000);
+            }
         };
 
 
@@ -4219,6 +4232,13 @@
                     }
                     $('[name="payment_term_id"]').empty().append(payOption);
                     $('[name="credit_days"]').val(firstCreditDays);
+                    setTimeout(() => {
+                        if ($(".bill_to_follow").val() === 'no')
+                        {
+                            getTdsTax();
+                        }
+                        setTableCalculation();
+                    }, 1000);
 
                 })
                 .catch(() => {

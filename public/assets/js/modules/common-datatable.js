@@ -35,6 +35,29 @@ function initializeDataTable(
     pdfPageOrientation = "portrait",
     ajaxRequestType = "GET"
 ) {
+    if ($('#datatable-loader').length === 0) {
+        const loaderHtml = `
+            <div id="datatable-loader">
+                <div class="dt-processing">
+                    <div></div>
+                    <div>
+                        <div></div><div></div><div></div><div></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        $('body').append(loaderHtml);
+    }
+
+    var table = $(selector).on('processing.dt', function(e, settings, processing) {
+        if (processing) {
+            $('#datatable-loader').css('display', 'flex');
+        } else {
+            $('#datatable-loader').hide();
+        }
+    });
+
+    
     var table = $(selector);
     if (table.length) {
         let dataTableInstance = table.DataTable({
@@ -42,6 +65,7 @@ function initializeDataTable(
             serverSide: true,
             scrollX: true,
             colReorder: true,
+            lengthMenu: [[8, 10, 25, 50, 100, -1],[8, 10, 25, 50, 100, "All"]],
             ajax: {
                 url: ajaxUrl,
                 type: ajaxRequestType,
@@ -59,6 +83,7 @@ function initializeDataTable(
             },
             order: defaultOrder,
             columns: columns,
+            processing:true,
             columnDefs: [
                 {
                     targets: "_all",

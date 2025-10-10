@@ -50,6 +50,7 @@ class MoRequest extends FormRequest
             'document_date' => 'required|date',
             'document_number' => 'required',
             'store_id' => 'required',
+            'sub_store_id' => 'required',
             // 'station_id' => 'nullable',
             'quantity' => 'nullable|max:255',
         ];

@@ -54,7 +54,7 @@
 										<th>
 											<div class="form-check form-check-inline me-0">
 												<input class="form-check-input" type="checkbox" name="mrndetail" id="inlineCheckbox1">
-											</div> 
+											</div>
 										</th>
                                         <th>SUPPLIER NAME</th>
                                         <th>GRN NO.</th>
@@ -63,7 +63,6 @@
                                         <th>ITEM CODE</th>
                                         <th>Item Name</th>
                                         <th>ATTRIBUTES</th>
-                                        <th class="text-end">GRN QTY</th>
                                         <th class="text-end">ACCEPTED QTY</th>
 										<th class="text-end">REJECTED QTY</th>
                                         <th class="text-end">RETURN QTY</th>

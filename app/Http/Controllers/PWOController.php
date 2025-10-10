@@ -10,7 +10,6 @@ use App\Helpers\Helper;
 use App\Helpers\BookHelper;
 use App\Helpers\ItemHelper;
 use App\Helpers\NumberHelper;
-use App\Helpers\CurrencyHelper;
 use App\Helpers\FinancialPostingHelper;
 use App\Helpers\InventoryHelper;
 use App\Helpers\ServiceParametersHelper;
@@ -22,18 +21,13 @@ use App\Models\ItemAttribute;
 use App\Models\Bom;
 use App\Models\Organization;
 use App\Models\Address;
-use App\Http\Requests\MoRequest;
 use App\Http\Requests\PwoRequest;
 use App\Models\BomDetail;
 use App\Models\ErpProductionWorkOrder;
 use App\Models\ErpProductionWorkOrderHistory;
+use App\Helpers\TransactionReportHelper;
 use App\Models\ErpSoItem;
-use App\Models\MoBomMapping;
-use App\Models\MoItemAttribute;
 use App\Models\MoItemLocation;
-use App\Models\MoMedia;
-use App\Models\MoProduct;
-use App\Models\MoProductAttribute;
 use App\Models\PwoSoMapping;
 use App\Models\StockLedger;
 use App\Models\Attribute;
@@ -52,6 +46,7 @@ use Yajra\DataTables\DataTables;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf; 
 use Exception;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 use NumberToWords\Legacy\Numbers\Words\Locale\Es;
 
@@ -61,8 +56,50 @@ class PWOController extends Controller
      public function index(Request $request)
      {
          $parentUrl = request()->segments()[0];
+         $servicesAliasParam = ConstantHelper::PWO_SERVICE_ALIAS;
          if (request()->ajax()) {
-             $boms = ErpProductionWorkOrder::withDraftListingLogic();
+             $boms = ErpProductionWorkOrder::withDraftListingLogic()
+               // apply filter code
+                ->when($request->book_id, function ($q) use ($request) {
+                    $q->where('book_id', $request->book_id);
+                })
+                ->when($request->created_id, function ($q) use ($request) {
+                    $q->where('created_by', $request->created_id);
+                })
+                ->when($request->document_number, function ($q) use ($request) {
+                    $q->where('document_number', 'LIKE', '%' . $request->document_number . '%');
+                })
+                ->when($request->doc_status, function ($q) use ($request) {
+                    $searchDocStatus = [];
+
+                    if ($request->doc_status === ConstantHelper::DRAFT) {
+                        $searchDocStatus = [ConstantHelper::DRAFT];
+                    } elseif ($request->doc_status === ConstantHelper::SUBMITTED) {
+                        $searchDocStatus = [ConstantHelper::SUBMITTED, ConstantHelper::PARTIALLY_APPROVED];
+                    } else {
+                        $searchDocStatus = [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED];
+                    }
+
+                    $q->whereIn('document_status', $searchDocStatus);
+                })
+                ->when($request->date_range ?? null, function ($q) use ($request) {
+                    $dateRange = $request->date_range ?? Carbon::now()->startOfMonth()->format('Y-m-d') . " to " . Carbon::now()->endOfMonth()->format('Y-m-d');
+                    $dateRanges = explode('to', $dateRange);
+
+                    if (count($dateRanges) == 2) {
+                        $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
+                        $toDate = Carbon::parse(trim($dateRanges[1]))->format('Y-m-d');
+                        $q->whereBetween('document_date', [$fromDate, $toDate]);
+                    } else {
+                        $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
+                        $q->whereDate('document_date', $fromDate);
+                    }
+                })
+                ->when($request->product_id, function ($q) use ($request) {
+                    $q->whereHas('mapping.item', function ($itemQuery) use ($request) {
+                        $itemQuery->where('id', $request->product_id);
+                    });
+                });
              return DataTables::of($boms)
                  ->addIndexColumn()
                  ->editColumn('document_status', function ($row) {
@@ -101,11 +138,18 @@ class PWOController extends Controller
                  ->editColumn('document_date', function ($row) {
                      return $row->getFormattedDate('document_date') ?? 'N/A';
                  })
+                ->addColumn('created_by', function ($row){
+                    return $row->createdBy?->name;
+                })
                  ->rawColumns(['document_status','items'])
                  ->make(true);
          }
          $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
-         return view('pwo.index', ['servicesBooks' => $servicesBooks]);
+
+        $autoCompleteFilters = isset(TransactionReportHelper::FILTERS_MAPPING[$servicesAliasParam]) ? 
+        TransactionReportHelper::FILTERS_MAPPING[$servicesAliasParam] : [];  
+
+         return view('pwo.index', ['servicesBooks' => $servicesBooks,'autoCompleteFilters'=>$autoCompleteFilters]);
      }
  
      # Bill of material Create

@@ -62,6 +62,7 @@ use App\Models\StockLedger;
 use App\Models\Unit;
 use App\Models\Vendor;
 use Carbon\Carbon;
+use App\Services\Common\FinancialYearService;
 use PDF;
 use Exception;
 use Illuminate\Http\Request;
@@ -81,21 +82,21 @@ class ErpPlController extends Controller
         $orderType = ConstantHelper::PL_SERVICE_ALIAS;
         $redirectUrl = route('PL.index');
         $createRoute = route('PL.create');
+        $authUser = request()->user();
         $accessible_locations = InventoryHelper::getAccessibleLocations()->pluck('id')->toArray();
-        $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
-        $autoCompleteFilters = self::getBasicFilters();
+        $selectedfyYear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), $authUser);
+        $autoCompleteFilters = [];
         //Date Filters
         $dateRange = $request -> date_range ?? null;
         $typeName = "Pick List";
         if ($request -> ajax()) {
             try {
                 $accessible_locations = InventoryHelper::getAccessibleLocations()->pluck('id')->toArray();
-                $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
-                $autoCompleteFilters = self::getBasicFilters();
+                $selectedfyYear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), $authUser);
                 //Date Filters
                 $dateRange = $request -> date_range ?? null;
                 
-                $docs = ErpPlHeader::withDefaultGroupCompanyOrg() ->  bookViewAccess($pathUrl) ->  
+                $docs = ErpPlHeader::withDefaultGroupCompanyOrg() ->  bookViewAccess($pathUrl) -> selfCreatedDocuments($authUser) ->  
                 withDraftListingLogic() -> whereIn('store_id',$accessible_locations)  -> when($request -> book_id, function ($bookQuery) use($request) {
                 $bookQuery -> where('book_id', $request -> book_id);
             }) -> when($request -> document_number, function ($docQuery) use($request) {
@@ -106,6 +107,8 @@ class ErpPlController extends Controller
                 $docQuery -> where('store_id', $request -> company_id);
             }) -> when($request -> organization_id, function ($docQuery) use($request) {
                 $docQuery -> where('organization_id', $request -> organization_id);
+            }) -> when($request -> created_by, function ($docQuery) use($request) {
+                $docQuery -> where('created_by', $request -> created_by);
             }) -> when($request -> status, function ($docStatusQuery) use($request) {
                 $searchDocStatus = [];
                 if ($request -> status === ConstantHelper::DRAFT) {
@@ -185,6 +188,9 @@ class ErpPlController extends Controller
                 ->addColumn('items_count', function ($row) {
                     return $row->items->count();
                 })
+                ->editColumn('created_by', function ($row) {
+                    return ucfirst(isset($row->createdBy) ? $row->createdBy->name : '');
+                })
                 ->rawColumns(['document_status'])
                 ->make(true);
             }
@@ -200,28 +206,6 @@ class ErpPlController extends Controller
         $create_button = (isset($servicesBooks['services'])  && count($servicesBooks['services']) > 0 && isset($selectedfyYear['authorized']) && $selectedfyYear['authorized'] && !$selectedfyYear['lock_fy']) ? true : false;
         return view('PL.index', ['typeName' => $typeName, 'redirect_url' => $redirectUrl, 'create_route' => $createRoute, 'create_button' => $create_button,'filterArray' => TransactionReportHelper::FILTERS_MAPPING[ConstantHelper::PL_SERVICE_ALIAS],
             'autoCompleteFilters' => $autoCompleteFilters,]);
-    }
-    public function getBasicFilters()
-    {
-        //Get the common filters
-        $user = Helper::getAuthenticatedUser();
-        $categories = Category::select('id AS value', 'name AS label') -> withDefaultGroupCompanyOrg() 
-        -> whereNull('parent_id') -> get();
-        $subCategories = Category::select('id AS value', 'name AS label') -> withDefaultGroupCompanyOrg() 
-        -> whereNotNull('parent_id') -> get();
-        $items = Item::select('id AS value', 'item_name AS label') -> withDefaultGroupCompanyOrg()->get();
-        $users = AuthUser::select('id AS value', 'name AS label') -> where('organization_id', $user -> organization_id)->get();
-        $attributeGroups = AttributeGroup::select('id AS value', 'name AS label')->withDefaultGroupCompanyOrg()->get();
-
-        //Custom filters (to be restr)
-
-        return array(
-            'itemCategories' => $categories,
-            'itemSubCategories' => $subCategories,
-            'items' => $items,
-            'users' => $users,
-            'attributeGroups' => $attributeGroups 
-        );
     }
     public function create(Request $request)
     {
@@ -1311,9 +1295,10 @@ class ErpPlController extends Controller
     public function PLReport(Request $request)
     {
         $pathUrl = route('PL.index');
+        $user = request() -> user();
         $orderType = [ConstantHelper::PL_SERVICE_ALIAS];
-        $PL = ErpPlItemDetail::whereHas('header', function ($headerQuery) use($orderType, $pathUrl, $request) {
-            $headerQuery -> withDefaultGroupCompanyOrg() -> withDraftListingLogic();
+        $PL = ErpPlItemDetail::whereHas('header', function ($headerQuery) use($orderType, $pathUrl,$user ,$request) {
+            $headerQuery -> withDefaultGroupCompanyOrg()-> selfCreatedDocuments($user) -> withDraftListingLogic();
             //Book Filter
             $headerQuery = $headerQuery -> when($request -> book_id, function ($bookQuery) use($request) {
                 $bookQuery -> where('book_id', $request -> book_id);
@@ -1333,7 +1318,12 @@ class ErpPlController extends Controller
             //Organization Filter
             $headerQuery = $headerQuery -> when($request -> organization_id, function ($docQuery) use($request) {
                 $docQuery -> where('organization_id', $request -> organization_id);
-            });$headerQuery = $headerQuery -> when($request -> doc_status, function ($docStatusQuery) use($request) {
+            });
+            //Creator Filter
+            $headerQuery = $headerQuery -> when($request -> created_by, function ($docQuery) use($request) {
+                $docQuery -> where('created_by', $request -> created_by);
+            });
+            $headerQuery = $headerQuery -> when($request -> doc_status, function ($docStatusQuery) use($request) {
                 $searchDocStatus = [];
                 if ($request -> doc_status === ConstantHelper::DRAFT) {
                     $searchDocStatus = [ConstantHelper::DRAFT];
@@ -1394,6 +1384,9 @@ class ErpPlController extends Controller
             ->editColumn('order_qty', fn($pl) => number_format($pl->order_qty, 2))
             ->editColumn('rate', fn($pl) => number_format($pl->rate, 2))
             ->editColumn('total_amount', fn($pl) => number_format($pl->total_amount, 2))
+            ->editColumn('created_by', function ($pl) {
+                return ucfirst(isset($pl -> header -> createdBy) ? $pl -> header -> createdBy-> name : '');
+            })
             ->editColumn('item_attributes', function ($pl) {
                 if (count($pl->item_attributes) > 0) {
                     return collect($pl->item_attributes)->map(fn($attr) => "<span class='badge rounded-pill badge-light-primary'>{$attr->attribute_name} : {$attr->attribute_value}</span>")->implode(' ');

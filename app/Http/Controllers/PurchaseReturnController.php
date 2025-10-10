@@ -89,6 +89,7 @@ use App\Services\PRCheckAndUpdateService;
 use App\Exports\PurchaseReturnExport;
 
 use App\Http\Controllers\EInvoiceServiceController;
+use App\Models\PbHeader;
 
 class PurchaseReturnController extends Controller
 {
@@ -515,6 +516,7 @@ class PurchaseReturnController extends Controller
                         'group_currency_id' => @$component['group_currency_id'] ?? 0.00,
                         'group_currency_exchange_rate' => @$component['group_currency_exchange_rate'] ?? 0.00,
                         'remark' => $component['remark'] ?? null,
+                        'is_foc' => $component['is_foc'] ?? null,
                         'taxable_amount' => $itemValueAfterDiscount,
                         'basic_value' => $itemValue
                     ];
@@ -530,7 +532,9 @@ class PurchaseReturnController extends Controller
                 foreach ($pbItemArr as &$pbItem) {
                     /*Header Level Item discount*/
                     $headerDiscount = 0;
-                    $headerDiscount = ($pbItem['taxable_amount'] / $totalValueAfterDiscount) * $totalHeaderDiscount;
+                    if ($component['is_foc'] != 1) {
+                        $headerDiscount = ($pbItem['taxable_amount'] / $totalValueAfterDiscount) * $totalHeaderDiscount;
+                    }
                     $valueAfterHeaderDiscount = $pbItem['taxable_amount'] - $headerDiscount; // after both discount
                     $pbItem['header_discount_amount'] = $headerDiscount;
                     $itemTotalHeaderDiscount += $headerDiscount;
@@ -587,6 +591,7 @@ class PurchaseReturnController extends Controller
                     // $pbDetail->group_currency = $pbItem['group_currency_id'];
                     // $pbDetail->exchange_rate_to_group_currency = $pbItem['group_currency_exchange_rate'];
                     $pbDetail->remark = $pbItem['remark'];
+                    $pbDetail->is_foc = $pbItem['is_foc'];
                     $pbDetail->save();
                     $_key = $_key + 1;
                     $component = $request->all()['components'][$_key] ?? [];
@@ -786,6 +791,39 @@ class PurchaseReturnController extends Controller
 
             $redirectUrl = '';
             if (($pb->document_status == ConstantHelper::POSTED)) {
+                $purchaseReturn = PRHeader::find($pb->id);
+                if ($purchaseReturn && $purchaseReturn->mrn_header_id) {
+                    $referenceData = MrnHeader::find($purchaseReturn->mrn_header_id);
+                    if ($referenceData) {
+                        if ($referenceData->bill_to_follow === 'yes') {
+                            $pbData = PbHeader::where('mrn_header_id', $referenceData->id)->first();
+                            if ($pbData && ($pbData->document_status != ConstantHelper::POSTED)) {
+                                DB::rollBack();
+                                return response()->json([
+                                    'status' => 'error',
+                                    'message' => 'Unable to Post PR Document because reference PB not posted.'
+                                ],422);
+                            }
+                            else {
+                                if ($referenceData->document_status != ConstantHelper::POSTED) {
+                                    DB::rollBack();
+                                    return response()->json([
+                                        'status' => 'error',
+                                        'message' => 'Unable to Post PR Document because reference MRN not posted.'
+                                    ],422);
+                                }
+                            }
+                        } else {
+                            if ($referenceData->document_status != ConstantHelper::POSTED) {
+                                DB::rollBack();
+                                return response()->json([
+                                    'status' => 'error',
+                                    'message' => 'Unable to Post PR Document because reference MRN not posted.'
+                                ],422);
+                            }
+                        }
+                    }
+                }
                 // $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
                 // if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
                 //     $data = MasterIndiaHelper::saveGstIn($pb, $user);
@@ -836,7 +874,7 @@ class PurchaseReturnController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while creating the record.',
-                'error' => $e->getMessage(),
+                'error' => $e->getMessage(). ' on line '. $e->getLine(),
             ], 500);
         }
     }
@@ -1204,6 +1242,7 @@ class PurchaseReturnController extends Controller
                         'group_currency_id' => @$component['group_currency_id'] ?? 0.00,
                         'group_currency_exchange_rate' => @$component['group_currency_exchange_rate'] ?? 0.00,
                         'remark' => $component['remark'] ?? null,
+                        'is_foc' => $component['is_foc'] ?? null,
                         'taxable_amount' => $itemValueAfterDiscount,
                         'basic_value' => $itemValue
                     ];
@@ -1219,7 +1258,9 @@ class PurchaseReturnController extends Controller
                 foreach ($pbItemArr as &$pbItem) {
                     /*Header Level Item discount*/
                     $headerDiscount = 0;
-                    $headerDiscount = ($pbItem['taxable_amount'] / $totalValueAfterDiscount) * $totalHeaderDiscount;
+                    if ($component['is_foc'] != 1) {
+                        $headerDiscount = ($pbItem['taxable_amount'] / $totalValueAfterDiscount) * $totalHeaderDiscount;
+                    }
                     $valueAfterHeaderDiscount = $pbItem['taxable_amount'] - $headerDiscount; // after both discount
                     $pbItem['header_discount_amount'] = $headerDiscount;
                     $itemTotalHeaderDiscount += $headerDiscount;
@@ -1279,6 +1320,7 @@ class PurchaseReturnController extends Controller
                     $pbDetail->tax_value = $pbItem['tax_value'];
                     $pbDetail->header_exp_amount = $itemHeaderExp;
                     $pbDetail->remark = $pbItem['remark'];
+                    $pbDetail->is_foc = $pbItem['is_foc'];
                     $pbDetail->save();
 
                     #Save component Attr
@@ -1510,6 +1552,39 @@ class PurchaseReturnController extends Controller
 
             $redirectUrl = '';
             if (($pb->document_status == ConstantHelper::POSTED)) {
+                $purchaseReturn = PRHeader::find($pb->id);
+                if ($purchaseReturn && $purchaseReturn->mrn_header_id) {
+                    $referenceData = MrnHeader::find($purchaseReturn->mrn_header_id);
+                    if ($referenceData) {
+                        if ($referenceData->bill_to_follow === 'yes') {
+                            $pbData = PbHeader::where('mrn_header_id', $referenceData->id)->first();
+                            if ($pbData && ($pbData->document_status != ConstantHelper::POSTED)) {
+                                DB::rollBack();
+                                return response()->json([
+                                    'status' => 'error',
+                                    'message' => 'Unable to Post PR Document because reference PB not posted.'
+                                ],422);
+                            }
+                            else {
+                                if ($referenceData->document_status != ConstantHelper::POSTED) {
+                                    DB::rollBack();
+                                    return response()->json([
+                                        'status' => 'error',
+                                        'message' => 'Unable to Post PR Document because reference MRN not posted.'
+                                    ],422);
+                                }
+                            }
+                        } else {
+                            if ($referenceData->document_status != ConstantHelper::POSTED) {
+                                DB::rollBack();
+                                return response()->json([
+                                    'status' => 'error',
+                                    'message' => 'Unable to Post PR Document because reference MRN not posted.'
+                                ],422);
+                            }
+                        }
+                    }
+                }
                 // $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
                 // if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
                 //     $data = MasterIndiaHelper::saveGstIn($pb, $user);
@@ -1562,7 +1637,7 @@ class PurchaseReturnController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while creating the record.',
-                'error' => $e->getMessage(),
+                'error' => $e->getMessage(). ' on line '. $e->getLine(),
             ], 500);
         }
     }
@@ -2613,7 +2688,7 @@ class PurchaseReturnController extends Controller
                 }
 
                 return "<div class='form-check form-check-inline me-0'>
-                            <input class='form-check-input mrn_item_checkbox' type='checkbox' name='mrn_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-mrn='{$dataCurrentMrn}' data-existing-mrn='{$dataExistingMrn}' {$disabled}>
+                            <input class='form-check-input mrn_item_checkbox' type='checkbox' name='mrn_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-mrn='{$dataCurrentMrn}' data-existing-mrn='{$dataExistingMrn}' data-stock-ledeger='{$row->stock_ledger_id}' {$disabled}>
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
                         </div>";
             })
@@ -2652,15 +2727,13 @@ class PurchaseReturnController extends Controller
                 fn($row) =>
                 app(\App\View\Components\PR\Attribute::class, ['row' => $row])->resolveView()->render()
             )
-            ->addColumn(
-                'order_qty',
-                fn($row) =>
-                number_format((float) $row?->order_qty ?? 0, 2)
-            )
             ->addColumn('accepted_qty', function ($row) use ($qtyTypeRequired) {
                 return $qtyTypeRequired === 'rejected'
                     ? number_format(0, 2)
-                    : number_format((float) $row?->accepted_qty ?? 0, 2);
+                    : ($row->is_foc == 0
+                        ? number_format((float)($row->accepted_qty ?? 0), 2)
+                        : number_format((float)($row->foc_qty ?? 0), 2));
+
             })
             ->addColumn('rejected_qty', function ($row) use ($qtyTypeRequired) {
                 return $qtyTypeRequired === 'accepted'
@@ -2670,7 +2743,9 @@ class PurchaseReturnController extends Controller
             ->addColumn('pr_qty', function ($row) use ($qtyTypeRequired) {
                 $val = $qtyTypeRequired === 'rejected'
                     ? ((float) $row?->pr_rejected_qty ?? 0)
-                    : ((float) $row?->pr_qty ?? 0);
+                    : ($row->is_foc == 0
+                        ? number_format((float)($row->pr_qty ?? 0), 2)
+                        : number_format(0, 2));
                 return number_format($val, 2);
             })
             ->addColumn('available_qty', function ($row) use ($qtyTypeRequired) {
@@ -2679,16 +2754,13 @@ class PurchaseReturnController extends Controller
                     $row->uom_id,
                     (float) $row->available_qty ?? 0
                 );
-                $prQty = $qtyTypeRequired === 'rejected'
-                    ? ((float) $row?->pr_rejected_qty ?? 0)
-                    : ((float) $row?->pr_qty ?? 0);
 
                 return number_format($convertedQty, 2);
             })
             ->addColumn(
                 'rate',
                 fn($row) =>
-                number_format((float) $row?->rate ?? 0, 2)
+                number_format((float) $row?->cost_per_unit ?? 0, 2)
             )
             ->addColumn('amount', function ($row) use ($qtyTypeRequired) {
                 $convertedQty = \App\Helpers\ItemHelper::convertToAltUom(
@@ -2697,13 +2769,7 @@ class PurchaseReturnController extends Controller
                     (float) $row->available_qty ?? 0
                 );
 
-                // $prQty = $qtyTypeRequired === 'rejected'
-                //     ? ((float) $row?->pr_rejected_qty ?? 0)
-                //     : ((float) $row?->pr_qty ?? 0);
-
-                // $qty = ($convertedQty - $prQty);
-
-                return number_format(($convertedQty ?? 0) * ($row->rate ?? 0), 2);
+                return number_format(($convertedQty ?? 0) * ($row->cost_per_unit ?? 0), 2);
             })
             ->addColumn(
                 'uom',
@@ -2773,6 +2839,9 @@ class PurchaseReturnController extends Controller
                 'stock_ledger.transaction_type',
                 'stock_ledger.deleted_at as stock_ledger_del_at',
                 'stock_ledger.document_status as stock_ledger_status',
+                'stock_ledger.id as stock_ledger_id',
+                'stock_ledger.is_foc as is_foc',
+                'stock_ledger.cost_per_unit as cost_per_unit',
             ])
             ->join('stock_ledger', function ($join) use ($subStoreId) {
                 $join->on('stock_ledger.document_detail_id', '=', 'erp_mrn_details.id')
@@ -2846,8 +2915,6 @@ class PurchaseReturnController extends Controller
             $mrnItems->whereNotIn('erp_mrn_details.id', $detailsIds);
             $mrnItems->whereNotIn('erp_mrn_details.id', $selected_mrn_ids);
         }
-
-
         // ❌ Do not call get()
         // ✅ Return query
         $finalData = [
@@ -2866,12 +2933,12 @@ class PurchaseReturnController extends Controller
 
         // Filters and config
         $ids = json_decode($request->ids, true) ?? [];
+        $stockLedgerIds = json_decode($request->stockLedgerIds, true) ?? [];
         $qtyTypeRequired = $request->return_type ?? null;
         $qtyTypeRequired = $request->return_type ?? null;
         $storeId = $request->store_id ?? null;
         $subStoreId = $request->sub_store_id ?? null;
         $tableRowCount = $request->tableRowCount ?: 0;
-
         $uniqueMrnIds = MrnDetail::whereIn('id', $ids)
             ->distinct()
             ->pluck('mrn_header_id')
@@ -2892,6 +2959,9 @@ class PurchaseReturnController extends Controller
                 'stock_ledger.book_type',
                 'stock_ledger.document_number',
                 'stock_ledger.document_status as stock_ledger_status',
+                'stock_ledger.id as stock_ledger_id',
+                'stock_ledger.cost_per_unit as cost_per_unit',
+                'stock_ledger.is_foc as is_foc',
             ])
             ->join('stock_ledger', function ($join) use ($subStoreId, $storeId) {
                 $join->on('stock_ledger.document_detail_id', '=', 'erp_mrn_details.id')
@@ -2914,8 +2984,8 @@ class PurchaseReturnController extends Controller
                 ConstantHelper::POSTED
             ])
             ->whereIn('erp_mrn_details.id', $ids)
+            ->whereIn('stock_ledger.id', $stockLedgerIds)
             ->get();
-
         // Substore & vendor validations
         $subStoreCount = $mrnItems->where('sub_store_id', '!=', null)->count();
         $uniqueMrnIds = $mrnItems->pluck('mrn_header_id')->unique()->values()->toArray();
@@ -2999,6 +3069,38 @@ class PurchaseReturnController extends Controller
     public function postPR(Request $request)
     {
         $purchaseReturn = PRHeader::find($request->document_id);
+        if ($purchaseReturn && $purchaseReturn->mrn_header_id) {
+            $referenceData = MrnHeader::find($purchaseReturn->mrn_header_id);
+            if ($referenceData) {
+                if ($referenceData->bill_to_follow === 'yes') {
+                    $pbData = PbHeader::where('mrn_header_id', $referenceData->id)->first();
+                    if ($pbData && ($pbData->document_status != ConstantHelper::POSTED)) {
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Unable to Post PR Document because reference PB not posted.'
+                        ]);
+                    }
+                    else {
+                        if ($referenceData->document_status != ConstantHelper::POSTED) {
+                            DB::rollBack();
+                            return response()->json([
+                                'status' => 'error',
+                                'message' => 'Unable to Post PR Document because reference MRN not posted.'
+                            ]);
+                        }
+                    }
+                } else {
+                    if ($referenceData->document_status != ConstantHelper::POSTED) {
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Unable to Post PR Document because reference MRN not posted.'
+                        ]);
+                    }
+                }
+            }
+        }
         // $eInvoice = $purchaseReturn?->irnDetail()->first();
         // if (!$eInvoice) {
         //     $data = [

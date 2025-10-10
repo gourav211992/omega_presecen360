@@ -157,7 +157,7 @@ class moReportHelper
             'label' => 'Series',
             'id' => 'book_filter',
             'requestName' => 'book_id',
-            'term' => 'report_so_book',
+            'term' => 'report_mo_book',
             'value_key' => 'id',
             'label_key' => 'book_code',
             'type' => 'auto_complete'
@@ -206,45 +206,42 @@ class moReportHelper
         ],
         [
             'colSpan' => 'auto',
-            'label' => 'Status',
-            'id' => 'doc_status_filter',
-            'requestName' => 'doc_status',
-            'term' => 'document_statuses',
+            'label' => 'Product',
+            'id' => 'product_filter',
+            'requestName' => 'product_id',
+            'term' => 'pr_item',
+            'value_key' => 'id',
+            'label_key' => 'item_name',
+            'type' => 'auto_complete'
+        ],
+        [
+            'colSpan' => 'auto',
+            'label' => 'Station',
+            'id' => 'station_filter',
+            'requestName' => 'station_id',
+            'term' => 'all_stations',
             'value_key' => 'id',
             'label_key' => 'name',
             'type' => 'auto_complete'
         ],
         [
             'colSpan' => 'auto',
-            'label' => 'Company',
-            'id' => 'company_filter',
-            'requestName' => 'company_id',
-            'term' => 'companies',
+            'label' => 'Created By',
+            'id' => 'created_filter',
+            'requestName' => 'created_id',
+            'term' => 'auth_user',
             'value_key' => 'id',
             'label_key' => 'name',
-            'type' => 'auto_complete',
-            'dependent' => ['organization_filter']
-
+            'type' => 'auto_complete'
         ],
         [
             'colSpan' => 'auto',
-            'label' => 'Organization',
-            'id' => 'organization_filter',
-            'requestName' => 'organization_id',
-            'term' => 'organizations',
+            'label' => 'Status',
+            'id' => 'doc_status_filter',
+            'requestName' => 'doc_status',
+            'term' => 'document_statuses',
             'value_key' => 'id',
             'label_key' => 'name',
-            'type' => 'auto_complete',
-            'dependent' => ['location_filter']
-        ],
-        [
-            'colSpan' => 'auto',
-            'label' => 'Location',
-            'id' => 'location_filter',
-            'requestName' => 'location_id',
-            'term' => 'location',
-            'value_key' => 'id',
-            'label_key' => 'store_name',
             'type' => 'auto_complete'
         ],
     ];

@@ -99,7 +99,7 @@ class PRRequest extends FormRequest
         $rules['components.*.attr_group_id.*.attr_name'] = 'required';
         $rules['component_item_name.*'] = 'required';
         $rules['components.*.accepted_qty'] = 'required|numeric|min:0.01';
-        $rules['components.*.rate'] = 'required|numeric|min:0.01';
+        $rules['components.*.rate'] = 'nullable|numeric';
         $rules['components.*.remark'] = 'nullable|max:250';
         $rules['components.*.attr_group_id.*.attr_name'] = 'required';
         foreach ($this->input('components', []) as $index => $component) {
@@ -204,6 +204,18 @@ class PRRequest extends FormRequest
                         if($inputQty > $balanceQty) {
                             $validator->errors()->add("components.$key.accepted_qty", "PR is more than MRN qty.");
                         }
+                    }
+                }
+                $isFoc = $component['is_foc'] ?? null;
+                $rate = $component['rate'] ?? null;
+
+                if ($isFoc === '1') {
+                    if (!is_null($rate) && (!is_numeric($rate) || $rate < 0)) {
+                        $validator->errors()->add("components.$key.rate", "Rate must be a number greater than or equal to 0.");
+                    }
+                } elseif ($isFoc === '0') {
+                    if (is_null($rate) || !is_numeric($rate) || $rate < 0.01) {
+                        $validator->errors()->add("components.$key.rate", "Rate must be a number greater than or equal to 0.01.");
                     }
                 }
             }

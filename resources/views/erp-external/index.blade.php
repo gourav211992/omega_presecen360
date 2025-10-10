@@ -76,12 +76,12 @@ $(document).ready(function() {
             },
             columns: [
                 { data: 'DT_RowIndex', orderable: false, searchable: false },
-                { data: 'organization', name: 'organization', render: renderData },
-                { data: 'store', name: 'store', render: renderData },
-                { data: 'customer', name: 'customer', render: renderData },
-                { data: 'tripBook', name: 'tripBook', render: renderData },
-                { data: 'soBook', name: 'soBook', render: renderData },
-                { data: 'dnote', name: 'dnote', render: renderData },
+                { data: 'organization', name: 'organization', render: renderData ,orderable: false},
+                { data: 'store', name: 'store', render: renderData ,orderable: false},
+                { data: 'customer', name: 'customer', render: renderData ,orderable: false},
+                { data: 'soBook', name: 'soBook', render: renderData,orderable: false },
+                { data: 'tripBook', name: 'tripBook', render: renderData,orderable: false },
+                { data: 'dnote', name: 'dnote', render: renderData,orderable: false },
                 { data: 'status', orderable: false },
                 { data: 'action', orderable: false, searchable: false }
             ],

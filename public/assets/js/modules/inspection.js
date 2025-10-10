@@ -506,12 +506,19 @@ $(document).on("change", ".header_store_id", function () {
 
 // 2. On page load: trigger if already selected
 const selectedStoreId = $(".header_store_id").val();
+const $selectedSubStore = $(".sub_store").find("option:selected");
+const selectedSubStoreId = $(".sub_store").val();
 if (selectedStoreId) {
-    getSubStores(selectedStoreId);
-    getRejectedSubStores(selectedStoreId);
+    const path = window.location.pathname;
+    const match = path.match(/\/inspection\/edit\/(\d+)/);
+    const id = match ? match[1] : null;
+    if (id == null) {
+        getSubStores(selectedStoreId);
+        getRejectedSubStores(selectedStoreId);
+    }
 }
 
-// Get SUb Stores
+// Get SUb Storeso
 function getSubStores(storeLocationId) {
     const storeId = storeLocationId;
     $.ajax({
@@ -523,7 +530,6 @@ function getSubStores(storeLocationId) {
             sub_type: "main",
         },
         success: function (data) {
-            console.log("data", data);
 
             if (data.status == 200 && data.data.length) {
                 let options = "";
@@ -558,7 +564,6 @@ function getRejectedSubStores(storeLocationId) {
             sub_type: "rejected",
         },
         success: function (data) {
-            console.log("data", data);
 
             if (data.status == 200 && data.data.length) {
                 let options = '<option value="">select</option>';

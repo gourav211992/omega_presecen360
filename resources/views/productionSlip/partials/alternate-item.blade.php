@@ -51,8 +51,8 @@
         <input type="text" id="item_avl_qty_{{$rowIndex}}" value="0" name="cons[{{$rowIndex}}][item_avl_qty]"
             class="form-control mw-100 text-end" readonly="">
     </td>
-
     <input type="hidden" id="alternate_id_{{$rowIndex}}" name="cons[{{$rowIndex}}][alternate_id]"  value="{{$mo_bom_cons_id}}">
+    <input type="hidden" id="mo_product_id_{{$rowIndex}}" name="cons[{{$rowIndex}}][mo_product_id]"  value="{{$mo_product_id}}">
 
 
 </tr>

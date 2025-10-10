@@ -128,7 +128,7 @@
                                                         <label class="form-label">Document Date <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="date" name="document_date" class="form-control" value="{{$mrn->document_date}}" >
+                                                        <input id="document_date" type="date" name="document_date" class="form-control" value="{{$mrn->document_date}}" >
                                                     </div>
                                                 </div>
                                                 <div class="row align-items-center mb-1">
@@ -167,6 +167,10 @@
                                                             <input type="hidden" name="mrn_header_id" class="form-control" value="{{ $mrn->mrn_header_id }}">
                                                         </div>
                                                     </div>
+                                                    <input type="hidden" name="pb_tds_id"
+                                                                class="form-control pb_tds_id"
+                                                                id="pb_tds_input"
+                                                                value="{{ $mrn?->header_tax?->id }}" readonly>
                                                 @endif
                                             </div>
                                             {{-- Approval History Section --}}
@@ -188,7 +192,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">Vendor <span class="text-danger">*</span></label>
                                                             <input type="text" placeholder="Select" class="form-control mw-100 ledgerselecct" id="vendor_name" name="vendor_name" {{(count(($mrn->items)) > 0 ? 'readonly' : '')}} value="{{@$mrn->vendor->company_name}}" />
-                                                            <input type="hidden" value="{{@$mrn->vendor_id}}" id="vendor_id" name="vendor_id" />
+                                                            <input type="hidden" value="{{@$mrn->vendor_id}}" id="vendor_id" name="vendor_id" class="vendor_id"/>
                                                             <input type="hidden" value="{{@$mrn->vendor_code}}" id="vendor_code" name="vendor_code" />
                                                             @if($mrn->latestShippingAddress() || $mrn->latestBillingAddress())
                                                                 <input type="hidden" value="{{$mrn->latestBillingAddress()}}" id="shipping_id" name="shipping_id" />
@@ -460,6 +464,7 @@
                                                                             <td class="text-end" id="f_tax">
                                                                                 <!-- {{ number_format(@$mrn->total_taxes, 2) }}         -->
                                                                             </td>
+                                                                            <input id = "tax_amount_header" type="hidden" name="taxes_amount_header" />
                                                                         </tr>
                                                                         <tr class="totalsubheadpodetail">
                                                                             <td><strong>Total After Tax</strong></td>
@@ -831,6 +836,8 @@
     <script>
         let tableRowCount = $('.mrntableselectexcel tr').length;
         let currentProcessType = @json($mrn->reference_type);
+        let calTaxTdsUrl = '{{ route('tax.calculate.tds') }}';
+        let mrnData = @json($mrn);
         window.onload = () => {
             let mrnHeaderId = @json($mrn->mrn_header_id);
             if(mrnHeaderId)

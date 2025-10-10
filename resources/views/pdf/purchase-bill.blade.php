@@ -95,30 +95,51 @@
                             <tr>
                                 <td style="padding-top: 15px;">Address: </td>
                                 <td style="padding-top: 15px;">
-                                    {{ Str::ucfirst(@$shippingAddress?->address) }},
+                                    @if($pb->latestBillingAddress())
+                                        {{ Str::ucfirst($pb->latestBillingAddress()->address) }}
+                                    @else
+                                        {{ Str::ucfirst($pb->bill_address?->address) }}
+                                    @endif
                                 </td>
                             </tr>
                             <tr>
                                 <td style="padding-top: 3px;">City :</td>
                                 <td style="padding-top: 3px;">
-                                    {{ @$shippingAddress?->city?->name }}
+                                    @if($pb->latestBillingAddress())
+                                        {{ $pb->latestBillingAddress()->city?->name }}
+                                    @else
+                                        {{$pb->bill_address?->city?->name }}
+                                    @endif
                                 </td>
                             </tr>
                             <tr>
                                 <td style="padding-top: 3px;">State:</td>
                                 <td style="padding-top: 3px;">
-                                    {{ @$shippingAddress?->state?->name }}
+                                    @if($pb->latestBillingAddress())
+                                        {{$pb->latestBillingAddress()->state?->name}}
+                                    @else
+                                        {{$pb->bill_address?->state?->name}}
+                                    @endif
                                 </td>
                             </tr>
                             <tr>
                                 <td style="padding-top: 3px;">Country:</td>
                                 <td style="padding-top: 3px;">
-                                    {{ @$shippingAddress?->country?->name }}
+                                    @if($pb->latestBillingAddress())
+                                        {{$pb->latestBillingAddress()->country?->name}}
+                                    @else
+                                        {{$pb->bill_address?->country?->name}}
+                                    @endif
                                 </td>
                             </tr>
                             <tr>
                                 <td style="padding-top: 3px;">Pin Code : </td>
-                                <td style="padding-top: 3px;">{{ @$shippingAddress->pincode }}
+                                <td style="padding-top: 3px;">
+                                    @if($pb->latestBillingAddress())
+                                        {{$pb->latestBillingAddress()->pincode}}
+                                    @else
+                                        {{$pb->bill_address?->pincode}}
+                                    @endif
                                 </td>
                             </tr>
                             <tr>
@@ -129,7 +150,11 @@
                             <tr>
                                 <td style="padding-top: 3px;">Phone:</td>
                                 <td style="padding-top: 3px;">
-                                    {{ @$shippingAddress->phone }}
+                                    @if($pb->latestBillingAddress())
+                                    {{$pb->latestBillingAddress()->phone}}
+                                @else
+                                    {{$pb->bill_address?->phone}}
+                                @endif
                                 </td>
                             </tr>
                             <tr>
@@ -499,6 +524,16 @@
                                     </td>
                                 </tr>
                             @endforeach
+                            @if($headerTax)
+                            <tr>
+                                <td style="text-align: right; padding-top: 3px;">
+                                    <b>Header Tax ({{ $headerTax?->ted_name }}):</b>
+                                </td>
+                                <td style="text-align: right; padding-top: 3px;">
+                                    {{ number_format($headerTax?->ted_amount, 2) }}
+                                </td>
+                            </tr>
+                            @endif
                             @if($pb?->expenses?->count())
                                 <tr>
                                     <td style="text-align: right; padding-top: 3px;">

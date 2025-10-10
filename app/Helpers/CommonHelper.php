@@ -142,6 +142,62 @@ class CommonHelper
         self::SAFETY
     ];
 
+    // GSTR INVOICE TYPES
+    const HSN_B2C = 'hsnb2c';
+    const HSN_B2B = 'hsnb2b';
+    const DOC = 'doc_issue';
+    const B2B = 'b2b';
+    const B2BA = 'b2ba';
+    const B2CL = 'b2cl';
+    const B2CLA = 'b2cla';
+    const B2CS = 'b2cs';
+    const B2CSA = 'b2csa';
+    const CDNR = 'cdnr';
+    const CDNRA = 'cdnra';
+    const CDNUR = 'cdnur';
+    const CDNURA = 'cdnura';
+    const EXP = 'exp';
+    const EXPA = 'expa';
+    const AT = 'at';
+    const ATA = 'ata';
+    const ATADJ = 'atadj';
+    const EXEMP = 'exemp';
+
+
+    const HSN_B2B_INVOICE_TYPES = [
+        self::B2B,
+        self::B2BA,
+        self::CDNR,
+        self::CDNRA,
+        self::EXP,
+        self::EXPA,
+        self::AT,
+        self::ATA,
+        self::EXEMP
+    ];
+
+    const HSN_B2C_INVOICE_TYPES = [
+        self::B2CL,
+        self::B2CLA,
+        self::B2CS,
+        self::B2CSA,
+        self::CDNUR,
+        self::CDNURA
+    ];
+
+    const DOC_INVOICE_TYPES = [
+        self::B2B,
+        self::B2CL,
+        self::B2CS,
+        self::CDNR,
+        self::CDNUR,
+        self::EXP,
+        self::AT,
+        self::ATADJ,
+        self::EXEMP,
+    ];
+
+
     public static function dateFormat($date)
     {
         $date = $date ? date('d-m-Y', strtotime($date)) : '';

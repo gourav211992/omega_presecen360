@@ -24,7 +24,7 @@
                 </div>
                 <div class="content-header-right text-sm-end col-md-7 mb-50 mb-sm-0">
                     <div class="form-group breadcrumb-right">
-                        <button class="btn btn-warning btn-sm mb-50 mb-sm-0" ><i data-feather="filter"></i> Filter</button> 
+                        <button class="btn btn-warning btn-sm mb-50 mb-sm-0" data-bs-target="#filter" data-bs-toggle="modal" ><i data-feather="filter"></i> Filter</button> 
                         @if ($create_button)
                         <a class="btn btn-primary btn-sm mb-50 mb-sm-0" href="{{$create_route}}"><i data-feather="plus-circle"></i>
                             {{'Create'}}
@@ -63,6 +63,7 @@
                                                 {{-- <th>Value</th> --}}
                                                 <th>Shift</th>
                                                 {{-- <th class = "numeric-alignment">Amount</th> --}}
+                                                <th>Created By</th>
                                                 <th style = 'text-align:center'>Status</th>
 											  </tr>
 											</thead>
@@ -114,54 +115,31 @@
         </div>
     </div>
 
-<div class="modal modal-slide-in fade filterpopuplabel" id="filter">
-		<div class="modal-dialog sidebar-sm">
-			<form class="add-new-record modal-content pt-0"> 
-				<div class="modal-header mb-1">
-					<h5 class="modal-title" id="exampleModalLabel">Apply Filter</h5>
-					<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">×</button>
-				</div>
-				<div class="modal-body flex-grow-1">
-					<div class="mb-1">
-						  <label class="form-label" for="fp-range">Select Date</label>
-						  <input type="text" id="fp-range" class="form-control flatpickr-range bg-white" placeholder="YYYY-MM-DD to YYYY-MM-DD" />
-					</div>
-					
-					<div class="mb-1">
-						<label class="form-label">Order No.</label>
-						<select class="form-select">
-							<option>Select</option>
-						</select>
-					</div> 
+    <div class="modal modal-slide-in fade filterpopuplabel" id="filter">
+        <div class="modal-dialog sidebar-sm">
+            <form class="add-new-record modal-content pt-0">
+                <div class="modal-header mb-1">
+                    <h5 class="modal-title" id="exampleModalLabel">Apply Filter</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+                </div>
+                <div class="modal-body flex-grow-1"  id = "auto-complete-filters-row">
                     
-                    <div class="mb-1">
-						<label class="form-label">Customer Name</label>
-						<select class="form-select select2">
-							<option>Select</option> 
-						</select>
-					</div> 
-                    
-                    <div class="mb-1">
-						<label class="form-label">Status</label>
-						<select class="form-select">
-							<option>Select</option>
-							<option>Open</option>
-							<option>Close</option>
-						</select>
-					</div> 
-					 
-				</div>
-				<div class="modal-footer justify-content-start">
-					<button type="button" class="btn btn-primary data-submit mr-1">Apply</button>
-					<button type="reset" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-				</div>
-			</form>
-		</div>
-	</div>
+                
+                
+                </div>
+                <div class="modal-footer justify-content-start">
+                    <button type="button" class="btn btn-primary data-submit mr-1" onclick="applyFilters();">Apply</button>
+                    <button type="reset" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
     @endsection
     @section('scripts')
 <script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
 <script>
+    let reportDataTableInstance = null;
+
     $(document).ready(function() {
     function renderData(data) {
         return data ? data : 'N/A'; 
@@ -242,28 +220,134 @@
                $(td).addClass('no-wrap');
             }
         },
+        { data: 'created_by', name: 'created_by', render: renderData, createdCell: function(td, cellData, rowData, row, col)
+            {
+               $(td).addClass('no-wrap');
+            }
+        },
         { data: 'document_status', name: 'document_status', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
                $(td).addClass('no-wrap');
             }
         },
     ];
-    var filters = {
-        status: '#filter-status',
-        category: '#filter-category',
-        item_code: '#filter-item-code'
+   let filtersComponents = @json($autoCompleteFilters);
+   let filters = {
+        'date_range' : '#document_date_filter'
     };
+    filtersComponents.forEach(filter => {
+        filters[filter.requestName] = "#" + (filter.id + "_input");
+    });
     var exportColumns = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-    initializeDataTable('.datatables-basic', 
+    reportDataTableInstance = initializeDataTable('.datatables-basic', 
         "{{ $redirect_url }}", 
         columns,
-        filters,  // Apply filters
-        "{{$typeName}}",  // Export title
-        exportColumns,  // Export columns
-        [[1, 'desc']],// default order
+        filters, 
+        "{{$typeName}}",  
+        exportColumns,  
+        [[1, 'desc']],
         'landscape'
     );
-    // Apply filter on button click
-    // applyFilter('.apply-filter');
 });
+
+
+
+// autocomplete get data
+let filtersComponents = @json($autoCompleteFilters);
+
+let autoCompleteFiltersContainer = document.getElementById('auto-complete-filters-row');
+
+filtersComponents.forEach(filterData => {
+   if (filterData.type === 'auto_complete') {
+      autoCompleteFiltersContainer.innerHTML += `
+            <div class="mb-1">
+                  <label class="form-label">${filterData.label}</label>
+                  <input type="text" id = "${filterData.id}" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input reportFilter" autocomplete="off">
+                  <input class = "reportFilter" type='hidden' name="${filterData.requestName}" id = "${filterData.id + "_input"}"/>
+            </div>
+      `;
+   } else if (filterData.type === 'input_text') {
+      autoCompleteFiltersContainer.innerHTML += `
+            <div class="mb-1">
+                  <label class="form-label">${filterData.label}</label>
+                  <input type="text" name = "${filterData.requestName}" id = "${filterData.id + "_input"}" placeholder="Search" class="form-control mw-100 reportFilter">
+            </div>
+      `;
+   } else if (filterData.type === 'date_range') {
+      autoCompleteFiltersContainer.innerHTML += `
+            <div class="mb-1">
+               <label class="form-label">${filterData.label}</label>
+               <input type="text" class="form-control flatpickr-range flatpickr-input flatpickr-filter" name="${filterData.requestName}" id="${filterData.id + "_input"}" />
+            </div>
+      `;
+   }
+
+});
+
+filtersComponents.forEach(filterData => {
+   if (filterData.type === 'auto_complete') {
+      initializeAutoCompleteFilter(filterData.id, filterData.term, filterData.value_key, filterData.label_key, filterData.dependent);
+   }
+});
+function initializeAutoCompleteFilter(selector, type, valueKey, labelKey, dependentElements = []) {
+    $("#" + selector).autocomplete({
+        source: function(request, response) {
+            $.ajax({
+                url: '/search',
+                method: 'GET',
+                dataType: 'json',
+                data: {
+                    q: request.term,
+                    type: type,
+                },
+                success: function(data) {
+                    response($.map(data, function(item) {
+                        return {
+                            id: item[valueKey],
+                            label: item[labelKey],
+                        };
+                    }));
+                },
+                error: function(xhr) {
+                    console.error('Error fetching customer data:', xhr.responseText);
+                }
+            });
+        },
+        minLength: 0,
+        select: function(event, ui) {
+            var $input = $(this);
+            var itemCode = ui.item.label;
+            var itemId = ui.item.id;
+
+            $input.val(itemCode);
+            $("#" + selector + "_input").val(itemId);
+            //Reset the dependent elements
+            dependentElements.forEach(elementId => {
+                let dependentElement = document.getElementById(elementId);
+                let dependentElementInput = document.getElementById(elementId + "_input");
+                if (dependentElement) {
+                    dependentElement.value = "";
+                }
+                if (dependentElementInput) {
+                    dependentElementInput.value = "";
+                }
+            });
+            return false;
+        },
+        change: function(event, ui) {
+            if (!ui.item) {
+                $("#" + selector + "_input").val("");
+            }
+        }
+    }).focus(function() {
+        if (this.value === "") {
+            $(this).autocomplete("search", "");
+        }
+    });
+}
+function applyFilters()
+{
+    reportDataTableInstance.ajax.reload(); 
+    $("#filter").modal('hide');
+}
 </script>
 @endsection

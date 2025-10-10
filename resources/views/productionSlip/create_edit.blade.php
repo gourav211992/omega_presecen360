@@ -422,7 +422,12 @@
                                     </div>
                                 </div>
                             </div>
-
+                            {{-- Dynamic Fields Code --}}
+                            <div class="col-md-12 {{(isset($slip) && count($slip -> dynamic_fields)) > 0 ? '' : 'd-none'}}" id = "dynamic_fields_section">
+                                @if (isset($dynamicFieldsUi))
+                                    {!! $dynamicFieldsUi !!}
+                                @endif
+                            </div>
                             <div class="card">
 								 <div class="card-body customernewsection-form">
                                                 <div class="border-bottom mb-2 pb-25">
@@ -2358,6 +2363,9 @@
                   {
                     implementBookParameters(data.data.parameters);
                   }
+                    if (reset) {
+                      implementBookDynamicFields(data.data.dynamic_fields_html, data.data.dynamic_fields);
+                  }
                 }
                 if(data.status == 404) {
                     if (reset) {
@@ -2384,7 +2392,16 @@
             });
         });
     }
-
+    function implementBookDynamicFields(html, data)
+    {
+        let dynamicBookSection = document.getElementById('dynamic_fields_section');
+        dynamicBookSection.innerHTML = html;
+        if (data && data.length > 0) {
+            dynamicBookSection.classList.remove('d-none');
+        } else {
+            dynamicBookSection.classList.add('d-none');
+        }
+    }
     function onDocDateChange()
     {
         let bookId = $("#series_id_input").val();
@@ -2579,14 +2596,14 @@
     function setApproval(action)
     {
         document.getElementById('approve_reject_action_type').value = action;
-        document.getElementById('approve_reject_heading_label').textContent = "Approve " + "Invoice";
+        document.getElementById('approve_reject_heading_label').textContent = "Approve " + "Production Slip";
 
     }
 
     function setReject(action)
     {
         document.getElementById('approve_reject_action_type').value = 'rejected';
-        document.getElementById('approve_reject_heading_label').textContent = "Reject " + "Invoice";
+        document.getElementById('approve_reject_heading_label').textContent = "Reject " + "Production Slip";
     }
 
     function setFormattedNumericValue(element)
@@ -4166,6 +4183,8 @@ $(document).on("click", "#raw-materials .item_header_rows", (e) => {
         // let item_id = checkedBox.data('conId');
         let closestRow = checkedBox.closest('tr');
         let item_id = closestRow.find('input[name*="[item_id]"]').val();
+        let so_item_id = closestRow.find('input[name*="[so_item_id]"]').val();
+        let mo_product_id = closestRow.find('input[name*="[mo_product_id]"]').val();
         let soDoc = closestRow.find('input[name*="[so_doc]"]').val();
         let item_type = closestRow.find('input[name*="[item_type]"]').val();
         let item_code = closestRow.find('input[data-code]').attr('data-code');
@@ -4209,6 +4228,8 @@ $(document).on("click", "#raw-materials .item_header_rows", (e) => {
                         soDoc: soDoc,
                         itemType: item_type,
                         item_qty: item_qty,
+                        so_item_id: so_item_id,
+                        mo_product_id: mo_product_id,
                         mo_bom_cons_id: mo_bom_cons_id,
                         rowlastIndex:rowlastIndex
                     },
@@ -4216,6 +4237,10 @@ $(document).on("click", "#raw-materials .item_header_rows", (e) => {
                     success: function(data) {
                         closestRow.after(data.data);
                         var item=data.item;
+                        item = item.map(obj => {
+                            obj['so_item_id'] = so_item_id;
+                            return obj;
+                        });
                         initializeAutocomplete2(".comp_item_code",item);
                     },
                     error:function(error){
@@ -4231,7 +4256,6 @@ $(document).on("click", "#raw-materials .item_header_rows", (e) => {
   function initializeAutocomplete2(selector, data) {
     $(selector).autocomplete({
         source: $.map(data, function(item) {
-
             return {
                 id: item.id,
                 label: `${item.item_name} (${item.item_code})`,
@@ -4241,18 +4265,19 @@ $(document).on("click", "#raw-materials .item_header_rows", (e) => {
                 item_name: item.item_name,
                 uom_id: item.item.uom_id,
                 uomName: item.item.uom.name,
+                so_item_id: item.so_item_id,
                 is_attr: 1,
 
             };
         }),
         minLength: 0,
         select: function(event, ui) {
-
             let $input = $(this);
             const itemId = ui.item.item_id;
             const itemCode = ui.item.code;
             const itemName = ui.item.item_name;
             const itemN = ui.item.item_name;
+            const so_item_id = ui.item.so_item_id;
             const uomId = ui.item.uom_id;
             const uomName = ui.item.uomName;
 
@@ -4266,6 +4291,7 @@ $(document).on("click", "#raw-materials .item_header_rows", (e) => {
             $row.find('[name*=item_id]').val(itemId);
             $row.find('[name*=item_code]').val(itemCode);
             $row.find('[name*="[item_name]"]').val(itemN);
+            $row.find('[name*="[so_item_id]"]').val(so_item_id);
 
             const uomOption = `<option value="${uomId}">${uomName}</option>`;
             $row.find('[name*=uom_id]').empty().append(uomOption);
@@ -4343,6 +4369,9 @@ function getItemAttribute(itemId, rowCount, selectedAttr, tr){
     let isSo = $(tr).find('[name*="so_item_id"]').length ? 1 : 0;
     if(!isSo) {
         isSo = $(tr).find('[name*="so_pi_mapping_item_id"]').length ? 1 : 0;
+    }
+    if(isSo){
+        isSo=$(tr).find('[name*="alternate_id"]').length?0:1;
     }
     if(!isSo) {
         if($(tr).find('td[id*="attribute_section_"]').data('disabled')) {

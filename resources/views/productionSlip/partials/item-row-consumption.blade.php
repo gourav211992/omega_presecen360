@@ -19,7 +19,7 @@
                 </td>
             @endif
             <td class="poprod-decpt">
-                <input type="text" id="so_doc_{{$psBomConsIndex}}" name="cons[{{$psBomConsIndex}}][so_doc]" class="form-control mw-100 disabled-input"  value="{{$psBomCons?->so?->document_number}}">
+                <input type="text" id="so_doc_{{$psBomConsIndex}}" name="cons[{{$psBomConsIndex}}][so_doc]" class="form-control mw-100 disabled-input"  value="{{$psBomCons?->so?->book_code}} - {{$psBomCons?->so?->document_number}}">
             </td>
             <td class="poprod-decpt">
                 <input type="text" id = "items_dropdown_{{$psBomConsIndex}}" name="item_code[{{$psBomConsIndex}}]" placeholder="Select" class="form-control mw-100 ledgerselecct comp_item_code ui-autocomplete-input disabled-input {{$psBomCons -> is_editable ? '' : 'restrict'}}" autocomplete="off" data-name="{{$psBomCons -> item ?-> item_name}}" data-code="{{$psBomCons -> item ?-> item_code}}" data-id="{{$psBomCons -> item ?-> id}}" hsn_code = "{{$psBomCons -> item ?-> hsn ?-> code}}" item-name = "{{$psBomCons -> item ?-> item_name}}" specs = "{{$psBomCons -> item ?-> specifications}}" attribute-array = "{{$psBomCons -> item_attributes_array()}}"  value = "{{$psBomCons -> item ?-> item_code}}" item-location = "[]">
@@ -55,6 +55,7 @@
                 @endif
                 {{-- <input type="text" id = "item_qty_{{$psBomConsIndex}}" value = "{{$psBomCons -> qty}}" name = "item_qty[{{$psBomConsIndex}}]"  class="form-control mw-100 text-end disabled-input"/> --}}
             </td>
+            <input type="hidden" id="mo_product_id_{{$psBomConsIndex}}" name = "cons[{{$psBomConsIndex}}][mo_product_id]"  value = "{{$psBomCons?->pslip_item?->mo_product_id}}"> 
             {{-- @if(in_array($slip->document_status ?? [], ConstantHelper::DOCUMENT_STATUS_APPROVED))
             <td>
                 <input type="text" id = "item_avl_value_{{$psBomConsIndex}}" value = "{{number_format($psBomCons->item_value,2)}}" name = "cons[{{$psBomConsIndex}}][item_avl_item_value]"  class="form-control mw-100 text-end" readonly/>

@@ -290,4 +290,12 @@ class ErpSaleInvoice extends Model
     {
         return $this-> belongsTo(ErpConsignee::class,'consignee_id');
     }
+    public function getDisplayDocNumberAttribute()
+    {
+        if ($this -> doc_number_type === ConstantHelper::DOC_NO_TYPE_MANUAL) {
+            return $this -> document_number;
+        } else {
+            return $this -> book_code . '-' . $this -> document_number;
+        }
+    }
 }

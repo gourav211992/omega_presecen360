@@ -52,6 +52,7 @@ use App\Models\Unit;
 use App\Models\Vendor;
 use Carbon\Carbon;
 use Exception;
+use App\Services\Common\FinancialYearService;
 use PDF;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -66,18 +67,19 @@ class ErpMaterialReturnController extends Controller
         $pathUrl = request()->segments()[0];
         $orderType = ConstantHelper::MATERIAL_RETURN_SERVICE_ALIAS_NAME;
         $redirectUrl = route('material.return.index');
-        $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
+        $authUser = request() -> user();
+        $selectedfyYear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), $authUser);
         $createRoute = route('material.return.create');
         $typeName = ConstantHelper::MATERIAL_RETURN_SERVICE_NAME;
-        $autoCompleteFilters = self::getBasicFilters();
+        $autoCompleteFilters = [];
         
         if ($request -> ajax()) {
             try {
             $accessible_locations = InventoryHelper::getAccessibleLocations()->pluck('id')->toArray();
-            $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
+            $selectedfyYear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), $authUser);
             //Date Filters
             $dateRange = $request -> date_range ??  null;
-            $docs = ErpMaterialReturnHeader::withDefaultGroupCompanyOrg() ->  bookViewAccess($pathUrl) ->  withDraftListingLogic() ->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']]) -> whereIn('store_id',$accessible_locations) ->  when($request -> customer_id, function ($custQuery) use($request) {
+            $docs = ErpMaterialReturnHeader::withDefaultGroupCompanyOrg() -> selfCreatedDocuments($authUser) ->  bookViewAccess($pathUrl) ->  withDraftListingLogic() ->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']]) -> whereIn('store_id',$accessible_locations) ->  when($request -> customer_id, function ($custQuery) use($request) {
                     $custQuery -> where('customer_id', $request -> customer_id);
                 }) -> when($request -> book_id, function ($bookQuery) use($request) {
                     $bookQuery -> where('book_id', $request -> book_id);
@@ -91,6 +93,8 @@ class ErpMaterialReturnController extends Controller
                     $docQuery -> where('company_id', $request -> company_id);
                 }) -> when($request -> organization_id, function ($docQuery) use($request) {
                     $docQuery -> where('organization_id', $request -> organization_id);
+                }) -> when($request -> created_by, function ($docQuery) use($request) {
+                    $docQuery -> where('created_by', $request -> created_by);
                 }) -> when($request -> status, function ($docStatusQuery) use($request) {
                     $searchDocStatus = [];
                     if ($request -> status === ConstantHelper::DRAFT) {
@@ -182,6 +186,9 @@ class ErpMaterialReturnController extends Controller
             ->editColumn('grand_total_amount', function ($row) {
                 return number_format($row->total_amount,2);
             })
+            ->editColumn('created_by', function ($row) {
+                return ucfirst(isset($row->createdBy) ? $row->createdBy->name : '');
+            })
             ->rawColumns(['document_status'])
             ->make(true);
             }
@@ -197,28 +204,6 @@ class ErpMaterialReturnController extends Controller
         return view('materialReturn.index', ['typeName' => $typeName, 'redirect_url' => $redirectUrl, 'create_route' => $createRoute, 'filterArray' => TransactionReportHelper::FILTERS_MAPPING[ConstantHelper::MATERIAL_RETURN_SERVICE_ALIAS_NAME],
             'autoCompleteFilters' => $autoCompleteFilters, 'create_button' => $create_button]);
     
-    }
-    public function getBasicFilters()
-    {
-        //Get the common filters
-        $user = Helper::getAuthenticatedUser();
-        $categories = Category::select('id AS value', 'name AS label') -> withDefaultGroupCompanyOrg() 
-        -> whereNull('parent_id') -> get();
-        $subCategories = Category::select('id AS value', 'name AS label') -> withDefaultGroupCompanyOrg() 
-        -> whereNotNull('parent_id') -> get();
-        $items = Item::select('id AS value', 'item_name AS label') -> withDefaultGroupCompanyOrg()->get();
-        $users = AuthUser::select('id AS value', 'name AS label') -> where('organization_id', $user -> organization_id)->get();
-        $attributeGroups = AttributeGroup::select('id AS value', 'name AS label')->withDefaultGroupCompanyOrg()->get();
-
-        //Custom filters (to be restr)
-
-        return array(
-            'itemCategories' => $categories,
-            'itemSubCategories' => $subCategories,
-            'items' => $items,
-            'users' => $users,
-            'attributeGroups' => $attributeGroups 
-        );
     }
     
     public function create(Request $request)
@@ -1364,8 +1349,9 @@ class ErpMaterialReturnController extends Controller
     public function materialReturnReport(Request $request)
     {
         $pathUrl = route('material.return.index');
+        $authUser = request() -> user();
         $orderType = [ConstantHelper::MATERIAL_RETURN_SERVICE_ALIAS_NAME];
-        $materialReturn = ErpMaterialReturnHeader::with('items')-> withDefaultGroupCompanyOrg() -> withDraftListingLogic() -> orderByDesc('id');
+        $materialReturn = ErpMaterialReturnHeader::with('items') -> selfCreatedDocuments($authUser) -> withDefaultGroupCompanyOrg() -> withDraftListingLogic() -> orderByDesc('id');
         //Customer Filter
         $materialReturn = $materialReturn -> when($request -> vendor_id, function ($custQuery) use($request) {
             $custQuery -> where('vendor_id', $request -> vendor_id);
@@ -1397,6 +1383,10 @@ class ErpMaterialReturnController extends Controller
         //Organization Filter
         $materialReturn = $materialReturn -> when($request -> organization_id, function ($docQuery) use($request) {
             $docQuery -> where('organization_id', $request -> organization_id);
+        });
+        //Created Filter
+        $materialReturn = $materialReturn -> when($request -> created_by, function ($docQuery) use($request) {
+            $docQuery -> where('created_by', $request -> created_by);
         });
         //Document Status Filter
         $materialReturn = $materialReturn -> when($request -> doc_status, function ($docStatusQuery) use($request) {
@@ -1506,6 +1496,7 @@ class ErpMaterialReturnController extends Controller
                 $reportRow -> tax_amount = number_format($mrItem -> tax_amount, 2);
                 $reportRow -> taxable_amount = number_format($mrItem -> total_item_amount - $mrItem -> tax_amount, 2);
                 $reportRow -> total_item_amount = number_format($mrItem -> total_item_amount, 2);
+                $reportRow -> created_by = $mrItem -> header -> createdBy -> name;
                 //Delivery Schedule UI
                 // $deliveryHtml = '';
                 // if (count($mrItem -> item_deliveries) > 0) {

@@ -1603,10 +1603,6 @@
                 { data: 'item_code', name: 'item_code', render: renderData, orderable: false, searchable: false },
                 { data: 'item_name', name: 'item_name', render: renderData, orderable: false, searchable: false },
                 { data: 'attributes', name: 'attributes', render: renderData, orderable: false, searchable: false },
-                { data: 'order_qty', name: 'order_qty', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
-                        $(td).addClass('text-end');
-                    }
-                },
                 { data: 'accepted_qty', name: 'accepted_qty', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
@@ -1659,6 +1655,7 @@
         {
             let ids = [];
             let referenceNos = [];
+            let stockLedgerIds = [];
 
             $('.mrn_item_checkbox:checked').each(function() {
                 ids.push($(this).val());
@@ -1666,18 +1663,26 @@
                 if (referenceNo) {
                     referenceNos.push(referenceNo);
                 }
+                let stockLedgerId = $(this).data('stock-ledeger');
+                if (stockLedgerId) {
+                    stockLedgerIds.push(stockLedgerId);
+                }
             });
+
             return {
                 ids: ids,
-                referenceNos: referenceNos
+                referenceNos: referenceNos,
+                stockLedgerIds: stockLedgerIds
             };
         }
 
         $(document).on('click', '.mrnProcess', (e) => {
             let result = getSelectedMrnIDS();
             let ids = result.ids;
+            let stockLedgerIds = result.stockLedgerIds;
             let referenceNo = result.referenceNos[0];
             let idsLength = ids.length;
+
             currentProcessType = 'mrn';
             let pr_qty_type = $("#return_type").val() || '';
             let header_store_id = $(".header_store_id").val();
@@ -1820,6 +1825,7 @@
                 store_id: header_store_id,
                 sub_store_id: sub_store_id,
                 module_type: moduleTypes,
+                stockLedgerIds: stockLedgerIds
             };
 
             asnProcess(processData, 'mrn-process');
@@ -1948,10 +1954,6 @@
         $(document).on('click', '.clearMrnFilter', (e) => {
             $("#item_name_input_qt").val('');
             $("#item_id_qt_val").val('');
-            // $("#store").val('');
-            // $("#store_id").val('');
-            // $("#sub_store").val('');
-            // $("#sub_store_id").val('');
             $("#vendor_code_input_qt").val('');
             $("#vendor_id_qt_val").val('');
             $("#book_code_input_qt").val('');
@@ -1980,6 +1982,7 @@
             const process_store_id = asnData.store_id;
             const process_sub_store_id = asnData.sub_store_id;
             const return_type = asnData.return_type;
+            let stockLedgerIds = JSON.stringify(asnData.stockLedgerIds);
             let idsLength = ids.length;
 
             const currencyId = $("[name='currency_id']").val();
@@ -1990,6 +1993,7 @@
             const actionUrl = baseRoute
                 .replace(':type', type)
                 + '?ids=' + encodeURIComponent(ids)
+                + '&stockLedgerIds=' + stockLedgerIds
                 + '&moduleTypes=' + moduleTypes
                 + '&store_id=' + process_store_id
                 + '&sub_store_id=' + process_sub_store_id

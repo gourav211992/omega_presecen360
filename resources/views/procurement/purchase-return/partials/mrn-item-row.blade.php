@@ -19,6 +19,7 @@
             <input type="hidden" name="components[{{$rowCount}}][item_name]" value="{{@$item->item->name}}" />
             <input type="hidden" name="components[{{$rowCount}}][hsn_id]" value="{{@$item->hsn_id}}" />
             <input type="hidden" name="components[{{$rowCount}}][hsn_code]" value="{{@$item?->item?->hsn?->code}}" />
+            <input type="hidden" name="components[{{ $rowCount }}][is_foc]" value="{{@$item?->is_foc}}" />
             @php
                 $selectedAttr = @$item->attributes ? @$item->attributes()->whereNotNull('attr_value')->pluck('attr_value')->all() : [];
             @endphp
@@ -57,10 +58,10 @@
             <input type="number" class="form-control mw-100 accepted_qty text-end checkNegativeVal" name="components[{{$rowCount}}][accepted_qty]" value="{{($availableQty)}}" step="any"/>
         </td>
         <td>
-            <input type="number" name="components[{{$rowCount}}][rate]" value="{{$item->rate}}" readonly class="form-control mw-100 text-end rate checkNegativeVal" step="any"/>
+            <input type="number" name="components[{{$rowCount}}][rate]" value="{{$item->cost_per_unit}}" readonly class="form-control mw-100 text-end rate checkNegativeVal" step="any"/>
         </td>
         <td>
-            <input type="number" name="components[{{$rowCount}}][basic_value]" value="{{($availableQty - $item->purchase_bill_qty)*$item->rate}}"  class="form-control text-end mw-100 basic_value checkNegativeVal" readonly step="any"/>
+            <input type="number" name="components[{{$rowCount}}][basic_value]" value="{{($availableQty - $item->purchase_bill_qty)*$item->cost_per_unit}}"  class="form-control text-end mw-100 basic_value checkNegativeVal" readonly step="any"/>
         </td>
         <td>
             <div class="position-relative d-flex align-items-center">
@@ -89,7 +90,7 @@
             </div>
         </td>
         <td>
-            <input type="number" id="item_total_cost_{{$rowCount}}" name="components[{{$rowCount}}][item_total_cost]" value="{{($item->order_qty*$item->rate) - $item->discount_amount}}" readonly class="form-control mw-100 text-end item_total_cost" step="any"/>
+            <input type="number" id="item_total_cost_{{$rowCount}}" name="components[{{$rowCount}}][item_total_cost]" value="{{($item->order_qty*$item->cost_per_unit) - $item->discount_amount}}" readonly class="form-control mw-100 text-end item_total_cost" step="any"/>
             @foreach($item->taxes as $tax_key => $item_tax)
                 <input type="hidden" value="{{@$item_tax->id}}" name="components[{{$rowCount}}][taxes][{{$tax_key + 1}}][id]">
                 <input type="hidden" value="{{@$item_tax->ted_id}}" name="components[{{$rowCount}}][taxes][{{$tax_key + 1}}][t_d_id]">

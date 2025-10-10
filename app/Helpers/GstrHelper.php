@@ -1208,6 +1208,7 @@ class GstrHelper
 
     public static function pushSalesInvoiceVoucherData(int $docId)
     {
+        $authUser = Helper::getAuthenticatedUser();
         $documentHeader = ErpSaleInvoice::find($docId);
         if (!isset($documentHeader) && !$documentHeader) {
             return array(
@@ -1266,7 +1267,7 @@ class GstrHelper
         $month = Carbon::parse($documentDate)->month;
 
         //Place of supply
-        $shippingAddress = $documentHeader->shipping_address_details;
+        $shippingAddress = $documentHeader->billing_address_details;
         $stateId = $shippingAddress?->state_id;
         $placeOfSupply = State::find($stateId);
         $placeOfSupplyName = $placeOfSupply?->name;
@@ -1274,84 +1275,72 @@ class GstrHelper
         //Envoice Type
         $invoiceType = ErpGstInvoiceType::where('name', strtolower($documentHeader->gst_invoice_type))->first();
 
-        $gstRItemRow = [];
-
-        $gstRData = [
-            'voucher_id' => $voucher->id,
-            'invoice_id' => $documentHeader->id,
-            'invoice_no' => $documentHeader->document_number,
-            'invoice_date' => $documentHeader->document_date,
-            // 'revised_invoice_no' => null, //TBC
-            // 'revised_invoice_date' => null, //TBC
-            // 'supply_type' => null, //TBC
-            'invoice_type' => 'R',
-            'invoice_type_id' => $invoiceType?->id, //TBC
-            'group_id' => $documentHeader->group_id,
-            'company_id' => $documentHeader->company_id,
-            'organization_id' => $documentHeader->organization_id,
-            'party_name' => $partyName,
-            'party_gstin' => $partyGSTIN,
-            // 'voucher_type' => null, //TBC
-            'voucher_no' => $voucher->voucher_no,
-            'taxable_amt' => $documentHeader->total_amount - $documentHeader->total_tax_value,
-            'pos' => $placeOfSupply?->state_code, //TBC
-            'place_of_supply' => $placeOfSupplyName, //TBC
-            // 'reverse_charge' => 'N', //TBC
-            // 'uqc' => null,
-            // 'e_commerce_gstin' => null, //TBC
-            // 'revised_ecom_gstin' => null, //TBC
-            // 'ecom_operator_name' => null, //TBC
-            'invoice_amt' => $documentHeader->total_amount,
-            // 'applicable_tax_rate' => null,
-            // 'is_conflict' => null,
-            // 'conflict_msg' => null,
-            // 'note_date' => null, //TBC
-            // 'note_type' => null, //TBC
-            // 'note_value' => null, //TBC
-            // 'note_number' => null, //TBC
-            // 'revised_note_no' => null, //TBC
-            // 'revised_note_date' => null, //TBC
-            // 'ur_type' => null, //TBC
-            // 'exp_type' => null, //TBC
-            // 'port_code' => null, //TBC
-            // 'shipping_bill_no' => null, //TBC
-            // 'shipping_bill_date' => null, //TBC
-            // 'description' => null, //TBC
-            // 'expt_amt' => null, //TBC
-            // 'non_gst_amt' => null, //TBC
-            // 'nil_amt' => null, //TBC
-            // 'qty' => null, //TBC
-            // 'nature_of_document' => null, //TBC
-            // 'sr_no_from' => null, //TBC
-            // 'sr_no_to' => null, //TBC
-            // 'total_number' => null, //TBC
-            // 'cancelled' => null, //TBC
-            // 'net_value_of_supplies' => null, //TBC
-            'supplier_gstin' => $supplierGSTIN,
-            'supplier_name' => $supplierName,
-            // 'doc_no' => null, //TBC
-            // 'doc_date' => null, //TBC
-            // 'revised_doc_no' => null, //TBC
-            // 'revised_doc_date' => null, //TBC
-            // 'doc_type' => null, //TBC
-            // 'value_of_supplies_made' => null, //TBC
-            'year' => $year,
-            'month' => $month,
-        ];
+        $gstRData = [];
 
         foreach ($documentHeader->items as $itemData) {
-            $gstRItemRow[] = array_merge($gstRData, [
-                'rate' => $itemData->sgst_value['rate'] + $itemData->cgst_value['rate'] + $itemData->igst_value['rate'],
-                'sgst' => $itemData->sgst_value['value'],
-                'cgst' => $itemData->cgst_value['value'],
-                'igst' => $itemData->igst_value['value'],
-                'cess' => $itemData->cess_value['value'],
-                'hsn_code' => $itemData->hsn?->code
+            $currentGstRate = $itemData->sgst_value['rate']
+                + $itemData->cgst_value['rate']
+                + $itemData->igst_value['rate'];
+
+            $itemTaxableAmt = round(($itemData->order_qty * $itemData->rate)-($itemData->header_discount_amount + $itemData->item_discount_amount),2);
+            // Create a unique grouping key (by invoice, HSN, UOM, GST rate)
+            $key = implode('-', [
+                $documentHeader->id,
+                $itemData->hsn_code,
+                $itemData->uom_code,
+                $currentGstRate,
             ]);
+
+            // If group already exists, just add to it
+            if (isset($gstRData[$key])) {
+                $gstRData[$key]['sgst'] += $itemData->sgst_value['value'];
+                $gstRData[$key]['cgst'] += $itemData->cgst_value['value'];
+                $gstRData[$key]['igst'] += $itemData->igst_value['value'];
+                $gstRData[$key]['cess'] += $itemData->cess_value['value'];
+                $gstRData[$key]['qty'] += $itemData->order_qty;
+                $gstRData[$key]['taxable_amt'] += $itemTaxableAmt;
+            } else {
+                // Create a new grouped entry
+                $gstRData[$key] = [
+                    'voucher_id' => $voucher->id,
+                    'invoice_id' => $documentHeader->id,
+                    'invoice_no' => $documentHeader->display_doc_number,
+                    'invoice_date' => $documentHeader->document_date,
+                    'invoice_type' => $invoiceType?->code,
+                    'invoice_type_id' => $invoiceType?->id,
+                    'group_id' => $documentHeader->group_id,
+                    'company_id' => $documentHeader->company_id,
+                    'organization_id' => $documentHeader->organization_id,
+                    'party_name' => $partyName,
+                    'party_gstin' => $partyGSTIN,
+                    'voucher_no' => $voucher->voucher_no,
+                    'pos' => $placeOfSupply?->state_code,
+                    'place_of_supply' => $placeOfSupplyName,
+                    'supplier_gstin' => $supplierGSTIN,
+                    'supplier_name' => $supplierName,
+                    'year' => $year,
+                    'month' => $month,
+                    'rate' => $currentGstRate,
+                    'sgst' => $itemData->sgst_value['value'],
+                    'cgst' => $itemData->cgst_value['value'],
+                    'igst' => $itemData->igst_value['value'],
+                    'cess' => $itemData->cess_value['value'],
+                    'hsn_code' => $itemData->hsn_code,
+                    'qty' => $itemData->order_qty,
+                    'uqc' => $itemData->uom_code,
+                    'taxable_amt' => $itemTaxableAmt,
+                    'invoice_amt' => $documentHeader->total_amount,
+                    'created_by' => $authUser -> auth_user_id,
+                ];
+            }
         }
 
+        // Reset array keys (optional)
+        $gstRData = array_values($gstRData);
+
+
         return array(
-            'data' => $gstRItemRow,
+            'data' => $gstRData,
             'message' => 'GSTR data returned successfully',
             'status' => 'success'
         );
@@ -1359,11 +1348,23 @@ class GstrHelper
 
     public static function pushSalesReturnVoucherData(int $docId)
     {
+        $authUser = Helper::getAuthenticatedUser();
         $documentHeader = ErpSaleReturn::find($docId);
         if (!isset($documentHeader) && !$documentHeader) {
             return array(
                 'status' => 'error',
                 'message' => 'Transaction not found'
+            );
+        }
+        //Check for only sales invoice
+        if (
+            !($documentHeader->reference_doc_type === ConstantHelper::SI_SERVICE_ALIAS
+                || ($documentHeader->reference_doc_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS))
+        ) {
+            return array(
+                'status' => 'success',
+                'message' => 'Not Required',
+                'data' => array()
             );
         }
         //Retrieve voucher
@@ -1394,7 +1395,7 @@ class GstrHelper
         $organization = Organization::find($documentHeader->organization_id);
         if (!isset($organization) && !$organization) {
             return array(
-                'status' => 'error',
+                'status' => false,
                 'message' => 'Supplier details not found'
             );
         }
@@ -1406,92 +1407,82 @@ class GstrHelper
         $month = Carbon::parse($documentDate)->month;
 
         //Place of supply
-        $shippingAddress = $documentHeader->shipping_address_details;
+        $shippingAddress = $documentHeader->billing_address_details;
+        $locationAddressDetail = $documentHeader->location_address_details;
         $stateId = $shippingAddress?->state_id;
         $placeOfSupply = State::find($stateId);
         $placeOfSupplyName = $placeOfSupply?->name;
 
         //Envoice Type
-        $invoiceType = ErpGstInvoiceType::where('name', EInvoiceHelper::CREDIT_NOTE_INVOICE_TYPE)->first();
+        $returnType = MasterIndiaHelper::getReturnGstInvoiceType($documentHeader -> customer_id, $shippingAddress -> country_id, $locationAddressDetail ?-> country_id, 'customer', $documentHeader);
+        $invoiceType = ErpGstInvoiceType::where('name', strtolower($returnType))->first();
 
-        $gstRItemRow = [];
-
-        $gstRData = [
-            'voucher_id' => $voucher->id,
-            'invoice_id' => $documentHeader->id,
-            'invoice_no' => $documentHeader->document_number,
-            'invoice_date' => $documentHeader->document_date,
-            // 'revised_invoice_no' => null, //TBC
-            // 'revised_invoice_date' => null, //TBC
-            // 'supply_type' => null, //TBC
-            'invoice_type' => $documentHeader->gst_invoice_type,
-            'invoice_type_id' => $invoiceType?->id, //TBC
-            'group_id' => $documentHeader->group_id,
-            'company_id' => $documentHeader->company_id,
-            'organization_id' => $documentHeader->organization_id,
-            'party_name' => $partyName,
-            'party_gstin' => $partyGSTIN,
-            // 'voucher_type' => null, //TBC
-            'voucher_no' => $voucher->voucher_no,
-            'taxable_amt' => $documentHeader->total_amount - $documentHeader->total_tax_value,
-            'pos' => $placeOfSupply?->state_code, //TBC
-            'place_of_supply' => $placeOfSupplyName, //TBC
-            'reverse_charge' => 'N', //TBC
-            // 'uqc' => null,
-            // 'e_commerce_gstin' => null, //TBC
-            // 'revised_ecom_gstin' => null, //TBC
-            // 'ecom_operator_name' => null, //TBC
-            'invoice_amt' => $documentHeader->total_amount,
-            // 'applicable_tax_rate' => null,
-            // 'is_conflict' => null,
-            // 'conflict_msg' => null,
-            // 'note_date' => null, //TBC
-            // 'note_type' => null, //TBC
-            // 'note_value' => null, //TBC
-            // 'note_number' => null, //TBC
-            // 'revised_note_no' => null, //TBC
-            // 'revised_note_date' => null, //TBC
-            // 'ur_type' => null, //TBC
-            // 'exp_type' => null, //TBC
-            // 'port_code' => null, //TBC
-            // 'shipping_bill_no' => null, //TBC
-            // 'shipping_bill_date' => null, //TBC
-            // 'description' => null, //TBC
-            // 'expt_amt' => null, //TBC
-            // 'non_gst_amt' => null, //TBC
-            // 'nil_amt' => null, //TBC
-            // 'qty' => null, //TBC
-            // 'nature_of_document' => null, //TBC
-            // 'sr_no_from' => null, //TBC
-            // 'sr_no_to' => null, //TBC
-            // 'total_number' => null, //TBC
-            // 'cancelled' => null, //TBC
-            // 'net_value_of_supplies' => null, //TBC
-            'supplier_gstin' => $supplierGSTIN,
-            'supplier_name' => $supplierName,
-            // 'doc_no' => null, //TBC
-            // 'doc_date' => null, //TBC
-            // 'revised_doc_no' => null, //TBC
-            // 'revised_doc_date' => null, //TBC
-            // 'doc_type' => null, //TBC
-            // 'value_of_supplies_made' => null, //TBC
-            'year' => $year,
-            'month' => $month,
-        ];
+        $gstRData = [];
 
         foreach ($documentHeader->items as $itemData) {
-            $gstRItemRow[] = array_merge($gstRData, [
-                'rate' => $itemData->sgst_value['rate'] + $itemData->cgst_value['rate'] + $itemData->igst_value['rate'],
-                'sgst' => $itemData->sgst_value['value'],
-                'cgst' => $itemData->cgst_value['value'],
-                'igst' => $itemData->igst_value['value'],
-                'cess' => $itemData->cess_value['value'],
-                'hsn_code' => $itemData->hsn?->code
+            $currentGstRate = $itemData->sgst_value['rate']
+                + $itemData->cgst_value['rate']
+                + $itemData->igst_value['rate'];
+
+            $itemTaxableAmt = round(($itemData->order_qty * $itemData->rate)-($itemData->header_discount_amount + $itemData->item_discount_amount),2);
+            // Create a unique grouping key (by invoice, HSN, UOM, GST rate)
+            $key = implode('-', [
+                $documentHeader->id,
+                $itemData->hsn_code,
+                $itemData->uom_code,
+                $currentGstRate,
             ]);
+
+            // If group already exists, just add to it
+            if (isset($gstRData[$key])) {
+                $gstRData[$key]['sgst'] += $itemData->sgst_value['value'];
+                $gstRData[$key]['cgst'] += $itemData->cgst_value['value'];
+                $gstRData[$key]['igst'] += $itemData->igst_value['value'];
+                $gstRData[$key]['cess'] += $itemData->cess_value['value'];
+                $gstRData[$key]['qty'] += $itemData->order_qty;
+                $gstRData[$key]['taxable_amt'] += $itemTaxableAmt;
+            } else {
+                // Create a new grouped entry
+                $gstRData[$key] = [
+                    'voucher_id' => $voucher->id,
+                    'invoice_id' => $documentHeader->id,
+                    'invoice_no' => $documentHeader->display_doc_number,
+                    'invoice_date' => $documentHeader->document_date,
+                    'invoice_type' => $invoiceType?->code,
+                    'invoice_type_id' => $invoiceType?->id,
+                    'group_id' => $documentHeader->group_id,
+                    'company_id' => $documentHeader->company_id,
+                    'organization_id' => $documentHeader->organization_id,
+                    'party_name' => $partyName,
+                    'party_gstin' => $partyGSTIN,
+                    'voucher_no' => $voucher->voucher_no,
+                    'pos' => $placeOfSupply?->state_code,
+                    'place_of_supply' => $placeOfSupplyName,
+                    'supplier_gstin' => $supplierGSTIN,
+                    'supplier_name' => $supplierName,
+                    'year' => $year,
+                    'month' => $month,
+                    'rate' => $currentGstRate,
+                    'sgst' => $itemData->sgst_value['value'],
+                    'cgst' => $itemData->cgst_value['value'],
+                    'igst' => $itemData->igst_value['value'],
+                    'cess' => $itemData->cess_value['value'],
+                    'hsn_code' => $itemData->hsn_code,
+                    'qty' => $itemData->order_qty,
+                    'uqc' => $itemData->uom_code,
+                    'taxable_amt' => $itemTaxableAmt,
+                    'invoice_amt' => $documentHeader->total_amount,
+                    'created_by' => $authUser -> auth_user_id
+                ];
+            }
         }
 
+        // Reset array keys (optional)
+        $gstRData = array_values($gstRData);
+
+
         return array(
-            'data' => $gstRItemRow,
+            'data' => $gstRData,
             'message' => 'GSTR data returned successfully',
             'status' => 'success'
         );
@@ -1637,14 +1628,13 @@ class GstrHelper
                 'status' => 'success'
             );
         } catch (\Exception $e) {
-            dd($e->getMessage(), $e->getLine());
         }
     }
 
     public static function pushVoucherDataToGstrTable(string $referenceService, int $referenceDocId)
     {
         $gstrData = array();
-        if ($referenceService === ConstantHelper::SI_SERVICE_ALIAS || $referenceService === ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS) {
+        if ($referenceService === ConstantHelper::SI_SERVICE_ALIAS || $referenceService === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS) {
             $response = self::pushSalesInvoiceVoucherData($referenceDocId);
             if ($response['status'] === 'success' && isset($response['data'])) {
                 $gstrData = $response['data'];

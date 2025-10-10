@@ -60,6 +60,7 @@ use App\Models\Vendor;
 use App\Services\MaterialIssue\MaterialIssue;
 use Carbon\Carbon;
 use PDF;
+use App\Services\Common\FinancialYearService;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -84,17 +85,18 @@ class ErpMaterialIssueController extends Controller
         $pathUrl = request()->segments()[0];
         $orderType = ConstantHelper::MATERIAL_ISSUE_SERVICE_ALIAS_NAME;
         $redirectUrl = route('material.issue.index');
-        $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
+        $authUser = request() -> user();
+        $selectedfyYear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), $authUser);
         $createRoute = route('material.issue.create');
         $typeName = ConstantHelper::MATERIAL_ISSUE_SERVICE_NAME;
         $autoCompleteFilters = self::getBasicFilters();
         if ($request -> ajax()) {
             try {
                 $accessible_locations = InventoryHelper::getAccessibleLocations()->pluck('id')->toArray();
-                $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
+                $selectedfyYear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), $authUser);
                 //Date Filters
                 $dateRange = $request -> date_range ??  null;
-                $docs = ErpMaterialIssueHeader::withDefaultGroupCompanyOrg() ->  bookViewAccess($pathUrl) ->  
+                $docs = ErpMaterialIssueHeader::withDefaultGroupCompanyOrg() ->  bookViewAccess($pathUrl) -> selfCreatedDocuments($authUser) ->
                 withDraftListingLogic() ->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']]) 
                 -> whereIn('from_store_id',$accessible_locations) ->  when($request -> customer_id, function ($custQuery) use($request) {
                     $custQuery -> where('customer_id', $request -> customer_id);
@@ -108,6 +110,8 @@ class ErpMaterialIssueController extends Controller
                     $docQuery -> where('from_store_id', $request -> company_id);
                 }) -> when($request -> organization_id, function ($docQuery) use($request) {
                     $docQuery -> where('organization_id', $request -> organization_id);
+                }) -> when($request -> created_by, function ($docQuery) use($request) {
+                    $docQuery -> where('created_by', $request -> created_by);
                 }) -> when($request -> status, function ($docStatusQuery) use($request) {
                     $searchDocStatus = [];
                     if ($request -> status === ConstantHelper::DRAFT) {
@@ -220,6 +224,9 @@ class ErpMaterialIssueController extends Controller
                 })
                 ->editColumn('to_sub_store_code',function($row){
                     return $row?->to_sub_store?->name ?? "N/A";
+                })
+                ->editColumn('created_by', function ($row) {
+                    return ucfirst(isset($row->createdBy) ? $row->createdBy->name : '');
                 })
                 ->rawColumns(['document_status'])
                 ->make(true);
@@ -1721,8 +1728,9 @@ class ErpMaterialIssueController extends Controller
     public function materialIssueReport(Request $request)
     {
         $pathUrl = route('material.issue.index');
+        $authUser = request() -> user();
         $orderType = [ConstantHelper::MATERIAL_ISSUE_SERVICE_ALIAS_NAME];
-        $materialIssue = ErpMaterialIssueHeader::with('items')-> withDefaultGroupCompanyOrg() -> withDraftListingLogic() -> orderByDesc('id');
+        $materialIssue = ErpMaterialIssueHeader::with('items')-> withDefaultGroupCompanyOrg() -> selfCreatedDocuments($authUser) -> withDraftListingLogic() -> orderByDesc('id');
         //Customer Filter
         $materialIssue = $materialIssue -> when($request -> vendor_id, function ($custQuery) use($request) {
             $custQuery -> where('vendor_id', $request -> vendor_id);
@@ -1754,6 +1762,10 @@ class ErpMaterialIssueController extends Controller
         //Organization Filter
         $materialIssue = $materialIssue -> when($request -> organization_id, function ($docQuery) use($request) {
             $docQuery -> where('organization_id', $request -> organization_id);
+        });
+        //Creator Filter
+        $materialIssue = $materialIssue -> when($request -> created_by, function ($docQuery) use($request) {
+            $docQuery -> where('created_by', $request -> created_by);
         });
         //Document Status Filter
         $materialIssue = $materialIssue -> when($request -> doc_status, function ($docStatusQuery) use($request) {
@@ -1831,6 +1843,7 @@ class ErpMaterialIssueController extends Controller
                 $reportRow -> tax_amount = number_format($miItem -> tax_amount, 2);
                 $reportRow -> taxable_amount = number_format($miItem -> total_item_amount - $miItem -> tax_amount, 2);
                 $reportRow -> total_item_amount = number_format($miItem -> total_item_amount, 2);
+                $reportRow -> created_by = $header -> createdBy ?-> name;
                 //Delivery Schedule UI
                 // $deliveryHtml = '';
                 // if (count($miItem -> item_deliveries) > 0) {

@@ -24,7 +24,7 @@ class BackUpdateService
     //  * @param Request $request
     //  * @return array
     //  */
-    public function updateQuantity($component, $mrnDetail, $order_qty)
+    public function updateQuantity($component, $order_qty)
     {
         if (isset($component['po_detail_id']) && $component['po_detail_id']) {
             if (isset($component['gate_entry_detail_id']) && $component['gate_entry_detail_id']) {
@@ -61,7 +61,7 @@ class BackUpdateService
                 }
             }
 
-            $poItem = PoItem::find($component['po_detail_id'] ?? @$mrnDetail->purchase_order_item_id);
+            $poItem = PoItem::find($component['po_detail_id']);
             if ($poItem) {
                 $orderQty = floatval($order_qty);
                 $componentQty = floatval($component['order_qty']);
@@ -104,7 +104,7 @@ class BackUpdateService
                 }
             }
 
-            $joItem = JoProduct::find($component['jo_detail_id'] ?? @$mrnDetail->job_order_item_id);
+            $joItem = JoProduct::find($component['jo_detail_id']);
             if ($joItem) {
                 $orderQty = floatval($order_qty);
                 $componentQty = floatval($component['order_qty']);

@@ -839,10 +839,8 @@
                 document_date;
             fetch(actionUrl).then(response => {
                 return response.json().then(data => {
-                    // console.log(data.data);
                     if (data.status == 200) {
                         const parameters = data.data.parameters;
-                        // console.log('parameters', parameters);
                         setServiceParameters(parameters);
 
                         if (parameters?.tax_required.some(val => val.toLowerCase() === 'yes')) {
@@ -1167,7 +1165,6 @@
         $(document).on('click', '#addNewItemBtn', (e) => {
             // for component item code
             let storeLocation = $('.header_store_id').val();
-            updateItemStores();
             getSubStores(storeLocation);
             var supplierName = $('#vendor_name').val();
             if (!supplierName) {
@@ -2154,7 +2151,6 @@
                     const modelType = 'mrn';
                     const order = data.data.mrnHeader;
                     $("#reference_type_input").val(modelType);
-                    // console.log(vendor?.id, modelType, order.id);
 
                     vendorOnChange(vendor?.id, modelType, order.id);
 
@@ -2177,6 +2173,9 @@
                     }
                     initializeAutocomplete2(".comp_item_code");
                     $("#mrnModal").modal('hide');
+                    $('.header_store_id').prop('disabled', true);
+                    $('.sub_store').prop('disabled', true);
+                    $('.rejected_sub_store_id').prop('disabled', true);
 
                     // UI Locks
                     $("select[name='currency_id'], select[name='payment_term_id']").prop('disabled', true);
@@ -2288,7 +2287,6 @@
 
         // Handle Process Error
         function handleProcessError(message = 'Invalid data') {
-            // console.log('message', message);
             $(".editAddressBtn").removeClass('d-none');
             $("#vendor_name").val('').prop('readonly', false);
             $("#vendor_id, #vendor_code, #hidden_state_id, #hidden_country_id").val('');

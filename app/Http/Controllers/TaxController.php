@@ -517,11 +517,11 @@ class TaxController extends Controller
             $taxDetail = TaxDetail::findOrFail($id);
 
             $extraReferenceTables = [
-                'erp_purchase_order_ted' => 'ted_id',   
-                'erp_sale_order_ted' => 'ted_id',       
-                'erp_mrn_extra_amounts' => 'ted_id',   
-                'erp_mi_ted' => 'ted_id',               
-                'erp_sale_invoice_ted' => 'ted_id',     
+                'erp_purchase_order_ted' => 'ted_id',
+                'erp_sale_order_ted' => 'ted_id',
+                'erp_mrn_extra_amounts' => 'ted_id',
+                'erp_mi_ted' => 'ted_id',
+                'erp_sale_invoice_ted' => 'ted_id',
             ];
             $result = $taxDetail->deleteWithReferences([], [], $extraReferenceTables);
 
@@ -558,17 +558,17 @@ class TaxController extends Controller
             $tax = Tax::findOrFail($id);
 
             $referenceTables = [
-                'erp_tax_details' => ['id'], 
+                'erp_tax_details' => ['id'],
             ];
             $extraReferenceTables = [
-                'erp_purchase_order_ted' => 'ted_id',   
-                'erp_sale_order_ted' => 'ted_id',       
-                'erp_mrn_extra_amounts' => 'ted_id',   
-                'erp_mi_ted' => 'ted_id',               
-                'erp_sale_invoice_ted' => 'ted_id',    
+                'erp_purchase_order_ted' => 'ted_id',
+                'erp_sale_order_ted' => 'ted_id',
+                'erp_mrn_extra_amounts' => 'ted_id',
+                'erp_mi_ted' => 'ted_id',
+                'erp_sale_invoice_ted' => 'ted_id',
             ];
 
-            $taxDetailIds = $tax->taxDetails()->pluck('id')->toArray(); 
+            $taxDetailIds = $tax->taxDetails()->pluck('id')->toArray();
 
             foreach ($taxDetailIds as $taxDetailId) {
                 $result = $tax->deleteWithReferences($referenceTables, [], $extraReferenceTables, $taxDetailId);
@@ -868,6 +868,35 @@ class TaxController extends Controller
                 return response()->json(['error' => $tcsTax['message']], 500);
             } else {
                 return response()->json($tcsTax['data']);
+            }
+        } catch(\Exception $ex) {
+            return response()->json(['error' => $ex->getMessage()], 500);
+        }
+    }
+
+    public function calculateTdsTax(Request $request)
+    {
+        try {
+            $authUser = Helper::getAuthenticatedUser();
+            $store = ErpStore::with('address') -> find($request -> store_id);
+            if (!$store) {
+                return response()->json(['error' => 'Location not found'], 422);
+            }
+            $fromCountryId = $store -> address -> country_id;
+            $vendorId = $request -> vendor_id;
+            $totalTaxableValue = $request -> total_taxable_value;
+            $toCountryId = $request -> to_country_id;
+            $nonTcsAssessableAmt = $request -> non_tcs_assessable_amt ?? 0;
+            $documentDate = $request -> document_date ?? "";
+            $vendor = Vendor::find($vendorId);
+            if (!$vendor) {
+                return response()->json(['error' => 'vendor not found'], 422);
+            }
+            $tdsTax = TaxHelper::calculateHeaderTax($vendor, $fromCountryId, $toCountryId, $authUser, 'purchase', ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $documentDate, $nonTcsAssessableAmt, $totalTaxableValue);
+            if ($tdsTax['status'] == 'error') {
+                return response()->json(['error' => $tdsTax['message']], 500);
+            } else {
+                return response()->json($tdsTax['data']);
             }
         } catch(\Exception $ex) {
             return response()->json(['error' => $ex->getMessage()], 500);

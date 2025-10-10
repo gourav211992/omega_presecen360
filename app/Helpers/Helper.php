@@ -138,13 +138,12 @@ class Helper
         $servicesBooks = self::getAccessibleServicesFromMenuAlias($menuServiceAlias, $isEdit ? $serviceAlias : '');
         $bookIds = $servicesBooks['books'];
         $allBookAccess = $servicesBooks['all_book_access'];
-        $getCurrentOrg =OrganizationHelper::getAuthenticatedOrganization();
         $series = Book::withDefaultGroupCompanyOrg()
             ->whereHas('org_service', function ($orgService) use ($serviceAlias) {
                 $orgService->where('alias', $serviceAlias); 
-            })->when($is_manually, function ($query) use($getCurrentOrg) {
-                $query->whereHas('patterns', function ($patterns) use ($getCurrentOrg) {
-                    $patterns->where('series_numbering', 'Manually')->where('organization_id',$getCurrentOrg->id);
+            })->when($is_manually, function ($query){
+                $query->whereHas('patterns', function ($patterns) {
+                    $patterns->where('series_numbering', 'Manually');
                 });
             })->when($allBookAccess === false, function ($bookQuery) use ($bookIds) {
                 $bookQuery->whereIn('id', $bookIds);

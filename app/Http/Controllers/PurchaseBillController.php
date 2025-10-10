@@ -236,6 +236,7 @@ class PurchaseBillController extends Controller
             $firstAddress = $organization->addresses->first();
             $companyCountryId = null;
             $companyStateId = null;
+            $oldNonTdsAccesableAmt = 0;
             if ($firstAddress) {
                 $companyCountryId = $firstAddress->country_id;
                 $companyStateId = $firstAddress->state_id;
@@ -355,6 +356,8 @@ class PurchaseBillController extends Controller
                 ]);
                 $shippingAddress->save();
             }
+            $tdsAssessableAmt = $pb -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
+            $oldNonTdsAccesableAmt = ($pb -> total_item_amount - $pb -> total_discount) - $tdsAssessableAmt;
             # Store location address
             if ($pb?->erpStore) {
                 $storeAddress = $pb?->erpStore->address;
@@ -669,6 +672,45 @@ class PurchaseBillController extends Controller
                     }
                 }
 
+                // TDS Header Level Tax
+                $locationAddress = $pb -> store_address;
+                $billingAddress = $pb -> bill_address_details;
+                $vendor = Vendor::find($request -> vendor_id);
+                $totalTaxableValue = ($itemTotalValue - ($itemTotalHeaderDiscount + $itemTotalDiscount));
+                $tdsApplicability = TaxHelper::calculateHeaderTax($vendor, $locationAddress -> country_id, $billingAddress -> country_id, $user, 'purchase',
+                    ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $pb->document_date, $oldNonTdsAccesableAmt, $totalTaxableValue);
+                    if ($tdsApplicability['status'] == 'error') {
+                    DB::rollBack();
+                    return response() -> json([
+                        'status' => 'error',
+                        'message' => $tdsApplicability['message']
+                    ], 422);
+                }
+                if ($tdsApplicability['data'] && isset($tdsApplicability['data']['id'])) {
+                    $headerTdsRowData = [
+                        'header_id' => $pb -> id,
+                        'detail_id' => null,
+                        'ted_type' => 'Tax',
+                        'ted_level' => 'H',
+                        'ted_id' => $tdsApplicability['data']['id'],
+                        'ted_name' => $tdsApplicability['data']['tax_code'],
+                        'assesment_amount' => $tdsApplicability['data']['assesable_value'],
+                        'ted_code' => $tdsApplicability['data']['tax_group'],
+                        'ted_percentage' => $tdsApplicability['data']['tax_percentage'],
+                        'ted_amount' => $tdsApplicability['data']['tax_amount'],
+                        'applicable_type' => $tdsApplicability['data']['applicability_type'],
+                    ];
+                    if (isset($request -> pb_tds_id)) {
+                        $tdsTaxTed = PbTed::updateOrCreate(['id' => $request -> pb_tds_id], $headerTdsRowData);
+                    } else {
+                        $tdsTaxTed = PbTed::create($headerTdsRowData);
+                    }
+                    $totalTax -= $tdsTaxTed -> ted_amount;
+                } else {
+                    PbTed::where('header_id', $pb -> id) -> where('ted_type', 'Tax')
+                        -> where('ted_level', 'H') -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> delete();
+                }
+
                 /*Update total in main header Pb*/
                 $pb->total_item_amount = $itemTotalValue ?? 0.00;
                 $totalDiscValue = ($itemTotalHeaderDiscount + $itemTotalDiscount) ?? 0.00;
@@ -712,6 +754,11 @@ class PurchaseBillController extends Controller
             $pb->group_currency_code = $currencyExchangeData['data']['group_currency_code'];
             $pb->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
             $pb->save();
+            $pb -> refresh();
+            $currentTdsAssessableAmt = $pb -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
+            $currentNonTdsAssessableAmt = ($pb -> total_item_amount - $pb -> total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
+            TaxHelper::buildTaxThresholdUtilization($pb, 'purchase', ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $currentNonTdsAssessableAmt);
+
 
             /*Create document submit log*/
             if ($request->document_status == ConstantHelper::SUBMITTED) {
@@ -751,6 +798,19 @@ class PurchaseBillController extends Controller
 
             $redirectUrl = '';
             if (($pb->document_status == ConstantHelper::APPROVED) || ($pb->document_status == ConstantHelper::POSTED)) {
+                if ($pb->document_status == ConstantHelper::POSTED) {
+                    $pbData = PbHeader::find($pb->id);
+                    if ($pbData && $pbData->mrn_header_id) {
+                        $referenceData = MrnHeader::find($pbData->mrn_header_id);
+                        if ($referenceData && ($referenceData->document_status != ConstantHelper::POSTED)) {
+                            DB::rollBack();
+                            return response()->json([
+                                'status' => 'error',
+                                'message' => 'Unable to Post PB Document because reference MRN not posted.'
+                            ],422);
+                        }
+                    }
+                }
                 $parentUrl = request()->segments()[0];
                 $redirectUrl = url($parentUrl . '/' . $pb->id . '/pdf');
             }
@@ -790,7 +850,7 @@ class PurchaseBillController extends Controller
     {
         $user = Helper::getAuthenticatedUser();
 
-        $pb = PbHeader::with(['vendor', 'currency', 'items', 'book'])
+        $pb = PbHeader::with(['vendor', 'currency', 'items', 'book', 'header_tax'])
             ->findOrFail($id);
         $totalItemValue = $pb->items()->sum('basic_value');
         $userType = Helper::userCheck();
@@ -824,7 +884,7 @@ class PurchaseBillController extends Controller
         $users = AuthUser::where('organization_id', Helper::getAuthenticatedUser()->organization_id)
             ->where('status', ConstantHelper::ACTIVE)
             ->get();
-        $pb = PbHeader::with(['vendor', 'currency', 'items', 'book'])
+        $pb = PbHeader::with(['vendor', 'currency', 'items', 'book', 'header_tax'])
             ->findOrFail($id);
 
         $headerIds = $pb->mrn_header_id ?? null;
@@ -902,6 +962,7 @@ class PurchaseBillController extends Controller
         $groupId = $organization?->group_id ?? null;
         $companyId = $organization?->company_id ?? null;
         $reference_type = null;
+        $oldNonTdsAccesableAmt = 0;
         //Tax Country and State
         $firstAddress = $organization->addresses->first();
         $companyCountryId = null;
@@ -997,6 +1058,9 @@ class PurchaseBillController extends Controller
                 ]);
                 $shippingAddress->save();
             }
+
+            $tdsAssessableAmt = $pb -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
+            $oldNonTdsAccesableAmt = ($pb -> total_item_amount - $pb -> total_discount) - $tdsAssessableAmt;
 
             # Store location address
             if ($pb?->erpStore) {
@@ -1325,6 +1389,55 @@ class PurchaseBillController extends Controller
                     }
                 }
 
+                // TDS Header Level Tax
+                $locationAddress = $pb->store_address;
+                $billingAddress = $pb->bill_address_details;
+                $vendor = Vendor::find($request->vendor_id);
+                $totalTaxableValue = ($itemTotalValue - ($itemTotalHeaderDiscount + $itemTotalDiscount));
+                $tdsApplicability = TaxHelper::calculateHeaderTax(
+                    $vendor,
+                    $locationAddress->country_id,
+                    $billingAddress->country_id,
+                    $user,
+                    'purchase',
+                    ConstantHelper::TDS,
+                    ConstantHelper::TDS_SECTION_194Q,
+                    $pb->document_date,
+                    $oldNonTdsAccesableAmt,
+                    $totalTaxableValue
+                );
+                if ($tdsApplicability['status'] == 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => $tdsApplicability['message']
+                    ], 422);
+                }
+                if ($tdsApplicability['data'] && isset($tdsApplicability['data']['id'])) {
+                    $headerTdsRowData = [
+                        'header_id' => $pb->id,
+                        'detail_id' => null,
+                        'ted_type' => 'Tax',
+                        'ted_level' => 'H',
+                        'ted_id' => $tdsApplicability['data']['id'],
+                        'ted_name' => $tdsApplicability['data']['tax_code'],
+                        'assesment_amount' => $tdsApplicability['data']['assesable_value'],
+                        'ted_code' => $tdsApplicability['data']['tax_group'],
+                        'ted_percentage' => $tdsApplicability['data']['tax_percentage'],
+                        'ted_amount' => $tdsApplicability['data']['tax_amount'],
+                        'applicable_type' => $tdsApplicability['data']['applicability_type'],
+                    ];
+                    if (isset($request->pb_tds_id)) {
+                        $tdsTaxTed = PbTed::updateOrCreate(['id' => $request->pb_tds_id], $headerTdsRowData);
+                    } else {
+                        $tdsTaxTed = PbTed::create($headerTdsRowData);
+                    }
+                    $totalTax -= $tdsTaxTed->ted_amount;
+                } else {
+                    PbTed::where('header_id', $pb->id)->where('ted_type', 'Tax')
+                        ->where('ted_level', 'H')->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->delete();
+                }
+
                 /*Update total in main header Pb*/
                 $pb->total_item_amount = $itemTotalValue ?? 0.00;
                 $totalDiscValue = ($itemTotalHeaderDiscount + $itemTotalDiscount) ?? 0.00;
@@ -1376,6 +1489,11 @@ class PurchaseBillController extends Controller
             $pb->group_currency_code = $currencyExchangeData['data']['group_currency_code'];
             $pb->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
             $pb->save();
+
+            $pb->refresh();
+            $currentTdsAssessableAmt = $pb -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
+            $currentNonTdsAssessableAmt = ($pb -> total_item_amount - $pb -> total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
+            TaxHelper::buildTaxThresholdUtilization($pb, 'purchase', ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $currentNonTdsAssessableAmt);
 
             /*Create document submit log*/
             $bookId = $pb->book_id;
@@ -1431,6 +1549,19 @@ class PurchaseBillController extends Controller
 
             $redirectUrl = '';
             if (($pb->document_status == ConstantHelper::APPROVED) || ($pb->document_status == ConstantHelper::POSTED)) {
+                if ($pb->document_status == ConstantHelper::POSTED) {
+                    $pbData = PbHeader::find($pb->id);
+                    if ($pbData && $pbData->mrn_header_id) {
+                        $referenceData = MrnHeader::find($pbData->mrn_header_id);
+                        if ($referenceData && ($referenceData->document_status != ConstantHelper::POSTED)) {
+                            DB::rollBack();
+                            return response()->json([
+                                'status' => 'error',
+                                'message' => 'Unable to Post PB Document because reference MRN not posted.'
+                            ],422);
+                        }
+                    }
+                }
                 $parentUrl = request()->segments()[0];
                 $redirectUrl = url($parentUrl . '/' . $pb->id . '/pdf');
             }
@@ -2126,14 +2257,17 @@ class PurchaseBillController extends Controller
             ->where('addressable_id', $user->organization_id)
             ->where('addressable_type', Organization::class)
             ->first();
-        $purchaseBill = PbHeader::with(['vendor', 'currency', 'items', 'book', 'expenses'])
+        $purchaseBill = PbHeader::with(['vendor', 'currency', 'items', 'book', 'expenses', 'header_tax'])
             ->findOrFail($id);
 
         $shippingAddress = $purchaseBill->shippingAddress;
-
+        $headerTax = $purchaseBill?->header_tax ?? null;
         $totalItemValue = $purchaseBill->total_item_amount ?? 0.00;
         $totalDiscount = $purchaseBill->total_discount ?? 0.00;
         $totalTaxes = $purchaseBill->total_taxes ?? 0.00;
+        if ($headerTax) {
+            $totalTaxes = $purchaseBill->total_taxes;
+        }
         $totalTaxableValue = ($totalItemValue - $totalDiscount);
         $totalAfterTax = ($totalTaxableValue + $totalTaxes);
         $totalExpense = $purchaseBill->expense_amount ?? 0.00;
@@ -2170,6 +2304,7 @@ class PurchaseBillController extends Controller
                 'imagePath' => $imagePath,
                 'docStatusClass' => $docStatusClass,
                 'taxes' => $taxes,
+                'headerTax' => $headerTax,
                 'sellerShippingAddress' => $sellerShippingAddress,
                 'sellerBillingAddress' => $sellerBillingAddress,
                 'buyerAddress' => $buyerAddress
@@ -2608,7 +2743,7 @@ class PurchaseBillController extends Controller
             ->addColumn(
                 'order_qty',
                 fn($row) =>
-                number_format((float) $row?->accepted_qty ?? 0, 2)
+                number_format((float) $row?->order_qty ?? 0, 2)
             )
             ->addColumn(
                 'pb_qty',
@@ -2616,7 +2751,7 @@ class PurchaseBillController extends Controller
                 number_format((float) $row?->purchase_bill_qty ?? 0, 2)
             )
             ->addColumn('balance_qty', function ($row) {
-                return number_format(($row?->accepted_qty ?? 0) - ($row?->purchase_bill_qty ?? 0), 2);
+                return number_format(($row?->order_qty ?? 0) - ($row?->purchase_bill_qty ?? 0), 2);
             })
             ->addColumn(
                 'rate',
@@ -2624,7 +2759,7 @@ class PurchaseBillController extends Controller
                 number_format((float) $row?->rate ?? 0, 2)
             )
             ->addColumn('amount', function ($row) {
-                return number_format(($row?->accepted_qty ?? 0) * ($row->rate ?? 0), 2);
+                return number_format(($row?->order_qty ?? 0) * ($row->rate ?? 0), 2);
             })
             ->rawColumns([
                 'select_checkbox',
@@ -2685,6 +2820,7 @@ class PurchaseBillController extends Controller
             'erp_mrn_details.uom_id',
             'erp_mrn_details.uom_code',
             'erp_mrn_details.accepted_qty',
+            'erp_mrn_details.order_qty',
             'erp_mrn_details.purchase_bill_qty',
             'erp_mrn_details.remark',
             'erp_mrn_details.rate',
@@ -2720,7 +2856,7 @@ class PurchaseBillController extends Controller
                         $query->searchByKeywords($itemSearch);
                     });
                 }
-                $query->whereRaw('accepted_qty > purchase_bill_qty');
+                $query->whereRaw('order_qty > purchase_bill_qty');
             });
         if ($request->type === 'create' && count($selected_mrn_ids)) {
             $mrnItems->whereNotIn('erp_mrn_details.id', $selected_mrn_ids);
@@ -2850,6 +2986,17 @@ class PurchaseBillController extends Controller
         try {
             DB::beginTransaction();
             // Asset Registration
+            $pbData = PbHeader::find($request->document_id);
+            if ($pbData && $pbData->mrn_header_id) {
+                $referenceData = MrnHeader::find($pbData->mrn_header_id);
+                if ($referenceData && ($referenceData->document_status != ConstantHelper::POSTED)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Unable to Post PB Document because reference MRN not posted.'
+                    ]);
+                }
+            }
             $assetData = Helper::mrnAssetRegister($request->document_id ?? 0, ConstantHelper::PB_SERVICE_ALIAS);
             if ($assetData['status'] === false) {
                 DB::rollBack();

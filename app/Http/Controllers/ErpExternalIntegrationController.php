@@ -12,7 +12,9 @@ use App\Models\Organization;
 use App\Models\ErpSubStoreParent;
 use App\Models\ERP\ErpStockStoreMapping;
 use App\Models\ERP\ErpExternalIntegration;
+use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use App\Http\Requests\ErpExternalIntegrationRequest;
+use App\Models\Customer;
 use App\Models\ErpSubStore;
 use Exception;
 use Illuminate\Support\Facades\DB; 
@@ -159,7 +161,7 @@ class ErpExternalIntegrationController extends Controller
             if ($exists) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'This store already exists for the selected organization.',
+                    'message' => 'This Location already exists for the selected organization.',
                 ], 422);
             }
 
@@ -190,7 +192,7 @@ class ErpExternalIntegrationController extends Controller
 
                     return response()->json([
                         'status' => false,
-                        'message' => ($subStore?->name ?? 'This') . " sub-store is duplicate for this store.",
+                        'message' => ($subStore?->name ?? 'This') . " sub-location is duplicate for this Location.",
                     ], 422);
 
                 }
@@ -272,10 +274,10 @@ class ErpExternalIntegrationController extends Controller
             if ($exists) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'This store already exists for the selected organization.',
+                    'message' => 'This Location already exists for the selected organization.',
                 ], 422);
             }
-
+            
             $external->update([
                 'trip_book_id'  => $request->trip_book_id,
                 'so_book_id'    => $request->so_book_id,
@@ -310,7 +312,7 @@ class ErpExternalIntegrationController extends Controller
 
                         return response()->json([
                             'status' => false,
-                            'message' => ($subStore?->name ?? 'This') . " sub-store is duplicate for this store.",
+                            'message' => ($subStore?->name ?? 'This') . " sub-location is duplicate for this Location.",
                         ], 422);
                     }
                 
@@ -375,23 +377,30 @@ class ErpExternalIntegrationController extends Controller
 
 
     public function getStore(Request $request){
-        $get =ErpStore::where('organization_id',$request->org_id)->get();
+        $get =ErpStore::where('organization_id',$request->org_id)->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->get();
         return $get;
     }  
     
     public function getSubStore(Request $request){
-        $type = $request->type;
         $storeId = $request->store_id;
 
-        $subStoreIds = ErpSubStoreParent::where('store_id', $storeId)
+        $subStoreIds = ErpSubStoreParent::where('store_id', $storeId)->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
                 ->get()->pluck('sub_store_id')
                 ->toArray(); 
 
         $subStores = ErpSubStore::select('id', 'name', 'code', 'station_wise_consumption', 'is_warehouse_required')
-                    ->whereIn('id', $subStoreIds)->where('type', 'like', "%{$type}%")
+                    ->whereIn('id', $subStoreIds)
+                    ->whereIn('type', [ConstantHelper::STOCKK])
                     ->where('status', ConstantHelper::ACTIVE)
                     ->get();
                         
         return $subStores;
+    }
+    public function getCashCustomer(Request $request){
+        $org=Organization::where('id',$request->org_id)->first();
+        $fallbackQuery = Customer::where('status', ConstantHelper::ACTIVE)->where('customer_type','Cash')->where('group_id',$org->group_id)->where('company_id',$org->company_id)
+            ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+        $results = $fallbackQuery->limit(10)->get(['id', 'company_name', 'customer_code']);
+        return response()->json($results);      
     }
 }

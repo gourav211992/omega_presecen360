@@ -63,11 +63,14 @@ class EInvoiceHelper
     const B2B_INVOICE_TYPE = "B2B";
     const B2C_INVOICE_TYPE = "B2CL";
     const EXPORT_INVOICE_TYPE = "Export";
+    const EXPORT_INVOICE_WO_PAY_TYPE = "EXPWOP";
+    const EXPORT_INVOICE_W_PAY_TYPE = "EXPWP";
     const CREDIT_NOTE_INVOICE_TYPE = "CDNR";
+    const CREDIT_NOTE_INVOICE_UNREG_TYPE = "CDNUR";
     const TRANPORTER_DOC_NO_MAX_LIMIT = 15;
     const EWAY_BILL_MIN_AMOUNT_LIMIT = 50000;
 
-    public static function getGstInvoiceType($partyId, $partyCountryId, $sellerCountryId, string $partyType = 'customer'): string|null
+    public static function getGstInvoiceType($partyId, $partyCountryId, $sellerCountryId, string $partyType = 'customer', $header = null): string|null
     {
         //Retrieve party first
         $party = null;
@@ -91,16 +94,56 @@ class EInvoiceHelper
             }
         } else {
             if ($partyCountryId !== $sellerCountryId) {
-                return self::EXPORT_INVOICE_TYPE;
+                if ($header ?-> total_tax_value > 0) {
+                    return self::EXPORT_INVOICE_W_PAY_TYPE;
+                } else {
+                    return self::EXPORT_INVOICE_WO_PAY_TYPE;
+                }
             } else {
                 return self::B2C_INVOICE_TYPE;
+            }
+        }
+    }
+    public static function getReturnGstInvoiceType($partyId, $partyCountryId, $sellerCountryId, string $partyType = 'customer', $header = null): string|null
+    {
+        //Retrieve party first
+        $party = null;
+        if ($partyType === 'customer') {
+            $party = Customer::find($partyId);
+        } else if ($partyType === 'vendor') {
+            $party = Vendor::find($partyId);
+        } else {
+            $party = null;
+        }
+        if (!isset($party)) {
+            return null;
+        }
+        //Get the GST
+        $gstRegistered = $party->compliances?->gst_applicable;
+        if ($gstRegistered) {
+            if ($partyCountryId === $sellerCountryId) {
+                return self::CREDIT_NOTE_INVOICE_TYPE;
+            } else {
+                return self::CREDIT_NOTE_INVOICE_UNREG_TYPE;
+            }
+        } else {
+            if ($partyCountryId !== $sellerCountryId) {
+                if ($header ?-> total_tax_value > 0) {
+                    return self::CREDIT_NOTE_INVOICE_UNREG_TYPE;
+                } else {
+                    return self::CREDIT_NOTE_INVOICE_UNREG_TYPE;
+                }
+            } else {
+                return self::CREDIT_NOTE_INVOICE_UNREG_TYPE;
             }
         }
     }
 
     public static function getEInvoicePendingDocumentStatus(Model $documentHeader, string|null $gstInvoiceType)
     {
-        if ($gstInvoiceType === self::B2B_INVOICE_TYPE) {
+        if ($gstInvoiceType === self::B2B_INVOICE_TYPE || $gstInvoiceType === self::EXPORT_INVOICE_W_PAY_TYPE 
+            || $gstInvoiceType === self::EXPORT_INVOICE_WO_PAY_TYPE || $gstInvoiceType === self::CREDIT_NOTE_INVOICE_TYPE
+            || $gstInvoiceType === self::CREDIT_NOTE_INVOICE_UNREG_TYPE) {
             if (isset($documentHeader->irnDetail) && $documentHeader->irnDetail) {
                 return ConstantHelper::GENERATED;
             } else {

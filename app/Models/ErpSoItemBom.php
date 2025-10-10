@@ -59,4 +59,9 @@ class ErpSoItemBom extends Model
     {
         return $this -> uom ?-> uom_name;
     }
+
+    public function saleOrder()
+    {
+        return $this->belongsTo(ErpSaleOrder::class,'sale_order_id');
+    }
 }

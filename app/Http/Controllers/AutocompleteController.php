@@ -1372,6 +1372,13 @@ class AutocompleteController extends Controller
                 ->limit(10)
                 ->get(['id', 'customer_type', 'email', 'mobile', 'customer_code', 'company_name', 'currency_id',
                         'payment_terms_id','display_name', 'credit_days', 'credit_days_editable']);
+            }else if ($type === 'user' || $type === 'auth_user') {
+                $results = AuthUser::when($term, function ($termQuery) use($term, $authUser) {
+                    $termQuery -> where('name', 'LIKE', '%'.$term.'%');
+                })->where('status', ConstantHelper::ACTIVE)
+                ->whereNotNull('name')
+                ->limit(10)
+                ->get(['id', 'name']);
             } else if ($type === 'location') {
                 $results = InventoryHelper::getAccessibleLocations();
             } else if ($type === 'all_stations') {
@@ -2215,6 +2222,51 @@ class AutocompleteController extends Controller
                 }
             } else if ($type === 'report_so_book') {
                 $service = Service::where('alias', ConstantHelper::SO_SERVICE_ALIAS) -> first();
+
+                $query = Book::where('service_id', $service ?-> id);
+                $results = $query->when($term, function ($q) use ($term) {
+                    return $q->where(function($query) use ($term) {
+                        $query->where('book_code', 'LIKE', "%$term%")
+                        ->orWhere('book_name', 'LIKE', "%$term%");
+                    });
+                }) -> get(['id', 'book_code']);
+                if ($results->isEmpty()) {
+                    $results = Book::where('service_id', $service ?-> id)
+                        ->limit(10)
+                        ->get(['id', 'book_code']);
+                }
+            }else if ($type === 'report_pwo_book') {
+                $service = Service::where('alias', ConstantHelper::PWO_SERVICE_ALIAS) -> first();
+
+                $query = Book::where('service_id', $service ?-> id);
+                $results = $query->when($term, function ($q) use ($term) {
+                    return $q->where(function($query) use ($term) {
+                        $query->where('book_code', 'LIKE', "%$term%")
+                        ->orWhere('book_name', 'LIKE', "%$term%");
+                    });
+                }) -> get(['id', 'book_code']);
+                if ($results->isEmpty()) {
+                    $results = Book::where('service_id', $service ?-> id)
+                        ->limit(10)
+                        ->get(['id', 'book_code']);
+                }
+            }else if ($type === 'report_pslip_book') {
+                $service = Service::where('alias', ConstantHelper::PRODUCTION_SLIP_SERVICE_ALIAS) -> first();
+
+                $query = Book::where('service_id', $service ?-> id);
+                $results = $query->when($term, function ($q) use ($term) {
+                    return $q->where(function($query) use ($term) {
+                        $query->where('book_code', 'LIKE', "%$term%")
+                        ->orWhere('book_name', 'LIKE', "%$term%");
+                    });
+                }) -> get(['id', 'book_code']);
+                if ($results->isEmpty()) {
+                    $results = Book::where('service_id', $service ?-> id)
+                        ->limit(10)
+                        ->get(['id', 'book_code']);
+                }
+            }else if ($type === 'report_mo_book') {
+                $service = Service::where('alias', ConstantHelper::MO_SERVICE_ALIAS) -> first();
 
                 $query = Book::where('service_id', $service ?-> id);
                 $results = $query->when($term, function ($q) use ($term) {

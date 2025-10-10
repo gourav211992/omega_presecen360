@@ -118,6 +118,8 @@ class ErpSaleOrderController extends Controller
                 $docQuery -> where('company_id', $request -> company_id);
             }) -> when($request -> organization_id, function ($docQuery) use($request) {
                 $docQuery -> where('organization_id', $request -> organization_id);
+            }) -> when($request -> created_by, function ($docQuery) use($request) {
+                $docQuery -> where('created_by', $request -> created_by);
             }) -> when($request -> status, function ($docStatusQuery) use($request) {
                 $searchDocStatus = [];
                 if ($request -> status === ConstantHelper::DRAFT) {
@@ -2133,6 +2135,10 @@ class ErpSaleOrderController extends Controller
             $headerQuery = $headerQuery -> when($request -> organization_id, function ($docQuery) use($request) {
                 $docQuery -> where('organization_id', $request -> organization_id);
             });
+            //Creator Filter
+            $headerQuery = $headerQuery -> when($request -> created_by, function ($docQuery) use($request) {
+                $docQuery -> where('created_by', $request -> created_by);
+            });
             //Document Status Filter
             $headerQuery = $headerQuery -> when($request -> doc_status, function ($docStatusQuery) use($request) {
                 $searchDocStatus = [];
@@ -2321,6 +2327,9 @@ class ErpSaleOrderController extends Controller
                 }
                 return $deliveryHtml;
             })
+            ->editColumn('created_by', function ($row) {
+                return ucfirst(isset($row -> header ->createdBy) ? $row -> header -> createdBy -> name : '');
+            })
             ->addColumn('item_attributes', function ($row) {
                 $attributesUi = '';
                 if (count($row -> item_attributes) > 0) {
@@ -2381,6 +2390,10 @@ class ErpSaleOrderController extends Controller
             //Organization Filter
             $headerQuery = $headerQuery -> when($request -> organization_id, function ($docQuery) use($request) {
                 $docQuery -> where('organization_id', $request -> organization_id);
+            });
+            //Creator Filter
+            $headerQuery = $headerQuery -> when($request -> created_by, function ($docQuery) use($request) {
+                $docQuery -> where('created_by', $request -> created_by);
             });
             //Document Status Filter
             $headerQuery = $headerQuery -> when($request -> doc_status, function ($docStatusQuery) use($request) {
@@ -2535,6 +2548,9 @@ class ErpSaleOrderController extends Controller
             })
             ->addColumn('doc_remarks', function ($row) {
                 return $row -> header -> remarks;
+            })
+            ->addColumn('created_by', function ($row) {
+                return ucfirst(isset($row -> header ->createdBy) ? $row -> header -> createdBy -> name : '');
             })
             ->addColumn('delivery_schedule', function ($row) {
                 $deliveryHtml = '';
