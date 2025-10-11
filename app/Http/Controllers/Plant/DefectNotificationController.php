@@ -434,9 +434,9 @@ class DefectNotificationController extends Controller
             ]);
         }
 
-        // Add file validation if file is uploaded
+        // Add file validation if files are uploaded
         if ($request->hasFile('attachment')) {
-            $rules['attachment'] = 'file|mimes:pdf,doc,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max
+            $rules['attachment.*'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max per file
         }
 
         $request->validate($rules);
@@ -461,11 +461,15 @@ class DefectNotificationController extends Controller
             $defectNotification->fill($data);
             $defectNotification->document_status = $request->document_status ?? 'draft';
 
+            // Handle multiple file uploads
             if ($request->hasFile('attachment')) {
-                $file = $request->file('attachment');
-                $fileName = 'defect_' . time() . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs('defect_notifications/documents', $fileName, 'public');
-                $defectNotification->attachment = $path;
+                $attachmentPaths = [];
+                foreach ($request->file('attachment') as $index => $file) {
+                    $fileName = 'defect_' . time() . '_' . $index . '.' . $file->getClientOriginalExtension();
+                    $path = $file->storeAs('defect_notifications/documents', $fileName, 'public');
+                    $attachmentPaths[] = $path;
+                }
+                $defectNotification->attachment = json_encode($attachmentPaths);
             }
 
             $defectNotification->save();
@@ -765,9 +769,9 @@ class DefectNotificationController extends Controller
             ]);
         }
 
-        // Add file validation if file is uploaded
+        // Add file validation if files are uploaded
         if ($request->hasFile('attachment')) {
-            $rules['attachment'] = 'file|mimes:pdf,doc,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max
+            $rules['attachment.*'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max per file
         }
 
         $request->validate($rules);
@@ -824,16 +828,52 @@ class DefectNotificationController extends Controller
                 DB::commit();
             }
         
-            // Handle file upload if present
-            if ($request->hasFile('attachment')) {
-                // Delete old file if exists
-                if ($defectNotification->attachment && \Storage::disk('public')->exists($defectNotification->attachment)) {
-                    \Storage::disk('public')->delete($defectNotification->attachment);
+            // Handle file attachments
+            $finalAttachments = [];
+            
+            // Get existing attachments that weren't deleted
+            if ($request->has('existing_attachments') && !empty($request->existing_attachments)) {
+                $existingAttachments = json_decode($request->existing_attachments, true);
+                if (is_array($existingAttachments)) {
+                    $finalAttachments = array_merge($finalAttachments, $existingAttachments);
+                } else if (is_string($existingAttachments) && !empty($existingAttachments)) {
+                    // Handle legacy single file format
+                    $finalAttachments[] = $existingAttachments;
                 }
-                $file = $request->file('attachment');
-                $fileName = 'defect_' . time() . '.' . $file->getClientOriginalExtension();
-                $path = $file->storeAs('defect_notifications/documents', $fileName, 'public');
-                $defectNotification->attachment = $path;
+            }
+            
+            // Add new uploaded files
+            if ($request->hasFile('attachment')) {
+                $newAttachmentPaths = [];
+                foreach ($request->file('attachment') as $index => $file) {
+                    $fileName = 'defect_' . time() . '_' . $index . '.' . $file->getClientOriginalExtension();
+                    $path = $file->storeAs('defect_notifications/documents', $fileName, 'public');
+                    $newAttachmentPaths[] = $path;
+                }
+                $finalAttachments = array_merge($finalAttachments, $newAttachmentPaths);
+            }
+            
+            // Delete files that were removed
+            if ($defectNotification->attachment) {
+                $oldAttachments = json_decode($defectNotification->attachment, true);
+                if (!is_array($oldAttachments)) {
+                    $oldAttachments = [$defectNotification->attachment];
+                }
+                
+                // Find files to delete (files that were in old but not in final)
+                $filesToDelete = array_diff($oldAttachments, $finalAttachments);
+                foreach ($filesToDelete as $fileToDelete) {
+                    if (\Storage::disk('public')->exists($fileToDelete)) {
+                        \Storage::disk('public')->delete($fileToDelete);
+                    }
+                }
+            }
+            
+            // Update attachment field
+            if (!empty($finalAttachments)) {
+                $defectNotification->attachment = json_encode($finalAttachments);
+            } else {
+                $defectNotification->attachment = null;
             }
 
             $defectNotification->fill($request->except(['_token', '_method', 'upload_document', 'attachment']));        
