@@ -371,28 +371,42 @@
 										</div>
 
 										<div class="row mt-2">
-											<div class="col-md-4">
+										<div class="col-md-4">
 												<div class="mb-1">
 													<label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
 													<div class="d-flex align-items-center">
-														<input type="file" name="document" id="document" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
-														@if($bom->document)
-														<div class="file-upload-preview ms-2" style="cursor: pointer;">
-															<div class="image-uplodasection expenseadd-sign">
-																<i onclick="window.open('{{ asset('storage/' . $bom->document) }}', '_blank')" data-feather="file-text"></i>
-															</div>
-														</div>
-														@endif
+														<input type="file" multiple name="document[]" id="document" class="form-control" 
+															   onchange="checkFileTypeandSize(event)"
+															   accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" />
+																@if($bom->document)
+																	@php
+																		$attachments = is_string($bom->document) ? 
+																			(json_decode($bom->document, true) ?: [$bom->document]) : 
+																			[$bom->document];
+																	@endphp
+																	@foreach($attachments as $index => $attachment)
+																		@if($attachment)
+																			<div class="file-upload-preview ms-2" style="cursor: pointer; position: relative;" data-file-path="{{ $attachment }}">
+																				<div class="image-uplodasection expenseadd-sign">
+																					<i onclick="window.open('{{ asset('storage/' . $attachment) }}', '_blank')" data-feather="file-text"></i>
+																					<div class="delete-existing-file" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;" 
+																						onclick="deleteExistingFile('{{ $attachment }}', this)" title="Delete file">
+																						<i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
+																					</div>
+																				</div>
+																			</div>
+																		@endif
+																	@endforeach
+																@endif
 													</div>
 													<span class="text-primary small">{{__("message.attachment_caption")}}</span>
 												</div>
 											</div>
-
-											<div class="col-md-12">
+											
+											<div class="col-md-4">
 												<div class="mb-1">
-													<label class="form-label">Final Remarks</label>
-													<textarea name="remarks" rows="4" class="form-control"
-														placeholder="Enter Remarks here...">{{ old('remarks', $bom->remarks) }}</textarea>
+													<label class="form-label"></label>
+													<div id="preview"></div>
 												</div>
 											</div>
 										</div>
@@ -1086,6 +1100,129 @@ function initAutoForItem(selector) {
 	$(selector).autocomplete("instance")._renderItem = function(ul, item) {
 		return $("<li>").append(`<div><strong>${item.code}</strong> - ${item.item_name}</div>`).appendTo(ul);
 	};
+}
+
+// ==========================
+// 🔸 Multiple File Upload Functionality
+// ==========================
+function checkFileTypeandSize(event) {
+    const files = event.target.files;
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf'];
+    const allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'docx', 'pdf'];
+    
+    let validFiles = [];
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        
+        // Check file type
+        if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Invalid File Type',
+                text: `File "${file.name}" is not allowed. Please select PNG, JPEG, JPG, XLS, XLSX, DOCX, or PDF files only.`,
+            });
+            event.target.value = '';
+            return false;
+        }
+        
+        // Check file size
+        if (file.size > maxSize) {
+            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            Swal.fire({
+                icon: 'error',
+                title: 'File Too Large',
+                text: `File "${file.name}" is ${fileSizeMB}MB. Maximum allowed size is 5MB.`,
+            });
+            event.target.value = '';
+            return false;
+        }
+        
+        validFiles.push(file);
+    }
+    
+    // Show preview for valid files
+    showFilePreview(validFiles);
+    return true;
+}
+
+function showFilePreview(files) {
+    const previewContainer = document.getElementById('preview');
+    previewContainer.innerHTML = '';
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileDiv = document.createElement('div');
+        fileDiv.className = 'file-upload-preview ms-2';
+        fileDiv.style.cssText = 'cursor: pointer; position: relative; display: inline-block; margin-right: 10px; margin-bottom: 10px;';
+        
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'image-uplodasection expenseadd-sign';
+        
+        const fileIcon = document.createElement('i');
+        fileIcon.setAttribute('data-feather', 'file-text');
+        fileIcon.title = file.name;
+        
+        const deleteBtn = document.createElement('div');
+        deleteBtn.className = 'delete-new-file';
+        deleteBtn.style.cssText = 'position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;';
+        deleteBtn.title = 'Remove file';
+        deleteBtn.onclick = function() { removeFilePreview(fileDiv, i); };
+        
+        const deleteIcon = document.createElement('i');
+        deleteIcon.setAttribute('data-feather', 'x');
+        deleteIcon.style.cssText = 'font-size: 12px; color: #dc3545;';
+        
+        deleteBtn.appendChild(deleteIcon);
+        iconDiv.appendChild(fileIcon);
+        fileDiv.appendChild(iconDiv);
+        fileDiv.appendChild(deleteBtn);
+        previewContainer.appendChild(fileDiv);
+    }
+    
+    // Refresh feather icons
+    if (feather) feather.replace();
+}
+
+function removeFilePreview(fileDiv, index) {
+    const fileInput = document.getElementById('document');
+    const dt = new DataTransfer();
+    
+    // Add all files except the one being removed
+    for (let i = 0; i < fileInput.files.length; i++) {
+        if (i !== index) {
+            dt.items.add(fileInput.files[i]);
+        }
+    }
+    
+    fileInput.files = dt.files;
+    fileDiv.remove();
+}
+
+// Function to delete existing files
+function deleteExistingFile(filePath, element) {
+    // Add file to deletion list
+    let deletedFiles = document.getElementById('deleted_files');
+    if (!deletedFiles) {
+        deletedFiles = document.createElement('input');
+        deletedFiles.type = 'hidden';
+        deletedFiles.name = 'deleted_files';
+        deletedFiles.id = 'deleted_files';
+        document.getElementById('maint-bom-form').appendChild(deletedFiles);
+    }
+    
+    // Add to deletion array
+    let currentDeleted = deletedFiles.value ? JSON.parse(deletedFiles.value) : [];
+    currentDeleted.push(filePath);
+    deletedFiles.value = JSON.stringify(currentDeleted);
+    
+    console.log('File marked for deletion:', filePath);
+    console.log('Current deleted files:', deletedFiles.value);
+    
+    // Remove from UI immediately
+    element.closest('.file-upload-preview').remove();
 }
 
 </script>

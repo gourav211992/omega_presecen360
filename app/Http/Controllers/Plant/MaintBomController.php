@@ -369,19 +369,21 @@ class MaintBomController extends Controller
             'revision_number' => 0,
         ];
 
-        // Handle document upload first
-        $documentPath = null;
+        // Handle multiple document uploads
+        $documentPaths = [];
         if ($request->hasFile('document')) {
-            $file = $request->file('document');
-            $fileName = time() . '_' . $file->getClientOriginalName();
-            $documentPath = $file->storeAs('maint_bom_documents', $fileName, 'public');
+            foreach ($request->file('document') as $index => $file) {
+                $fileName = 'maint_bom_' . time() . '_' . $index . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('maint_bom_documents', $fileName, 'public');
+                $documentPaths[] = $path;
+            }
         }
 
         $data = array_merge($request->all(), $additionalData);
         
-        // Add document path if uploaded
-        if ($documentPath) {
-            $data['document'] = $documentPath;
+        // Add document paths if uploaded
+        if (!empty($documentPaths)) {
+            $data['document'] = json_encode($documentPaths);
         }
 
 
@@ -501,6 +503,7 @@ class MaintBomController extends Controller
                 'item_attributes' => $item->attributes,
             ];
         });
+       
         return view('plant.maint_bom.show', compact('series', 'items','data','buttons', 'docStatusClass', 'revision_number', 'currNumber', 'approvalHistory'));
 }
 
@@ -614,19 +617,56 @@ class MaintBomController extends Controller
             }
         }
 
-        // Handle document upload first
-        $documentPath = null;
+        // Handle multiple file uploads
+        $finalDocuments = [];
+        
+        // Get existing documents
+        if ($bom->document) {
+            $existingDocuments = json_decode($bom->document, true);
+            if (!is_array($existingDocuments)) {
+                $existingDocuments = [$bom->document];
+            }
+            $finalDocuments = $existingDocuments;
+        }
+        
+        // Remove deleted files from final documents
+        if ($request->has('deleted_files') && !empty($request->deleted_files)) {
+            $deletedFiles = json_decode($request->deleted_files, true);
+            if (is_array($deletedFiles)) {
+                $finalDocuments = array_diff($finalDocuments, $deletedFiles);
+            }
+        }
+        
+        // Add new uploaded files
         if ($request->hasFile('document')) {
-            $file = $request->file('document');
-            $fileName = time() . '_' . $file->getClientOriginalName();
-            $documentPath = $file->storeAs('maint_bom_documents', $fileName, 'public');
+            $newDocumentPaths = [];
+            foreach ($request->file('document') as $index => $file) {
+                $fileName = 'maint_bom_' . time() . '_' . $index . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('maint_bom_documents', $fileName, 'public');
+                $newDocumentPaths[] = $path;
+            }
+            $finalDocuments = array_merge($finalDocuments, $newDocumentPaths);
+        }
+        
+        // Delete files that were marked for deletion
+        if ($request->has('deleted_files') && !empty($request->deleted_files)) {
+            $deletedFiles = json_decode($request->deleted_files, true);
+            if (is_array($deletedFiles)) {
+                foreach ($deletedFiles as $fileToDelete) {
+                    if (\Storage::disk('public')->exists($fileToDelete)) {
+                        \Storage::disk('public')->delete($fileToDelete);
+                    }
+                }
+            }
         }
 
         $data = $request->all();
         
-        // Add document path if uploaded
-        if ($documentPath) {
-            $data['document'] = $documentPath;
+        // Update document field
+        if (!empty($finalDocuments)) {
+            $data['document'] = json_encode($finalDocuments);
+        } else {
+            $data['document'] = null;
         }
 
         

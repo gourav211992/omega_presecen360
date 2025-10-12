@@ -51,7 +51,7 @@ class MaintBOMRequest extends FormRequest
             'document_status' => 'required|string',
             'book_id' => $isEdit ? 'nullable|integer' : ($isDraft ? 'nullable|integer' : 'required|integer'),
             'document_date' => $isEdit ? 'nullable|date' : ($isDraft ? 'nullable|date' : 'required|date'),
-            'document' => 'nullable|file|mimes:png,jpeg,jpg,xls,xlsx,docx,pdf|max:5120', // 5MB max
+            'document.*' => 'nullable|file|mimes:png,jpeg,jpg,xls,xlsx,docx,pdf|max:5120', // 5MB max per file
             
             // Additional fields that are present in request
             'spare_parts' => 'nullable|string',

@@ -97,6 +97,7 @@
                                                 </div>
                                             </div>
                                         </div>
+										
 
 										<div class="row">
 											{{-- Hidden Inputs --}}
@@ -121,6 +122,7 @@
 
 											<div class="col-md-8">
 
+											
 												<div class="row align-items-center mb-1">
 													<div class="col-md-3">
 														<label class="form-label">Series <span
@@ -378,19 +380,38 @@
 										<div class="row mt-2">
 											<div class="col-md-4">
 												<div class="mb-1">
-													<label class="form-label">Upload Document</label>
+													<label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
 													<div class="d-flex align-items-center">
-														<input type="file" name="document" class="form-control" 
+														<input type="file" multiple name="document[]" id="document" class="form-control" 
+															   onchange="checkFileTypeandSize(event)"
 															   accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" />
+														
+														{{-- Current documents display inline --}}
 														@if($data->document)
-														<div class="file-upload-preview ms-2" style="cursor: pointer;">
-															<div class="image-uplodasection expenseadd-sign">
-																<i onclick="window.open('{{ asset('storage/' . $data->document) }}', '_blank')" data-feather="file-text"></i>
-															</div>
-														</div>
+															@php
+																$documents = is_string($data->document) ? 
+																	(json_decode($data->document, true) ?: [$data->document]) : 
+																	[$data->document];
+															@endphp
+															@foreach($documents as $document)
+																@if($document)
+																	<div class="file-upload-preview ms-2" style="cursor: pointer;">
+																		<div class="image-uplodasection expenseadd-sign">
+																			<i onclick="window.open('{{ asset('storage/' . $document) }}', '_blank')" data-feather="file-text"></i>
+																		</div>
+																	</div>
+																@endif
+															@endforeach
 														@endif
 													</div>
 													<span class="text-primary small">{{__("message.attachment_caption")}}</span>
+												</div>
+												
+												<div class="col-md-4">
+													<div class="mb-1">
+														<label class="form-label"></label>
+														<div id="preview"></div>
+													</div>
 												</div>
 											</div>
 
@@ -543,7 +564,12 @@
 	<script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>
 	<script src="{{asset('assets/js/fileshandler.js')}}"></script>
 	<script>
-		// Amendment functionality
+		$(document).ready(function() {
+			// Initialize Feather icons
+			if (feather) {
+				feather.replace();
+			}
+		});
 		$(document).on('click', '#amendmentSubmit', function (e) {
 		    e.preventDefault();
 
@@ -1191,5 +1217,98 @@
 				});
 			});
 		});
+
+		// Multiple file upload functionality
+		function checkFileTypeandSize(event) {
+			$('#preview').empty();
+			const files = event.target.files;
+
+			if (files.length > 0) {
+				// Validate each file
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i];
+					const maxSizeMB = 5;
+					const fileSizeMB = file.size / (1024 * 1024);
+
+					const videoExtensions = /(\.mp4|\.avi|\.mov|\.wmv|\.mkv)$/i;
+					if (videoExtensions.exec(file.name)) {
+						Swal.fire({
+							icon: 'error',
+							title: 'Invalid File Type',
+							text: 'Video files are not allowed.'
+						});
+						event.target.value = "";
+						return;
+					}
+
+					if (fileSizeMB > maxSizeMB) {
+						Swal.fire({
+							icon: 'error',
+							title: 'File Too Large',
+							text: `File "${file.name}" size should not exceed 5MB. Current size: ${fileSizeMB.toFixed(2)}MB`
+						});
+						event.target.value = "";
+						return;
+					}
+				}
+
+				handleFileUpload(event, `#preview`);
+			}
+		}
+
+		function handleFileUpload(event, previewElement) {
+			var files = event.target.files;
+			var previewContainer = $(previewElement);
+			previewContainer.empty();
+
+			if (files.length > 0) {
+				for (var i = 0; i < files.length; i++) {
+					var fileName = files[i].name;
+
+					var fileIcon = `
+						<div class="file-upload-preview" data-file-index="${i}" style="display: inline-block; margin: 5px; cursor: pointer; position: relative;">
+							<div class="image-uplodasection expenseadd-sign">
+								<i data-feather="file-text" class="fileuploadicon" style="font-size: 24px; color: #666;"></i>
+								<div class="delete-img text-danger" data-file-index="${i}" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
+									<i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
+								</div>
+							</div>
+						</div>
+					`;
+
+					previewContainer.append(fileIcon);
+				}
+				feather.replace();
+			}
+
+			previewContainer.find('.delete-img').click(function() {
+				var fileIndex = $(this).parent().data('file-index');
+				removeFilePreview(fileIndex, previewContainer, event.target);
+			});
+		}
+
+		function removeFilePreview(fileIndex, previewContainer, inputElement) {
+			var dt = new DataTransfer();
+			var files = inputElement.files;
+
+			for (var i = 0; i < files.length; i++) {
+				if (i !== fileIndex) {
+					dt.items.add(files[i]);
+				}
+			}
+
+			inputElement.files = dt.files;
+			previewContainer.children(`[data-file-index="${fileIndex}"]`).remove();
+
+			var remainingPreviews = previewContainer.children();
+			remainingPreviews.each(function(index) {
+				$(this).attr('data-file-index', index);
+				$(this).find('.delete-img').attr('data-file-index', index);
+			});
+
+			if (dt.files.length === 0) {
+				inputElement.value = "";
+			}
+		}
 	</script>
 @endsection
