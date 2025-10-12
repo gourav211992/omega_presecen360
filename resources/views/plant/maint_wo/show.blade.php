@@ -338,17 +338,27 @@
                         <div class="mb-1">
                           <label class="form-label">Supporting Documents <span class="text-danger">*</span></label><br/>
                           <div class="mt-50">
-                            @if(isset($equipmentDetailsArr->equipment_document) && $equipmentDetailsArr->equipment_document)
-                              <a href="{{ asset('storage/' . $equipmentDetailsArr->equipment_document) }}" target="_blank" class="btn btn-outline-primary btn-sm">
-                                <i data-feather="file"></i> View Document
-                              </a>
-                            @elseif($workOrder && $workOrder->document)
-                              <a href="{{ asset('storage/' . $workOrder->document) }}" target="_blank" class="btn btn-outline-primary btn-sm">
-                                <i data-feather="file"></i> View Document
-                              </a>
-                            @else
+                            <div class="d-flex align-items-center">
                               <input type="file" name="supporting_documents[]" class="form-control" disabled multiple>
-                            @endif
+                              
+                              {{-- Current supporting documents display inline --}}
+                              @if(isset($workOrder->supporting_documents) && $workOrder->supporting_documents)
+                                  @php
+                                      $supportingDocs = is_string($workOrder->supporting_documents) ? 
+                                          (json_decode($workOrder->supporting_documents, true) ?: [$workOrder->supporting_documents]) : 
+                                          [$workOrder->supporting_documents];
+                                  @endphp
+                                  @foreach($supportingDocs as $supportingDoc)
+                                      @if($supportingDoc)
+                                          <div class="file-upload-preview ms-2" style="cursor: pointer;">
+                                              <div class="image-uplodasection expenseadd-sign">
+                                                  <i onclick="window.open('{{ asset('storage/' . $supportingDoc) }}', '_blank')" data-feather="file-text"></i>
+                                              </div>
+                                          </div>
+                                      @endif
+                                  @endforeach
+                              @endif
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -637,12 +647,23 @@
               <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
               <div class="d-flex align-items-center">
                 <input type="file" name="upload_file" id="upload_file" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" disabled readonly>
+                
+                {{-- Current upload files display inline --}}
                 @if(isset($workOrder->upload_file) && $workOrder->upload_file)
-                <div class="file-upload-preview ms-2" style="cursor: pointer;">
-                  <div class="image-uplodasection expenseadd-sign">
-                    <i onclick="window.open('{{ asset('storage/' . $workOrder->upload_file) }}', '_blank')" data-feather="file-text"></i>
-                  </div>
-                </div>
+                    @php
+                        $uploadFiles = is_string($workOrder->upload_file) ? 
+                            (json_decode($workOrder->upload_file, true) ?: [$workOrder->upload_file]) : 
+                            [$workOrder->upload_file];
+                    @endphp
+                    @foreach($uploadFiles as $uploadFile)
+                        @if($uploadFile)
+                            <div class="file-upload-preview ms-2" style="cursor: pointer;">
+                                <div class="image-uplodasection expenseadd-sign">
+                                    <i onclick="window.open('{{ asset('storage/' . $uploadFile) }}', '_blank')" data-feather="file-text"></i>
+                                </div>
+                            </div>
+                        @endif
+                    @endforeach
                 @endif
               </div>
               <span class="text-primary small">{{__("message.attachment_caption")}}</span>
