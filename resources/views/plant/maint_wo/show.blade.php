@@ -338,17 +338,27 @@
                         <div class="mb-1">
                           <label class="form-label">Supporting Documents <span class="text-danger">*</span></label><br/>
                           <div class="mt-50">
-                            @if(isset($equipmentDetailsArr->equipment_document) && $equipmentDetailsArr->equipment_document)
-                              <a href="{{ asset('storage/' . $equipmentDetailsArr->equipment_document) }}" target="_blank" class="btn btn-outline-primary btn-sm">
-                                <i data-feather="file"></i> View Document
-                              </a>
-                            @elseif($workOrder && $workOrder->document)
-                              <a href="{{ asset('storage/' . $workOrder->document) }}" target="_blank" class="btn btn-outline-primary btn-sm">
-                                <i data-feather="file"></i> View Document
-                              </a>
-                            @else
+                            <div class="d-flex align-items-center">
                               <input type="file" name="supporting_documents[]" class="form-control" disabled multiple>
-                            @endif
+                              
+                              {{-- Current supporting documents display inline --}}
+                              @if(isset($workOrder->supporting_documents) && $workOrder->supporting_documents)
+                                  @php
+                                      $supportingDocs = is_string($workOrder->supporting_documents) ? 
+                                          (json_decode($workOrder->supporting_documents, true) ?: [$workOrder->supporting_documents]) : 
+                                          [$workOrder->supporting_documents];
+                                  @endphp
+                                  @foreach($supportingDocs as $supportingDoc)
+                                      @if($supportingDoc)
+                                          <div class="file-upload-preview ms-2" style="cursor: pointer;">
+                                              <div class="image-uplodasection expenseadd-sign">
+                                                  <i onclick="window.open('{{ asset('storage/' . $supportingDoc) }}', '_blank')" data-feather="file-text"></i>
+                                              </div>
+                                          </div>
+                                      @endif
+                                  @endforeach
+                              @endif
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -500,12 +510,15 @@
                                   <th>Attributes</th>
                                   <th>UOM</th>
                                   <th>Qty</th>
+                                  <th>Rate</th>
                                   <th>Available Stock</th>
                                 </tr>
                               </thead>
                               <tbody class="mrntableselectexcel">
                                 @if(!empty($sparePartsData))
+                                  @php $totalAmount=0; @endphp
                                   @foreach($sparePartsData as $index => $part)
+                                    @php $totalAmount += $part['qty'] * $part['rate']; @endphp
                                     <tr @if($index === 0) class="trselected" @endif>
                                       <td>
                                         <div class="form-check form-check-primary custom-checkbox">
@@ -548,6 +561,11 @@
                                                disabled readonly required />
                                       </td>
                                       <td>
+                                        <input type="number" class="rate form-control mw-100" name="rate[]" 
+                                               value="{{ $part['rate'] ?? ($part->rate ?? '') }}" 
+                                               disabled readonly required />
+                                      </td>
+                                      <td>
                                         <input type="number" class="available_stock form-control mw-100" name="available_stock[]" 
                                                value="{{ $part['available_stock'] ?? 100 }}" 
                                                disabled readonly />
@@ -562,6 +580,11 @@
                               </tbody>
 
                               <tfoot>
+                              <tr>
+                                <td colspan="6" class="text-end">Total</td>
+                                <td class="fw-bolder text-dark text-end settleTotal">{{$totalAmount}}</td>
+                                <td></td>
+                              </tr>
                                 <tr valign="top">
                                   <td colspan="7" rowspan="10">
                                     <table class="table border">
@@ -606,8 +629,14 @@
                                           <span class="badge rounded-pill badge-light-primary">
                                             <strong>Qty.</strong>: <span id="qty">@if(!empty($sparePartsData) && count($sparePartsData) > 0){{ $sparePartsData[0]['qty'] ?? ($sparePartsData[0]->qty ?? 'N/A') }}@endif</span>
                                           </span>
+                                          <span class="badge rounded-pill badge-light-primary">
+                                            <strong>Rate</strong>: <span id="rate">@if(!empty($sparePartsData) && count($sparePartsData) > 0){{ $sparePartsData[0]['rate'] ?? ($sparePartsData[0]->rate ?? '0') }}@endif</span>
+                                          </span>
                                           <span class="badge rounded-pill badge-light-success">
                                             <strong>Available Stock</strong>: <span id="available_stock">@if(!empty($sparePartsData) && count($sparePartsData) > 0){{ $sparePartsData[0]['available_stock'] ?? 100 }}@else 100 @endif</span>
+                                          </span>
+                                          <span class="badge rounded-pill badge-light-warning">
+                                            <strong>Total</strong>: <span id="settleTotal">0.00</span>
                                           </span>
                                         </td>
                                       </tr>
@@ -637,12 +666,23 @@
               <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
               <div class="d-flex align-items-center">
                 <input type="file" name="upload_file" id="upload_file" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" disabled readonly>
+                
+                {{-- Current upload files display inline --}}
                 @if(isset($workOrder->upload_file) && $workOrder->upload_file)
-                <div class="file-upload-preview ms-2" style="cursor: pointer;">
-                  <div class="image-uplodasection expenseadd-sign">
-                    <i onclick="window.open('{{ asset('storage/' . $workOrder->upload_file) }}', '_blank')" data-feather="file-text"></i>
-                  </div>
-                </div>
+                    @php
+                        $uploadFiles = is_string($workOrder->upload_file) ? 
+                            (json_decode($workOrder->upload_file, true) ?: [$workOrder->upload_file]) : 
+                            [$workOrder->upload_file];
+                    @endphp
+                    @foreach($uploadFiles as $uploadFile)
+                        @if($uploadFile)
+                            <div class="file-upload-preview ms-2" style="cursor: pointer;">
+                                <div class="image-uplodasection expenseadd-sign">
+                                    <i onclick="window.open('{{ asset('storage/' . $uploadFile) }}', '_blank')" data-feather="file-text"></i>
+                                </div>
+                            </div>
+                        @endif
+                    @endforeach
                 @endif
               </div>
               <span class="text-primary small">{{__("message.attachment_caption")}}</span>
@@ -1158,6 +1198,46 @@
 		
 		// Initialize autocomplete for existing spare parts row when document is ready
 		$(document).ready(function() {
+			// Calculate total for spare parts
+			function calculateSparePartsTotal() {
+				let total = 0;
+				$('.mrntableselectexcel tr').each(function() {
+					const qty = parseFloat($(this).find('.qty').val()) || 0;
+					const rate = parseFloat($(this).find('.rate').val()) || 0;
+					const rowTotal = qty * rate;
+					total += rowTotal;
+				});
+				$('#settleTotal').text(total.toFixed(2));
+			}
+
+			// Calculate total on page load
+			calculateSparePartsTotal();
+
+			// Update footer when row is selected
+			function updateFooterFromSelected() {
+				let $selected = $('.trselected');
+				if ($selected.length) {
+					let partName = $selected.find('.item_name').val() || 'N/A';
+					let uomText = $selected.find('.uom option:selected').text() || $selected.find('.uom').val() || 'N/A';
+					let qty = $selected.find('.qty').val() || '0';
+					let rate = $selected.find('.rate').val() || '0';
+					let availableStock = $selected.find('.available_stock').val() || '0';
+
+					$('#part_name').text(partName);
+					$('#uom').text(uomText);
+					$('#qty').text(qty);
+					$('#rate').text(rate);
+					$('#available_stock').text(availableStock);
+				}
+				calculateSparePartsTotal();
+			}
+
+			// Add click handler for row selection
+			$(document).on('click', '.mrntableselectexcel tr', function () {
+				$(this).addClass('trselected').siblings().removeClass('trselected');
+				updateFooterFromSelected();
+			});
+
 			initAutoForItem('.item_code');
 		});
 
@@ -1894,6 +1974,46 @@
 		//Search function for the defect modal 
 
 		$(document).ready(function() {
+// Calculate total for spare parts
+function calculateSparePartsTotal() {
+let total = 0;
+$(".mrntableselectexcel tr").each(function() {
+const qty = parseFloat($(this).find(".qty").val()) || 0;
+const rate = parseFloat($(this).find(".rate").val()) || 0;
+const rowTotal = qty * rate;
+total += rowTotal;
+});
+$("#settleTotal").text(total.toFixed(2));
+}
+
+// Calculate total on page load
+calculateSparePartsTotal();
+
+// Update footer when row is selected
+function updateFooterFromSelected() {
+let $selected = $(".trselected");
+if ($selected.length) {
+let partName = $selected.find(".item_name").val() || "N/A";
+let uomText = $selected.find(".uom option:selected").text() || $selected.find(".uom").val() || "N/A";
+let qty = $selected.find(".qty").val() || "0";
+let rate = $selected.find(".rate").val() || "0";
+let availableStock = $selected.find(".available_stock").val() || "0";
+
+$("#part_name").text(partName);
+$("#uom").text(uomText);
+$("#qty").text(qty);
+$("#rate").text(rate);
+$("#available_stock").text(availableStock);
+}
+calculateSparePartsTotal();
+}
+
+// Add click handler for row selection
+$(document).on("click", ".mrntableselectexcel tr", function () {
+$(this).addClass("trselected").siblings().removeClass("trselected");
+updateFooterFromSelected();
+});
+
 			$('#defect_search_btn').on('click', function(e) {
 				e.preventDefault();
 
@@ -2187,6 +2307,46 @@ $(document).ready(function () {
 
     // Initialize attribute badges for existing rows on page load
     $(document).ready(function() {
+// Calculate total for spare parts
+function calculateSparePartsTotal() {
+let total = 0;
+$(".mrntableselectexcel tr").each(function() {
+const qty = parseFloat($(this).find(".qty").val()) || 0;
+const rate = parseFloat($(this).find(".rate").val()) || 0;
+const rowTotal = qty * rate;
+total += rowTotal;
+});
+$("#settleTotal").text(total.toFixed(2));
+}
+
+// Calculate total on page load
+calculateSparePartsTotal();
+
+// Update footer when row is selected
+function updateFooterFromSelected() {
+let $selected = $(".trselected");
+if ($selected.length) {
+let partName = $selected.find(".item_name").val() || "N/A";
+let uomText = $selected.find(".uom option:selected").text() || $selected.find(".uom").val() || "N/A";
+let qty = $selected.find(".qty").val() || "0";
+let rate = $selected.find(".rate").val() || "0";
+let availableStock = $selected.find(".available_stock").val() || "0";
+
+$("#part_name").text(partName);
+$("#uom").text(uomText);
+$("#qty").text(qty);
+$("#rate").text(rate);
+$("#available_stock").text(availableStock);
+}
+calculateSparePartsTotal();
+}
+
+// Add click handler for row selection
+$(document).on("click", ".mrntableselectexcel tr", function () {
+$(this).addClass("trselected").siblings().removeClass("trselected");
+updateFooterFromSelected();
+});
+
         $('.mrntableselectexcel tr').each(function() {
             let $row = $(this);
             updateAttributeBadges($row);

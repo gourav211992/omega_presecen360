@@ -268,8 +268,11 @@
                       <div class="mb-1">
                         <label class="form-label"><i data-feather="paperclip"></i> Supporting Documents <span class="text-danger">*</span></label><br/>
                         <div class="mt-50">
-                          <input type="file" name="supporting_documents[]" class="form-control" multiple accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
+                          <input type="file" name="supporting_documents[]" id="supporting_documents" class="form-control" multiple 
+                                 onchange="checkFileTypeandSize(event, '#supporting_preview')"
+                                 accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
                           <span class="text-primary small">{{__("message.attachment_caption")}}</span>
+                          <div id="supporting_preview" class="mt-2"></div>
                         </div>
                       </div>
                     </div>
@@ -367,6 +370,7 @@
 														<th>Attributes</th>
 														<th>UOM</th>
 														<th>Qty</th>
+														<th>Rate</th>
 														<th>Available Stock</th>
 													</tr>
 												</thead>
@@ -402,15 +406,21 @@
 														</td>
 														<td><input type="number" class="qty form-control mw-100"
 																name="qty[]" /></td>
+														<td><input type="number" class="rate form-control mw-100"
+																name="rate[]" /></td>
 														<td><input type="number" class="available_stock form-control mw-100"
 																name="available_stock[]"  readonly /></td>
 													</tr>
 												</tbody>
 												<tfoot>
-
-
+													<tr>
+														<td colspan="6" class="text-end">Total</td>
+														<td class="fw-bolder text-dark text-end settleTotal">0</td>
+														<td></td>
+													</tr>
+													
 													<tr valign="top">
-														<td colspan="7" rowspan="10">
+														<td colspan="4" rowspan="4">
 															<table class="table border">
 																<tr>
 																	<td class="p-0">
@@ -440,6 +450,9 @@
 																		<span
 																			class="badge rounded-pill badge-light-primary"><strong>Qty.</strong>:
 																			<span id="qty"></span></span>
+																		<span
+																			class="badge rounded-pill badge-light-primary"><strong>Rate</strong>:
+																			<span id="rate"></span></span>
 																		<span
 																			class="badge rounded-pill badge-light-primary"><strong>Available Stock</strong>:
 																			<span id="available_stock"></span></span>
@@ -477,8 +490,11 @@
           <div class="col-md-4">
             <div class="mb-1">
               <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
-              <input type="file" name="upload_file" id="upload_file" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
+              <input type="file" name="upload_file[]" id="upload_file" class="form-control" multiple
+                     onchange="checkFileTypeandSize(event, '#upload_preview')"
+                     accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
               <span class="text-primary small">{{__("message.attachment_caption")}}</span>
+              <div id="upload_preview" class="mt-2"></div>
             </div>
           </div>
           <div class="col-md-12">
@@ -843,6 +859,22 @@
     color: white;
     font-size: 16px;
 }
+
+.file-upload-preview {
+    cursor: pointer !important;
+}
+
+.image-uplodasection {
+    position: relative;
+    display: inline-block;
+}
+
+.expenseadd-sign {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
 </style>
 @endsection
 
@@ -895,6 +927,7 @@
 							</select>
 						</td>
 						<td><input type="number" class="qty form-control mw-100" name="qty[]" /></td>
+						<td><input type="number" class="rate form-control mw-100" name="rate[]" /></td>
 						<td><input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly /></td>
 					</tr>
 				`;
@@ -959,6 +992,7 @@
 				let partName = $selected.find('.item_name').val() || 'N/A';
 				let uomText = $selected.find('.uom option:selected').text() || $selected.find('.uom').val() || 'N/A';
 				let qty = $selected.find('.qty').val() || '0';
+				let rate = $selected.find('.rate').val() || '0';
 				let availableStock = $selected.find('.available_stock').val() || '0';
 				
 				
@@ -966,6 +1000,7 @@
 				$('#part_name').text(partName);
 				$('#uom').text(uomText);
 				$('#qty').text(qty);
+				$('#rate').text(rate);
 				$('#available_stock').text(availableStock);
 				
 				let $selectElement = $selected.find('.item_code');
@@ -1068,6 +1103,7 @@
 																</select>
 															</td>
 															<td><input type="number" class="qty form-control mw-100"  name="qty[]" /></td>
+															<td><input type="number" class="rate form-control mw-100"  name="rate[]" /></td>
 															<td><input type="number" class="available_stock form-control mw-100"
 																	name="available_stock[]"  readonly /></td>
 														</tr>																  `;
@@ -1148,6 +1184,7 @@
 						item_name: row.find('.item_name').val() || '',
 						attribute: row.find('.attribute').val() || '',
 						qty: row.find('.qty').val() || 0,
+						rate: row.find('.rate').val() || 0,
 						uom_id: row.find('.uom').val() || '',
 						uom_name: row.find('.uom option:selected').text() || '',
 						available_stock: row.find('.available_stock').val() || 0,
@@ -1158,13 +1195,19 @@
 			$('#spare_parts').val(JSON.stringify(allRows));
 		}
 
-		// AJAX validation function
+		// AJAX validation function with visual feedback
 		function validateWorkOrder(isDraft = false) {
-			const documentNumber = $('#document_number').val();
+			const documentNumber = $('#document_number').val().trim();
+			const bookId = $('#book_id').val();
+			const currentDate = $('#document_date').val();
 			
-			if (!documentNumber) {
+			
+			if (!documentNumber || documentNumber.length < 1) {
 				return Promise.resolve(true); // No validation needed if document number is empty
 			}
+
+			// Clear any existing error state
+			resetDocumentInputState();
 
 			return $.ajax({
 				url: '{{ route("maint-wo.validate") }}',
@@ -1174,6 +1217,7 @@
 					document_number: documentNumber
 				}
 			}).then(function(response) {
+				console.log('✅ Document number validation passed');
 				return true; // Validation passed
 			}).catch(function(xhr) {
 				if (xhr.status === 422) {
@@ -1182,24 +1226,45 @@
 					
 					if (errors.document_number) {
 						errorMessage = errors.document_number;
+						
+						// Add visual feedback - red border
+						const documentInput = document.getElementById('document_number');
+						if (documentInput) {
+							documentInput.style.border = '1px solid red';
+						}
 					}
 					
 					Swal.fire({
 						icon: 'error',
-						title: 'Document Number!',
+						title: 'Validation Error!',
 						text: errorMessage,
-						confirmButtonText: 'OK'
+						confirmButtonText: 'OK',
+						confirmButtonColor: '#d33'
+					}).then(() => {
+						// Focus on document number field after closing alert
+						if (document.getElementById('document_number')) {
+							document.getElementById('document_number').focus();
+						}
 					});
 				} else {
 					Swal.fire({
 						icon: 'error',
 						title: 'Validation Error!',
 						text: 'Unable to validate document number. Please try again.',
-						confirmButtonText: 'OK'
+						confirmButtonText: 'OK',
+						confirmButtonColor: '#d33'
 					});
 				}
 				return false; // Validation failed
 			});
+		}
+
+		// Function to reset document input visual state
+		function resetDocumentInputState() {
+			const documentInput = document.getElementById('document_number');
+			if (documentInput) {
+				documentInput.style.border = '';
+			}
 		}
 
 		document.getElementById('save-draft-btn').addEventListener('click', function () {
@@ -1327,7 +1392,7 @@
 				"@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach"
 			);
 		@endif
-		$(document).on('input change', '.qty, .uom, .item_name, .item_code, .attribute', function () {
+		$(document).on('input change', '.qty, .rate, .uom, .item_name, .item_code, .attribute', function () {
 			updateFooterFromSelected();
 		});
 
@@ -1726,7 +1791,7 @@
 			$('#problem_field input').prop('readonly', true);
 			$('#detailed_observations_field textarea').prop('readonly', true);
 			$('#report_by_field input').prop('readonly', true);
-			$('#supporting_documents_field input').prop('disabled', true);
+			$('#supporting_documents_field input').prop('disabled', false);
 			
 			// Hide checklist tab and show only spare parts tab
 			$('#checklist-tab').hide();
@@ -1879,21 +1944,7 @@
 							$('#detailed_observations').val('');
 						}
 
-						$('#supporting_documents_field').empty();
-						var supportingDiv = $('#supporting_documents_field');
-						if (defect.attachment) {
-							supportingDiv.show();
-							var iconContainer = supportingDiv.find('.mt-50');
-							iconContainer.empty();
-							var icon = $('<i>', { 'data-feather': 'file-text', class: 'font-large-1 me-25' });
-							iconContainer.append(icon);
-							if (typeof feather !== 'undefined') {
-								feather.replace();
-							}
-						} else {
-							supportingDiv.remove();
-						}
-
+						
 						// Skip maintenance type population for defect notifications to avoid spare parts data
 						// Defect notifications should not trigger spare parts or maintenance type functionality
 		
@@ -2478,6 +2529,61 @@
 			}
 		};
 
+		// Function to calculate total for spare parts
+		function calculateSparePartsTotal() {
+			let total = 0;
+			console.log('Starting calculation...');
+			
+			// Try different selectors
+			let rows = $('.mrntableselectexcel tbody tr');
+			if (rows.length === 0) {
+				console.log('No tbody rows, trying direct tr...');
+				rows = $('.mrntableselectexcel tr');
+			}
+			
+			console.log('Using rows:', rows.length);
+			
+			rows.each(function(index) {
+				console.log('Processing row ' + index);
+				
+				// Try different selectors to find the inputs
+				let qtyInput = $(this).find('input[name="qty[]"]');
+				let rateInput = $(this).find('input[name="rate[]"]');
+				
+				if (qtyInput.length === 0) {
+					qtyInput = $(this).find('.qty');
+				}
+				if (rateInput.length === 0) {
+					rateInput = $(this).find('.rate');
+				}
+				
+				console.log('Qty input found:', qtyInput.length, 'Rate input found:', rateInput.length);
+				
+				if (qtyInput.length > 0 && rateInput.length > 0) {
+					const qty = parseFloat(qtyInput.val()) || 0;
+					const rate = parseFloat(rateInput.val()) || 0;
+					const rowTotal = qty * rate;
+					total += rowTotal;
+					console.log('Row ' + index + ' calculation: qty=' + qty + ', rate=' + rate + ', rowTotal=' + rowTotal);
+				} else {
+					console.log('Row ' + index + ' skipped - inputs not found');
+				}
+			});
+			console.log('Final total: ' + total);
+			$('.settleTotal').text(total.toFixed(2));
+		}
+
+		// Event listeners for qty and rate changes - more specific selectors
+		$(document).on('input change keyup', '.mrntableselectexcel input.qty, .mrntableselectexcel input.rate', function() {
+			console.log('Input changed, calculating total...');
+			calculateSparePartsTotal();
+		});
+
+		// Also trigger calculation when page loads
+		$(document).ready(function() {
+			calculateSparePartsTotal();
+		});
+
 		});
 
 		function calculateDueDate(startDate, frequency) {
@@ -2528,11 +2634,44 @@
 					return false;
 				}
 
-				let attrValue = attribute.val();
-				if (attrValue === "{}" || !attrValue) {
-					attrTd.addClass("border border-danger");
-					allValid = false;
-					return false;
+				// Only validate attributes if the item has attributes
+				const currentItemId = $(this).find('.item_id').val();
+				let itemHasAttributes = false;
+				
+				// Check if this item has attributes by looking for attribute data
+				if (currentItemId && window.itemsWithAttributes && window.itemsWithAttributes[currentItemId]) {
+					itemHasAttributes = window.itemsWithAttributes[currentItemId].length > 0;
+				}
+				
+				// Alternative check: look for attribute-enriched data
+				const attributeEnriched = $(this).find('.attribute-enriched').val();
+				if (attributeEnriched) {
+					try {
+						const enrichedData = JSON.parse(attributeEnriched);
+						itemHasAttributes = enrichedData && enrichedData.length > 0;
+					} catch (e) {
+						// Ignore parsing errors
+					}
+				}
+				
+				// Only validate attributes if the item actually has attributes
+				if (itemHasAttributes) {
+					let attrValue = attribute.val();
+					if (attrValue === "{}" || !attrValue) {
+						attrTd.addClass("border border-danger");
+						
+						// Show SweetAlert error for attribute selection
+						Swal.fire({
+							icon: 'error',
+							title: 'Attribute Selection Required!',
+							html: `Please select at least one attribute for item: <strong>${itemName || 'Unknown Item'}</strong><br><br>Click on the attribute column to select attributes.`,
+							confirmButtonText: 'OK',
+							confirmButtonColor: '#d33'
+						});
+						
+						allValid = false;
+						return false;
+					}
 				}
 
 				if (!uom.val()) {
@@ -2944,6 +3083,137 @@
 		}
 
 		// Form submission validation is now integrated into the main submit handler above
+
+		// Multiple file upload functionality
+		function checkFileTypeandSize(event, previewSelector = '#preview') {
+			$(previewSelector).empty();
+			const files = event.target.files;
+
+			if (files.length > 0) {
+				// Validate each file
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i];
+					const maxSizeMB = 5;
+					const fileSizeMB = file.size / (1024 * 1024);
+
+					const videoExtensions = /(\.mp4|\.avi|\.mov|\.wmv|\.mkv)$/i;
+					if (videoExtensions.exec(file.name)) {
+						Swal.fire({
+							icon: 'error',
+							title: 'Invalid File Type',
+							text: 'Video files are not allowed.'
+						});
+						event.target.value = "";
+						return;
+					}
+
+					if (fileSizeMB > maxSizeMB) {
+						Swal.fire({
+							icon: 'error',
+							title: 'File Too Large',
+							text: `File "${file.name}" size should not exceed 5MB. Current size: ${fileSizeMB.toFixed(2)}MB`
+						});
+						event.target.value = "";
+						return;
+					}
+				}
+
+				// Show preview for all files
+				handleFileUpload(event, previewSelector);
+			}
+		}
+
+		function handleFileUpload(event, previewElement) {
+			var files = event.target.files;
+			var previewContainer = $(previewElement);
+			previewContainer.empty();
+
+			if (files.length > 0) {
+				for (var i = 0; i < files.length; i++) {
+					var fileName = files[i].name;
+					var fileExtension = fileName.split('.').pop().toLowerCase();
+
+					var fileIconType = 'file-text';
+
+					switch (fileExtension) {
+						case 'pdf':
+							fileIconType = 'file';
+							break;
+						case 'doc':
+						case 'docx':
+							fileIconType = 'file';
+							break;
+						case 'xls':
+						case 'xlsx':
+							fileIconType = 'file';
+							break;
+						case 'png':
+						case 'jpg':
+						case 'jpeg':
+						case 'gif':
+							fileIconType = 'image';
+							break;
+						case 'zip':
+						case 'rar':
+							fileIconType = 'archive';
+							break;
+						default:
+							fileIconType = 'file';
+							break;
+					}
+
+					var fileIcon = `
+						<div class="file-upload-preview" data-file-index="${i}" style="display: inline-block; margin: 5px; cursor: pointer; position: relative;">
+							<div class="image-uplodasection expenseadd-sign">
+								<i data-feather="file-text" class="fileuploadicon" style="font-size: 24px; color: #666;"></i>
+								<div class="delete-img text-danger" data-file-index="${i}" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
+									<i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
+								</div>
+							</div>
+						</div>
+					`;
+
+					previewContainer.append(fileIcon);
+				}
+				feather.replace();
+			}
+
+			previewContainer.find('.delete-img').click(function() {
+				var fileIndex = $(this).attr('data-file-index');
+				removeFilePreview(fileIndex, previewContainer, event.target);
+			});
+		}
+
+		function removeFilePreview(fileIndex, previewContainer, inputElement) {
+			var dt = new DataTransfer();
+			var files = inputElement.files;
+
+			for (var i = 0; i < files.length; i++) {
+				if (i != fileIndex) {
+					dt.items.add(files[i]);
+				}
+			}
+
+			inputElement.files = dt.files;
+			previewContainer.children(`[data-file-index="${fileIndex}"]`).remove();
+
+			var remainingPreviews = previewContainer.children();
+			remainingPreviews.each(function(index) {
+				$(this).attr('data-file-index', index);
+				$(this).find('.delete-img').attr('data-file-index', index);
+			});
+
+			if (dt.files.length === 0) {
+				inputElement.value = "";
+			}
+		}
+
+		// Add event listener to clear error state when user starts typing in document number
+		$(document).ready(function() {
+			$('#document_number').on('input', function() {
+				resetDocumentInputState();
+			});
+		});
 
 	</script>
 @endsection

@@ -290,26 +290,45 @@
 													
 													<div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Report Date & Time <span class="text-danger">*</span></label>
+                                                            <label class="form-label">Down Date & Time <span class="text-danger">*</span></label>
                                                             <input type="datetime-local" name="report_date_time" value="{{ $defectNotification->report_date_time ? \Carbon\Carbon::parse($defectNotification->report_date_time)->format('Y-m-d\TH:i') : '' }}" class="form-control" /> 
                                                         </div>
                                                     </div>
 													
 													<div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Attachment</label>
+                                                            <label class="form-label"><i data-feather="paperclip"></i> Attachment</label>
                                                             <div class="d-flex align-items-center">
-                                                                <input type="file" name="upload_document" id="upload_document" class="form-control" 
-                                                                       accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" /> 
-                                                                @if(isset($defectNotification->attachment) && !empty($defectNotification->attachment))
-                                                                <div class="file-upload-preview ms-2" style="cursor: pointer;">
-                                                                    <div class="image-uplodasection expenseadd-sign">
-                                                                        <i onclick="window.open('{{ asset('storage/' . $defectNotification->attachment) }}', '_blank')" data-feather="file-text"></i>
-                                                                    </div>
-                                                                </div>
+                                                                <input type="file" multiple name="upload_document[]" id="upload_document" class="form-control" 
+                                                                       onchange="checkFileTypeandSize(event)"
+                                                                       accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" />
+                                                                
+                                                                {{-- Current attachments display inline --}}
+                                                                @if($defectNotification->attachment)
+                                                                    @php
+                                                                        $attachments = is_string($defectNotification->attachment) ? 
+                                                                            (json_decode($defectNotification->attachment, true) ?: [$defectNotification->attachment]) : 
+                                                                            [$defectNotification->attachment];
+                                                                    @endphp
+                                                                    @foreach($attachments as $attachment)
+                                                                        @if($attachment)
+                                                                            <div class="file-upload-preview ms-2" style="cursor: pointer;">
+                                                                                <div class="image-uplodasection expenseadd-sign">
+                                                                                    <i onclick="window.open('{{ asset('storage/' . $attachment) }}', '_blank')" data-feather="file-text"></i>
+                                                                                </div>
+                                                                            </div>
+                                                                        @endif
+                                                                    @endforeach
                                                                 @endif
                                                             </div>
                                                             <span class="text-primary small">{{__("message.attachment_caption")}}</span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-3">
+                                                        <div class="mb-1">
+                                                            <label class="form-label"></label>
+                                                            <div id="preview"></div>
                                                         </div>
                                                     </div>
 													 
@@ -1133,7 +1152,7 @@
 				}
 				if (!$('input[name="report_date_time"]').val()) {
 					isValid = false;
-					errorMessage += 'Report Date & Time is required.\n';
+					errorMessage += 'Down Date & Time is required.\n';
 				}
 			}
 
@@ -1610,6 +1629,128 @@
 		}
 		
 		return true;
+	}
+
+	// Multiple file upload functionality
+	function checkFileTypeandSize(event) {
+		$('#preview').empty();
+		const files = event.target.files;
+
+		if (files.length > 0) {
+			// Validate each file
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				const maxSizeMB = 5;
+				const fileSizeMB = file.size / (1024 * 1024);
+
+				const videoExtensions = /(\.mp4|\.avi|\.mov|\.wmv|\.mkv)$/i;
+				if (videoExtensions.exec(file.name)) {
+					Swal.fire({
+						icon: 'error',
+						title: 'Invalid File Type',
+						text: 'Video files are not allowed.'
+					});
+					event.target.value = "";
+					return;
+				}
+
+				if (fileSizeMB > maxSizeMB) {
+					Swal.fire({
+						icon: 'error',
+						title: 'File Too Large',
+						text: `File "${file.name}" size should not exceed 5MB. Current size: ${fileSizeMB.toFixed(2)}MB`
+					});
+					event.target.value = "";
+					return;
+				}
+			}
+
+			handleFileUpload(event, `#preview`);
+		}
+	}
+
+	function handleFileUpload(event, previewElement) {
+		var files = event.target.files;
+		var previewContainer = $(previewElement);
+		previewContainer.empty();
+
+		if (files.length > 0) {
+			for (var i = 0; i < files.length; i++) {
+				var fileName = files[i].name;
+				var fileExtension = fileName.split('.').pop().toLowerCase();
+
+				var fileIconType = 'file-text';
+
+				switch (fileExtension) {
+					case 'pdf':
+						fileIconType = 'file';
+						break;
+					case 'doc':
+					case 'docx':
+						fileIconType = 'file';
+						break;
+					case 'xls':
+					case 'xlsx':
+						fileIconType = 'file';
+						break;
+					case 'png':
+					case 'jpg':
+					case 'jpeg':
+					case 'gif':
+						fileIconType = 'image';
+						break;
+					case 'zip':
+					case 'rar':
+						fileIconType = 'archive';
+						break;
+					default:
+						fileIconType = 'file';
+						break;
+				}
+
+				var fileIcon = `
+					<div class="image-uplodasection expenseadd-sign" data-file-index="${i}" style="display: inline-block; margin: 5px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; position: relative; text-align: center;">
+						<i data-feather="${fileIconType}" class="fileuploadicon" style="font-size: 24px; color: #666;"></i>
+						<div class="delete-img text-danger" data-file-index="${i}" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">
+							<i data-feather="x" style="font-size: 12px;"></i>
+						</div>
+						<div style="font-size: 10px; margin-top: 5px; word-break: break-all; max-width: 80px;">${fileName}</div>
+					</div>
+				`;
+
+				previewContainer.append(fileIcon);
+			}
+			feather.replace();
+		}
+
+		previewContainer.find('.delete-img').click(function() {
+			var fileIndex = $(this).parent().data('file-index');
+			removeFilePreview(fileIndex, previewContainer, event.target);
+		});
+	}
+
+	function removeFilePreview(fileIndex, previewContainer, inputElement) {
+		var dt = new DataTransfer();
+		var files = inputElement.files;
+
+		for (var i = 0; i < files.length; i++) {
+			if (i !== fileIndex) {
+				dt.items.add(files[i]);
+			}
+		}
+
+		inputElement.files = dt.files;
+		previewContainer.children(`[data-file-index="${fileIndex}"]`).remove();
+
+		var remainingPreviews = previewContainer.children();
+		remainingPreviews.each(function(index) {
+			$(this).attr('data-file-index', index);
+			$(this).find('.delete-img').attr('data-file-index', index);
+		});
+
+		if (dt.files.length === 0) {
+			inputElement.value = "";
+		}
 	}
 
 	</script>

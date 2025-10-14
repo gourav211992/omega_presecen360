@@ -143,6 +143,7 @@
 													</div>
 
 
+
 												</div>
 
 											</div>
@@ -278,9 +279,18 @@
 										<div class="row mt-2">
 											<div class="col-md-4">
 												<div class="mb-1">
-													<label class="form-label">Upload Document</label>
-													<input type="file" name="document" class="form-control" accept=".png,.jpeg,.jpg,.xls,.docx,.pdf">
-													<span class = "text-primary small">{{__("message.attachment_caption")}}</span>
+													<label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
+													<input type="file" multiple name="document[]" id="document" class="form-control" 
+														   onchange="checkFileTypeandSize(event)"
+														   accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
+													<span class="text-primary small">{{__("message.attachment_caption")}}</span>
+												</div>
+											</div>
+											
+											<div class="col-md-4">
+												<div class="mb-1">
+													<label class="form-label"></label>
+													<div id="preview"></div>
 												</div>
 											</div>
 
@@ -869,8 +879,76 @@
 				return; // Stop submission if validation fails
 			}
 
-			updateJsonData();
-			document.getElementById('maint-bom-form').submit();
+			// Also validate document number uniqueness for draft save using simple AJAX
+			const documentNumber = document.getElementById('document_number').value.trim();
+			const bomName = document.getElementById('bom_name').value.trim();
+			const bookId = document.getElementById('book_id').value;
+
+			// If no document number and no BOM name, proceed with submission
+			if ((!documentNumber || documentNumber.length < 1) && (!bomName || bomName.length < 1)) {
+				updateJsonData();
+				document.getElementById('maint-bom-form').submit();
+				return;
+			}
+
+			// Clear any existing error state
+			resetDocumentInputState();
+			resetBomNameInputState();
+
+			// Simple AJAX validation
+			$.ajax({
+				url: '{{ route("maint-bom.check-document-number") }}',
+				type: 'POST',
+				data: {
+					document_number: documentNumber,
+					bom_name: bomName,
+					book_id: bookId,
+					_token: $('meta[name="csrf-token"]').attr('content')
+				},
+				success: function(data) {
+					console.log('Validation response:', data);
+					let hasErrors = false;
+
+					// Check document number validation
+					if (data.document_exists) {
+						const documentInput = document.getElementById('document_number');
+						documentInput.style.border = '1px solid red';
+						hasErrors = true;
+					}
+
+					// Check BOM name validation
+					if (data.bom_name_exists) {
+						const bomInput = document.getElementById('bom_name');
+						bomInput.style.border = '1px solid red';
+						hasErrors = true;
+					}
+
+					if (hasErrors) {
+						$('.preloader').hide();
+						if (data.message) {
+							Swal.fire({
+								icon: 'error',
+								title: 'Validation Error!',
+								text: data.message,
+								confirmButtonText: 'OK',
+								confirmButtonColor: '#d33'
+							});
+						}
+						document.getElementById('document_number').focus();
+					} else {
+						// No errors, proceed with submission
+						updateJsonData();
+						document.getElementById('maint-bom-form').submit();
+					}
+				},
+				error: function(xhr, status, error) {
+					console.error('Validation error:', error);
+					$('.preloader').hide();
+					// On error, allow submission (server will handle)
+					updateJsonData();
+					document.getElementById('maint-bom-form').submit();
+				}
+			});
 
 		});
 
@@ -901,23 +979,76 @@
 				return; // Stop submission if validation fails
 			}
 
-			// Validate document number uniqueness before submission
-			validateDocumentNumberOnSubmit()
-				.then((isValid) => {
-					if (isValid) {
+			// Validate document number uniqueness before submission using simple AJAX
+			const documentNumber = document.getElementById('document_number').value.trim();
+			const bomName = document.getElementById('bom_name').value.trim();
+			const bookId = document.getElementById('book_id').value;
+
+			// If no document number and no BOM name, proceed with submission
+			if ((!documentNumber || documentNumber.length < 1) && (!bomName || bomName.length < 1)) {
+				updateJsonData();
+				document.getElementById('maint-bom-form').submit();
+				return;
+			}
+
+			// Clear any existing error state
+			resetDocumentInputState();
+			resetBomNameInputState();
+
+			// Simple AJAX validation
+			$.ajax({
+				url: '{{ route("maint-bom.check-document-number") }}',
+				type: 'POST',
+				data: {
+					document_number: documentNumber,
+					bom_name: bomName,
+					book_id: bookId,
+					_token: $('meta[name="csrf-token"]').attr('content')
+				},
+				success: function(data) {
+					console.log('Validation response:', data);
+					let hasErrors = false;
+
+					// Check document number validation
+					if (data.document_exists) {
+						const documentInput = document.getElementById('document_number');
+						documentInput.style.border = '1px solid red';
+						hasErrors = true;
+					}
+
+					// Check BOM name validation
+					if (data.bom_name_exists) {
+						const bomInput = document.getElementById('bom_name');
+						bomInput.style.border = '1px solid red';
+						hasErrors = true;
+					}
+
+					if (hasErrors) {
+						$('.preloader').hide();
+						if (data.message) {
+							Swal.fire({
+								icon: 'error',
+								title: 'Validation Error!',
+								text: data.message,
+								confirmButtonText: 'OK',
+								confirmButtonColor: '#d33'
+							});
+						}
+						document.getElementById('document_number').focus();
+					} else {
+						// No errors, proceed with submission
 						updateJsonData();
 						document.getElementById('maint-bom-form').submit();
-					} else {
-						$('.preloader').hide();
-						// Focus on document number field for user to fix
-						document.getElementById('document_number').focus();
 					}
-				})
-				.catch((error) => {
+				},
+				error: function(xhr, status, error) {
+					console.error('Validation error:', error);
 					$('.preloader').hide();
-					// Focus on document number field for user to fix
-					document.getElementById('document_number').focus();
-				});
+					// On error, allow submission (server will handle)
+					updateJsonData();
+					document.getElementById('maint-bom-form').submit();
+				}
+			});
 
 		});
 
@@ -1481,6 +1612,7 @@
 			let documentNumber = $('#document_number').val().trim();
 			let documentDate = $('#document_date').val();
 			let bomName = $('#bom_name').val().trim();
+			
 
 			if (!bookId) {
 				errorMessages.push('Please select a Series');
@@ -1523,7 +1655,7 @@
 			// Check for duplicates if basic validation passed
 			if (isValid) {
 				try {
-					const duplicateCheck = await checkForDuplicates(documentNumber, bomName, bookId);
+					const duplicateCheck = await checkForDuplicates(documentNumber, bomName, bookId,documentDate);
 					if (duplicateCheck.document_exists) {
 						errorMessages.push('Document number already exists. Please use a different document number.');
 						$('#document_number').addClass('is-invalid');
@@ -1554,7 +1686,7 @@
 		}
 
 		// Function to check for duplicate document number and BOM name
-		function checkForDuplicates(documentNumber, bomName, bookId) {
+		function checkForDuplicates(documentNumber, bomName, bookId,date) {
 			return new Promise((resolve, reject) => {
 				$.ajax({
 					url: '{{ route("maint-bom.check-document-number") }}',
@@ -1563,6 +1695,7 @@
 						document_number: documentNumber,
 						bom_name: bomName,
 						book_id: bookId,
+						date: date,
 						_token: '{{ csrf_token() }}'
 					},
 					success: function(response) {
@@ -1718,8 +1851,11 @@
 				const bomName = document.getElementById('bom_name').value.trim();
 				const bookId = document.getElementById('book_id').value;
 				
+				console.log('Validating document number:', documentNumber, 'BOM name:', bomName);
+				
 				// If no document number and no BOM name, resolve as valid (server will handle required validation)
 				if ((!documentNumber || documentNumber.length < 1) && (!bomName || bomName.length < 1)) {
+					console.log('No document number or BOM name provided, skipping validation');
 					resolve(true);
 					return;
 				}
@@ -1743,12 +1879,29 @@
 				})
 				.then(response => response.json())
 				.then(data => {
+					console.log('Validation response:', data);
 					let hasErrors = false;
+					let errorMessages = [];
 					
 					// Check document number validation
 					if (data.document_exists) {
 						const documentInput = document.getElementById('document_number');
 						documentInput.style.border = '1px solid red';
+						
+						// Add error message below document input
+						const existingError = document.getElementById('document-number-error');
+						if (existingError) {
+							existingError.remove();
+						}
+						
+						const errorDiv = document.createElement('div');
+						errorDiv.id = 'document-number-error';
+						errorDiv.style.color = 'red';
+						errorDiv.style.fontSize = '12px';
+						errorDiv.style.marginTop = '5px';
+						errorDiv.textContent = 'Document number already exists. Please use a different document number.';
+						documentInput.parentNode.appendChild(errorDiv);
+						
 						hasErrors = true;
 					}
 					
@@ -1756,6 +1909,21 @@
 					if (data.bom_name_exists) {
 						const bomInput = document.getElementById('bom_name');
 						bomInput.style.border = '1px solid red';
+						
+						// Add error message below BOM name input
+						const existingError = document.getElementById('bom-name-error');
+						if (existingError) {
+							existingError.remove();
+						}
+						
+						const errorDiv = document.createElement('div');
+						errorDiv.id = 'bom-name-error';
+						errorDiv.style.color = 'red';
+						errorDiv.style.fontSize = '12px';
+						errorDiv.style.marginTop = '5px';
+						errorDiv.textContent = 'BOM name already exists. Please use a different BOM name.';
+						bomInput.parentNode.appendChild(errorDiv);
+						
 						hasErrors = true;
 					}
 					
@@ -1763,9 +1931,10 @@
 					if (hasErrors && data.message) {
 						Swal.fire({
 							icon: 'error',
-							title: 'Validation Error',
-							text: data.message,
-							confirmButtonText: 'OK'
+							title: 'Validation Error!',
+							html: data.message.replace(/\n/g, '<br>'),
+							confirmButtonText: 'OK',
+							confirmButtonColor: '#d33'
 						});
 						reject(false); // Validation failed
 					} else {
@@ -1781,21 +1950,25 @@
 		
 		function resetDocumentInputState() {
 			const documentInput = document.getElementById('document_number');
-			documentInput.style.border = '';
-			
-			const existingError = document.getElementById('document-number-error');
-			if (existingError) {
-				existingError.remove();
+			if (documentInput) {
+				documentInput.style.border = '';
+				
+				const existingError = document.getElementById('document-number-error');
+				if (existingError) {
+					existingError.remove();
+				}
 			}
 		}
 		
 		function resetBomNameInputState() {
 			const bomInput = document.getElementById('bom_name');
-			bomInput.style.border = '';
-			
-			const existingError = document.getElementById('bom-name-error');
-			if (existingError) {
-				existingError.remove();
+			if (bomInput) {
+				bomInput.style.border = '';
+				
+				const existingError = document.getElementById('bom-name-error');
+				if (existingError) {
+					existingError.remove();
+				}
 			}
 		}
 		
@@ -1804,6 +1977,20 @@
 			// Document number validation
 			const documentNumberInput = document.getElementById('document_number');
 			const bookIdSelect = document.getElementById('book_id');
+			const bomNameInput = document.getElementById('bom_name');
+			
+			// Clear validation errors when user starts typing
+			if (documentNumberInput) {
+				documentNumberInput.addEventListener('input', function() {
+					resetDocumentInputState();
+				});
+			}
+			
+			if (bomNameInput) {
+				bomNameInput.addEventListener('input', function() {
+					resetBomNameInputState();
+				});
+			}
 			
 			// Document number validation removed from real-time input
 			// Will be checked only during form submission
@@ -1824,6 +2011,99 @@
 					e.preventDefault(); 
 				}, true); 
 			});
-		});
+		})
+
+		// Multiple file upload functionality
+		function checkFileTypeandSize(event) {
+			$('#preview').empty();
+			const files = event.target.files;
+
+			if (files.length > 0) {
+				// Validate each file
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i];
+					const maxSizeMB = 5;
+					const fileSizeMB = file.size / (1024 * 1024);
+
+					const videoExtensions = /(\.mp4|\.avi|\.mov|\.wmv|\.mkv)$/i;
+					if (videoExtensions.exec(file.name)) {
+						Swal.fire({
+							icon: 'error',
+							title: 'Invalid File Type',
+							text: 'Video files are not allowed.'
+						});
+						event.target.value = "";
+						return;
+					}
+
+					if (fileSizeMB > maxSizeMB) {
+						Swal.fire({
+							icon: 'error',
+							title: 'File Too Large',
+							text: `File "${file.name}" size should not exceed 5MB. Current size: ${fileSizeMB.toFixed(2)}MB`
+						});
+						event.target.value = "";
+						return;
+					}
+				}
+
+				handleFileUpload(event, `#preview`);
+			}
+		}
+
+		function handleFileUpload(event, previewElement) {
+			var files = event.target.files;
+			var previewContainer = $(previewElement);
+			previewContainer.empty();
+
+			if (files.length > 0) {
+				for (var i = 0; i < files.length; i++) {
+					var fileName = files[i].name;
+
+					var fileIcon = `
+						<div class="file-upload-preview" data-file-index="${i}" style="display: inline-block; margin: 5px; cursor: pointer; position: relative;">
+							<div class="image-uplodasection expenseadd-sign">
+								<i data-feather="file-text" class="fileuploadicon" style="font-size: 24px; color: #666;"></i>
+								<div class="delete-img text-danger" data-file-index="${i}" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
+									<i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
+								</div>
+							</div>
+						</div>
+					`;
+
+					previewContainer.append(fileIcon);
+				}
+				feather.replace();
+			}
+
+			previewContainer.find('.delete-img').click(function() {
+				var fileIndex = $(this).parent().data('file-index');
+				removeFilePreview(fileIndex, previewContainer, event.target);
+			});
+		}
+
+		function removeFilePreview(fileIndex, previewContainer, inputElement) {
+			var dt = new DataTransfer();
+			var files = inputElement.files;
+
+			for (var i = 0; i < files.length; i++) {
+				if (i !== fileIndex) {
+					dt.items.add(files[i]);
+				}
+			}
+
+			inputElement.files = dt.files;
+			previewContainer.children(`[data-file-index="${fileIndex}"]`).remove();
+
+			var remainingPreviews = previewContainer.children();
+			remainingPreviews.each(function(index) {
+				$(this).attr('data-file-index', index);
+				$(this).find('.delete-img').attr('data-file-index', index);
+			});
+
+			if (dt.files.length === 0) {
+				inputElement.value = "";
+			}
+		}
 	</script>
 @endsection

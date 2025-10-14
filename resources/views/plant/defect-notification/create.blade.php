@@ -194,18 +194,24 @@
 													
 													<div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Report Date & Time</label>
+                                                            <label class="form-label">Down Date & Time</label>
                                                             <input type="text" name="report_date_time" class="form-control" value="{{ now()->format('d-m-Y H:i') }}" placeholder="dd-mm-yyyy HH:mm"/> 
                                                         </div>
                                                     </div>
 													
 													<div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Attachment</label>
-                                                            <input type="file" name="attachment" id="attachment" class="form-control" 
+                                                            <label class="form-label"><i data-feather="paperclip"></i> Attachment</label>
+                                                            <input type="file" multiple name="attachment[]" id="attachment" class="form-control" 
+                                                                   onchange="checkFileTypeandSize(event)"
                                                                    accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" /> 
 																   <span class = "text-primary small">{{__("message.attachment_caption")}}</span>
                                                         </div>
+                                                    </div>
+                                                    
+                                                    <div class="col-md-3">
+                                                        <label class="form-label"></label>
+                                                        <div id="preview"></div>
                                                     </div>
 													 
 													<div class="col-md-12">
@@ -913,7 +919,7 @@
 				}
 				if (!$('input[name="report_date_time"]').val()) {
 					isValid = false;
-					errorMessage += 'Report Date & Time is required.\n';
+					errorMessage += 'Down Date & Time is required.\n';
 				}
 			}
 
@@ -922,16 +928,84 @@
 					icon: 'error',
 					title: 'Validation Error!',
 					html: errorMessage.replace(/\n/g, '<br>'),
-					confirmButtonText: 'OK'
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
 				});
 				return;
 			}
 
-			// Show loading
+			// AJAX validation for document number uniqueness
+			const documentNumber = $('#document_number').val().trim();
+			const bookId = $('#book_id').val();
+
+			// If no document number, proceed with submission
+			if (!documentNumber || documentNumber.length < 1) {
+				// Show loading
+				$('.preloader').show();
+				// Submit the form
+				$('#defect-notification-form')[0].submit();
+				return;
+			}
+
+			// Clear any existing error state
+			resetDocumentInputState();
+
+			// Show loading for AJAX
 			$('.preloader').show();
 
-			// Submit the form
-			$('#defect-notification-form')[0].submit();
+			// AJAX validation
+			$.ajax({
+				url: '{{ route("defect-notification.check-document-number") }}',
+				type: 'POST',
+				data: {
+					document_number: documentNumber,
+					book_id: bookId,
+					_token: $('meta[name="csrf-token"]').attr('content')
+				},
+				success: function(data) {
+					console.log('Validation response:', data);
+
+					if (data.document_exists) {
+						$('.preloader').hide();
+						
+						// Add visual feedback - red border
+						const documentInput = document.getElementById('document_number');
+						if (documentInput) {
+							documentInput.style.border = '1px solid red';
+						}
+
+						Swal.fire({
+							icon: 'error',
+							title: 'Validation Error!',
+							text: data.message,
+							confirmButtonText: 'OK',
+							confirmButtonColor: '#d33'
+						}).then(() => {
+							// Focus on document number field after closing alert
+							if (document.getElementById('document_number')) {
+								document.getElementById('document_number').focus();
+							}
+						});
+					} else {
+						// No errors, proceed with submission
+						$('#defect-notification-form')[0].submit();
+					}
+				},
+				error: function(xhr, status, error) {
+					console.error('Validation error:', error);
+					$('.preloader').hide();
+					// On error, allow submission (server will handle)
+					$('#defect-notification-form')[0].submit();
+				}
+			});
+		}
+
+		// Function to reset document input visual state
+		function resetDocumentInputState() {
+			const documentInput = document.getElementById('document_number');
+			if (documentInput) {
+				documentInput.style.border = '';
+			}
 		}
 
 		function showToast(icon, title) {
@@ -968,5 +1042,128 @@
 				"@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach"
 			);
 		@endif
+
+		// Multiple file upload functionality
+		function checkFileTypeandSize(event) {
+			$('#preview').empty();
+			const files = event.target.files;
+
+			if (files.length > 0) {
+				// Validate each file
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i];
+					const maxSizeMB = 5;
+					const fileSizeMB = file.size / (1024 * 1024);
+
+					const videoExtensions = /(\.mp4|\.avi|\.mov|\.wmv|\.mkv)$/i;
+					if (videoExtensions.exec(file.name)) {
+						showToast("error", "Video files are not allowed.");
+						event.target.value = "";
+						return;
+					}
+
+					if (fileSizeMB > maxSizeMB) {
+						showToast("error", `File "${file.name}" size should not exceed 5MB. Current size: ${fileSizeMB.toFixed(2)}MB`);
+						event.target.value = "";
+						return;
+					}
+				}
+
+				handleFileUpload(event, `#preview`);
+			}
+		}
+
+		function handleFileUpload(event, previewElement) {
+			var files = event.target.files;
+			var previewContainer = $(previewElement);
+			previewContainer.empty();
+
+			if (files.length > 0) {
+				for (var i = 0; i < files.length; i++) {
+					var fileName = files[i].name;
+					var fileExtension = fileName.split('.').pop().toLowerCase();
+
+					var fileIconType = 'file-text';
+
+					switch (fileExtension) {
+						case 'pdf':
+							fileIconType = 'file';
+							break;
+						case 'doc':
+						case 'docx':
+							fileIconType = 'file';
+							break;
+						case 'xls':
+						case 'xlsx':
+							fileIconType = 'file';
+							break;
+						case 'png':
+						case 'jpg':
+						case 'jpeg':
+						case 'gif':
+							fileIconType = 'image';
+							break;
+						case 'zip':
+						case 'rar':
+							fileIconType = 'archive';
+							break;
+						default:
+							fileIconType = 'file';
+							break;
+					}
+
+					var fileIcon = `
+						<div class="file-upload-preview" data-file-index="${i}" style="display: inline-block; margin: 5px; cursor: pointer; position: relative;">
+							<div class="image-uplodasection expenseadd-sign">
+								<i data-feather="file-text" class="fileuploadicon" style="font-size: 24px; color: #666;"></i>
+								<div class="delete-img text-danger" data-file-index="${i}" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
+									<i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
+								</div>
+							</div>
+						</div>
+					`;
+
+					previewContainer.append(fileIcon);
+				}
+				feather.replace();
+			}
+
+			previewContainer.find('.delete-img').click(function() {
+				var fileIndex = $(this).parent().data('file-index');
+				removeFilePreview(fileIndex, previewContainer, event.target);
+			});
+		}
+
+		function removeFilePreview(fileIndex, previewContainer, inputElement) {
+			var dt = new DataTransfer();
+			var files = inputElement.files;
+
+			for (var i = 0; i < files.length; i++) {
+				if (i !== fileIndex) {
+					dt.items.add(files[i]);
+				}
+			}
+
+			inputElement.files = dt.files;
+			previewContainer.children(`[data-file-index="${fileIndex}"]`).remove();
+
+			var remainingPreviews = previewContainer.children();
+			remainingPreviews.each(function(index) {
+				$(this).attr('data-file-index', index);
+				$(this).find('.delete-img').attr('data-file-index', index);
+			});
+
+			if (dt.files.length === 0) {
+				inputElement.value = "";
+			}
+		}
+
+		// Add event listener to clear error state when user starts typing in document number
+		$(document).ready(function() {
+			$('#document_number').on('input', function() {
+				resetDocumentInputState();
+			});
+		});
+
 	</script>
 @endsection

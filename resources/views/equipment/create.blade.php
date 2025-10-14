@@ -1,6 +1,24 @@
 @extends('layouts.app')
 
 @section('content')
+    <style>
+        .middleinputerror {
+        padding-bottom: 30px;
+        }
+        .middleinputerror span.text-danger {
+            font-size: 12px;
+            position: absolute;
+            top: 38px;
+        }
+        .itemactive { position: absolute; left: 6px; font-size: 11px; top: 6px; color: #fff } 
+        .iteminactive {  left: 24px; color: #999 } 
+        .customernewsection-form .statusactiinactive .form-check-input { width: 80px; cursor: pointer}
+        .customernewsection-form .statusactiinactive .form-check-input:checked + .itemactive { display: inline-block}
+        .customernewsection-form .statusactiinactive .form-check-input:checked ~ .iteminactive { display: none }
+        
+        .customernewsection-form .statusactiinactive .form-check-input:not(:checked) + .itemactive { display: none}
+        .customernewsection-form .statusactiinactive .form-check-input:not(:checked) ~ .iteminactive { display: inline-block }
+    </style>
     <!-- BEGIN: Content-->
     <div class="app-content content ">
         <div class="content-overlay"></div>
@@ -14,6 +32,7 @@
                                 <input type="hidden" name="doc_prefix" id="doc_prefix">
                                 <input type="hidden" name="doc_suffix" id="doc_suffix">
                                 <input type="hidden" name="doc_no" id="doc_no">
+                                <input type="hidden" name="status" id="status">
                                 
                                 <!-- Hidden inputs for checklist data -->
                                 <div id="checklistDataInputs"></div>
@@ -58,7 +77,6 @@
                         </div>
                     </div>
                 </div>
-                <input type="hidden" name="status" id="status">
                 @if (session('success'))
                     <div class="alert alert-success">
                         {{ session('success') }}
@@ -81,198 +99,266 @@
                             <div class="col-12">
                                 <div class="card">
                                     <div class="card-body customernewsection-form">
-                                        <div class="row">
-                                            <div class="col-md-12">
-                                                <div
-                                                    class="newheader border-bottom mb-2 pb-25 d-flex flex-wrap justify-content-between">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <div
+                                                class="newheader border-bottom mb-2 pb-25 d-flex flex-wrap justify-content-between">
+                                                <div>
+                                                    <h4 class="card-title text-theme">Basic Information</h4>
+                                                    <p class="card-text">Fill the details</p>
+                                                </div>
+
+                                                <div>
+                                                    <div class="d-flex align-items-center"> 
+                                                        <div class="form-check form-check-primary form-switch statusactiinactive">
+                                                            <input type="checkbox" name="active_status"  checked class="form-check-input" id="customSwitch3" />
+                                                            <span class="itemactive">Active</span>
+                                                            <span class="itemactive iteminactive">Inactive</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                
+                                            </div>
+                                        </div>
+                                        <div class="col-md-8">
+                                            
+                                            <div class="row align-items-center mb-1">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Organization <span
+                                                            class="text-danger">*</span></label>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <select class="form-select" id="organization_id"
+                                                        name="organization_id">
+                                                        <option value="">Select</option>
+
+                                                        @foreach ($userOrganizations as $organization)
+                                                            <option value="{{ $organization->organization->id }}" {{ $organization->organization->id == $organizationId ? 'selected' : '' }}>
+                                                                {{ $organization->organization->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="row align-items-center mb-1">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Location <span
+                                                            class="text-danger">*</span></label>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <select class="form-select" id="location_id" name="location_id">
+                                                        {{-- Populated by JS --}}
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="row align-items-center mb-1">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Sub Asset Code</label>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <select class="form-select select2" id="asset_code_id" name="asset_code_id">
+                                                        <option value="">Select Sub Asset Code</option>
+                                                        @foreach($fixedAssetRegistration as $asset)
+                                                            <option value="{{ $asset->id }}">{{ $asset->asset_code }} - {{ $asset->asset_name }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="row align-items-center mb-1">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Category <span
+                                                            class="text-danger">*</span></label>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <select class="form-select" id="category_id" name="category_id">
+                                                        <option value="">Select</option>
+                                                        @foreach($categories as $category)
+                                                            <option value="{{ $category->id}}">{{ $category->name }}
+                                                            </option>
+                                                        @endforeach
+                                                        {{-- Populated by JS --}}
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="row align-items-center mb-1">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Name <span
+                                                            class="text-danger">*</span></label>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <input type="text" class="form-control" name="name">
+                                                </div>
+                                            </div>
+
+                                            <div class="row align-items-center mb-1">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Alias</label>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <input type="text" class="form-control" name="alias">
+                                                </div>
+                                            </div>
+
+                                            <div class="row align-items-center mb-1">
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Description</label>
+                                                </div>
+                                                <div class="col-md-5">
+                                                    <input type="text" class="form-control" name="description">
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                        <div class="col-md-4" style="display: none;">
+                                            <div
+                                                class="step-custhomapp bg-light p-1 customerapptimelines customerapptimelinesapprovalpo">
+                                                <h5
+                                                    class="mb-2 text-dark border-bottom pb-50 d-flex align-items-center justify-content-between">
+                                                    <strong><i data-feather="arrow-right-circle"></i> Approval
+                                                        History</strong>
+                                                    <strong
+                                                        class="badge rounded-pill badge-light-secondary amendmentselect">Rev.
+                                                        No.
+                                                        <select class="form-select">
+                                                            <option>00</option>
+                                                            <option>01</option>
+                                                            <option>02</option>
+                                                            <option>03</option>
+                                                        </select>
+                                                    </strong>
+                                                </h5>
+                                                <ul class="timeline ms-50 newdashtimline ">
+                                                    <li class="timeline-item">
+                                                        <span class="timeline-point timeline-point-indicator"></span>
+                                                        <div class="timeline-event">
+                                                            <div
+                                                                class="d-flex justify-content-between flex-sm-row flex-column mb-sm-0 mb-1">
+                                                                <h6>Deepak Kumar</h6>
+                                                                <span
+                                                                    class="badge rounded-pill badge-light-primary">Amendment</span>
+                                                            </div>
+                                                            <h5>(2 min ago)</h5>
+                                                            <p>Description will come here</p>
+                                                        </div>
+                                                    </li>
+                                                    <li class="timeline-item">
+                                                        <span class="timeline-point timeline-point-indicator"></span>
+                                                        <div class="timeline-event">
+                                                            <div
+                                                                class="d-flex justify-content-between flex-sm-row flex-column mb-sm-0 mb-1">
+                                                                <h6>Aniket Singh</h6>
+                                                                <span
+                                                                    class="badge rounded-pill badge-light-danger">Rejected</span>
+                                                            </div>
+                                                            <h5>(2 min ago)</h5>
+                                                            <p>Description will come here</p>
+                                                        </div>
+                                                    </li>
+                                                    <li class="timeline-item">
+                                                        <span
+                                                            class="timeline-point timeline-point-warning timeline-point-indicator"></span>
+                                                        <div class="timeline-event">
+                                                            <div
+                                                                class="d-flex justify-content-between flex-sm-row flex-column mb-sm-0 mb-1">
+                                                                <h6>Deewan Singh</h6>
+                                                                <span
+                                                                    class="badge rounded-pill badge-light-warning">Pending</span>
+                                                            </div>
+                                                            <h5>(5 min ago)</h5>
+                                                            <p>Description will come here</p>
+                                                        </div>
+                                                    </li>
+                                                    <li class="timeline-item">
+                                                        <span
+                                                            class="timeline-point timeline-point-info timeline-point-indicator"></span>
+                                                        <div class="timeline-event">
+                                                            <div
+                                                                class="d-flex justify-content-between flex-sm-row flex-column mb-sm-0 mb-1">
+                                                                <h6>Brijesh Kumar</h6>
+                                                                <span
+                                                                    class="badge rounded-pill badge-light-success">Approved</span>
+                                                            </div>
+                                                            <h5>(10 min ago)</h5>
+                                                            <p>Description will come here</p>
+                                                        </div>
+                                                    </li>
+                                                    <li class="timeline-item">
+                                                        <span
+                                                            class="timeline-point timeline-point-danger timeline-point-indicator"></span>
+                                                        <div class="timeline-event">
+                                                            <div
+                                                                class="d-flex justify-content-between flex-sm-row flex-column mb-sm-0 mb-1">
+                                                                <h6>Deepender Singh</h6>
+                                                                <span
+                                                                    class="badge rounded-pill badge-light-success">Approved</span>
+                                                            </div>
+                                                            <h5>(5 day ago)</h5>
+                                                            <p><a href="#"><i data-feather="download"></i></a>
+                                                                Description will come here </p>
+                                                        </div>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    </div>
+                                </div>
+
+                                <div class="card">
+                                    <div class="card-body customernewsection-form">
+                                    <div class="row">
+                                        <div class="col-md-12">
+                                            <div class="card quation-card">
+                                                <div class="card-header newheader">
                                                     <div>
-                                                        <h4 class="card-title text-theme">Basic Information</h4>
-                                                        <p class="card-text">Fill the details</p>
+                                                        <h4 class="card-title">General Information</h4>
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <div class="col-md-8">
-                                               
-                                                <div class="row align-items-center mb-1">
-                                                    <div class="col-md-3">
-                                                        <label class="form-label">Organization <span
-                                                                class="text-danger">*</span></label>
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                        <select class="form-select" id="organization_id"
-                                                            name="organization_id">
-                                                            <option value="">Select</option>
+                                                <div class="card-body">
+                                                    <div class="row">
 
-                                                            @foreach ($userOrganizations as $organization)
-                                                                <option value="{{ $organization->organization->id }}" {{ $organization->organization->id == $organizationId ? 'selected' : '' }}>
-                                                                    {{ $organization->organization->name }}
-                                                                </option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                </div>
-
-                                                <div class="row align-items-center mb-1">
-                                                    <div class="col-md-3">
-                                                        <label class="form-label">Location <span
-                                                                class="text-danger">*</span></label>
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                        <select class="form-select" id="location_id" name="location_id">
-                                                            {{-- Populated by JS --}}
-                                                        </select>
-                                                    </div>
-                                                </div>
-
-                                                <div class="row align-items-center mb-1">
-                                                    <div class="col-md-3">
-                                                        <label class="form-label">Sub Asset Code</label>
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                        <select class="form-select select2" id="asset_code_id" name="asset_code_id">
-                                                            <option value="">Select Sub Asset Code</option>
-                                                            @foreach($fixedAssetRegistration as $asset)
-                                                                <option value="{{ $asset->id }}">{{ $asset->asset_code }} - {{ $asset->asset_name }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                    </div>
-                                                </div>
-
-                                                <div class="row align-items-center mb-1">
-                                                    <div class="col-md-3">
-                                                        <label class="form-label">Category <span
-                                                                class="text-danger">*</span></label>
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                        <select class="form-select" id="category_id" name="category_id">
-                                                            <option value="">Select</option>
-                                                            @foreach($categories as $category)
-                                                                <option value="{{ $category->id}}">{{ $category->name }}
-                                                                </option>
-                                                            @endforeach
-                                                            {{-- Populated by JS --}}
-                                                        </select>
-                                                    </div>
-                                                </div>
-
-                                                <div class="row align-items-center mb-1">
-                                                    <div class="col-md-3">
-                                                        <label class="form-label">Name <span
-                                                                class="text-danger">*</span></label>
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                        <input type="text" class="form-control" name="name">
-                                                    </div>
-                                                </div>
-
-                                                <div class="row align-items-center mb-1">
-                                                    <div class="col-md-3">
-                                                        <label class="form-label">Alias</label>
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                        <input type="text" class="form-control" name="alias">
-                                                    </div>
-                                                </div>
-
-                                                <div class="row align-items-center mb-1">
-                                                    <div class="col-md-3">
-                                                        <label class="form-label">Description</label>
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                        <input type="text" class="form-control" name="description">
-                                                    </div>
-                                                </div>
-
-                                            </div>
-                                            <div class="col-md-4" style="display: none;">
-                                                <div
-                                                    class="step-custhomapp bg-light p-1 customerapptimelines customerapptimelinesapprovalpo">
-                                                    <h5
-                                                        class="mb-2 text-dark border-bottom pb-50 d-flex align-items-center justify-content-between">
-                                                        <strong><i data-feather="arrow-right-circle"></i> Approval
-                                                            History</strong>
-                                                        <strong
-                                                            class="badge rounded-pill badge-light-secondary amendmentselect">Rev.
-                                                            No.
-                                                            <select class="form-select">
-                                                                <option>00</option>
-                                                                <option>01</option>
-                                                                <option>02</option>
-                                                                <option>03</option>
-                                                            </select>
-                                                        </strong>
-                                                    </h5>
-                                                    <ul class="timeline ms-50 newdashtimline ">
-                                                        <li class="timeline-item">
-                                                            <span class="timeline-point timeline-point-indicator"></span>
-                                                            <div class="timeline-event">
-                                                                <div
-                                                                    class="d-flex justify-content-between flex-sm-row flex-column mb-sm-0 mb-1">
-                                                                    <h6>Deepak Kumar</h6>
-                                                                    <span
-                                                                        class="badge rounded-pill badge-light-primary">Amendment</span>
-                                                                </div>
-                                                                <h5>(2 min ago)</h5>
-                                                                <p>Description will come here</p>
+                                                        <div class="col-md-3">
+                                                            <div class="mb-1">
+                                                                <label class="form-label" for="model_name">Model Name <span class="text-danger">*</span></label>
+                                                                <input type="text" class="form-control" id="model_name" name="model_name" placeholder="Enter Model Name" />
                                                             </div>
-                                                        </li>
-                                                        <li class="timeline-item">
-                                                            <span class="timeline-point timeline-point-indicator"></span>
-                                                            <div class="timeline-event">
-                                                                <div
-                                                                    class="d-flex justify-content-between flex-sm-row flex-column mb-sm-0 mb-1">
-                                                                    <h6>Aniket Singh</h6>
-                                                                    <span
-                                                                        class="badge rounded-pill badge-light-danger">Rejected</span>
-                                                                </div>
-                                                                <h5>(2 min ago)</h5>
-                                                                <p>Description will come here</p>
+                                                        </div>
+
+                                                        <div class="col-md-3">
+                                                            <div class="mb-1">
+                                                                <label class="form-label" for="manufacturer_name">Manufacturer Name <span class="text-danger">*</span></label>
+                                                                <input type="text" class="form-control" id="manufacturer_name" name="manufacturer_name" placeholder="Enter Manufacturer Name" />
                                                             </div>
-                                                        </li>
-                                                        <li class="timeline-item">
-                                                            <span
-                                                                class="timeline-point timeline-point-warning timeline-point-indicator"></span>
-                                                            <div class="timeline-event">
-                                                                <div
-                                                                    class="d-flex justify-content-between flex-sm-row flex-column mb-sm-0 mb-1">
-                                                                    <h6>Deewan Singh</h6>
-                                                                    <span
-                                                                        class="badge rounded-pill badge-light-warning">Pending</span>
-                                                                </div>
-                                                                <h5>(5 min ago)</h5>
-                                                                <p>Description will come here</p>
+                                                        </div>
+
+                                                        <div class="col-md-3">
+                                                            <div class="mb-1">
+                                                                <label class="form-label" for="yom">YOM<span class="text-danger">*</span></label>
+                                                                <input type="number" class="form-control" id="yom" name="yom" placeholder="Enter YOM" />
                                                             </div>
-                                                        </li>
-                                                        <li class="timeline-item">
-                                                            <span
-                                                                class="timeline-point timeline-point-info timeline-point-indicator"></span>
-                                                            <div class="timeline-event">
-                                                                <div
-                                                                    class="d-flex justify-content-between flex-sm-row flex-column mb-sm-0 mb-1">
-                                                                    <h6>Brijesh Kumar</h6>
-                                                                    <span
-                                                                        class="badge rounded-pill badge-light-success">Approved</span>
-                                                                </div>
-                                                                <h5>(10 min ago)</h5>
-                                                                <p>Description will come here</p>
+                                                        </div>
+
+                                                        <div class="col-md-3">
+                                                            <div class="mb-1">
+                                                                <label class="form-label" for="commission_date">Machine Commission Date <span class="text-danger">*</span></label>
+                                                                <input type="date" class="form-control" id="commission_date" name="commission_date" value="{{ old('commission_date', date('Y-m-d')) }}" />
                                                             </div>
-                                                        </li>
-                                                        <li class="timeline-item">
-                                                            <span
-                                                                class="timeline-point timeline-point-danger timeline-point-indicator"></span>
-                                                            <div class="timeline-event">
-                                                                <div
-                                                                    class="d-flex justify-content-between flex-sm-row flex-column mb-sm-0 mb-1">
-                                                                    <h6>Deepender Singh</h6>
-                                                                    <span
-                                                                        class="badge rounded-pill badge-light-success">Approved</span>
-                                                                </div>
-                                                                <h5>(5 day ago)</h5>
-                                                                <p><a href="#"><i data-feather="download"></i></a>
-                                                                    Description will come here </p>
+                                                        </div>
+
+                                                       
+
+                                                        <div class="col-md-3">
+                                                            <div class="mb-1">
+                                                                <label class="form-label" for="purchase_cost">Machine Purchase Cost (₹) <span class="text-danger">*</span></label>
+                                                                <input type="number" class="form-control" id="purchase_cost" name="purchase_cost" placeholder="Enter Machine Purchase Cost" />
                                                             </div>
-                                                        </li>
-                                                    </ul>
+                                                        </div>
+
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -345,12 +431,25 @@
                                             <div class="col-md-12">
                                                 <div class="col-md-4">
                                                     <div class="mb-1">
-                                                        <label class="form-label">Upload Document</label>
-                                                        <input type="file" name="upload_document" class="form-control">
-                                                        <span class="text-primary small">Accept only .PNG, .JPEG, .JPG , XLS, .DOCX, and .PDF and not more than 5MB in size</span>
+                                                        <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
+                                                        <input type="file" multiple name="upload_document[]" id="document" class="form-control" 
+                                                            onchange="checkFileTypeandSize(event)"
+                                                            accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
+                                                        <span class="text-primary small">{{__("message.attachment_caption")}}</span>
                                                     </div>
                                                 </div>
+											
+                                                <div class="col-md-4">
+                                                    <div class="mb-1">
+                                                        <label class="form-label"></label>
+                                                        <div id="preview"></div>
+                                                    </div>
+                                                </div>
+
                                             </div>
+
+                                         
+
                                             <div class="col-md-12">
                                                 <div class="mb-1">
                                                     <label class="form-label">Final Remarks</label>
@@ -2111,6 +2210,105 @@
                     : ''
             };
         }
+
+    // Multiple file upload functionality
+		function checkFileTypeandSize(event) {
+			$('#preview').empty();
+			const files = event.target.files;
+
+			if (files.length > 0) {
+				// Validate each file
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i];
+					const maxSizeMB = 5;
+					const fileSizeMB = file.size / (1024 * 1024);
+
+					const videoExtensions = /(\.mp4|\.avi|\.mov|\.wmv|\.mkv)$/i;
+					if (videoExtensions.exec(file.name)) {
+						Swal.fire({
+							icon: 'error',
+							title: 'Invalid File Type',
+							text: 'Video files are not allowed.'
+						});
+						event.target.value = "";
+						return;
+					}
+
+					if (fileSizeMB > maxSizeMB) {
+						Swal.fire({
+							icon: 'error',
+							title: 'File Too Large',
+							text: `File "${file.name}" size should not exceed 5MB. Current size: ${fileSizeMB.toFixed(2)}MB`
+						});
+						event.target.value = "";
+						return;
+					}
+				}
+
+				handleFileUpload(event, `#preview`);
+			}
+		}
+
+		function handleFileUpload(event, previewElement) {
+			var files = event.target.files;
+			var previewContainer = $(previewElement);
+			previewContainer.empty();
+
+			if (files.length > 0) {
+				for (var i = 0; i < files.length; i++) {
+					var fileName = files[i].name;
+
+					var fileIcon = `
+						<div class="file-upload-preview" data-file-index="${i}" style="display: inline-block; margin: 5px; cursor: pointer; position: relative;">
+							<div class="image-uplodasection expenseadd-sign">
+								<i data-feather="file-text" class="fileuploadicon" style="font-size: 24px; color: #666;"></i>
+								<div class="delete-img text-danger" data-file-index="${i}" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
+									<i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
+								</div>
+							</div>
+						</div>
+					`;
+
+					previewContainer.append(fileIcon);
+				}
+				feather.replace();
+			}
+		}
+
+		function removeFilePreview(fileIndex, previewContainer, inputElement) {
+			var dt = new DataTransfer();
+			var files = inputElement.files;
+
+			for (var i = 0; i < files.length; i++) {
+				if (i !== fileIndex) {
+					dt.items.add(files[i]);
+				}
+			}
+
+			inputElement.files = dt.files;
+			previewContainer.children(`[data-file-index="${fileIndex}"]`).remove();
+
+			var remainingPreviews = previewContainer.children();
+			remainingPreviews.each(function(index) {
+				$(this).attr('data-file-index', index);
+				$(this).find('.delete-img').attr('data-file-index', index);
+			});
+
+			if (dt.files.length === 0) {
+				inputElement.value = "";
+			}
+		}
+
+		// Event delegation for delete button clicks
+		$(document).on('click', '.delete-img', function() {
+			var fileIndex = parseInt($(this).data('file-index'));
+			var previewContainer = $('#preview');
+			var inputElement = document.getElementById('document');
+			
+			if (inputElement && previewContainer.length) {
+				removeFilePreview(fileIndex, previewContainer, inputElement);
+			}
+		});
 
 
     </script>

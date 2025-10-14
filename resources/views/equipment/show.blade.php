@@ -1,7 +1,52 @@
 
 @extends('layouts.app')
 
+@section('styles')
+<style>
+    /* Force hide all loaders for equipment show page */
+    .preloader,
+    #erp-overlay-loader {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+    }
+    
+    /* Auto-expand text styles */
+    .auto-expand-text {
+        position: relative;
+    }
+    
+    .auto-expand-text .text-display {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 0.5rem 0.75rem;
+        min-height: 38px;
+        word-wrap: break-word;
+        word-break: break-word;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        font-family: inherit;
+        font-size: 0.875rem;
+        color: #495057;
+    }
+    
+    .auto-expand-text .text-display:empty::before {
+        content: "-";
+        color: #6c757d;
+        font-style: italic;
+    }
+</style>
+@endsection
+
 @section('content')
+
+{{-- If status is DRAFT and not viewing revision history, redirect to edit view --}}
+@if($equipment->document_status === \App\Helpers\ConstantHelper::DRAFT && !request()->has('revisionNumber'))
+    <script>
+        window.location.replace("{{ route('equipment.edit', $equipment->id) }}");
+    </script>
+@endif
     <!-- BEGIN: Content-->
     <div class="app-content content ">
         <div class="content-overlay"></div>
@@ -30,35 +75,41 @@
                                     <a href="{{ route('equipment.index') }}" class="btn btn-secondary btn-sm" id="back">
                                         <i data-feather="arrow-left-circle"></i> Back
                                     </a>
-                                    @if ($equipment->document_status == 'draft' || ($buttons['amend'] && request('amendment') == 1))
-                                    <button type="button" onclick="submitForm('draft');" id="draft"
-                                        class="btn btn-outline-primary btn-sm mb-50 mb-sm-0"><i data-feather='save'></i> Save as
-                                        Draft</button>
                                    
-                                        <button type="button" onclick="submitForm('submitted');"
-                                        class="btn btn-primary btn-sm mb-50 mb-sm-0" id="submitted"><i
-                                            data-feather="check-circle"></i>
-                                        Submit</button>
+                                    @if(!isset(request() -> revisionNumber))
+                                        @if($buttons['approve'])
+                                            <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal"
+                                                data-bs-target="#approveModal" onclick = "setApproval();"><i
+                                                    data-feather="check-circle"></i> Approve</button>
+                                        
+                                            <a type="button" id="reject-button" data-bs-toggle="modal"
+                                                data-bs-target="#approveModal" onclick = "setReject();"
+                                                class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
+                                                    data-feather="x-circle"></i> Reject</a>
+                                        @endif
+                                                       
+                                    @if($buttons['amend'])
+                                        <a type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm" 
+                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i> Amendment</a>
                                     @endif
-
-                                    @if ($equipment->document_status=='rejected')
-                                        <button type="button" onclick="submitForm('draft');" id="draft"
-                                            class="btn btn-outline-primary btn-sm mb-50 mb-sm-0"><i data-feather='save'></i> Save as
-                                            Draft</button>
-                                    
-                                            <button type="button" onclick="submitForm('submitted');"
-                                            class="btn btn-primary btn-sm mb-50 mb-sm-0" id="submitted"><i
-                                                data-feather="check-circle"></i>
-                                            Submit</button>
+                                    @if($buttons['revoke'])
+										<a id="revokeButton" type="button" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</a>
+									@endif
+                                    @if($buttons['delete'])
+                                        <button type="button" id="deleteButton" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
+                                            data-url="{{ route('equipment.destroy', $equipment->id) }}" 
+                                            data-redirect="{{ route('equipment.index') }}"
+                                            data-message="Are you sure you want to delete this equipment?">
+                                            <i data-feather="trash-2" class="me-50"></i> Delete
+                                        </button>
                                     @endif
-                                  
+                                    @endif
                                     <input id="submitButton" type="submit" value="Submit" class="hidden" />
                             </div>
                         </div>
                     </div>
                 </div>
                 <input type="hidden" name="status" id="status">
-                <input type="hidden" name="action_type" id="action_type" value="{{ request('amendment') == 1 ? 'amendment' : 'submit' }}">
                     @if (session('success'))
                         <div class="alert alert-success">
                             {{ session('success') }}
@@ -116,7 +167,7 @@
                                                                 class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select class="form-select" id="organization_id" name="organization_id" disabled>
+                                                        <select class="form-select" id="organization_id" name="organization_id">
                                                             <option value="">Select</option>
 
                                                             @foreach ($userOrganizations as $organization)
@@ -133,7 +184,7 @@
                                                                 class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select class="form-select" id="location_id" name="location_id" disabled>
+                                                        <select class="form-select" id="location_id" name="location_id">
                                                             <option value="">Select</option>
                                                             @foreach ($locations as $loc)
                                                                 @if ($loc->organization_id == $equipment->organization_id)
@@ -151,7 +202,7 @@
                                                         <label class="form-label">Sub Asset Code</label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select class="form-select select2" id="asset_code_id" name="asset_code_id">
+                                                        <select class="form-select" id="asset_code_id" name="asset_code_id">
                                                             <option value="">Select</option>
                                                             @if(isset($fixedAssetRegistration))
                                                                 @foreach($fixedAssetRegistration as $assetCode)
@@ -237,28 +288,28 @@
                                                         <div class="col-md-3">
                                                             <div class="mb-1">
                                                                 <label class="form-label" for="model_name">Model Name </label>
-                                                                <input type="text" class="form-control" id="model_name" name="model_name" placeholder="Enter Model Name" value="{{ old('model_name', $equipment->model_name) }}" />
+                                                                <input type="text" class="form-control" id="model_name" name="model_name" placeholder="Enter Model Name" value="{{ old('model_name', $equipment->model_name) }}" readonly />
                                                             </div>
                                                         </div>
 
                                                         <div class="col-md-3">
                                                             <div class="mb-1">
                                                                 <label class="form-label" for="manufacturer_name">Manufacturer Name</label>
-                                                                <input type="text" class="form-control" id="manufacturer_name" name="manufacturer_name" placeholder="Enter Manufacturer Name" value="{{ old('manufacturer_name', $equipment->manufacturer_name) }}" />
+                                                                <input type="text" class="form-control" id="manufacturer_name" name="manufacturer_name" placeholder="Enter Manufacturer Name" value="{{ old('manufacturer_name', $equipment->manufacturer_name) }}" readonly />
                                                             </div>
                                                         </div>
 
                                                         <div class="col-md-3">
                                                             <div class="mb-1">
                                                                 <label class="form-label" for="yom">YOM</label>
-                                                                <input type="number" class="form-control" id="yom" name="yom" placeholder="Enter YOM" value="{{ old('yom', $equipment->yom) }}" />
+                                                                <input type="number" class="form-control" id="yom" name="yom" placeholder="Enter YOM" value="{{ old('yom', $equipment->yom) }}" readonly />
                                                             </div>
                                                         </div>
 
                                                         <div class="col-md-3">
                                                             <div class="mb-1">
                                                                 <label class="form-label" for="commission_date">Machine Commission Date</label>
-                                                                <input type="date" class="form-control" id="commission_date" name="commission_date" value="{{ old('commission_date', $equipment->commission_date) }}" />
+                                                                <input type="date" class="form-control" id="commission_date" name="commission_date" value="{{ old('commission_date', $equipment->commission_date) }}" readonly />
                                                             </div>
                                                         </div>
 
@@ -267,7 +318,7 @@
                                                         <div class="col-md-3">
                                                             <div class="mb-1">
                                                                 <label class="form-label" for="purchase_cost">Machine Purchase Cost (₹)</label>
-                                                                <input type="number" class="form-control" id="purchase_cost" name="purchase_cost" placeholder="Enter Machine Purchase Cost" value="{{ old('purchase_cost', $equipment->purchase_cost) }}" />
+                                                                <input type="number" class="form-control" id="purchase_cost" name="purchase_cost" placeholder="Enter Machine Purchase Cost" value="{{ old('purchase_cost', $equipment->purchase_cost) }}" readonly />
                                                             </div>
                                                         </div>
 
@@ -290,7 +341,7 @@
                                                         <p class="card-text">Fill the details</p>
                                                     </div>
                                                 </div>
-                                                <div class="col-md-6 text-sm-end">
+                                                <div class="col-md-6 text-sm-end @if(!$buttons['submit']) d-none @endif">
                                                     <a href="javascript:void(0);" id="deleteRowBtn"
                                                         class="btn btn-sm btn-outline-danger me-50">
                                                         <i data-feather="x-circle"></i> Delete</a>
@@ -444,42 +495,36 @@
                                             <div class="col-md-12 row">
                                                 <div class="col-md-4">
                                                     <div class="mb-1">
-                                                        <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
-                                                        <div class="d-flex align-items-center">
-                                                            <input type="file" multiple name="upload_document[]" id="upload_document" class="form-control" 
-                                                                   onchange="checkFileTypeandSize(event)"
-                                                                   accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" />
-                                                            
-                                                            {{-- Hidden input to track deleted files --}}
-                                                            <input type="hidden" name="deleted_files" id="deleted_files" value="" />
-                                                            
-                                                            {{-- Current documents display inline --}}
-                                                            @if($equipment->upload_document)
-                                                                @php
-                                                                    $documents = is_string($equipment->upload_document) ? json_decode($equipment->upload_document, true) : $equipment->upload_document;
-                                                                    if (!is_array($documents)) $documents = [$equipment->upload_document];
-                                                                @endphp
-                                                                @foreach($documents as $index => $document)
-                                                                    @if($document)
-                                                                        <div class="file-upload-preview ms-2" style="cursor: pointer; position: relative;" data-file-path="{{ $document }}">
-                                                                            <div class="image-uplodasection expenseadd-sign">
-                                                                                <i onclick="window.open('{{ asset('storage/' . $document) }}', '_blank')" data-feather="file-text"></i>
-                                                                                <div class="delete-existing-file" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;" 
-                                                                                     onclick="deleteExistingFile('{{ $document }}', this)" title="Delete file">
-                                                                                    <i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    @endif
-                                                                @endforeach
-                                                            @endif
-                                                        </div>
-                                                        <span class="text-primary small">Accept only .PNG, .JPEG, .JPG, XLS, .XLSX, .DOCX, and .PDF files and not more than 5MB in size</span>
-                                                        <div id="preview" class="mt-2"></div>
+                                                        <label class="form-label">Upload Document</label>
+                                                        <input type="file" name="upload_document" class="form-control">
+                                                        <span class="text-primary small">Accept only .PNG, .JPEG, .JPG , XLS, .DOCX, and .PDF and not more than 5MB in size</span>
                                                     </div>
                                                 </div>
-                                             
+                                                
+                                                @if(!empty($equipment->upload_document))
+                                                <div class="col-md-8" style="margin-top:19px;">
+                                                    <div class="d-flex flex-wrap gap-2" id="existing-files">
+                                                        @if($equipment->upload_document)
+															@php
+																$documents = is_string($equipment->upload_document) ? 
+																	(json_decode($equipment->upload_document, true) ?: [$equipment->upload_document]) : 
+																	[$equipment->upload_document];
+															@endphp
+															@foreach($documents as $document)
+																@if($document)
+																	<div class="file-upload-preview" style="cursor: pointer; display: inline-block; margin-right: 10px;">
+																		<div class="image-uplodasection expenseadd-sign">
+																			<i onclick="window.open('{{ asset('storage/' . $document) }}', '_blank')" data-feather="file-text" style="font-size: 24px; color: #666;"></i>
+																		</div>
+																	</div>
+																@endif
+															@endforeach
+														@endif
+                                                    </div>
+                                                </div>
+                                            @endif
                                             </div>
+
                                             <div class="col-md-12">
                                                 <div class="mb-1">
                                                     <label class="form-label">Final Remarks</label>
@@ -497,42 +542,19 @@
         </div>
     </div>
 
-    {{-- Amendment Modal --}}
-    <div class="modal fade" id="amendmentconfirm" tabindex="-1" aria-labelledby="amendmentconfirmLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+    {{-- Amendment Confirmation Modal --}}
+    <div class="modal fade text-start alertbackdropdisabled" id="amendmentconfirm" tabindex="-1" aria-labelledby="myModalLabel1" aria-hidden="true" data-bs-backdrop="false">
+        <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header">
-                    <div>
-                        <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">Amend Equipment</h4>
-                    </div>
+                <div class="modal-header p-0 bg-transparent">
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body pb-2">
-                    <div class="row mt-1">
-                        <div class="col-md-12">
-                            <div class="mb-1">
-                                <label class="form-label">Remarks <span class="text-danger">*</span></label>
-                                <textarea name="amend_remarks" class="form-control cannot_disable"></textarea>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <div class="mb-1">
-                                        <label class="form-label">Upload Document</label>
-                                        <input name="amend_attachment" onchange="addFiles(this, 'amend_files_preview')" type="file" class="form-control cannot_disable" accept=".png,.jpeg,.jpg,.xls,.xlsx,.doc,.docx,.pdf"/>
-                                    </div>
-                                </div>
-                                <div class="col-md-4" style="margin-top:19px;">
-                                    <div class="row" id="amend_files_preview">
-                                    </div>
-                                </div>
-                            </div>
-                            <span class="text-primary small">Accept only .PNG, .JPEG, .JPG, XLS, .DOCX, and .PDF files and not more than 5MB in size</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer justify-content-center">
-                    <button type="button" class="btn btn-outline-secondary me-1" onclick="closeModal('amendmentconfirm')">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="submitAmend('equipmentForm');">Submit</button>
+                <div class="modal-body alertmsg text-center warning">
+                    <i data-feather='alert-circle'></i>
+                    <h2>Are you sure?</h2>
+                    <p>Are you sure you want to <strong>Amendment</strong> this <strong>Equipment</strong></p>
+                    <button type="button" class="btn btn-secondary me-25" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="confirmAmendment" class="btn btn-primary">Confirm</button>
                 </div>
             </div>
         </div>
@@ -840,7 +862,7 @@
                 <form class="ajax-input-form" method="POST" action="{{ route('equipment.approval') }}"
                     data-redirect="{{ route('equipment.index') }}" enctype='multipart/form-data'>
                     @csrf
-                    <input type="hidden" name="action_type" id="approval_action_type">
+                    <input type="hidden" name="action_type" id="action_type">
                     <input type="hidden" name="id" value="{{ $equipment->id }}">
                     <div class="modal-header">
                         <div>
@@ -855,11 +877,12 @@
                             <div class="col-md-12">
                                 <div class="mb-1">
                                     <label class="form-label">Remarks <span class="text-danger">*</span></label>
-                                    <textarea name="remarks" class="form-control"></textarea>
+                                    <textarea name="remarks" class="form-control" required placeholder="Please enter your remarks..."></textarea>
                                 </div>
                                 <div class="mb-1">
-                                    <label class="form-label">Upload Document</label>
-                                    <input type="file" multiple class="form-control" />
+                                    <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
+                                    <input type="file" name="attachments" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" onchange="validateFile(this)" />
+                                    <span class="text-primary small">Accept only .PNG, .JPEG, .JPG, XLS, .XLSX, .DOCX, and .PDF files and not more than 5MB in size</span>
                                 </div>
                             </div>
                         </div>
@@ -870,33 +893,53 @@
                     </div>
                 </form>
 
-    <!-- Modal for Checklist -->
-    <div class="modal fade text-start" id="checklist" tabindex="-1" aria-labelledby="myModalLabel17" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <div>
-                        <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">Select
-                            Checklist</h4>
-                        <p class="mb-0">Select from the below list</p>
-                    </div>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="checkListPortion">
-                    <!-- Initial portion will be added here dynamically -->
-                </div>
-                <div class="modal-footer text-end">
-                    <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i data-feather="x-circle"></i>
-                        Cancel</button>
-                    <button type="button" class="btn btn-primary btn-sm" id="submitChecklistBtn"><i data-feather="check-circle"></i>
-                        Submit</button>
-                </div>
-            </div>
-        </div>
-    </div>
     <!-- END: Modal for Checklist -->
 @endsection
 @section('scripts')
+<script>
+    $(document).ready(function() {
+        // Revision Number dropdown functionality
+        $('#revisionNumber').prop('disabled', false).prop('readonly', false);
+        
+        $(document).on('change', '#revisionNumber', (e) => {
+            let actionUrl = location.pathname + '?revisionNumber=' + e.target.value;
+            let revision_number = Number("{{ $equipment->revision_number }}");
+            let revisionNumber = Number(e.target.value);
+            if (revision_number == revisionNumber) {
+                location.href = actionUrl;
+            } else {
+                window.open(actionUrl, '_blank');
+            }
+        });
+
+        // Disable all form fields except the revision number dropdown
+        $('#equipmentForm').find('input, select, textarea').not('#revisionNumber').prop('readonly', true).prop('disabled', true);
+
+        // Handle amendment mode - enable fields when amendment=1 parameter is present
+        @if(intval(request('amendment') ?? 0))
+            $('#equipmentForm').find('input, select, textarea').prop('readonly', false).prop('disabled', false);
+            $('#revisionNumber').prop('disabled', false).prop('readonly', false);
+        @endif
+
+        // Amendment confirmation functionality
+        $(document).on('click', '#confirmAmendment', (e) => {
+            $('#amendmentconfirm').modal('hide');
+            // Redirect to edit page with amendment parameter
+            let baseEditUrl = "{{ route('equipment.edit', $equipment->id) }}";
+            let url = new URL(baseEditUrl, window.location.origin);
+            url.searchParams.set('amendment', 1);
+            
+            // Preserve revision number if it exists in current URL
+            const currentUrlParams = new URLSearchParams(window.location.search);
+            const revisionNumber = currentUrlParams.get('revisionNumber');
+            if (revisionNumber) {
+                url.searchParams.set('revisionNumber', revisionNumber);
+            }
+            
+            window.location.href = url.toString();
+        });
+    });
+</script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         .is-invalid {
@@ -917,32 +960,9 @@
             font-size: 0.875rem;
             margin-top: 0.25rem;
         }
-        
-        .file-upload-preview {
-            cursor: pointer !important;
-        }
-        
-        .image-uplodasection {
-            position: relative;
-            display: inline-block;
-        }
-        
-        .expenseadd-sign {
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            background: #f8f9fa;
-        }
     </style>
     <script>
         $(document).ready(function () {
-            // Ensure add/delete buttons are always enabled in amendment mode
-            @if(request('amendment') == 1)
-                $('#addRowBtn').prop('disabled', false).removeClass('d-none');
-                $('#deleteRowBtn').prop('disabled', false).removeClass('d-none');
-                $('#addRowBtn').parent().removeClass('d-none');
-            @endif
-            
             // File size validation (5MB = 5 * 1024 * 1024 bytes)
             // Allowed file types: PNG, JPEG, JPG, XLS, DOCX, PDF
             const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -1020,16 +1040,20 @@
                 $('#spareRows').append(getSparePartRow());
             }
 
-           
+             @if(!$buttons['submit'] && !request('amendment'))
+                $('#equipmentForm').find('input, select,button,textarea').prop('disabled', true);
+                $('#revisionNumber').prop('disabled', false);
+                $('#back').prop('disabled', false);
+            @elseif(request('amendment'))
+                // Force enable all fields in amendment mode
+                $('#equipmentForm').find('input, select,button,textarea').prop('disabled', false);
+            @endif
+            $('#back').prop('disabled', false);
+            $('#deleteButton').prop('disabled', false);
             
-         $(function() {
-            $("#revisionNumber").change(function() {
-                const fullUrl = "{{ route('equipment.edit', $equipment->id) }}?revisionNumber=" +
-                    $(this)
-                    .val();
-                window.open(fullUrl, "_blank");
-            });
-        });
+            // Always keep approve/reject buttons enabled
+            $('button[data-bs-target="#approveModal"]').prop('disabled', false);
+            $('#reject-button').prop('disabled', false);
 
             // On organization change, filter locations
             $('#organization_id').on('change', function () {
@@ -1187,7 +1211,7 @@
                                 </td>
                             <td class="poprod-decpt checklist-cell">
                                 <span class="checklist-badges">${badgesHtml}</span>
-                                <button type="button" class="btn p-25 btn-sm btn-outline-secondary open-checklist-modal" style="font-size: 10px">Add Checklist</button>
+                                <button type="button" class="btn p-25 btn-sm btn-outline-secondary @if($buttons['submit']) open-checklist-modal @else view-checklist-modal @endif" style="font-size: 10px" @if(!$buttons['submit']) onclick="getPopupChecklistData(${data.erp_equipment_id},${data.id})" @endif>Add Checklist</button>
                                 <input type="hidden" class="selected-checklists" value="${selectedIdsString}" />
                                 <!-- Store checklist data for form submission -->
                                 <div class="existing-checklist-data" style="display: none;">
@@ -1219,20 +1243,16 @@
             let checklistContexts = {};
             let selectedChecklistIds = [];
             let portionChecklistData = {}; // Store checklist data per portion
-            let checklistRowRef = null; // Add this missing variable
 
             $('.open-checklist-modal').prop('disabled', false);
             $('.view-checklist-modal').prop('disabled', false);
 
 
             $(document).on('click', '.open-checklist-modal', function () {
-                console.log('Checklist button clicked!'); // Debug log
-                
                 checklistRowRef = $(this).closest('tr');
                 
                 // Get row ID from input name or data attribute
                 currentRowId = getRowId(checklistRowRef);
-                console.log('Current Row ID:', currentRowId); // Debug log
                 
                 if (!currentRowId) {
                     console.error('Could not determine row ID');
@@ -1258,10 +1278,8 @@
                 }
                 
                 // Auto-load all checklists in the modal for edit mode
-                console.log('Loading checklists for modal...'); // Debug log
                 loadAllChecklistsForModal();
                 
-                console.log('Showing modal...'); // Debug log
                 $('#checklist').modal('show');
             });
             
@@ -2300,20 +2318,13 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const isAmendment = urlParams.get('amendment') === '1';
 
-                if (isAmendment && (status === 'submitted')) {
+                if (isAmendment && (status === 'submitted' || status === 'draft')) {
                     $('#status').val(status);
-                    $('#action_type').val('amendment'); // Ensure action_type is set to amendment
                     $('#amendmentconfirm').modal('show');
                     return;
                 }
 
                 $('#status').val(status);
-                // Set action_type based on amendment mode
-                if (isAmendment) {
-                    $('#action_type').val('amendment');
-                } else {
-                    $('#action_type').val('submit');
-                }
 
                 let isValid = true;
                 let errorMessage = '';
@@ -2596,16 +2607,141 @@
             @endif
 
             function setApproval() {
-            document.getElementById('approval_action_type').value = "approve";
+            document.getElementById('action_type').value = "approve";
             $('#myModalLabel178').text('Approve Equipment');
-
         }
 
         function setReject() {
-            document.getElementById('approval_action_type').value = "reject";
+            document.getElementById('action_type').value = "reject";
             $('#myModalLabel178').text('Reject Equipment');
-
         }
+
+        // File validation function
+        function validateFile(input) {
+            const file = input.files[0];
+            if (!file) return true;
+
+            const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/vnd.ms-excel', 
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                'application/pdf'];
+            const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+
+            if (!allowedTypes.includes(file.type)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Invalid File Type!',
+                    text: 'Please select only PNG, JPEG, JPG, XLS, XLSX, DOCX, or PDF files.',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#d33'
+                });
+                input.value = '';
+                return false;
+            }
+
+            if (file.size > maxSize) {
+                const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'File Too Large!',
+                    text: `File size is ${fileSizeMB}MB. Please select a file smaller than 5MB.`,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#d33'
+                });
+                input.value = '';
+                return false;
+            }
+
+            return true;
+        }
+
+        // Add validation for approval modal form submission
+        $(document).on('submit', '#approveModal form', function(e) {
+            const remarks = $(this).find('textarea[name="remarks"]').val().trim();
+            
+            if (!remarks) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Validation Error!',
+                    text: 'Remarks are required for approval/rejection.',
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#d33'
+                });
+                return false;
+            }
+        });
+
+        // Delete button functionality
+        $(document).on('click', '.delete-btn', function(e) {
+            e.preventDefault();
+            
+            const deleteUrl = $(this).data('url');
+            const redirectUrl = $(this).data('redirect');
+            const message = $(this).data('message') || 'Are you sure you want to delete this item?';
+            
+            Swal.fire({
+                title: 'Delete Confirmation',
+                text: message,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, delete it!',
+                cancelButtonText: 'Cancel'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Show loading
+                    Swal.fire({
+                        title: 'Deleting...',
+                        text: 'Please wait while we delete the equipment.',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    
+                    // Make AJAX delete request
+                    $.ajax({
+                        url: deleteUrl,
+                        type: 'DELETE',
+                        data: {
+                            _token: '{{ csrf_token() }}'
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                Swal.fire({
+                                    title: 'Deleted!',
+                                    text: response.message,
+                                    icon: 'success',
+                                    timer: 2000,
+                                    showConfirmButton: false
+                                }).then(() => {
+                                    window.location.href = redirectUrl;
+                                });
+                            } else {
+                                Swal.fire({
+                                    title: 'Error!',
+                                    text: response.message,
+                                    icon: 'error'
+                                });
+                            }
+                        },
+                        error: function(xhr) {
+                            let errorMessage = 'An error occurred while deleting.';
+                            if (xhr.responseJSON && xhr.responseJSON.message) {
+                                errorMessage = xhr.responseJSON.message;
+                            }
+                            Swal.fire({
+                                title: 'Error!',
+                                text: errorMessage,
+                                icon: 'error'
+                            });
+                        }
+                    });
+                }
+            });
+        });
 
         // Function to initiate amendment
         function initiateAmendment() {
@@ -2675,48 +2811,8 @@
 
             // Set action type to amendment
             $('#action_type').val('amendment');
-            
-            // Use AJAX for amendment submission
-            const form = document.getElementById(formId);
-            const formData = new FormData(form);
-            
-            fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    Swal.fire({
-                        title: 'Success!',
-                        text: data.message || 'Amendment Done Successfully',
-                        icon: 'success',
-                        confirmButtonText: 'OK'
-                    }).then(() => {
-                        // Redirect to index page
-                        window.location.href = '{{ route("equipment.index") }}';
-                    });
-                } else {
-                    Swal.fire({
-                        title: 'Error!',
-                        text: data.message || 'Amendment failed. Please try again.',
-                        icon: 'error',
-                        confirmButtonText: 'OK'
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Amendment error:', error);
-                Swal.fire({
-                    title: 'Error!',
-                    text: 'An unexpected error occurred. Please try again.',
-                    icon: 'error',
-                    confirmButtonText: 'OK'
-                });
-            });
+            // Submit the form
+            $('#' + formId).submit();
         }
 
         // File preview function for amendment attachment
@@ -2727,7 +2823,26 @@
             if (input.files && input.files[0]) {
                 const file = input.files[0];
                 const fileName = file.name;
-                const fileSize = (file.size / 1024 / 1024).toFixed(2) + ' MB'; 
+                const fileSize = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+
+                const fileElement = `
+                    <div class="col-md-12">
+                        <div class="file-preview-item d-flex align-items-center justify-content-between p-1 border rounded">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-file me-2"></i>
+                                <div>
+                                    <small class="text-truncate d-block" style="max-width: 150px;">${fileName}</small>
+                                    <small class="text-muted">${fileSize}</small>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile(this)">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                previewContainer.append(fileElement);
             }
         }
 
@@ -2920,580 +3035,30 @@
             };
         }
 
-        // Multiple file upload functionality
-        function checkFileTypeandSize(event) {
-            $('#preview').empty();
-            const files = event.target.files;
-
-            if (files.length > 0) {
-                // Validate each file
-                for (let i = 0; i < files.length; i++) {
-                    const file = files[i];
-                    const maxSizeMB = 5;
-                    const fileSizeMB = file.size / (1024 * 1024);
-
-                    const videoExtensions = /(\.mp4|\.avi|\.mov|\.wmv|\.mkv)$/i;
-                    if (videoExtensions.exec(file.name)) {
+        $(document).on('click', '#revokeButton', (e) => {
+            let actionUrl = '{{ route("equipment.revoke.document") }}'+ '?id='+'{{$equipment->id}}';
+            fetch(actionUrl).then(response => {
+                return response.json().then(data => {
+                    if(data.status == 'error') {
                         Swal.fire({
+                            title: 'Error!',
+                            text: data.message,
                             icon: 'error',
-                            title: 'Invalid File Type',
-                            text: 'Video files are not allowed.'
                         });
-                        event.target.value = "";
-                        return;
-                    }
-
-                    if (fileSizeMB > maxSizeMB) {
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'File Too Large',
-                            text: `File "${file.name}" size should not exceed 5MB. Current size: ${fileSizeMB.toFixed(2)}MB`
-                        });
-                        event.target.value = "";
-                        return;
-                    }
-                }
-
-                // Show preview for all files
-                handleFileUpload(event, '#preview');
-            }
-        }
-
-        function handleFileUpload(event, previewElement) {
-            var files = event.target.files;
-            var previewContainer = $(previewElement);
-            previewContainer.empty();
-
-            if (files.length > 0) {
-                for (var i = 0; i < files.length; i++) {
-                    var fileName = files[i].name;
-                    var fileExtension = fileName.split('.').pop().toLowerCase();
-
-                    var fileIconType = 'file-text';
-
-                    switch (fileExtension) {
-                        case 'pdf':
-                            fileIconType = 'file';
-                            break;
-                        case 'doc':
-                        case 'docx':
-                            fileIconType = 'file';
-                            break;
-                        case 'xls':
-                        case 'xlsx':
-                            fileIconType = 'file';
-                            break;
-                        case 'png':
-                        case 'jpg':
-                        case 'jpeg':
-                        case 'gif':
-                            fileIconType = 'image';
-                            break;
-                        case 'zip':
-                        case 'rar':
-                            fileIconType = 'archive';
-                            break;
-                        default:
-                            fileIconType = 'file';
-                            break;
-                    }
-
-                    var fileIcon = `
-                        <div class="file-upload-preview" data-file-index="${i}" style="display: inline-block; margin: 5px; cursor: pointer; position: relative;">
-                            <div class="image-uplodasection expenseadd-sign">
-                                <i data-feather="file-text" class="fileuploadicon" style="font-size: 24px; color: #666;"></i>
-                                <div class="delete-img text-danger" data-file-index="${i}" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
-                                    <i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-
-                    previewContainer.append(fileIcon);
-                }
-                feather.replace();
-            }
-
-            previewContainer.find('.delete-img').click(function() {
-                var fileIndex = $(this).attr('data-file-index');
-                removeFilePreview(fileIndex, previewContainer, event.target);
-            });
-        }
-
-        function removeFilePreview(fileIndex, previewContainer, inputElement) {
-            var dt = new DataTransfer();
-            var files = inputElement.files;
-
-            for (var i = 0; i < files.length; i++) {
-                if (i != fileIndex) {
-                    dt.items.add(files[i]);
-                }
-            }
-
-            inputElement.files = dt.files;
-            previewContainer.children(`[data-file-index="${fileIndex}"]`).remove();
-
-            var remainingPreviews = previewContainer.children();
-            remainingPreviews.each(function(index) {
-                $(this).attr('data-file-index', index);
-                $(this).find('.delete-img').attr('data-file-index', index);
-            });
-
-            if (dt.files.length === 0) {
-                inputElement.value = "";
-            }
-        }
-
-        // Function to delete existing files
-        function deleteExistingFile(filePath, element) {
-            // Add the file to the deleted files list
-            addToDeletedFiles(filePath);
-            
-            // Remove the preview element
-            $(element).closest('.file-upload-preview').remove();
-            
-        }
-
-        function addToDeletedFiles(fileToDelete) {
-            var deletedFiles = $('#deleted_files').val();
-            var deletedFilesArray = [];
-            
-            if (deletedFiles) {
-                try {
-                    deletedFilesArray = JSON.parse(deletedFiles);
-                    if (!Array.isArray(deletedFilesArray)) {
-                        deletedFilesArray = [];
-                    }
-                } catch (e) {
-                    deletedFilesArray = [];
-                }
-            }
-            
-            // Add the file to deleted list if not already there
-            if (!deletedFilesArray.includes(fileToDelete)) {
-                deletedFilesArray.push(fileToDelete);
-                $('#deleted_files').val(JSON.stringify(deletedFilesArray));
-            }
-        }
-
-        // Reset checklist modal state
-        function resetChecklistModal() {
-            $('#checkListPortion').empty();
-            selectedChecklistIds = [];
-        }
-
-        // Load existing selections for current row
-        function loadExistingSelections(rowId) {
-            if (!checklistRowRef) return;
-            
-            const selectedIds = checklistRowRef.find('.selected-checklists').val();
-            if (selectedIds) {
-                selectedChecklistIds = selectedIds.split(',').filter(Boolean);
-            }
-        }
-
-        // Load all available checklists in the modal for edit mode (from show blade)
-        function loadAllChecklistsForModal() {
-            console.log('loadAllChecklistsForModal called'); // Debug log
-            
-            // Clear any existing portions first
-            $("#checkListPortion").empty();
-
-            // Get all checklists from the PHP data
-            const allChecklists = @json($checklists);
-            console.log('All checklists:', allChecklists); // Debug log
-
-            if (allChecklists && allChecklists.length > 0) {
-                console.log('Found', allChecklists.length, 'checklists'); // Debug log
-                
-                // Create portions for each checklist
-                allChecklists.forEach(function(checklist, index) {
-                    const portionId = `portion_${checklist.id}`;
-                    console.log('Loading checklist:', checklist.name, 'with ID:', checklist.id); // Debug log
-
-                    // Load checklist details for this checklist
-                    loadChecklistDetailsForModal(checklist.id, checklist.name, portionId);
-                });
-
-                // Check after a delay if any portions were loaded
-                setTimeout(() => {
-                    if ($("#checkListPortion").children().length === 0) {
-                        console.log('No portions loaded, showing loading message'); // Debug log
-                        $("#checkListPortion").html('<p class="text-center text-muted">Loading checklists...</p>');
                     } else {
-                        console.log('Portions loaded successfully:', $("#checkListPortion").children().length); // Debug log
-                    }
-                }, 500);
-            } else {
-                console.log('No checklists available'); // Debug log
-                $("#checkListPortion").html('<p class="text-center text-muted">No checklists available</p>');
-            }
-        }
-
-        // Load checklist details for modal display (from show blade)
-        function loadChecklistDetailsForModal(checklistId, checklistName, portionId) {
-            $.ajax({
-                url: '{{ route("equipment.popup-checklist-data") }}',
-                method: 'POST',
-                data: {
-                    equipment_id: currentRowId,
-                    id: checklistId,
-                    _token: '{{ csrf_token() }}'
-                },
-                success: function (response) {
-                    if (response.success && response.data) {
-                        createChecklistPortionForModal(response.data, checklistId, checklistName, portionId);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error loading checklist details for modal:', error);
-                }
-            });
-        }
-
-        // Create checklist portion in modal (from show blade)
-        function createChecklistPortionForModal(data, checklistId, checklistName, portionId) {
-            // Store checklist data for this portion
-            portionChecklistData[portionId] = {
-                checklistId: checklistId,
-                checklistName: checklistName
-            };
-
-            let tableRows = "";
-            const checklists = data || [];
-            
-            // Get existing selected IDs to mark as checked (only from current row)
-            let existingSelectedIds = [];
-            if (checklistRowRef) {
-                const selectedIdsString = checklistRowRef.find('.selected-checklists').val();
-                if (selectedIdsString) {
-                    existingSelectedIds = selectedIdsString.split(',').filter(Boolean);
-                }
-            }
-
-            if (checklists.length > 0) {
-                checklists.forEach(function (checklist) {
-                    if (checklist.details && checklist.details.length > 0) {
-                        checklist.details.forEach(function(detail) {
-                            const isChecked = existingSelectedIds.includes(detail.id.toString()) ? 'checked' : '';
-                            
-                            tableRows += `
-                                <tr>
-                                    <td class="customernewsection-form">
-                                        <div class="form-check form-check-primary custom-checkbox">
-                                            <input type="checkbox" class="form-check-input" value="${detail.id}" ${isChecked}>
-                                            <label class="form-check-label"></label>
-                                        </div>
-                                    </td>
-                                    <td>${detail.name || ''}</td>
-                                    <td>${detail.description || ''}</td>
-                                    <td>
-                                        <span class="badge rounded-pill badge-light-info">
-                                            ${detail.type || ''}
-                                        </span>
-                                    </td>
-                                </tr>
-                            `;
+                        Swal.fire({
+                            title: 'Success!',
+                            text: data.message,
+                            icon: 'success',
+                        }).then(() => {
+                            // Redirect to edit page after successful revoke
+                            window.location.href = '{{ route("equipment.edit", $equipment->id) }}';
                         });
                     }
                 });
-
-                // Only create portion if there are items
-                if (tableRows.trim() !== '') {
-                    // Create the portion HTML
-                    const portionHtml = `
-                        <div class="row checklist-portion mb-2" id="${portionId}">
-                            <div class="col-md-12">
-                                <h6 class="text-primary">${checklistName}</h6>
-                                <div class="table-responsive">
-                                    <table class="table table-striped">
-                                        <thead>
-                                            <tr>
-                                                <th width="40px">
-                                                    <div class="form-check form-check-primary custom-checkbox">
-                                                        <input type="checkbox" class="form-check-input select-all-${portionId}">
-                                                        <label class="form-check-label"></label>
-                                                    </div>
-                                                </th>
-                                                <th>Name</th>
-                                                <th>Description</th>
-                                                <th>Type</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${tableRows}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-
-                    $("#checkListPortion").append(portionHtml);
-
-                    // Add select all functionality for this portion
-                    $(document).off('change', `.select-all-${portionId}`).on('change', `.select-all-${portionId}`, function() {
-                        const isChecked = $(this).is(':checked');
-                        $(`#${portionId} tbody input[type="checkbox"]`).prop('checked', isChecked);
-                    });
-                }
-            }
-        }
-
-        // Add new checklist portion function (same as create blade)
-        function addPortion() {
-            const portionId = 'portion_' + Date.now();
-            const newPortionHtml = `
-                <div class="row checklist-portion" id="${portionId}">
-                    <div class="col-md-4">
-                        <div class="mb-1">
-                            <label class="form-label">Checklist <span class="text-danger">*</span></label>
-                            <select class="form-select select2">
-                                <option>Select</option>
-                                @foreach($checklists as $checklist)
-                                <option value="{{ $checklist->id }}">{{ $checklist->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="col-md-3 mb-1">
-                        <label class="form-label">&nbsp;</label><br />
-                        <button type="button" class="btn btn-warning btn-sm search-checklist-btn"><i data-feather="search"></i> Search</button>
-                    </div>
-
-                    <div class="col-md-12">
-                        <div class="table-responsive">
-                            Select Checklist
-                            <div class="text-end" style="margin-top: -30px">
-                                <a href="#" class="text-primary add-contactpeontxt mt-50 me-2" onclick="addPortion()"><i data-feather='plus'></i> Add Checklist</a>
-                                <a href="#" class="text-danger remove-contactpeontxt mt-50" onclick="removePortion('${portionId}')"><i data-feather='minus'></i> Remove Checklist</a>
-                            </div>
-                            <table class="mt-1 table myrequesttablecbox table-striped po-order-detail">
-                                <thead>
-                                    <tr>
-                                        <th width="40px" class="customernewsection-form">
-                                            <div class="form-check form-check-primary custom-checkbox">
-                                                <input type="checkbox" class="form-check-input select-all-checkbox">
-                                                <label class="form-check-label"></label>
-                                            </div>
-                                        </th>
-                                        <th>Name</th>
-                                        <th>Description</th>
-                                        <th>Type</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="checklist-tbody">
-                                   
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            `;
-            
-            $('#checkListPortion').append(newPortionHtml);
-            feather.replace();
-            updateAllDropdowns();
-        }
-
-        // Remove checklist portion function
-        function removePortion(portionId) {
-            const portion = $('#' + portionId);
-            const selectedValue = portion.find('select').val();
-            
-            if (selectedValue && selectedValue !== 'Select') {
-                const index = selectedChecklistIds.indexOf(selectedValue);
-                if (index > -1) {
-                    selectedChecklistIds.splice(index, 1);
-                }
-            }
-            
-            portion.remove();
-            updateAllDropdowns();
-        }
-
-        // Update all dropdowns to hide selected checklists
-        function updateAllDropdowns() {
-            const allDropdowns = $('#checkListPortion select');
-            
-            allDropdowns.each(function() {
-                const currentDropdown = $(this);
-                const currentValue = currentDropdown.val();
-                
-                currentDropdown.find('option').show();
-                
-                selectedChecklistIds.forEach(function(selectedId) {
-                    if (selectedId !== currentValue) {
-                        currentDropdown.find(`option[value="${selectedId}"]`).hide();
-                    }
-                });
             });
-        }
-
-        // Load existing checklist data for current row
-        function loadExistingChecklistData() {
-            if (!checklistRowRef) return;
-            
-            const existingData = checklistRowRef.find('.selected-checklists').val();
-            if (existingData) {
-                try {
-                    const selectedIds = JSON.parse(existingData);
-                    selectedIds.forEach(function(checklistId, index) {
-                        if (index > 0) {
-                            addPortion(); // Add new portion for each additional checklist
-                        }
-                        
-                        const portion = $('#checkListPortion .checklist-portion').eq(index);
-                        const dropdown = portion.find('select');
-                        dropdown.val(checklistId);
-                        
-                        // Load checklist details for this portion
-                        loadChecklistDetailsForPortion(checklistId, portion);
-                    });
-                    
-                    selectedChecklistIds = [...selectedIds];
-                    updateAllDropdowns();
-                } catch (e) {
-                    console.error('Error parsing existing checklist data:', e);
-                }
-            }
-        }
-
-        // Load checklist details for a specific portion
-        function loadChecklistDetailsForPortion(checklistId, portion) {
-            const tbody = portion.find('.checklist-tbody');
-            tbody.empty();
-            
-            $.ajax({
-                url: '{{ route("equipment.popup-checklist-data") }}',
-                method: 'POST',
-                data: {
-                    equipment_id: currentRowId,
-                    id: checklistId,
-                    _token: '{{ csrf_token() }}'
-                },
-                success: function(response) {
-                    if (response.success && response.data) {
-                        const checklists = response.data;
-                        checklists.forEach(function(checklist) {
-                            if (checklist.details && checklist.details.length > 0) {
-                                checklist.details.forEach(function(detail) {
-                                    const row = `
-                                        <tr class="trail-bal-tabl-none">
-                                            <td class="customernewsection-form">
-                                                <div class="form-check form-check-primary custom-checkbox">
-                                                    <input type="checkbox" value="${detail.id}" class="form-check-input checklist-item-checkbox" data-name="${detail.name}" data-type="${detail.type}">
-                                                    <label class="form-check-label"></label>
-                                                </div>
-                                            </td>
-                                            <td>${detail.name}</td>
-                                            <td>${detail.description || ''}</td>
-                                            <td><span class="badge rounded-pill badge-light-secondary">${detail.type}</span></td>
-                                        </tr>
-                                    `;
-                                    tbody.append(row);
-                                });
-                            }
-                        });
-                    }
-                },
-                error: function() {
-                    console.error('Error loading checklist details');
-                }
-            });
-        }
-
-        // Handle search button click
-        $(document).on('click', '.search-checklist-btn', function() {
-            const portion = $(this).closest('.checklist-portion');
-            const dropdown = portion.find('select');
-            const checklistId = dropdown.val();
-            
-            if (!checklistId || checklistId === 'Select') {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Validation Error',
-                    text: 'Please select a checklist first!'
-                });
-                return;
-            }
-            
-            // Add to selected IDs if not already present
-            if (!selectedChecklistIds.includes(checklistId)) {
-                selectedChecklistIds.push(checklistId);
-                updateAllDropdowns();
-            }
-            
-            loadChecklistDetailsForPortion(checklistId, portion);
         });
-
-        // Handle select all checkbox
-        $(document).on('change', '.select-all-checkbox', function() {
-            const portion = $(this).closest('.checklist-portion');
-            const isChecked = $(this).is(':checked');
-            portion.find('.checklist-item-checkbox').prop('checked', isChecked);
-        });
-
-        // Handle submit button (updated for show blade approach)
-        $('#submitChecklistBtn').on('click', function() {
-            const selectedChecklists = [];
-            
-            // Collect all checked items from all portions
-            $('#checkListPortion input[type="checkbox"]:checked').each(function() {
-                const row = $(this).closest('tr');
-                selectedChecklists.push({
-                    id: $(this).val(),
-                    name: row.find('td:nth-child(2)').text(),
-                    type: row.find('td:nth-child(4)').text().trim()
-                });
-            });
-            
-            if (selectedChecklists.length === 0) {
-                Swal.fire({
-                    icon: 'error',
-                    title: 'Validation Error',
-                    text: 'Please select at least one checklist item!'
-                });
-                return;
-            }
-            
-            updateMaintenanceRowWithChecklists(selectedChecklists);
-            $('#checklist').modal('hide');
-        });
-
-        // Update maintenance row with selected checklists
-        function updateMaintenanceRowWithChecklists(selectedChecklists) {
-            if (!checklistRowRef) return;
-            
-            let badgesHtml = '';
-            const selectedIds = [];
-            
-            selectedChecklists.forEach(function(checklist) {
-                badgesHtml += `<span class="badge rounded-pill badge-light-info me-50 mb-50">${checklist.name}</span>`;
-                selectedIds.push(checklist.id);
-            });
-            
-            const checklistCell = checklistRowRef.find('.checklist-cell');
-            checklistCell.find('.checklist-badges').html(badgesHtml);
-            checklistCell.find('.selected-checklists').val(JSON.stringify(selectedIds));
-            
-            // Store checklist data for form submission
-            const checklistData = checklistCell.find('.existing-checklist-data');
-            checklistData.html('');
-            selectedChecklists.forEach(function(checklist, index) {
-                checklistData.append(`
-                    <input type="hidden" name="maintenance_details[${currentRowId}][checklists][${index}][id]" value="${checklist.id}">
-                    <input type="hidden" name="maintenance_details[${currentRowId}][checklists][${index}][name]" value="${checklist.name}">
-                    <input type="hidden" name="maintenance_details[${currentRowId}][checklists][${index}][type]" value="${checklist.type}">
-                `);
-            });
-        }
-
-        // Make functions globally accessible
-        window.addPortion = addPortion;
-        window.removePortion = removePortion;
 
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
 @endsection

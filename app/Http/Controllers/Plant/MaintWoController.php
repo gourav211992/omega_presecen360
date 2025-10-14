@@ -474,6 +474,7 @@ class MaintWoController extends Controller
         // ✅ OPTIMIZED: Batch calculate stock for all items in one query
         $itemCodes = $items->pluck('item_code')->toArray();
         $stockLookup = $this->calculateBatchStock($itemCodes);
+       
 
         $items = $items->map(function ($item) use ($stockLookup) {
             return [
@@ -483,7 +484,7 @@ class MaintWoController extends Controller
                 'uom_name'        => optional($item->uom)->name,
                 'uom_id'          => optional($item->uom)->id,
                 'item_attributes' => $item->attributes,
-                'available_stock' => 100, // ✅ Use batch lookup
+                'available_stock' => 100,// ✅ Use batch lookup
             ];
         });
 
@@ -612,7 +613,7 @@ class MaintWoController extends Controller
                 'uom_name' => optional($item->uom)->name,
                 'uom_id' => optional($item->uom)->id,
                 'item_attributes' => collect($processedData),
-                'available_stock' =>100, // ✅ Use batch lookup
+                'available_stock' => 100, // ✅ Use batch lookup
             ];
         });
 
@@ -629,7 +630,7 @@ class MaintWoController extends Controller
 
     public function store(Request $request)
     {
-        
+      
         $rules = [
             'book_id' => 'required',
             'document_number' => 'required|string|max:100',
@@ -643,7 +644,11 @@ class MaintWoController extends Controller
         }
 
         if ($request->hasFile('upload_file')) {
-            $rules['upload_file'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max, matching frontend validation
+            $rules['upload_file.*'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max, matching frontend validation
+        }
+
+        if ($request->hasFile('supporting_documents')) {
+            $rules['supporting_documents.*'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max, matching frontend validation
         }
 
         $messages = [
@@ -667,13 +672,11 @@ class MaintWoController extends Controller
 
         $request->validate($rules, $messages, $attributes);
 
-        $documentNumber = $request->document_number;
-        $existingWo = PlantMaintWo::where('document_number', $documentNumber)->first();
-        if ($existingWo) {
-            return redirect()
-                ->route('maint-wo.create')
-                ->withInput()
-                ->withErrors("Work Order Number '{$documentNumber}' already exists.");
+        if($request->doc_no==''){
+            $doc_no = $request->document_number;
+        }
+        else{
+            $doc_no = $request->doc_no;
         }
 
         $user = Helper::getAuthenticatedUser();
@@ -685,6 +688,7 @@ class MaintWoController extends Controller
             'company_id' => $user->organization->company_id,
             'approval_level' => 1,
             'revision_number' => 0,
+            'doc_no' => $doc_no,
         ];
 
         $data = array_merge($request->all(), $additionalData);
@@ -717,17 +721,36 @@ class MaintWoController extends Controller
         }
 
         unset($data['checklist_data']);
+        unset($data['upload_file']);
+        unset($data['supporting_documents']);
 
         try {
             DB::transaction(function () use ($data, $request) {
                 $workOrder = PlantMaintWo::create($data);
 
+                // Handle multiple upload files
                 if ($request->hasFile('upload_file')) {
-                    $file = $request->file('upload_file');
-                    $extension = $file->getClientOriginalExtension();
-                    $fileName = 'maint_wo_' . $workOrder->id . '_' . time() . '.' . $extension;
-                    $path = $file->storeAs('maint_wo_documents', $fileName, 'public');
-                    $workOrder->upload_file = $path;
+                    $uploadPaths = [];
+                    foreach ($request->file('upload_file') as $index => $file) {
+                        $extension = $file->getClientOriginalExtension();
+                        $fileName = 'maint_wo_upload_' . $workOrder->id . '_' . time() . '_' . $index . '.' . $extension;
+                        $path = $file->storeAs('maint_wo_documents', $fileName, 'public');
+                        $uploadPaths[] = $path;
+                    }
+                    $workOrder->upload_file = json_encode($uploadPaths);
+                    $workOrder->save();
+                }
+
+                // Handle multiple supporting documents
+                if ($request->hasFile('supporting_documents')) {
+                    $supportingPaths = [];
+                    foreach ($request->file('supporting_documents') as $index => $file) {
+                        $extension = $file->getClientOriginalExtension();
+                        $fileName = 'maint_wo_supporting_' . $workOrder->id . '_' . time() . '_' . $index . '.' . $extension;
+                        $path = $file->storeAs('maint_wo_documents', $fileName, 'public');
+                        $supportingPaths[] = $path;
+                    }
+                    $workOrder->supporting_documents = json_encode($supportingPaths);
                     $workOrder->save();
                 }
 
@@ -1043,7 +1066,11 @@ class MaintWoController extends Controller
         }
 
         if ($request->hasFile('upload_file')) {
-            $rules['upload_file'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max, matching frontend validation
+            $rules['upload_file.*'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max, matching frontend validation
+        }
+
+        if ($request->hasFile('supporting_documents')) {
+            $rules['supporting_documents.*'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max, matching frontend validation
         }
 
         $request->validate($rules);
@@ -1094,8 +1121,13 @@ class MaintWoController extends Controller
                 ]);
             }
 
-            // Prepare update data
-            $updateData = $request->all();
+            // Prepare update data (exclude file fields to prevent array to string conversion)
+            $updateData = $request->except([
+                'upload_file', 
+                'supporting_documents', 
+                'deleted_upload_files', 
+                'deleted_supporting_files'
+            ]);
 
             $equipmentDetails = $request->equipment_details;
 
@@ -1109,33 +1141,132 @@ class MaintWoController extends Controller
                 $updateData['maintenance_type_id'] = $equipmentDetails['maintenance_type_id'] ?? $equipmentDetails['equipment_maintenance_type_id'] ?? null;
 
                 $updateData['equipment_details'] = json_encode($equipmentDetails);
-                
-                
-                // Store defect_notification_id if reference type is defect_notification
-                if (isset($equipmentDetails['reference_type']) && $equipmentDetails['reference_type'] === 'defect_notification') {
-                    $updateData['defect_notification_id'] = $equipmentDetails['defect_notification_id'] ?? null;
-                } else {
-                    // Clear defect_notification_id if reference type is not defect_notification
-                    $updateData['defect_notification_id'] = null;
-                }
             }
-            
+
+            // Store defect_notification_id if reference type is defect_notification
+            if ($request->reference_type === 'defect_notification') {
+                $updateData['defect_notification_id'] = $request->defect_notification_id;
+            }
             
             // Only update checklist_data if it's not empty
             if (empty($request->checklist_data) || $request->checklist_data === 'null' || $request->checklist_data === '[]') {
                 unset($updateData['checklist_data']);
             }
             
+           
+
+            $finalUploadFiles = [];
+            if ($workOrder->upload_file) {
+                if (is_array($workOrder->upload_file)) {
+                    // Already an array
+                    $finalUploadFiles = $workOrder->upload_file;
+                
+                } elseif (is_string($workOrder->upload_file)) {
+                    // Try to decode JSON string
+                    $existingUploadFiles = json_decode($workOrder->upload_file, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($existingUploadFiles)) {
+                        // Filter out any non-string values (like empty arrays)
+                        $finalUploadFiles = array_filter($existingUploadFiles, function($item) {
+                            return is_string($item) && !empty($item);
+                        });
+                        $finalUploadFiles = array_values($finalUploadFiles); // Reindex array
+                       
+                    } else {
+                        // If JSON decode fails, treat as single file path
+                        $finalUploadFiles = [$workOrder->upload_file];
+                       
+                    }
+                }
+            }
+
+            // Remove deleted upload files
+            if ($request->has('deleted_upload_files') && !empty($request->deleted_upload_files)) {
+                $deletedUploadFiles = json_decode($request->deleted_upload_files, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($deletedUploadFiles)) {
+                    $finalUploadFiles = array_values(array_diff($finalUploadFiles, $deletedUploadFiles));
+                    
+                    // Delete files from storage
+                    foreach ($deletedUploadFiles as $fileToDelete) {
+                        if (\Storage::disk('public')->exists($fileToDelete)) {
+                            \Storage::disk('public')->delete($fileToDelete);
+                            
+                        }
+                    }
+                } 
+            }
+
+            // Add new upload files
+            if ($request->hasFile('upload_file')) {
+                $newUploadPaths = [];
+                foreach ($request->file('upload_file') as $index => $file) {
+                    $extension = $file->getClientOriginalExtension();
+                    $fileName = 'maint_wo_upload_' . $workOrder->id . '_' . time() . '_' . $index . '.' . $extension;
+                    $path = $file->storeAs('maint_wo_documents', $fileName, 'public');
+                    $newUploadPaths[] = $path;
+                }
+                $finalUploadFiles = array_merge($finalUploadFiles, $newUploadPaths);
+            }
+
+            // Handle supporting documents updates BEFORE updating the model
+            $finalSupportingFiles = [];
+            if ($workOrder->supporting_documents) {
+                if (is_array($workOrder->supporting_documents)) {
+                    // Already an array
+                    $finalSupportingFiles = $workOrder->supporting_documents;
+                } elseif (is_string($workOrder->supporting_documents)) {
+                    // Try to decode JSON string
+                    $existingSupportingFiles = json_decode($workOrder->supporting_documents, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($existingSupportingFiles)) {
+                        // Filter out any non-string values (like empty arrays)
+                        $finalSupportingFiles = array_filter($existingSupportingFiles, function($item) {
+                            return is_string($item) && !empty($item);
+                        });
+                        $finalSupportingFiles = array_values($finalSupportingFiles); // Reindex array
+                    } else {
+                        // If JSON decode fails, treat as single file path
+                        $finalSupportingFiles = [$workOrder->supporting_documents];
+                    }
+                }
+            }
+
+            // Remove deleted supporting files
+            if ($request->has('deleted_supporting_files') && !empty($request->deleted_supporting_files)) {
+                $deletedSupportingFiles = json_decode($request->deleted_supporting_files, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($deletedSupportingFiles)) {
+                    $finalSupportingFiles = array_values(array_diff($finalSupportingFiles, $deletedSupportingFiles));
+                    // Delete files from storage
+                    foreach ($deletedSupportingFiles as $fileToDelete) {
+                        if (\Storage::disk('public')->exists($fileToDelete)) {
+                            \Storage::disk('public')->delete($fileToDelete);
+                        }
+                    }
+                }
+            }
+
+            // Add new supporting files
+            if ($request->hasFile('supporting_documents')) {
+                $newSupportingPaths = [];
+                foreach ($request->file('supporting_documents') as $index => $file) {
+                    $extension = $file->getClientOriginalExtension();
+                    $fileName = 'maint_wo_supporting_' . $workOrder->id . '_' . time() . '_' . $index . '.' . $extension;
+                    $path = $file->storeAs('maint_wo_documents', $fileName, 'public');
+                    $newSupportingPaths[] = $path;
+                }
+                $finalSupportingFiles = array_merge($finalSupportingFiles, $newSupportingPaths);
+            }
+
+            // Update the model with form data
+          
             $workOrder->update($updateData);
             
-            if ($request->hasFile('upload_file')) {
-                $file = $request->file('upload_file');
-                $extension = $file->getClientOriginalExtension();
-                $fileName = 'maint_wo_' . $workOrder->id . '_' . time() . '.' . $extension;
-                $path = $file->storeAs('maint_wo_documents', $fileName, 'public');
-                $workOrder->upload_file = $path;
-                $workOrder->save();
-            }
+            // Update file fields separately
+            $uploadFileJson = !empty($finalUploadFiles) ? json_encode($finalUploadFiles) : null;
+            $supportingDocsJson = !empty($finalSupportingFiles) ? json_encode($finalSupportingFiles) : null;
+            
+           
+            $workOrder->upload_file = $uploadFileJson;
+            $workOrder->supporting_documents = $supportingDocsJson;
+            $workOrder->save();
 
             if ($workOrder->document_status != ConstantHelper::DRAFT) {
                 $doc = Helper::approveDocument(
@@ -1338,7 +1469,7 @@ class MaintWoController extends Controller
             ])
             ->whereHas('bom')
             ->whereHas('equipment', function ($q) use ($r) {
-                $q->whereIn('document_status', ['approved', 'approval_not_required']);
+                $q->whereNotIn('document_status', ['draft', 'rejected']);
                 
                 // Only apply book_code filter if it's provided and not empty
                 if ($r->book_code && is_array($r->book_code) && !empty($r->book_code)) {
@@ -1360,6 +1491,7 @@ class MaintWoController extends Controller
             });
         
         $equipmentData = $query->get();
+     
         
           
             foreach ($equipmentData as $eqpt) {
@@ -1709,14 +1841,7 @@ class MaintWoController extends Controller
             $equipmentId = $request->equipment_id;
             $maintenanceTypeId = $request->maintenance_type_id;
             
-            // Debug logging to track where equipment data is coming from
-            \Log::info('🚨 getEquipmentSpareParts CALLED', [
-                'equipment_id' => $equipmentId,
-                'maintenance_type_id' => $maintenanceTypeId,
-                'request_data' => $request->all(),
-                'user_agent' => $request->header('User-Agent'),
-                'referer' => $request->header('Referer')
-            ]);
+            
 
             $equipment = ErpEquipment::find($equipmentId);
             
@@ -1739,7 +1864,7 @@ class MaintWoController extends Controller
             if ($bomData->spare_parts) {
                 $rawSparePartsData = json_decode($bomData->spare_parts, true);
                 
-                // ✅ OPTIMIZED: Extract all item codes and calculate stock in batch
+                
                 $itemCodes = collect($rawSparePartsData)->pluck('item_code')->filter()->unique()->toArray();
                 $stockLookup = $this->calculateBatchStock($itemCodes);
                 
@@ -1755,16 +1880,13 @@ class MaintWoController extends Controller
                         'uom_id' => $sparePart['uom_id'] ?? null,
                         'attribute' => $sparePart['attribute'] ?? '[]',
                         'attributes' => [],
-                        'available_stock' => 100,
+                        'available_stock' =>100,
                     ];
 
                     // Process attributes if they exist
                     if (isset($sparePart['attribute']) && !empty($sparePart['attribute'])) {
                         $attributeData = json_decode($sparePart['attribute'], true);
-                        \Log::info('Processing attributes for item: ' . $sparePart['item_id'], [
-                            'raw_attribute' => $sparePart['attribute'],
-                            'decoded_attribute' => $attributeData
-                        ]);
+                      
                         
                         if (is_array($attributeData)) {
                             foreach ($attributeData as $attr) {
@@ -1775,13 +1897,7 @@ class MaintWoController extends Controller
                                     // Get selected attribute value
                                     $selectedAttributeValue = ErpAttribute::find($attr['value_id']);
                                     
-                                    \Log::info('Attribute lookup results:', [
-                                        'item_attribute_id' => $attr['item_attribute_id'],
-                                        'value_id' => $attr['value_id'],
-                                        'item_attribute_found' => $itemAttribute ? true : false,
-                                        'selected_value_found' => $selectedAttributeValue ? true : false,
-                                        'group_id' => $itemAttribute ? $itemAttribute->attribute_group_id : null
-                                    ]);
+                                   
 
                                     if ($itemAttribute && $selectedAttributeValue) {
                                         // Get all possible attribute values for this group
@@ -1813,14 +1929,7 @@ class MaintWoController extends Controller
                 }
             }
 
-            // Debug: Log final spare parts data
-            \Log::info('Final spare parts data being returned:', [
-                'equipment_id' => $equipmentId,
-                'maintenance_type_id' => $maintenanceTypeId,
-                'bom_id' => $maintenanceDetail->maintenance_bom_id,
-                'spare_parts_count' => count($sparePartsData),
-                'spare_parts_sample' => $sparePartsData ? $sparePartsData[0] : null
-            ]);
+          
 
             return response()->json([
                 'success' => true,
@@ -1975,28 +2084,48 @@ class MaintWoController extends Controller
     {
         try {
             $documentNumber = $request->document_number;
+            $bookId = $request->book_id;
             $currentId = $request->current_id; // For edit mode
-            $errors = [];
 
-            // Check document number
-            if ($documentNumber) {
-                $query = PlantMaintWo::where('document_number', $documentNumber);
-                if ($currentId) {
-                    $query->where('id', '!=', $currentId);
+            // Get current user's organization
+            $user = Helper::getAuthenticatedUser();
+            $organizationId = $user->organization_id;
+
+            $response = [
+                'document_exists' => false,
+                'message' => null
+            ];
+
+            // Check document number uniqueness based on book series numbering (same as PoRequest and MaintBomController)
+            if ($documentNumber && $bookId) {
+                $numPattern = \App\Models\NumberPattern::where('organization_id', $organizationId)
+                    ->where('book_id', $bookId)
+                    ->orderBy('id', 'DESC')
+                    ->first();
+
+                // Only check uniqueness if series_numbering is 'Manually' (same as PoRequest)
+                if ($numPattern && $numPattern->series_numbering == 'Manually') {
+                    // Check if the user-entered document number already exists within organization
+                    $documentExists = PlantMaintWo::where('document_number', $documentNumber)
+                        ->where('organization_id', $organizationId);
+
+                    // For edit mode, exclude current record
+                    if ($currentId) {
+                        $documentExists->where('id', '!=', $currentId);
+                    }
+
+                    $documentExists = $documentExists->exists();
+
+                    if ($documentExists) {
+                        $response['document_exists'] = true;
+                        $response['message'] = "Work Order Number '{$documentNumber}' already exists. Please use a different document number.";
+
+                        return response()->json([
+                            'success' => false,
+                            'errors' => ['document_number' => $response['message']]
+                        ], 422);
+                    }
                 }
-                $existingDocNumber = $query->first();
-                
-                if ($existingDocNumber) {
-                    $errors['document_number'] = "Work Order Number '{$documentNumber}' already exists.";
-                }
-            }
-
-
-            if (!empty($errors)) {
-                return response()->json([
-                    'success' => false,
-                    'errors' => $errors
-                ], 422);
             }
 
             return response()->json([
@@ -2155,21 +2284,14 @@ class MaintWoController extends Controller
     private function updateEquipmentNextDueDate($workOrder)
     {
         try {
-            \Log::info("🔍 updateEquipmentNextDueDate called for WO ID: {$workOrder->id}");
-            \Log::info("🔍 Reference type: {$workOrder->reference_type}");
-            \Log::info("🔍 Equipment ID: {$workOrder->equipment_id}");
-            \Log::info("🔍 Maintenance Type ID: {$workOrder->maintenance_type_id}");
-            
+         
             if ($workOrder->reference_type === 'equipment' && $workOrder->equipment_id && $workOrder->maintenance_type_id) {
                 // Find the equipment maintenance detail record
                 $maintenanceDetail = ErpEquipMaintenanceDetail::where('erp_equipment_id', $workOrder->equipment_id)
                     ->where('maintenance_type_id', $workOrder->maintenance_type_id)
                     ->first();
 
-                \Log::info("🔍 Maintenance Detail found: " . ($maintenanceDetail ? 'YES' : 'NO'));
-                if ($maintenanceDetail) {
-                    \Log::info("🔍 Frequency: {$maintenanceDetail->frequency}");
-                }
+              
 
                 if ($maintenanceDetail && $maintenanceDetail->frequency) {
                     $currentDate = now();
@@ -2182,8 +2304,6 @@ class MaintWoController extends Controller
                     // Use existing due date as base, or current date if no existing due date
                     $baseDate = $existingDueDate ? \Carbon\Carbon::parse($existingDueDate) : $currentDate;
                     
-                    \Log::info("🔍 Base date for calculation: " . $baseDate->format('Y-m-d'));
-                    \Log::info("🔍 Existing due date: " . ($existingDueDate ?? 'none'));
 
                     // Calculate next due date based on frequency from the base date
                     switch ($maintenanceDetail->frequency) {

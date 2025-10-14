@@ -371,30 +371,54 @@
 										</div>
 
 										<div class="row mt-2">
-											<div class="col-md-4">
+										<div class="col-md-4">
 												<div class="mb-1">
 													<label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
 													<div class="d-flex align-items-center">
-														<input type="file" name="document" id="document" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
-														@if($bom->document)
-														<div class="file-upload-preview ms-2" style="cursor: pointer;">
-															<div class="image-uplodasection expenseadd-sign">
-																<i onclick="window.open('{{ asset('storage/' . $bom->document) }}', '_blank')" data-feather="file-text"></i>
-															</div>
-														</div>
-														@endif
+														<input type="file" multiple name="document[]" id="document" class="form-control" 
+															   onchange="checkFileTypeandSize(event)"
+															   accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" />
+																@if($bom->document)
+																	@php
+																		$attachments = is_string($bom->document) ? 
+																			(json_decode($bom->document, true) ?: [$bom->document]) : 
+																			[$bom->document];
+																	@endphp
+																	@foreach($attachments as $index => $attachment)
+																		@if($attachment)
+																			<div class="file-upload-preview ms-2" style="cursor: pointer; position: relative;" data-file-path="{{ $attachment }}">
+																				<div class="image-uplodasection expenseadd-sign">
+																					<i onclick="window.open('{{ asset('storage/' . $attachment) }}', '_blank')" data-feather="file-text"></i>
+																					<div class="delete-existing-file" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;" 
+																						onclick="deleteExistingFile('{{ $attachment }}', this)" title="Delete file">
+																						<i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
+																					</div>
+																				</div>
+																			</div>
+																		@endif
+																	@endforeach
+																@endif
 													</div>
 													<span class="text-primary small">{{__("message.attachment_caption")}}</span>
+												</div>
+											</div>
+											
+											<div class="col-md-4">
+												<div class="mb-1">
+													<label class="form-label"></label>
+													<div id="preview"></div>
 												</div>
 											</div>
 
 											<div class="col-md-12">
 												<div class="mb-1">
 													<label class="form-label">Final Remarks</label>
-													<textarea name="remarks" rows="4" class="form-control"
-														placeholder="Enter Remarks here...">{{ old('remarks', $bom->remarks) }}</textarea>
+													<textarea type="text" name="remarks" rows="4" class="form-control"
+														placeholder="Enter Remarks here...">{{ $bom->remarks }}</textarea>
+
 												</div>
 											</div>
+
 										</div>
 
 									</div>
@@ -809,12 +833,18 @@ $('#addNewRowBtn').on('click', function () {
 	$('.mrntableselectexcel').append(newRow);
 	// Initialize autocomplete for the newly added row only
 	let $newRow = $('.mrntableselectexcel tr:last');
-	console.log('Initializing autocomplete for new row:', $newRow.find('.item_code'));
-	initAutoForItem($newRow.find('.item_code'));
+	let $newItemCode = $newRow.find('.item_code');
+	
+	console.log('Initializing autocomplete for new row:', $newItemCode);
+	
+	// Wait a bit then initialize autocomplete for the new row
+	setTimeout(() => {
+		initAutoForItem($newItemCode);
+	}, 100);
 	
 	// Make the new row selected
 	$newRow.addClass('trselected').siblings().removeClass('trselected');
-	updateFooterFromSelected();
+	// updateFooterFromSelected(); // Not needed in edit page
 });
 
 // ==========================
@@ -904,6 +934,13 @@ function validateRowsCompletion() {
 			$('#document_status').val('submitted');
 
 			if (!validateQuantities()) return;
+			
+			// Validate attributes (same as create page)
+			let attributeValidationPassed = validateAttributes();
+			if (!attributeValidationPassed) {
+				return; // Stop submission if validation fails
+			}
+			
 			updateJsonData();
 
 			if (isAmendmentMode) {
@@ -991,6 +1028,24 @@ function initAutoForItem(selector) {
 		console.error('itemsData is not available or not an array:', itemsData);
 		return;
 	}
+	
+	// Safety check for selector
+	if (!$(selector).length) {
+		console.error('Selector not found:', selector);
+		return;
+	}
+	
+	// Safely destroy existing autocomplete if any
+	let $elements = $(selector);
+	$elements.each(function() {
+		try {
+			if ($(this).hasClass('ui-autocomplete-input')) {
+				$(this).autocomplete('destroy');
+			}
+		} catch (e) {
+			console.log('Autocomplete destroy error (safe to ignore):', e);
+		}
+	});
 
 	$(selector).autocomplete({
 		minLength: 0,
@@ -1003,6 +1058,7 @@ function initAutoForItem(selector) {
 			});
 
 			if (term.trim() === "") {
+				// When clicking on field (empty search), show the initially loaded items
 				let filtered = itemsData.filter(item => {
 					let isSelectedElsewhere = selectedItemIds.includes(item.id.toString());
 					let currentItemId = $(selector).closest('tr').find('.item_id').val();
@@ -1022,37 +1078,84 @@ function initAutoForItem(selector) {
 
 				response(results);
 			} else {
-				// Server-side search for typed terms
-				let filtered = itemsData.filter(item => {
-					let isSelectedElsewhere = selectedItemIds.includes(item.id.toString());
-					let currentItemId = $(selector).closest('tr').find('.item_id').val();
-					return (item.item_code.toLowerCase().includes(term) || item.item_name.toLowerCase().includes(term)) &&
-						(!isSelectedElsewhere || item.id.toString() === currentItemId);
+				// When typing search terms, use server-side search (same as create page)
+				$.ajax({
+					url: "{{ route('maint-bom.search-items') }}",
+					method: 'GET',
+					data: {
+						q: term,
+						limit: 50
+					},
+					success: function(data) {
+						// Filter out already selected items and format for autocomplete
+						let filtered = data.filter(item => {
+							let currentItemId = $(selector).closest('tr').find('.item_id').val();
+							return !selectedItemIds.includes(item.id.toString()) || item.id.toString() === currentItemId;
+						});
+
+						let results = filtered.map(item => ({
+							id: item.id,
+							label: `${item.item_code} - ${item.item_name}`,
+							code: item.item_code,
+							item_id: item.id,
+							item_name: item.item_name,
+							uom_name: item.uom_name,
+							uom_id: item.uom_id,
+							attr: item.item_attributes,
+						}));
+
+						response(results);
+					},
+					error: function(xhr, status, error) {
+						console.log('Search error:', error);
+						// Fallback to local search on error
+						let filtered = itemsData.filter(item => {
+							let isSelectedElsewhere = selectedItemIds.includes(item.id.toString());
+							let currentItemId = $(selector).closest('tr').find('.item_id').val();
+							return (item.item_code.toLowerCase().includes(term) || item.item_name.toLowerCase().includes(term)) &&
+								(!isSelectedElsewhere || item.id.toString() === currentItemId);
+						});
+
+						let results = filtered.map(item => ({
+							id: item.id,
+							label: `${item.item_code} - ${item.item_name}`,
+							code: item.item_code,
+							item_id: item.id,
+							item_name: item.item_name,
+							uom_name: item.uom_name,
+							uom_id: item.uom_id,
+							attr: item.item_attributes,
+						}));
+
+						response(results);
+					}
 				});
-
-				let results = filtered.map(item => ({
-					id: item.id,
-					label: `${item.item_code} - ${item.item_name}`,
-					code: item.item_code,
-					item_id: item.id,
-					item_name: item.item_name,
-					uom_name: item.uom_name,
-					uom_id: item.uom_id,
-					attr: item.item_attributes,
-				}));
-
-				response(results);
 			}
 		},
 		select: function(event, ui) {
 			let $input = $(this);
+			let tr = $input.closest('tr'); // Fix: Define tr variable
 			let attr = ui.item.attr;
-			let tr = $input.closest('tr');
+			let itemCode = ui.item.code;
+			let itemName = ui.item.item_name;
+			let itemId = ui.item.id;
+			let uomId = ui.item.uom_id;
+			let uomName = ui.item.uom_name;
 
-			tr.find('.item_code').val(ui.item.code);
-			tr.find('.item_name').val(ui.item.item_name);
-			tr.find('.item_id').val(ui.item.id);
-			tr.find('.uom').html(`<option value="${ui.item.uom_id}">${ui.item.uom_name}</option>`);
+			// Set data attributes (same as create page)
+			$input.attr('data-name', itemName);
+			$input.attr('data-code', itemCode);
+			$input.attr('data-attr', JSON.stringify(attr));
+			$input.attr('data-id', itemId);
+
+			// Set all the item details
+			$input.val(itemCode);
+			tr.find('.item_code').val(itemCode);
+			tr.find('.item_name').val(itemName);
+			tr.find('.item_id').val(itemId);
+			
+			// Set UOM with proper empty and append (same as create page)
+			tr.find('.uom').empty().append(`<option value="${uomId}">${uomName}</option>`);
 
 			// Attributes display
 			let badgesHtml = '';
@@ -1063,13 +1166,73 @@ function initAutoForItem(selector) {
 					</span>`;
 				});
 				tr.find('#attribute-badges').html(badgesHtml);
+				
+				// Automatically open attribute modal if item has attributes (same as create page)
+				setTimeout(() => {
+					let $attributesTable = $('#attribute_table');
+					$attributesTable.data('currentRow', tr);
+					
+					// Populate modal with attributes
+					let attributesJSON = attr;
+					let $hiddenInput = tr.find('.attribute');
+					let existingAttributes = $hiddenInput.length && $hiddenInput.val()
+						? JSON.parse($hiddenInput.val())
+						: [];
+
+					if (attributesJSON.length > 0) {
+						let innerHtml = ``;
+						$.each(attributesJSON, function (index, element) {
+							let optionsHtml = ``;
+							
+							// Check if element has values_data or use different structure
+							let valuesData = element.values_data || element.values || [];
+							
+							// Debug log to see data structure
+							console.log('Attribute element:', element);
+							console.log('Values data:', valuesData);
+							
+							$.each(valuesData, function (i, value) {
+								let isSelected = existingAttributes.some(attr =>
+									attr.item_attribute_id === element.id && attr.value_id === value.id
+								);
+								// Use 'value' property as in create page
+								optionsHtml += `<option value='${value.id}' ${isSelected ? 'selected' : ''}>${value.value}</option>`;
+							});
+
+							innerHtml += `
+								<tr>
+									<td>
+										${element.group_name}
+										<input type="hidden" name="id" value="${element.id}">
+									</td>
+									<td>
+										<select class="form-select select2" style="max-width:100% !important;">
+											<option value="">Select</option>
+											${optionsHtml}
+										</select>
+									</td>
+								</tr>
+							`;
+						});
+						
+						$attributesTable.html(innerHtml);
+						$attributesTable.find('select').off('change').on('change', function () {
+							changeAttributeVal(tr);
+						});
+						$attributesTable.find('select').select2();
+						
+						// Open the modal
+						$('#attribute').modal('show');
+					}
+				}, 300);
 			} else {
 				tr.find('#attribute-badges').html('<span class="text-muted" style="font-size:10px;">No attributes available</span>');
+				
+				// Focus on quantity field if no attributes
+				setTimeout(() => {
+					tr.find('.qty').focus();
+				}, 200);
 			}
-
-			setTimeout(() => {
-				tr.find('.qty').focus();
-			}, 200);
 		},
 		change: function(event, ui) {
 			if (!ui.item) {
@@ -1083,9 +1246,294 @@ function initAutoForItem(selector) {
 		if (!this.value.trim()) $(this).autocomplete("search", "");
 	});
 
-	$(selector).autocomplete("instance")._renderItem = function(ul, item) {
-		return $("<li>").append(`<div><strong>${item.code}</strong> - ${item.item_name}</div>`).appendTo(ul);
-	};
+	// Set custom render item with safety check and delay
+	setTimeout(() => {
+		let autocompleteInstance = $(selector).autocomplete("instance");
+		if (autocompleteInstance) {
+			autocompleteInstance._renderItem = function(ul, item) {
+				return $("<li>").append(`<div><strong>${item.code}</strong> - ${item.item_name}</div>`).appendTo(ul);
+			};
+		}
+	}, 100);
+}
+
+// ==========================
+// 🔸 Attribute Modal Handlers (Same as Create Page)
+// ==========================
+$(document).on('click', '.submitAttributeBtn', (e) => {
+	let $currentRow = $('#attribute_table').data('currentRow');
+	if ($currentRow) {
+		changeAttributeVal($currentRow);
+		updateAttributeBadges($currentRow);
+		// updateFooterFromSelected(); // Remove this call as it's not needed in edit page
+	}
+	$("#attribute").modal('hide');
+});
+
+function changeAttributeVal($row) {
+	let hiddenInput = $row.find('.attribute');
+	if (!hiddenInput) return;
+
+	// Find the attributes table - it's the tbody with id="attribute_table"
+	const tbody = document.getElementById("attribute_table");
+
+	let selectedAttributes = [];
+
+	Array.from(tbody.rows).forEach(row => {
+		const hiddenInputAttr = row.querySelector('input[type="hidden"][name="id"]');
+		const selectElement = row.querySelector("select");
+		
+		if (hiddenInputAttr && selectElement) {
+			const attributeId = parseInt(hiddenInputAttr.value, 10);
+			const selectedVal = parseInt(selectElement.value, 10);
+
+			if (!isNaN(attributeId) && !isNaN(selectedVal) && selectedVal > 0) {
+				selectedAttributes.push({
+					item_attribute_id: attributeId,
+					value_id: selectedVal
+				});
+			}
+		}
+	});
+
+	// Update hidden input with JSON
+	hiddenInput.val(JSON.stringify(selectedAttributes));
+}
+
+function updateAttributeBadges($row) {
+	if (!$row) return;
+
+	let $selectElement = $row.find('.item_code');
+	let $badgesContainer = $row.find('#attribute-badges');
+
+	if ($selectElement.val() !== "") {
+		let $hiddenInput = $row.find('.attribute');
+		let existingAttributes = $hiddenInput.length && $hiddenInput.val() ?
+			JSON.parse($hiddenInput.val()) :
+			[];
+
+		let attr = JSON.parse($selectElement.attr('data-attr') || '[]');
+
+		let badgesHtml = '';
+		let selectedCount = 0;
+
+		if (attr && attr.length > 0) {
+			attr.forEach(function(attribute) {
+				// Check if this attribute has been selected (use item_attribute_id as in create page)
+				let selectedAttr = existingAttributes.find(selected =>
+					selected.item_attribute_id === attribute.id
+				);
+
+				// Only show selected attributes
+				if (selectedAttr) {
+					selectedCount++;
+					if (selectedCount <= 2) {
+						// Find the selected value from the attribute's values
+						let valuesData = attribute.values_data || attribute.values || [];
+						let selectedValue = valuesData.find(val => val.id === selectedAttr.value_id);
+
+						if (selectedValue) {
+							badgesHtml += `<span class="badge rounded-pill badge-light-primary" style="font-size:10px; margin-right:5px;cursor:pointer">
+								<strong>${attribute.group_name}</strong>: ${selectedValue.value}
+							</span>`;
+						} else {
+							// Handle case where selected value isn't found (optional)
+							badgesHtml += `<span class="badge rounded-pill badge-light-warning" style="font-size:10px; margin-right:5px;cursor:pointer">
+								<strong>${attribute.group_name}</strong>: N/A
+							</span>`;
+						}
+					}
+				}
+			});
+
+			// Show "+X more" if there are more than 2 selected attributes
+			if (selectedCount > 2) {
+				badgesHtml += `<span class="badge rounded-pill badge-light-info" style="font-size:10px; margin-right:5px;">
+					+${selectedCount - 2} more
+				</span>`;
+			}
+		}
+
+		$badgesContainer.html(badgesHtml);
+	}
+}
+
+// ==========================
+// 🔸 Attribute Validation (Same as Create Page)
+// ==========================
+function validateAttributes() {
+	let isValid = true;
+	let errorMessages = [];
+
+	// Loop through all rows to check for items with attributes
+	$('.mrntableselectexcel tr').each(function(index) {
+		let $row = $(this);
+		let $selectElement = $row.find('.item_code');
+		let itemName = $row.find('.item_name').val();
+		
+		// Skip empty rows
+		if (!$selectElement.val() || !itemName) {
+			return true; // continue to next iteration
+		}
+
+		// Check if item has attributes
+		let attributesJSON = JSON.parse($selectElement.attr('data-attr') || '[]');
+		
+		if (attributesJSON && attributesJSON.length > 0) {
+			// Item has attributes, check if at least one attribute is selected
+			let $hiddenInput = $row.find('.attribute');
+			let selectedAttributes = [];
+			
+			if ($hiddenInput.length && $hiddenInput.val()) {
+				try {
+					selectedAttributes = JSON.parse($hiddenInput.val());
+				} catch (e) {
+					selectedAttributes = [];
+				}
+			}
+
+			// Check if at least one attribute is selected (minimum requirement)
+			if (!selectedAttributes || selectedAttributes.length === 0) {
+				errorMessages.push(`Please select at least one attribute for item: <span style="color: red;">${itemName}</span>`);
+				isValid = false;
+			}
+		}
+	});
+
+	if (!isValid) {
+		// Show SweetAlert error
+		Swal.fire({
+			icon: 'error',
+			title: 'Attribute Selection Required',
+			html: errorMessages.join('<br>'),
+			confirmButtonText: 'OK'
+		});
+	}
+
+	return isValid;
+}
+
+// ==========================
+// 🔸 Multiple File Upload Functionality
+// ==========================
+function checkFileTypeandSize(event) {
+    const files = event.target.files;
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/pdf'];
+    const allowedExtensions = ['png', 'jpeg', 'jpg', 'xls', 'xlsx', 'docx', 'pdf'];
+    
+    let validFiles = [];
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileExtension = file.name.split('.').pop().toLowerCase();
+        
+        // Check file type
+        if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Invalid File Type',
+                text: `File "${file.name}" is not allowed. Please select PNG, JPEG, JPG, XLS, XLSX, DOCX, or PDF files only.`,
+            });
+            event.target.value = '';
+            return false;
+        }
+        
+        // Check file size
+        if (file.size > maxSize) {
+            const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+            Swal.fire({
+                icon: 'error',
+                title: 'File Too Large',
+                text: `File "${file.name}" is ${fileSizeMB}MB. Maximum allowed size is 5MB.`,
+            });
+            event.target.value = '';
+            return false;
+        }
+        
+        validFiles.push(file);
+    }
+    
+    // Show preview for valid files
+    showFilePreview(validFiles);
+    return true;
+}
+
+function showFilePreview(files) {
+    const previewContainer = document.getElementById('preview');
+    previewContainer.innerHTML = '';
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileDiv = document.createElement('div');
+        fileDiv.className = 'file-upload-preview ms-2';
+        fileDiv.style.cssText = 'cursor: pointer; position: relative; display: inline-block; margin-right: 10px; margin-bottom: 10px;';
+        
+        const iconDiv = document.createElement('div');
+        iconDiv.className = 'image-uplodasection expenseadd-sign';
+        
+        const fileIcon = document.createElement('i');
+        fileIcon.setAttribute('data-feather', 'file-text');
+        fileIcon.title = file.name;
+        
+        const deleteBtn = document.createElement('div');
+        deleteBtn.className = 'delete-new-file';
+        deleteBtn.style.cssText = 'position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;';
+        deleteBtn.title = 'Remove file';
+        deleteBtn.onclick = function() { removeFilePreview(fileDiv, i); };
+        
+        const deleteIcon = document.createElement('i');
+        deleteIcon.setAttribute('data-feather', 'x');
+        deleteIcon.style.cssText = 'font-size: 12px; color: #dc3545;';
+        
+        deleteBtn.appendChild(deleteIcon);
+        iconDiv.appendChild(fileIcon);
+        fileDiv.appendChild(iconDiv);
+        fileDiv.appendChild(deleteBtn);
+        previewContainer.appendChild(fileDiv);
+    }
+    
+    // Refresh feather icons
+    if (feather) feather.replace();
+}
+
+function removeFilePreview(fileDiv, index) {
+    const fileInput = document.getElementById('document');
+    const dt = new DataTransfer();
+    
+    // Add all files except the one being removed
+    for (let i = 0; i < fileInput.files.length; i++) {
+        if (i !== index) {
+            dt.items.add(fileInput.files[i]);
+        }
+    }
+    
+    fileInput.files = dt.files;
+    fileDiv.remove();
+}
+
+// Function to delete existing files
+function deleteExistingFile(filePath, element) {
+    // Add file to deletion list
+    let deletedFiles = document.getElementById('deleted_files');
+    if (!deletedFiles) {
+        deletedFiles = document.createElement('input');
+        deletedFiles.type = 'hidden';
+        deletedFiles.name = 'deleted_files';
+        deletedFiles.id = 'deleted_files';
+        document.getElementById('maint-bom-form').appendChild(deletedFiles);
+    }
+    
+    // Add to deletion array
+    let currentDeleted = deletedFiles.value ? JSON.parse(deletedFiles.value) : [];
+    currentDeleted.push(filePath);
+    deletedFiles.value = JSON.stringify(currentDeleted);
+    
+    console.log('File marked for deletion:', filePath);
+    console.log('Current deleted files:', deletedFiles.value);
+    
+    // Remove from UI immediately
+    element.closest('.file-upload-preview').remove();
 }
 
 </script>

@@ -4,6 +4,22 @@
 		.poitemtxt {
 			white-space: normal;
 		}
+		
+		.file-upload-preview {
+			cursor: pointer !important;
+		}
+		
+		.image-uplodasection {
+			position: relative;
+			display: inline-block;
+		}
+		
+		.expenseadd-sign {
+			padding: 8px;
+			border: 1px solid #ddd;
+			border-radius: 4px;
+			background: #f8f9fa;
+		}
 	</style>
 <div class="app-content content">
   <div class="content-overlay"></div>
@@ -344,8 +360,38 @@
           <div class="mb-1">
             <label class="form-label"><i data-feather="paperclip"></i> Supporting Documents <span class="text-danger">*</span></label><br/>
             <div class="mt-50">
-              <input type="file" name="supporting_documents[]" class="form-control" multiple accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
+              <div class="d-flex align-items-center">
+                <input type="file" name="supporting_documents[]" id="supporting_documents" class="form-control" multiple 
+                       onchange="checkFileTypeandSize(event, '#supporting_preview')"
+                       accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" />
+                
+                {{-- Hidden input to track deleted files --}}
+                <input type="hidden" name="deleted_supporting_files" id="deleted_supporting_files" value="" />
+                
+                {{-- Current supporting documents display inline --}}
+                @if(isset($workOrder->supporting_documents) && $workOrder->supporting_documents)
+                    @php
+                        $supportingDocs = is_string($workOrder->supporting_documents) ? 
+                            (json_decode($workOrder->supporting_documents, true) ?: [$workOrder->supporting_documents]) : 
+                            [$workOrder->supporting_documents];
+                    @endphp
+                    @foreach($supportingDocs as $supportingDoc)
+                        @if($supportingDoc)
+                            <div class="file-upload-preview ms-2" style="cursor: pointer; position: relative;" data-file-path="{{ $supportingDoc }}">
+                                <div class="image-uplodasection expenseadd-sign">
+                                    <i onclick="window.open('{{ asset('storage/' . $supportingDoc) }}', '_blank')" data-feather="file-text"></i>
+                                    <div class="delete-existing-file" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;" 
+                                         onclick="deleteExistingFile('{{ $supportingDoc }}', this, 'supporting')" title="Delete file">
+                                        <i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    @endforeach
+                @endif
+              </div>
               <span class="text-primary small">{{__("message.attachment_caption")}}</span>
+              <div id="supporting_preview" class="mt-2"></div>
             </div>
           </div>
         </div>
@@ -511,6 +557,7 @@
                                   <th>Attributes</th>
                                   <th>UOM</th>
                                   <th>Qty</th>
+                                  <th>Rate</th>
                                   <th>Available Stock</th>
                                 </tr>
                               </thead>
@@ -584,6 +631,10 @@
                                                  value="{{ $part['qty'] ?? ($part->qty ?? '') }}" required />
                                        </td>
                                        <td>
+                                          <input type="number" class="rate form-control mw-100" name="rate[]"
+                                                 value="{{ $part['rate'] ?? ($part->rate ?? 0) }}" required />
+                                       </td>
+                                       <td>
                                            <input type="number" class="available_stock form-control mw-100" name="available_stock[]"
                                                   value="{{ $part['available_stock'] }}" />
                                        </td>
@@ -617,12 +668,20 @@
                                       <input type="number" class="qty form-control mw-100" name="qty[]" required />
                                     </td>
                                     <td>
+                                      <input type="number" class="rate form-control mw-100" name="rate[]" required />
+                                    </td>
+                                    <td>
                                       <input type="number" class="available_stock form-control mw-100" name="available_stock[]"  readonly />
                                     </td>
                                   </tr>
                                 @endif
                               </tbody>
                               <tfoot>
+                                <tr>
+                                  <td colspan="6" class="text-end">Total</td>
+                                  <td class="fw-bolder text-dark text-end settleTotal">0.00</td>
+                                  <td></td>
+                                </tr>
                                  <tr valign="top">
                                    <td colspan="7" rowspan="10">
                                     <table class="table border">
@@ -689,6 +748,14 @@
                                               @endif
                                             </span>
                                           </span>
+                                          <span class="badge rounded-pill badge-light-primary">
+                                            <strong>Rate</strong>: 
+                                            <span id="rate">
+                                              @if(!empty($sparePartsData) && count($sparePartsData) > 0)
+                                                {{ $sparePartsData[0]['rate'] ?? ($sparePartsData[0]->rate ?? '0') }}
+                                              @endif
+                                            </span>
+                                          </span>
                                           <span class="badge rounded-pill badge-light-success">
                                             <strong>Available Stock</strong>: 
                                             <span id="available_stock">
@@ -725,21 +792,37 @@
             <div class="mb-1">
               <label class="form-label"><i data-feather="paperclip"></i> Upload Document</label>
               <div class="d-flex align-items-center">
-                <input type="file" name="upload_file" id="upload_file" class="form-control" accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf">
+                <input type="file" name="upload_file[]" id="upload_file" class="form-control" multiple 
+                       onchange="checkFileTypeandSize(event, '#upload_preview')"
+                       accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf" style="flex: 1;" />
+                
+                {{-- Hidden input to track deleted files --}}
+                <input type="hidden" name="deleted_upload_files" id="deleted_upload_files" value="" />
+                
+                {{-- Current upload files display inline --}}
                 @if(isset($workOrder->upload_file) && $workOrder->upload_file)
-                <div class="file-upload-preview ms-2" style="cursor: pointer;">
-                  <div class="image-uplodasection expenseadd-sign">
-                    <i onclick="window.open('{{ asset('storage/' . $workOrder->upload_file) }}', '_blank')" data-feather="file-text"></i>
-                  </div>
-                </div>
+                    @php
+                        $uploadFiles = is_string($workOrder->upload_file) ? 
+                            (json_decode($workOrder->upload_file, true) ?: [$workOrder->upload_file]) : 
+                            [$workOrder->upload_file];
+                    @endphp
+                    @foreach($uploadFiles as $uploadFile)
+                        @if($uploadFile)
+                            <div class="file-upload-preview ms-2" style="cursor: pointer; position: relative;" data-file-path="{{ $uploadFile }}">
+                                <div class="image-uplodasection expenseadd-sign">
+                                    <i onclick="window.open('{{ asset('storage/' . $uploadFile) }}', '_blank')" data-feather="file-text"></i>
+                                    <div class="delete-existing-file" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;" 
+                                         onclick="deleteExistingFile('{{ $uploadFile }}', this, 'upload')" title="Delete file">
+                                        <i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    @endforeach
                 @endif
               </div>
               <span class="text-primary small">{{__("message.attachment_caption")}}</span>
-              @if(isset($workOrder->upload_file) && $workOrder->upload_file)
-              <div class="mt-1">
-                <small class="text-muted">Current file: {{ basename($workOrder->upload_file) }}</small>
-              </div>
-              @endif
+              <div id="upload_preview" class="mt-2"></div>
             </div>
           </div>
           <div class="col-md-12">
@@ -1471,6 +1554,7 @@
 					item_name: row.find('.item_name').val() || '',
 					attribute: row.find('.attribute').val() || '',
 					qty: row.find('.qty').val() || 0,
+					rate: row.find('.rate').val() || 0,
 					uom_id: row.find('.uom').val() || '',
 					uom_name: row.find('.uom option:selected').text() || '',
 					available_stock: row.find('.available_stock').val() || 0
@@ -1746,6 +1830,35 @@
 	// Initialize autocomplete for existing rows
 	$(document).ready(function() {
 		initAutoForItem('.item_code');
+		
+		// Function to calculate total for spare parts
+		function calculateSparePartsTotal() {
+			let total = 0;
+			console.log('🔢 Calculating spare parts total...');
+			$('.mrntableselectexcel tr').each(function() {
+				const qtyInput = $(this).find('input[name="qty[]"], input.qty');
+				const rateInput = $(this).find('input[name="rate[]"], input.rate');
+				
+				if (qtyInput.length && rateInput.length) {
+					const qty = parseFloat(qtyInput.val()) || 0;
+					const rate = parseFloat(rateInput.val()) || 0;
+					const rowTotal = qty * rate;
+					console.log(`Row: qty=${qty}, rate=${rate}, total=${rowTotal}`);
+					total += rowTotal;
+				}
+			});
+			console.log('Final total:', total);
+			$('.settleTotal').text(total.toFixed(2));
+		}
+
+		// Event listeners for qty and rate changes
+		$(document).on('input change keyup', '.mrntableselectexcel input[name="qty[]"], .mrntableselectexcel input[name="rate[]"], .mrntableselectexcel input.qty, .mrntableselectexcel input.rate', function() {
+			console.log('Input changed, recalculating total...');
+			calculateSparePartsTotal();
+		});
+
+		// Calculate total on page load
+		calculateSparePartsTotal();
 	});
 
 	// Add New Item functionality
@@ -1827,6 +1940,9 @@
 				<input type="number" class="qty form-control mw-100" name="qty[]" required />
 			</td>
 			<td>
+				<input type="number" class="rate form-control mw-100" name="rate[]" required />
+			</td>
+			<td>
 				<input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly />
 			</td>
 		</tr>`;
@@ -1836,6 +1952,9 @@
 		if (typeof initAutoForItem === 'function') {
 			initAutoForItem('.item_code');
 		}
+		
+		// Recalculate total after adding new row
+		calculateSparePartsTotal();
 	});
 
 	
@@ -1863,6 +1982,7 @@
 			let partName = $selected.find('.item_name').val() || 'N/A';
 			let uomText = $selected.find('.uom option:selected').text() || $selected.find('.uom').val() || 'N/A';
 			let qty = $selected.find('.qty').val() || '0';
+			let rate = $selected.find('.rate').val() || '0';
 			let availableStock = $selected.find('.available_stock').val() || '0'; // Get available stock
 			
 	
@@ -1870,6 +1990,7 @@
 			$('#part_name').text(partName);
 			$('#uom').text(uomText);
 			$('#qty').text(qty);
+			$('#rate').text(rate);
 			$('#available_stock').text(availableStock); // Update available stock in Part Details
 			
 			
@@ -2081,6 +2202,7 @@
 						</select>
 					</td>
 					<td><input type="number" class="qty form-control mw-100" name="qty[]" required /></td>
+					<td><input type="number" class="rate form-control mw-100" name="rate[]" required /></td>
 					<td><input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly /></td>
 				</tr>
 			`;
@@ -3355,5 +3477,173 @@ function processDefectSelection() {
 		console.log('Modal file selected, validating...');
 		validateFile(this);
 	});
+
+	// Multiple file upload functionality
+	function checkFileTypeandSize(event, previewSelector = '#preview') {
+		$(previewSelector).empty();
+		const files = event.target.files;
+
+		if (files.length > 0) {
+			// Validate each file
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				const maxSizeMB = 5;
+				const fileSizeMB = file.size / (1024 * 1024);
+
+				const videoExtensions = /(\.mp4|\.avi|\.mov|\.wmv|\.mkv)$/i;
+				if (videoExtensions.exec(file.name)) {
+					Swal.fire({
+						icon: 'error',
+						title: 'Invalid File Type',
+						text: 'Video files are not allowed.'
+					});
+					event.target.value = "";
+					return;
+				}
+
+				if (fileSizeMB > maxSizeMB) {
+					Swal.fire({
+						icon: 'error',
+						title: 'File Too Large',
+						text: `File "${file.name}" size should not exceed 5MB. Current size: ${fileSizeMB.toFixed(2)}MB`
+					});
+					event.target.value = "";
+					return;
+				}
+			}
+
+			// Show preview for all files
+			handleFileUpload(event, previewSelector);
+		}
+	}
+
+	function handleFileUpload(event, previewElement) {
+		var files = event.target.files;
+		var previewContainer = $(previewElement);
+		previewContainer.empty();
+
+		if (files.length > 0) {
+			for (var i = 0; i < files.length; i++) {
+				var fileName = files[i].name;
+				var fileExtension = fileName.split('.').pop().toLowerCase();
+
+				var fileIconType = 'file-text';
+
+				switch (fileExtension) {
+					case 'pdf':
+						fileIconType = 'file';
+						break;
+					case 'doc':
+					case 'docx':
+						fileIconType = 'file';
+						break;
+					case 'xls':
+					case 'xlsx':
+						fileIconType = 'file';
+						break;
+					case 'png':
+					case 'jpg':
+					case 'jpeg':
+					case 'gif':
+						fileIconType = 'image';
+						break;
+					case 'zip':
+					case 'rar':
+						fileIconType = 'archive';
+						break;
+					default:
+						fileIconType = 'file';
+						break;
+				}
+
+				var fileIcon = `
+					<div class="file-upload-preview" data-file-index="${i}" style="display: inline-block; margin: 5px; cursor: pointer; position: relative;">
+						<div class="image-uplodasection expenseadd-sign">
+							<i data-feather="file-text" class="fileuploadicon" style="font-size: 24px; color: #666;"></i>
+							<div class="delete-img text-danger" data-file-index="${i}" style="position: absolute; top: -5px; right: -5px; cursor: pointer; background: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd;">
+								<i data-feather="x" style="font-size: 12px; color: #dc3545;"></i>
+							</div>
+						</div>
+					</div>
+				`;
+
+				previewContainer.append(fileIcon);
+			}
+			feather.replace();
+		}
+
+		previewContainer.find('.delete-img').click(function() {
+			var fileIndex = $(this).attr('data-file-index');
+			removeFilePreview(fileIndex, previewContainer, event.target);
+		});
+	}
+
+	function removeFilePreview(fileIndex, previewContainer, inputElement) {
+		var dt = new DataTransfer();
+		var files = inputElement.files;
+
+		for (var i = 0; i < files.length; i++) {
+			if (i != fileIndex) {
+				dt.items.add(files[i]);
+			}
+		}
+
+		inputElement.files = dt.files;
+		previewContainer.children(`[data-file-index="${fileIndex}"]`).remove();
+
+		var remainingPreviews = previewContainer.children();
+		remainingPreviews.each(function(index) {
+			$(this).attr('data-file-index', index);
+			$(this).find('.delete-img').attr('data-file-index', index);
+		});
+
+		if (dt.files.length === 0) {
+			inputElement.value = "";
+		}
+	}
+
+	// Function to delete existing files
+	function deleteExistingFile(filePath, element, fileType) {
+		// Add the file to the appropriate deleted files list
+		if (fileType === 'upload') {
+			addToDeletedFiles(filePath, '#deleted_upload_files');
+		} else if (fileType === 'supporting') {
+			addToDeletedFiles(filePath, '#deleted_supporting_files');
+		}
+		
+		// Remove the preview element
+		$(element).closest('.file-upload-preview').remove();
+		
+		Swal.fire({
+			icon: 'success',
+			title: 'File Removed',
+			text: 'File will be deleted when you save the form.',
+			timer: 2000,
+			showConfirmButton: false
+		});
+	}
+
+	function addToDeletedFiles(fileToDelete, hiddenFieldSelector) {
+		var deletedFiles = $(hiddenFieldSelector).val();
+		var deletedFilesArray = [];
+		
+		if (deletedFiles) {
+			try {
+				deletedFilesArray = JSON.parse(deletedFiles);
+				if (!Array.isArray(deletedFilesArray)) {
+					deletedFilesArray = [];
+				}
+			} catch (e) {
+				deletedFilesArray = [];
+			}
+		}
+		
+		// Add the file to deleted list if not already there
+		if (!deletedFilesArray.includes(fileToDelete)) {
+			deletedFilesArray.push(fileToDelete);
+			$(hiddenFieldSelector).val(JSON.stringify(deletedFilesArray));
+		}
+	}
+
 </script>
 @endsection

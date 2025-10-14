@@ -35,7 +35,8 @@ class ErpEquipmentRequest extends FormRequest
             'name' => 'required|string|max:255',
             'alias' => 'nullable|string|max:255',
             'description' => 'nullable|string',
-            'upload_document' => 'nullable|file|mimes:png,jpeg,jpg,xls,docx,pdf|max:5120', // Single file, 5MB max
+            'upload_document' => 'nullable|array', // Array of files
+            'upload_document.*' => 'nullable|file|mimes:png,jpeg,jpg,xls,xlsx,docx,pdf|max:5120', // Each file validation, 5MB max
             'final_remarks' => 'nullable|string',
             'status' => 'required|in:draft,submitted',
             'doc_number_type' => 'nullable|string',

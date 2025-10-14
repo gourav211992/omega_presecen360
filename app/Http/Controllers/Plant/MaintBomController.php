@@ -54,63 +54,75 @@ class MaintBomController extends Controller
 
         return view('plant.maint_bom.index', compact('series', 'bomNames', 'mappings', 'organizationId'));
     }
-
     /**
      * Check if document number or BOM name already exists
      */
     public function checkDocumentNumber(Request $request)
     {
+        $numberPatternData = Helper::generateDocumentNumberNew($request->book_id, $request->date);
+
+        if (!isset($numberPatternData)) {
+            return response()->json([
+                'message' => "Invalid Book",
+                'error' => "",
+            ], 422);
+        }
+
         $documentNumber = $request->get('document_number');
         $bomName = $request->get('bom_name');
         $bookId = $request->get('book_id');
         $currentId = $request->get('current_id'); // For edit mode to exclude current record
-        
+
+        $user = Helper::getAuthenticatedUser();
+        $organizationId = $user->organization_id;
+
         $response = [
             'document_exists' => false,
             'bom_name_exists' => false,
             'message' => null
         ];
-        
-        // Check document number if provided
-        if ($documentNumber) {
-            $query = PlantMaintBom::select('id')
-                                  ->where('document_number', $documentNumber)
-                                  ->when($bookId, function($query) use ($bookId) {
-                                      return $query->where('book_id', $bookId);
-                                  });
-            
+
+        // Check document number uniqueness based on book series numbering (same as PoRequest)
+        if ($bookId) {
+            $numPattern = \App\Models\NumberPattern::where('organization_id', $organizationId)
+                ->where('book_id', $bookId)
+                ->orderBy('id', 'DESC')
+                ->first();
+
+            // Only check uniqueness if series_numbering is 'Manually' (same as PoRequest)
+            if ($numPattern && $numPattern->series_numbering == 'Manually') {
+                $query = PlantMaintBom::where('document_number', $documentNumber)
+                    ->where('organization_id', $organizationId);
+
+                // Exclude current record in edit mode
+                if ($currentId) {
+                    $query->where('id', '!=', $currentId);
+                }
+
+                $existingBom = $query->first();
+                if ($existingBom) {
+                    $response['document_exists'] = true;
+                    $response['message'] = "Document number '{$documentNumber}' already exists. Please use a different document number.";
+                }
+            }
+        }
+
+        // Check BOM name uniqueness (only if document number is valid)
+        if (!$response['document_exists'] && $bomName) {
+            $query = PlantMaintBom::where('bom_name', $bomName)
+                ->where('organization_id', $organizationId);
+
+            // Exclude current record in edit mode
             if ($currentId) {
                 $query->where('id', '!=', $currentId);
             }
-            
-            $response['document_exists'] = $query->limit(1)->exists();
-            
-            if ($response['document_exists']) {
-                $response['message'] = "Document number '{$documentNumber}' already exists. Please use a different document number.";
+
+            $existingBomName = $query->first();
+            if ($existingBomName) {
+                $response['bom_name_exists'] = true;
+                $response['message'] = "BOM name '{$bomName}' already exists. Please use a different BOM name.";
             }
         }
-        
-        // Check BOM name if provided
-        if ($bomName) {
-            $query = PlantMaintBom::select('id')
-                                  ->where('bom_name', $bomName);
-            
-            // For edit mode, exclude current record
-            if ($currentId) {
-                $query->where('id', '!=', $currentId);
-            }
-            
-            $response['bom_name_exists'] = $query->limit(1)->exists();
-            
-            if ($response['bom_name_exists']) {
-                $response['message'] = $response['message'] 
-                    ? $response['message'] . " BOM name '{$bomName}' already exists. Please use a different BOM name."
-                    : "BOM name '{$bomName}' already exists. Please use a different BOM name.";
-            }
-        }
-        
-        // Set legacy 'exists' field for backward compatibility
-        $response['exists'] = $response['document_exists'] || $response['bom_name_exists'];
         
         return response()->json($response, 200);
     }
@@ -338,6 +350,14 @@ class MaintBomController extends Controller
         // FormRequest handles validation automatically
         $validator = $request->validated();
 
+        $numberPatternData = Helper::generateDocumentNumberNew($request->book_id, $request->document_date);
+        if (!isset($numberPatternData)) {
+            return response()->json([
+                'message' => "Invalid Book",
+                'error' => "",
+            ], 422);
+        }
+
         if (!$validator) {
             return redirect()
                 ->route('maint-bom.create')
@@ -358,30 +378,40 @@ class MaintBomController extends Controller
             }
         }
 
+       
+        if($request->doc_no==''){
+            $doc_no = $request->document_number;
+        }
+        else{
+            $doc_no = $request->doc_no;
+        }
         $user = Helper::getAuthenticatedUser();
         $additionalData = [
             'created_by' => $user->auth_user_id,
             'type' => get_class($user),
             'organization_id' => $user->organization->id,
             'group_id' => $user->organization->group_id,
+            'doc_no' => $doc_no,
             'company_id' => $user->organization->company_id,
             'approval_level' => 1,
             'revision_number' => 0,
         ];
 
-        // Handle document upload first
-        $documentPath = null;
+        // Handle multiple document uploads
+        $documentPaths = [];
         if ($request->hasFile('document')) {
-            $file = $request->file('document');
-            $fileName = time() . '_' . $file->getClientOriginalName();
-            $documentPath = $file->storeAs('maint_bom_documents', $fileName, 'public');
+            foreach ($request->file('document') as $index => $file) {
+                $fileName = 'maint_bom_' . time() . '_' . $index . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('maint_bom_documents', $fileName, 'public');
+                $documentPaths[] = $path;
+            }
         }
 
         $data = array_merge($request->all(), $additionalData);
         
-        // Add document path if uploaded
-        if ($documentPath) {
-            $data['document'] = $documentPath;
+        // Add document paths if uploaded
+        if (!empty($documentPaths)) {
+            $data['document'] = json_encode($documentPaths);
         }
 
 
@@ -501,6 +531,7 @@ class MaintBomController extends Controller
                 'item_attributes' => $item->attributes,
             ];
         });
+       
         return view('plant.maint_bom.show', compact('series', 'items','data','buttons', 'docStatusClass', 'revision_number', 'currNumber', 'approvalHistory'));
 }
 
@@ -614,19 +645,56 @@ class MaintBomController extends Controller
             }
         }
 
-        // Handle document upload first
-        $documentPath = null;
+        // Handle multiple file uploads
+        $finalDocuments = [];
+        
+        // Get existing documents
+        if ($bom->document) {
+            $existingDocuments = json_decode($bom->document, true);
+            if (!is_array($existingDocuments)) {
+                $existingDocuments = [$bom->document];
+            }
+            $finalDocuments = $existingDocuments;
+        }
+        
+        // Remove deleted files from final documents
+        if ($request->has('deleted_files') && !empty($request->deleted_files)) {
+            $deletedFiles = json_decode($request->deleted_files, true);
+            if (is_array($deletedFiles)) {
+                $finalDocuments = array_diff($finalDocuments, $deletedFiles);
+            }
+        }
+        
+        // Add new uploaded files
         if ($request->hasFile('document')) {
-            $file = $request->file('document');
-            $fileName = time() . '_' . $file->getClientOriginalName();
-            $documentPath = $file->storeAs('maint_bom_documents', $fileName, 'public');
+            $newDocumentPaths = [];
+            foreach ($request->file('document') as $index => $file) {
+                $fileName = 'maint_bom_' . time() . '_' . $index . '.' . $file->getClientOriginalExtension();
+                $path = $file->storeAs('maint_bom_documents', $fileName, 'public');
+                $newDocumentPaths[] = $path;
+            }
+            $finalDocuments = array_merge($finalDocuments, $newDocumentPaths);
+        }
+        
+        // Delete files that were marked for deletion
+        if ($request->has('deleted_files') && !empty($request->deleted_files)) {
+            $deletedFiles = json_decode($request->deleted_files, true);
+            if (is_array($deletedFiles)) {
+                foreach ($deletedFiles as $fileToDelete) {
+                    if (\Storage::disk('public')->exists($fileToDelete)) {
+                        \Storage::disk('public')->delete($fileToDelete);
+                    }
+                }
+            }
         }
 
         $data = $request->all();
         
-        // Add document path if uploaded
-        if ($documentPath) {
-            $data['document'] = $documentPath;
+        // Update document field
+        if (!empty($finalDocuments)) {
+            $data['document'] = json_encode($finalDocuments);
+        } else {
+            $data['document'] = null;
         }
 
         

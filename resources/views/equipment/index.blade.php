@@ -2,7 +2,6 @@
 @extends('layouts.app')
 @section('styles')
 <link rel="stylesheet" type="text/css" href="{{asset('app-assets/vendors/css/pickers/flatpickr/flatpickr.min.css')}}">
-<link rel="stylesheet" type="text/css" href="{{asset('app-assets/vendors/css/forms/select/select2.min.css')}}">
 @endsection
 @section('content')
 <div class="app-content content ">
@@ -154,13 +153,14 @@
 						</select>
 					</div>
 					
+                    
                     <div class="mb-1">
 						<label class="form-label">Organization</label>
 						<select id="filter-organization" class="form-select select2" multiple name="filter_organization">
 							<option value="" disabled>Select</option>
 							@foreach($mappings as $organization)
 								<option value="{{ $organization->organization->id }}"
-									{{ isset($organizationId) && $organization->organization->id == $organizationId ? 'selected' : '' }}>
+									{{ $organization->organization->id == $organizationId ? 'selected' : '' }}>
 									{{ $organization->organization->name }}
 								</option>
 							@endforeach
@@ -178,6 +178,7 @@
 @endsection
 @section('scripts')
 <script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
+<script src="{{asset('app-assets/vendors/js/pickers/flatpickr/flatpickr.min.js')}}"></script>
 <script>
     $(window).on('load', function() {
         if (feather) {
