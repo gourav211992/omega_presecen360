@@ -328,6 +328,11 @@
                                                                                         {{ \Carbon\Carbon::parse($approvalHist->approval_date)->format('d-m-Y') }}
                                                                                     </h6>
                                                                                 @endif
+                                                                                @if($approvalHist->created_at)
+                                                                                    <h6>
+                                                                                        {{ \Carbon\Carbon::parse($approvalHist->created_at)->timezone('Asia/Kolkata')->format('d/m/Y | h.iA') }}
+                                                                                    </h6>
+                                                                                @endif
                                                                                 @if($approvalHist->remarks)
                                                                                     <p>{!! $approvalHist->remarks !!}</p>
                                                                                 @endif
@@ -1035,7 +1040,7 @@
                                                                         <div class="form-check form-check-primary mt-25 custom-checkbox">
                                                                             <input type="hidden" name="compliance[is_rcm]" value="0">
                                                                             <input type="checkbox" id="rcmCheckbox" name="compliance[is_rcm]" value="1" class="form-check-input"
-                                                                                @if(isset($vendor->compliances) && $vendor->compliances->is_rcm == 1) checked @endif>
+                                                                            @if(isset($vendor->compliances) && $vendor->compliances->is_rcm == 1) checked @endif>
                                                                             <label class="form-check-label" for="rcmCheckbox">Yes/No</label>
                                                                         </div>
                                                                     </div>
@@ -1111,6 +1116,9 @@
                                                                             <option value="Micro" @if($vendor->compliances && $vendor->compliances->msme_type == 'Micro') selected @endif>Micro</option>
                                                                             <option value="Small" @if($vendor->compliances && $vendor->compliances->msme_type == 'Small') selected @endif>Small</option>
                                                                             <option value="Medium" @if($vendor->compliances && $vendor->compliances->msme_type == 'Medium') selected @endif>Medium</option>
+                                                                            <option value="Producer" @if($vendor->compliances && $vendor->compliances->msme_type == 'Producer') selected @endif>Producer</option>
+                                                                            <option value="Trader" @if($vendor->compliances && $vendor->compliances->msme_type == 'Trader') selected @endif>Trader</option>
+                                                                            <option value="Brand Owner" @if($vendor->compliances && $vendor->compliances->msme_type == 'Brand Owner') selected @endif>Brand Owner</option>
                                                                         </select>
                                                                     </div>
                                                                 </div>
@@ -1264,6 +1272,8 @@
                                                                             <th>S.NO</th>
                                                                             <th width="300px">Item</th>
                                                                             <th>Vendor Item Code</th>
+                                                                            <th>Min Order Qty</th> 
+                                                                            <th>Lead Days</th> 
                                                                             <th id="cost-price-header">Cost Price</th>
                                                                             <th>Purchase Uom</th>
                                                                             <th>Action</th>
@@ -1279,6 +1289,8 @@
                                                                                     <input type="hidden" id="item-id_{{ $index }}" name="vendor_item[{{ $index }}][item_id]" class="item-id" value="{{ $item->item_id ?? '' }}">
                                                                                 </td>
                                                                                 <td><input type="text" name="vendor_item[{{ $index }}][item_code]" class="form-control mw-100" value="{{ $item->item_code ??''}}" id="item-code_0" readonly></td>
+                                                                                <td><input type="text" name="vendor_item[{{ $index }}][minimum_order_qty]" class="form-control mw-100" value="{{ $item->minimum_order_qty ?? '' }}"></td>
+                                                                                <td><input type="text" name="vendor_item[{{ $index }}][lead_days]" class="form-control mw-100" value="{{ $item->lead_days ?? '' }}"></td>
                                                                                 <td><input type="text" name="vendor_item[{{ $index }}][cost_price]"  class="form-control cost-price-approved-vendor mw-100"  id="cost-price_{{ $index }}" value="{{ number_format($item->cost_price, 2) }}"></td>
                                                                                 <td>
                                                                                     <select name="vendor_item[{{ $index }}][uom_id]" id="uom_{{ $index }}" class="form-select mw-100">
@@ -1299,6 +1311,8 @@
                                                                                     <input type="hidden" id="item-id_0" name="vendor_item[0][item_id]" class="item-id">
                                                                                 </td>
                                                                                 <td><input type="text" name="vendor_item[0][item_code]"  class="form-control mw-100" id="item-code_0" readonly></td>
+                                                                                <td><input type="text" name="vendor_item[0][minimum_order_qty]" class="form-control mw-100"></td>
+                                                                                <td><input type="text" name="vendor_item[0][lead_days]" class="form-control mw-100"></td>
                                                                                 <td><input type="text" name="vendor_item[0][cost_price]" id="cost-price_0" class="form-control cost-price-approved-vendor mw-100"></td>
                                                                                 <td><select name="vendor_item[0][uom_id]"  id="uom_0" class="form-select mw-100" disabled></select></td>
                                                                                 <td>

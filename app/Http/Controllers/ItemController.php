@@ -299,27 +299,21 @@ class ItemController extends Controller
         if (count($servicesBooks['services']) == 0) {
             return redirect()->route('/');
         }
-        $organization = Organization::where('id', $user->organization_id)->first();
-        $currencies = Currency::where('status', operator: ConstantHelper::ACTIVE)->get();
-        $subTypes = SubType::where('status', ConstantHelper::ACTIVE)->get();
-        $hsns = Hsn::where('status', ConstantHelper::ACTIVE)->get();
-        $units = Unit::where('status', ConstantHelper::ACTIVE)->get();
-        $organizations = Organization::where('status', ConstantHelper::ACTIVE)->get();
-        $categories = Category::where('status', ConstantHelper::ACTIVE)->whereNull('parent_id')->get();
-        $vendors = Vendor::where('status', ConstantHelper::ACTIVE)->get();
-        $customers = Customer::where('status', ConstantHelper::ACTIVE)->get();
-        $attributeGroups = AttributeGroup::where('status', ConstantHelper::ACTIVE)->get();
-        $allItems = Item::where('status', ConstantHelper::ACTIVE)->get();
+        $organization = Organization::select('id', 'name', 'currency_id')->where('id', $user->organization_id)->first();
+        $currencies = Currency::select('id', 'name', 'short_name', 'symbol') ->where('status', ConstantHelper::ACTIVE) ->get();
+        $subTypes = SubType::select('id', 'name') ->where('status', ConstantHelper::ACTIVE) ->get();
+        $units = Unit::select('id', 'name','description')->where('status', ConstantHelper::ACTIVE)->get();
+        $attributeGroups = AttributeGroup::select('id', 'name', 'short_name')->where('status', ConstantHelper::ACTIVE)->get();
         $types = ConstantHelper::ITEM_TYPES;
         $storageTypes = ConstantHelper::STORAGE_TYPES;
         $status = ConstantHelper::STATUS;
         $service = ConstantHelper::IS_SERVICE;
-        $options = ConstantHelper::STOP_OPTIONS;
-        $specificationGroups = ProductSpecification::where('status', ConstantHelper::ACTIVE)->get();
+        $specificationGroups = ProductSpecification::select('id', 'name', 'alias', 'description')->where('status', ConstantHelper::ACTIVE)->get();
         $parentUrl = ConstantHelper::ITEM_SERVICE_ALIAS;
         $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl, '', $user);
         $fixedAssetCategories = FixedAssetSetup::with('assetCategory')->where('status', ConstantHelper::ACTIVE)->select('id', 'asset_category_id')->get();
         $itemCodeType ='Manual';
+        $isOverrideCode = 'No';
         if ($services && $services['current_book']) {
             if (isset($services['current_book'])) {
                 $book=$services['current_book'];
@@ -332,6 +326,9 @@ class ItemController extends Controller
                     if (isset($parameters->item_code_type) && is_array($parameters->item_code_type)) {
                         $itemCodeType = $parameters->item_code_type[0] ?? null;
                     }
+                    if (!empty($parameters->override_auto_generated_code) && is_array($parameters->override_auto_generated_code)) {
+                        $isOverrideCode = $parameters->override_auto_generated_code[0] ?? 'No';
+                    }
                 }
          }
         }
@@ -341,23 +338,17 @@ class ItemController extends Controller
         }
 
         return view('procurement.item.create', [
-            'hsns' => $hsns,
             'units' => $units,
-            'categories' => $categories,
-            'vendors' => $vendors,
-            'customers' => $customers,
             'types' => $types,
             'status' => $status,
             'service'=>$service,
-            'options'=>$options,
-            'organizations'=>$organizations,
             'organization'=>$organization,
             'subTypes'=>$subTypes,
             'storageTypes'=>$storageTypes,
             'attributeGroups'=>$attributeGroups,
-            'allItems'=>$allItems,
             'specificationGroups'=>$specificationGroups,
             'itemCodeType' => $itemCodeType,
+            'isOverrideCode' => $isOverrideCode,   
             'currencies'=>$currencies,
             'fixedAssetCategories'=>$fixedAssetCategories,
         ]);
@@ -542,6 +533,8 @@ class ItemController extends Controller
                     $item->approvedVendors()->create([
                         'vendor_id' => $approvedVendorData['vendor_id'],
                         'vendor_code' => $approvedVendorData['vendor_code'] ?? null,
+                        'minimum_order_qty' => $approvedVendorData['minimum_order_qty'] ?? null, 
+                        'lead_days' => $approvedVendorData['lead_days'] ?? null,             
                         'cost_price' => $approvedVendorData['cost_price'] ?? null,
                         'uom_id' => $approvedVendorData['uom_id']?? null,
                         'organization_id' => $validatedData['organization_id']?? null,
@@ -772,8 +765,8 @@ class ItemController extends Controller
            $item = Item::with(['subTypes.subType', 'packagingDetails'])->findOrFail($id);
             $ogItem = $item;
         }
-        $organization = Organization::where('id', $user->organization_id)->first();
-        $currencies = Currency::where('status', operator: ConstantHelper::ACTIVE)->get();
+        $organization = Organization::select('id', 'name', 'currency_id')->where('id', $user->organization_id)->first();
+        $currencies = Currency::select('id', 'name', 'short_name', 'symbol')->where('status', ConstantHelper::ACTIVE)->get();
         $subTypes = $item->subTypes;
         $subtypeNames = $subTypes->map(function ($itemSubType) {
             return optional($itemSubType->subType)->name;
@@ -801,43 +794,37 @@ class ItemController extends Controller
         } else {
             $attributeTablesToCheck = $defaultAttributeTables;
         }
-
-        $hsns = Hsn::where('status', ConstantHelper::ACTIVE)->get();
-        $units = Unit::where('status', ConstantHelper::ACTIVE)->get();
-        $categories = Category::where('status', ConstantHelper::ACTIVE)->whereNull('parent_id')  ->get();
-        $vendors = Vendor::where('status', ConstantHelper::ACTIVE)->get();
-        $customers = Customer::where('status', ConstantHelper::ACTIVE)->get();
+        $units = Unit::select('id', 'name','description')->where('status', ConstantHelper::ACTIVE)->get();
         $types = ConstantHelper::ITEM_TYPES;
         $storageTypes = ConstantHelper::STORAGE_TYPES;
         $status = ConstantHelper::STATUS;
-        $options = ConstantHelper::STOP_OPTIONS;
         $service = ConstantHelper::IS_SERVICE;
-        $organizations = Organization::where('status', ConstantHelper::ACTIVE)->get();
-        $subTypes = SubType::where('status', ConstantHelper::ACTIVE)->get();
-        $attributeGroups = AttributeGroup::with('attributes')->get();
-        $allItems = Item::where('status', ConstantHelper::ACTIVE)->get();
-        $specificationGroups = ProductSpecification::where('status', ConstantHelper::ACTIVE)->get();
+        $subTypes = SubType::select('id', 'name')->where('status', ConstantHelper::ACTIVE)->get();
+        $attributeGroups = AttributeGroup::select('id', 'name', 'short_name')->where('status', ConstantHelper::ACTIVE)->get();
+        $specificationGroups = ProductSpecification::select('id', 'name', 'alias', 'description')->where('status', ConstantHelper::ACTIVE)->get();
         $fixedAssetCategories = FixedAssetSetup::with('assetCategory')->where('status', ConstantHelper::ACTIVE)->select('id', 'asset_category_id')->get();
         $parentUrl = ConstantHelper::ITEM_SERVICE_ALIAS;
         $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl, '', $user);
         $bomCheckResult = ItemHelper::checkBomForItem($item->id);
         $isBomExists = $bomCheckResult['status'] === 'bom_exists';
-        $itemCodeType ='Manual';
-        if ($services && $services['current_book']) {
-            if (isset($services['current_book'])) {
-                $book=$services['current_book'];
-                if ($book) {
-                    $parameters = new stdClass();
-                    foreach (ServiceParametersHelper::SERVICE_PARAMETERS as $paramName => $paramNameVal) {
-                        $param = ServiceParametersHelper::getBookLevelParameterValue($paramName, $book->id)['data'];
-                        $parameters->{$paramName} = $param;
-                    }
-                    if (isset($parameters->item_code_type) && is_array($parameters->item_code_type)) {
-                        $itemCodeType = $parameters->item_code_type[0] ?? null;
-                    }
+        $originalItemCodeType = $item->item_code_type ?? 'Manual';
+        $isOverrideCode = $item->is_override_code ?? 'No';
+        $book = $services['current_book'] ?? null;
+        if ($originalItemCodeType === 'Manual') {
+            $itemCodeType = 'Manual';
+        } else {
+            $itemCodeType = 'Auto';
+            if ($book) {
+                $parameters = new stdClass();
+                foreach (ServiceParametersHelper::SERVICE_PARAMETERS as $paramName => $paramNameVal) {
+                    $parameters->{$paramName} = ServiceParametersHelper::getBookLevelParameterValue($paramName, $book->id)['data'] ?? null;
                 }
-         }
+                if (!empty($parameters->override_auto_generated_code) && is_array($parameters->override_auto_generated_code)) {
+                    $isOverrideCode = $parameters->override_auto_generated_code[0] ?? $isOverrideCode;
+                }
+            }
         }
+
         $revision_number = $item->revision_number;
         $userType = Helper::userCheck();
         $buttons = Helper::actionButtonDisplay($item->book_id,$item->document_status , $item->id, 1, $item->approval_level, $item -> created_by ?? 0, $userType['type'], $revision_number);
@@ -852,23 +839,17 @@ class ItemController extends Controller
         $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$item->document_status] ?? '';
         return view('procurement.item.edit', [
             'item' => $item,
-            'hsns' => $hsns,
             'units' => $units,
-            'categories' => $categories,
-            'vendors' => $vendors,
-            'customers' => $customers,
             'types' => $types,
             'status' => $status,
-            'options'=>$options,
-            'organizations'=>$organizations,
             'organization'=>$organization,
             'subTypes'=>$subTypes,
             'storageTypes'=>$storageTypes,
             'attributeGroups'=>$attributeGroups,
-            'allItems'=>$allItems,
             'service'=>$service,
             'specificationGroups'=>$specificationGroups,
             'itemCodeType' => $itemCodeType,
+            'isOverrideCode' => $isOverrideCode, 
             'isItemReferenced' => $isItemReferenced,
             'tablesToCheck'=>$attributeTablesToCheck,
             'currencies'=>$currencies,
@@ -1129,6 +1110,8 @@ class ItemController extends Controller
                     $item->approvedVendors()->where('id', $vendorData['id'])->update([
                         'vendor_id' => $vendorData['vendor_id'],
                         'vendor_code' => $vendorData['vendor_code'] ?? null,
+                        'minimum_order_qty' => $vendorData['minimum_order_qty'] ?? null,
+                        'lead_days' => $vendorData['lead_days'] ?? null,                
                         'cost_price' => $vendorData['cost_price']?? null,
                         'uom_id' => $vendorData['uom_id']?? null,
                         'organization_id' => $validatedData['organization_id']?? null,
@@ -1141,6 +1124,8 @@ class ItemController extends Controller
                     $newVendor = $item->approvedVendors()->create([
                         'vendor_id' => $vendorData['vendor_id'],
                         'vendor_code' => $vendorData['vendor_code'] ?? null,
+                        'minimum_order_qty' => $vendorData['minimum_order_qty'] ?? null, 
+                        'lead_days' => $vendorData['lead_days'] ?? null,                 
                         'cost_price' => $vendorData['cost_price']?? null,
                         'uom_id' => $vendorData['uom_id']?? null,
                         'organization_id' => $validatedData['organization_id']?? null,

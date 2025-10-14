@@ -86,7 +86,7 @@ class UnloadingTaskController extends Controller
             $query->where('status', $status);
         })
         ->select('uid','job_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_uid','item_name','item_code','item_attributes','status','vendor_id','packet_no','total_packets')
-        ->get();
+        ->paginate(CommonHelper::PAGE_LENGTH_10);
 
         return [
             'message' => 'Records fetched successfully',
@@ -117,7 +117,7 @@ class UnloadingTaskController extends Controller
             ->where('job_id',$request->id)
             ->where('status',CommonHelper::SCANNED)
             ->select('uid','job_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_name','item_code','item_attributes','item_uid','status','vendor_id','storage_point_id','packet_no','total_packets')
-            ->get();
+            ->paginate(CommonHelper::PAGE_LENGTH_10);
 
             \DB::commit();
             return [
@@ -132,7 +132,7 @@ class UnloadingTaskController extends Controller
     public function saveAsDraft(Request $request){
         $validator = Validator::make($request->all(),[
             'id' => ['required'],
-            'packet_ids' => ['required', 'array'],
+            'packet_ids' => ['required', 'array', 'max:50'],
         ],[
             'id.required' => 'Id is required',
             'packet_ids.required' => 'Scan a packet to draft the form',
@@ -149,10 +149,12 @@ class UnloadingTaskController extends Controller
             ]);
         }
 
+        // Fetch packets only once and pluck needed fields
         $packets = ErpItemUniqueCode::where('job_id', $request->id)
-            ->whereIn('item_uid', $request->packet_ids)
-            ->where('morphable_type', 'App\Models\GateEntryDetail')
-            ->get();
+        ->whereIn('item_uid', $request->packet_ids)
+        ->where('job_type', CommonHelper::UNLOADING)
+        ->select('item_uid', 'status')
+        ->get();
 
         // Check invalid packets
         $validPackets = $packets->pluck('item_uid')->toArray();
@@ -234,18 +236,11 @@ class UnloadingTaskController extends Controller
                 ]);
             }
         }
-        // $alreadyClosed = ErpWhmJob::where('id',$request->job_id)->where('job_closed_at')->first();
-        // if (!empty($alreadyClosed)) {
-        //     throw ValidationException::withMessages([
-        //         'job_id' => ['Job already closed.'],
-        //     ]);
-        // }
 
 
         \DB::beginTransaction();
         try {
 
-            $job = ErpWhmJob::find($request->job_id);
             $job->status = CommonHelper::CLOSED;
             $job->job_closed_at = now();
             $job->deviation_qty = $request->deviation;
@@ -327,6 +322,45 @@ class UnloadingTaskController extends Controller
             \DB::rollback();
             throw new ApiGenericException($e->getMessage());
         }
+
+    }
+
+    public function validateQr(Request $request){
+        $validator = Validator::make($request->all(),[
+            'packet_id' => ['required'],
+            'job_id' => ['required'],
+        ],[
+            'packet_id.required' => 'Packet id is required',
+            'job_id.required' => 'Job id is required',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        $job = ErpWhmJob::find($request->job_id);
+
+        if (!$job) {
+            throw ValidationException::withMessages([
+                'job_id' => ['Job not found.'],
+            ]);
+        }
+
+        $uniqueCode = ErpItemUniqueCode::where('job_id',$request->job_id)
+            ->where('item_uid', $request->packet_id)
+            ->select('uid','job_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_uid','item_name','item_code','item_attributes','status','vendor_id','packet_no','total_packets')
+            ->first();
+
+        if (!$uniqueCode) {
+            throw ValidationException::withMessages([
+                'packet_id' => ['Packet ID not found.'],
+            ]);
+        }
+
+        return [
+            'message' => 'Packet validated successfully.',
+            'data' => $uniqueCode
+        ];
 
     }
 }

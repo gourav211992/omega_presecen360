@@ -302,6 +302,11 @@
                                                                                         {{ \Carbon\Carbon::parse($approvalHist->approval_date)->format('d-m-Y') }}
                                                                                     </h6>
                                                                                 @endif
+                                                                                @if($approvalHist->created_at)
+                                                                                    <h6>
+                                                                                        {{ \Carbon\Carbon::parse($approvalHist->created_at)->timezone('Asia/Kolkata')->format('d/m/Y | h.iA') }}
+                                                                                    </h6>
+                                                                                @endif
                                                                                 @if($approvalHist->remarks)
                                                                                     <p>{!! $approvalHist->remarks !!}</p>
                                                                                 @endif
@@ -1067,6 +1072,82 @@
                                                                 </div>
 
                                                             </div>
+
+                                                            <!-- MSME Details -->
+                                                            <div class="col-md-6">
+                                                                <h5 class="mt-1 mb-2 text-dark"><strong>MSME Details</strong></h5>
+
+                                                                <div class="row align-items-center mb-1">
+                                                                    <div class="col-md-4">
+                                                                        <label class="form-label">MSME Registered?</label>
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                        <div class="form-check form-check-primary mt-25 custom-checkbox">
+                                                                            <input type="checkbox" class="form-check-input" name="compliance[msme_registered]" id="msmeRegisteredIndia" 
+                                                                                @if($customer->compliances && $customer->compliances->msme_registered) checked @endif>
+                                                                            <label class="form-check-label" for="msmeRegisteredIndia">This customer is MSME registered</label>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="row align-items-center mb-1">
+                                                                    <div class="col-md-4">
+                                                                        <label class="form-label">MSME No.</label>
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                        <input type="text" name="compliance[msme_no]" class="form-control numberonly" 
+                                                                            value="{{ $customer->compliances->msme_no ?? '' }}">
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="row align-items-center mb-1">
+                                                                    <div class="col-md-4">
+                                                                        <label class="form-label">MSME Type</label>
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                        <select class="form-select" name="compliance[msme_type]">
+                                                                            <option value="">Select</option>
+                                                                            <option value="Micro" @if($customer->compliances && $customer->compliances->msme_type == 'Micro') selected @endif>Micro</option>
+                                                                            <option value="Small" @if($customer->compliances && $customer->compliances->msme_type == 'Small') selected @endif>Small</option>
+                                                                            <option value="Medium" @if($customer->compliances && $customer->compliances->msme_type == 'Medium') selected @endif>Medium</option>
+                                                                            <option value="Producer" @if($customer->compliances && $customer->compliances->msme_type == 'Producer') selected @endif>Producer</option>
+                                                                            <option value="Trader" @if($customer->compliances && $customer->compliances->msme_type == 'Trader') selected @endif>Trader</option>
+                                                                            <option value="Brand Owner" @if($customer->compliances && $customer->compliances->msme_type == 'Brand Owner') selected @endif>Brand Owner</option>
+                                                                        </select>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="row align-items-center mb-1">
+                                                                    <div class="col-md-4">
+                                                                        <label class="form-label">Upload Certificate</label>
+                                                                    </div>
+                                                                    <div class="col-md-6">
+                                                                        <input type="file" name="compliance[msme_certificate][]" multiple class="form-control" onchange="simpleFileValidation(this)">
+                                                                        @if(!empty($customer->compliances) && $customer->compliances->msme_certificate)
+                                                                            <div class="row mt-2">
+                                                                                @if(is_array($customer->compliances->msme_certificate))
+                                                                                    <!-- Handle multiple files -->
+                                                                                    @foreach($customer->compliances->msme_certificate as $document)
+                                                                                        <div class="col-md-1 mb-2">
+                                                                                            <a href="{{ Storage::url($document) }}" target="_blank" rel="noopener noreferrer" class="d-block file-link" download>
+                                                                                            <i class="fas file-icon"></i>
+                                                                                            </a>
+                                                                                        </div>
+                                                                                    @endforeach
+                                                                                @else
+                                                                                    <!-- Handle single file -->
+                                                                                    <div class="col-md-1 mb-2">
+                                                                                        <a href="{{ Storage::url($customer->compliances->msme_certificate) }}" target="_blank" rel="noopener noreferrer" class="d-block file-link" download>
+                                                                                        <i class="fas file-icon"></i>
+                                                                                        </a>
+                                                                                    </div>
+                                                                                @endif
+                                                                            </div>
+                                                                        @endif
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            
                                                         </div>
                                                     </div>
                                                          <!-- Bank Info Tab -->

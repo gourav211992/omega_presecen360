@@ -109,7 +109,7 @@ class MasterIndiaService
                     "Accept: application/json",
                     "Content-Type: application/json"
             );
-            $einvoiceBaseUrl = config('app.masterindia.e_invoice_base_url');
+            $einvoiceBaseUrl = config('app.masterindia.base_url');
             $response = $this->client->request('POST', $einvoiceBaseUrl . $endpoint, [
                 'headers' => $requestHeader,
                 'json' => $invoiceData,

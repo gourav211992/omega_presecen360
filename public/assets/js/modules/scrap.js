@@ -831,7 +831,8 @@ function getDocNumberByBookId(bookId, docNumber) {
                 const parameters = data.data.parameters;
                 setServiceParameters(parameters);
             }
-            if (data.status == 404) {
+
+            if (data.status == 404 || data.status == 500) {
                 $("#book_code").val("");
                 $("#document_number").val("");
                 const docDateInput = $("[name='document_date']");
@@ -844,7 +845,14 @@ function getDocNumberByBookId(bookId, docNumber) {
                     "{{ $current_financial_year['end_date'] }}"
                 );
                 docDateInput.val(new Date().toISOString().split("T")[0]);
-                alert(data.message);
+                toggleSubmitButton(".ajax-input-form", true);
+                Swal.fire({
+                    title: "Error!",
+                    text: data.message,
+                    icon: "error",
+                });
+            } else {
+                toggleSubmitButton(".ajax-input-form", false);
             }
         });
     });

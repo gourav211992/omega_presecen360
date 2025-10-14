@@ -131,7 +131,7 @@
                             </div>
                             <div class="col-md-12" style="min-height: 300px">
                                 <div class="table-responsive trailbalnewdesfinance po-reportnewdesign my-class">
-                                    <table class="my-table datatables-basic table myrequesttablecbox">
+                                    <table class="my-table datatables-basic table myrequesttablecbox tableistlastcolumnfixed">
                                         <thead>
                                             <th class="no-wrap">S.No</th>
                                             <th class="no-wrap">Doc. Date</th>
@@ -484,6 +484,7 @@
             }
 
             function updateTable(recordsToDisplay, startDate, endDate) {
+                $('.preloader').show();
                 tbody.innerHTML = '';
                 const {
                     openingBalance,
@@ -681,6 +682,7 @@
                 <td></td>
                 `;
                 tbody.appendChild(closingBalanceRow);
+                $('.preloader').hide();
             }
 
             let customInput = document.getElementById("Custom");

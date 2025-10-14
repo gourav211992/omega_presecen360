@@ -27,23 +27,18 @@
                 <div class="content-header-right text-sm-end col-md-7 mb-50 mb-sm-0">
                     <div class="form-group breadcrumb-right">
                         <!-- <button class="btn btn-warning btn-sm mb-50 mb-sm-0" data-bs-target="#filter" data-bs-toggle="modal">
-                                        <i data-feather="filter"></i> Filter
-                                    </button> -->
+                                                                                        <i data-feather="filter"></i> Filter
+                                                                                    </button> -->
                         @if (count($servicesBooks['services']) > 0)
                             @php
                                 $routeName = $servicesBooks['services'][0]->alias ?? 'material-receipt';
-                                $routeAlias =
-                                    $routeName && $routeName == 'mrn'
-                                        ? 'material-receipt.create'
-                                        : $routeName . '.create';
+                                $routeAlias = $routeName && $routeName == 'mrn' ? 'material-receipt.create' : $routeName . '.create';
                             @endphp
                             <a class="btn btn-primary btn-sm mb-50 mb-sm-0" href="{{ route($routeAlias) }}">
                                 <i data-feather="plus-circle"></i> Create
                             </a>
                             {{-- <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('material-receipt.report') }}"><i data-feather="bar-chart-2"></i>Report</a> --}}
-                            <a class="btn btn-dark btn-sm mb-50 mb-sm-0"
-                                href="{{ route('transactions.report', ['serviceAlias' => request()->type]) }}"><i
-                                    data-feather="bar-chart-2"></i>Report</a>
+                            <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('transactions.report', ['serviceAlias' => request()->type]) }}"><i data-feather="bar-chart-2"></i>Report</a>
                         @endif
                     </div>
                 </div>
@@ -75,6 +70,7 @@
                                                 <th>Tax</th>
                                                 <th>Expenses</th>
                                                 <th>Total Amt</th>
+                                                <th>Created By</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
@@ -99,8 +95,7 @@
                     <div class="mb-1">
                         <label class="form-label" for="fp-range">Select Date</label>
                         {{-- <input type="text" id="fp-default" class="form-control flatpickr-basic" placeholder="YYYY-MM-DD" /> --}}
-                        <input type="text" id="fp-range" class="form-control flatpickr-range bg-white"
-                            placeholder="YYYY-MM-DD to YYYY-MM-DD" />
+                        <input type="text" id="fp-range" class="form-control flatpickr-range bg-white" placeholder="YYYY-MM-DD to YYYY-MM-DD" />
                     </div>
                     <div class="mb-1">
                         <label class="form-label">Item Code</label>
@@ -297,6 +292,11 @@
                     createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
+                },
+                {
+                    data: 'created_by',
+                    name: 'created_by',
+                    render: renderData,
                 },
                 {
                     data: 'document_status',

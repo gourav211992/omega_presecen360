@@ -46,12 +46,12 @@
                                             <i data-feather="check-circle"></i> Generate Eway Bill
                                         </a>
                                     @endif --}}
-                                    {{-- @if ($eInvoice && $eInvoice->irn_number && $eInvoice->status == 'ACT')
+                                    @if ($eInvoice && $eInvoice->irn_number && $eInvoice->status == 'ACT')
                                         <a type="button" class="btn btn-primary btn-sm btn-danger" id="cancelEinvoice"
                                             href="#">
                                             <i data-feather="x-circle"></i> Cancel Envoice
                                         </a>
-                                    @endif --}}
+                                    @endif
                                 @endif
                                 @if ($buttons['draft'])
                                     <button type="submit"
@@ -100,12 +100,12 @@
                                                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                                                 <polyline points="22 4 12 14.01 9 11.01"></polyline>
                                             </svg> Post</button>
-                                        {{-- @if (!$eInvoice || ($eInvoice->irn_number && $eInvoice->status == 'cancelled'))
+                                        @if (!$eInvoice || ($eInvoice->irn_number && $eInvoice->status == 'cancelled'))
                                             <a type="button" class="btn btn-primary btn-sm" id="eEnvoiceBtn"
                                                 href="#">
                                                 <i data-feather="check-circle"></i> Generate Envoice
                                             </a>
-                                        @endif --}}
+                                        @endif
                                         <a href="{{ route('purchase-return.generate-pdf', $mrn->id) }}" target="_blank"
                                             class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
@@ -2337,19 +2337,24 @@
                         book_id: bookId,
                         document_id: documentId,
                     }),
-                    success: function(data) {
-                        const response = data.data;
-                        if (response.status) {
+                    success: function(response) {
+                        if (response.status === 'success') {
                             Swal.fire({
                                 title: 'Success!',
-                                text: response.message,
+                                text: response.data.message || 'Document posted successfully.',
                                 icon: 'success',
                             });
                             location.reload();
-                        } else {
+                        } else if (response.status === 'error') {
                             Swal.fire({
                                 title: 'Error!',
-                                text: response.message,
+                                text: response.message || 'Some error occurred.',
+                                icon: 'error',
+                            });
+                        } else if (response.status === 'exception') {
+                            Swal.fire({
+                                title: 'Error!',
+                                text: response.message || 'An exception occurred.',
                                 icon: 'error',
                             });
                         }

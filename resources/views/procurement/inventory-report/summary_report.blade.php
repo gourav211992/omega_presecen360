@@ -131,7 +131,7 @@
                             <div class="col-md-12">
                                 <div class="table-responsive trailbalnewdesfinance po-reportnewdesign my-class"
                                     style="min-height: 600px">
-                                    <table class="my-table datatables-basic table myrequesttablecbox">
+                                    <table class="my-table datatables-basic table myrequesttablecbox tableistlastcolumnfixed">
                                         <thead>
                                             <th class="no-wrap">S.No</th>
                                             <th class="no-wrap">Doc. Date</th>
@@ -455,6 +455,7 @@
             const records = @json($records);
 
             function updateTable(recordsToDisplay, startDate, endDate) {
+                $('.preloader').show();
 
                 tbody.innerHTML = '';
 
@@ -592,6 +593,7 @@
                 <td></td>
                 `;
                 tbody.appendChild(totalQtyRow);
+                $('.preloader').hide();
             }
 
             // Get the input element

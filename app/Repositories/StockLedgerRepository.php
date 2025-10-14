@@ -17,7 +17,9 @@ class StockLedgerRepository
             ])
             ->where('organization_id', $organizationId)
             ->where('store_id', $storeId)
-            ->whereIn('sub_store_id', $subStoreId)
+            ->when(!empty($subStoreId), function ($query) use ($subStoreId) {
+                $query->whereIn('sub_store_id', $subStoreId);
+            })
             ->when($itemId, function($query) use($itemId){
                 $query->where('item_id', $itemId);
             })

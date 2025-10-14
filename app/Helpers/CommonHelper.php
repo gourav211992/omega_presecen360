@@ -281,6 +281,8 @@ class CommonHelper
             $type = ConstantHelper::MATERIAL_ISSUE_SERVICE_ALIAS_NAME;
         }elseif($morphableType == 'App\Models\ErpRgr'){
             $type = RgrConstant::SERVICE_ALIAS;
+        }elseif($morphableType == 'App\Models\ErpPsvHeader'){
+            $type = ConstantHelper::PSV_SERVICE_ALIAS;
         }else{
             $type = '';
         }

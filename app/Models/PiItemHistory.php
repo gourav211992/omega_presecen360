@@ -4,11 +4,12 @@ namespace App\Models;
 
 use App\Helpers\InventoryHelper;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PiItemHistory extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'erp_pi_items_history';
 

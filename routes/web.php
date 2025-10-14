@@ -347,7 +347,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/group/check-prefix', [GroupController::class, 'checkPrefix'])->name('groups-check-prefix');
     Route::resource('ledgers', LedgerController::class)->except(['show']);
     Route::get('/ledgers/{ledgerId}/groups', [LedgerController::class, 'getLedgerGroups'])->name('ledgers.groups');
-    
+
     Route::get('/search/ledger', [LedgerController::class, 'getLedger'])->name('ledger.search');
     Route::get('/ledger/import', [LedgerController::class, 'showImportForm'])->name('ledger.show.import');
     Route::post('/ledger/import', [LedgerController::class, 'import'])->name('ledger.import');
@@ -554,6 +554,9 @@ Route::middleware(['user.auth'])->group(function () {
             Route::delete('component-delete', 'componentDelete')->name('comp.delete');
             Route::get('/{id}/pdf', 'generatePdf')->name('generate-pdf');
             Route::get('amendment-submit/{id}', 'amendmentSubmit')->name('amendment.submit');
+            Route::delete('/{id}/{isAmedment}', 'destroy')->name('destroy');
+
+            Route::get('/vendors', 'searchVendors')->name('vendors.search');
             Route::get('get-purchase-indent', 'getPi')->name('get.pi');
             Route::get('get-purchase-indent-bulk', 'getPiBulk')->name('get.pi.bulk');
             Route::get('process-pi-item', 'processPiItem')->name('process.pi-item');
@@ -670,6 +673,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('get-item-attribute', 'getItemAttribute')->name('item.attr');
             Route::get('/get-itemdetail', 'getItemDetail')->name('get.itemdetail');
             Route::get('/{id}/pdf', 'generatePdf')->name('generate-pdf');
+            Route::delete('/{id}/{isAmedment}', 'destroy')->name('destroy');
 
             Route::get('get-so', 'getSo')->name('get.so');
             Route::get('analyze-so-item', 'analyzeSoItem')->name('analyze.so-item');
@@ -1957,7 +1961,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('/get-grn', 'getGrn')->name('get.grn');
             Route::get('/process-grn-item', 'processGrnItem')->name('process.grn-item');
             Route::get('/posting/get', 'getPostingDetails')->name('posting.get');
-            Route::post('/post', 'postExpenseAdvise')->name('post');
+            Route::post('/post', 'postExpenseAllocation')->name('post');
             Route::get('revoke-document', 'revokeDocument')->name('revoke.document');
             Route::get('/report', 'Report')->name('report');
             Route::get('/report/filter', 'getReportFilter')->name('report.filter');
@@ -1976,7 +1980,7 @@ Route::middleware(['user.auth'])->group(function () {
         ->name('document.approval.')
         ->controller(DocumentApprovalController::class)
         ->group(function () {
-            Route::post('exp-allocation', 'expense')->name('exp-allocation');
+            Route::post('exp-allocation', 'expenseAllocation')->name('exp-allocation');
         });
 
     # All type documents Amendements
@@ -2981,13 +2985,15 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('plant/search', [MaintBomController::class, 'search'])->name('plant.search');
     Route::post('plant/bom/approval', [MaintBomController::class, 'documentApproval'])->name('maint-bom.approval');
 
-    Route::post('plant/maint-bom/{id}/amendment', [MaintBomController::class, 'amendment'])
+    Route::post('plant/maint-wo/validate', [MaintWoController::class, 'validateWorkOrder'])->name('maint-wo.validate');
+     Route::post('plant/maint-bom/{id}/amendment', [MaintBomController::class, 'amendment'])
     ->name('maint-bom.amendment');
     Route::get('plant/maint-bom/search-items', [MaintBomController::class, 'searchItems'])->name('maint-bom.search-items');
     Route::get('plant/maint-bom/get-series', [MaintBomController::class, 'getSeries'])->name('maint-bom.get-series');
     Route::get('plant/maint-bom/get-bom-names', [MaintBomController::class, 'getBomNames'])->name('maint-bom.get-bom-names');
     Route::post('plant/maint-bom/check-document-number', [MaintBomController::class, 'checkDocumentNumber'])->name('maint-bom.check-document-number');
-    Route::get('plant/maint-bom/revoke-document', [MaintBomController::class, 'revokeDocument'])->name('plant.maint_bom.revoke.document');
+
+
     Route::resource('plant/maint-bom', MaintBomController::class)->names([
         'index' => 'maint-bom.index',
         'create' => 'maint-bom.create',
@@ -3008,14 +3014,13 @@ Route::middleware(['user.auth'])->group(function () {
         Route::post('/', 'store')->name('defect-types.store');
         Route::delete('/', 'delete')->name('defect-types.delete');
     });
+
     Route::post('plant/maint-wo/close-work-order', [MaintWoController::class, 'closeWorkOrder'])->name('maint-wo.close-work-order');
     Route::get('plant/maint-wo/get-ajax-data', [MaintWoController::class, 'ajaxData'])->name('maint-wo.ajax-data');
-    Route::post('plant/maint-wo/validate', [MaintWoController::class, 'validateWorkOrder'])->name('maint-wo.validate');
     Route::get('plant/maint-wo/get-equipment-spare-parts', [MaintWoController::class, 'getEquipmentSpareParts'])->name('maint-wo.get-equipment-spare-parts');
     Route::post('plant/maint-wo/approve', [MaintWoController::class, 'documentApproval'])->name('maint-wo.approval');
     Route::post('plant/maint-wo/filter', [MaintWoController::class, 'filter'])->name('maint-wo.filter');
     Route::get('plant/maint-wo/revoke-document', [MaintWoController::class, 'revokeDocument'])->name('plant.maint_wo.revoke.document');
-    
     Route::get('plant/maint-wo/search-items', [MaintWoController::class, 'searchItems'])->name('maint-wo.search-items');
     Route::resource('plant/maint-wo', MaintWoController::class)->names([
         'index' => 'maint-wo.index',
@@ -3026,18 +3031,21 @@ Route::middleware(['user.auth'])->group(function () {
         'edit' => 'maint-wo.edit',
     ]);
     Route::post('plant/maint-wo/{id}/amendment', [MaintWoController::class, 'amendment'])
-    ->name('maint-wo.amendment');
-    Route::get('plant/defect-noti/get-ajax-data', [DefectNotificationController::class, 'getDefectNotificationsData'])->name('defect-notification.ajax-data');
+        ->name('maint-wo.amendment');
     Route::get('plant/populate-modal', [MaintWoController::class, 'populateModal'])->name('maint-wo.populateModal');
+
+    Route::get('plant/defect-noti/get-ajax-data', [DefectNotificationController::class, 'getDefectNotificationsData'])->name('defect-notification.ajax-data');
 
     Route::get('plant/defect-noti/filter', [DefectNotificationController::class, 'filter'])->name('defect-notification.filter');
     Route::get('plant/defect-noti/{id}/get', [DefectNotificationController::class, 'getDefectNotification'])->name('defect-notification.get');
     Route::post('plant/defect-noti/get-checklists', [DefectNotificationController::class, 'getChecklistsByMaintenanceType'])->name('defect-notification.get-checklists');
     Route::post('plant/defect-noti/{id}/amendment', [DefectNotificationController::class, 'amendment'])->name('defect-notification.amendment');
-    Route::post('approveDefectNotification', [DefectNotificationController::class, 'approval'])->name('approveDefectNotification');
-    Route::get('defect-notification/cancel', [DefectNotificationController::class, 'cancel'])->name('defect-notification.cancel.document');
-    Route::get('defect-notification/revoke', [DefectNotificationController::class, 'revoke'])->name('defect-notification.revoke.document');
 
+    Route::post('approveDefectNotification', [DefectNotificationController::class, 'approval'])->name('approveDefectNotification');
+
+    Route::get('defect-notification/cancel', [DefectNotificationController::class, 'cancel'])->name('defect-notification.cancel.document');
+
+    Route::get('defect-notification/revoke', [DefectNotificationController::class, 'revoke'])->name('defect-notification.revoke.document');
     Route::resource('plant/defect-noti', DefectNotificationController::class)
         ->names([
             'index' => 'defect-notification.index',
@@ -3327,8 +3335,8 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('create','create')->name('external-integration.create');
         Route::get('getStore','getStore')->name('external-integration.getStore');
         Route::get('getSubstore','getSubstore')->name('external-integration.getSubstore');
-        Route::post('store','store')->name('external-integration.store'); 
-        Route::post('update/{id}','update')->name('external-integration.update'); 
+        Route::post('store','store')->name('external-integration.store');
+        Route::post('update/{id}','update')->name('external-integration.update');
         Route::get('edit/{id}','edit')->name('external-integration.edit');
         Route::get('customer/search','getCashCustomer')->name('external-integration.customer');
         Route::delete('destroy/{id}','destroy')->name('external-integration.destroy');

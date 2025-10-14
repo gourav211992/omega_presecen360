@@ -20,6 +20,8 @@ class VendorItemHistory extends Model
         'item_name',
         'part_number',
         'item_details',
+        'minimum_order_qty',
+        'lead_days',
         'cost_price',
         'group_id',
         'company_id',

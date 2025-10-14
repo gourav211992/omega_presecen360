@@ -488,14 +488,21 @@
                         //set department
                         setSelectedDepartment();
                     }
-                    if (data.status == 404) {
+                    if (data.status == 404 || data.status == 500) {
                         $("#book_code").val('');
                         $("#document_number").val('');
                         const docDateInput = $("[name='document_date']");
                         docDateInput.attr('min', "{{ $current_financial_year['start_date'] }}");
                         docDateInput.attr('max', "{{ $current_financial_year['end_date'] }}");
                         docDateInput.val(new Date().toISOString().split('T')[0]);
-                        alert(data.message);
+                        toggleSubmitButton('.ajax-input-form', true);
+                        Swal.fire({
+                            title: 'Error!',
+                            text: data.message,
+                            icon: 'error',
+                        });
+                    } else {
+                        toggleSubmitButton('.ajax-input-form', false);
                     }
                 });
             });
@@ -1354,13 +1361,6 @@
             }
         });
 
-        $(document).on('click', '#backBtn', (e) => {
-            $("#soSubmitModal").modal('hide');
-            setTimeout(() => {
-                $("#soModal").modal('show');
-            }, 0);
-        });
-
         document.addEventListener("DOMContentLoaded", function() {
             const searchInput = document.getElementById("search_filter");
             const tableBody = document.getElementById("soSubmitDataTable");
@@ -1574,6 +1574,8 @@
                             title: 'Success!',
                             text: response.message || 'File uploaded and parsed successfully.',
                             icon: 'success',
+                            timer: 2000,
+                            showConfirmButton: false
                         });
                     },
                     error: function(xhr) {
@@ -1768,8 +1770,8 @@
                         </td>
                         <td>
                             ${typeof soTrackingRequired !== 'undefined' && soTrackingRequired ? `
-                                                                                                                                                <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />
-                                                                                                                                            ` : ''}
+                                                                                                                                                                <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />
+                                                                                                                                                            ` : ''}
                         </td>
                         <td>
                             <input type="text" name="components[${index}][remark]" class="form-control mw-100 mb-25" value="${remarks}"/>

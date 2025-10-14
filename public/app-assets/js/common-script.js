@@ -20,30 +20,30 @@ $(document).ready(function () {
 
 
     $('body').on("keypress", '.numberonly', function(e) {
-        var charCode = (e.which) ? e.which : e.keyCode    
-        if (String.fromCharCode(charCode).match(/[^0-9]/g))    
+        var charCode = (e.which) ? e.which : e.keyCode
+        if (String.fromCharCode(charCode).match(/[^0-9]/g))
             return false;
-    }); 
-    
+    });
+
     $('body').on("keypress", '.decimal-only', function(evt) {
         return true;
         var charCode = (evt.which) ? evt.which : evt.keyCode;
-          if (charCode != 46 && charCode > 31 
+          if (charCode != 46 && charCode > 31
             && (charCode < 48 || charCode > 57))
              return false;
 
-          
+
     });
 
     $('body').on("keypress", '.time-input', function(e) {
-        var charCode = (e.which) ? e.which : e.keyCode    
-        if (String.fromCharCode(charCode).match(/[^0-9:]/g))    
+        var charCode = (e.which) ? e.which : e.keyCode
+        if (String.fromCharCode(charCode).match(/[^0-9:]/g))
         return false;
     });
 
     $('body').on("keyup change", '.time-input', function(e) {
         $('.time-input-error').remove();
-        
+
         var durationInput = $(this).val();
         var regex = /^([0-3]?[0-9]):([0-5]?[0-9]):([0-5]?[0-9])$/;
 
@@ -71,8 +71,8 @@ $(document).ready(function () {
 
 function getBaseUrl() {
     const protocol = window.location.protocol;
-    const hostname = window.location.hostname; 
-    const port = window.location.port ? `:${window.location.port}` : ''; 
+    const hostname = window.location.hostname;
+    const port = window.location.port ? `:${window.location.port}` : '';
     return `${protocol}//${hostname}${port}`;
 }
 
@@ -155,7 +155,7 @@ $(document).ready(function() {
                     success: function(data) {
                         $(selector).next('.text-danger').remove();
                         if (config.type === 'item-name') {
-                            let exactMatch = data.find(item => 
+                            let exactMatch = data.find(item =>
                                 (item[config.nameField] || '').toLowerCase() === request.term.toLowerCase()
                             );
                             if (exactMatch) {
@@ -172,14 +172,14 @@ $(document).ready(function() {
                                 name: item[config.nameField] || '',
                                 categoryName: item[config.categoryName] || '',
                                 cat_initials: item.cat_initials || '',
-                                hsn_id: item.hsn_id || '',    
+                                hsn_id: item.hsn_id || '',
                                 sub_cat_initials: item.sub_cat_initials || '',
-                                hsn_code: item.hsn_code || '', 
-                                full_name: item.full_name || '', 
+                                hsn_code: item.hsn_code || '',
+                                full_name: item.full_name || '',
                                 inspection_checklist_id: item.inspection_checklist_id || '',
-                                inspection_checklist_name: item.inspection_name || '',  
-                                unit_name: item.unit_name || '',  
-                                hsn_name: item.description || '',  
+                                inspection_checklist_name: item.inspection_name || '',
+                                unit_name: item.unit_name || '',
+                                hsn_name: item.description || '',
 
                             };
                             if (config.additionalFields) {
@@ -198,7 +198,7 @@ $(document).ready(function() {
             minLength: config.minLength || 0,
             select: function(event, ui) {
                 if (config.allowSelection === false) {
-                    event.preventDefault(); 
+                    event.preventDefault();
                     return false;
                 }
                 if (config.categoryName) {
@@ -209,7 +209,7 @@ $(document).ready(function() {
                     $(this).val(ui.item.label);
                 }
                 const hiddenFieldSelector = config.hiddenFieldSelector.call(this);
-                if (hiddenFieldSelector && hiddenFieldSelector !== "") { 
+                if (hiddenFieldSelector && hiddenFieldSelector !== "") {
                     $(hiddenFieldSelector).val(ui.item.id);
                 }
                 if (config.onSelect) {
@@ -219,7 +219,7 @@ $(document).ready(function() {
             },
             change: function(event, ui) {
                 if (!ui.item && $(this).val() === "") {
-                    $(this).val("");  
+                    $(this).val("");
                     const hiddenFieldSelector = config.hiddenFieldSelector.call(this);
                     if (hiddenFieldSelector && hiddenFieldSelector !== "") {
                         $(hiddenFieldSelector).val('');
@@ -244,7 +244,7 @@ $(document).ready(function() {
         minLength: 0,
         extraParams: function() {
             return {
-                category_type: $('.category-type').val() 
+                category_type: $('.category-type').val()
             };
         },
         onSelect: function(selectedItem) {
@@ -253,16 +253,16 @@ $(document).ready(function() {
         } else if (selectedItem.sub_cat_initials) {
             $('.cat_initials-id').val(selectedItem.sub_cat_initials).change();
         } else {
-            $('.cat_initials-id').val(''); 
+            $('.cat_initials-id').val('');
         }
-        $('.subcategory-autocomplete').val(''); 
+        $('.subcategory-autocomplete').val('');
         $('.category-hierarchy').val(selectedItem.full_name || '');
         $('.subcategory-id').val('');
         if (selectedItem.hsn_id) {
-            $('.hsn-id').val(selectedItem.hsn_id); 
+            $('.hsn-id').val(selectedItem.hsn_id);
             $('.hsn-autocomplete').val(selectedItem.hsn_code);
         } else {
-            $('.hsn-id').val(''); 
+            $('.hsn-id').val('');
             $('.hsn-autocomplete').val('');
         }
          if (selectedItem.inspection_checklist_id) {
@@ -285,11 +285,11 @@ $(document).ready(function() {
         },
         extraParams: function() {
             return {
-                category_type: $('.category-type').val() 
+                category_type: $('.category-type').val()
             };
         },
         onSelect: function(selectedItem) {
-            $('.sub_cat_initials-id').val(selectedItem.sub_cat_initials).change(); 
+            $('.sub_cat_initials-id').val(selectedItem.sub_cat_initials).change();
         }
     });
 
@@ -309,7 +309,7 @@ $(document).ready(function() {
         codeField: 'item_code',
         nameField: 'item_name',
         minLength: 3,
-        allowSelection: false, 
+        allowSelection: false,
     });
     initializeAutocomplete(".customer-name-autocomplete", {
         url: '/search',
@@ -317,7 +317,7 @@ $(document).ready(function() {
         codeField: 'customer_code',
         nameField: 'company_name',
         minLength: 3,
-        allowSelection: false, 
+        allowSelection: false,
     });
     initializeAutocomplete(".vendor-name-autocomplete", {
         url: '/search',
@@ -325,7 +325,7 @@ $(document).ready(function() {
         codeField: 'vendor_code',
         nameField: 'company_name',
         minLength: 3,
-        allowSelection: false, 
+        allowSelection: false,
     });
 
     initializeAutocomplete(".inspection-autocomplete", {
@@ -344,7 +344,7 @@ $(document).ready(function() {
         minLength: 0,
         extraParams: function() {
             return {
-                vendor_id: $('.vendor_id').val() 
+                vendor_id: $('.vendor_id').val()
             };
         },
     });
@@ -365,7 +365,7 @@ $(document).ready(function() {
         minLength: 0,
         extraParams: function() {
             return {
-                customer_id: $('.customer_id').val() 
+                customer_id: $('.customer_id').val()
             };
         },
     });
@@ -406,7 +406,7 @@ $(document).ready(function() {
         minLength: 0,
         additionalFields: ['description'],
     });
-    
+
 
     initializeAutocomplete(".sales-person-autocomplete", {
         url: '/search',
@@ -418,8 +418,8 @@ $(document).ready(function() {
     });
 
     initializeAutocomplete(".unit-code-autocomplete", {
-        url: '/search',  
-        type: 'unit_code', 
+        url: '/search',
+        type: 'unit_code',
         codeField: 'unit_code',
         nameField: 'unit_name',
         hiddenFieldSelector: function() { return '#unit_master_id'; },
@@ -427,8 +427,8 @@ $(document).ready(function() {
         onSelect: function(item) {
             console.log(item);
             $('#unit_code').val(item.code);
-            $('#unit_master_id').val(item.id);  
-            $('#unit_name').val(''); 
+            $('#unit_master_id').val(item.id);
+            $('#unit_name').val('');
             $('#unit_name').val(item.unit_name);
         }
     });
@@ -436,21 +436,21 @@ $(document).ready(function() {
     $('#unit_code').on('input', function() {
         const unitCodeValue = $(this).val();
         if (unitCodeValue === "") {
-            $('#unit_name').val(''); 
+            $('#unit_name').val('');
         }
     });
 
     initializeAutocomplete(".hsn-code-autocomplete", {
-        url: '/search',  
-        type: 'hsn_code', 
+        url: '/search',
+        type: 'hsn_code',
         codeField: 'code',
         nameField: 'description',
         hiddenFieldSelector: function() { return '#hsn_master_id'; },
         minLength: 0,
         onSelect: function(item) {
             $('#hsn_code').val(item.code);
-            $('#hsn_master_id').val(item.id);  
-            $('#hsn_description').val(''); 
+            $('#hsn_master_id').val(item.id);
+            $('#hsn_description').val('');
             $('#hsn_description').val(item.hsn_name);
         }
     });
@@ -460,7 +460,7 @@ $(document).ready(function() {
         $ledgerGroupSelect.empty();
 
         $.ajax({
-            url: '/ledgers/' + ledgerId + '/groups', 
+            url: '/ledgers/' + ledgerId + '/groups',
             method: 'GET',
             success: function(data) {
                 if (Array.isArray(data) && data.length) {
@@ -487,7 +487,7 @@ $(document).ready(function() {
         if (ledgerId) {
             $(".ledger-group-select").val("");
             $(".ledger-group-id").val("");
-            updateLedgerGroupDropdown(ledgerId); 
+            updateLedgerGroupDropdown(ledgerId);
         }
     });
 
@@ -506,8 +506,8 @@ $(document).ready(function() {
     //                     subcategorySelect.append('<option value="">Select Sub-Category</option>');
     //                     $.each(response, function(index, subcategory) {
     //                         subcategorySelect.append(
-    //                             '<option value="' + subcategory.id + '"' + 
-    //                             (subcategory.id == selectedSubcategoryId ? ' selected' : '') + '>' + 
+    //                             '<option value="' + subcategory.id + '"' +
+    //                             (subcategory.id == selectedSubcategoryId ? ' selected' : '') + '>' +
     //                             subcategory.name + '</option>'
     //                         );
     //                     });
@@ -523,18 +523,18 @@ $(document).ready(function() {
     //     }
     //     $('select[name="category_id"]').change(function() {
     //         var categoryId = $(this).val();
-    //         var subcategorySelect = $('select[name="subcategory_id"]'); 
+    //         var subcategorySelect = $('select[name="subcategory_id"]');
     //         var selectedSubcategoryId = subcategorySelect.data('selected-id');
     //         loadSubcategories(categoryId, selectedSubcategoryId, subcategorySelect);
     //     });
-    
+
     //     function initializeSubcategories() {
-    //         var categoryId = $('select[name="category_id"]').val(); 
-    //         var subcategorySelect = $('select[name="subcategory_id"]'); 
+    //         var categoryId = $('select[name="category_id"]').val();
+    //         var subcategorySelect = $('select[name="subcategory_id"]');
     //         var selectedSubcategoryId = subcategorySelect.data('selected-id');
     //         loadSubcategories(categoryId, selectedSubcategoryId, subcategorySelect);
     //     }
- 
+
     //     initializeSubcategories();
     // });
 
@@ -543,6 +543,56 @@ $(document).ready(function() {
 function capitalizeFirstLetter(text) {
     return text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
 }
+
+function toggleSubmitButton(formSelector, block) {
+    try {
+        const $form = $(formSelector);
+        const $submitButtons = $form.find('button[type="submit"], input[type="submit"]');
+        const $links = $form.find('a');
+
+        if (block) {
+            $submitButtons.not('[data-disabled-by-toggle]').each(function () {
+                const $btn = $(this);
+                if (!$btn.prop('disabled')) {
+                    $btn.prop("disabled", true)
+                        .addClass("disabled")
+                        .attr('data-disabled-by-toggle', 'true');
+                }
+            });
+
+            $links.not('[data-disabled-by-toggle]').each(function () {
+                const $link = $(this);
+                if (!$link.hasClass('disabled')) {
+                    $link.addClass("disabled")
+                        .attr('data-disabled-by-toggle', 'true')
+                        .on("click.preventDisable", function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            return false;
+                        });
+                }
+            });
+        } else {
+            $submitButtons.filter('[data-disabled-by-toggle]').each(function () {
+                const $btn = $(this);
+                $btn.prop("disabled", false)
+                    .removeClass("disabled")
+                    .removeAttr('data-disabled-by-toggle');
+            });
+
+            $links.filter('[data-disabled-by-toggle]').each(function () {
+                const $link = $(this);
+                $link.removeClass("disabled")
+                    .off("click.preventDisable")
+                    .removeAttr('data-disabled-by-toggle');
+            });
+        }
+    } catch (error) {
+        console.error("Error toggling submit button:", error);
+    }
+}
+
+
 
 
 

@@ -13,9 +13,13 @@ use App\Lib\Services\WHM\RepairOrderJob;
 use App\Models\ErpRepairOrder;
 use App\Models\ErpRepItem;
 use App\Models\ErpRepItemAttribute;
+use App\Models\Item;
+use App\Models\ItemAttribute;
+use App\Models\AttributeGroup;
+use App\Models\Attribute;
 use App\Models\Organization;
 use Carbon\Carbon;
-
+use Illuminate\Validation\ValidationException;
 //Repair Order General Helper
 class Helper
 {
@@ -167,12 +171,12 @@ class Helper
         ]);
 
        $attributes = is_string($rgrItemUniqueCode->item_attributes) ? json_decode($rgrItemUniqueCode->item_attributes,true) :$rgrItemUniqueCode->item_attributes;
-
-        foreach ($attributes as $rgrItemAttribute) {
+       $validatedAttributes = self::validateItemAttributes($attributes, $rgrItemUniqueCode->item_id, true);
+        foreach ($validatedAttributes as $rgrItemAttribute) {
             ErpRepItemAttribute::create([
                 'repair_order_id' => $repairOrder -> id,
                 'rep_item_id' => $repItem -> id,
-                'item_attribute_id' => 0, //NEED TO CHNAGE
+                'item_attribute_id' => $rgrItemAttribute['item_attribute_id'] ?? 0,
                 'item_code' => $rgrItemUniqueCode-> item_code,
                 'attribute_name' => $rgrItemAttribute['attribute_name'] ?? null,
                 'attr_name' => $rgrItemAttribute['attr_name'] ?? null,
@@ -180,7 +184,7 @@ class Helper
                 'attr_value' => $rgrItemAttribute['attr_value'] ?? null,
             ]);
         }
-        //If Job is not required return success
+
         if (!$createJob) {
             return [
                 'status' => 'success',
@@ -196,4 +200,68 @@ class Helper
             'message' => 'Repair Order generated successfully'
         ];
     }
+
+   public static function validateItemAttributes(array $attributes, int $itemId, bool $returnItemAttributeId = false): array
+    {
+        $item = Item::where('id', $itemId)
+                    ->where('status', ConstantHelper::ACTIVE)
+                    ->firstOrFail();
+
+        $itemAttributes = ItemAttribute::where('item_id', $itemId)->get();
+        $attributeGroups = AttributeGroup::pluck('id', 'name'); 
+        $allAttributes = Attribute::all()->groupBy('attribute_group_id');
+
+        $itemAttrMap = [];
+        foreach ($itemAttributes as $ia) {
+            $itemAttrMap[$ia->attribute_group_id] = $ia->attribute_id ?? [];
+        }
+
+        $formatted = [];
+
+        foreach ($attributes as $attr) {
+            $groupName = $attr['attribute_name'] ?? '';
+            $value     = $attr['attribute_value'] ?? null;
+
+            if (!$groupName || $value === null) continue;
+
+            if (!isset($attributeGroups[$groupName])) {
+                throw ValidationException::withMessages([
+                    'attribute_group' => ["Attribute group '{$groupName}' does not exist."]
+                ]);
+            }
+            $groupId = $attributeGroups[$groupName];
+
+            $matchingAttr = ($allAttributes[$groupId] ?? collect())
+                                ->first(fn($a) => $a->value === $value);
+
+            if (!$matchingAttr) {
+                throw ValidationException::withMessages([
+                    'item_attribute' => ["Invalid value '{$value}' for attribute group '{$groupName}'."]
+                ]);
+            }
+
+            $itemAttrIds = $itemAttrMap[$groupId] ?? [];
+            if (!in_array($matchingAttr->id, $itemAttrIds)) {
+                throw ValidationException::withMessages([
+                    'item_attribute' => ["Item does not have this attribute '{$value}' in group '{$groupName}'."] 
+                ]);
+            }
+
+            $formattedItem = [
+                'attribute_name'  => $groupName,
+                'attr_name'       => $groupId,
+                'attribute_value' => $matchingAttr->value,
+                'attr_value'      => $matchingAttr->id,
+            ];
+
+            if ($returnItemAttributeId) {
+                $formattedItem['item_attribute_id'] = array_search($matchingAttr->id, $itemAttrIds, true);
+            }
+
+            $formatted[] = $formattedItem;
+        }
+
+        return $formatted;
+    }
+
 }

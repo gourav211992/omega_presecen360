@@ -80,6 +80,13 @@
                                     <button id = "revokeButton" type="button" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
                                         Revoke</button>
                                 @endif
+                                @if ($buttons['delete'])
+                                    <button type="button" id="deleteButton" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
+                                            data-url="{{ route('po.destroy', ['type' => request()->route('type'), 'id' => $po->id, 'isAmedment' => $buttons['amend'] ? $buttons['amend'] : 0]) }}" data-redirect="{{ route('po.index', ['type' => request()->route('type')]) }}"
+                                            data-message="Are you sure you want to delete entire document?">
+                                        <i data-feather="trash-2" class="me-50"></i> Delete
+                                    </button>
+                                @endif
 
                             </div>
                         </div>
@@ -1143,7 +1150,8 @@
                         $("#po_type").val(poType);
                         setTableCalculation();
                     }
-                    if (data.status == 404) {
+
+                    if (data.status == 404 || data.status == 500) {
                         $("#book_code").val('');
                         $("#document_number").val('');
                         $("#tax_required").val("");
@@ -1152,6 +1160,16 @@
                         docDateInput.removeAttr('min');
                         docDateInput.removeAttr('max');
                         // docDateInput.val(new Date().toISOString().split('T')[0]);
+
+                        toggleSubmitButton('.ajax-input-form', true);
+                        Swal.fire({
+                            title: 'Error!',
+                            text: data.message,
+                            icon: 'error',
+                        });
+                    } else {
+                        toggleSubmitButton('.ajax-input-form', false);
+
                     }
                 });
             });
@@ -2823,6 +2841,14 @@
                         setTimeout(() => {
                             setTableCalculation();
                         }, 500);
+
+                        let $lastRow = $("#itemTable .mrntableselectexcel").find("tr[id^='row_']").last();
+                        if ($lastRow.length) {
+                            // $('html, body').animate({
+                            //     scrollTop: $lastRow.offset().top - 100
+                            // }, 400);
+                            $lastRow.find("input[name*='[qty]']").focus().select();
+                        }
                     }
                     if (data.status == 422) {
                         $(".editAddressBtn").removeClass('d-none');

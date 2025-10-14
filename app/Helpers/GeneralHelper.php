@@ -192,40 +192,4 @@ class GeneralHelper
         $date = $date ? date('d-m-Y', strtotime($date)) : '';
         return $date;
     }
-
-    // public static function sendDocumentStatusEmail(array $params): bool
-    // {
-    //     try {
-    //         $receiverEmail   = $params['to'] ?? null;
-    //         $receiverName    = $params['to_name'] ?? null;
-    //         $documentType    = ucfirst($params['document'] ?? 'Document');
-    //         $status          = strtolower($params['status'] ?? 'updated');
-    //         $remarks         = $params['remarks'] ?? "The {$documentType} has been {$status}.";
-
-    //         if (!$receiverEmail) {
-    //             return false;
-    //             // throw new \InvalidArgumentException("Receiver email is required");
-    //         }
-
-    //         $sender      = $params['sender'] ?? request()->user()?->email ?? config('mail.from.address');
-    //         $senderName  = $params['sender_name'] ?? request()->user()?->name ?? config('mail.from.name', 'System');
-
-    //         $title       = $params['title'] ?? "{$documentType} - " . ucfirst($status);
-    //         $description = $params['description'] ?? $remarks;
-
-    //         $cc          = !empty($params['cc']) ? array_values((array)$params['cc']) : null;
-    //         $bcc         = !empty($params['bcc']) ? array_values((array)$params['bcc']) : null;
-    //         $attachments = !empty($params['attachments']) ? (array)$params['attachments'] : [];
-
-    //         $receiverObj = (object)['email' => $receiverEmail, 'name'  => $receiverName,];
-
-    //         SendEmailJob::dispatch($receiverObj, $sender, $senderName, $title, $description, $cc, $bcc, $attachments)->onQueue('emails');
-    //         \Log::info('Status email queued', ['to' => $receiverEmail, 'document' => $documentType, 'status' => $status, 'cc' => $cc, 'bcc' => $bcc, 'attachments' => count($attachments),]);
-
-    //         return true;
-    //     } catch (\Throwable $e) {
-    //         \Log::error('Failed to queue status email', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString(), 'params' => $params,]);
-    //         return false;
-    //     }
-    // }
 }

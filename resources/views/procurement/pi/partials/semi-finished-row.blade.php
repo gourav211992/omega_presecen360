@@ -41,11 +41,21 @@
 <tr class="{{ $rowClass }} {{ $hideClass }}" data-level="{{ $level }}" data-row-key="{{ $rowKey }}" data-parent-key="{{ $parentKey }}">
     <td>
         <div class="form-check form-check-inline me-0">
-            <input class="form-check-input analyze_row" type="checkbox" name="bom_id" value="{{ $node['bom_id'] }}" data-so-id="{{ $effectiveSoId }}" data-so-item-id="{{ isset($node['so_item_id']) && $node['so_item_id'] ? $node['so_item_id'] : '' }}"
-                   data-so-item-ids="{{ isset($node['so_item_ids']) && $node['so_item_ids'] ? json_encode($node['so_item_ids']) : '' }}" data-level="{{ $node['level'] }}" data-parent-bom-id="{{ $node['parent_bom_id'] }}" data-bom-id="{{ $node['bom_id'] }}"
-                   data-item-name="{{ $node['item_name'] }}" data-item-id="{{ $node['item_id'] }}" data-item-code="{{ $node['item_code'] }}" data-uom-id="{{ $node['uom_id'] }}" data-uom-name="{{ $node['uom_name'] }}" data-attribute="{{ json_encode($node['attribute'] ?? []) }}"
-                   data-total-qty="{{ $node['total_qty'] }}" data-store-name="{{ $node['store_name'] }}" data-store-id="{{ $node['store_id'] }}" data-doc-no="{{ $node['doc_no'] }}" data-doc-date="{{ $node['doc_date'] }}" data-main-so-item="{{ $node['main_so_item'] }}"
-                   data-required-qty="{{ $node['total_qty'] }}" data-remaining-qty="0">
+            @if ($isAttribute)
+                <input class="form-check-input analyze_row" type="checkbox" name="bom_id" value="{{ $node['bom_id'] }}" data-so-id="{{ $effectiveSoId }}" data-so-item-id="{{ isset($node['so_item_id']) && $node['so_item_id'] ? $node['so_item_id'] : '' }}"
+                       data-so-item-ids="{{ isset($node['so_item_ids']) && $node['so_item_ids'] ? json_encode($node['so_item_ids']) : '' }}" data-level="{{ $node['level'] }}" data-parent-bom-id="{{ $node['parent_bom_id'] }}" data-bom-id="{{ $node['bom_id'] }}"
+                       data-item-name="{{ $node['item_name'] }}" data-item-id="{{ $node['item_id'] }}" data-item-code="{{ $node['item_code'] }}" data-uom-id="{{ $node['uom_id'] }}" data-uom-name="{{ $node['uom_name'] }}" data-attribute="{{ json_encode($node['attribute'] ?? []) }}"
+                       data-total-qty="{{ $node['total_qty'] }}" data-store-name="{{ $node['store_name'] }}" data-store-id="{{ $node['store_id'] }}" data-doc-no="{{ $node['doc_no'] }}" data-doc-date="{{ $node['doc_date'] }}" data-main-so-item="{{ $node['main_so_item'] }}"
+                       data-required-qty="{{ $node['total_qty'] }}" data-remaining-qty="0">
+            @else
+                @if ($parentKey == '')
+                    <input class="form-check-input analyze_row" type="checkbox" name="bom_id" value="{{ $node['bom_id'] }}" data-so-id="{{ $effectiveSoId }}" data-so-item-id="{{ isset($node['so_item_id']) && $node['so_item_id'] ? $node['so_item_id'] : '' }}"
+                           data-so-item-ids="{{ isset($node['so_item_ids']) && $node['so_item_ids'] ? json_encode($node['so_item_ids']) : '' }}" data-level="{{ $node['level'] }}" data-parent-bom-id="{{ $node['parent_bom_id'] }}" data-bom-id="{{ $node['bom_id'] }}"
+                           data-item-name="{{ $node['item_name'] }}" data-item-id="{{ $node['item_id'] }}" data-item-code="{{ $node['item_code'] }}" data-uom-id="{{ $node['uom_id'] }}" data-uom-name="{{ $node['uom_name'] }}" data-attribute="{{ json_encode($node['attribute'] ?? []) }}"
+                           data-total-qty="{{ $node['total_qty'] }}" data-store-name="{{ $node['store_name'] }}" data-store-id="{{ $node['store_id'] }}" data-doc-no="{{ $node['doc_no'] }}" data-doc-date="{{ $node['doc_date'] }}" data-main-so-item="{{ $node['main_so_item'] }}"
+                           data-required-qty="{{ $node['total_qty'] }}" data-remaining-qty="0">
+                @endif
+            @endif
         </div>
     </td>
     <td style="padding-left: {{ $indentPx }}px;">
@@ -64,9 +74,15 @@
     <td>{!! $html !!}</td>
     <td>{{ $node['store_name'] ?? '' }}</td>
     <td class="avl_stock">{{ $node['avl_qty'] }}</td>
-    <td><input type="number" step="any" class="form-control text-end mw-100 analyse_total_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_total_qty_{{ $rowIndex }}" value="{{ $node['total_qty'] }}" disabled></td>
-    <td><input type="number" step="any" class="form-control text-end mw-100 analyse_required_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_required_qty_{{ $rowIndex }}" value="{{ $node['total_qty'] }}"></td>
-    <td><input type="number" step="any" class="form-control text-end mw-100 analyse_remaining_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_remaining_qty_{{ $rowIndex }}" value="0" disabled></td>
+    @if ($isAttribute)
+        <td><input type="number" step="any" class="form-control text-end mw-100 analyse_total_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_total_qty_{{ $rowIndex }}" value="{{ $node['total_qty'] }}" disabled></td>
+        <td><input type="number" step="any" class="form-control text-end mw-100 analyse_required_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_required_qty_{{ $rowIndex }}" value="{{ $node['total_qty'] }}"></td>
+        <td><input type="number" step="any" class="form-control text-end mw-100 analyse_remaining_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_remaining_qty_{{ $rowIndex }}" value="0" disabled></td>
+    @else
+        <td><input type="number" step="any" disabled class="form-control text-end mw-100 analyse_total_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_total_qty_{{ $rowIndex }}" value="{{ $node['total_qty'] }}"></td>
+        <td><input type="number" step="any" disabled class="form-control text-end mw-100 analyse_required_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_required_qty_{{ $rowIndex }}" value="{{ $node['total_qty'] }}"></td>
+        <td><input type="number" step="any" disabled class="form-control text-end mw-100 analyse_remaining_qty" data-parent-key="{{ $parentKey }}" data-current-key="{{ $rowKey }}" id="analyse_remaining_qty_{{ $rowIndex }}" value="0"></td>
+    @endif
 </tr>
 @if ($hasChildren)
     @php $childIndex = 1; @endphp

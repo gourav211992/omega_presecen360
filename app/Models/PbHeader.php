@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use App\Models\User;
@@ -18,7 +19,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PbHeader extends Model
 {
-    use HasFactory, SoftDeletes, DateFormatTrait, FileUploadTrait,DefaultGroupCompanyOrg, DynamicFieldsTrait;
+    use HasFactory, SoftDeletes, DateFormatTrait, FileUploadTrait, DefaultGroupCompanyOrg, DynamicFieldsTrait;
 
     protected $table = 'erp_pb_headers';
     protected $fillable = [
@@ -210,12 +211,12 @@ class PbHeader extends Model
 
     public function ship_address()
     {
-        return $this->belongsTo(ErpAddress::class,'shipping_address');
+        return $this->belongsTo(ErpAddress::class, 'shipping_address');
     }
 
     public function bill_address()
     {
-        return $this->belongsTo(ErpAddress::class,'billing_address');
+        return $this->belongsTo(ErpAddress::class, 'billing_address');
     }
 
     public function billingAddress()
@@ -230,17 +231,17 @@ class PbHeader extends Model
 
     public function bill_address_details()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'billing')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'billing')->with(['city', 'state', 'country']);
     }
 
     public function ship_address_details()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'shipping')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'shipping')->with(['city', 'state', 'country']);
     }
 
     public function store_address()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type','location')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'location')->with(['city', 'state', 'country']);
     }
 
     public function addresses()
@@ -260,7 +261,7 @@ class PbHeader extends Model
 
     public function paymentTerm()
     {
-        return $this->belongsTo(PaymentTerm::class,'payment_term_id');
+        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
 
     // public function getTotalAmountAttribute()
@@ -271,7 +272,7 @@ class PbHeader extends Model
     /*Header Level Discount*/
     public function headerDiscount()
     {
-        return $this->hasMany(PbTed::class, 'header_id')->where('ted_level', 'H')->where('ted_type','Discount');
+        return $this->hasMany(PbTed::class, 'header_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
     }
 
     public function header_tax()
@@ -287,7 +288,7 @@ class PbHeader extends Model
 
     public function expenses()
     {
-        return $this->hasMany(PbTed::class,'header_id')->where('ted_type', '=', 'Expense')
+        return $this->hasMany(PbTed::class, 'header_id')->where('ted_type', '=', 'Expense')
             ->where('ted_level', '=', 'H');
     }
 
@@ -298,12 +299,12 @@ class PbHeader extends Model
 
     public function pb_ted()
     {
-        return $this->hasMany(PbTed::class,'header_id');
+        return $this->hasMany(PbTed::class, 'header_id');
     }
 
     public function pb_ted_tax()
     {
-        return $this->hasMany(PbTed::class,'header_id')->where('ted_type','Tax');
+        return $this->hasMany(PbTed::class, 'header_id')->where('ted_type', 'Tax');
     }
 
     public function getGrandTotalAmountAttribute()
@@ -313,12 +314,12 @@ class PbHeader extends Model
 
     public function createdBy()
     {
-        return $this->belongsTo(User::class,'created_by');
+        return $this->belongsTo(AuthUser::class, 'created_by', 'id');
     }
 
     public function updatedBy()
     {
-        return $this->belongsTo(User::class,'updated_by');
+        return $this->belongsTo(AuthUser::class, 'updated_by', 'id');
     }
 
     public function latestBillingAddress()
@@ -338,11 +339,11 @@ class PbHeader extends Model
 
     public function dynamic_fields()
     {
-        return $this -> hasMany(ErpPbDynamicField::class, 'header_id');
+        return $this->hasMany(ErpPbDynamicField::class, 'header_id');
     }
 
     public function payment_term_schedules()
     {
-        return $this -> hasMany(ErpPbPaymentTerm::class, 'pb_header_id');
+        return $this->hasMany(ErpPbPaymentTerm::class, 'pb_header_id');
     }
 }

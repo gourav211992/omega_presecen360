@@ -4,16 +4,16 @@
 
     const ALLOWED_EXTENSIONS = [
         'doc', 'docx', 'odt', 'rtf', 'txt', 'xls', 'xlsx', 'ods', 'csv',
-        'ppt', 'pptx', 'odp', 'pdf', 'jpg', 'jpeg', 'png', 'gif', 
+        'ppt', 'pptx', 'odp', 'pdf', 'jpg', 'jpeg', 'png', 'gif',
         'bmp', 'tiff', 'tif', 'svg', 'ico', 'webp'
     ];
     const ALLOWED_MIME_TYPES = [
-        'application/msword', 
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
-        'application/pdf', 
-        'image/jpeg', 
-        'image/png', 
-        'image/gif', 
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/pdf',
+        'image/jpeg',
+        'image/png',
+        'image/gif',
         'application/vnd.ms-excel', // For .xls files
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // For .xlsx files
         'application/vnd.oasis.opendocument.spreadsheet', // For .ods files
@@ -64,7 +64,7 @@
             addedFilesCount = fileInputData[inputId].length;
         }
 
-        if ((files.length + fileInputData[inputId].length) > allowedMaxFilesCount) 
+        if ((files.length + fileInputData[inputId].length) > allowedMaxFilesCount)
         {
             Swal.fire({
                 title: 'Error!',
@@ -129,6 +129,7 @@
                 if (!fileInputData[inputId].some(f => f.name === file.name && f.size === file.size)) {
                     const fileUrl = URL.createObjectURL(file);
                     appendFilePreviews(fileUrl, previewElementId, i);
+                    document.getElementById(previewElementId).lastElementChild.setAttribute('title', file.name);
                 }
             });
 

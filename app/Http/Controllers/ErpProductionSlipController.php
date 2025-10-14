@@ -48,7 +48,9 @@ use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use App\Helpers\BookHelper;
+use App\Helpers\Common\OrganizationHelper;
 use App\Models\BomDetail;
+use App\Services\Common\DocumentLockService;
 use Yajra\DataTables\DataTables;
 use Carbon\Carbon;
 
@@ -59,6 +61,7 @@ class ErpProductionSlipController extends Controller
 
     public function index(Request $request)
     {
+        $authUser = Helper::getAuthenticatedUser();
         $pathUrl = request()->segments()[0];
         $redirectUrl = route('production.slip.index');
         $createRoute = route('production.slip.create');
@@ -68,6 +71,7 @@ class ErpProductionSlipController extends Controller
             try {
                 $docs = ErpProductionSlip::bookViewAccess($pathUrl)
                     ->withDraftListingLogic()
+                    -> selfCreatedDocuments($authUser)
                      // apply filter code
                 ->when($request->book_id, function ($q) use ($request) {
                     $q->where('book_id', $request->book_id);
@@ -379,7 +383,7 @@ class ErpProductionSlipController extends Controller
         }
     }
 
-    public function store(PslipRequest $request)
+    public function store(PslipRequest $request, DocumentLockService $lockService)
     {
         $consuptions = $request->cons;
         $productionSlipId = isset($request->id) ? $request->id : null;
@@ -422,12 +426,9 @@ class ErpProductionSlipController extends Controller
                     'error' => "",
                 ], 422);
             }
-            $user = Helper::getAuthenticatedUser();
             //Auth credentials
-            $organization = Organization::find($user -> organization_id);
-            $organizationId = $organization ?-> id ?? null;
-            $groupId = $organization ?-> group_id ?? null;
-            $companyId = $organization ?-> company_id ?? null;
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
+           
             $itemAttributeIds = [];
             $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($organization -> currency -> id, $request -> document_date);
             if ($currencyExchangeData['status'] == false) {
@@ -437,31 +438,32 @@ class ErpProductionSlipController extends Controller
                 ], 422);
             }
 
-            if (!$request -> production_slip_id)
-            {
-                $numberPatternData = Helper::generateDocumentNumberNew($request -> book_id, $request -> document_date);
-                if (!isset($numberPatternData)) {
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => "Invalid Book",
-                        'error' => "",
-                    ], 422);
-                }
-                $document_number = $numberPatternData['document_number'] ? $numberPatternData['document_number'] : $request -> document_no;
-                $regeneratedDocExist = ErpProductionSlip::where('book_id',$request->book_id)
-                    ->where('document_number',$document_number)->first();
-                    //Again check regenerated doc no
-                    if (isset($regeneratedDocExist)) {
-                        DB::rollBack();
-                        return response()->json([
-                            'message' => ConstantHelper::DUPLICATE_DOCUMENT_NUMBER,
-                            'error' => "",
-                        ], 422);
-                    }
-            }
+            // if (!$request -> production_slip_id)
+            // {
+            //     $numberPatternData = Helper::generateDocumentNumberNew($request -> book_id, $request -> document_date);
+            //     if (!isset($numberPatternData)) {
+            //         DB::rollBack();
+            //         return response()->json([
+            //             'message' => "Invalid Book",
+            //             'error' => "",
+            //         ], 422);
+            //     }
+            //     $document_number = $numberPatternData['document_number'] ? $numberPatternData['document_number'] : $request -> document_no;
+            //     $regeneratedDocExist = ErpProductionSlip::where('book_id',$request->book_id)
+            //         ->where('document_number',$document_number)->first();
+            //         //Again check regenerated doc no
+            //         if (isset($regeneratedDocExist)) {
+            //             DB::rollBack();
+            //             return response()->json([
+            //                 'message' => ConstantHelper::DUPLICATE_DOCUMENT_NUMBER,
+            //                 'error' => "",
+            //             ], 422);
+            //         }
+            // }
+
             $productionSlip = null;
-            // $store = ErpStore::find($request -> store_id);
             $productionSlip = ErpProductionSlip::find($request -> pslip_id);
+           
             if ($productionSlip) {
 
                 //Amend backup
@@ -580,52 +582,101 @@ class ErpProductionSlipController extends Controller
                 // }
 
 
-            } else { //Create
-                $productionSlip = ErpProductionSlip::create([
-                    'organization_id' => $organizationId,
-                    'group_id' => $groupId,
-                    'company_id' => $companyId,
-                    'mo_id' => $request->mo_id ? $request->mo_id[0] : $request->mo_id,
-                    'bom_id' => $request->bom_id,
-                    'is_last_station' => $request->is_last_station ?? 0,
-                    'station_id' => $request->mo_station_id,
-                    'book_id' => $request -> book_id,
-                    'book_code' => $request -> book_code,
-                    'lot_number' => $request -> lot_number,
-                    'manufacturing_year' => $request -> manufacturing_year,
-                    'expiry_date' => $request->expiry_date ? $request->expiry_date : null,
-                    'document_number' => $document_number,
-                    'doc_number_type' => $numberPatternData['type'],
-                    'doc_reset_pattern' => $numberPatternData['reset_pattern'],
-                    'doc_prefix' => $numberPatternData['prefix'],
-                    'doc_suffix' => $numberPatternData['suffix'],
-                    'doc_no' => $numberPatternData['doc_no'],
-                    'document_date' => $request -> document_date,
-                    'revision_number' => 0,
-                    'revision_date' => null,
-                    // 'reference_number' => $request -> reference_no,
-                    'store_id' => $request -> store_id ?? null,
-                    'sub_store_id' => $request -> sub_store_id ?? null,
-                    'shift_id' => $request -> shift_id ?? null,
-                    'fg_sub_store_id' => $request -> fg_sub_store_id ?? null,
-                    'rg_sub_store_id' => $request -> rg_sub_store_id ?? null,
-                    // 'store_code' => $store ?-> store_code ?? null,
-                    'document_status' => ConstantHelper::DRAFT,
-                    'approval_level' => 1,
-                    'remarks' => $request -> final_remarks,
-                    'org_currency_id' => $currencyExchangeData['data']['org_currency_id'],
-                    'org_currency_code' => $currencyExchangeData['data']['org_currency_code'],
-                    'org_currency_exg_rate' => $currencyExchangeData['data']['org_currency_exg_rate'],
-                    'comp_currency_id' => $currencyExchangeData['data']['comp_currency_id'],
-                    'comp_currency_code' => $currencyExchangeData['data']['comp_currency_code'],
-                    'comp_currency_exg_rate' => $currencyExchangeData['data']['comp_currency_exg_rate'],
-                    'group_currency_id' => $currencyExchangeData['data']['group_currency_id'],
-                    'group_currency_code' => $currencyExchangeData['data']['group_currency_code'],
-                    'group_currency_exg_rate' => $currencyExchangeData['data']['group_currency_exg_rate'],
-                ]);
-            }
+            } else {
+                 //Create
 
-                $productionSlip -> save();
+                 $numberPatternData = Helper::generateDocumentNumberNew($request->book_id, $request->document_date);
+                    if (!isset($numberPatternData)) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => "Invalid Book",
+                            'error' => "",
+                        ], 422);
+                    }
+
+                    $document_number = $numberPatternData['document_number'] ?? $request->document_no;
+
+                    // Define a unique lock key for this document number
+                    $lockKey = "org_{$organization->id}_book_{$request->book_id}_doc_{$document_number}";
+
+                    // Run insertion safely under lock
+                    $lockResult = $lockService->lockDocumentNumber($lockKey, 10, function() use ($request, $document_number, $numberPatternData) {
+
+                        // Check again inside lock to prevent duplicates
+                        if (ErpProductionSlip::where('book_id', $request->book_id)
+                            ->where('document_number', $document_number)
+                            ->exists()
+                        ) {
+                            abort(422, ConstantHelper::DUPLICATE_DOCUMENT_NUMBER);
+                        }
+
+                        // Insert new Production Slip
+                        $user = Helper::getAuthenticatedUser();
+                        $organization = Organization::find($user->organization_id);
+                        $organizationId = $organization?->id ?? null;
+                        $groupId = $organization?->group_id ?? null;
+                        $companyId = $organization?->company_id ?? null;
+
+                        $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($organization->currency->id, $request->document_date);
+                        if ($currencyExchangeData['status'] == false) {
+                            abort(422, $currencyExchangeData['message']);
+                        }
+
+                        return ErpProductionSlip::create([
+                            'organization_id' => $organizationId,
+                            'group_id' => $groupId,
+                            'company_id' => $companyId,
+                            'mo_id' => $request->mo_id[0] ?? $request->mo_id,
+                            'bom_id' => $request->bom_id,
+                            'is_last_station' => $request->is_last_station ?? 0,
+                            'station_id' => $request->mo_station_id,
+                            'book_id' => $request->book_id,
+                            'book_code' => $request->book_code,
+                            'lot_number' => $request->lot_number,
+                            'manufacturing_year' => $request->manufacturing_year,
+                            'expiry_date' => $request->expiry_date ?? null,
+                            'document_number' => $document_number,
+                            'doc_number_type' => $numberPatternData['type'],
+                            'doc_reset_pattern' => $numberPatternData['reset_pattern'],
+                            'doc_prefix' => $numberPatternData['prefix'],
+                            'doc_suffix' => $numberPatternData['suffix'],
+                            'doc_no' => $numberPatternData['doc_no'],
+                            'document_date' => $request->document_date,
+                            'revision_number' => 0,
+                            'revision_date' => null,
+                            'store_id' => $request->store_id ?? null,
+                            'sub_store_id' => $request->sub_store_id ?? null,
+                            'shift_id' => $request->shift_id ?? null,
+                            'fg_sub_store_id' => $request->fg_sub_store_id ?? null,
+                            'rg_sub_store_id' => $request->rg_sub_store_id ?? null,
+                            'document_status' => ConstantHelper::DRAFT,
+                            'approval_level' => 1,
+                            'remarks' => $request->final_remarks,
+                            'org_currency_id' => $currencyExchangeData['data']['org_currency_id'],
+                            'org_currency_code' => $currencyExchangeData['data']['org_currency_code'],
+                            'org_currency_exg_rate' => $currencyExchangeData['data']['org_currency_exg_rate'],
+                            'comp_currency_id' => $currencyExchangeData['data']['comp_currency_id'],
+                            'comp_currency_code' => $currencyExchangeData['data']['comp_currency_code'],
+                            'comp_currency_exg_rate' => $currencyExchangeData['data']['comp_currency_exg_rate'],
+                            'group_currency_id' => $currencyExchangeData['data']['group_currency_id'],
+                            'group_currency_code' => $currencyExchangeData['data']['group_currency_code'],
+                            'group_currency_exg_rate' => $currencyExchangeData['data']['group_currency_exg_rate'],
+                        ]);
+                    });
+                 
+                    // Handle lock result errors
+                    if (!$lockResult['success']) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => $lockResult['message'],
+                            'error' => 'lockResult',
+                        ], $lockResult['status']);
+                    }
+
+                    // Assign the inserted slip to variable
+                    $productionSlip = $lockResult['data'];
+                }
+                
                 //Dynamic Fields
                 $statusDynamic = DynamicFieldHelper::saveDynamicFields(ErpPslipDynamicField::class, $productionSlip -> id, $request -> dynamic_field ?? []);
                 if ($statusDynamic && !$statusDynamic['status'] ) {

@@ -824,17 +824,17 @@ class PurchaseReturnController extends Controller
                         }
                     }
                 }
-                // $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
-                // if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
-                //     $data = MasterIndiaHelper::saveGstIn($pb, $user);
-                //     if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
-                //         DB::rollBack();
-                //         return response()->json([
-                //             'error' => 'error',
-                //             'message' => $data['message'],
-                //         ], 500);
-                //     }
-                // }
+                $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
+                if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
+                    $data = MasterIndiaHelper::saveGstIn($pb, $user);
+                    if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
+                        DB::rollBack();
+                        return response()->json([
+                            'error' => 'error',
+                            'message' => $data['message'],
+                        ], 500);
+                    }
+                }
                 $parentUrl = request()->segments()[0];
                 $redirectUrl = url($parentUrl . '/' . $pb->id . '/pdf');
             }
@@ -1585,17 +1585,17 @@ class PurchaseReturnController extends Controller
                         }
                     }
                 }
-                // $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
-                // if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
-                //     $data = MasterIndiaHelper::saveGstIn($pb, $user);
-                //     if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
-                //         DB::rollBack();
-                //         return response()->json([
-                //             'error' => 'error',
-                //             'message' => $data['message'],
-                //         ], 500);
-                //     }
-                // }
+                $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($request->vendor_id, $billingAddress->country_id, $storeLocation->country_id, 'vendor');
+                if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
+                    $data = MasterIndiaHelper::saveGstIn($pb, $user);
+                    if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
+                        DB::rollBack();
+                        return response()->json([
+                            'error' => 'error',
+                            'message' => $data['message'],
+                        ], 500);
+                    }
+                }
                 $parentUrl = request()->segments()[0];
                 $redirectUrl = url($parentUrl . '/' . $pb->id . '/pdf');
             }
@@ -2184,14 +2184,18 @@ class PurchaseReturnController extends Controller
         $sellerBillingAddress = $purchaseReturn->latestBillingAddress();
         $eInvoice = $purchaseReturn->irnDetail()->first();
         $qrCodeBase64 = '';
+        $heading = "Purchase Return";
         if($eInvoice)
         {
             // QrCode::format('png')->size(300)->generate($eInvoice->signed_qr_code, $qrCodePath);
             $qrCodeBase64 = $eInvoice->signed_qr_code ? EInvoiceHelper::generateQRCodeBase64($eInvoice->signed_qr_code) : '';
+            $heading = "Debit Note";
         }
 
         $options = new Options();
         $options->set('defaultFont', 'Helvetica');
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', true);
         $dompdf = new Dompdf($options);
 
         $html = view(
@@ -2214,6 +2218,7 @@ class PurchaseReturnController extends Controller
                 'totalAmount' => $totalAmount,
                 'imagePath' => $imagePath,
                 'eInvoice' => $eInvoice,
+                'heading' => $heading,
                 'approvedBy' => $approvedBy,
                 'qrCodeBase64' => $qrCodeBase64
             ]
@@ -3287,7 +3292,6 @@ class PurchaseReturnController extends Controller
     public function generateEwayBill(Request $request)
     {
         $user = Helper::getAuthenticatedUser();
-
         try {
             $documentHeader = PRHeader::find($request->id);
             $data = MasterIndiaHelper::generateEwayBill($documentHeader, $user);

@@ -298,22 +298,21 @@ class ItemHelper
     # get item uom by item id   param :- item_id and uom_type [purchase, selling] return uomId
     public static function getItemUom($itemId, $uomType)
     {
-        $item = Item::find($itemId);
-        if (!$item) {
-            return null; // Item not found
-        }
-        $altUom = $item?->uom_id;
+        $item = Item::select('id', 'uom_id',)->find($itemId);
+        if (!$item) return null;
+
+        $altUomId = $item?->uom_id;
         if ($item?->alternateUOMs->count()) {
             if ($uomType == 'purchase') {
                 $altUom = $item->alternateUOMs()->where('is_purchasing', 1)->first();
-                $altUom = $altUom->id ?? null;
-            }
-            if ($uomType == 'selling') {
+                $altUomId = $altUom->uom_id ?? null;
+            } else if ($uomType == 'selling') {
                 $altUom = $item->alternateUOMs()->where('is_selling', 1)->first();
-                $altUom = $altUom->id ?? null;
+                $altUomId = $altUom->uom_id ?? null;
             }
         }
-        return $altUom;
+
+        return $altUomId;
     }
 
     public static function getUserOrgDetails($user = null)

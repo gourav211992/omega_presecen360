@@ -168,6 +168,10 @@ class MasterIndiaHelper
             -> where('gst_number', $organization ?-> gst_number) -> first();
 
         $authToken = $configurations ?-> client_access_token ?? null;
+        $appEnv = config('app.env');
+        if (strtolower($appEnv) !== 'production') {
+            $authToken = $masterIndiaService->getAuthTokenEInvoice();
+        }
         $authCredentials = [
             'gstin'        => $organization->gst_number ?? env('EINVOICE_GSTIN', ''),
         ];
@@ -247,6 +251,17 @@ class MasterIndiaHelper
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }
+    }
+
+    public static function getDocType($header)
+    {
+        if ($header instanceof \App\Models\ErpSaleInvoice) {
+           return 'INV';
+        } else if ($header instanceof \App\Models\ErpSaleReturn) {
+           return 'CRN';
+        } if ($header instanceof PRHeader) {
+           return 'DBN';
+        } 
     }
 
     public static function formatGstinResponse($input_response)
@@ -568,7 +583,7 @@ class MasterIndiaHelper
         $eInvoiceService = new MasterIndiaService($requestUid);
         $fromPincode = $organizationAddress->pincode;
         $toPincode = $sellerBillingAddress->pincode;
-        $distance = $eInvoiceService->getDistance($fromPincode, $toPincode, $authToken);
+        $distance = 0;
 
         $tranDetails = (object) [
             "supply_type" => $documentHeader->gst_invoice_type,
@@ -1036,7 +1051,7 @@ class MasterIndiaHelper
         $eInvoiceService = new MasterIndiaService($requestUid);
         $fromPincode = $data['sellerDetails']->pincode;
         $toPincode = $data['buyerDetails']->pincode;
-        $distance = $eInvoiceService->getDistance($fromPincode, $toPincode, $authToken);
+        $distance = 0;
 		return [
             'itemList' => $itemData,
 			'access_token' => $authToken,

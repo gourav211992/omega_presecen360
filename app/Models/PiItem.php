@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use App\Helpers\InventoryHelper;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PiItem extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'erp_pi_items';
 
@@ -49,7 +50,7 @@ class PiItem extends Model
         'inventoryUom' => 'inventory_uom_id',
         'vendor' => 'vendor_id',
     ];
-    
+
     public function pi()
     {
         return $this->belongsTo(PurchaseIndent::class, 'pi_id');
@@ -134,7 +135,7 @@ class PiItem extends Model
         }
         return collect($processedData);
     }
-    
+
     public function po_item()
     {
         return $this->hasOne(PoItem::class,'pi_item_id','id');
@@ -144,7 +145,7 @@ class PiItem extends Model
     {
         return $this->hasMany(PoItem::class,'pi_item_id');
     }
-    
+
     public function getBalenceQtyAttribute()
     {
         return $this->indent_qty - ($this->order_qty ?? 0);
@@ -154,7 +155,7 @@ class PiItem extends Model
     {
         return $this->hasMany(PiSoMappingItem::class,'pi_item_id');
     }
-    
+
     public function getMiBalanceQtyAttribute()
     {
         return max(($this->indent_qty) - $this->mi_qty, 0);
@@ -210,7 +211,7 @@ class PiItem extends Model
     }
 
     public function getPendingPoAttribute()
-    {   
+    {
         $itemId       = $this->item_id;
         $selectedAttr = $this->attributes()->get();
         $uomId        = $this->uom_id;

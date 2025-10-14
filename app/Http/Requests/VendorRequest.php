@@ -161,7 +161,12 @@ class VendorRequest extends FormRequest
             'whatsapp_same_as_mobile' => 'nullable|string',
             'notification' => 'nullable|array',
             'notification.*' => 'nullable|string',
-            'pan_number' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/'],
+            'pan_number' => [
+                'nullable',
+                'string',
+                'regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/',
+                'required_if:compliance.gst_applicable,1'
+            ],
             'tin_number' => 'nullable|string|regex:/^\d{10}$/',
             'aadhar_number' => 'nullable|string|regex:/^\d{12}$/',
             'currency_id' => 'required|exists:mysql_master.currency,id',
@@ -210,6 +215,8 @@ class VendorRequest extends FormRequest
             'vendor_item.item_name.*' => 'nullable|string|max:255',
             'vendor_item.part_number.*' => 'nullable|string|max:255', 
             'vendor_item.item_details.*' => 'nullable|string|max:255', 
+            'vendor_item.*.minimum_order_qty' => 'nullable|integer|min:0',
+            'vendor_item.*.lead_days' => 'nullable|integer|min:0',
             'vendor_item.*.cost_price' => 'nullable|regex:/^[0-9,]*(\.[0-9]{1,2})?$/|min:0',
             'vendor_item.*.item_id' => 'nullable', 
             'vendor_item.*.uom_id' => 'nullable|exists:erp_units,id|string|max:255', 
@@ -248,14 +255,6 @@ class VendorRequest extends FormRequest
                 'string', 
                 'size:15', 
                 'regex:/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/',
-                // function ($attribute, $value, $fail) {
-                //     if ($value) {
-                //         $gstValidationResponse = $this->validateGstDetails();
-                //         if ($gstValidationResponse !== true) {
-                //             $fail($gstValidationResponse); 
-                //         }
-                //     }
-                // },
                 'required_if:compliance.gst_applicable,1'
             ],
             'compliance.gst_registered_name' => 'nullable|string|max:255',
@@ -326,6 +325,7 @@ class VendorRequest extends FormRequest
             'notification.*.string' => 'Each notification must be a string.',
             
             // Document Numbers
+            'pan_number.required_if' => 'The PAN number is required when GST is applicable.',
             'pan_number.regex' => 'The PAN number must be in the format: AAAAA9999A.',
             'tin_number.regex' => 'The TIN number must be in the format: 9999999999.',
             'aadhar_number.regex' => 'The Aadhaar number must be in the format: 999999999999.',

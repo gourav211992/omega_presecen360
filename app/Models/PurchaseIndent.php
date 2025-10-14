@@ -10,24 +10,25 @@ use App\Traits\DynamicFieldsTrait;
 use App\Traits\FileUploadTrait;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PurchaseIndent extends Model
 {
-    use HasFactory,DateFormatTrait,DynamicFieldsTrait,DefaultGroupCompanyOrg,FileUploadTrait;
+    use HasFactory, DateFormatTrait, DynamicFieldsTrait, DefaultGroupCompanyOrg, FileUploadTrait, SoftDeletes;
 
     protected $table = 'erp_purchase_indents';
-    
+
     protected $fillable = [
-        'organization_id', 
-        'group_id', 
+        'organization_id',
+        'group_id',
         'company_id',
         'department_id',
         'store_id',
         'sub_store_id',
         'requester_type',
         'user_id',
-        'book_id', 
-        'book_code', 
+        'book_id',
+        'book_code',
         'document_number',
         'document_date',
         'revision_number',
@@ -87,11 +88,11 @@ class PurchaseIndent extends Model
     public function getSoIdAttribute()
     {
         return $this->items
-        ->pluck('so_id')
-        ->filter()
-        ->unique()
-        ->values()
-        ->toArray();
+            ->pluck('so_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
     }
 
     public function requester()
@@ -109,7 +110,7 @@ class PurchaseIndent extends Model
         $status = str_replace('_', ' ', $this->document_status);
         return ucwords($status);
     }
-    
+
     public function getDocumentStatusAttribute()
     {
         if ($this->attributes['document_status'] == ConstantHelper::APPROVAL_NOT_REQUIRED) {
@@ -117,7 +118,7 @@ class PurchaseIndent extends Model
         }
         return $this->attributes['document_status'];
     }
-    
+
     public function source()
     {
         return $this->hasOne(PurchaseIndentHistory::class, 'source_id');
@@ -191,16 +192,16 @@ class PurchaseIndent extends Model
     }
     public function getRequesterNameAttribute()
     {
-        $userId = $this -> user_id ?? $this -> created_by;
+        $userId = $this->user_id ?? $this->created_by;
         $authUser = AuthUser::find($userId);
-        return $authUser ?-> name;
+        return $authUser?->name;
     }
     public function getDepartmentNameAttribute()
     {
-        return $this -> department ?-> name;
+        return $this->department?->name;
     }
-       public function dynamic_fields()
+    public function dynamic_fields()
     {
-        return $this -> hasMany(ErpPiDynamicField::class, 'header_id');
+        return $this->hasMany(ErpPiDynamicField::class, 'header_id');
     }
 }

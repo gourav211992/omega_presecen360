@@ -68,10 +68,11 @@
                                     class="btn btn-secondary btn-sm mb-50 mb-sm-0">
                                     <i data-feather="arrow-left-circle"></i> Back
                                 </button>
-                                <button type="submit" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button"
+                                <button type="submit"
+                                    class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button distributeBtn"
                                     name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
-                                <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
-                                    value="submitted"><i data-feather="check-circle"></i> Submit</button>
+                                <button type="submit" class="btn btn-primary btn-sm submit-button distributeBtn"
+                                    name="action" value="submitted"><i data-feather="check-circle"></i> Submit</button>
                             </div>
                         </div>
                     </div>
@@ -136,8 +137,8 @@
                                                                 class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select class="form-select header_store_id" id="header_store_id"
-                                                            name="header_store_id">
+                                                        <select class="form-select store_id header_store_id"
+                                                            id="header_store_id" name="header_store_id">
                                                             @foreach ($locations as $erpStore)
                                                                 <option value="{{ $erpStore->id }}"
                                                                     {{ old('header_store_id', $selectedStoreId ?? '') == $erpStore->id ? 'selected' : '' }}>
@@ -174,7 +175,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="row" id="general_section">
+                                {{-- <div class="row" id="general_section">
                                     <div class="col-md-12">
                                         <div class="card quation-card">
                                             <div class="card-header newheader">
@@ -219,7 +220,7 @@
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                </div> --}}
                                 <div class="col-md-12 " id = "dynamic_fields_section">
                                 </div>
                                 <div class="card">
@@ -250,15 +251,20 @@
                                         </div>
 
                                         <div class="tab-content pb-1">
-                                            <div class="tab-pane active" id="poItems">
+                                            <div class="tab-pane active poItems" id="poItems">
                                                 <div class="text-end mb-50">
-                                                    <a href="javascript:;" id="deleteBtn"
-                                                        class="btn btn-sm btn-outline-danger me-50">
+                                                    <a href="javascript:;" id="distributeBtn"
+                                                        class="btn btn-sm btn-outline-success me-50 distributeBtn">
+                                                        <i data-feather="package"></i>
+                                                        Allocate
+                                                    </a>
+                                                    <a href="javascript:;" id="delete-po-items"
+                                                        class="btn btn-sm btn-outline-danger me-50 delete-po-items">
                                                         <i data-feather="x-circle"></i>
                                                         Delete
                                                     </a>
                                                     <a href="javascript:;" id="addNewItemBtn"
-                                                        class="btn btn-sm btn-outline-primary">
+                                                        class="btn btn-sm btn-outline-primary addNewItemBtn">
                                                         <i data-feather="plus"></i>
                                                         Add Item
                                                     </a>
@@ -268,7 +274,6 @@
                                                         <div class="table-responsive pomrnheadtffotsticky">
                                                             <table id="poItemsTable"
                                                                 class="ItemsTable poItemsTable table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad"
-                                                                data-json-key="components_json"
                                                                 data-row-selector="tr[id^='row_']">
                                                                 <thead id="poItemsThead" class="poItemsThead">
                                                                     <tr>
@@ -282,30 +287,62 @@
                                                                                     for="Email"></label>
                                                                             </div>
                                                                         </th>
-                                                                        <th width="285">Vendor</th>
-                                                                        <th width="285">Item Code</th>
-                                                                        <th width="208">Item Name</th>
-                                                                        <th>Attributes</th>
+                                                                        <th width="150">Item Code</th>
+                                                                        <th width="225">Item Name</th>
                                                                         <th>UOM</th>
-                                                                        <th>Qty</th>
-                                                                        <th>Rate</th>
-                                                                        <th>Dist. Type</th>
-                                                                        <th>Total Cost</th>
-                                                                        <th>Remark</th>
+                                                                        <th>Currency</th>
+                                                                        <th>Org Currency</th>
+                                                                        <th class="text-end">Qty</th>
+                                                                        <th class="text-end">Rate</th>
+                                                                        <th class="text-end">Po Value</th>
+                                                                        <th class="text-end">Value</th>
+                                                                        <th>Allocation Type</th>
+                                                                        <th width="225">Vendor</th>
+                                                                        <th width="150">Po No.</th>
+                                                                        <th width="150">Po Date</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody class="mrntableselectexcel poItemsTbody"
                                                                     id="poItemsTbody"></tbody>
+                                                                <tfoot>
+                                                                    <tr class="totalsubheadpodetail">
+                                                                        <td colspan="6"></td>
+                                                                        <td class="text-end total-po-qty"
+                                                                            id="total-po-qty">0.00</td>
+                                                                        <td colspan="1"></td>
+                                                                        <td class="text-end total-po-old-value"
+                                                                            id="total-po-old-value">0.00</td>
+                                                                        <td class="text-end total-po-value"
+                                                                            id="total-po-value">0.00</td>
+                                                                        <td colspan="4"></td>
+                                                                    </tr>
+                                                                    <tr valign="top">
+                                                                        <td colspan="14" rowspan="12">
+                                                                            <table
+                                                                                class="table border po-item-detail-display"
+                                                                                id="po-item-detail-display">
+                                                                                <tr>
+                                                                                    <td class="p-0">
+                                                                                        <h6
+                                                                                            class="text-dark mb-0 bg-light-primary py-1 px-50">
+                                                                                            <strong>Item Details</strong>
+                                                                                        </h6>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            </table>
+                                                                        </td>
+                                                                    </tr>
+                                                                </tfoot>
                                                             </table>
                                                         </div>
                                                     </div>
                                                 </div>
                                             </div>
-
-                                            <div class="tab-pane" id="grnItems">
+                                            {{-- GRN Items --}}
+                                            <div class="tab-pane grnItems" id="grnItems">
                                                 <div class="text-end mb-50">
-                                                    <a href="javascript:;" id="deleteBtnPullGrnItem"
-                                                        class="btn btn-sm btn-outline-danger me-50">
+                                                    <a href="javascript:;" id="delete-grn-items"
+                                                        class="btn btn-sm btn-outline-danger me-50 delete-grn-items">
                                                         <i data-feather="x-circle"></i> Delete</a>
                                                     <a href="javascript:;"
                                                         class="btn btn-outline-primary btn-sm mb-0 grnSelect">
@@ -327,19 +364,61 @@
                                                                             for="Email"></label>
                                                                     </div>
                                                                 </th>
-                                                                <th width="285">Vendor Name</th>
-                                                                <th width="285">Item Code</th>
-                                                                <th width="208">Item Name</th>
+                                                                <th width="225">Vendor Name</th>
+                                                                <th width="150">GRN No.</th>
+                                                                <th width="150">GRN Date</th>
+                                                                <th width="150">Item Code</th>
+                                                                <th width="225">Item Name</th>
                                                                 <th>Attributes</th>
                                                                 <th>UOM</th>
-                                                                <th>Qty</th>
-                                                                <th>Rate</th>
-                                                                <th>Total Cost</th>
-                                                                <th>Remark</th>
+                                                                <th>Currency</th>
+                                                                <th>Org Currency</th>
+                                                                <th class="text-end">Qty</th>
+                                                                <th class="text-end">Grn Value</th>
+                                                                <th class="text-end">Value</th>
+                                                                <th class="text-end">Weight</th>
+                                                                <th class="text-end">Volume(CFT)</th>
+                                                                <th width="200">Allocated Expense</th>
+                                                                <th class="text-end">Landed Cost</th>
                                                             </tr>
                                                         </thead>
-                                                        <tbody class="mrntableselectexcel grnItemsTbody"
+                                                        <tbody class="mrntableselectexcel itemTable grnItemsTbody"
                                                             id="grnItemsTbody"></tbody>
+                                                        <tfoot>
+                                                            <tr class="totalsubheadgrndetail">
+                                                                <td colspan="10"></td>
+                                                                <td class="text-end total-grn-qty" id="total-grn-qty">0.00
+                                                                </td>
+                                                                <td class="text-end total-old-grn-value"
+                                                                    id="total-old-grn-value">
+                                                                    0.00</td>
+                                                                <td class="text-end total-grn-value" id="total-grn-value">
+                                                                    0.00</td>
+                                                                <td class="text-end total-grn-weight"
+                                                                    id="total-grn-weight">0.00</td>
+                                                                <td class="text-end total-grn-volume"
+                                                                    id="total-grn-volume">0.00</td>
+                                                                <td class="total-allocated-cost"
+                                                                    id="total-allocated-cost">0.00</td>
+                                                                <td class="text-end total-landed-cost"
+                                                                    id="total-landed-cost">0.00</td>
+                                                            </tr>
+                                                            <tr valign="top">
+                                                                <td colspan="17" rowspan="12">
+                                                                    <table class="table border grn-item-detail-display"
+                                                                        id="grn-item-detail-display">
+                                                                        <tr>
+                                                                            <td class="p-0">
+                                                                                <h6
+                                                                                    class="text-dark mb-0 bg-light-primary py-1 px-50">
+                                                                                    <strong>Item Details</strong>
+                                                                                </h6>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </table>
+                                                                </td>
+                                                            </tr>
+                                                        </tfoot>
                                                     </table>
                                                 </div>
                                             </div>
@@ -364,7 +443,7 @@
                                             <div class="col-md-12">
                                                 <div class="mb-1">
                                                     <label class="form-label">Final Remarks</label>
-                                                    <textarea type="text" rows="4" name="remarks" class="form-control" placeholder="Enter Remarks here..."></textarea>
+                                                    <textarea type="text" rows="4" name="remark" class="form-control" placeholder="Enter Remarks here..."></textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -418,33 +497,6 @@
             </div>
         </div>
     </div>
-    {{-- Item Remark Modal --}}
-    <div class="modal fade" id="itemRemarkModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
-        <div class="modal-dialog  modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header p-0 bg-transparent">
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body px-sm-2 mx-50 pb-2">
-                    <h1 class="text-center mb-1" id="shareProjectTitle">Remarks</h1>
-                    {{--
-                    <p class="text-center">Enter the details below.</p>
-                    --}}
-                    <div class="row mt-2">
-                        <div class="col-md-12 mb-1">
-                            <label class="form-label">Remarks</label>
-                            <input type="hidden" name="row_count" id="row_count">
-                            <textarea class="form-control" placeholder="Enter Remarks"></textarea>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer justify-content-center">
-                    <button type="button" data-bs-dismiss="modal" class="btn btn-outline-secondary me-1">Cancel</button>
-                    <button type="button" class="btn btn-primary itemRemarkSubmit">Submit</button>
-                </div>
-            </div>
-        </div>
-    </div>
 @endsection
 @section('scripts')
     <script type="text/javascript">
@@ -455,15 +507,17 @@
         let processGrnUrl = '{{ route('exp-allocation.process.grn-item') }}';
         let getPoUrl = '{{ route('exp-allocation.get.po') }}';
         let getGrnUrl = '{{ route('exp-allocation.get.grn') }}';
+        let addItemRowUrl = '{{ route('exp-allocation.item.row') }}';
     </script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-attr-ui.js') }}"></script>
-    <script type="text/javascript" src="{{ asset('assets/js/modules/common-expense-alc.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/expense-allocation.js') }}"></script>
+    <script type="text/javascript" src="{{ asset('assets/js/modules/common-expense-alc.js') }}"></script>
+    <script type="text/javascript" src="{{ asset('assets/js/modules/dist-expense-alc.js') }}"></script>
     <script type="text/javascript" src="{{ asset('app-assets/js/file-uploader.js') }}"></script>
     <script>
         const selectedCostCenterId = "";
-        let currentProcessType = null;
+        currentProcessType = null;
         let tableRowCount = 0;
         window.onload = function() {
             localStorage.removeItem("selectedPoIds");
@@ -471,173 +525,7 @@
             currentProcessType = null;
         };
 
-        function initializeAutocomplete2(selector, type) {
-            $(selector).autocomplete({
-                source: function(request, response) {
-                    let selectedAllItemIds = [];
-                    $("#itemTable tbody [id*='row_']").each(function(index, item) {
-                        if (Number($(item).find('[name*="item_id"]').val())) {
-                            selectedAllItemIds.push(Number($(item).find('[name*="item_id"]').val()));
-                        }
-                    });
-                    $.ajax({
-                        url: '/search',
-                        method: 'GET',
-                        dataType: 'json',
-                        data: {
-                            q: request.term,
-                            type: 'service_item_list',
-                            selectedAllItemIds: JSON.stringify(selectedAllItemIds)
-                        },
-                        success: function(data) {
-                            response($.map(data, function(item) {
-                                return {
-                                    id: item.id,
-                                    label: `${item.item_name} (${item.item_code})`,
-                                    code: item.item_code || '',
-                                    item_id: item.id,
-                                    item_name: item.item_name,
-                                    uom_name: item.uom?.name,
-                                    uom_id: item.uom_id,
-                                    hsn_id: item.hsn?.id,
-                                    hsn_code: item.hsn?.code,
-                                    alternate_u_o_ms: item.alternate_u_o_ms,
-                                };
-                            }));
-                        },
-                        error: function(xhr) {
-                            console.error('Error fetching customer data:', xhr.responseText);
-                        }
-                    });
-                },
-                minLength: 0,
-                select: function(event, ui) {
-                    let $input = $(this);
-                    let itemCode = ui.item.code;
-                    let itemName = ui.item.value;
-                    let itemN = ui.item.item_name;
-                    let itemId = ui.item.item_id;
-                    let uomId = ui.item.uom_id;
-                    let uomName = ui.item.uom_name;
-                    let hsnId = ui.item.hsn_id;
-                    let hsnCode = ui.item.hsn_code;
-                    $input.attr('data-name', itemName);
-                    $input.attr('data-code', itemCode);
-                    $input.attr('data-id', itemId);
-                    let closestTr = $input.closest('tr');
-                    closestTr.find('[name*=item_id]').val(itemId);
-                    closestTr.find('[name*=item_code]').val(itemCode);
-                    closestTr.find('[name*=item_name]').val(itemN);
-                    closestTr.find('[name*=hsn_id]').val(hsnId);
-                    closestTr.find('[name*=hsn_code]').val(hsnCode);
-                    closestTr.find("td[id*='itemAttribute_']").html(defautAttrBtn);
-                    $input.val(itemCode);
-                    let uomOption = `<option value=${uomId}>${uomName}</option>`;
-                    if (ui.item?.alternate_u_o_ms) {
-                        for (let alterItem of ui.item.alternate_u_o_ms) {
-                            uomOption +=
-                                `<option value="${alterItem.uom_id}" ${alterItem.is_purchasing ? 'selected' : ''}>${alterItem.uom?.name}</option>`;
-                        }
-                    }
-                    closestTr.find('[name*=uom_id]').append(uomOption);
-                    closestTr.find('.attributeBtn').trigger('click');
-                    setTimeout(() => {
-                        if (ui.item.is_attr) {
-                            $input.closest('tr').find('.attributeBtn').trigger('click');
-                        } else {
-                            $input.closest('tr').find('.attributeBtn').trigger('click');
-                            $input.closest('tr').find('[name*="[order_qty]"]').val('').focus();
-                        }
-                    }, 100);
-                    getItemDetail(closestTr);
-                    getItemCostPrice($input.closest('tr'));
-                    return false;
-                },
-                change: function(event, ui) {
-                    if (!ui.item) {
-                        $(this).val("");
-                        // $('#itemId').val('');
-                        $(this).attr('data-name', '');
-                        $(this).attr('data-code', '');
-                    }
-                }
-            }).focus(function() {
-                if (this.value === "") {
-                    $(this).autocomplete("search", "");
-                }
-            });
-        }
 
-        /*Add New Row*/
-        $(document).on('click', '#addNewItemBtn', (e) => {
-            // for component item code
-            initializeAutocomplete2()
-            let rowsLength = $("#itemTable > tbody > tr").length;
-            /*Check last tr data shoud be required*/
-            let lastRow = $('#itemTable .mrntableselectexcel tr:last');
-            let lastTrObj = {
-                item_id: "",
-                attr_require: true,
-                row_length: lastRow.length
-            };
-
-            if (lastRow.length == 0) {
-                lastTrObj.attr_require = false;
-                lastTrObj.item_id = "0";
-            }
-
-            if (lastRow.length > 0) {
-                let item_id = lastRow.find("[name*='item_id']").val();
-                if (lastRow.find("[name*='attr_name']").length) {
-                    var emptyElements = lastRow.find("[name*='attr_name']").filter(function() {
-                        return $(this).val().trim() === '';
-                    });
-                    attr_require = emptyElements?.length ? true : false;
-                } else {
-                    attr_require = true;
-                }
-
-                lastTrObj = {
-                    item_id: item_id,
-                    attr_require: attr_require,
-                    row_length: lastRow.length
-                };
-
-                if ($("tr[id*='row_']:last").find("[name*='[attr_group_id]']").length == 0 && item_id) {
-                    lastTrObj.attr_require = false;
-                }
-            }
-
-            let actionUrl = '{{ route('exp-allocation.item.row') }}' + '?count=' + rowsLength +
-                '&component_item=' + JSON.stringify(lastTrObj);
-            fetch(actionUrl).then(response => {
-                return response.json().then(data => {
-                    if (data.status == 200) {
-                        // $("#submit-button").click();
-                        if (rowsLength) {
-                            $("#itemTable > tbody > tr:last").after(data.data.html);
-                        } else {
-                            $("#itemTable > tbody").html(data.data.html);
-                        }
-                        initializeAutocomplete2(".comp_item_code");
-                        $(".module_type").val('po');
-                        // focusAndScrollToLastRowInput();
-                    } else if (data.status == 422) {
-                        Swal.fire({
-                            title: 'Error!',
-                            text: data.message || 'An unexpected error occurred.',
-                            icon: 'error',
-                        });
-                    } else {
-                        Swal.fire({
-                            title: 'Error!',
-                            text: 'Someting went wrong!',
-                            icon: 'error',
-                        });
-                    }
-                });
-            });
-        });
 
         /*Delete Row*/
         $(document).on('click', '#deleteBtn', (e) => {

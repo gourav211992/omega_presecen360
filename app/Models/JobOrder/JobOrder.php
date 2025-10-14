@@ -27,7 +27,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class JobOrder extends Model
 {
-    use HasFactory,DateFormatTrait,DynamicFieldsTrait,FileUploadTrait,DefaultGroupCompanyOrg;
+    use HasFactory, DateFormatTrait, DynamicFieldsTrait, FileUploadTrait, DefaultGroupCompanyOrg;
     protected $table = 'erp_job_orders';
     protected $fillable = [
         'job_order_type',
@@ -107,11 +107,11 @@ class JobOrder extends Model
     public function getSoIdAttribute()
     {
         return $this->joProducts
-        ->pluck('so_id')
-        ->filter()
-        ->unique()
-        ->values()
-        ->toArray();
+            ->pluck('so_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
     }
     public function organization()
     {
@@ -159,19 +159,19 @@ class JobOrder extends Model
     }
     public function terms()
     {
-        return $this->hasMany(JoTerm::class,'jo_id');
+        return $this->hasMany(JoTerm::class, 'jo_id');
     }
     public function jo_items_delivery()
     {
-        return $this->hasMany(JoProductDelivery::class,'jo_id');
+        return $this->hasMany(JoProductDelivery::class, 'jo_id');
     }
     public function jo_ted()
     {
-        return $this->hasMany(JobOrderTed::class,'jo_id');
+        return $this->hasMany(JobOrderTed::class, 'jo_id');
     }
     public function jo_ted_tax()
     {
-        return $this->hasMany(JobOrderTed::class,'jo_id')->where('ted_type','Tax');
+        return $this->hasMany(JobOrderTed::class, 'jo_id')->where('ted_type', 'Tax');
     }
     public function getTotalAmountAttribute()
     {
@@ -183,17 +183,17 @@ class JobOrder extends Model
     }
     public function term()
     {
-        return $this->belongsTo(JoTerm::class,'jo_id');
+        return $this->belongsTo(JoTerm::class, 'jo_id');
     }
     public function ship_address()
     {
         // shipping_address addresses tbl id
-        return $this->belongsTo(ErpAddress::class,'shipping_address');
+        return $this->belongsTo(ErpAddress::class, 'shipping_address');
     }
     public function bill_address()
     {
         // billing_address addresses tbl id
-        return $this->belongsTo(ErpAddress::class,'billing_address');
+        return $this->belongsTo(ErpAddress::class, 'billing_address');
     }
     public function bill_address_details()
     {
@@ -205,7 +205,7 @@ class JobOrder extends Model
     }
     public function store_address()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type','location')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'location')->with(['city', 'state', 'country']);
     }
     public function billingAddress()
     {
@@ -217,31 +217,31 @@ class JobOrder extends Model
     }
     public function currency()
     {
-        return $this->belongsTo(Currency::class,'currency_id');
+        return $this->belongsTo(Currency::class, 'currency_id');
     }
     public function org_currency()
     {
-        return $this->belongsTo(Currency::class,'org_currency_id');
+        return $this->belongsTo(Currency::class, 'org_currency_id');
     }
     public function comp_currency()
     {
-        return $this->belongsTo(Currency::class,'comp_currency_id');
+        return $this->belongsTo(Currency::class, 'comp_currency_id');
     }
     public function paymentTerm()
     {
-        return $this->belongsTo(PaymentTerm::class,'payment_term_id');
+        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
     public function paymentTerms()
     {
-        return $this->belongsTo(PaymentTerm::class,'payment_term_id');
+        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
     public function TermsCondition()
     {
-        return $this->hasOne(JoTerm::class,'jo_id');
+        return $this->hasOne(JoTerm::class, 'jo_id');
     }
     public function TermsConditions()
     {
-        return $this->hasMany(JoTerm::class,'jo_id');
+        return $this->hasMany(JoTerm::class, 'jo_id');
     }
     // After item total assessment amount
     // public function getTotalAssessmentAmountHeaderAttribute()
@@ -251,15 +251,15 @@ class JobOrder extends Model
     /*Header Level Discount*/
     public function headerDiscount()
     {
-        return $this->hasMany(JobOrderTed::class,'jo_id')->where('ted_level', 'H')->where('ted_type','Discount');
+        return $this->hasMany(JobOrderTed::class, 'jo_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
     }
     public function discount_ted()
     {
-        return $this->hasMany(JobOrderTed::class,'jo_id')->where('ted_level', 'H')->where('ted_type','Discount');
+        return $this->hasMany(JobOrderTed::class, 'jo_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
     }
     public function itemDiscount()
     {
-        return $this->hasMany(JobOrderTed::class,'jo_id')->where('ted_level', 'D')->where('ted_type','Discount');
+        return $this->hasMany(JobOrderTed::class, 'jo_id')->where('ted_level', 'D')->where('ted_type', 'Discount');
     }
     /*Total discount header level total_header_disc_amount*/
     public function getTotalItemDiscAmountAttribute()
@@ -273,11 +273,11 @@ class JobOrder extends Model
     }
     public function headerExpenses()
     {
-        return $this->hasMany(JobOrderTed::class,'jo_id')->where('ted_type','Expense')->where('ted_level','H');
+        return $this->hasMany(JobOrderTed::class, 'jo_id')->where('ted_type', 'Expense')->where('ted_level', 'H');
     }
     public function expense_ted()
     {
-        return $this->hasMany(JobOrderTed::class,'jo_id')->where('ted_type','Expense')->where('ted_level','H');
+        return $this->hasMany(JobOrderTed::class, 'jo_id')->where('ted_type', 'Expense')->where('ted_level', 'H');
     }
     public function getTotalExpAssessmentAmountAttribute()
     {
@@ -313,7 +313,7 @@ class JobOrder extends Model
     }
     public function pi_item_mappings()
     {
-        return $this->hasMany(PiPoMapping::class,'jo_id','id');
+        return $this->hasMany(PiPoMapping::class, 'jo_id', 'id');
     }
     public function dynamic_fields()
     {

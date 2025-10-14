@@ -77,14 +77,13 @@ class CustomerController extends Controller
                 $query->where('customer_type', $request->customer_type);
             }
 
-            if ($categoryId = request(key: 'subcategory_id')) {
+            if ($categoryId = $request->input('subcategory_id')) {
                 $query->where('subcategory_id', $categoryId);
             }
 
-            if ($request->filled('sales_person')) {
-                $query->whereHas('salesPerson', function($q) use ($request) {
-                    $q->where('name', 'LIKE', "%{$request->sales_person}%");
-                });
+        
+            if ($salesPersonId = $request->input('sales_person_id')) {
+                $query->where('sales_person_id', $salesPersonId);
             }
 
             if ($request->has('gst_status') && !empty($request->gst_status)) {
@@ -159,15 +158,8 @@ class CustomerController extends Controller
                 ->make(true);
         }
 
-        $salesPersons = Employee::where('organization_id', $organizationId)->pluck('name', 'id');
-        $categories = Category::where('type', 'Customer')
-            ->doesntHave('subCategories')
-            ->where('status', ConstantHelper::ACTIVE)
-            ->get();
-
-        return view('procurement.customer.index', compact('salesPersons', 'categories'));
+        return view('procurement.customer.index');
     }
-
 
     public function updateOrganization(Request $request)
     {
@@ -243,21 +235,20 @@ class CustomerController extends Controller
         if (count($servicesBooks['services']) == 0) {
             return redirect()->route('/');
         }
-        $organizationTypes = OrganizationType::where('status', ConstantHelper::ACTIVE)->get();
-        $currencies = Currency::where('status', ConstantHelper::ACTIVE)->get();
-        $paymentTerms = PaymentTerm::where('status', ConstantHelper::ACTIVE)->get();
+        $organizationTypes = OrganizationType::select('id', 'name')->where('status', ConstantHelper::ACTIVE)->get();
+        $currencies = Currency::select('id', 'name', 'short_name', 'symbol')->where('status', ConstantHelper::ACTIVE)->get();
+        $paymentTerms = PaymentTerm::select('id', 'name') ->where('status', ConstantHelper::ACTIVE) ->get();
         $titles = ConstantHelper::TITLES;
         $status = ConstantHelper::STATUS;
         $options = ConstantHelper::STOP_OPTIONS;
         $customerTypes = ConstantHelper::CUSTOMER_TYPES;
         $addressTypes = ConstantHelper::ADDRESS_TYPES;
-        $countries = Country::where('status', 'active')->get();
         $parentUrl = ConstantHelper::CUSTOMER_SERVICE_ALIAS;
         $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         $user = Helper::getAuthenticatedUser();
-        $organization = $user->organization;
+        $organization = Organization::select('id', 'name', 'currency_id')->where('id', $user->organization_id)->first();
         $groupId = $organization->group_id;
-        $groupOrganizations = Organization::where('status', 'active')
+        $groupOrganizations = Organization::select('id', 'name')->where('status', 'active')
         ->where('group_id', $groupId)
         ->where('id', '!=', $organization->id)
         ->get();
@@ -277,9 +268,6 @@ class CustomerController extends Controller
                 }
          }
         }
-        if (count($services['services']) == 0) {
-           return redirect() -> route('/');
-        }
         return view('procurement.customer.create', [
             'organizationTypes' => $organizationTypes,
             'titles' => $titles,
@@ -288,7 +276,6 @@ class CustomerController extends Controller
             'status' => $status,
             'options' => $options,
             'customerTypes' => $customerTypes,
-            'countries' => $countries,
             'addressTypes' => $addressTypes,
             'customerCodeType'=>$customerCodeType,
             'organization'=>$organization,
@@ -534,11 +521,11 @@ class CustomerController extends Controller
             $ogCustomer = Customer::findOrFail($id);
         }
         $gstStateId = $customer->gst_state_id;
-        $state = $gstStateId ? State::find($gstStateId) : null;
-        $country = $state ? Country::find($state->country_id) : null;
-        $organizationTypes = OrganizationType::where('status', ConstantHelper::ACTIVE)->get();
-        $currencies = Currency::where('status', ConstantHelper::ACTIVE)->get();
-        $paymentTerms = PaymentTerm::where('status', ConstantHelper::ACTIVE)->get();
+        $state = $gstStateId ? State::select('id', 'name', 'state_code')->find($gstStateId) : null;
+        $country = $state ? Country::select('id', 'name', 'code')->find($state->country_id) : null;
+        $organizationTypes = OrganizationType::select('id', 'name')->where('status', ConstantHelper::ACTIVE)->get();
+        $currencies = Currency::select('id', 'name', 'short_name', 'symbol')->where('status', ConstantHelper::ACTIVE)->get();
+        $paymentTerms = PaymentTerm::select('id', 'name')->where('status', ConstantHelper::ACTIVE)->get();
         $titles = ConstantHelper::TITLES;
         $notificationData = $customer? $customer->notification : [];
         $notifications = is_array($notificationData) ? $notificationData : json_decode($notificationData, true);
@@ -547,7 +534,7 @@ class CustomerController extends Controller
         $options = ConstantHelper::STOP_OPTIONS;
         $customerTypes = ConstantHelper::CUSTOMER_TYPES;
         $addressTypes = ConstantHelper::ADDRESS_TYPES;
-        $countries = Country::where('status', 'active')->get();
+        $countries = Country::select('id', 'name', 'code')->where('status', 'active')->get();
         $ledgerGroups = collect();
         $ledgerId = $customer->ledger_id ?? null;
         $createLedger = $request->input('create_ledger');
@@ -580,27 +567,25 @@ class CustomerController extends Controller
         $parentUrl = ConstantHelper::CUSTOMER_SERVICE_ALIAS;
         $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         $user = Helper::getAuthenticatedUser();
-        $organization = $user->organization;
+        $organization = Organization::select('id', 'name', 'currency_id') ->where('id', $user->organization_id) ->first();
         $groupId = $organization->group_id;
-        $groupOrganizations = Organization::where('status', 'active')
+        $groupOrganizations = Organization::select('id', 'name')
+        ->where('status', 'active')
         ->where('group_id', $groupId)
         ->where('id', '!=', $organization->id)
         ->get();
-        $customerCodeType ='Manual';
-        if ($services && $services['current_book']) {
-            if (isset($services['current_book'])) {
-                $book=$services['current_book'];
-                if ($book) {
-                    $parameters = new stdClass();
-                    foreach (ServiceParametersHelper::SERVICE_PARAMETERS as $paramName => $paramNameVal) {
-                        $param = ServiceParametersHelper::getBookLevelParameterValue($paramName, $book->id)['data'];
-                        $parameters->{$paramName} = $param;
-                    }
-                    if (isset($parameters->customer_code_type) && is_array($parameters->customer_code_type)) {
-                        $customerCodeType = $parameters->customer_code_type[0] ?? null;
-                    }
-                }
-         }
+        $customerCodeTypeOriginal = $customer->customer_code_type ?? 'Manual';
+        $customerCodeType = $customerCodeTypeOriginal;
+        $book = $services['current_book'] ?? null;
+
+        if ($customerCodeTypeOriginal === 'Auto' && $book) {
+            $parameters = new stdClass();
+            foreach (ServiceParametersHelper::SERVICE_PARAMETERS as $paramName => $paramNameVal) {
+                $parameters->{$paramName} = ServiceParametersHelper::getBookLevelParameterValue($paramName, $book->id)['data'] ?? null;
+            }
+            if (!empty($parameters->customer_code_type) && is_array($parameters->customer_code_type)) {
+                $customerCodeType = $parameters->customer_code_type[0] ?? $customerCodeType;
+            }
         }
         $revision_number = $customer->revision_number;
         $userType = Helper::userCheck();
@@ -1222,8 +1207,9 @@ class CustomerController extends Controller
     }
 
 
-    public function destroy($id)
+   public function destroy($id)
     {
+        DB::beginTransaction();
         try {
             $customer = Customer::findOrFail($id);
 
@@ -1234,12 +1220,12 @@ class CustomerController extends Controller
                 'erp_notes' => ['noteable_id'],
                 'erp_customer_items' => ['customer_id'],
                 'erp_compliances' => ['morphable_id'],
-
             ];
 
             $result = $customer->deleteWithReferences($referenceTables);
 
             if (!$result['status']) {
+                DB::rollBack();
                 return response()->json([
                     'status' => false,
                     'message' => $result['message'],
@@ -1247,12 +1233,14 @@ class CustomerController extends Controller
                 ], 400);
             }
 
+            DB::commit();
             return response()->json([
                 'status' => true,
-                'message' =>'Record deleted successfully.',
+                'message' => 'Record deleted successfully.',
             ], 200);
 
         } catch (Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => false,
                 'message' => 'An error occurred while deleting the customer: ' . $e->getMessage()

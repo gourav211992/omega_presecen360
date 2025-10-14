@@ -76,22 +76,16 @@
                             <div class="modal-body flex-grow-1">
                                 <div class="mb-1">
                                     <label class="form-label">Group</label>
-                                    <select id="filter-category" name="subcategory_id" class="form-select">
-                                        <option value="">Select Group</option>
-                                        @foreach($categories as $category)
-                                            <option value="{{ $category->id }}">{{ $category->name }}</option>
-                                        @endforeach
-                                    </select>
+                                    <input type="text" class="form-control category-autocomplete" placeholder="Type to search group">
+                                    <input type="hidden" id="filter-category" name="subcategory_id" class="category-id">
+                                    <input type="hidden" name="category_type" class="category-type" value="Customer">
+                                    <input type="hidden" name="cat_initials" class="cat_initials-id" value="">
                                 </div>
                                 <!-- Sales Person -->
                                 <div class="mb-1">
                                     <label class="form-label">Sales Person</label>
-                                    <select id="filter-sales-person" class="form-select">
-                                        <option value="">Select Sales Person</option>
-                                        @foreach($salesPersons as $id => $name)
-                                            <option value="{{ $name }}">{{ $name }}</option>
-                                        @endforeach
-                                    </select>
+                                    <input type="text" id="sales-person" class="form-control sales-person-autocomplete" placeholder="Type to search sales-person">
+                                    <input type="hidden" id="filter-sales-person" name="sales_person_id" class="sales-person-id">
                                 </div>
                                   <!-- Customer Type -->
                                 <div class="mb-1">
@@ -155,7 +149,7 @@
 
                     d.customer_type = $('#filter-customer-type').val();
                     d.subcategory_id = $('#filter-category').val(); 
-                    d.sales_person = $('#filter-sales-person').val(); 
+                    d.sales_person_id = $('#filter-sales-person').val(); 
                     d.gst_status = $('#filter-gst-status').val();
                     d.status = $('#filter-status').val();
                 }

@@ -2,14 +2,11 @@
 
 namespace App\Services\Mailers;
 
-use Error;
 use Log;
 use Mail;
 use App\Models\MailBox;
 use App\Services\LoggerFactory;
 use Illuminate\Support\Facades\View;
-use Swift_SmtpTransport;
-use Swift_Mailer;
 
 class Mailer
 {

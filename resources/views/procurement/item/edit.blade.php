@@ -265,6 +265,22 @@
                                                     <div class="col-md-5">
                                                         <input type="text"  name="item_code" class="form-control" value="{{ old('item_code', $item->item_code ??'') }}" />
                                                     </div>
+                                                      <!-- Hidden input always No -->
+                                                    <input type="hidden" name="is_override_code" value="No">
+                                                    {{-- Checkbox only if itemCodeType is Auto and isItemReferenced is false --}}
+                                                     @if($itemCodeType === 'Auto' && !$isItemReferenced && ($isOverrideCode ?? 'No') === 'Yes')
+                                                        <div class="col-md-4">
+                                                            <div class="form-check mt-1">
+                                                                <input type="checkbox" name="is_override_code" value="Yes" 
+                                                                    id="override_code" 
+                                                                    class="form-check-input"
+                                                                    {{ ($item->is_override_code ?? 'No') === 'Yes' ? 'checked' : '' }}>
+                                                                <label class="form-check-label" for="override_code">
+                                                                    Override Auto-Generated Code
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                     @endif
                                                 </div>
 
                                                 <div class="row align-items-center mb-1">
@@ -384,6 +400,11 @@
                                                                             @if($approvalHist->approval_date)
                                                                                 <h6>
                                                                                     {{ \Carbon\Carbon::parse($approvalHist->approval_date)->format('d-m-Y') }}
+                                                                                </h6>
+                                                                            @endif
+                                                                            @if($approvalHist->created_at)
+                                                                                <h6>
+                                                                                    {{ \Carbon\Carbon::parse($approvalHist->created_at)->timezone('Asia/Kolkata')->format('d/m/Y | h.iA') }}
                                                                                 </h6>
                                                                             @endif
                                                                             @if($approvalHist->remarks)
@@ -1092,6 +1113,8 @@
                                                                             <th>S.NO</th>
                                                                             <th width="300px">Vendor Name</th>
                                                                             <th>Vendor Code</th>
+                                                                            <th>Min Order Qty</th> 
+                                                                            <th>Lead Days</th>  
                                                                             <th id="cost-price-header">Cost Price</th>
                                                                             <th>Purchase Uom</th>
                                                                             <th>Action</th>
@@ -1108,6 +1131,8 @@
                                                                                 <input type="hidden" id="vendor-id_{{ $index }}" name="approved_vendor[{{ $index }}][vendor_id]" class="vendor-id" value="{{ $vendor->vendor_id ?? '' }}">
                                                                             </td>
                                                                             <td><input type="text" name="approved_vendor[{{ $index }}][vendor_code]" class="form-control mw-100" readonly id="item-code_{{ $index }}" value="{{ $vendor->vendor_code ??'' }}" ></td>
+                                                                            <td><input type="text" name="approved_vendor[{{ $index }}][minimum_order_qty]" class="form-control mw-100" value="{{ $vendor->minimum_order_qty ?? '' }}"></td>
+                                                                            <td><input type="text" name="approved_vendor[{{ $index }}][lead_days]" class="form-control mw-100" value="{{ $vendor->lead_days ?? '' }}"></td>
                                                                             <td><input type="text" name="approved_vendor[{{ $index }}][cost_price]"  class="form-control cost-price-approved-vendor mw-100"  id="cost-price_{{ $index }}" value="{{ number_format($vendor->cost_price, 2) }}"></td>
                                                                             <td>
                                                                             <select name="approved_vendor[{{ $index }}][uom_id]" id="uom_{{ $index }}" class="form-select mw-100">
@@ -1133,6 +1158,8 @@
                                                                                 <input type="hidden" id="vendor-id_0" name="approved_vendor[0][vendor_id]" class="vendor-id">
                                                                             </td>
                                                                             <td><input type="text" name="approved_vendor[0][vendor_code]" class="form-control mw-100" id="item-code_0" readonly></td>
+                                                                            <td><input type="text" name="approved_vendor[0][minimum_order_qty]" class="form-control mw-100"></td>
+                                                                            <td><input type="text" name="approved_vendor[0][lead_days]" class="form-control mw-100"></td>
                                                                             <td><input type="text" name="approved_vendor[0][cost_price]" id="cost-price_0" class="form-control cost-price-approved-vendor mw-100"></td>
                                                                             <td>
                                                                                 <select name="approved_vendor[0][uom_id]" id="uom_0" class="form-select mw-100" disabled>
@@ -2698,11 +2725,29 @@
         const typeRadios = $('input[name="type"]');
         const isEditable = {{ isset($item) && $item->status === 'draft' ? 'true' : 'false' }};
         var isItemReferenced= @json($isItemReferenced);
-        if (itemCodeType === 'Manual' && isEditable) {
-            itemCodeInput.prop('readonly', false); 
-        } else {
-            itemCodeInput.prop('readonly', true); 
+        const isOverrideCodeCheckbox = $('#override_code');
+        let lastAutoCode = itemCodeInput.val();
+        function updateItemCodeReadonly() {
+            if (isItemReferenced) {
+                isOverrideCodeCheckbox.prop('disabled', true);
+                itemCodeInput.prop('readonly', true);
+                return; 
+            }
+            if (itemCodeType === 'Manual') {
+                itemCodeInput.prop('readonly', false);
+            } else if (itemCodeType === 'Auto' && isOverrideCodeCheckbox.length) {
+                if (isOverrideCodeCheckbox.is(':checked')) {
+                    itemCodeInput.prop('readonly', false);
+                } else {
+                    itemCodeInput.prop('readonly', true);
+                    itemCodeInput.val(lastAutoCode);
+                }
+            } else {
+                itemCodeInput.prop('readonly', true);
+            }
         }
+        updateItemCodeReadonly();
+        isOverrideCodeCheckbox.on('change', updateItemCodeReadonly);
         function getSelectedSubTypeSuffix() {
                 let selectedSubTypes = [];
                 let hasRawMaterial = false;

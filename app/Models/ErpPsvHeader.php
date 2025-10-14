@@ -136,5 +136,27 @@ class ErpPsvHeader extends Model
     {
         return $this->hasMany(ErpPsvBatchDetail::class, 'header_id');
     }
+
+    public function batches()
+    {
+        return $this->hasMany(ErpPsvBatchDetail::class, 'header_id');
+    }
+
+    public function pickingItems()
+    {
+        return $this->hasMany(ErpPsvItem::class, 'psv_header_id')
+            ->where('adjusted_qty','<',0)
+            ->selectRaw('id, psv_header_id, item_id, adjusted_qty');
+    }
+
+    public function getTotalQuantityAttribute()
+    {
+        return $this->pickingItems
+        ->sum(function ($item) {
+            $qty = abs((int) $item->adjusted_qty);
+            $count = (int) optional($item->item)->storage_uom_count ?? 1;
+            return $qty * ($count ?: 1);
+        });
+    }
     
 }

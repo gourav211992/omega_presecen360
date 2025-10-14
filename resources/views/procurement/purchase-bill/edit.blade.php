@@ -1924,19 +1924,24 @@
                         book_id: bookId,
                         document_id: documentId,
                     }),
-                    success: function(data) {
-                        const response = data.data;
-                        if (response.status) {
+                    success: function(response) {
+                        if (response.status === 'success') {
                             Swal.fire({
                                 title: 'Success!',
-                                text: response.message,
+                                text: response.data.message || 'Document posted successfully.',
                                 icon: 'success',
                             });
                             location.reload();
-                        } else {
+                        } else if (response.status === 'error') {
                             Swal.fire({
                                 title: 'Error!',
-                                text: response.message,
+                                text: response.message || 'Some error occurred.',
+                                icon: 'error',
+                            });
+                        } else if (response.status === 'exception') {
+                            Swal.fire({
+                                title: 'Error!',
+                                text: response.message || 'An exception occurred.',
                                 icon: 'error',
                             });
                         }

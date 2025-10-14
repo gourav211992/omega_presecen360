@@ -77,8 +77,10 @@ class ServiceParametersHelper
     const ISSUE_TYPE_PARAM = "issue_type";
     const REQUESTER_TYPE_PARAM = "requester_type";
     const ITEM_CODE_TYPE_PARAM = "item_code_type";
+    const ITEM_CODE_TYPE_OVERRIDE_PARAM = "override_auto_generated_code";
     const LEDGER_CODE_TYPE_PARAM = "ledger_code_type";
     const ITEM_CODE_TYPE_PARAM_VALUES = ['Auto', 'Manual'];
+    const ITEM_CODE_TYPE_OVERRIDE_PARAM_VALUES = ['Yes', 'No'];
     const LEDGER_CODE_TYPE_PARAM_VALUES = ['Auto', 'Manual'];
     const PROCUREMENT_TYPE_PARAM = "procurement_type";
     const PROCUREMENT_TYPE_VALUES = ['Make to order', 'Buy to order', 'All'];
@@ -91,6 +93,14 @@ class ServiceParametersHelper
             "name" => self::ITEM_CODE_TYPE_PARAM,
             "applicable_values" => self::ITEM_CODE_TYPE_PARAM_VALUES,
             "default_value" => ['Auto'],
+            'is_multiple' => false,
+            'service_level_visibility' => true,
+            'type' => self::COMMON_PARAMETERS
+        ],
+         [
+            "name" => self::ITEM_CODE_TYPE_OVERRIDE_PARAM,
+            "applicable_values" => self::ITEM_CODE_TYPE_OVERRIDE_PARAM_VALUES,
+            "default_value" => ['No'],
             'is_multiple' => false,
             'service_level_visibility' => true,
             'type' => self::COMMON_PARAMETERS
@@ -184,6 +194,7 @@ class ServiceParametersHelper
         self::BOM_BATCH_INHERIT_REQUIRED => 'Batch Inheritance Required',
         self::PO_PROCUREMENT_TYPE => 'Procurement Type',
         self::OK_TO_RECIEVE_BOOK_PARAM => 'Ok To Receive Series',
+        self::ITEM_CODE_TYPE_OVERRIDE_PARAM  => 'Override Auto-Generated Code',
         self::SO_GATE_ENTRY_REQUIRED_PARAM => 'Inter Company DN Gate Entry Required?',
         self::SO_CUSTOMER_PO_REQUIRED_PARAM => 'Customer PO No. Required?',
     ];
@@ -227,6 +238,7 @@ class ServiceParametersHelper
         self::BOM_BATCH_INHERIT_REQUIRED => self::BOM_BATCH_INHERIT_REQUIRED_VALUES,
         self::INSPECTION_REQUIRED_PARAM => self::INSPECTION_REQUIRED_PARAM_VALUES,
         self::OK_TO_RECIEVE_BOOK_PARAM => [],
+        self::ITEM_CODE_TYPE_OVERRIDE_PARAM=>self::ITEM_CODE_TYPE_OVERRIDE_PARAM_VALUES,
         self::SO_GATE_ENTRY_REQUIRED_PARAM => self::SO_GATE_ENTRY_REQUIRED_PARAM_VALUES,
         self::SO_CUSTOMER_PO_REQUIRED_PARAM => self::SO_CUSTOMER_PO_REQUIRED_PARAM_VALUES,
     ];
@@ -2446,11 +2458,36 @@ class ServiceParametersHelper
             'service_level_visibility' => true
         ],
         [
-            "name" => self::TAX_REQUIRED_PARAM,
-            "applicable_values" => self::TAX_REQUIRED_PARAM_VALUES,
-            "default_value" => ['yes'],
+            "name" => self::GL_POSTING_REQUIRED_PARAM,
+            "applicable_values" => self::GL_POSTING_REQUIRED_PARAM_VALUES,
+            "default_value" => ['no'],
             'is_multiple' => false,
-            'service_level_visibility' => true
+            'service_level_visibility' => true,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::GL_POSTING_SERIES_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => false,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::POST_ON_ARROVE_PARAM,
+            "applicable_values" => self::POST_ON_ARROVE_PARAM_VALUES,
+            "default_value" => ['no'],
+            'is_multiple' => false,
+            'service_level_visibility' => true,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::GL_SEPERATE_DISCOUNT_PARAM,
+            "applicable_values" => self::GL_SEPERATE_DISCOUNT_PARAM_VALUE,
+            "default_value" => ['no'],
+            'is_multiple' => false,
+            'service_level_visibility' => true,
+            'type' => self::GL_PARAMETERS
         ],
     ];
 

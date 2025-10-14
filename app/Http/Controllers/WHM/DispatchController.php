@@ -12,6 +12,7 @@ use App\Http\Resources\WHM\UnloadingResource;
 use App\Lib\Services\WHM\DispatchJob;
 use App\Models\ErpInvoiceItem;
 use App\Models\ErpSaleInvoice;
+use App\Models\StockLedgerReservation;
 use App\Models\WHM\ErpItemUniqueCode;
 use App\Models\WHM\ErpWhmJob;
 use Illuminate\Http\Request;
@@ -144,10 +145,11 @@ class DispatchController extends Controller
 
         $status = $request->status;
         $job = ErpWhmJob::find($request->job_id);
-
-        $item = ErpInvoiceItem::find($request->sale_invoice_item_id);
         
-        $plitemIds = ErpInvoiceItem::where('sale_invoice_id',$job->morphable_id)->pluck('pl_item_detail_id')->toArray();
+        $invoiceItemIds = ErpInvoiceItem::where('sale_invoice_id',$job->morphable_id)->pluck('id')->toArray();
+        $reservedStock = (new DispatchJob())->reservedStock($job, $invoiceItemIds);;
+        $transType = $reservedStock['transType'];
+        $plItemIds = $reservedStock['receiptIds'];
 
         $scannedPacketsUids = ErpItemUniqueCode::where('job_id', $request->job_id)
                 ->where('job_type',CommonHelper::DISPATCH)
@@ -159,9 +161,10 @@ class DispatchController extends Controller
         $pendingTasksQuery = ErpItemUniqueCode::with(['vendor' => function ($q) {
                 $q->select('id', 'vendor_code', 'company_name');
             }])
-        ->whereIn('morphable_id',$plitemIds)
+        ->whereIn('morphable_id',$plItemIds)
         ->where('job_type',CommonHelper::PICKING)
-        ->where('doc_type',CommonHelper::RECEIPT);
+        ->where('doc_type',CommonHelper::RECEIPT)
+        ->whereIn('trns_type',$transType);
 
         if($status == CommonHelper::PENDING){
             $pendingTasksQuery->whereNull('utilized_id');
@@ -175,7 +178,7 @@ class DispatchController extends Controller
         }
 
         $pendingTasks = $pendingTasksQuery->select('uid','job_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_uid','item_name','item_code','item_attributes','status','vendor_id')
-        ->get();
+        ->paginate(CommonHelper::PAGE_LENGTH_10);
 
         return [
             'message' => 'Records fetched successfully',
@@ -201,7 +204,7 @@ class DispatchController extends Controller
             $scannedPackets = ErpItemUniqueCode::where('job_id',$request->job_id)
             ->where('status',CommonHelper::SCANNED)
             ->select('uid','job_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_uid','item_name','item_code','item_attributes','status')
-            ->get();
+            ->paginate(CommonHelper::PAGE_LENGTH_10);
 
             \DB::commit();
             return [
@@ -216,7 +219,7 @@ class DispatchController extends Controller
     public function saveAsDraft(Request $request){
         $validator = Validator::make($request->all(),[
             'job_id' => ['required'],
-            'packet_ids' => ['required', 'array'],
+            'packet_ids' => ['required', 'array', 'max:50'],
         ],[
             'job_id.required' => 'Job id is required',
             'packet_ids.required' => 'Scan a packet to draft the form',
@@ -233,11 +236,17 @@ class DispatchController extends Controller
             ]);
         }
 
-        $plitemIds = ErpInvoiceItem::where('sale_invoice_id',$job->morphable_id)->pluck('pl_item_detail_id')->toArray();
+        $invoiceItemIds = ErpInvoiceItem::where('sale_invoice_id',$job->morphable_id)->pluck('id')->toArray();
+        $reservedStock = (new DispatchJob())->reservedStock($job, $invoiceItemIds);;
+        $transType = $reservedStock['transType'];
+        $plItemIds = $reservedStock['receiptIds'];
+        $reservedQty = $reservedStock['reservedQty'];
 
-        $packets = ErpItemUniqueCode::whereIn('morphable_id',$plitemIds)
+        $packets = ErpItemUniqueCode::whereIn('morphable_id',$plItemIds)
             ->whereIn('item_uid', $request->packet_ids)
             ->where('job_type', CommonHelper::PICKING)
+            ->where('doc_type', CommonHelper::RECEIPT)
+            ->whereIn('trns_type', $transType)
             // ->whereNull('utilized_id')
             ->get();
 
@@ -271,25 +280,19 @@ class DispatchController extends Controller
                     ->whereNull('utilized_id');
                 })->orWhereIn('utilized_id',$scannedPacketsUid);
             })
-            ->whereIn('morphable_id',$plitemIds)
+            ->whereIn('morphable_id',$plItemIds)
             ->where('job_type', CommonHelper::PICKING)
             ->where('doc_type', CommonHelper::RECEIPT)
+            ->whereIn('trns_type', $transType)
             ->get();
-
-        $invoiceItems = ErpInvoiceItem::where('sale_invoice_id', $job->morphable_id)
-            ->select('id', 'item_id', 'pl_item_detail_id', 'inventory_uom_qty')
-            ->get()
-            ->pluck('inventory_uom_qty', 'pl_item_detail_id')
-            ->toArray();
 
         foreach ($packetData->groupBy('morphable_id') as $plItemId => $plItems) {
             foreach ($plItems->groupBy('packet_no') as $packetNo => $qrs) {
-                $inventoryQty = $invoiceItems[$plItemId];
+                $inventoryQty = $reservedQty[$plItemId];
 
                 // Only consider QRs that are not already utilized (i.e. not scanned earlier)
                 $currentScanQrs = $qrs->filter(function ($qr) use ($scannedPacketsUid) {
                     return in_array($qr->utilized_id, $scannedPacketsUid);
-                    // return is_null($qr->utilized_id) || !in_array($qr->utilized_id, $scannedPacketsUid);
 
                 });
 
@@ -314,10 +317,10 @@ class DispatchController extends Controller
             }
 
             $header = $job->morphable;
-            $invoiceItemIds = ErpInvoiceItem::where('sale_invoice_id', $job->morphable_id)
-                ->pluck('id', 'pl_item_detail_id')
-                ->toArray();
+            $invoiceItemIds = $reservedStock['reservedItems'];
 
+            // Process only unutilized packets
+            $packets = $packets->whereNull('utilized_id');
             (new DispatchJob())->scanQRCodes($header, $job->id, $packets, $user->id, $invoiceItemIds, 'App\Models\ErpInvoiceItem');
 
             \DB::commit();

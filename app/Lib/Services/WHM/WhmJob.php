@@ -6,6 +6,7 @@ use App\Helpers\CommonHelper;
 use App\Models\WHM\ErpItemUniqueCode;
 use App\Models\WHM\ErpWhmJob;
 use Illuminate\Support\Str;
+use DB;
 
 class WhmJob
 {
@@ -604,10 +605,59 @@ class WhmJob
     //     }
     // }
 
-    public function binTransfer($items, $storagePointId, $userId){
-        foreach($items as $item){
-            $newRecord = ErpItemUniqueCode::create([
-                'uid' => $this->generateUniqueUid(),
+    // public function binTransfer($items, $storagePointId, $userId){
+    //     foreach($items as $item){
+    //         $newRecord = ErpItemUniqueCode::create([
+    //             'uid' => $this->generateUniqueUid(),
+    //             'job_id' => $item->job_id,
+    //             'organization_id' => $item->organization_id,
+    //             'group_id' => $item->group_id,
+    //             'company_id' => $item->company_id,
+    //             'morphable_type' => $item->morphable_type,
+    //             'morphable_id' => $item->morphable_id,
+    //             'job_type' => CommonHelper::TRANSFERRED,
+    //             'trns_type' => $item->trns_type,
+    //             'doc_type' => $item->doc_type,
+    //             'doc_no' => $item->doc_no,
+    //             'doc_date' => $item->doc_date,
+    //             'book_id' => $item->book_id,
+    //             'store_id' => $item->store_id,
+    //             'sub_store_id' => $item->sub_store_id,
+    //             'book_code' => $item->book_code,
+    //             'item_attributes' => json_encode($item->item_attributes),
+    //             'item_id' => $item->item_id,
+    //             'item_name' => $item->item_name,
+    //             'item_code' => $item->item_code,
+    //             'vendor_id' => $item->vendor_id,
+    //             'item_uid' => $item->item_uid,
+    //             'type' => $item->type,
+    //             'qty' => $item->qty,
+    //             'status' => $item->status,
+    //             'packet_no' => $item->packet_no,
+    //             'total_packets' => $item->total_packets,
+    //             'storage_point_id' => $storagePointId,
+    //             'created_at' => now(),
+    //             'updated_at' => now(),
+    //             'action_by' => $userId,
+    //             'action_at' => now()
+    //         ]);
+
+    //         $item->utilized_id = $newRecord->uid;
+    //         $item->save();
+    //     }
+    // }
+
+    public function binTransfer($items, $storagePointId, $userId)
+    {
+        $now = now();
+        $insertData = [];
+        $updateData = [];
+
+        foreach ($items as $item) {
+            $newUid = $this->generateUniqueUid();
+
+            $insertData[] = [
+                'uid' => $newUid,
                 'job_id' => $item->job_id,
                 'organization_id' => $item->organization_id,
                 'group_id' => $item->group_id,
@@ -635,15 +685,32 @@ class WhmJob
                 'packet_no' => $item->packet_no,
                 'total_packets' => $item->total_packets,
                 'storage_point_id' => $storagePointId,
-                'created_at' => now(),
-                'updated_at' => now(),
+                'created_at' => $now,
+                'updated_at' => $now,
                 'action_by' => $userId,
-                'action_at' => now()
-            ]);
+                'action_at' => $now
+            ];
 
-            $item->utilized_id = $newRecord->uid;
-            // $item->status = CommonHelper::TRANSFERRED;
-            $item->save();
+            // Store old UID and new UID to update original items
+            $updateData[$item->uid] = $newUid;
         }
+
+        // Bulk insert new records
+        \DB::table('erp_item_unique_codes')->insert($insertData);
+
+        // Prepare CASE WHEN query
+        $cases = [];
+        $uids = [];
+        foreach ($updateData as $uid => $newUid) {
+            $cases[] = "WHEN '{$uid}' THEN '{$newUid}'";
+            $uids[] = "'{$uid}'";
+        }
+        $caseSql = implode(' ', $cases);
+        $uidsList = implode(',', $uids);
+
+        $sql = "UPDATE erp_item_unique_codes SET utilized_id = CASE uid {$caseSql} END WHERE uid IN ({$uidsList})";
+        DB::statement($sql);
+
     }
+
 }

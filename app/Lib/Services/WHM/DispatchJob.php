@@ -4,6 +4,7 @@ namespace App\Lib\Services\WHM;
 
 use App\Helpers\CommonHelper;
 use App\Helpers\ConstantHelper;
+use App\Models\StockLedgerReservation;
 use App\Models\WHM\ErpItemUniqueCode;
 use App\Models\WHM\ErpWhmJob;
 use Illuminate\Support\Str;
@@ -80,5 +81,24 @@ class DispatchJob
             $packet->utilized_id = $newRecord->uid;
             $packet->save();
         }
+    }
+
+    public function reservedStock($job, $issueDetailIds)
+    {
+        $reservedStock = StockLedgerReservation::where('issue_book_type', $job->trns_type)
+            ->where('issue_header_id', $job->morphable_id)
+            ->whereIn('issue_detail_id', $issueDetailIds);
+
+        $transType = $reservedStock->pluck('receipt_book_type')->toArray();
+        $receiptIds = $reservedStock->pluck('receipt_detail_id')->toArray();
+        $reservedQty = $reservedStock->pluck('quantity', 'receipt_detail_id')->toArray();
+        $reservedItems = $reservedStock->pluck('issue_detail_id', 'receipt_detail_id')->toArray();
+
+        return [
+            'transType' => $transType, 
+            'receiptIds' => $receiptIds,
+            'reservedQty' => $reservedQty,
+            'reservedItems' => $reservedItems,
+        ];
     }
 }

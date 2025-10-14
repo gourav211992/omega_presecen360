@@ -92,11 +92,11 @@ class WarehouseMultiMappingController extends Controller
                         ])->get();
 
                         foreach ($parentWhDetails as $parent) {
-                            $this->saveWhDetail($whLevel, $detail, $parent->id, $parent->heirarchy_name ?? null);
+                            SELF::saveWhDetail($whLevel, $detail, $parent->id, $parent->heirarchy_name ?? null);
                         }
                     } else {
                         // No parent – save without parent linkage
-                        $this->saveWhDetail($whLevel, $detail, null, null);
+                        SELF::saveWhDetail($whLevel, $detail, null, null);
                     }
                 }
             }
@@ -155,7 +155,7 @@ class WarehouseMultiMappingController extends Controller
                                 'parent_id' => $parent->id,
                             ]);
 
-                            $this->fillWhDetail($whDetail, $whLevel, $detail, $parent->id, $parent->heirarchy_name ?? null);
+                            SELF::fillWhDetail($whDetail, $whLevel, $detail, $parent->id, $parent->heirarchy_name ?? null);
                             $whDetail->save();
 
                             $updatedDetailIds[] = $whDetail->id;
@@ -170,7 +170,7 @@ class WarehouseMultiMappingController extends Controller
                             'parent_id' => null,
                         ]);
 
-                        $this->fillWhDetail($whDetail, $whLevel, $detail, null, null);
+                        SELF::fillWhDetail($whDetail, $whLevel, $detail, null, null);
                         $whDetail->save();
 
                         $updatedDetailIds[] = $whDetail->id;
@@ -199,7 +199,7 @@ class WarehouseMultiMappingController extends Controller
     private function saveWhDetail($whLevel, $detail, $parentId = null, $parentHeirarchy = null)
     {
         $whDetail = new WhDetail();
-        $this->fillWhDetail($whDetail, $whLevel, $detail, $parentId, $parentHeirarchy);
+        SELF::fillWhDetail($whDetail, $whLevel, $detail, $parentId, $parentHeirarchy);
         $whDetail->save();
 
         if (!$whDetail->storage_number && ($whDetail->is_storage_point == 1)) {
@@ -223,8 +223,8 @@ class WarehouseMultiMappingController extends Controller
         $whDetail->is_storage_point = !empty($detail['storage_point']) ? 1 : 0;
         $whDetail->is_first_level = $detail['is_first_level'] ?? 0;
         $whDetail->is_last_level = $detail['is_last_level'] ?? 0;
-        $whDetail->max_weight = $detail['max_weight'] ?? null;
-        $whDetail->max_volume = $detail['max_volume'] ?? null;
+        $whDetail->max_weight = isset($detail['max_weight']) && $detail['max_weight'] > 0 ? $detail['max_weight'] : null;
+        $whDetail->max_volume = isset($detail['max_volume']) && $detail['max_volume'] > 0 ? $detail['max_volume'] : null;
         $whDetail->status = ConstantHelper::ACTIVE;
 
         if (!$whDetail->storage_number && ($whDetail->is_storage_point == 1)) {

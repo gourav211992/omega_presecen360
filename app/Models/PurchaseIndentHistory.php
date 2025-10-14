@@ -7,23 +7,24 @@ use App\Traits\DateFormatTrait;
 use App\Traits\FileUploadTrait;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PurchaseIndentHistory extends Model
 {
-    use HasFactory,DateFormatTrait,FileUploadTrait;
+    use HasFactory, DateFormatTrait, FileUploadTrait, SoftDeletes;
 
     protected $table = 'erp_purchase_indents_history';
-    
+
     protected $fillable = [
-        'source_id', 
-        'organization_id', 
-        'group_id', 
+        'source_id',
+        'organization_id',
+        'group_id',
         'company_id',
         'department_id',
         'store_id',
         'sub_store_id',
-        'book_id', 
-        'book_code', 
+        'book_id',
+        'book_code',
         'document_number',
         'document_date',
         'revision_number',
@@ -87,7 +88,7 @@ class PurchaseIndentHistory extends Model
         $status = str_replace('_', ' ', $this->document_status);
         return ucwords($status);
     }
-    
+
     public function book()
     {
         return $this->belongsTo(Book::class, 'book_id');
@@ -116,5 +117,10 @@ class PurchaseIndentHistory extends Model
     public function department()
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function dynamic_fields()
+    {
+        return $this->hasMany(ErpPiDynamicField::class, 'header_id');
     }
 }

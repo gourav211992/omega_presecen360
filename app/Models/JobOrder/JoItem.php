@@ -2,19 +2,19 @@
 
 namespace App\Models\JobOrder;
 
-use App\Helpers\InventoryHelper;
-use App\Models\ErpSaleOrder;
 use App\Models\Item;
-use App\Models\ItemAttribute;
-use App\Models\Attribute;
 use App\Models\Unit;
+use App\Models\Attribute;
+use App\Models\ErpSaleOrder;
+use App\Models\ItemAttribute;
 use App\Traits\DateFormatTrait;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Helpers\InventoryHelper;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class JoItem extends Model
 {
-    use HasFactory,DateFormatTrait;
+    use HasFactory, DateFormatTrait;
     protected $table = 'erp_jo_items';
     protected $fillable = [
         'jo_id',
@@ -46,11 +46,11 @@ class JoItem extends Model
         // 'igst_value',
         'mi_balance_qty'
     ];
-    public function jo() 
+    public function jo()
     {
         return $this->belongsTo(JobOrder::class, 'jo_id');
     }
-    public function header() 
+    public function header()
     {
         return $this->belongsTo(JobOrder::class, 'jo_id');
     }
@@ -76,7 +76,7 @@ class JoItem extends Model
     }
     public function attributes()
     {
-        return $this->hasMany(JoItemAttribute::class,'jo_item_id')->with(['headerAttribute', 'headerAttributeValue']);
+        return $this->hasMany(JoItemAttribute::class, 'jo_item_id')->with(['headerAttribute', 'headerAttributeValue']);
     }
     public function item_attributes_array()
     {
@@ -87,9 +87,9 @@ class JoItem extends Model
         $itemAttributes = ItemAttribute::where('item_id', $itemId)->get();
         $processedData = [];
         $mappingAttributes = JoItemAttribute::where('jo_item_id', $this->getAttribute('id'))
-        ->select(['item_attribute_id as attribute_id', 'attribute_value as attribute_value_id'])
-        ->get()
-        ->toArray();
+            ->select(['item_attribute_id as attribute_id', 'attribute_value as attribute_value_id'])
+            ->get()
+            ->toArray();
         foreach ($itemAttributes as $attribute) {
             $attributeIds = is_array($attribute->attribute_id) ? $attribute->attribute_id : [$attribute->attribute_id];
             $attribute->group_name = $attribute->group?->name;
@@ -121,7 +121,7 @@ class JoItem extends Model
     public function getAvlStock($storeId, $subStoreId = null, $stationId = null)
     {
         $selectedAttributeIds = [];
-        $itemAttributes = $this -> item_attributes_array();
+        $itemAttributes = $this->item_attributes_array();
         foreach ($itemAttributes as $itemAttr) {
             foreach ($itemAttr['values_data'] as $valueData) {
                 if ($valueData['selected']) {
@@ -129,7 +129,7 @@ class JoItem extends Model
                 }
             }
         }
-        $stocks = InventoryHelper::totalInventoryAndStock($this -> item_id, $selectedAttributeIds,$this -> uom_id,$storeId, $subStoreId, null);
+        $stocks = InventoryHelper::totalInventoryAndStock($this->item_id, $selectedAttributeIds, $this->uom_id, $storeId, $subStoreId, null);
         $stockBalanceQty = 0;
         if (isset($stocks) && isset($stocks['confirmedStocks'])) {
             $stockBalanceQty = $stocks['confirmedStocks'];
@@ -140,8 +140,8 @@ class JoItem extends Model
 
     public function getMiBalanceQtyAttribute()
     {
-        $currentQty = $this -> getAttribute('qty');
-        $miQty = $this -> getAttribute('mi_qty');
+        $currentQty = $this->getAttribute('qty');
+        $miQty = $this->getAttribute('mi_qty');
         return $currentQty - $miQty;
     }
 }

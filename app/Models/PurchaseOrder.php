@@ -3,17 +3,19 @@
 namespace App\Models;
 
 use App\Helpers\ConstantHelper;
+use App\Helpers\CurrencyHelper;
 use App\Helpers\Helper;
 use App\Traits\DateFormatTrait;
-use App\Traits\DefaultGroupCompanyOrg;
-use App\Traits\DynamicFieldsTrait;
 use App\Traits\FileUploadTrait;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\DynamicFieldsTrait;
+use App\Traits\DefaultGroupCompanyOrg;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PurchaseOrder extends Model
 {
-    use HasFactory, DateFormatTrait, DynamicFieldsTrait ,FileUploadTrait,DefaultGroupCompanyOrg;
+    use HasFactory, DateFormatTrait, DynamicFieldsTrait, FileUploadTrait, DefaultGroupCompanyOrg, SoftDeletes;
 
     protected $table = 'erp_purchase_orders';
 
@@ -109,11 +111,11 @@ class PurchaseOrder extends Model
     public function getSoIdAttribute()
     {
         return $this->po_items
-        ->pluck('so_id')
-        ->filter()
-        ->unique()
-        ->values()
-        ->toArray();
+            ->pluck('so_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
     }
 
     public function organization()
@@ -181,22 +183,22 @@ class PurchaseOrder extends Model
 
     public function terms()
     {
-        return $this->hasMany(PoTerm::class,'purchase_order_id');
+        return $this->hasMany(PoTerm::class, 'purchase_order_id');
     }
 
     public function po_items_delivery()
     {
-        return $this->hasMany(PoItemDelivery::class,'purchase_order_id');
+        return $this->hasMany(PoItemDelivery::class, 'purchase_order_id');
     }
 
     public function po_ted()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'purchase_order_id');
+        return $this->hasMany(PurchaseOrderTed::class, 'purchase_order_id');
     }
 
     public function po_ted_tax()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'purchase_order_id')->where('ted_type','Tax');
+        return $this->hasMany(PurchaseOrderTed::class, 'purchase_order_id')->where('ted_type', 'Tax');
     }
 
     public function getTotalAmountAttribute()
@@ -211,19 +213,19 @@ class PurchaseOrder extends Model
 
     public function term()
     {
-        return $this->belongsTo(PoTerm::class,'purchase_order_id');
+        return $this->belongsTo(PoTerm::class, 'purchase_order_id');
     }
 
     public function ship_address()
     {
         // shipping_address addresses tbl id
-        return $this->belongsTo(ErpAddress::class,'shipping_address');
+        return $this->belongsTo(ErpAddress::class, 'shipping_address');
     }
 
     public function bill_address()
     {
         // billing_address addresses tbl id
-        return $this->belongsTo(ErpAddress::class,'billing_address');
+        return $this->belongsTo(ErpAddress::class, 'billing_address');
     }
 
     public function bill_address_details()
@@ -238,7 +240,7 @@ class PurchaseOrder extends Model
 
     public function store_address()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type','location')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'location')->with(['city', 'state', 'country']);
     }
 
     public function billingAddress()
@@ -253,37 +255,37 @@ class PurchaseOrder extends Model
 
     public function currency()
     {
-        return $this->belongsTo(Currency::class,'currency_id');
+        return $this->belongsTo(Currency::class, 'currency_id');
     }
 
     public function org_currency()
     {
-        return $this->belongsTo(Currency::class,'org_currency_id');
+        return $this->belongsTo(Currency::class, 'org_currency_id');
     }
 
     public function comp_currency()
     {
-        return $this->belongsTo(Currency::class,'comp_currency_id');
+        return $this->belongsTo(Currency::class, 'comp_currency_id');
     }
 
     public function paymentTerm()
     {
-        return $this->belongsTo(PaymentTerm::class,'payment_term_id');
+        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
 
     public function paymentTerms()
     {
-        return $this->belongsTo(PaymentTerm::class,'payment_term_id');
+        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
 
     public function TermsCondition()
     {
-        return $this->hasOne(PoTerm::class,'purchase_order_id');
+        return $this->hasOne(PoTerm::class, 'purchase_order_id');
     }
 
     public function TermsConditions()
     {
-        return $this->hasMany(PoTerm::class,'purchase_order_id');
+        return $this->hasMany(PoTerm::class, 'purchase_order_id');
     }
 
     // After item total assessment amount
@@ -295,16 +297,16 @@ class PurchaseOrder extends Model
     /*Header Level Discount*/
     public function headerDiscount()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'purchase_order_id')->where('ted_level', 'H')->where('ted_type','Discount');
+        return $this->hasMany(PurchaseOrderTed::class, 'purchase_order_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
     }
     public function discount_ted()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'purchase_order_id')->where('ted_level', 'H')->where('ted_type','Discount');
+        return $this->hasMany(PurchaseOrderTed::class, 'purchase_order_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
     }
 
     public function itemDiscount()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'purchase_order_id')->where('ted_level', 'D')->where('ted_type','Discount');
+        return $this->hasMany(PurchaseOrderTed::class, 'purchase_order_id')->where('ted_level', 'D')->where('ted_type', 'Discount');
     }
 
     /*Total discount header level total_header_disc_amount*/
@@ -321,11 +323,11 @@ class PurchaseOrder extends Model
 
     public function headerExpenses()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'purchase_order_id')->where('ted_type','Expense')->where('ted_level','H');
+        return $this->hasMany(PurchaseOrderTed::class, 'purchase_order_id')->where('ted_type', 'Expense')->where('ted_level', 'H');
     }
     public function expense_ted()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'purchase_order_id')->where('ted_type','Expense')->where('ted_level','H');
+        return $this->hasMany(PurchaseOrderTed::class, 'purchase_order_id')->where('ted_type', 'Expense')->where('ted_level', 'H');
     }
 
     public function getTotalExpAssessmentAmountAttribute()
@@ -369,11 +371,17 @@ class PurchaseOrder extends Model
 
     public function pi_item_mappings()
     {
-        return $this->hasMany(PiPoMapping::class,'po_id','id');
+        return $this->hasMany(PiPoMapping::class, 'po_id', 'id');
     }
 
     public function dynamic_fields()
     {
-        return $this -> hasMany(ErpPoDynamicField::class, 'header_id');
+        return $this->hasMany(ErpPoDynamicField::class, 'header_id');
+    }
+
+    public function currencyConversion()
+    {
+        $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($this->currency_id, $this->document_date);
+        return $currencyExchangeData;
     }
 }

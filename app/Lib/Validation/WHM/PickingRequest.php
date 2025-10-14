@@ -49,7 +49,7 @@ class PickingRequest
 		$validator = Validator::make($this->request->all(),[
             'job_id' => ['required'],
             'pl_item_id' => ['required'],
-            'packet_ids' => ['required', 'array'],
+            'packet_ids' => ['required', 'array', 'max:50'],
             'storage_point_id' => ['nullable']
         ],[
             'job_id.required' => 'Job id is required',
@@ -125,6 +125,37 @@ class PickingRequest
             'storage_number.required' => 'Storage number is required',
             'job_id.required' => 'Job id is required',
             'pl_item_id.required' => 'Picklist item id is required',
+        ]);
+
+		return $validator;
+	}
+
+    public function pickedPackets() : ValidationValidator
+	{
+		$validator = Validator::make($this->request->all(),[
+            'storage_point_id' => ['required'],
+            'pl_item_id' => ['required'],
+            'job_id' => ['required'],
+        ],[
+            'job_id.required' => 'Job id is required',
+            'putaway_item_id.required' => 'Putaway item id is required',
+            'storage_point_id.required' => 'Storage point id is required',
+        ]);
+
+		return $validator;
+	}
+
+    public function validateQr() : ValidationValidator
+	{
+		$validator = Validator::make($this->request->all(),[
+            'packet_id' => ['required'],
+            'job_id' => ['required'],
+            'pl_item_id' => ['required'],
+            'storage_point_id' => ['nullable'],
+        ],[
+            'job_id.required' => 'Job id is required',
+            'packet_id.required' => 'Packet id is required',
+            'pl_item_id.required' => 'Picking item id is required',
         ]);
 
 		return $validator;

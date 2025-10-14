@@ -1,220 +1,195 @@
 @extends('layouts.app')
 @section('content')
-<form class="ajax-input-form" data-module="po" method="POST" action="{{ url(request()->route('type')) }}/bulk-store"
-    data-redirect="/{{ request()->route('type') }}" enctype="multipart/form-data">
-    @csrf
-    <input type="hidden" name="pi_item_ids" id="pi_item_ids">
-    <input type="hidden" name="po_type" id="po_type">
-    <div class="app-content content ">
-        <div class="content-overlay"></div>
-        <div class="header-navbar-shadow"></div>
-        <div class="content-wrapper container-xxl p-0">
-            <div class="content-header pocreate-sticky">
-                <div class="row">
-                    @include('layouts.partials.breadcrumb-add-edit', [
-                        'title' => $title,
-                        'menu' => $menu,
-                        'menu_url' => $menu_url,
-                        'sub_menu' => $sub_menu,
-                    ])
-                    <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
-                        <div class="form-group breadcrumb-right">
-                            <input type="hidden" name="document_status" value="draft" id="document_status">
-                            <button type="button" onClick="javascript: history.go(-1)"
-                                class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i>
-                                Back</button>
-                            <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
-                                value="draft"><i data-feather="check-circle"></i> Process</button>
+    <form class="ajax-input-form" data-module="po" method="POST" action="{{ url(request()->route('type')) }}/bulk-store" data-redirect="/{{ request()->route('type') }}" enctype="multipart/form-data">
+        @csrf
+        <input type="hidden" name="pi_item_ids" id="pi_item_ids">
+        <input type="hidden" name="po_type" id="po_type">
+        <div class="app-content content ">
+            <div class="content-overlay"></div>
+            <div class="header-navbar-shadow"></div>
+            <div class="content-wrapper container-xxl p-0">
+                <div class="content-header pocreate-sticky">
+                    <div class="row">
+                        @include('layouts.partials.breadcrumb-add-edit', [
+                            'title' => $title,
+                            'menu' => $menu,
+                            'menu_url' => $menu_url,
+                            'sub_menu' => $sub_menu,
+                        ])
+                        <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
+                            <div class="form-group breadcrumb-right">
+                                <input type="hidden" name="document_status" value="draft" id="document_status">
+                                <button type="button" onClick="javascript: history.go(-1)" class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i>Back</button>
+
+                                <button type="submit" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button" name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
+                                <button type="submit" class="btn btn-primary btn-sm submit-button" name="action" value="submitted"><i data-feather="check-circle"></i> Submit</button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="content-body">
-                <section id="basic-datatable">
-                    <div class="row">
-                        <div class="col-12">
-                            <div class="card" id="basic_section">
-                                <div class="card-body customernewsection-form">
-                                    <div class="row">
-                                        <div class="col-md-12">
-                                            <div
-                                                class="newheader border-bottom mb-2 pb-25 d-flex flex-wrap justify-content-between">
-                                                <div>
-                                                    <h4 class="card-title text-theme">Basic Information</h4>
-                                                    <p class="card-text">Fill the details</p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-8">
-                                            <div class="row align-items-center mb-1">
-                                                <div class="col-md-3">
-                                                    <label class="form-label">Series <span
-                                                            class="text-danger">*</span></label>
-                                                </div>
-                                                <div class="col-md-5">
-                                                    <select class="form-select" id="book_id" name="book_id">
-                                                        @foreach ($books as $book)
-                                                            <option value="{{ $book->id }}">{{ $book->book_code }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                    <input type="hidden" name="book_code" id="book_code">
-                                                </div>
-                                            </div>
-                                            <div class="row align-items-center mb-1">
-                                                <div class="col-md-3">
-                                                    <label class="form-label">{{ $short_title }} Date <span
-                                                            class="text-danger">*</span></label>
-                                                </div>
-                                                <div class="col-md-5">
-                                                    <input type="date" class="form-control"
-                                                        value="{{ date('Y-m-d') }}" name="document_date">
-                                                </div>
-                                            </div>
-                                            <div class="row align-items-center mb-1">
-                                                <div class="col-md-3">
-                                                    <label class="form-label">Location <span
-                                                            class="text-danger">*</span></label>
-                                                </div>
-                                                <div class="col-md-5">
-                                                    <select class="form-select" id="store_id" name="store_id">
-                                                        @foreach ($locations as $location)
-                                                            <option value="{{ $location->id }}">
-                                                                {{ $location?->store_name }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="card" id="item_section">
-                                <div class="card-body customernewsection-form">
-                                    <div class="border-bottom mb-2 pb-25">
+                <div class="content-body">
+                    <section id="basic-datatable">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card" id="basic_section">
+                                    <div class="card-body customernewsection-form">
                                         <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="newheader">
-                                                    <h4 class="card-title text-theme">Purchase Indent</h4>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="row">
-                                            <div class="col" id="subLocation">
-                                                <div class="mb-1">
-                                                    <label class="form-label">Sub Location</label>
-                                                    <input type="text" id="sub_store_po" placeholder="Select"
-                                                        class="form-control mw-100 ledgerselecct ui-autocomplete-input"
-                                                        autocomplete="off" value="">
-                                                    <input type="hidden" id="sub_store_id_po"></input>
-                                                </div>
-                                            </div>
-                                            <div class="col">
-                                                <div class="mb-1">
-                                                    <label class="form-label">Requester</label>
-                                                    <input type="text" id="requester_po" placeholder="Select"
-                                                        class="form-control mw-100 ledgerselecct ui-autocomplete-input"
-                                                        autocomplete="off" value="">
-                                                    <input type="hidden" id="requester_id_po"></input>
-                                                </div>
-                                            </div>
-                                            <div class="col">
-                                                <div class="mb-1">
-                                                    <label class="form-label">Vendor</label>
-                                                    <input type="text" id="vendor_code_input_qt"
-                                                        placeholder="Select"
-                                                        class="form-control mw-100 ledgerselecct ui-autocomplete-input"
-                                                        autocomplete="off" value="">
-                                                    <input type="hidden" id="vendor_id_qt_val"></input>
-                                                </div>
-                                            </div>
-                                            <div class="col">
-                                                <div class="mb-1">
-                                                    <label class="form-label">Indent No.</label>
-                                                    <input type="text" id="document_no_input_qt"
-                                                        placeholder="Select"
-                                                        class="form-control mw-100 ledgerselecct ui-autocomplete-input"
-                                                        autocomplete="off" value="">
-                                                    <input type="hidden" id="document_id_qt_val"></input>
-                                                </div>
-                                            </div>
-                                            <div class="col">
-                                                <div class="mb-1">
-                                                    <label class="form-label">Sales Order</label>
-                                                    <input type="text" id="pi_so_no_input_qt" placeholder="Select"
-                                                        class="form-control mw-100 ledgerselecct ui-autocomplete-input"
-                                                        autocomplete="off" value="">
-                                                    <input type="hidden" id="pi_so_qt_val"></input>
-                                                </div>
-                                            </div>
-                                            <div class="col">
-                                                <div class="mb-1">
-                                                    <label class="form-label">Item</label>
-                                                    <input type="text" name="item_name_search"
-                                                        id="item_name_search" placeholder="Item Name/Code"
-                                                        class="form-control mw-100" autocomplete="off"
-                                                        value="">
-                                                </div>
-                                            </div>
-                                            <div class="col mb-1">
-                                                <label class="form-label">&nbsp;</label><br />
-                                                <button type="button" class="btn btn-warning btn-sm clearPiFilter"><i
-                                                        data-feather="x-circle"></i> Clear</button>
-                                            </div>
-
                                             <div class="col-md-12">
-                                                <div class="table-responsive">
-                                                    <table id="itemTable"  class="table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad" 
-                                                    data-json-key="components_json"
-                                                    data-row-selector="tr[id^='row_']"> 
-                                                        <thead class="table-light header">
-                                                            <tr>
-                                                                <th class="d-none">Id</th>
-                                                                <th class="customernewsection-form" >
-                                                                    <div class="form-check form-check-primary custom-checkbox">
-                                                                        <input type="checkbox" class="form-check-input" id="allCheck">
-                                                                        <label class="form-check-label" for="allCheck"></label>
-                                                                    </div>
-                                                                </th>
-                                                                <th>Indent No.</th>
-                                                                <th>Indent Date</th>
-                                                                <th>Item Code</th>
-                                                                <th>Item Name</th>
-                                                                <th>Attributes</th>
-                                                                <th>UOM</th>
-                                                                <th>Pending PO</th>
-                                                                <th>Avl Stock</th>
-                                                                <th>Qty</th>
-                                                                <th>Rate</th>
-                                                                <th>Vendor</th>
-                                                                <th>Delivery Date</th>
-                                                                <th>Sales Order</th>
-                                                                <th>Location</th>
-                                                                <th>Sub Location</th>
-                                                                <th>Requester</th>
-                                                                <th>Remark</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody class="mrntableselectexcel">
+                                                <div class="newheader border-bottom mb-2 pb-25 d-flex flex-wrap justify-content-between">
+                                                    <div>
+                                                        <h4 class="card-title text-theme">Basic Information</h4>
+                                                        <p class="card-text">Fill the details</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-8">
+                                                <div class="row align-items-center mb-1">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">Series <span class="text-danger">*</span></label>
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <select class="form-select" id="book_id" name="book_id">
+                                                            @foreach ($books as $book)
+                                                                <option value="{{ $book->id }}">{{ $book->book_code }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                        <input type="hidden" name="book_code" id="book_code">
+                                                    </div>
+                                                </div>
+                                                <div class="row align-items-center mb-1">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">{{ $short_title }} Date <span class="text-danger">*</span></label>
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <input type="date" class="form-control" value="{{ date('Y-m-d') }}" name="document_date">
+                                                    </div>
+                                                </div>
+                                                <div class="row align-items-center mb-1">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">Location <span class="text-danger">*</span></label>
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <select class="form-select" id="store_id" name="store_id">
+                                                            @foreach ($locations as $location)
+                                                                <option value="{{ $location->id }}">
+                                                                    {{ $location?->store_name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                                        </tbody>
-                                                    </table>
+                                <div class="card" id="item_section">
+                                    <div class="card-body customernewsection-form">
+                                        <div class="border-bottom mb-2 pb-25">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="newheader">
+                                                        <h4 class="card-title text-theme">Purchase Indent</h4>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col" id="subLocation">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Sub Location</label>
+                                                        <input type="text" id="sub_store_po" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
+                                                        <input type="hidden" id="sub_store_id_po"></input>
+                                                    </div>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Requester</label>
+                                                        <input type="text" id="requester_po" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
+                                                        <input type="hidden" id="requester_id_po"></input>
+                                                    </div>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Vendor</label>
+                                                        <input type="text" id="vendor_code_input_qt" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
+                                                        <input type="hidden" id="vendor_id_qt_val"></input>
+                                                    </div>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Indent No.</label>
+                                                        <input type="text" id="document_no_input_qt" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
+                                                        <input type="hidden" id="document_id_qt_val"></input>
+                                                    </div>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Sales Order</label>
+                                                        <input type="text" id="pi_so_no_input_qt" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off" value="">
+                                                        <input type="hidden" id="pi_so_qt_val"></input>
+                                                    </div>
+                                                </div>
+                                                <div class="col">
+                                                    <div class="mb-1">
+                                                        <label class="form-label">Item</label>
+                                                        <input type="text" name="item_name_search" id="item_name_search" placeholder="Item Name/Code" class="form-control mw-100" autocomplete="off" value="">
+                                                    </div>
+                                                </div>
+                                                <div class="col mb-1">
+                                                    <label class="form-label">&nbsp;</label><br />
+                                                    <button type="button" class="btn btn-warning btn-sm clearPiFilter"><i data-feather="x-circle"></i> Clear</button>
+                                                </div>
+
+                                                <div class="col-md-12">
+                                                    <div class="table-responsive">
+                                                        <table id="itemTable" class="table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad" data-json-key="components_json" data-row-selector="tr[id^='row_']">
+                                                            <thead class="table-light header">
+                                                                <tr>
+                                                                    <th class="d-none">Id</th>
+                                                                    <th class="customernewsection-form">
+                                                                        <div class="form-check form-check-primary custom-checkbox">
+                                                                            <input type="checkbox" class="form-check-input" id="allCheck">
+                                                                            <label class="form-check-label" for="allCheck"></label>
+                                                                        </div>
+                                                                    </th>
+                                                                    <th>Indent No.</th>
+                                                                    <th>Indent Date</th>
+                                                                    <th>Item Code</th>
+                                                                    <th>Item Name</th>
+                                                                    <th>Attributes</th>
+                                                                    <th>UOM</th>
+                                                                    <th>Pending PO</th>
+                                                                    <th>Avl Stock</th>
+                                                                    <th>Qty</th>
+                                                                    <th>Rate</th>
+                                                                    <th>Vendor</th>
+                                                                    <th>Delivery Date</th>
+                                                                    <th>Sales Order</th>
+                                                                    <th>Location</th>
+                                                                    <th>Sub Location</th>
+                                                                    <th>Requester</th>
+                                                                    <th>Remark</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody class="mrntableselectexcel">
+
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                </section>
+                    </section>
+                </div>
             </div>
         </div>
-    </div>
-</form>
+    </form>
 @endsection
 @section('scripts')
-<script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
+    <script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
     <script>
         $(document).on('change', '#book_id', (e) => {
             let bookId = e.target.value;
@@ -225,7 +200,7 @@
                 $("#book_id").val('');
                 $("#document_number").attr('readonly', false);
             }
-            
+
         });
 
         function getDocNumberByBookId(bookId, reloadPiQuery = false) {
@@ -248,7 +223,7 @@
                         const parameters = data.data.parameters;
 
                         let poType = parameters.goods_or_services || 'Goods';
-                        
+
                         $("#po_type").val(poType);
                         setServiceParameters(parameters);
                         if (reloadPiQuery) {
@@ -379,7 +354,59 @@
                 }
             });
         }
+
+        function initVendorAutocomplete(context = document) {
+            $(context).find('.vendor-autocomplete').each(function() {
+                const $input = $(this);
+                const ajaxUrl = $input.data('ajax-url');
+                const hiddenName = $input.data('hidden-name');
+                const $hiddenInput = $input.siblings(`input[name='${hiddenName}']`);
+
+                if (!ajaxUrl || ajaxUrl === '#') return;
+
+                if ($input.data('ui-autocomplete')) {
+                    $input.autocomplete('destroy');
+                }
+
+                $input.autocomplete({
+                    source: function(request, response) {
+                        $.ajax({
+                            url: ajaxUrl,
+                            dataType: 'json',
+                            data: {
+                                term: request.term
+                            },
+                            success: function(data) {
+                                response(data);
+                            },
+                            error: function(xhr) {
+                                console.error('Vendor autocomplete failed:', xhr);
+                            }
+                        });
+                    },
+                    minLength: 1,
+                    select: function(event, ui) {
+                        $input.val(ui.item.label);
+                        $hiddenInput.val(ui.item.id);
+                        return false;
+                    },
+                    focus: function(event, ui) {
+                        $input.val(ui.item.label);
+                        return false;
+                    }
+                });
+            });
+        }
+
+        $(document).ready(function() {
+            initVendorAutocomplete();
+            $(document).on('draw.dt', function(e, settings) {
+                initVendorAutocomplete();
+            });
+        });
+
         openPurchaseRequest();
+
         function openPurchaseRequest() {
             initializeAutocompleteQt("vendor_code_input_qt", "vendor_id_qt_val", "vendor_list", "vendor_code",
                 "company_name");
@@ -485,13 +512,13 @@
             $("#pi_so_qt_val").val('');
             $('#itemTable').DataTable().ajax.reload();
         });
-        
+
         setTimeout(() => {
             getIndents();
         }, 100);
 
         function renderData(data) {
-            return data ? data : ''; 
+            return data ? data : '';
         }
 
         function getDynamicParams() {
@@ -513,46 +540,106 @@
         }
 
         function getIndents() {
-            const type = '{{ request()->route("type") }}';
-            const actionUrl = '{{ route("po.get.pi.bulk", ["type" => ":type"]) }}'.replace(':type', type);
-            var columns = [
-                { data: 'id',visible: false, orderable: true, searchable: false},
-                { data: 'select_checkbox', name: 'select_checkbox'},
-                { data: 'doc_number', name: 'pi.book.doc_number' },
-                { data: 'doc_date', name: 'pi.document_date' },
-                { data: 'item_code', name: 'item_code' },
-                { data: 'item_name', name: 'item.item_name' },
-                { data: 'attributes', name: 'attributes'},
-                { data: 'uom', name: 'uom.name' },
-                { data: 'pending_po', name: 'pending_po', render: renderData, orderable: false, searchable: false, 
-                    createdCell: function (td, cellData, rowData, row, col) {
-                        $(td).addClass('text-end');
-                    } 
+            const type = '{{ request()->route('type') }}';
+            const actionUrl = '{{ route('po.get.pi.bulk', ['type' => ':type']) }}'.replace(':type', type);
+            var columns = [{
+                    data: 'id',
+                    visible: false,
+                    orderable: true,
+                    searchable: false
                 },
-                { data: 'avl_stock', name: 'avl_stock', render: renderData, orderable: false, searchable: false, 
-                    createdCell: function (td, cellData, rowData, row, col) {
-                        $(td).addClass('text-end');
-                    } 
+                {
+                    data: 'select_checkbox',
+                    name: 'select_checkbox'
                 },
-                { data: 'qty', name: 'qty' ,
-                    createdCell: function (td, cellData, rowData, row, col) {
+                {
+                    data: 'doc_number',
+                    name: 'pi.book.doc_number'
+                },
+                {
+                    data: 'doc_date',
+                    name: 'pi.document_date'
+                },
+                {
+                    data: 'item_code',
+                    name: 'item_code'
+                },
+                {
+                    data: 'item_name',
+                    name: 'item.item_name'
+                },
+                {
+                    data: 'attributes',
+                    name: 'attributes'
+                },
+                {
+                    data: 'uom',
+                    name: 'uom.name'
+                },
+                {
+                    data: 'pending_po',
+                    name: 'pending_po',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
-                { data: 'rate', name: 'rate', 
-                    createdCell: function (td, cellData, rowData, row, col) {
+                {
+                    data: 'avl_stock',
+                    name: 'avl_stock',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
-                    } 
+                    }
                 },
-                { data: 'vendor_id', name: 'vendor_id'},
-                { data: 'delivery_date', name: 'delivery_date' },
-                { data: 'so_doc', name: 'so_doc' },
-                { data: 'store', name: 'store' },
-                { data: 'department', name: 'pi.sub_store.name' },
-                { data: 'requester', name: 'pi.requester.name' },
-                { data: 'remark', name: 'remark' },
+                {
+                    data: 'qty',
+                    name: 'qty',
+                    createdCell: function(td, cellData, rowData, row, col) {
+                        $(td).addClass('text-end');
+                    }
+                },
+                {
+                    data: 'rate',
+                    name: 'rate',
+                    createdCell: function(td, cellData, rowData, row, col) {
+                        $(td).addClass('text-end');
+                    }
+                },
+                {
+                    data: 'vendor_id',
+                    name: 'vendor_id'
+                },
+                {
+                    data: 'delivery_date',
+                    name: 'delivery_date'
+                },
+                {
+                    data: 'so_doc',
+                    name: 'so_doc'
+                },
+                {
+                    data: 'store',
+                    name: 'store'
+                },
+                {
+                    data: 'department',
+                    name: 'pi.sub_store.name'
+                },
+                {
+                    data: 'requester',
+                    name: 'pi.requester.name'
+                },
+                {
+                    data: 'remark',
+                    name: 'remark'
+                },
             ];
-            initializeDataTableCustom('#itemTable', 
+            initializeDataTableCustom('#itemTable',
                 actionUrl,
                 columns,
             );

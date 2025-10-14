@@ -527,7 +527,7 @@
                             @if($headerTax)
                             <tr>
                                 <td style="text-align: right; padding-top: 3px;">
-                                    <b>Header Tax ({{ $headerTax?->ted_name }}):</b>
+                                    <b>{{ $headerTax?->ted_name }} ({{ $headerTax?->ted_percentage }}%) @ {{ $totalTaxableValue }} :</b>
                                 </td>
                                 <td style="text-align: right; padding-top: 3px;">
                                     {{ number_format($headerTax?->ted_amount, 2) }}

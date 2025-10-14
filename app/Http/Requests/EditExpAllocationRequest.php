@@ -27,10 +27,10 @@ class EditExpAllocationRequest extends FormRequest
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
 
-    protected function prepareForValidation(): void
-    {
-        $this->processComponentJson('components_json');
-    }
+    // protected function prepareForValidation(): void
+    // {
+    //     $this->processComponentJson('components_json');
+    // }
 
     public function rules(): array
     {
@@ -61,9 +61,15 @@ class EditExpAllocationRequest extends FormRequest
         }
 
         $rules['component_item_name.*'] = 'required';
-        $rules['components.*.accepted_qty'] = 'required|numeric|min:1';
-        $rules['components.*.rate'] = 'required|numeric|min:1';
-        $rules['components.*.remark'] = 'nullable|max:250';
+        $rules['components.po.*.po_qty'] = 'required|numeric|min:1';
+        $rules['components.po.*.po_rate'] = 'required|numeric|min:1';
+        $rules['components.po.*.po_value'] = 'required|numeric|min:1';
+        $rules['components.grn.*.grn_qty'] = 'required|numeric|min:1';
+        $rules['components.grn.*.grn_value'] = 'required|numeric|min:1';
+        $rules['components.grn.*.grn_weight'] = 'nullable|numeric|min:0';
+        $rules['components.grn.*.grn_volume'] = 'nullable|numeric|min:0';
+        $rules['components.grn.*.allocation_cost'] = 'required|numeric|min:1';
+        $rules['components.grn.*.landed_cost'] = 'required|numeric|min:1';
 
         return $rules;
     }
@@ -75,14 +81,26 @@ class EditExpAllocationRequest extends FormRequest
             'supplier_invoice_no.required' => 'Supplier Invoice No is required.',
             'supplier_invoice_date.required' => 'Supplier Invoice Date is required.',
             'remarks.required' => 'Remark is required.',
-            'uom_id' => 'The unit of measure must be a string.',
             'component_item_name.*.required' => 'Required',
-            'components.*.receipt_qty.required' => 'Receipt Qty is required',
-            'components.*.accepted_qty.required' => 'Accepted Qty is required',
-            'components.*.rate.required' => 'Rate is required',
-            'components.*.attr_group_id.*.attr_name.required' => 'Select Attribute',
-            'components.*.accepted_qty.numeric' => 'Accepted Qty must be integer',
-            'components.*.rate.numeric' => 'Rate must be integer',
+            'components.po.*.po_qty.required' => 'Po Qty is required',
+            'components.po.*.po_rate.required' => 'Po Rate is required',
+            'components.po.*.po_value.required' => 'Po Value is required',
+            'components.po.*.po_qty.numeric' => 'Po Qty must be integer',
+            'components.po.*.po_rate.numeric' => 'Po Rate must be integer',
+            'components.po.*.po_value.numeric' => 'Po Value must be integer',
+            'components.grn.*.attr_group_id.*.attr_name.required' => 'Select Attribute',
+            'components.grn.*.grn_qty.required' => 'Grn Qty is required',
+            'components.grn.*.grn_value.required' => 'Grn Value is required',
+            'components.grn.*.grn_weight.required' => 'Grn Weight is required',
+            'components.grn.*.grn_volume.required' => 'Grn Volume is required',
+            'components.grn.*.allocation_cost.required' => 'Allocation Cost is required',
+            'components.grn.*.landed_cost.required' => 'Landed Cost is required',
+            'components.grn.*.grn_qty.numeric' => 'Grn Qty must be integer',
+            'components.grn.*.grn_value.numeric' => 'Grn Value must be integer',
+            'components.grn.*.grn_weight.numeric' => 'Grn Weight must be integer',
+            'components.grn.*.grn_volume.numeric' => 'Grn Volume must be integer',
+            'components.grn.*.allocation_cost.numeric' => 'Allocation Cost must be integer',
+            'components.grn.*.landed_cost.numeric' => 'Landed Cost must be integer',
         ];
 
     }

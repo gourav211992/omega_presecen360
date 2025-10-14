@@ -134,6 +134,17 @@ class StockReservation
             $data['station_id'] = null;
             $data['sub_store_id'] = $item ?-> header ?-> sub_store_id;
             $data['store_id'] = $item ?-> header ?-> store_id;
+        }else if ($bookType === ConstantHelper::PSV_SERVICE_ALIAS) {
+            $attributes = $item -> attributes;
+            $selectedAttributes = [];
+            foreach ($attributes as $attribute) { 
+                array_push($selectedAttributes, $attribute -> attr_val);
+            }
+            $data['selected_attributes'] = $selectedAttributes;
+            $data['uom_id'] = $item -> uom_id;
+            $data['requested_qty'] = abs($item -> adjusted_qty);
+            $data['sub_store_id'] = $item ?->header ?->sub_store_id;
+            $data['store_id'] = $item ?->header ?->store_id;
         }
         return $data;
     }

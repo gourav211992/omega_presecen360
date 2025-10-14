@@ -80,9 +80,6 @@
                 <span class="badge rounded-pill badge-light-primary po_detail_qty">
                     <strong>Receipt Qty</strong>: {{$mrnDetail->order_qty}}
                 </span>
-                <span class="badge rounded-pill badge-light-primary po_rejected_qty">
-                    <strong>Rejected Qty</strong>: {{$mrnDetail->rejected_qty}}
-                </span>
                 <span class="badge rounded-pill badge-light-primary po_rate">
                     <strong>Rate</strong>: {{$mrnDetail->rate}}
                 </span>

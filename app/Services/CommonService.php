@@ -275,7 +275,8 @@ class CommonService
     {
         $data['msme_registered'] = isset($data['msme_registered']) ? 1 : 0;
         $data['tds_applicable'] = isset($data['tds_applicable']) ? 1 : 0;
-        $data['is_rcm'] = isset($data['is_rcm']) ? 1 : 0; 
+        $data['is_rcm'] = (isset($data['is_rcm']) && $data['is_rcm'] == 1) ? 1 : 0;
+     
         $compliance = $vendor->compliances()->first();
 
         if ($compliance) {

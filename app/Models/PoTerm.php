@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PoTerm extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'erp_po_terms';
 
@@ -22,5 +23,4 @@ class PoTerm extends Model
     {
         return $this->belongsTo(TermsAndCondition::class, 'term_id');
     }
-    
 }

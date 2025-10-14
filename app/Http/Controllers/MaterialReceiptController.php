@@ -170,7 +170,8 @@ class MaterialReceiptController extends Controller
                     'currency',
                     'po',
                     'jobOrder',
-                    'saleOrder'
+                    'saleOrder',
+                    'createdBy'
                 ]
             )
                 // ->withDefaultGroupCompanyOrg()
@@ -277,6 +278,9 @@ class MaterialReceiptController extends Controller
                 })
                 ->addColumn('total_amount', function ($row) {
                     return number_format($row->total_amount, 2);
+                })
+                ->addColumn('created_by', function ($row){
+                    return $row->createdBy?->name;
                 })
                 ->rawColumns(['document_status'])
                 ->make(true);

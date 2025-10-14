@@ -32,8 +32,6 @@
                             <a class="btn btn-primary btn-sm mb-50 mb-sm-0" href="{{ route('exp-allocation.create') }}">
                                 <i data-feather="plus-circle"></i> Create
                             </a>
-                            {{-- <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('expense-adv.report') }}"><i data-feather="bar-chart-2"></i>Report</a> --}}
-                            {{-- <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('transactions.report', ['serviceAlias' => request() -> type]) }}"><i data-feather="bar-chart-2"></i>Report</a> --}}
                         @endif
                     </div>
                 </div>
@@ -49,19 +47,11 @@
                                             <tr>
                                                 <th>S No.</th>
                                                 <th>Series</th>
-                                                <th>Expense No.</th>
-                                                <th>Expense Date</th>
+                                                <th>Doc No.</th>
+                                                <th>Doc Date</th>
                                                 <th>Location</th>
-                                                <th>Cost Center</th>
-                                                <th>Vendor</th>
-                                                <th>Currency</th>
-                                                <th>Item</th>
-                                                <th>Item Value</th>
-                                                <th>Discount</th>
-                                                <th>Taxable</th>
-                                                <th>Tax</th>
-                                                <th>Expenses</th>
-                                                <th>Total Amt</th>
+                                                <th class="text-end">Allocation Amt</th>
+                                                <th class="text-end">Landed Cost</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
@@ -88,30 +78,6 @@
                         {{-- <input type="text" id="fp-default" class="form-control flatpickr-basic" placeholder="YYYY-MM-DD" /> --}}
                         <input type="text" id="fp-range" class="form-control flatpickr-range bg-white"
                             placeholder="YYYY-MM-DD to YYYY-MM-DD" />
-                    </div>
-                    <div class="mb-1">
-                        <label class="form-label">Item Code</label>
-                        <select class="form-select">
-                            <option>Select</option>
-                        </select>
-                    </div>
-                    <div class="mb-1">
-                        <label class="form-label">Item Name</label>
-                        <select class="form-select select2">
-                            <option>Select</option>
-                        </select>
-                    </div>
-                    <div class="mb-1">
-                        <label class="form-label">Category</label>
-                        <select class="form-select select2">
-                            <option>Select</option>
-                        </select>
-                    </div>
-                    <div class="mb-1">
-                        <label class="form-label">Sub-Category</label>
-                        <select class="form-select select2">
-                            <option>Select</option>
-                        </select>
                     </div>
                     <div class="mb-1">
                         <label class="form-label">Status</label>
@@ -184,80 +150,16 @@
                     }
                 },
                 {
-                    data: 'cost_center',
-                    name: 'cost_center',
-                    render: renderData,
-                    createdCell: function(td, cellData, rowData, row, col) {
-                        $(td).addClass('no-wrap');
-                    }
-                },
-                {
-                    data: 'vendor_name',
-                    name: 'vendor_name',
-                    render: renderData,
-                    createdCell: function(td, cellData, rowData, row, col) {
-                        $(td).addClass('no-wrap');
-                    }
-                },
-                {
-                    data: 'currency',
-                    name: 'currency',
-                    render: renderData,
-                    createdCell: function(td, cellData, rowData, row, col) {
-                        $(td).addClass('no-wrap');
-                    }
-                },
-                // {
-                //     data: 'total_items',
-                //     name: 'total_items',
-                //     render: renderData,
-                //     createdCell: function(td, cellData, rowData, row, col) {
-                //         $(td).addClass('no-wrap');
-                //     }
-                // },
-                {
-                    data: 'total_item_amount',
-                    name: 'total_item_amount',
+                    data: 'total_allocated_value',
+                    name: 'total_allocated_value',
                     render: renderData,
                     createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
                 {
-                    data: 'total_discount',
-                    name: 'total_discount',
-                    render: renderData,
-                    createdCell: function(td, cellData, rowData, row, col) {
-                        $(td).addClass('text-end');
-                    }
-                },
-                {
-                    data: 'taxable_amount',
-                    name: 'taxable_amount',
-                    render: renderData,
-                    createdCell: function(td, cellData, rowData, row, col) {
-                        $(td).addClass('text-end');
-                    }
-                },
-                {
-                    data: 'total_taxes',
-                    name: 'total_taxes',
-                    render: renderData,
-                    createdCell: function(td, cellData, rowData, row, col) {
-                        $(td).addClass('text-end');
-                    }
-                },
-                {
-                    data: 'expense_amount',
-                    name: 'expense_amount',
-                    render: renderData,
-                    createdCell: function(td, cellData, rowData, row, col) {
-                        $(td).addClass('text-end');
-                    }
-                },
-                {
-                    data: 'total_amount',
-                    name: 'total_amount',
+                    data: 'total_landed_cost_value',
+                    name: 'total_landed_cost_value',
                     render: renderData,
                     createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
@@ -275,13 +177,12 @@
             // Define your dynamic filters
             var filters = {
                 book_id: '#filter-book',
-                vendor_id: '#filter-vendor',
                 location_id: '#filter-location',
                 date_range: '#fp-range',
                 organization_id: '#filter-organization',
             };
-
-            var exportColumns = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]; // Columns to export
+            let title = 'Expense Allocation';
+            var exportColumns = [0, 1, 2, 3, 4, 5, 6, 7, 8]; // Columns to export
             var table = initializeDataTable('.datatables-basic',
                 "{{ route('exp-allocation.index') }}",
                 columns,
@@ -297,7 +198,6 @@
 
             $(".reset-filter").on("click", function() {
                 $("#filter-book").val(null).trigger("change");
-                $("#filter-vendor").val(null).trigger("change");
                 $("#filter-location").val(null).trigger("change");
                 $("#filter-organization").val(null).trigger("change");
                 $("#fp-range").val("");

@@ -2,24 +2,24 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\Deletable;
+use App\Traits\DefaultGroupCompanyOrg;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Traits\DefaultGroupCompanyOrg;
-use App\Traits\Deletable;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Unit  extends Model
 {
-    use HasFactory,SoftDeletes,Deletable,DefaultGroupCompanyOrg;
-    
+    use HasFactory, SoftDeletes, Deletable, DefaultGroupCompanyOrg;
+
     protected $table = 'erp_units';
 
     protected $fillable = [
         'name',
         'description',
-        'group_id', 
+        'group_id',
         'company_id',
-        'organization_id', 
+        'organization_id',
         'status',
     ];
 
@@ -51,8 +51,8 @@ class Unit  extends Model
         // } else {
         //     return $this -> attributes['alias'];
         // }
-        if (isset($this ->attributes['name'])) {
-            return $this -> attributes['name'];
+        if (isset($this->attributes['name'])) {
+            return $this->attributes['name'];
         } else {
             return "";
         }

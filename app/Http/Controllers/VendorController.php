@@ -225,17 +225,15 @@ class VendorController extends Controller
             if (count($servicesBooks['services']) == 0) {
                 return redirect()->route('/');
             }
-            $organizationTypes = OrganizationType::where('status', ConstantHelper::ACTIVE)->get();
-            $categories = Category::where('status', ConstantHelper::ACTIVE)->whereNull('parent_id')->get();
-            $currencies = Currency::where('status', ConstantHelper::ACTIVE)->get();
-            $paymentTerms = PaymentTerm::where('status', ConstantHelper::ACTIVE)->get();
+            $organizationTypes = OrganizationType::select('id', 'name') ->where('status', ConstantHelper::ACTIVE) ->get();
+            $currencies = Currency::select('id', 'name', 'short_name', 'symbol')->where('status', ConstantHelper::ACTIVE)->get();
+            $paymentTerms = PaymentTerm::select('id', 'name')->where('status', ConstantHelper::ACTIVE)->get();
             $titles = ConstantHelper::TITLES;
             $status = ConstantHelper::STATUS;
             $options = ConstantHelper::STOP_OPTIONS;
             $vendorTypes = ConstantHelper::VENDOR_TYPES;
             $vendorSubTypes = ConstantHelper::VENDOR_SUB_TYPES;
             $addressTypes = ConstantHelper::ADDRESS_TYPES;
-            $countries = Country::where('status', 'active')->get();
             $serviceAlias = ASNConstants::SERVICE_ALIAS;
             $user = Helper::getAuthenticatedUser();
             $supplierUsers = AuthUser::where('organization_id', $user?->organization_id)
@@ -245,9 +243,10 @@ class VendorController extends Controller
             $books = Helper::getBookSeries($serviceAlias)->get();
             $parentUrl = ConstantHelper::VENDOR_SERVICE_ALIAS;
             $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl);
-            $organization = $user->organization;
+            $organization = Organization::select('id', 'name', 'currency_id') ->where('id', $user->organization_id) ->first();
             $groupId = $organization->group_id;
-            $groupOrganizations = Organization::where('status', 'active')
+            $groupOrganizations = Organization::select('id', 'name')
+            ->where('status', 'active')
             ->where('group_id', $groupId)
             ->where('id', '!=', $organization->id)
             ->get();
@@ -268,12 +267,8 @@ class VendorController extends Controller
                     }
              }
             }
-            if (count($services['services']) == 0) {
-               return redirect() -> route('/');
-            }
             return view('procurement.vendor.create', [
                 'organizationTypes' => $organizationTypes,
-                'categories' => $categories,
                 'titles' => $titles,
                 'currencies' => $currencies,
                 'paymentTerms' => $paymentTerms,
@@ -281,7 +276,6 @@ class VendorController extends Controller
                 'options'=>$options,
                 'vendorTypes'=>$vendorTypes,
                 'vendorSubTypes'=>$vendorSubTypes,
-                'countries'=>$countries,
                 'addressTypes'=>$addressTypes,
                 'supplierUsers' => $supplierUsers,
                 'books' => $books,
@@ -484,6 +478,8 @@ class VendorController extends Controller
                             'item_id' => $vendorItemData['item_id'],
                             'item_code' => $vendorItemData['item_code'] ?? null, 
                             'cost_price' => $vendorItemData['cost_price'] ?? null, 
+                            'minimum_order_qty' => $vendorItemData['minimum_order_qty'] ?? null, 
+                            'lead_days' => $vendorItemData['lead_days'] ?? null,             
                             'uom_id' => $vendorItemData['uom_id']?? null,
                             'organization_id' => $validatedData['organization_id']?? null,
                             'group_id' => $validatedData['group_id']?? null,
@@ -578,14 +574,11 @@ class VendorController extends Controller
                 $ogVendor = Vendor::findOrFail($id);    
             }
             $gstStateId = $vendor->gst_state_id;
-            // Fetch State and Country details
-            $state = $gstStateId ? State::find($gstStateId) : null;
-            $country = $state ? Country::find($state->country_id) : null;
-            $organizationTypes = OrganizationType::where('status', ConstantHelper::ACTIVE)->get();
-            $categories = Category::where('status', ConstantHelper::ACTIVE)->whereNull('parent_id')->get();
-            $subcategories = Category::where('status', ConstantHelper::ACTIVE)->whereNotNull('parent_id')->get();
-            $currencies = Currency::where('status', ConstantHelper::ACTIVE)->get();
-            $paymentTerms = PaymentTerm::where('status', ConstantHelper::ACTIVE)->get();
+            $state = $gstStateId ? State::select('id', 'name', 'state_code')->find($gstStateId) : null;
+            $country = $state ? Country::select('id', 'name', 'code')->find($state->country_id) : null;
+            $organizationTypes = OrganizationType::select('id', 'name')->where('status', ConstantHelper::ACTIVE)->get();
+            $currencies = Currency::select('id', 'name', 'short_name', 'symbol')->where('status', ConstantHelper::ACTIVE)->get();
+            $paymentTerms = PaymentTerm::select('id', 'name')->where('status', ConstantHelper::ACTIVE)->get();
             $titles = ConstantHelper::TITLES;
             $notificationData = $vendor? $vendor->notification : [];
             $notifications = is_array($notificationData) ? $notificationData : json_decode($notificationData, true);
@@ -595,7 +588,7 @@ class VendorController extends Controller
             $vendorTypes = ConstantHelper::VENDOR_TYPES;
             $vendorSubTypes = ConstantHelper::VENDOR_SUB_TYPES;
             $addressTypes = ConstantHelper::ADDRESS_TYPES;
-            $countries = Country::where('status', 'active')->get();
+            $countries = Country::select('id', 'name', 'code')->where('status', 'active')->get();
             $serviceAlias = ASNConstants::SERVICE_ALIAS;
             $user = Helper::getAuthenticatedUser();
             $supplierUsers = AuthUser::where('organization_id', $user?->organization_id)
@@ -634,29 +627,29 @@ class VendorController extends Controller
             }
             $parentUrl = ConstantHelper::VENDOR_SERVICE_ALIAS;
             $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl);
-            $organization = $user->organization;
+            $organization = Organization::select('id', 'name', 'currency_id')
+            ->where('id', $user->organization_id)
+            ->first();
             $groupId = $organization->group_id;
-            $groupOrganizations = Organization::where('status', 'active')
+            $groupOrganizations = Organization::select('id', 'name')
+            ->where('status', 'active')
             ->where('group_id', $groupId)
             ->where('id', '!=', $organization->id)
             ->get();
             $selectedStoreIds = $vendor ?-> locations() -> pluck('store_id') -> toArray();
             $stores = $vendor -> locations;
-            $vendorCodeType = 'Manual';
-            if ($services && $services['current_book']) {
-                if (isset($services['current_book'])) {
-                    $book=$services['current_book'];
-                    if ($book) {
-                        $parameters = new stdClass(); 
-                        foreach (ServiceParametersHelper::SERVICE_PARAMETERS as $paramName => $paramNameVal) {
-                            $param = ServiceParametersHelper::getBookLevelParameterValue($paramName, $book->id)['data'];
-                            $parameters->{$paramName} = $param;
-                        }
-                        if (isset($parameters->vendor_code_type) && is_array($parameters->vendor_code_type)) {
-                            $vendorCodeType = $parameters->vendor_code_type[0] ?? null;
-                        }
-                    }
-             }
+            $vendorCodeTypeOriginal = $vendor->vendor_code_type ?? 'Manual'; 
+            $vendorCodeType = $vendorCodeTypeOriginal;
+            $book = $services['current_book'] ?? null;
+
+            if ($vendorCodeTypeOriginal === 'Auto' && $book) {
+                $parameters = new stdClass();
+                foreach (ServiceParametersHelper::SERVICE_PARAMETERS as $paramName => $paramNameVal) {
+                    $parameters->{$paramName} = ServiceParametersHelper::getBookLevelParameterValue($paramName, $book->id)['data'] ?? null;
+                }
+                if (!empty($parameters->vendor_code_type) && is_array($parameters->vendor_code_type)) {
+                    $vendorCodeType = $parameters->vendor_code_type[0] ?? $vendorCodeType;
+                }
             }
             $revision_number = $vendor->revision_number;
             $userType = Helper::userCheck();
@@ -675,8 +668,6 @@ class VendorController extends Controller
             return view('procurement.vendor.edit', [
                 'vendor' => $vendor,
                 'organizationTypes' => $organizationTypes,
-                'categories' => $categories,
-                'subcategories' => $subcategories,
                 'titles' => $titles,
                 'currencies' => $currencies,
                 'paymentTerms' => $paymentTerms,
@@ -981,6 +972,8 @@ class VendorController extends Controller
                                 $updateData = [
                                     'item_id' => $vendorItemData['item_id'] ?? null,
                                     'item_code' => $vendorItemData['item_code'] ?? null,
+                                    'minimum_order_qty' => $vendorItemData['minimum_order_qty'] ?? null, 
+                                    'lead_days' => $vendorItemData['lead_days'] ?? null,               
                                     'cost_price' => $vendorItemData['cost_price'] ?? null, 
                                     'uom_id' => $vendorItemData['uom_id']?? null,
                                     'organization_id' => $validatedData['organization_id']?? null,
@@ -997,6 +990,8 @@ class VendorController extends Controller
                             $newItem = $vendor->approvedItems()->create([
                                 'item_id' => $vendorItemData['item_id'] ?? null,
                                 'item_code' => $vendorItemData['item_code'],
+                                'minimum_order_qty' => $vendorItemData['minimum_order_qty'] ?? null, 
+                                'lead_days' => $vendorItemData['lead_days'] ?? null,              
                                 'cost_price' => $vendorItemData['cost_price'] ?? null, 
                                 'uom_id' => $vendorItemData['uom_id']?? null,
                                 'organization_id' => $organization->id ?? null, 
@@ -1338,11 +1333,12 @@ class VendorController extends Controller
             }
         }
 
-        public function destroy($id)
+      public function destroy($id)
         {
+            DB::beginTransaction();
             try {
                 $vendor = Vendor::findOrFail($id);
-        
+
                 $referenceTables = [
                     'erp_addresses' => ['addressable_id'],
                     'erp_contacts' => ['contactable_id'],
@@ -1351,30 +1347,32 @@ class VendorController extends Controller
                     'erp_vendor_items' => ['vendor_id'],
                     'erp_compliances' => ['morphable_id'],
                 ];
-        
+
                 $result = $vendor->deleteWithReferences($referenceTables);
-        
+
                 if (!$result['status']) {
+                    DB::rollBack();
                     return response()->json([
                         'status' => false,
                         'message' => $result['message'],
                         'referenced_tables' => $result['referenced_tables'] ?? []
                     ], 400);
                 }
-        
+
+                DB::commit();
                 return response()->json([
                     'status' => true,
                     'message' => 'Record deleted successfully.',
                 ], 200);
-        
+
             } catch (Exception $e) {
+                DB::rollBack();
                 return response()->json([
                     'status' => false,
                     'message' => 'An error occurred while deleting the vendor: ' . $e->getMessage()
                 ], 500);
             }
         }
-        
       
         public function getVendor(Request $request)
         {

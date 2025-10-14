@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exceptions\ApiGenericException;
 use App\Helpers\Common\OrganizationHelper;
+use App\Helpers\CommonHelper;
 use App\Helpers\ConstantHelper;
 use App\Helpers\CurrencyHelper;
 use App\Helpers\FinancialPostingHelper;
@@ -17,6 +18,11 @@ use App\Helpers\TransactionReportHelper;
 use App\Models\Address;
 use App\Models\AttributeGroup;
 use App\Helpers\DynamicFieldHelper;
+use App\Helpers\Inventory\StockReservation;
+use App\Lib\Services\WHM\PickingJob;
+use App\Lib\Services\WHM\PutawayJob;
+use App\Models\Category;
+use App\Models\Configuration;
 use App\Models\ErpPsvBatchDetail;
 use App\Models\ErpPsvDynamicField;
 
@@ -316,6 +322,14 @@ class ErpPSVController extends Controller
             $organizationId = $organization?->id;
             $groupId = $organization?->group_id;
             $companyId = $organization?->company_id;
+
+            // Get configuration detail
+            $user = Helper::getAuthenticatedUser();
+            $config = Configuration::where('type', 'organization')
+                ->where('type_id', $user->organization_id)
+                ->where('config_key', CommonHelper::ENFORCE_UIC_SCANNING)
+                ->whereNull('deleted_at')
+                ->first();
     
             $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($organization->currency->id, $request->document_date);
             if ($currencyExchangeData['status'] == false) {
@@ -686,7 +700,7 @@ class ErpPSVController extends Controller
             }
     
             if (in_array($psv->document_status, [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])) {
-                $stock = self::maintainStockLedger($psv);
+                $stock = self::maintainStockLedger($psv, $config);
                 if ($stock) {
                     DB::rollBack();
                     return response()->json(['message' => $stock], 422);
@@ -716,6 +730,12 @@ class ErpPSVController extends Controller
                     'error' => ''
                 ], 422);
             }
+
+            if (in_array($psv->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED) && $config && strtolower($config->config_value) === 'yes') {
+                (new PutawayJob)->createJob($psv->id, 'App\Models\ErpPsvHeader');
+                (new PickingJob)->createJob($psv->id, 'App\Models\ErpPsvHeader');
+            }
+
             DB::commit();
             return response()->json([
                 'message' => "Physical Stock Verification created successfully",
@@ -781,17 +801,25 @@ class ErpPSVController extends Controller
     }
 
 
-    private static function maintainStockLedger(ErpPsvHeader $psv)
+    private static function maintainStockLedger(ErpPsvHeader $psv, $config)
     {
         $items = $psv->items;
-        $issueDetailIds = $items -> where('adjusted_qty',"<",0) -> pluck('id') -> toArray();
+        $issueItems = $psv->items()->where('adjusted_qty',"<",0)->get();
+        $issueDetailIds = $issueItems->pluck('id')->toArray();
         $receiptDetailIds = $items -> where('adjusted_qty',">",0) -> pluck('id') -> toArray();
         if($issueDetailIds)
         {
-            $issueRecords = InventoryHelper::settlementOfInventoryAndStock($psv->id, $issueDetailIds, ConstantHelper::PSV_SERVICE_ALIAS, $psv->document_status, 'issue');
-            if(!$issueRecords['status'] == 'success')
-            {
-                return $issueRecords['message'];                    
+            if($config && strtolower($config->config_value) === 'yes'){
+                $stockReservation = StockReservation::stockReservation(ConstantHelper::PSV_SERVICE_ALIAS, $psv->id, $issueItems);
+                if ($stockReservation['status'] == 'error') {
+                    return $stockReservation['message'];
+                }
+            }else{
+                $issueRecords = InventoryHelper::settlementOfInventoryAndStock($psv->id, $issueDetailIds, ConstantHelper::PSV_SERVICE_ALIAS, $psv->document_status, 'issue');
+                if(!$issueRecords['status'] == 'success')
+                {
+                    return $issueRecords['message'];                    
+                }
             }
         }
         if($receiptDetailIds)

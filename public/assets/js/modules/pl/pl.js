@@ -161,12 +161,17 @@ function populateOrderTable(orders) {
                     $input.on('input', function () {
                         const value = parseFloat($(this).val());
                         if (value < 0 || isNaN(value)) {
-                            Swal.fire({
-                                title: 'Invalid Input',
-                                text: 'Quantity must be greater than zero.',
-                                icon: 'warning',
-                            });
-                            $(this).val(0);
+                            setTimeout(() => {
+                                // Only fire if the value is still invalid after 1s
+                                if ($(this).val() <= 0 || isNaN($(this).val())) {
+                                    Swal.fire({
+                                        title: 'Invalid Input',
+                                        text: 'Quantity must be greater than zero.',
+                                        icon: 'warning',
+                                    });
+                                    $(this).val(0);
+                                }
+                            }, 1000); // 1 second delay
                         } else if (value > currentQty) {
                             const qtyLabel = norder.item.balance_qty < norder.avl_stock ? 'Balance Qty' : 'Available Stock';
                             Swal.fire({

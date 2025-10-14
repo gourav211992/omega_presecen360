@@ -815,6 +815,7 @@ function disableGstFields(resetValues = true) {
         $('input[name="compliance[gstin_no]"]').val('');
         $('input[name="compliance[gstin_registration_date]"]').val('');
         $('input[name="compliance[gst_registered_name]"]').val('');
+        $('input[name="pan_number"]').val(''); 
     }
 }
 
@@ -826,6 +827,7 @@ function enableGstFields() {
 function resetGstDependentFields() {
     $('input[name="compliance[gstin_registration_date]"]').val('');
     $('input[name="compliance[gst_registered_name]"]').val('');
+    $('input[name="pan_number"]').val(''); 
     $('.error-message').remove();
     $('.field-error-message').remove();
     $('.is-invalid').removeClass('is-invalid');
@@ -1031,6 +1033,11 @@ function fetchGstDetailsByGstin(gstinNo) {
                     'compliance[gstin_registration_date]': DtReg,
                     'compliance[gst_registered_name]': LegalName
                 });
+
+                if (Gstin && Gstin.length === 15) {
+                    const panNumber = Gstin.substring(2, 12); 
+                    $('input[name="pan_number"]').val(panNumber);
+                }
 
                 getStateIdByCode(StateCode, function(stateId, stateName) {
 

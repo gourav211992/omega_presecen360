@@ -16,7 +16,7 @@
                 $selectedAttr[] = $attrValue?->id;
             }
         }
-        $inventoryStock = InventoryHelper::totalInventoryAndStock($soProcessItem->item_id, $selectedAttr, $soProcessItem->uom_id, null);
+        $inventoryStock = InventoryHelper::totalInventoryAndStock($soProcessItem->item_id, $selectedAttr, $soProcessItem->uom_id ?? $soProcessItem?->item?->uom_id, null);
         $soProcessItem->attributes = $soProcessItem->item_attributes_array();
         if ($soProcessItem->attributes->isNotEmpty()) {
             $soProcessItem->attributes = $soProcessItem->attributes->map(function ($attrGroup) {
@@ -38,7 +38,7 @@
         <td>{{ $soProcessItem?->item?->item_code ?? '' }}</td>
         <td>{{ $soProcessItem?->item?->item_name ?? '' }}</td>
         <td>{!! $html ?? '' !!}</td>
-        <td>{{ $soProcessItem?->item?->uom?->name ?? '' }}</td>
+        <td>{{ $soProcessItem?->uom?->name ?? '' }}</td>
         <td class="text-end">{{ number_format($soProcessItem->total_qty, 2) }}</td>
         <td class="text-end">{{ number_format($inventoryStock['confirmedStocks'], 2) }}</td>
         <td class="text-end">{{ number_format($inventoryStock['pendingStocks'], 2) }}</td>

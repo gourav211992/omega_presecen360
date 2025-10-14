@@ -126,8 +126,8 @@ class WarehouseMappingController extends Controller
                     $whDetail->parent_id = $detail['parent_id'] ?? null;
                     $whDetail->is_first_level = $detail['is_first_level'] ?? null;
                     $whDetail->is_last_level = $detail['is_last_level'] ?? null;
-                    $whDetail->max_weight = $detail['max_weight'] ?? null;
-                    $whDetail->max_volume = $detail['max_volume'] ?? null;
+                    $whDetail->max_weight = isset($detail['max_weight']) && $detail['max_weight'] > 0 ? $detail['max_weight'] : null;
+                    $whDetail->max_volume = isset($detail['max_volume']) && $detail['max_volume'] > 0 ? $detail['max_volume'] : null;
                     $whDetail->status = 'active';
                     $whDetail->save();
 
@@ -219,8 +219,8 @@ class WarehouseMappingController extends Controller
                     $whDetail->parent_id = $detail['parent_id'] ?? null;
                     $whDetail->is_first_level = $detail['is_first_level'] ?? null;
                     $whDetail->is_last_level = $detail['is_last_level'] ?? null;
-                    $whDetail->max_weight = $detail['max_weight'] ?? null;
-                    $whDetail->max_volume = $detail['max_volume'] ?? null;
+                    $whDetail->max_weight = isset($detail['max_weight']) && $detail['max_weight'] > 0 ? $detail['max_weight'] : null;
+                    $whDetail->max_volume = isset($detail['max_volume']) && $detail['max_volume'] > 0 ? $detail['max_volume'] : null;
                     $whDetail->status = 'active';
                     $whDetail->save();
 
@@ -480,17 +480,17 @@ class WarehouseMappingController extends Controller
 
         $whDetails = WhDetail::whereHas('store')->with(
             [
-                'whLevel', 
-                'parent', 
-                'store', 
+                'whLevel',
+                'parent',
+                'store',
                 'sub_store'
             ]
         )
-        ->where('store_id', $id)
-        ->where('sub_store_id', $request->sub_store)
-        ->where('wh_level_id', $request->wh_level)
-        ->where('is_storage_point', 1)
-        ->get();
+            ->where('store_id', $id)
+            ->where('sub_store_id', $request->sub_store)
+            ->where('wh_level_id', $request->wh_level)
+            ->where('is_storage_point', 1)
+            ->get();
 
         return view('procurement.warehouse-structure.mapping.get-barcodes', [
             'level' => $level,
@@ -502,23 +502,23 @@ class WarehouseMappingController extends Controller
     # WM Print Labels
     public function printBarcodes(Request $request)
     {
-        
+
         $user = Helper::getAuthenticatedUser();
         $status = ConstantHelper::STATUS;
 
         $whDetails = WhDetail::whereHas('store')
-        ->with(
-            [
-                'whLevel', 
-                'parent', 
-                'store', 
-                'sub_store'
-            ]
-        )
-        ->where('sub_store_id', $request->sub_store)
-        ->where('wh_level_id', operator: $request->wh_level)
-        ->whereIn('id', (array) $request->ids ?? [])
-        ->get();
+            ->with(
+                [
+                    'whLevel',
+                    'parent',
+                    'store',
+                    'sub_store'
+                ]
+            )
+            ->where('sub_store_id', $request->sub_store)
+            ->where('wh_level_id', operator: $request->wh_level)
+            ->whereIn('id', (array) $request->ids ?? [])
+            ->get();
 
         $html = view('procurement.warehouse-structure.mapping.print-barcodes', compact('whDetails'))->render();
 

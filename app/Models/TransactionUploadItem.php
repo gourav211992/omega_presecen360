@@ -12,25 +12,25 @@ class TransactionUploadItem extends Model
     protected $table = 'erp_transation_upload_items';
 
     protected $fillable = [
-        'type', 
-        'item_id', 
-        'item_name', 
-        'item_code', 
-        'hsn_id', 
-        'hsn_code', 
-        'uom_id', 
-        'uom_code', 
-        'order_qty', 
+        'type',
+        'item_id',
+        'item_name',
+        'item_code',
+        'hsn_id',
+        'hsn_code',
+        'uom_id',
+        'uom_code',
+        'order_qty',
         'rate',
-        'store_id', 
-        'store_code', 
-        'status', 
-        'form_status',        
-        'attributes', 
+        'store_id',
+        'store_code',
+        'status',
+        'form_status',
+        'attributes',
         'reason',
         'is_error',
         'is_sync',
-        'created_by', 
+        'created_by',
     ];
 
     public function item()
@@ -64,6 +64,6 @@ class TransactionUploadItem extends Model
 
     public function createdBy()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(AuthUser::class, 'created_by', 'id');
     }
 }

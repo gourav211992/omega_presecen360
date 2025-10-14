@@ -174,6 +174,9 @@ class PurchaseBillController extends Controller
                 ->addColumn('total_amount', function ($row) {
                     return number_format($row->total_amount, 2);
                 })
+                ->addColumn('created_by', function ($row){
+                    return $row->createdBy?->name;
+                })
                 ->rawColumns(['document_status'])
                 ->make(true);
         }
@@ -465,7 +468,6 @@ class PurchaseBillController extends Controller
                         'uom_code' => $uom->name ?? null,
                         'order_qty' => floatval($component['order_qty']) ?? 0.00,
                         'accepted_qty' => floatval($component['accepted_qty']) ?? 0.00,
-                        'rejected_qty' => floatval($component['rejected_qty']) ?? 0.00,
                         'inventory_uom_id' => $inventory_uom_id ?? null,
                         'inventory_uom_code' => $inventory_uom_code ?? null,
                         'inventory_uom_qty' => $inventory_uom_qty ?? 0.00,
@@ -543,7 +545,6 @@ class PurchaseBillController extends Controller
                     $pbDetail->uom_code = $pbItem['uom_code'];
                     $pbDetail->order_qty = $pbItem['order_qty'];
                     $pbDetail->accepted_qty = $pbItem['accepted_qty'];
-                    $pbDetail->rejected_qty = $pbItem['rejected_qty'];
                     $pbDetail->inventory_uom_id = $pbItem['inventory_uom_id'];
                     $pbDetail->inventory_uom_code = $pbItem['inventory_uom_code'];
                     $pbDetail->inventory_uom_qty = $pbItem['inventory_uom_qty'];

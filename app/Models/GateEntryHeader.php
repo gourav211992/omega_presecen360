@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class GateEntryHeader extends Model
 {
-    use HasFactory, DateFormatTrait, SoftDeletes, FileUploadTrait,DefaultGroupCompanyOrg, DynamicFieldsTrait;
+    use HasFactory, DateFormatTrait, SoftDeletes, FileUploadTrait, DefaultGroupCompanyOrg, DynamicFieldsTrait;
 
     protected $table = 'erp_gate_entry_headers';
 
@@ -232,12 +232,12 @@ class GateEntryHeader extends Model
 
     public function ship_address()
     {
-        return $this->belongsTo(ErpAddress::class,'shipping_address');
+        return $this->belongsTo(ErpAddress::class, 'shipping_address');
     }
 
     public function bill_address()
     {
-        return $this->belongsTo(ErpAddress::class,'billing_address');
+        return $this->belongsTo(ErpAddress::class, 'billing_address');
     }
 
     public function billingAddress()
@@ -252,17 +252,17 @@ class GateEntryHeader extends Model
 
     public function bill_address_details()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'billing')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'billing')->with(['city', 'state', 'country']);
     }
 
     public function ship_address_details()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'shipping')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'shipping')->with(['city', 'state', 'country']);
     }
 
     public function store_address()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type','location')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'location')->with(['city', 'state', 'country']);
     }
 
     public function addresses()
@@ -282,7 +282,7 @@ class GateEntryHeader extends Model
 
     public function paymentTerm()
     {
-        return $this->belongsTo(PaymentTerm::class,'payment_term_id');
+        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
 
     public function getGateEntryAmountAttribute()
@@ -293,7 +293,7 @@ class GateEntryHeader extends Model
     /*Header Level Discount*/
     public function headerDiscount()
     {
-        return $this->hasMany(GateEntryTed::class, 'header_id')->where('ted_level', 'H')->where('ted_type','Discount');
+        return $this->hasMany(GateEntryTed::class, 'header_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
     }
 
     /*Total discount header level total_header_disc_amount*/
@@ -304,7 +304,7 @@ class GateEntryHeader extends Model
 
     public function expenses()
     {
-        return $this->hasMany(GateEntryTed::class,'header_id')->where('ted_type', '=', 'Expense')
+        return $this->hasMany(GateEntryTed::class, 'header_id')->where('ted_type', '=', 'Expense')
             ->where('ted_level', '=', 'H');
     }
 
@@ -315,12 +315,12 @@ class GateEntryHeader extends Model
 
     public function gate_entry_ted()
     {
-        return $this->hasMany(GateEntryTed::class,'header_id');
+        return $this->hasMany(GateEntryTed::class, 'header_id');
     }
 
     public function gate_entry_ted_tax()
     {
-        return $this->hasMany(GateEntryTed::class,'header_id')->where('ted_type','Tax');
+        return $this->hasMany(GateEntryTed::class, 'header_id')->where('ted_type', 'Tax');
     }
 
     public function getGrandTotalAmountAttribute()
@@ -330,16 +330,17 @@ class GateEntryHeader extends Model
 
     public function createdBy()
     {
-        return $this->belongsTo(User::class,'created_by');
+        return $this->belongsTo(AuthUser::class, 'created_by', 'id');
     }
 
     public function updatedBy()
     {
-        return $this->belongsTo(User::class,'updated_by');
+        return $this->belongsTo(AuthUser::class, 'updated_by', 'id');
     }
+
     public function pruchase()
     {
-        return $this->belongsTo(PurchaseOrder::class,'purchase_order_id');
+        return $this->belongsTo(PurchaseOrder::class, 'purchase_order_id');
     }
 
     public function latestBillingAddress()
@@ -354,7 +355,7 @@ class GateEntryHeader extends Model
 
     public function dynamic_fields()
     {
-        return $this -> hasMany(ErpGeDynamicField::class, 'header_id');
+        return $this->hasMany(ErpGeDynamicField::class, 'header_id');
     }
 
     // Item Unique Codes
@@ -406,19 +407,17 @@ class GateEntryHeader extends Model
     public function deviationJob()
     {
         return $this->morphOne(ErpWhmJob::class, 'morphable')
-                    ->where('status', 'deviation');
+            ->where('status', 'deviation');
     }
 
     public function closedJob()
     {
         return $this->morphOne(ErpWhmJob::class, 'morphable')
-                    ->where('status', 'closed');
+            ->where('status', 'closed');
     }
 
     public function job()
     {
         return $this->morphOne(ErpWhmJob::class, 'morphable');
     }
-
 }
-

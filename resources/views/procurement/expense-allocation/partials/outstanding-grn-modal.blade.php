@@ -22,27 +22,27 @@
                     <div class="col">
                         <div class="mb-1">
                             <label class="form-label">Vendor</label>
-                            <input type="text" id="vendor_code_input_qt" placeholder="Select"
-                                class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off"
-                                value="">
-                            <input type="hidden" id="vendor_id_qt_val"></input>
+                            <input type="text" id="grn_vendor_code_input_qt" placeholder="Select"
+                                class="form-control mw-100 ledgerselecct ui-autocomplete-input grn_vendor_code_input_qt"
+                                autocomplete="off" value="">
+                            <input type="hidden" class="grn_vendor_id_qt_val" id="grn_vendor_id_qt_val"></input>
                         </div>
                     </div>
                     <div class="col">
                         <div class="mb-1">
                             <label class="form-label">Doc No.</label>
-                            <input type="text" id="document_no_input_qt" placeholder="Select"
-                                class="form-control mw-100 ledgerselecct ui-autocomplete-input" autocomplete="off"
-                                value="">
-                            <input type = "hidden" id = "document_id_qt_val"></input>
+                            <input type="text" id="grn_document_no_input_qt" placeholder="Select"
+                                class="form-control mw-100 ledgerselecct ui-autocomplete-input grn_document_no_input_qt"
+                                autocomplete="off" value="">
+                            <input type = "hidden" class="grn_document_id_qt_val" id="grn_document_id_qt_val"></input>
                         </div>
                     </div>
                     <div class="col">
                         <div class="mb-1">
                             <label class="form-label">Item</label>
                             <input type="text" name="grn_item_name_search" id="grn_item_name_search"
-                                placeholder="Item Name/Code" class="form-control mw-100" autocomplete="off"
-                                value="">
+                                placeholder="Item Name/Code" class="form-control mw-100 grn_item_name_search"
+                                autocomplete="off" value="">
                         </div>
                     </div>
                     <div class="col mb-1">

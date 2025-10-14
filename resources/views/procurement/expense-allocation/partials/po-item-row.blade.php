@@ -6,15 +6,19 @@
         $itemValue = $poQty * $item->rate;
         $itemDisc = $item->item_discount_amount;
         $headerDisc = $item->header_discount_amount;
-        $totalAmount = $itemValue - ($itemDisc + $headerDisc);
-        $newRate = $totalAmount / $poQty;
+        $poValue = $itemValue - ($itemDisc + $headerDisc);
+        $newRate = $itemValue / $poQty;
+        $poNumber = ($item?->po?->book_code ?? '') . ' ' . ($item?->po?->document_number ?? '');
+        $exchangeRate = $item?->po?->currencyConversion()['data']['org_currency_exg_rate'] ?? 1;
+        $totalValue = $poValue * $exchangeRate;
     @endphp
     <tr data-group-item="{{ json_encode($item) }}" id="row_{{ $rowCount }}" data-index="{{ $rowCount }}"
-        @if ($rowCount < 2) class="trselected" @endif>
-        <input type="hidden" name="components[{{ $rowCount }}][purchase_order_id]"
+        class="row_{{ $rowCount }} po_row_{{ $rowCount }} po-row expense-row {{ $rowCount < 2 ? 'trselected' : '' }}">
+        <input type="hidden" name="components[po][{{ $rowCount }}][po_header_id]"
             value="{{ $item->purchase_order_id }}">
-        <input type="hidden" name="components[{{ $rowCount }}][po_detail_id]" value="{{ $item->id }}">
-        <input type="hidden" name="components[{{ $rowCount }}][po_detail_id]" value="{{ $item?->po?->vendor_id }}">
+        <input type="hidden" name="components[po][{{ $rowCount }}][po_detail_id]" value="{{ $item->id }}">
+        <input type="hidden" name="components[po][{{ $rowCount }}][vendor_id]"
+            value="{{ $item?->po?->vendor_id }}">
         <td class="customernewsection-form">
             <div class="form-check form-check-primary custom-checkbox">
                 <input type="checkbox" class="form-check-input" id="Email_{{ $rowCount }}"
@@ -23,77 +27,70 @@
             </div>
         </td>
         <td>
-            <input type="text" name="components[{{ $rowCount }}][vendor_name]"
-                value="{{ $item?->po?->vendor?->company_name }}" class="form-control mw-100 mb-25" readonly />
-        </td>
-        <td>
             <input type="text" name="component_item_name[{{ $rowCount }}]" placeholder="Select"
                 class="form-control mw-100 ledgerselecct comp_item_code" value="{{ $item->item_code }}" readonly />
-            <input type="hidden" name="components[{{ $rowCount }}][item_id]" value="{{ @$item->item_id }}" />
-            <input type="hidden" name="components[{{ $rowCount }}][item_code]" value="{{ @$item->item_code }}" />
-            <input type="hidden" name="components[{{ $rowCount }}][item_name]"
-                value="{{ @$item->item->name }}" />
-            <input type="hidden" name="components[{{ $rowCount }}][hsn_id]" value="{{ @$item->hsn_id }}" />
-            <input type="hidden" name="components[{{ $rowCount }}][hsn_code]"
-                value="{{ $item?->item?->hsn?->code }}" />
-            @php
-                $selectedAttr = @$item->attributes
-                    ? @$item->attributes()->whereNotNull('attribute_value')->pluck('attribute_value')->all()
-                    : [];
-            @endphp
-            @foreach (@$item->attributes as $attributeHidden)
-                <input type="hidden"
-                    name="components[{{ $rowCount }}][attr_group_id][{{ $attributeHidden->attribute_name }}][attr_id]"
-                    value="{{ $attributeHidden->id }}">
-            @endforeach
-            @foreach (@$item->item->itemAttributes as $itemAttribute)
-                @if (count($selectedAttr))
-                    @foreach ($itemAttribute->attributes() as $value)
-                        @if (in_array($value->id, $selectedAttr))
-                            <input type="hidden"
-                                name="components[{{ $rowCount }}][attr_group_id][{{ $itemAttribute->attribute_group_id }}][attr_name]"
-                                value="{{ $value->id }}">
-                        @endif
-                    @endforeach
-                @else
-                    <input type="hidden"
-                        name="components[{{ $rowCount }}][attr_group_id][{{ $itemAttribute->attribute_group_id }}][attr_name]"
-                        value="">
-                @endif
-            @endforeach
+            <input type="hidden" name="components[po][{{ $rowCount }}][item_id]" value="{{ @$item->item_id }}" />
+            <input type="hidden" name="components[po][{{ $rowCount }}][item_code]"
+                value="{{ @$item->item_code }}" />
+            <input type="hidden" name="components[po][{{ $rowCount }}][item_name]"
+                value="{{ @$item->item_name }}" />
+            <input type="hidden" name="components[po][{{ $rowCount }}][hsn_id]" value="{{ @$item->hsn_id }}" />
+            <input type="hidden" name="components[po][{{ $rowCount }}][hsn_code]"
+                value="{{ $item?->hsn_code }}" />
+            <input type="hidden" name="components[po][{{ $rowCount }}][uom_id]" value="{{ @$item->uom_id }}" />
+            <input type="hidden" name="components[po][{{ $rowCount }}][uom_code]"
+                value="{{ $item?->uom_code }}" />
         </td>
         <td>
-            <input type="text" name="components[{{ $rowCount }}][item_name]"
-                value="{{ $item?->item?->item_name }}" class="form-control mw-100 mb-25" readonly />
-        </td>
-        <td class="poprod-decpt" id="itemAttribute_{{ $rowCount }}" data-count="{{ $rowCount }}"
-            attribute-array="{{ $item->item_attributes_array() }}">
+            <input type="text" name="components[po][{{ $rowCount }}][item_name]"
+                value="{{ $item?->item?->item_name }}" class="form-control mw-100 mb-25 expense-name" readonly />
         </td>
         <td>
-            <input type="hidden" name="components[{{ $rowCount }}][inventory_uom_id]"
+            <input type="hidden" name="components[po][{{ $rowCount }}][inventory_uom_id]"
                 value="{{ $item->inventory_uom_id }}">
-            <select class="form-select mw-100 " name="components[{{ $rowCount }}][uom_id]">
-                <option value="{{ $item->uom->id }}">{{ ucfirst($item->uom->name) }}</option>
-                @if ($item?->item?->alternateUOMs)
-                    @foreach ($item?->item?->alternateUOMs as $alternateUOM)
-                        <option value="{{ $alternateUOM?->uom?->id }}"
-                            {{ $alternateUOM?->uom?->id == $item->inventory_uom_id ? 'selected' : '' }}>
-                            {{ $alternateUOM?->uom?->name }}
-                        </option>
-                    @endforeach
-                @endif
+            <select class="form-select mw-100">
+                <option value="{{ $item?->uom?->id }}">
+                    {{ ucfirst($item?->uom?->name) }}
+                </option>
             </select>
         </td>
         <td>
-            <input type="number" class="form-control mw-100 accepted_qty text-end checkNegativeVal"
-                name="components[{{ $rowCount }}][accepted_qty]" value="{{ $poQty }}" step="any" />
+            <input type="hidden" name="components[po][{{ $rowCount }}][currency_id]"
+                value="{{ $item?->po?->currency_id }}">
+            <input type="text" class="form-control mw-100 currency_code"
+                value="{{ $item?->po?->currency?->short_name ?? '' }}"
+                name="components[po][{{ $rowCount }}][currency_code]" readonly />
         </td>
         <td>
-            <input type="number" name="components[{{ $rowCount }}][rate]" value="{{ $newRate }}" readonly
+            <input type="hidden" name="components[po][{{ $rowCount }}][org_currency_id]"
+                value="{{ $currency?->id }}">
+            <input type="hidden" name="components[po][{{ $rowCount }}][exchange_rate]"
+                value="{{ $exchangeRate }}">    
+            <input type="text" class="form-control mw-100 org_currency_code"
+                value="{{ $currency?->short_name ?? '' }}"
+                name="components[po][{{ $rowCount }}][org_currency_code]" readonly />
+        </td>
+        <td>
+            <input type="number" class="form-control mw-100 po_qty text-end checkNegativeVal expense-qty"
+                name="components[po][{{ $rowCount }}][po_qty]" readonly value="{{ $poQty }}"
+                step="any" />
+        </td>
+        <td>
+            <input type="number" name="components[po][{{ $rowCount }}][po_rate]" value="{{ $newRate }}"
+                readonly class="form-control po_rate mw-100 text-end" step="any" />
+        </td>
+        <td>
+            <input type="number" id="old_amt_po_{{ $rowCount }}"
+                name="components[po][{{ $rowCount }}][old_amt_po]" value="{{ $poValue }}" readonly
                 class="form-control mw-100 text-end" step="any" />
         </td>
         <td>
-            <select class="form-select mw-100 dist_type" name="components[{{ $rowCount }}][dist_type]">
+            <input type="number" id="po_value_{{ $rowCount }}"
+                name="components[po][{{ $rowCount }}][po_value]" value="{{ $totalValue }}" readonly
+                class="form-control mw-100 text-end po_value expense-amount" step="any" />
+        </td>
+        <td>
+            <select class="form-select mw-100 alloc-type" name="components[po][{{ $rowCount }}][dist_type]">
                 <option value="">Select Type</option>
                 @foreach ($distributionTypes as $key => $value)
                     <option value="{{ $key }}">{{ $value }}</option>
@@ -101,35 +98,21 @@
             </select>
         </td>
         <td>
-            <input type="text" id="item_total_cost_{{ $rowCount }}"
-                name="components[{{ $rowCount }}][item_total_cost]" value="{{ $totalAmount }}" readonly
-                class="form-control mw-100 text-end item_total_cost" step="any" />
+            <input type="text" name="components[po][{{ $rowCount }}][vendor_name]"
+                value="{{ $item?->po?->vendor?->company_name }}" class="form-control mw-100 mb-25" readonly />
         </td>
         <td>
-            <div class="d-flex">
-                <input type="hidden" id="components_remark_{{ $rowCount }}"
-                    name="components[{{ $rowCount }}][remark]" value="{{ $item->remarks }}" />
-                <div class="me-50 cursor-pointer addRemarkBtn" data-row-count="{{ $rowCount }}">
-                    <span data-bs-toggle="tooltip" data-bs-placement="top" title="" class="text-primary"
-                        data-bs-original-title="Remarks" aria-label="Remarks">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                            stroke-linejoin="round" class="feather feather-file-text">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10 9 9 9 8 9"></polyline>
-                        </svg>
-                    </span>
-                </div>
-            </div>
+            <input type="text" name="components[po][{{ $rowCount }}][po_number]" value="{{ $poNumber }}"
+                class="form-control mw-100 mb-25" readonly />
         </td>
-        <input type="hidden" name="components[{{ $rowCount }}][po_item_hidden_ids]"
+        <td>
+            <input type="text" name="components[po][{{ $rowCount }}][po_date]"
+                value="{{ $item?->po?->getFormattedDate('document_date') }}" class="form-control mw-100 mb-25"
+                readonly />
+        </td>
+        <input type="hidden" name="components[po][{{ $rowCount }}][po_item_hidden_ids]"
             value="{{ $item->id }}">
-        <input type="hidden" name="components[{{ $rowCount }}][po_hidden_ids]"
+        <input type="hidden" name="components[po][{{ $rowCount }}][po_hidden_ids]"
             value="{{ $item->purchase_order_id }}">
-        <input type="hidden" name="components[{{ $rowCount }}][expense_allocation_qty]"
-            value="{{ $item->expense_advise_qty }}">
     </tr>
 @endforeach

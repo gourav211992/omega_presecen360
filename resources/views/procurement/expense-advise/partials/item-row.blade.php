@@ -28,9 +28,11 @@
     </td>
     <td>
         <input type="number" step="any" name="components[{{$rowCount}}][rate]" class="form-control mw-100 text-end checkNegativeVal" />
+        <input type="hidden" name="components[{{$rowCount}}][po_val]" class="form-control mw-100 text-end po-rate checkNegativeVal" step="any" value="0" />
     </td>
     <td>
         <input type="number" step="any" readonly name="components[{{$rowCount}}][basic_value]" class="form-control mw-100 text-end" />
+        <input type="hidden" name="components[{{$rowCount}}][po_b_value]"  class="form-control text-end mw-100 basic_value checkNegativeVal" readonly step="any" value="0" />
     </td>
     <td>
         <div class="position-relative d-flex align-items-center">
@@ -44,6 +46,10 @@
     </td>
     <td>
         <input type="number" step="any" name="components[{{$rowCount}}][item_total_cost]" readonly class="form-control mw-100 text-end" />
+        <input type="hidden" id="item_total_po_cost_{{$rowCount}}" name="components[{{$rowCount}}][po_total_cost]" readonly class="form-control mw-100 text-end item_total_cost" step="any" value="0" />
+    </td>
+    <td>
+        <input type="number" name="components[{{$rowCount}}][item_variance]" value="" readonly class="form-control mw-100 text-end item_variance" step="any" value="0" />
     </td>
     <td>
         <div class="d-flex">

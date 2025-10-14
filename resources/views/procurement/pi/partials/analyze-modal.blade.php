@@ -78,7 +78,7 @@
                 </div>
             </div>
             <div class="modal-footer text-end">
-                <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i data-feather="x-circle"></i> Cancel</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm waves-effect" id="backBtn"> Back</button>
                 <button class="btn btn-primary btn-sm analyzeProcessBtn"><i data-feather="check-circle"></i> Process</button>
             </div>
         </div>

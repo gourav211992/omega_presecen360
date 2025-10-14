@@ -11,6 +11,9 @@
         $itemDiscPercentage = $grossItemValue > 0 ? ($itemDisc / $grossItemValue) * 100 : 0;
         $headerDiscPercentage = $grossItemValue > 0 ? ($headerDiscAmount / $grossItemValue) * 100 : 0;
         $headerExpPercentage = $grossItemValue > 0 ? ($headerExpAmount / $grossItemValue) * 100 : 0;
+        $qty = ($item->order_qty ?? 0.0);
+        $ItemTotalValue = $qty * $item->rate - ($item->item_discount_amount + $item->header_discount_amount);
+        $ItemRate = $ItemTotalValue / $qty;
     @endphp
     <tr data-group-item="{{json_encode($item)}}" id="row_{{$rowCount}}" data-index="{{$rowCount}}" @if($rowCount < 2 ) class="trselected" @endif>
         <input type="hidden" name="components[{{$rowCount}}][job_order_id]" value="{{$item->jo_id}}">
@@ -72,13 +75,18 @@
         </td>
         <td>
             <input type="number" class="form-control mw-100 accepted_qty text-end checkNegativeVal" name="components[{{$rowCount}}][accepted_qty]"
-            value="{{$availableQty}}" step="any" {{ $readOnly }} />
+            value="{{$availableQty}}" step="any" readonly />
         </td>
         <td>
-            <input type="number" name="components[{{$rowCount}}][rate]" value="{{$item->rate}}" readonly class="form-control mw-100 text-end rate" step="any" />
+            <input type="number" name="components[{{$rowCount}}][rate]" value="{{$item->rate}}" class="form-control mw-100 text-end rate" step="any" />
+            <input type="hidden" name="components[{{ $rowCount }}][po_val]" value="{{ $ItemRate }}"
+                class="form-control mw-100 text-end po-rate checkNegativeVal" step="any" />
         </td>
         <td>
             <input type="number" name="components[{{$rowCount}}][basic_value]" value="{{$availableQty*$item->rate}}"  class="form-control text-end mw-100 basic_value checkNegativeVal" readonly step="any" />
+            <input type="hidden" name="components[{{ $rowCount }}][po_b_value]"
+                value="{{ ($qty - $item->expense_advise_qty) * $item->rate }}"
+                class="form-control text-end mw-100 basic_value checkNegativeVal" readonly step="any" />
         </td>
         <td>
             <div class="position-relative d-flex align-items-center">
@@ -111,6 +119,10 @@
         </td>
         <td>
             <input type="text" id="item_total_cost_{{$rowCount}}" name="components[{{$rowCount}}][item_total_cost]" value="{{($item->order_qty*$item->rate) - $item->discount_amount}}" readonly class="form-control mw-100 text-end item_total_cost" step="any"/>
+            <input type="hidden" id="po_total_cost_{{ $rowCount }}"
+                name="components[{{ $rowCount }}][po_total_cost]"
+                value="{{ $item->order_qty * $ItemRate - $item->discount_amount }}" readonly
+                class="form-control mw-100 text-end po_total_cost" step="any" />
             @foreach($item->taxes as $tax_key => $item_tax)
                 <input type="hidden" value="{{@$item_tax->id}}" name="components[{{$rowCount}}][taxes][{{$tax_key + 1}}][id]">
                 <input type="hidden" value="{{@$item_tax->ted_id}}" name="components[{{$rowCount}}][taxes][{{$tax_key + 1}}][t_d_id]">
@@ -119,6 +131,10 @@
                 <input type="hidden" value="{{@$item_tax->ted_perc}}" name="components[{{$rowCount}}][taxes][{{$tax_key + 1}}][t_perc]">
                 <input type="hidden" value="{{@$item_tax->ted_amount}}" name="components[{{$rowCount}}][taxes][{{$tax_key + 1}}][t_value]">
             @endforeach
+        </td>
+        <td>
+            <input type="number" name="components[{{ $rowCount }}][item_variance]" value="" readonly
+                class="form-control mw-100 text-end item_variance" step="any" />
         </td>
         <td>
             <div class="d-flex">

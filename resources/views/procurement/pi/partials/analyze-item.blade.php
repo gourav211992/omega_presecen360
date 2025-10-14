@@ -6,5 +6,5 @@
         $fgNode = $semiFinishedGoods['semi_finished_goods']['fg'];
         $fgSoId = $fgNode['so_id'] ?? null;
     @endphp
-    @include('procurement.pi.partials.semi-finished-row', ['node' => $fgNode, 'parentSoId' => $fgSoId])
+    @include('procurement.pi.partials.semi-finished-row', ['node' => $fgNode, 'parentSoId' => $fgSoId, 'isAttribute' => $isAttribute])
 @endforeach

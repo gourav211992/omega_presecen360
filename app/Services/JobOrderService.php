@@ -46,7 +46,7 @@ class JobOrderService
                 'jo_qty' => floatval($pwoSoMapping->jo_qty) + $qtyToAdd,
             ]);
         }
-    }   
+    }
 
     # Save Job Item And Attribute
     public static function saveJoProductWithAttributes(array $poItem, array $component, ?int $jobOrderId): JoProduct
@@ -55,7 +55,7 @@ class JobOrderService
         $joProduct = JoProduct::find($component['jo_product_id'] ?? null) ?? new JoProduct;
 
         $isNewItem = false;
-        if(isset($joProduct->item_id) && $joProduct->item_id) {
+        if (isset($joProduct->item_id) && $joProduct->item_id) {
             $isNewItem = $joProduct->item_id != ($poItem['item_id'] ?? null);
         }
         $joProduct->pwo_so_mapping_id = $poItem['pwo_so_mapping_id'] ?? null;
@@ -165,8 +165,8 @@ class JobOrderService
                     $ted->ted_id = $tax['t_d_id'] ?? null;
                     $ted->ted_name = $tax['t_type'] ?? null;
                     $ted->assessment_amount = ($poItem['item_value'] ?? 0)
-                                            - ($poItem['item_discount_amount'] ?? 0)
-                                            - ($poItem['header_discount_amount'] ?? 0);
+                        - ($poItem['item_discount_amount'] ?? 0)
+                        - ($poItem['header_discount_amount'] ?? 0);
                     $ted->ted_perc = $tax['t_perc'] ?? 0.00;
                     $ted->ted_amount = $tax['t_value'] ?? 0.00;
                     $ted->applicable_type = $tax['applicability_type'] ?? 'Collection';
@@ -300,7 +300,7 @@ class JobOrderService
                 ->where('bom_id', $bom->id)
                 ->get();
         }
-        
+
         $insertData = [];
         foreach ($bomDetails as $bomDetail) {
             $bomQty = 0;
@@ -337,15 +337,15 @@ class JobOrderService
     # Job Order Bom Mapping
     public static function saveJoItems(JobOrder $po): void
     {
-        if (strtolower($po->job_order_type) !== strtolower(ConstantHelper::TYPE_SUBCONTRACTING)) {
-            return;
-        }
+        if (strtolower($po->job_order_type) !== strtolower(ConstantHelper::TYPE_SUBCONTRACTING))  return;
+
         $groupedDatas = JoBomMapping::selectRaw('jo_id, so_id, station_id, bom_detail_id, item_id, item_code, uom_id, rm_type, attributes, SUM(qty) as total_qty')
-                        ->where('jo_id', $po->id)
-                        ->groupBy('jo_id', 'so_id', 'station_id', 'bom_detail_id', 'item_id', 'item_code', 'uom_id', 'rm_type', 'attributes')
-                        ->get();
-        foreach($groupedDatas as $groupedData) {
-            # Mo Item Save                    
+            ->where('jo_id', $po->id)
+            ->groupBy('jo_id', 'so_id', 'station_id', 'bom_detail_id', 'item_id', 'item_code', 'uom_id', 'rm_type', 'attributes')
+            ->get();
+
+        foreach ($groupedDatas as $groupedData) {
+            # Mo Item Save
             $moItem = new JoItem;
             $moItem->jo_id = $po->id;
             $moItem->so_id = $groupedData->so_id ?? null;
@@ -362,7 +362,7 @@ class JobOrderService
             $moItem->save();
             # Mo Item Attribute Save
             $moItemAttributes = $groupedData->attributes;
-            foreach($moItemAttributes as $moItemAttribute) {
+            foreach ($moItemAttributes as $moItemAttribute) {
                 $moItemAttr = new JoItemAttribute;
                 $moItemAttr->jo_id = $po->id;
                 $moItemAttr->jo_item_id = $moItem->id;

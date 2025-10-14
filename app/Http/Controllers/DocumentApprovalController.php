@@ -29,6 +29,7 @@ use App\Helpers\Helper;
 use App\Helpers\ItemHelper;
 use App\Helpers\InventoryHelper;
 use App\Helpers\InspectionHelper;
+use App\Helpers\InventoryHelperV2;
 use App\Lib\Services\WHM\PickingJob;
 use App\Lib\Services\WHM\PutawayJob;
 use App\Lib\Services\WHM\RGRJob;
@@ -59,11 +60,13 @@ use App\Models\JobOrder\JobOrder;
 use App\Models\MrnBatchDetail;
 use App\Models\WHM\ErpItemUniqueCode;
 use App\Models\WHM\ErpWhmJob;
+use App\Models\ExpenseAllocation\Header as ExpAllocationHeader;
+use App\Models\ExpenseAllocation\PoDetail as ExpAllocationPoDetail;
+use App\Models\ExpenseAllocation\GrnDetail as ExpAllocationGrnDetail;
 use Exception;
 use Illuminate\Http\Request;
 use Log;
 class DocumentApprovalController extends Controller
-
 {
     # Bom Approval
     public function bom(Request $request)
@@ -83,7 +86,7 @@ class DocumentApprovalController extends Controller
             $currentLevel = $bom->approval_level;
             $revisionNumber = $bom->revision_number ?? 0;
             $actionType = $request->action_type;
- 
+
             $modelName = get_class($bom);
             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             $bom->approval_level = $approveDocument['nextLevel'];
@@ -96,7 +99,7 @@ class DocumentApprovalController extends Controller
                 'data' => $bom,
             ]);
         } catch (Exception $e) {
-    
+
             DB::rollBack();
             return response()->json([
                 'message' => "Error occurred while $actionType bom document.",
@@ -105,7 +108,7 @@ class DocumentApprovalController extends Controller
         }
     }
 
-      # mfgOrder Approval
+    # mfgOrder Approval
     public function mfgOrder(Request $request)
     {
         $request->validate([
@@ -135,14 +138,14 @@ class DocumentApprovalController extends Controller
                 'data' => $bom,
             ]);
         } catch (Exception $e) {
-         
+
             DB::rollBack();
             return response()->json([
                 'message' => "Error occurred while  $request->action_type MO document.",
                 'error' => $e->getMessage(),
             ], 500);
         }
-    } 
+    }
     public function pwo(Request $request)
     {
         $request->validate([
@@ -172,7 +175,7 @@ class DocumentApprovalController extends Controller
                 'data' => $bom,
             ]);
         } catch (Exception $e) {
-         
+
             DB::rollBack();
             return response()->json([
                 'message' => "Error occurred while  $request->action_type MO document.",
@@ -367,8 +370,8 @@ class DocumentApprovalController extends Controller
             $saleInvoice->document_status = $approveDocument['approvalStatus'];
             $saleInvoice->save();
 
-            $bookTypeServiceAlias = $saleInvoice -> document_type;
-            $approvalStatus = $saleInvoice -> document_status;
+            $bookTypeServiceAlias = $saleInvoice->document_type;
+            $approvalStatus = $saleInvoice->document_status;
 
             DB::commit();
             return response()->json([
@@ -571,7 +574,7 @@ class DocumentApprovalController extends Controller
                 $tr->selected_bid_id = $request->bid_id;
 
                 // Update all bids' status for the given transporter_request_id
-                ErpTransporterRequestBid::where('transporter_request_id', $tr->id)->whereNotIn('bid_status',["cancelled"])
+                ErpTransporterRequestBid::where('transporter_request_id', $tr->id)->whereNotIn('bid_status', ["cancelled"])
                     ->update(['bid_status' => ConstantHelper::SUBMITTED]);
 
                 // Fetch the specific bid that needs to be shortlisted
@@ -584,14 +587,13 @@ class DocumentApprovalController extends Controller
                 $transporter_ids = json_decode($tr->transporter_ids);
                 if ($transporter_ids) {
                     $vendors = Vendor::whereIn('id', $transporter_ids)->get(); // Keep as a collection
-                }
-                else{
+                } else {
                     $vendors = Vendor::withDefaultGroupCompanyOrg()->get();
                 }
                 foreach ($vendors as $vendor) {
                     $sendTo = $vendor->email;
                     $title = "New Transporter Request";
-                    $bidLink = route('supplier.transporter.index',[$vendor->id]); // Generate route in PHP
+                    $bidLink = route('supplier.transporter.index', [$vendor->id]); // Generate route in PHP
                     $name = $vendor->company_name;
                     $bid_name = $tr->document_number;
                     $description = <<<HTML
@@ -680,13 +682,10 @@ class DocumentApprovalController extends Controller
             $bookId = $mrn->series_id;
             $docId = $mrn->id;
             $docValue = $mrn->total_amount;
-            if($request->action_type == 'deviation-closed')
-            {
+            if ($request->action_type == 'deviation-closed') {
                 $remarks = $request->closing_remarks;
                 $attachments = [];
-            }
-            else
-            {
+            } else {
                 $remarks = $request->remarks;
                 $attachments = $request->file('attachment');
             }
@@ -696,8 +695,7 @@ class DocumentApprovalController extends Controller
             $modelName = get_class($mrn);
             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             $mrn->approval_level = $approveDocument['nextLevel'];
-            if($request->action_type != 'deviation-closed')
-            {
+            if ($request->action_type != 'deviation-closed') {
                 $mrn->document_status = $approveDocument['approvalStatus'];
             }
             $mrn->save();
@@ -727,7 +725,7 @@ class DocumentApprovalController extends Controller
                                     ->where('job_id', $jobData->id)
                                     ->exists();
                                 if (!$hasPending) {
-                                    $batchQty =  ItemHelper::convertToAltUom($item->item_id, $item->uom_id, $pendingBatchQty ?? 0);
+                                    $batchQty = ItemHelper::convertToAltUom($item->item_id, $item->uom_id, $pendingBatchQty ?? 0);
                                     $batch->decrement('inventory_uom_qty', $pendingBatchQty);
                                     $batch->decrement('quantity', $batchQty);
                                 }
@@ -778,11 +776,11 @@ class DocumentApprovalController extends Controller
 
             // Mrn Purchase Summary
             if ($actionType == 'approve' && in_array($mrn->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)) {
-                $fy = Helper::getFinancialYear($mrn -> document_date);
+                $fy = Helper::getFinancialYear($mrn->document_date);
                 $fyYear = ErpFinancialYear::find($fy['id']);
-                if ((int)$revisionNumber > 0) {
-                    $oldMrn = MrnHeaderHistory::where('mrn_header_id', $mrn -> id)
-                        -> where('revision_number', $mrn -> revision_number - 1) -> first();
+                if ((int) $revisionNumber > 0) {
+                    $oldMrn = MrnHeaderHistory::where('mrn_header_id', $mrn->id)
+                        ->where('revision_number', $mrn->revision_number - 1)->first();
                     if ($oldMrn) {
                         MrnModuleHelper::buildVendorPurchaseSummary($mrn, $fyYear, $oldMrn);
                     }
@@ -818,9 +816,9 @@ class DocumentApprovalController extends Controller
             $user = Helper::getAuthenticatedUser();
 
             // Get configuration detail
-            $config = Configuration::where('type','organization')
+            $config = Configuration::where('type', 'organization')
                 ->where('type_id', $user->organization_id)
-                ->whereIn('config_key', [CommonHelper::UNLOADING_REQUIRED,CommonHelper::ENFORCE_UIC_SCANNING])
+                ->whereIn('config_key', [CommonHelper::UNLOADING_REQUIRED, CommonHelper::ENFORCE_UIC_SCANNING])
                 ->pluck('config_value', 'config_key');
 
 
@@ -828,13 +826,10 @@ class DocumentApprovalController extends Controller
             $bookId = $gateEntry->series_id;
             $docId = $gateEntry->id;
             $docValue = $gateEntry->total_amount;
-            if($request->action_type == 'deviation-closed')
-            {
+            if ($request->action_type == 'deviation-closed') {
                 $remarks = $request->closing_remarks;
                 $attachments = [];
-            }
-            else
-            {
+            } else {
                 $remarks = $request->remarks;
                 $attachments = $request->file('attachment');
             }
@@ -844,18 +839,18 @@ class DocumentApprovalController extends Controller
             $modelName = get_class($gateEntry);
             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             $gateEntry->approval_level = $approveDocument['nextLevel'];
-            if($request->action_type != 'deviation-closed')
-            {
+            if ($request->action_type != 'deviation-closed') {
                 $gateEntry->document_status = $approveDocument['approvalStatus'];
             }
             $gateEntry->save();
 
             // Create Job
-            if(in_array($gateEntry->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)
+            if (
+                in_array($gateEntry->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)
                 && (isset($config[CommonHelper::UNLOADING_REQUIRED]) && $config[CommonHelper::UNLOADING_REQUIRED] == 'yes')
                 && (isset($config[CommonHelper::ENFORCE_UIC_SCANNING]) && $config[CommonHelper::ENFORCE_UIC_SCANNING] == 'yes')
-            ){
-                (new UnloadingJob)->createJob($gateEntry->id,'App\Models\GateEntryHeader');
+            ) {
+                (new UnloadingJob)->createJob($gateEntry->id, 'App\Models\GateEntryHeader');
             }
 
             if ($request->action_type === 'deviation-closed') {
@@ -894,13 +889,13 @@ class DocumentApprovalController extends Controller
                             if (!$hasPending) {
                                 // Adjust accepted qty only once per item
                                 $item->decrement('accepted_qty', $pendingQty);
-                                if($gateEntry->reference_type == 'po'){
+                                if ($gateEntry->reference_type == 'po') {
                                     $item->po_item->decrement('ge_qty', $pendingQty);
                                 }
-                                if($gateEntry->reference_type == 'jo'){
+                                if ($gateEntry->reference_type == 'jo') {
                                     $item->jo_item->decrement('ge_qty', $pendingQty);
                                 }
-                                if($gateEntry->reference_type == 'so'){
+                                if ($gateEntry->reference_type == 'so') {
                                     $item->soItem->decrement('ge_qty', $pendingQty);
                                 }
                             }
@@ -968,7 +963,7 @@ class DocumentApprovalController extends Controller
         }
     }
 
-    // MRN Document Approval
+    // Pb Document Approval
     public function purchaseBill(Request $request)
     {
         $request->validate([
@@ -1007,6 +1002,54 @@ class DocumentApprovalController extends Controller
         }
     }
 
+    // Expense Document Approval
+    public function expenseAllocation(Request $request)
+    {
+        $request->validate([
+            'remarks' => 'nullable',
+            'attachment' => 'nullable'
+        ]);
+        DB::beginTransaction();
+        try {
+            $expense = ExpAllocationHeader::find($request->id);
+            $bookId = $expense->series_id;
+            $docId = $expense->id;
+            $docValue = $expense->total_amount;
+            $remarks = $request->remarks;
+            $attachments = $request->file('attachment');
+            $currentLevel = $expense->approval_level;
+            $revisionNumber = $expense->revision_number ?? 0;
+            $actionType = $request->action_type; // Approve or reject
+            $modelName = get_class($expense);
+            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            $expense->approval_level = $approveDocument['nextLevel'];
+            $expense->document_status = $approveDocument['approvalStatus'];
+            $expense->save();
+
+            if (in_array($expense->document_status, [ConstantHelper::APPROVED])) {
+                $expenseData = InventoryHelperV2::saveMrnExpenses($expense);
+                if ($expenseData && $expenseData['status'] == 'error') {
+                    return response()->json([
+                        'message' => $expenseData['message'],
+                        'error' => ''
+                    ], 500);
+                }
+            }
+
+            DB::commit();
+            return response()->json([
+                'message' => "Document $actionType successfully!",
+                'data' => $expense,
+            ]);
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => "Error occurred while $actionType expense document.",
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function materialIssue(Request $request)
     {
         $request->validate([
@@ -1026,7 +1069,7 @@ class DocumentApprovalController extends Controller
             $revisionNumber = $doc->revision_number ?? 0;
             $actionType = $request->action_type; // Approve or reject
             $modelName = get_class($doc);
-            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             if ($approveDocument['message']) {
                 DB::rollBack();
                 return response()->json([
@@ -1038,13 +1081,13 @@ class DocumentApprovalController extends Controller
             $doc->document_status = $approveDocument['approvalStatus'];
             $doc->save();
             // Get configuration detail
-            $config = Configuration::where('type','organization')
+            $config = Configuration::where('type', 'organization')
                 ->where('type_id', $authUser->organization_id)
                 ->where('config_key', CommonHelper::ENFORCE_UIC_SCANNING)
                 ->first();
             // Create job
             $miService = new MaterialIssue();
-            $miService -> createWhmJob($doc, $authUser);
+            $miService->createWhmJob($doc, $authUser);
             DB::commit();
             return response()->json([
                 'message' => "Document $actionType successfully!",
@@ -1077,7 +1120,7 @@ class DocumentApprovalController extends Controller
             $revisionNumber = $doc->revision_number ?? 0;
             $actionType = $request->action_type; // Approve or reject
             $modelName = get_class($doc);
-            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             if ($approveDocument['message']) {
                 DB::rollBack();
                 return response()->json([
@@ -1088,13 +1131,13 @@ class DocumentApprovalController extends Controller
             $doc->approval_level = $approveDocument['nextLevel'];
             $doc->document_status = $approveDocument['approvalStatus'];
             $doc->save();
-            $config = Configuration::where('type','organization')
-            ->where('type_id', $authUser->organization_id)
-            ->where('config_key', CommonHelper::ENFORCE_UIC_SCANNING)
-            ->first();
+            $config = Configuration::where('type', 'organization')
+                ->where('type_id', $authUser->organization_id)
+                ->where('config_key', CommonHelper::ENFORCE_UIC_SCANNING)
+                ->first();
 
-            if(in_array($doc->document_status, [ConstantHelper::APPROVED]) && $config && strtolower($config->config_value) === 'yes'){
-                (new PickingJob)->createJob($doc->id,'App\Models\ErpPlHeader');
+            if (in_array($doc->document_status, [ConstantHelper::APPROVED]) && $config && strtolower($config->config_value) === 'yes') {
+                (new PickingJob)->createJob($doc->id, 'App\Models\ErpPlHeader');
             }
             DB::commit();
             return response()->json([
@@ -1127,7 +1170,7 @@ class DocumentApprovalController extends Controller
             $revisionNumber = $doc->revision_number ?? 0;
             $actionType = $request->action_type; // Approve or reject
             $modelName = get_class($doc);
-            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             if ($approveDocument['message']) {
                 DB::rollBack();
                 return response()->json([
@@ -1152,7 +1195,7 @@ class DocumentApprovalController extends Controller
             ], 500);
         }
     }
-    public function rateContract (Request $request)
+    public function rateContract(Request $request)
     {
         $request->validate([
             'remarks' => 'nullable|string|max:255',
@@ -1170,7 +1213,7 @@ class DocumentApprovalController extends Controller
             $revisionNumber = $doc->revision_number ?? 0;
             $actionType = $request->action_type; // Approve or reject
             $modelName = get_class($doc);
-            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             if ($approveDocument['message']) {
                 DB::rollBack();
                 return response()->json([
@@ -1191,7 +1234,7 @@ class DocumentApprovalController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => "Error occurred while $actionType",
-                'error' => $e->getMessage().$e->getLine().$e->getFile(),
+                'error' => $e->getMessage() . $e->getLine() . $e->getFile(),
             ], 500);
         }
     }
@@ -1213,7 +1256,7 @@ class DocumentApprovalController extends Controller
             $revisionNumber = $doc->revision_number ?? 0;
             $actionType = $request->action_type; // Approve or reject
             $modelName = get_class($doc);
-            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             $doc->approval_level = $approveDocument['nextLevel'];
             $doc->document_status = $approveDocument['approvalStatus'];
             $doc->save();
@@ -1227,7 +1270,7 @@ class DocumentApprovalController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => "Error occurred while $actionType",
-                'error' => $e->getMessage().$e->getLine().$e->getFile(),
+                'error' => $e->getMessage() . $e->getLine() . $e->getFile(),
             ], 500);
         }
     }
@@ -1249,18 +1292,18 @@ class DocumentApprovalController extends Controller
             $revisionNumber = $doc->revision_number ?? 0;
             $actionType = $request->action_type; // Approve or reject
             $modelName = get_class($doc);
-            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber , $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             $doc->approval_level = $approveDocument['nextLevel'];
             $doc->document_status = $approveDocument['approvalStatus'];
             $doc->save();
 
-            if($doc->is_last_station && in_array($doc->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)) {
-                foreach($doc->items as $pslipItem) {
+            if ($doc->is_last_station && in_array($doc->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)) {
+                foreach ($doc->items as $pslipItem) {
                     $moProduct = $pslipItem?->mo_product ?? null;
-                    if($moProduct) {
+                    if ($moProduct) {
                         $moProduct->pwoMapping->pslip_qty += floatval($pslipItem->qty);
                         $moProduct->pwoMapping->save();
-                        if($moProduct?->soItem) {
+                        if ($moProduct?->soItem) {
                             $moProduct->soItem->pslip_qty += floatval($pslipItem->qty);
                             $moProduct->soItem->save();
                         }
@@ -1306,11 +1349,11 @@ class DocumentApprovalController extends Controller
 
             //Purchase Return Summary
             if ($actionType == 'approve' && in_array($mrn->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)) {
-                $fy = Helper::getFinancialYear($mrn -> document_date);
+                $fy = Helper::getFinancialYear($mrn->document_date);
                 $fyYear = ErpFinancialYear::find($fy['id']);
-                if ((int)$revisionNumber > 0) {
-                    $oldMrn = PRHeaderHistory::where('header_id', $mrn -> id)
-                        -> where('revision_number', $mrn -> revision_number - 1) -> first();
+                if ((int) $revisionNumber > 0) {
+                    $oldMrn = PRHeaderHistory::where('header_id', $mrn->id)
+                        ->where('revision_number', $mrn->revision_number - 1)->first();
                     if ($oldMrn) {
                         MrnModuleHelper::buildVendorPurchaseReturnSummary($mrn, $fyYear, $oldMrn);
                     }
@@ -1359,7 +1402,7 @@ class DocumentApprovalController extends Controller
             $inspection->document_status = $approveDocument['approvalStatus'];
             $inspection->save();
 
-            if($inspection->document_status == ConstantHelper::APPROVED) {
+            if ($inspection->document_status == ConstantHelper::APPROVED) {
                 $updateMrn = InspectionHelper::updateMrnDetail($inspection);
             }
 
@@ -1367,13 +1410,13 @@ class DocumentApprovalController extends Controller
             $user = Helper::getAuthenticatedUser();
 
             // Get configuration detail
-            $config = Configuration::where('type','organization')
+            $config = Configuration::where('type', 'organization')
                 ->where('type_id', $user->organization_id)
                 ->where('config_key', CommonHelper::ENFORCE_UIC_SCANNING)
                 ->first();
 
-            if(in_array($inspection->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED) && $config && strtolower($config->config_value) === 'yes'){
-                (new PutawayJob)->createJob($inspection->id,'App\Models\MrnHeader');
+            if (in_array($inspection->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED) && $config && strtolower($config->config_value) === 'yes') {
+                (new PutawayJob)->createJob($inspection->id, 'App\Models\MrnHeader');
             }
 
             DB::commit();
@@ -1414,7 +1457,7 @@ class DocumentApprovalController extends Controller
             $document_status = $approveDocument['approvalStatus'];
             $status = $request->status;
             $item->document_status = $document_status;
-            if (in_array($document_status, [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED]) ) {
+            if (in_array($document_status, [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])) {
                 if ($revisionNumber == 0) {
                     $item->status = ConstantHelper::ACTIVE;
                 }
@@ -1466,48 +1509,48 @@ class DocumentApprovalController extends Controller
                 if ($revisionNumber == 0) {
                     $vendor->status = ConstantHelper::ACTIVE;
                 }
-                 // ** START: Call createPartyLedger if conditions are met **
-                    $createVendorLedger = $request->input('create_ledger') && $request->input('create_ledger') == 1;
-                    $hiddenLedgerVendorName = $request->input('hidden_ledger_vendor_name');
-                    $hiddenLedgerVendorCode = $request->input('hidden_ledger_vendor_code');
-                    $ledgerGroupId = $request->input('ledger_group_id');
+                // ** START: Call createPartyLedger if conditions are met **
+                $createVendorLedger = $request->input('create_ledger') && $request->input('create_ledger') == 1;
+                $hiddenLedgerVendorName = $request->input('hidden_ledger_vendor_name');
+                $hiddenLedgerVendorCode = $request->input('hidden_ledger_vendor_code');
+                $ledgerGroupId = $request->input('ledger_group_id');
 
-                    if ($createVendorLedger && !empty($hiddenLedgerVendorName) && !empty($hiddenLedgerVendorCode) && !empty($ledgerGroupId)) {
-                        try {
-                            $result = Helper::createPartyLedger(
-                                'vendor',
-                                $hiddenLedgerVendorName,
-                                $hiddenLedgerVendorCode,
-                                $ledgerGroupId
-                            );
+                if ($createVendorLedger && !empty($hiddenLedgerVendorName) && !empty($hiddenLedgerVendorCode) && !empty($ledgerGroupId)) {
+                    try {
+                        $result = Helper::createPartyLedger(
+                            'vendor',
+                            $hiddenLedgerVendorName,
+                            $hiddenLedgerVendorCode,
+                            $ledgerGroupId
+                        );
 
-                            if (!$result['success']) {
-                                Log::error('Error creating party ledger: ' . $result['message']);
-                                DB::rollBack();
-                                return response()->json([
-                                    'status' => false,
-                                    'message' => $result['message'],
-                                    'data' => $vendor,
-                                ], 500);
-                            }
-                            $ledgerId = $result['data']['ledger_id'] ?? null;
-                            $ledgerGroupId = $result['data']['ledger_group_id'] ?? null;
-                            $vendor->ledger_id = $ledgerId;
-                            $vendor->ledger_group_id = $ledgerGroupId;
-                            $vendor->ledger_group_id = $ledgerGroupId;
-                            $vendor->create_ledger = 0;
-                        } catch (Exception $e) {
-                            Log::error('Exception creating party ledger: ' . $e->getMessage(), [
-                                'trace' => $e->getTraceAsString()
-                            ]);
+                        if (!$result['success']) {
+                            Log::error('Error creating party ledger: ' . $result['message']);
                             DB::rollBack();
                             return response()->json([
                                 'status' => false,
-                                'message' =>  $e->getMessage(),
+                                'message' => $result['message'],
                                 'data' => $vendor,
                             ], 500);
                         }
+                        $ledgerId = $result['data']['ledger_id'] ?? null;
+                        $ledgerGroupId = $result['data']['ledger_group_id'] ?? null;
+                        $vendor->ledger_id = $ledgerId;
+                        $vendor->ledger_group_id = $ledgerGroupId;
+                        $vendor->ledger_group_id = $ledgerGroupId;
+                        $vendor->create_ledger = 0;
+                    } catch (Exception $e) {
+                        Log::error('Exception creating party ledger: ' . $e->getMessage(), [
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => false,
+                            'message' => $e->getMessage(),
+                            'data' => $vendor,
+                        ], 500);
                     }
+                }
                 // ** END: Call createPartyLedger if conditions are met **
             } else {
                 $vendor->status = $approvalStatus;
@@ -1555,51 +1598,51 @@ class DocumentApprovalController extends Controller
             $customer->document_status = $approvalStatus;
 
             if (in_array($approvalStatus, [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])) {
-                 if ($revisionNumber == 0) {
+                if ($revisionNumber == 0) {
                     $customer->status = ConstantHelper::ACTIVE;
-                 }
-                    // ** START: Call createPartyLedger if conditions are met **
-                    $createCustomerLedger = $request->input('create_ledger') && $request->input('create_ledger') == 1;
-                    $hiddenLedgerCustomerName = $request->input('hidden_ledger_customer_name');
-                    $hiddenLedgerCustomerCode = $request->input('hidden_ledger_customer_code');
-                    $ledgerGroupId = $request->input('ledger_group_id');
+                }
+                // ** START: Call createPartyLedger if conditions are met **
+                $createCustomerLedger = $request->input('create_ledger') && $request->input('create_ledger') == 1;
+                $hiddenLedgerCustomerName = $request->input('hidden_ledger_customer_name');
+                $hiddenLedgerCustomerCode = $request->input('hidden_ledger_customer_code');
+                $ledgerGroupId = $request->input('ledger_group_id');
 
-                    if ($createCustomerLedger && !empty($hiddenLedgerCustomerName) && !empty($hiddenLedgerCustomerCode) && !empty($ledgerGroupId)) {
-                        try {
-                            $result = Helper::createPartyLedger(
-                                'customer',
-                                $hiddenLedgerCustomerName,
-                                $hiddenLedgerCustomerCode,
-                                $ledgerGroupId
-                            );
+                if ($createCustomerLedger && !empty($hiddenLedgerCustomerName) && !empty($hiddenLedgerCustomerCode) && !empty($ledgerGroupId)) {
+                    try {
+                        $result = Helper::createPartyLedger(
+                            'customer',
+                            $hiddenLedgerCustomerName,
+                            $hiddenLedgerCustomerCode,
+                            $ledgerGroupId
+                        );
 
-                            if (!$result['success']) {
-                                Log::error('Error creating party ledger: ' . $result['message']);
-                                DB::rollBack();
-                                return response()->json([
-                                    'status' => false,
-                                    'message' => $result['message'],
-                                    'data' => $customer,
-                                ], 500);
-                            }
-                            $ledgerId = $result['data']['ledger_id'] ?? null;
-                            $ledgerGroupId = $result['data']['ledger_group_id'] ?? null;
-                            $customer->ledger_id = $ledgerId;
-                            $customer->ledger_group_id = $ledgerGroupId;
-                            $customer->ledger_group_id = $ledgerGroupId;
-                            $customer->create_ledger = 0;
-                        } catch (Exception $e) {
-                            Log::error('Exception creating party ledger: ' . $e->getMessage(), [
-                                'trace' => $e->getTraceAsString()
-                            ]);
+                        if (!$result['success']) {
+                            Log::error('Error creating party ledger: ' . $result['message']);
                             DB::rollBack();
                             return response()->json([
                                 'status' => false,
-                                'message' =>  $e->getMessage(),
+                                'message' => $result['message'],
                                 'data' => $customer,
                             ], 500);
                         }
+                        $ledgerId = $result['data']['ledger_id'] ?? null;
+                        $ledgerGroupId = $result['data']['ledger_group_id'] ?? null;
+                        $customer->ledger_id = $ledgerId;
+                        $customer->ledger_group_id = $ledgerGroupId;
+                        $customer->ledger_group_id = $ledgerGroupId;
+                        $customer->create_ledger = 0;
+                    } catch (Exception $e) {
+                        Log::error('Exception creating party ledger: ' . $e->getMessage(), [
+                            'trace' => $e->getTraceAsString()
+                        ]);
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => false,
+                            'message' => $e->getMessage(),
+                            'data' => $customer,
+                        ], 500);
                     }
+                }
                 // ** END: Call createPartyLedger if conditions are met **
             } else {
                 $customer->status = $approvalStatus;
@@ -1623,7 +1666,7 @@ class DocumentApprovalController extends Controller
 
 
 
-     public function lorryReceipt(Request $request)
+    public function lorryReceipt(Request $request)
     {
         $request->validate([
             'remarks' => 'nullable',
@@ -1634,7 +1677,7 @@ class DocumentApprovalController extends Controller
             $lr = ErpLorryReceipt::find($request->id);
             $bookId = $lr->book_id;
             $docId = $lr->id;
-            $docValue =$lr->total_charges ??  0;
+            $docValue = $lr->total_charges ?? 0;
             $remarks = $request->remarks;
             $attachments = $request->file('attachment');
             $currentLevel = $lr->approval_level;
@@ -1643,8 +1686,7 @@ class DocumentApprovalController extends Controller
 
             $modelName = get_class($lr);
             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
-            if ($approveDocument['message'])
-            {
+            if ($approveDocument['message']) {
 
                 DB::rollBack();
 
@@ -1677,7 +1719,7 @@ class DocumentApprovalController extends Controller
         }
     }
 
-   public function rgr(Request $request)
+    public function rgr(Request $request)
     {
         $request->validate([
             'remarks' => 'nullable|string|max:255',
@@ -1704,15 +1746,17 @@ class DocumentApprovalController extends Controller
             $revisionNumber = $doc->revision_number ?? 0;
             $actionType = $request->action_type;
             $modelName = get_class($doc);
-            $approveDocument = Helper::approveDocument( $bookId,$docId,$revisionNumber,$remarks,$attachments,$currentLevel,$actionType,$docValue,$modelName);
+            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             $doc->approval_level = $approveDocument['nextLevel'];
             $doc->document_status = $approveDocument['approvalStatus'];
             $doc->save();
 
-            if (in_array($doc->document_status, [
-                ConstantHelper::APPROVED,
-                ConstantHelper::APPROVAL_NOT_REQUIRED
-            ])) {
+            if (
+                in_array($doc->document_status, [
+                    ConstantHelper::APPROVED,
+                    ConstantHelper::APPROVAL_NOT_REQUIRED
+                ])
+            ) {
                 (new RGRJob)->createJob($doc->id, 'App\Models\ErpRgr');
             }
             DB::commit();

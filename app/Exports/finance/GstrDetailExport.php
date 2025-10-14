@@ -20,7 +20,7 @@ class GstrDetailExport
     public function export($fileName,$request,$id, $invoiceType, $supplierGstin)
     {
         $startDate = Carbon::now()->startOfMonth(); // Start of the current month
-        $endDate = Carbon::now()->endOfMonth(); 
+        $endDate = Carbon::now()->endOfMonth();
 
         // Check if there's an applied date filter
         if ($request->has('date_range') && $request->date_range != '') {
@@ -28,9 +28,9 @@ class GstrDetailExport
             $startDate = $dates[0] ? Carbon::parse($dates[0])->startOfDay() : null;
             $endDate = isset($dates[1]) ? Carbon::parse($dates[1])->startOfDay():  Carbon::parse($dates[0])->startOfDay();
         }
-        
+
         $organizationId = $request->organization_id ?? OrganizationHelper::getOrganizationId();
-        
+
         $query = GstrCompiledData::where(function($q) use($request, $organizationId){
                 if($request->search){
                     $q->where(function($query) use($request){
@@ -42,7 +42,7 @@ class GstrDetailExport
                 if($request->group_id){
                     $q->where('erp_gstr_compiled_data.group_id', $request->group_id);
                 }
-                
+
                 if($request->company_id){
                     $q->where('erp_gstr_compiled_data.company_id', $request->company_id);
                 }
@@ -85,7 +85,7 @@ class GstrDetailExport
                     ->whereIn('invoice_type_id', $typeIds)
                     ->whereNotNull('hsn_code')
                     ->whereNotNull('uqc')
-                    ->groupBy('hsn_code','uqc');
+                    ->groupBy('hsn_code','uqc', 'rate');
                 break;
 
             case CommonHelper::HSN_B2C:
@@ -144,12 +144,12 @@ class GstrDetailExport
 
     /**
      * Write data to CSV file
-     * 
+     *
      * @param $gstrInvoiceTypes
      * @param string $fileName
      */
     private function writeToCsv($data, $fileName, $invoiceType)
-    {   
+    {
         switch ($invoiceType) {
             case 'b2b':
                 $csvData = self::prepareB2bData($data);
@@ -274,35 +274,35 @@ class GstrDetailExport
             'GSTIN/UIN of Recipient',
             'Receiver Name',
             'Invoice Number',
-            'Invoice date', 
+            'Invoice date',
             'Invoice Value',
-            'Place Of Supply', 
-            'Reverse Charge', 
-            'Applicable % of Tax Rate', 
-            'Invoice Type', 
-            'E-Commerce GSTIN', 
-            'Rate', 
-            'Taxable Value', 
+            'Place Of Supply',
+            'Reverse Charge',
+            'Applicable % of Tax Rate',
+            'Invoice Type',
+            'E-Commerce GSTIN',
+            'Rate',
+            'Taxable Value',
             'Cess Amount'
         ];
 
         $rows = [];
-        
+
         foreach ($data as $item) {
             $rows[] = [
                 $item->party_gstin,
-                $item->party_name ? $item->party_name : '', 
-                $item->invoice_no ? $item->invoice_no : '', 
-                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '', 
+                $item->party_name ? $item->party_name : '',
+                $item->invoice_no ? $item->invoice_no : '',
+                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '',
                 $item->invoice_amt ?  $item->invoice_amt : '',
                 $item->place_of_supply ? $item->pos.'-'.$item->place_of_supply : '',
-                $item->reverse_charge ? $item->reverse_charge : 0, 
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->invoice_type ? $item->invoice_type : '', 
-                $item->e_commerce_gstin ? $item->e_commerce_gstin : '', 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0 
+                $item->reverse_charge ? $item->reverse_charge : 0,
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->invoice_type ? $item->invoice_type : '',
+                $item->e_commerce_gstin ? $item->e_commerce_gstin : '',
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0
             ];
         }
         return [
@@ -310,23 +310,23 @@ class GstrDetailExport
             'rows' => $rows
         ];
     }
- 
+
     public static function prepareB2baData($data){
         $header = [
-            'GSTIN/UIN of Recipient',	
-            'Receiver Name',	
-            'Original Invoice Number',	
-            'Original Invoice date',	
-            'Revised Invoice Number',	
-            'Revised Invoice date',	
-            'Invoice Value',	
-            'Place Of Supply',	
-            'Reverse Charge',	
-            'Applicable % of Tax Rate',	
-            'Invoice Type',	
-            'E-Commerce GSTIN',	
-            'Rate',	
-            'Taxable Value',	
+            'GSTIN/UIN of Recipient',
+            'Receiver Name',
+            'Original Invoice Number',
+            'Original Invoice date',
+            'Revised Invoice Number',
+            'Revised Invoice date',
+            'Invoice Value',
+            'Place Of Supply',
+            'Reverse Charge',
+            'Applicable % of Tax Rate',
+            'Invoice Type',
+            'E-Commerce GSTIN',
+            'Rate',
+            'Taxable Value',
             'Cess Amount'
         ];
 
@@ -335,19 +335,19 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->party_gstin,
-                $item->party_name ? $item->party_name : '', 
-                $item->invoice_no ? $item->invoice_no : '', 
-                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '', 
-                $item->revised_invoice_no ? $item->revised_invoice_no : '', 
-                $item->revised_invoice_date ? GeneralHelper::dateFormat3($item->revised_invoice_date) : '', 
+                $item->party_name ? $item->party_name : '',
+                $item->invoice_no ? $item->invoice_no : '',
+                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '',
+                $item->revised_invoice_no ? $item->revised_invoice_no : '',
+                $item->revised_invoice_date ? GeneralHelper::dateFormat3($item->revised_invoice_date) : '',
                 $item->invoice_amt ?  $item->invoice_amt : '',
                 $item->place_of_supply ?  $item->pos.''.$item->place_of_supply : '',
-                $item->reverse_charge ? $item->reverse_charge : 0, 
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->invoice_type ? $item->invoice_type : '', 
-                $item->e_commerce_gstin ? $item->e_commerce_gstin : '', 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
+                $item->reverse_charge ? $item->reverse_charge : 0,
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->invoice_type ? $item->invoice_type : '',
+                $item->e_commerce_gstin ? $item->e_commerce_gstin : '',
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
                 $item->cess ? $item->cess : 0,
             ];
         }
@@ -360,13 +360,13 @@ class GstrDetailExport
     public static function prepareB2clData($data){
         $header = [
             'Invoice Number',
-            'Invoice date', 
+            'Invoice date',
             'Invoice Value',
-            'Place Of Supply', 
-            'Applicable % of Tax Rate', 
-            'Rate', 
-            'Taxable Value', 
-            'Cess Amount', 
+            'Place Of Supply',
+            'Applicable % of Tax Rate',
+            'Rate',
+            'Taxable Value',
+            'Cess Amount',
             'E-Commerce GSTIN'
         ];
 
@@ -374,15 +374,15 @@ class GstrDetailExport
 
         foreach ($data as $item) {
             $rows[] = [
-                $item->invoice_no ? $item->invoice_no : '', 
-                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '', 
+                $item->invoice_no ? $item->invoice_no : '',
+                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '',
                 $item->invoice_amt ?  $item->invoice_amt : '',
                 $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,  
-                $item->e_commerce_gstin ? $item->e_commerce_gstin : '' 
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
+                $item->e_commerce_gstin ? $item->e_commerce_gstin : ''
             ];
         }
         return [
@@ -394,15 +394,15 @@ class GstrDetailExport
     public static function prepareB2claData($data){
         $header = [
             'Original Invoice Number',
-            'Original Invoice date', 
+            'Original Invoice date',
             'Original Place Of Supply',
             'Revised Invoice Number',
-            'Revised Invoice date',  
+            'Revised Invoice date',
             'Invoice Value',
-            'Applicable % of Tax Rate', 
-            'Rate', 
-            'Taxable Value', 
-            'Cess Amount', 
+            'Applicable % of Tax Rate',
+            'Rate',
+            'Taxable Value',
+            'Cess Amount',
             'E-Commerce GSTIN'
         ];
 
@@ -410,17 +410,17 @@ class GstrDetailExport
 
         foreach ($data as $item) {
             $rows[] = [
-                $item->invoice_no ? $item->invoice_no : '', 
-                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '', 
+                $item->invoice_no ? $item->invoice_no : '',
+                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '',
                 $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
-                $item->revised_invoice_no ? $item->revised_invoice_no : '', 
+                $item->revised_invoice_no ? $item->revised_invoice_no : '',
                 $item->revised_invoice_date ? GeneralHelper::dateFormat3($item->revised_invoice_date) : '',
                 $item->invoice_amt ?  $item->invoice_amt : '',
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,  
-                $item->e_commerce_gstin ? $item->e_commerce_gstin : '' 
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
+                $item->e_commerce_gstin ? $item->e_commerce_gstin : ''
             ];
         }
         return [
@@ -433,10 +433,10 @@ class GstrDetailExport
         $header = [
             'Type',
             'Place Of Supply',
-            'Rate', 
-            'Applicable % of Tax Rate', 
-            'Taxable Value', 
-            'Cess Amount', 
+            'Rate',
+            'Applicable % of Tax Rate',
+            'Taxable Value',
+            'Cess Amount',
             'E-Commerce GSTIN'
         ];
 
@@ -444,13 +444,13 @@ class GstrDetailExport
 
         foreach ($data as $item) {
             $rows[] = [
-                $item->invoice_type ? $item->invoice_type : '', 
+                $item->invoice_type ? $item->invoice_type : '',
                 $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,  
-                $item->e_commerce_gstin ? $item->e_commerce_gstin : '' 
+                $item->rate ? $item->rate.'%' : 0,
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
+                $item->e_commerce_gstin ? $item->e_commerce_gstin : ''
             ];
         }
         return [
@@ -465,11 +465,11 @@ class GstrDetailExport
             'Original Month',
             'Place Of Supply',
             'Type',
-            'Rate', 
-            'Applicable % of Tax Rate', 
-            'Taxable Value', 
-            'Cess Amount', 
-            'E-Commerce GSTIN' 
+            'Rate',
+            'Applicable % of Tax Rate',
+            'Taxable Value',
+            'Cess Amount',
+            'E-Commerce GSTIN'
         ];
 
         $rows = [];
@@ -479,12 +479,12 @@ class GstrDetailExport
                 $item->year ?  $item->year : '',
                 $item->month ?  \DateTime::createFromFormat('!m', $item->month)->format('F') : '',
                 $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
-                $item->invoice_type ? $item->invoice_type : '', 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,  
-                $item->e_commerce_gstin ? $item->e_commerce_gstin : '' 
+                $item->invoice_type ? $item->invoice_type : '',
+                $item->rate ? $item->rate.'%' : 0,
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
+                $item->e_commerce_gstin ? $item->e_commerce_gstin : ''
             ];
         }
         return [
@@ -498,14 +498,14 @@ class GstrDetailExport
             'GSTIN/UIN of Recipient',
             'Receiver Name',
             'Note Number',
-            'Note date', 
-            'Note Type', 
-            'Place Of Supply', 
-            'Note Value', 
-            'Applicable % of Tax Rate', 
-            'Rate', 
-            'Taxable Value', 
-            'Cess Amount', 
+            'Note date',
+            'Note Type',
+            'Place Of Supply',
+            'Note Value',
+            'Applicable % of Tax Rate',
+            'Rate',
+            'Taxable Value',
+            'Cess Amount',
         ];
 
         $rows = [];
@@ -513,16 +513,16 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->party_gstin,
-                $item->party_name ? $item->party_name : '', 
-                $item->note_number ? $item->note_number : '', 
-                $item->note_date ? GeneralHelper::dateFormat3($item->note_date) : '', 
-                $item->note_type ? $item->note_type : '', 
+                $item->party_name ? $item->party_name : '',
+                $item->note_number ? $item->note_number : '',
+                $item->note_date ? GeneralHelper::dateFormat3($item->note_date) : '',
+                $item->note_type ? $item->note_type : '',
                 $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
-                $item->note_value ? $item->note_value : '', 
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,  
+                $item->note_value ? $item->note_value : '',
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
             ];
         }
         return [
@@ -536,18 +536,18 @@ class GstrDetailExport
             'GSTIN/UIN of Recipient',
             'Receiver Name',
             'Original Note Number',
-            'Original Note date', 
+            'Original Note date',
             'Revised Note Number',
-            'Revised Note date', 
-            'Note Type', 
-            'Place Of Supply', 
-            'Reverse Charge', 
-            'Note Supply Type', 
-            'Note Value', 
-            'Applicable % of Tax Rate', 
-            'Rate', 
-            'Taxable Value', 
-            'Cess Amount', 
+            'Revised Note date',
+            'Note Type',
+            'Place Of Supply',
+            'Reverse Charge',
+            'Note Supply Type',
+            'Note Value',
+            'Applicable % of Tax Rate',
+            'Rate',
+            'Taxable Value',
+            'Cess Amount',
         ];
 
         $rows = [];
@@ -555,20 +555,20 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->party_gstin,
-                $item->party_name ? $item->party_name : '', 
-                $item->note_number ? $item->note_number : '', 
-                $item->note_date ? GeneralHelper::dateFormat3($item->note_date) : '', 
-                $item->revised_note_no ? $item->revised_note_no : '', 
-                $item->revised_note_date ? GeneralHelper::dateFormat3($item->revised_note_date) : '', 
-                $item->note_type ? $item->note_type : '', 
+                $item->party_name ? $item->party_name : '',
+                $item->note_number ? $item->note_number : '',
+                $item->note_date ? GeneralHelper::dateFormat3($item->note_date) : '',
+                $item->revised_note_no ? $item->revised_note_no : '',
+                $item->revised_note_date ? GeneralHelper::dateFormat3($item->revised_note_date) : '',
+                $item->note_type ? $item->note_type : '',
                 $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
-                $item->reverse_charge ? $item->reverse_charge : '', 
-                $item->note_type ? $item->note_type : '', 
-                $item->note_value ? $item->note_value : '', 
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,  
+                $item->reverse_charge ? $item->reverse_charge : '',
+                $item->note_type ? $item->note_type : '',
+                $item->note_value ? $item->note_value : '',
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
             ];
         }
         return [
@@ -581,14 +581,14 @@ class GstrDetailExport
         $header = [
             'UR Type',
             'Note Number',
-            'Note date', 
-            'Note Type', 
-            'Place Of Supply', 
-            'Note Value', 
-            'Applicable % of Tax Rate', 
-            'Rate', 
-            'Taxable Value', 
-            'Cess Amount', 
+            'Note date',
+            'Note Type',
+            'Place Of Supply',
+            'Note Value',
+            'Applicable % of Tax Rate',
+            'Rate',
+            'Taxable Value',
+            'Cess Amount',
         ];
 
         $rows = [];
@@ -596,15 +596,15 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->ur_type,
-                $item->note_number ? $item->note_number : '', 
-                $item->note_date ? GeneralHelper::dateFormat3($item->note_date) : '', 
-                $item->note_type ? $item->note_type : '', 
+                $item->note_number ? $item->note_number : '',
+                $item->note_date ? GeneralHelper::dateFormat3($item->note_date) : '',
+                $item->note_type ? $item->note_type : '',
                 $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
-                $item->note_value ? $item->note_value : '', 
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,  
+                $item->note_value ? $item->note_value : '',
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
             ];
         }
         return [
@@ -617,16 +617,16 @@ class GstrDetailExport
         $header = [
             'UR Type',
             'Original Note Number',
-            'Original Note date', 
+            'Original Note date',
             'Revised Note Number',
-            'Revised Note date', 
-            'Note Type', 
-            'Place Of Supply', 
-            'Note Value', 
-            'Applicable % of Tax Rate', 
-            'Rate', 
-            'Taxable Value', 
-            'Cess Amount', 
+            'Revised Note date',
+            'Note Type',
+            'Place Of Supply',
+            'Note Value',
+            'Applicable % of Tax Rate',
+            'Rate',
+            'Taxable Value',
+            'Cess Amount',
         ];
 
         $rows = [];
@@ -634,17 +634,17 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->ur_type,
-                $item->note_number ? $item->note_number : '', 
-                $item->note_date ? GeneralHelper::dateFormat3($item->note_date) : '', 
-                $item->revised_note_no ? $item->revised_note_no : '', 
-                $item->revised_note_date ? GeneralHelper::dateFormat3($item->revised_note_date) : '', 
-                $item->note_type ? $item->note_type : '', 
+                $item->note_number ? $item->note_number : '',
+                $item->note_date ? GeneralHelper::dateFormat3($item->note_date) : '',
+                $item->revised_note_no ? $item->revised_note_no : '',
+                $item->revised_note_date ? GeneralHelper::dateFormat3($item->revised_note_date) : '',
+                $item->note_type ? $item->note_type : '',
                 $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
-                $item->note_value ? $item->note_value : '', 
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,  
+                $item->note_value ? $item->note_value : '',
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
             ];
         }
         return [
@@ -655,13 +655,13 @@ class GstrDetailExport
 
     public static function prepareSupecoData($data){
         $header = [
-            'Nature of Supply',	
+            'Nature of Supply',
             'GSTIN of E-Commerce Operator',
-            'E-Commerce Operator Name',	
-            'Net value of supplies',	
-            'Integrated tax',	
-            'Central tax',	
-            'State/UT tax',	
+            'E-Commerce Operator Name',
+            'Net value of supplies',
+            'Integrated tax',
+            'Central tax',
+            'State/UT tax',
             'Cess',
         ];
 
@@ -671,12 +671,12 @@ class GstrDetailExport
             $rows[] = [
                 $item->nature_of_document ? ConstantHelper::NATURE_OF_DOCUMENT[$item->nature_of_document] : '',
                 $item->e_commerce_gstin,
-                $item->ecom_operator_name, 
-                $item->net_value_of_supplies, 
-                $item->igst, 
-                $item->cgst, 
-                $item->sgst, 
-                $item->cess,  
+                $item->ecom_operator_name,
+                $item->net_value_of_supplies,
+                $item->igst,
+                $item->cgst,
+                $item->sgst,
+                $item->cess,
             ];
         }
         return [
@@ -687,16 +687,16 @@ class GstrDetailExport
 
     public static function prepareSupecoaData($data){
         $header = [
-            'Nature of Supply',	
-            'Financial Year',	
-            'Original Month/Quarter',	
+            'Nature of Supply',
+            'Financial Year',
+            'Original Month/Quarter',
             'Original GSTIN of E-Commerce Operator',
             'Revised GSTIN of E-Commerce Operator',
-            'E-Commerce Operator Name',	
-            'Revised Net value of supplies',	
-            'Integrated tax',	
-            'Central tax',	
-            'State/UT tax',	
+            'E-Commerce Operator Name',
+            'Revised Net value of supplies',
+            'Integrated tax',
+            'Central tax',
+            'State/UT tax',
             'Cess',
         ];
 
@@ -709,12 +709,12 @@ class GstrDetailExport
                 $item->month ?  \DateTime::createFromFormat('!m', $item->month)->format('F') : '',
                 $item->e_commerce_gstin,
                 $item->revised_ecom_gstin,
-                $item->ecom_operator_name, 
-                $item->net_value_of_supplies, 
-                $item->igst, 
-                $item->cgst, 
-                $item->sgst, 
-                $item->cess, 
+                $item->ecom_operator_name,
+                $item->net_value_of_supplies,
+                $item->igst,
+                $item->cgst,
+                $item->sgst,
+                $item->cess,
             ];
         }
         return [
@@ -725,17 +725,17 @@ class GstrDetailExport
 
     public static function prepareEcob2bData($data){
         $header = [
-            'Supplier GSTIN/UIN',	
-            'Supplier Name',	
-            'Recipient GSTIN/UIN',	
-            'Recipient Name',	
-            'Document Number',	
-            'Document Date',	
-            'Value of supplies made',	
-            'Place Of Supply',	
-            'Document type',	
-            'Rate',	
-            'Taxable Value',	
+            'Supplier GSTIN/UIN',
+            'Supplier Name',
+            'Recipient GSTIN/UIN',
+            'Recipient Name',
+            'Document Number',
+            'Document Date',
+            'Value of supplies made',
+            'Place Of Supply',
+            'Document type',
+            'Rate',
+            'Taxable Value',
             'Cess Amount',
         ];
 
@@ -749,12 +749,12 @@ class GstrDetailExport
                 $item->party_name ? $item->party_name : '',
                 $item->doc_no ? $item->doc_no : '',
                 $item->doc_date ? GeneralHelper::dateFormat3($item->doc_date) : '',
-                $item->value_of_supplies_made, 
-                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '', 
-                $item->doc_type, 
-                $item->rate, 
-                $item->taxable_amt, 
-                $item->cess, 
+                $item->value_of_supplies_made,
+                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
+                $item->doc_type,
+                $item->rate,
+                $item->taxable_amt,
+                $item->cess,
             ];
         }
         return [
@@ -765,10 +765,10 @@ class GstrDetailExport
 
     public static function prepareEcob2cData($data){
         $header = [
-            'Supplier GSTIN/UIN',	
-            'Supplier Name',	
-            'Place Of Supply',	
-            'Taxable Value',	
+            'Supplier GSTIN/UIN',
+            'Supplier Name',
+            'Place Of Supply',
+            'Taxable Value',
             'Cess Amount',
         ];
 
@@ -778,9 +778,9 @@ class GstrDetailExport
             $rows[] = [
                 $item->supplier_gstin ? $item->supplier_gstin : '',
                 $item->supplier_name ? $item->supplier_name : '',
-                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '', 
-                $item->taxable_amt, 
-                $item->cess, 
+                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
+                $item->taxable_amt,
+                $item->cess,
             ];
         }
         return [
@@ -791,15 +791,15 @@ class GstrDetailExport
 
     public static function prepareEcourp2bData($data){
         $header = [
-            'Recipient GSTIN/UIN',	
-            'Recipient Name',	
-            'Document Number',	
-            'Document Date',	
-            'Value of supplies made',	
-            'Place Of Supply',	
-            'Document type',	
-            'Rate',	
-            'Taxable Value',	
+            'Recipient GSTIN/UIN',
+            'Recipient Name',
+            'Document Number',
+            'Document Date',
+            'Value of supplies made',
+            'Place Of Supply',
+            'Document type',
+            'Rate',
+            'Taxable Value',
             'Cess Amount',
         ];
 
@@ -811,12 +811,12 @@ class GstrDetailExport
                 $item->party_name ? $item->party_name : '',
                 $item->doc_no ? $item->doc_no : '',
                 $item->doc_date ? GeneralHelper::dateFormat3($item->doc_date) : '',
-                $item->value_of_supplies_made, 
-                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '', 
-                $item->doc_type, 
-                $item->rate, 
-                $item->taxable_amt, 
-                $item->cess, 
+                $item->value_of_supplies_made,
+                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
+                $item->doc_type,
+                $item->rate,
+                $item->taxable_amt,
+                $item->cess,
             ];
         }
         return [
@@ -827,8 +827,8 @@ class GstrDetailExport
 
     public static function prepareEcourp2cData($data){
         $header = [
-            'Place Of Supply',	
-            'Taxable Value',	
+            'Place Of Supply',
+            'Taxable Value',
             'Cess Amount',
         ];
 
@@ -836,9 +836,9 @@ class GstrDetailExport
 
         foreach ($data as $item) {
             $rows[] = [
-                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '', 
-                $item->taxable_amt, 
-                $item->cess, 
+                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
+                $item->taxable_amt,
+                $item->cess,
             ];
         }
         return [
@@ -849,19 +849,19 @@ class GstrDetailExport
 
     public static function prepareEcoab2bData($data){
         $header = [
-            'Supplier GSTIN/UIN',	
-            'Supplier Name',	
-            'Recipient GSTIN/UIN',	
-            'Recipient Name',	
-            'Original Document Number',	
-            'Original Document Date',	
-            'Revised Document Number',	
-            'Revised Document Date',	
-            'Value of supplies made',	
-            'Place Of Supply',	
-            'Document type',	
-            'Rate',	
-            'Taxable Value',	
+            'Supplier GSTIN/UIN',
+            'Supplier Name',
+            'Recipient GSTIN/UIN',
+            'Recipient Name',
+            'Original Document Number',
+            'Original Document Date',
+            'Revised Document Number',
+            'Revised Document Date',
+            'Value of supplies made',
+            'Place Of Supply',
+            'Document type',
+            'Rate',
+            'Taxable Value',
             'Cess Amount',
         ];
 
@@ -877,12 +877,12 @@ class GstrDetailExport
                 $item->doc_date ? GeneralHelper::dateFormat3($item->doc_date) : '',
                 $item->revised_doc_no ? $item->revised_doc_no : '',
                 $item->revised_doc_date ? GeneralHelper::dateFormat3($item->revised_doc_date) : '',
-                $item->value_of_supplies_made, 
-                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '', 
-                $item->doc_type, 
-                $item->rate, 
-                $item->taxable_amt, 
-                $item->cess, 
+                $item->value_of_supplies_made,
+                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
+                $item->doc_type,
+                $item->rate,
+                $item->taxable_amt,
+                $item->cess,
             ];
         }
         return [
@@ -893,12 +893,12 @@ class GstrDetailExport
 
     public static function prepareEcoab2cData($data){
         $header = [
-            'Financial Year',	
-            'Original Month',	
-            'Supplier GSTIN/UIN',	
-            'Supplier Name',	
-            'Place Of Supply',	
-            'Taxable Value',	
+            'Financial Year',
+            'Original Month',
+            'Supplier GSTIN/UIN',
+            'Supplier Name',
+            'Place Of Supply',
+            'Taxable Value',
             'Cess Amount',
         ];
 
@@ -907,12 +907,12 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->year ?  $item->year : '',
-                $item->month ?  \DateTime::createFromFormat('!m', $item->month)->format('F') : '', 
+                $item->month ?  \DateTime::createFromFormat('!m', $item->month)->format('F') : '',
                 $item->supplier_gstin ? $item->supplier_gstin : '',
                 $item->supplier_name ? $item->supplier_name : '',
-                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '', 
-                $item->taxable_amt, 
-                $item->cess, 
+                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
+                $item->taxable_amt,
+                $item->cess,
             ];
         }
         return [
@@ -923,17 +923,17 @@ class GstrDetailExport
 
     public static function prepareEcoaurp2bData($data){
         $header = [
-            'Recipient GSTIN/UIN',	
-            'Recipient Name',	
-            'Original Document Number',	
-            'Original Document Date',	
-            'Revised Document Number',	
-            'Revised Document Date',	
-            'Value of supplies made',	
-            'Place Of Supply',	
-            'Document type',	
-            'Rate',	
-            'Taxable Value',	
+            'Recipient GSTIN/UIN',
+            'Recipient Name',
+            'Original Document Number',
+            'Original Document Date',
+            'Revised Document Number',
+            'Revised Document Date',
+            'Value of supplies made',
+            'Place Of Supply',
+            'Document type',
+            'Rate',
+            'Taxable Value',
             'Cess Amount',
         ];
 
@@ -947,12 +947,12 @@ class GstrDetailExport
                 $item->doc_date ? GeneralHelper::dateFormat3($item->doc_date) : '',
                 $item->revised_doc_no ? $item->revised_doc_no : '',
                 $item->revised_doc_date ? GeneralHelper::dateFormat3($item->revised_doc_date) : '',
-                $item->value_of_supplies_made, 
-                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '', 
-                $item->doc_type, 
-                $item->rate, 
-                $item->taxable_amt, 
-                $item->cess, 
+                $item->value_of_supplies_made,
+                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
+                $item->doc_type,
+                $item->rate,
+                $item->taxable_amt,
+                $item->cess,
             ];
         }
         return [
@@ -963,11 +963,11 @@ class GstrDetailExport
 
     public static function prepareEcoaurp2cData($data){
         $header = [
-            'Financial Year',	
-            'Original Month',	
-            'Place Of Supply',	
-            'Rate',	
-            'Taxable Value',	
+            'Financial Year',
+            'Original Month',
+            'Place Of Supply',
+            'Rate',
+            'Taxable Value',
             'Cess Amount',
         ];
 
@@ -976,11 +976,11 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->year ?  $item->year : '',
-                $item->month ?  \DateTime::createFromFormat('!m', $item->month)->format('F') : '', 
-                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '', 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt, 
-                $item->cess, 
+                $item->month ?  \DateTime::createFromFormat('!m', $item->month)->format('F') : '',
+                $item->place_of_supply ? $item->pos.''.$item->place_of_supply : '',
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt,
+                $item->cess,
             ];
         }
         return [
@@ -991,10 +991,10 @@ class GstrDetailExport
 
     public static function prepareDocIssueData($data){
         $header = [
-            'Nature of Document',	
-            'Sr. No. From',	
-            'Sr. No. To',	
-            'Total Number',	
+            'Nature of Document',
+            'Sr. No. From',
+            'Sr. No. To',
+            'Total Number',
             'Cancelled',
         ];
 
@@ -1003,10 +1003,10 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->nature_of_document,
-                $item->sr_no_from ? $item->sr_no_from : '', 
-                $item->sr_no_to ? $item->sr_no_to : '', 
-                $item->total_number ? $item->total_number : '', 
-                $item->cancelled ? $item->cancelled : '', 
+                $item->sr_no_from ? $item->sr_no_from : '',
+                $item->sr_no_to ? $item->sr_no_to : '',
+                $item->total_number ? $item->total_number : '',
+                $item->cancelled ? $item->cancelled : '',
             ];
         }
         return [
@@ -1017,10 +1017,10 @@ class GstrDetailExport
 
     public static function prepareAtData($data){
         $header = [
-            'Place Of Supply',	
-            'Applicable % of Tax Rate',	
-            'Rate',	
-            'Gross Advance Received',	
+            'Place Of Supply',
+            'Applicable % of Tax Rate',
+            'Rate',
+            'Gross Advance Received',
             'Cess Amount',
         ];
 
@@ -1029,10 +1029,10 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->place_of_supply ?  $item->pos.''.$item->place_of_supply : '',
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,  
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
             ];
         }
         return [
@@ -1045,10 +1045,10 @@ class GstrDetailExport
         $header = [
             'Financial Year',
             'Original Month',
-            'Original Place Of Supply',	
-            'Applicable % of Tax Rate',	
-            'Rate',	
-            'Gross Advance Received',	
+            'Original Place Of Supply',
+            'Applicable % of Tax Rate',
+            'Rate',
+            'Gross Advance Received',
             'Cess Amount',
         ];
 
@@ -1059,10 +1059,10 @@ class GstrDetailExport
                 $item->year ?  $item->year : '',
                 $item->month ?  \DateTime::createFromFormat('!m', $item->month)->format('F') : '',
                 $item->place_of_supply ?  $item->pos.''.$item->place_of_supply : '',
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,   
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
             ];
         }
         return [
@@ -1073,10 +1073,10 @@ class GstrDetailExport
 
     public static function prepareTxpdData($data){
         $header = [
-            'Place Of Supply',	
-            'Applicable % of Tax Rate',	
-            'Rate',	
-            'Gross Advance Adjusted',	
+            'Place Of Supply',
+            'Applicable % of Tax Rate',
+            'Rate',
+            'Gross Advance Adjusted',
             'Cess Amount',
         ];
 
@@ -1085,10 +1085,10 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->place_of_supply ?  $item->pos.''.$item->place_of_supply : '',
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,    
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
             ];
         }
         return [
@@ -1101,10 +1101,10 @@ class GstrDetailExport
         $header = [
             'Financial Year',
             'Original Month',
-            'Original Place Of Supply',	
-            'Applicable % of Tax Rate',	
-            'Rate',	
-            'Gross Advance Adjusted',	
+            'Original Place Of Supply',
+            'Applicable % of Tax Rate',
+            'Rate',
+            'Gross Advance Adjusted',
             'Cess Amount',
         ];
 
@@ -1115,10 +1115,10 @@ class GstrDetailExport
                 $item->year ?  $item->year : '',
                 $item->month ?  \DateTime::createFromFormat('!m', $item->month)->format('F') : '',
                 $item->place_of_supply ?  $item->pos.''.$item->place_of_supply : '',
-                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,      
+                $item->applicable_tax_rate ? $item->applicable_tax_rate : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
             ];
         }
         return [
@@ -1142,7 +1142,7 @@ class GstrDetailExport
                 $item->description ? $item->description : '',
                 $item->nil_amt ? $item->nil_amt : '',
                 $item->expt_amt ? $item->expt_amt : '',
-                $item->non_gst_amt ? $item->non_gst_amt : '', 
+                $item->non_gst_amt ? $item->non_gst_amt : '',
             ];
         }
         return [
@@ -1153,15 +1153,15 @@ class GstrDetailExport
 
     public static function prepareExpData($data){
         $header = [
-            'Export Type',	
-            'Invoice Number',	
-            'Invoice date',	
-            'Invoice Value',	
-            'Port Code',	
-            'Shipping Bill Number',	
-            'Shipping Bill Date',	
-            'Rate',	
-            'Taxable Value',	
+            'Export Type',
+            'Invoice Number',
+            'Invoice date',
+            'Invoice Value',
+            'Port Code',
+            'Shipping Bill Number',
+            'Shipping Bill Date',
+            'Rate',
+            'Taxable Value',
             'Cess Amount',
         ];
 
@@ -1170,15 +1170,15 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->exp_type,
-                $item->invoice_no ? $item->invoice_no : '', 
-                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '', 
+                $item->invoice_no ? $item->invoice_no : '',
+                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '',
                 $item->invoice_amt ?  $item->invoice_amt : '',
                 $item->port_code ? $item->port_code : '',
-                $item->shipping_bill_no ? $item->shipping_bill_no : 0, 
-                $item->shipping_bill_date ? GeneralHelper::dateFormat3($item->shipping_bill_date) : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,  
+                $item->shipping_bill_no ? $item->shipping_bill_no : 0,
+                $item->shipping_bill_date ? GeneralHelper::dateFormat3($item->shipping_bill_date) : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
             ];
         }
         return [
@@ -1189,17 +1189,17 @@ class GstrDetailExport
 
     public static function prepareExpaData($data){
         $header = [
-            'Export Type',	
-            'Original Invoice Number',	
-            'Original Invoice date',	
-            'Revised Invoice Number',	
-            'Revised Invoice date',	
-            'Invoice Value',	
-            'Port Code',	
-            'Shipping Bill Number',	
-            'Shipping Bill Date',	
-            'Rate',	
-            'Taxable Value',	
+            'Export Type',
+            'Original Invoice Number',
+            'Original Invoice date',
+            'Revised Invoice Number',
+            'Revised Invoice date',
+            'Invoice Value',
+            'Port Code',
+            'Shipping Bill Number',
+            'Shipping Bill Date',
+            'Rate',
+            'Taxable Value',
             'Cess Amount',
         ];
 
@@ -1208,17 +1208,17 @@ class GstrDetailExport
         foreach ($data as $item) {
             $rows[] = [
                 $item->exp_type,
-                $item->invoice_no ? $item->invoice_no : '', 
-                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '', 
-                $item->revised_invoice_no ? $item->revised_invoice_no : '', 
-                $item->revised_invoice_date ? GeneralHelper::dateFormat3($item->revised_invoice_date) : '', 
+                $item->invoice_no ? $item->invoice_no : '',
+                $item->invoice_date ? GeneralHelper::dateFormat3($item->invoice_date) : '',
+                $item->revised_invoice_no ? $item->revised_invoice_no : '',
+                $item->revised_invoice_date ? GeneralHelper::dateFormat3($item->revised_invoice_date) : '',
                 $item->invoice_amt ?  $item->invoice_amt : '',
                 $item->port_code ? $item->port_code : '',
-                $item->shipping_bill_no ? $item->shipping_bill_no : 0, 
-                $item->shipping_bill_date ? GeneralHelper::dateFormat3($item->shipping_bill_date) : 0, 
-                $item->rate ? $item->rate.'%' : 0, 
-                $item->taxable_amt ? $item->taxable_amt : 0, 
-                $item->cess ? $item->cess : 0,   
+                $item->shipping_bill_no ? $item->shipping_bill_no : 0,
+                $item->shipping_bill_date ? GeneralHelper::dateFormat3($item->shipping_bill_date) : 0,
+                $item->rate ? $item->rate.'%' : 0,
+                $item->taxable_amt ? $item->taxable_amt : 0,
+                $item->cess ? $item->cess : 0,
             ];
         }
         return [
@@ -1229,40 +1229,40 @@ class GstrDetailExport
 
     public static function prepareHsnData($data){
         $header = [
-            'HSN',	
-            'Description',	
-            'UQC',	
-            'Total Quantity',	
-            'Total Value',	
-            'Rate',	
-            'Taxable Value',	
-            'Integrated Tax Amount',	
-            'Central Tax Amount',	
-            'State/UT Tax Amount',	
+            'HSN',
+            'Description',
+            'UQC',
+            'Total Quantity',
+            'Total Value',
+            'Rate',
+            'Taxable Value',
+            'Integrated Tax Amount',
+            'Central Tax Amount',
+            'State/UT Tax Amount',
             'Cess Amount',
         ];
 
         $rows = [];
 
         foreach ($data as $item) {
-            $taxableAmt = ($item->taxable_amt ? $item->taxable_amt : 0); 
-            $igst = ($item->igst ? $item->igst : 0); 
-            $cgst = ($item->cgst ? $item->cgst : 0); 
-            $sgst = ($item->sgst ? $item->sgst : 0); 
+            $taxableAmt = ($item->taxable_amt ? $item->taxable_amt : 0);
+            $igst = ($item->igst ? $item->igst : 0);
+            $cgst = ($item->cgst ? $item->cgst : 0);
+            $sgst = ($item->sgst ? $item->sgst : 0);
             $cess = ($item->cess ? $item->cess : 0);
-            $totalValue = $taxableAmt + $igst + $cgst + $sgst + $cess; 
+            $totalValue = $taxableAmt + $igst + $cgst + $sgst + $cess;
             $rows[] = [
                 $item->hsn_code,
-                $item->description ? $item->description : '', 
-                $item->uqc ? $item->uqc : '', 
-                $item->qty ? $item->qty : '', 
+                $item->description ? $item->description : '',
+                $item->uqc ? $item->uqc : '',
+                $item->qty ? $item->qty : '',
                 $totalValue,
-                $item->rate ? $item->rate.'%' : 0,  
+                $item->rate ? $item->rate.'%' : 0,
                 $taxableAmt,
-                $igst, 
-                $cgst, 
-                $sgst, 
-                $cess,  
+                $igst,
+                $cgst,
+                $sgst,
+                $cess,
             ];
         }
         return [

@@ -11,7 +11,7 @@
                     <div class="row breadcrumbs-top">
                         <div class="col-12">
                             <h2 class="content-header-title float-start mb-0">
-                                {{$servicesBooks['services'][0]->name ?? "Gate Entries"}}
+                                {{ $servicesBooks['services'][0]->name ?? 'Gate Entries' }}
                             </h2>
                             <div class="breadcrumb-wrapper">
                                 <ol class="breadcrumb">
@@ -27,15 +27,14 @@
                 <div class="content-header-right text-sm-end col-md-7 mb-50 mb-sm-0">
                     <div class="form-group breadcrumb-right">
                         <!-- <button class="btn btn-warning btn-sm mb-50 mb-sm-0" data-bs-target="#filter" data-bs-toggle="modal">
-                            <i data-feather="filter"></i> Filter
-                        </button> -->
-                        @if(count($servicesBooks['services']) > 0)
-
+                                        <i data-feather="filter"></i> Filter
+                                    </button> -->
+                        @if (count($servicesBooks['services']) > 0)
                             <a class="btn btn-primary btn-sm mb-50 mb-sm-0" href="{{ route('gate-entry.create') }}">
                                 <i data-feather="plus-circle"></i> Create
                             </a>
                             {{-- <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('gate-entry.report') }}"><i data-feather="bar-chart-2"></i>Report</a> --}}
-                            <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('transactions.report', ['serviceAlias' => request() -> type]) }}"><i data-feather="bar-chart-2"></i>Report</a>
+                            <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('transactions.report', ['serviceAlias' => request()->type]) }}"><i data-feather="bar-chart-2"></i>Report</a>
                         @endif
                     </div>
                 </div>
@@ -64,6 +63,7 @@
                                                 <th>Tax</th>
                                                 <th>Expenses</th>
                                                 <th>Total Amt</th>
+                                                <th>Created By</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
@@ -86,41 +86,41 @@
                 </div>
                 <div class="modal-body flex-grow-1">
                     <div class="mb-1">
-                    <label class="form-label" for="fp-range">Select Date</label>
-                    {{-- <input type="text" id="fp-default" class="form-control flatpickr-basic" placeholder="YYYY-MM-DD" /> --}}
-                    <input type="text" id="fp-range" class="form-control flatpickr-range bg-white" placeholder="YYYY-MM-DD to YYYY-MM-DD" />
+                        <label class="form-label" for="fp-range">Select Date</label>
+                        {{-- <input type="text" id="fp-default" class="form-control flatpickr-basic" placeholder="YYYY-MM-DD" /> --}}
+                        <input type="text" id="fp-range" class="form-control flatpickr-range bg-white" placeholder="YYYY-MM-DD to YYYY-MM-DD" />
                     </div>
                     <div class="mb-1">
-                    <label class="form-label">Item Code</label>
-                    <select class="form-select">
-                        <option>Select</option>
-                    </select>
+                        <label class="form-label">Item Code</label>
+                        <select class="form-select">
+                            <option>Select</option>
+                        </select>
                     </div>
                     <div class="mb-1">
-                    <label class="form-label">Item Name</label>
-                    <select class="form-select select2">
-                        <option>Select</option>
-                    </select>
+                        <label class="form-label">Item Name</label>
+                        <select class="form-select select2">
+                            <option>Select</option>
+                        </select>
                     </div>
                     <div class="mb-1">
-                    <label class="form-label">Category</label>
-                    <select class="form-select select2">
-                        <option>Select</option>
-                    </select>
+                        <label class="form-label">Category</label>
+                        <select class="form-select select2">
+                            <option>Select</option>
+                        </select>
                     </div>
                     <div class="mb-1">
-                    <label class="form-label">Sub-Category</label>
-                    <select class="form-select select2">
-                        <option>Select</option>
-                    </select>
+                        <label class="form-label">Sub-Category</label>
+                        <select class="form-select select2">
+                            <option>Select</option>
+                        </select>
                     </div>
                     <div class="mb-1">
-                    <label class="form-label">Status</label>
-                    <select class="form-select">
-                        <option>Select</option>
-                        <option>Active</option>
-                        <option>Inactive</option>
-                    </select>
+                        <label class="form-label">Status</label>
+                        <select class="form-select">
+                            <option>Select</option>
+                            <option>Active</option>
+                            <option>Inactive</option>
+                        </select>
                     </div>
                 </div>
                 <div class="modal-footer justify-content-start">
@@ -132,10 +132,10 @@
     </div>
 @endsection
 @section('scripts')
-    <script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
+    <script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
 
     <script>
-        $(window).on("load", function () {
+        $(window).on("load", function() {
             if (feather) {
                 feather.replace({
                     width: 14,
@@ -146,87 +146,156 @@
 
         $(document).ready(function() {
             function renderData(data) {
-                    return data ? data : '';
-                }
-                var columns = [
-                    { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
-                    { data: 'book_code', name: 'book_code', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                return data ? data : '';
+            }
+            var columns = [{
+                    data: 'DT_RowIndex',
+                    name: 'DT_RowIndex',
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'book_code',
+                    name: 'book_code',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('no-wrap');
-                        }
-                    },
-                    { data: 'document_number', name: 'document_number', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'document_number',
+                    name: 'document_number',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('no-wrap');
-                        }
-                    },
-                    { data: 'document_date', name: 'document_date', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'document_date',
+                    name: 'document_date',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('no-wrap');
-                        }
-                    },
-                    { data: 'reference_number', name: 'reference_number', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'reference_number',
+                    name: 'reference_number',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('no-wrap');
-                        }
-                    },
-                    { data: 'location', name: 'location', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'location',
+                    name: 'location',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('no-wrap');
-                        }
-                    },
-                    { data: 'vendor_name', name: 'vendor_name', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'vendor_name',
+                    name: 'vendor_name',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('no-wrap');
-                        }
-                    },
-                    { data: 'currency', name: 'currency', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'currency',
+                    name: 'currency',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('no-wrap');
-                        }
-                    },
-                    { data: 'total_items', name: 'lot_no', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'total_items',
+                    name: 'lot_no',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('no-wrap');
-                        }
-                    },
-                    { data: 'total_item_amount', name: 'total_item_amount', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'total_item_amount',
+                    name: 'total_item_amount',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
-                        }
-                    },
-                    { data: 'total_discount', name: 'total_discount', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'total_discount',
+                    name: 'total_discount',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
-                        }
-                    },
-                    { data: 'taxable_amount', name: 'taxable_amount', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'taxable_amount',
+                    name: 'taxable_amount',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
-                        }
-                    },
-                    { data: 'total_taxes', name: 'total_taxes', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'total_taxes',
+                    name: 'total_taxes',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
-                        }
-                    },
-                    { data: 'expense_amount', name: 'expense_amount', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'expense_amount',
+                    name: 'expense_amount',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
-                        }
-                    },
-                    { data: 'total_amount', name: 'total_amount', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'total_amount',
+                    name: 'total_amount',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
-                        }
-                    },
-                    { data: 'document_status', name: 'document_status', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    }
+                },
+                {
+                    data: 'created_by',
+                    name: 'created_by',
+                    render: renderData,
+                },
+                {
+                    data: 'document_status',
+                    name: 'document_status',
+                    render: renderData,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('no-wrap');
-                        }
-                    },
-                ];
-                // Define your dynamic filters
-                var filters = {
-                    status: '#filter-status',         // Status filter (dropdown)
-                    category: '#filter-category',     // Category filter (dropdown)
-                    item_code: '#filter-item-code'    // Item code filter (input text field)
-                };
-                var exportColumns = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]; // Columns to export
-                initializeDataTable('.datatables-basic',
-                    "{{ route('gate-entry.index') }}",
-                    columns,
-                    filters,  // Apply filters
-                    'Gate Entry',  // Export title
-                    exportColumns  // Export columns
-                );
-                // Apply filter on button click
-                // applyFilter('.apply-filter');
-            });
+                    }
+                },
+            ];
+            // Define your dynamic filters
+            var filters = {
+                status: '#filter-status', // Status filter (dropdown)
+                category: '#filter-category', // Category filter (dropdown)
+                item_code: '#filter-item-code' // Item code filter (input text field)
+            };
+            var exportColumns = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]; // Columns to export
+            initializeDataTable('.datatables-basic',
+                "{{ route('gate-entry.index') }}",
+                columns,
+                filters, // Apply filters
+                'Gate Entry', // Export title
+                exportColumns // Export columns
+            );
+            // Apply filter on button click
+            // applyFilter('.apply-filter');
+        });
     </script>
 @endsection

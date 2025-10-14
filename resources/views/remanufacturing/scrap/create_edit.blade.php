@@ -63,17 +63,13 @@
                                         </a> --}}
                                         @if ($buttons['draft'])
                                             <button type="submit" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button" name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
-                                            <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn" data-url="{{ route('scrap.destroy', ['id' => $scrap->id, 'isAmedment' => $buttons['amend'] ? $buttons['amend'] : 0]) }}"
-                                                    data-redirect="{{ route('scrap.index') }}" data-message="Are you sure you want to delete this record?">
-                                                <i data-feather="trash-2" class="me-50"></i> Delete
-                                            </button>
                                         @endif
                                         @if ($buttons['submit'])
                                             <button type="submit" class="btn btn-primary btn-sm submit-button" name="action" value="submitted"><i data-feather="check-circle"></i> Submit</button>
                                         @endif
                                         @if ($buttons['approve'])
-                                            <button type="button" id="reject-button" data-bs-toggle="modal" data-bs-target="#approveModal" type="submit" class="btn btn-primary btn-sm mb-50 mb-sm-0 submit-button" name="action" value="reject"><svg xmlns="http://www.w3.org/2000/svg"
-                                                     width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle">
+                                            <button type="button" id="reject-button" data-bs-toggle="modal" data-bs-target="#approveModal" type="submit" class="btn btn-primary btn-sm mb-50 mb-sm-0 submit-button" name="action" value="reject"><svg xmlns="http://www.w3.org/2000/svg" width="14"
+                                                     height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle">
                                                     <circle cx="12" cy="12" r="10"></circle>
                                                     <line x1="15" y1="9" x2="9" y2="15">
                                                     </line>
@@ -87,6 +83,12 @@
                                         @endif
                                         @if ($buttons['revoke'])
                                             <button id = "revokeButton" type="submit" class="btn btn-primary btn-sm mb-50 mb-sm-0 submit-button" name="action" value="revoke"><i data-feather='rotate-ccw'></i> Revoke</button>
+                                        @endif
+                                        @if ($buttons['delete'])
+                                            <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn" data-url="{{ route('scrap.destroy', ['id' => $scrap->id, 'isAmedment' => $buttons['amend'] ? $buttons['amend'] : 0]) }}"
+                                                    data-redirect="{{ route('scrap.index') }}" data-message="Are you sure you want to delete this record?">
+                                                <i data-feather="trash-2" class="me-50"></i> Delete
+                                            </button>
                                         @endif
                                     @else
                                         <button type="submit" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button" name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>

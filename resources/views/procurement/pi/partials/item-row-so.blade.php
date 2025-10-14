@@ -12,7 +12,9 @@
             })
             ->values()
             ->all();
-        $stocks = \App\Helpers\InventoryHelper::totalInventoryAndStock($item?->id, $selectedAttr, $item?->uom_id, $storeId);
+
+        $uom = \App\Models\Unit::select('id', 'name')->find($so_item['uom_id'] ?? $item?->uom_id);
+        $stocks = \App\Helpers\InventoryHelper::totalInventoryAndStock($item?->id, $selectedAttr, $uom?->id, $storeId);
     @endphp
     <tr id="row_{{ $rowCount }}" data-index="{{ $rowCount }}">
         <td class="customernewsection-form">
@@ -49,7 +51,7 @@
         <td>
             <input type="hidden" name="components[{{ $rowCount }}][inventoty_uom_id]" value="" @readonly(true)>
             <select class="form-select mw-100 " name="components[{{ $rowCount }}][uom_id]">
-                <option value="{{ $item?->uom?->id }}">{{ ucfirst($item?->uom?->name) }}</option>
+                <option value="{{ $uom?->id }}">{{ ucfirst($uom?->name) }}</option>
             </select>
         </td>
         <td>

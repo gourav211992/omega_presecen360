@@ -13,54 +13,47 @@ use App\Models\ErpAttribute;
 use App\Models\ItemAttribute;
 use App\Models\ErpItemAttribute;
 
-use App\Models\PO\PoHeader;
-use App\Models\PO\PoDetail;
+use App\Models\PoItem;
+use App\Models\PurchaseOrder;
+use App\Models\Vendor;
 
-class DetailHistory extends Model
+class PoDetailHistory extends Model
 {
-    protected $table = 'erp_exp_allocation_details_history';
+    protected $table = 'erp_exp_alc_po_details_history';
     protected $fillable = [
         'source_id',
         'header_id',
+        'po_header_id',
+        'po_detail_id',
         'item_id',
-        'mrn_detail_id',
-        'mrn_header_id',
         'item_code',
         'item_name',
         'hsn_id',
         'hsn_code',
         'uom_id',
         'uom_code',
-        'store_id',
-        'store_code',
-        'sub_store_id',
-        'sub_store_code',
-        'order_qty',
-        'accepted_qty',
+        'vendor_id',
+        'vendor_code',
+        'vendor_name',
+        'currency_id',
+        'currency_code',
+        'org_currency_id',
+        'org_currency_code',
+        'exchange_rate',
+        'po_qty',
+        'receipt_qty',
         'inventory_uom_id',
         'inventory_uom_code',
         'inventory_uom_qty',
-        'accepted_inv_uom_id',
-        'accepted_inv_uom_code',
-        'accepted_inv_uom_qty',
+        'receipt_inv_uom_id',
+        'receipt_inv_uom_code',
+        'receipt_inv_uom_qty',
         'rate',
-        'basic_value',
-        'discount_percentage',
-        'discount_amount',
-        'header_discount_amount',
-        'net_value',
-        'tax_value',
-        'taxable_amount',
-        'item_exp_amount',
-        'header_exp_amount',
-        'total_item_amount',
+        'value',
+        'po_value',
+        'allocation_type_id',
+        'allocation_type',
         'remark'
-    ];
-
-    protected $appends = [
-        'cgst_value',
-        'sgst_value',
-        'igst_value'
     ];
 
     public function header()
@@ -68,9 +61,19 @@ class DetailHistory extends Model
         return $this->belongsTo(Header::class, 'header_id');
     }
 
-    public function expenseHeader()
+    public function poHeader()
     {
-        return $this->belongsTo(Header::class, 'header_id');
+        return $this->belongsTo(PurchaseOrder::class, 'po_header_id');
+    }
+
+    public function poDetail()
+    {
+        return $this->belongsTo(PoItem::class, 'po_detail_id');
+    }
+
+    public function vendor()
+    {
+        return $this->belongsTo(Vendor::class);
     }
 
     public function headerHistory()
@@ -80,17 +83,17 @@ class DetailHistory extends Model
 
     public function detail()
     {
-        return $this->belongsTo(Detail::class, 'detail_id');
+        return $this->belongsTo(PoDetail::class, 'po-detail_id');
+    }
+
+    public function allocations()
+    {
+        return $this->hasMany(AllocationHistory::class, 'po_detail_id');
     }
 
     public function attributes()
     {
-        return $this->hasMany(AttributeHistory::class, 'detail_history_id');
-    }
-
-    public function expenseTed()
-    {
-        return $this->hasMany(TedHistory::class, 'detail_history_id');
+        return $this->hasMany(PoAttributeHistory::class, 'po_detail_id');
     }
 
     public function item()
@@ -98,56 +101,9 @@ class DetailHistory extends Model
         return $this->belongsTo(Item::class, 'item_id');
     }
 
-    public function costCenter()
-    {
-        return $this->belongsTo(CostCenter::class, 'cost_center_id');
-    }
-
-    public function getAssessmentAmountTotalAttribute()
-    {
-        return ($this->accepted_qty * $this->rate) - ($this->discount_amount - $this->header_discount_amount);
-    }
-
-    public function getAssessmentAmountItemAttribute()
-    {
-        return ($this->accepted_qty * $this->rate) - ($this->discount_amount);
-    }
-
-    // After item discount
-    public function getAssessmentAmountHeaderAttribute()
-    {
-        return ($this->accepted_qty * $this->rate) - ($this->discount_amount);
-    }
-
-    public function getTotalItemValueAttribute()
-    {
-        return ($this->accepted_qty * $this->rate);
-    }
-
-    public function getTotalDiscValueAttribute()
-    {
-        return ($this->discount_amount + $this->header_discount_amount);
-    }
-
     public function uom()
     {
         return $this->belongsTo(Unit::class, 'uom_id');
-    }
-
-    public function itemDiscount()
-    {
-        return $this->hasMany(TedHistory::class, 'detail_history_id')->where('ted_level', 'D')->where('ted_type', 'Discount');
-    }
-
-    /*Header Level Discount*/
-    public function headerDiscount()
-    {
-        return $this->hasMany(TedHistory::class, 'detail_history_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
-    }
-
-    public function taxes()
-    {
-        return $this->hasMany(TedHistory::class, 'detail_history_id')->where('ted_type', 'Tax');
     }
 
     public function item_attributes_array()
@@ -160,7 +116,7 @@ class DetailHistory extends Model
         }
         $processedData = [];
         foreach ($itemAttributes as $attribute) {
-            $existingAttribute = AttributeHistory::where('detail_history_id', $this->getAttribute('id'))->where('item_attribute_id', $attribute->id)->first();
+            $existingAttribute = PoAttributeHistory::where('detail_history_id', $this->getAttribute('id'))->where('item_attribute_id', $attribute->id)->first();
             if (!isset($existingAttribute)) {
                 continue;
             }

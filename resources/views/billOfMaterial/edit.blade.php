@@ -33,7 +33,7 @@ if($routeAlias == ConstantHelper::BOM_SERVICE_ALIAS)
                     <input type="hidden" name="document_status" value="{{$bom->document_status}}" id="document_status">
                     <button type="button" onClick="javascript: history.go(-1)" class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i> Back</button>
 
-                   @if($buttons['delete'])
+                   @if($buttons['delete']||$buttons['amend'])
                         <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
                             data-url="{{ url('bill-of-material/') }}/{{ $bom->id }}/{{ $buttons['amend'] ? $buttons['amend'] : 0 }}"
                             data-redirect="{{ url($routeAlias) }}"

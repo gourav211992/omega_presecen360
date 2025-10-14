@@ -483,13 +483,13 @@ class ConstantHelper
         self::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS => "Delivery Note CUM Invoice",
         self::BOM_SERVICE_ALIAS => "Bill Of Material",
         self::COMMERCIAL_BOM_SERVICE_ALIAS => "Quotation BOM",
-        self::PO_SERVICE_ALIAS => "Purchase Order" ,
-        self::SUPPLIER_INVOICE_SERVICE_ALIAS => "Supplier Invoice" ,
-        self::SCRAP_SERVICE_ALIAS => "Scrap" ,
-        self::PI_SERVICE_ALIAS => "Purchase Indent" ,
-        self:: MRN_SERVICE_ALIAS => "MRN" ,
-        self:: GATE_ENTRY_SERVICE_ALIAS => "Gate Entry" ,
-        self::EXPENSE_SERVICE_ALIAS => "Expense" ,
+        self::PO_SERVICE_ALIAS => "Purchase Order",
+        self::SUPPLIER_INVOICE_SERVICE_ALIAS => "Supplier Invoice",
+        self::SCRAP_SERVICE_ALIAS => "Scrap",
+        self::PI_SERVICE_ALIAS => "Purchase Indent",
+        self::MRN_SERVICE_ALIAS => "MRN",
+        self::GATE_ENTRY_SERVICE_ALIAS => "Gate Entry",
+        self::EXPENSE_SERVICE_ALIAS => "Expense",
         self::EXPENSE_ADVISE_SERVICE_ALIAS => 'Expense Advise',
         self::PURCHASE_RETURN_SERVICE_ALIAS => "Purchase Return",
         self::PB_SERVICE_ALIAS => "Purchase Bill",
@@ -715,6 +715,7 @@ class ConstantHelper
         self::MO_SERVICE_ALIAS => self::JOURNAL_VOUCHER,
         self::PB_SERVICE_ALIAS => self::PURCHASE_VOUCHER,
         self::EXPENSE_ADVISE_SERVICE_ALIAS => self::PURCHASE_VOUCHER,
+        self::EXP_ALC_SERVICE_ALIAS => self::PURCHASE_VOUCHER,
         self::PURCHASE_RETURN_SERVICE_ALIAS => self::PURCHASE_VOUCHER,
         self::RECEIPT_VOUCHER => self::RECEIPT_VOUCHER,
         self::PAYMENT_VOUCHER_RECEIPT => self::PAYMENT_VOUCHER_RECEIPT,
@@ -1248,14 +1249,17 @@ class ConstantHelper
     ];
 
     const DIST_WEIGHT = 'weight';
-    public const DIST_QTY = 'qty';
-    public const DIST_VOLUME = 'volume';
+    const DIST_QTY = 'qty';
+    const DIST_VALUE = 'value';
+    const DIST_VOLUME = 'volume';
+
 
     public static function getDistributionTypes(): array
     {
         return [
+            self::DIST_QTY => 'Qty',
+            self::DIST_VALUE => 'Value',
             self::DIST_WEIGHT => 'Weight',
-            self::DIST_QTY => 'Quantity',
             self::DIST_VOLUME => 'Volume',
         ];
     }

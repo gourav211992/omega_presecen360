@@ -337,12 +337,12 @@ class PRHeader extends Model
 
     public function createdBy()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(AuthUser::class, 'created_by', 'id');
     }
 
     public function updatedBy()
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(AuthUser::class, 'updated_by', 'id');
     }
 
     public function latestBillingAddress()
@@ -352,7 +352,8 @@ class PRHeader extends Model
 
     public function latestShippingAddress()
     {
-        return $this->addresses()->where('type', 'shipping')->latest()->first();
+        // return $this->addresses()->where('type', 'shipping')->latest()->first();
+        return $this->addresses()->where('type', 'billing')->latest()->first();
     }
 
     public function irnDetail()

@@ -381,6 +381,7 @@
                                                                 <th class="text-end">Value</th>
                                                                 <th>Discount</th>
                                                                 <th class="text-end">Total</th>
+                                                                <th class="text-end">Variance</th>
                                                                 <th width="50px">Action</th>
                                                             </tr>
                                                         </thead>
@@ -392,6 +393,7 @@
                                                                 <td class="text-end" id="totalItemValue">0.00</td>
                                                                 <td class="text-end" id="totalItemDiscount">0.00</td>
                                                                 <td class="text-end" id="TotalEachRowAmount">0.00</td>
+                                                                <td class="text-end" id="TotalVarianceAmount">0.00</td>
                                                             </tr>
                                                             <tr valign="top">
                                                                 <td colspan="7" rowspan="12">

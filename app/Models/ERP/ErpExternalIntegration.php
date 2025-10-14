@@ -60,6 +60,11 @@ class ErpExternalIntegration extends Model
         return $this->belongsTo(Book::class, 'dnote_book_id');
     }
 
+    public function dnoteBook()
+    {
+        return $this->belongsTo(Book::class, 'dnote_book_id');
+    }
+
     public function store()
     {
         return $this->belongsTo(ErpStore::class)->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);

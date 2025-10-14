@@ -34,14 +34,12 @@ class HeaderHistory extends Model
 {
     use HasFactory, SoftDeletes, DateFormatTrait, FileUploadTrait, DefaultGroupCompanyOrg, DynamicFieldsTrait;
 
-    protected $table = 'erp_exp_allocation_headers_history';
+    protected $table = 'erp_exp_alc_headers_history';
     protected $fillable = [
         'source_id',
         'organization_id',
         'group_id',
         'company_id',
-        'mrn_header_id',
-        'series_id',
         'book_id',
         'book_code',
         'doc_number_type',
@@ -49,10 +47,6 @@ class HeaderHistory extends Model
         'doc_prefix',
         'doc_suffix',
         'doc_no',
-        'vendor_id',
-        'vendor_code',
-        'customer_id',
-        'customer_code',
         'store_id',
         'sub_store_id',
         'cost_center_id',
@@ -63,22 +57,12 @@ class HeaderHistory extends Model
         'revision_date',
         'approval_level',
         'reference_number',
-        'gate_entry_no',
-        'gate_entry_date',
         'supplier_invoice_no',
         'supplier_invoice_date',
         'eway_bill_no',
         'consignment_no',
         'transporter_name',
         'vehicle_no',
-        'billing_to',
-        'ship_to',
-        'billing_address',
-        'shipping_address',
-        'currency_id',
-        'currency_code',
-        'payment_term_id',
-        'payment_term_code',
         'transaction_currency',
         'org_currency_id',
         'org_currency_code',
@@ -89,19 +73,11 @@ class HeaderHistory extends Model
         'group_currency_id',
         'group_currency_code',
         'group_currency_exg_rate',
-        'sub_total',
-        'total_item_amount',
-        'item_discount',
-        'header_discount',
-        'total_discount',
-        'gst',
-        'gst_details',
-        'taxable_amount',
-        'total_taxes',
-        'total_after_tax_amount',
-        'expense_amount',
-        'total_amount',
-        'final_remark',
+        'total_po_value',
+        'total_grn_value',
+        'total_allocated_value',
+        'total_landed_cost_value',
+        'remark',
         'status',
         'created_by',
         'updated_by',
@@ -159,16 +135,6 @@ class HeaderHistory extends Model
         return ucwords($status);
     }
 
-    public function vendor()
-    {
-        return $this->belongsTo(Vendor::class);
-    }
-
-    public function customer()
-    {
-        return $this->belongsTo(Customer::class);
-    }
-
     public function book()
     {
         return $this->belongsTo(Book::class, 'series_id');
@@ -179,39 +145,19 @@ class HeaderHistory extends Model
         return $this->belongsTo(ErpStore::class, 'store_id');
     }
 
-    public function paymentTerms()
+    public function store_address()
     {
-        return $this->belongsTo(PaymentTerm::class);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'location')->with(['city', 'state', 'country']);
     }
 
-    public function currency()
+    public function poDetails()
     {
-        return $this->belongsTo(Currency::class);
+        return $this->hasMany(PoDetail::class, 'header_id');
     }
 
-    public function items()
+    public function grnDetails()
     {
-        return $this->hasMany(DetailHistory::class, 'header_history_id');
-    }
-
-    public function ship_address()
-    {
-        return $this->belongsTo(ErpAddress::class, 'shipping_address');
-    }
-
-    public function bill_address()
-    {
-        return $this->belongsTo(ErpAddress::class, 'billing_address');
-    }
-
-    public function billingAddress()
-    {
-        return $this->belongsTo(ErpAddress::class, 'billing_to');
-    }
-
-    public function shippingAddress()
-    {
-        return $this->belongsTo(ErpAddress::class, 'ship_to')->with(['city', 'state', 'country']);
+        return $this->hasMany(GrnDetail::class, 'header_id');
     }
 
     public function attachment(): void
@@ -219,47 +165,14 @@ class HeaderHistory extends Model
         $this->addMediaCollection('attachment');
     }
 
+    public function addresses()
+    {
+        return $this->morphMany(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id');
+    }
+
     public function organizationAddress()
     {
         return $this->morphOne(Address::class, 'addressable')->where('type', 'default');
-    }
-
-    public function billingPartyAddress()
-    {
-        return $this->morphOne(Address::class, 'addressable')->where('type', 'billing');
-    }
-
-    public function paymentTerm()
-    {
-        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
-    }
-
-    /*Header Level Discount*/
-    public function headerDiscount()
-    {
-        return $this->hasMany(TedHistory::class, 'header_history_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
-    }
-
-    /*Total discount header level total_header_disc_amount*/
-    public function getTotalHeaderDiscAmountAttribute()
-    {
-        return $this->headerDiscount()->sum('ted_amount');
-    }
-
-    public function expenses()
-    {
-        return $this->hasMany(TedHistory::class, 'header_history_id')->where('ted_type', '=', 'Expense')
-            ->where('ted_level', '=', 'H');
-    }
-
-    public function expense_ted()
-    {
-        return $this->hasMany(TedHistory::class, 'header_history_id');
-    }
-
-    public function getTotalExpAssessmentAmountAttribute()
-    {
-        return ($this->total_item_amount + $this->total_taxes - $this->total_discount);
     }
 
     public function createdBy()
@@ -270,31 +183,6 @@ class HeaderHistory extends Model
     public function updatedBy()
     {
         return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    public function addresses()
-    {
-        return $this->morphMany(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id');
-    }
-
-    public function latestBillingAddress()
-    {
-        return $this->addresses()->where('type', 'billing')->latest()->first();
-    }
-
-    public function latestShippingAddress()
-    {
-        return $this->addresses()->where('type', 'shipping')->latest()->first();
-    }
-
-    public function bill_address_details()
-    {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'billing')->with(['city', 'state', 'country']);
-    }
-
-    public function ship_address_details()
-    {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'shipping')->with(['city', 'state', 'country']);
     }
 
     public function media()

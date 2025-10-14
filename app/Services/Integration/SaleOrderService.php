@@ -93,7 +93,7 @@ class SaleOrderService
      */
     private function validateAndSetup($request, $user)
     {
-        $erpIntegration = ErpExternalIntegration::with(['soBook:id,book_code', 'transportBook:id,book_code'])
+        $erpIntegration = ErpExternalIntegration::with(['soBook:id,book_code', 'tripBook:id,book_code'])
             ->whereGroupId($request->user()->group_id)
             ->whereCompanyId($request->user()->company_id)
             ->whereOrganizationId($request->organization_id)
@@ -167,7 +167,7 @@ class SaleOrderService
             $orderData,
             [
                 'book_id'   => $erpIntegration->trip_book_id,
-                'book_code' => $erpIntegration->transportBook?->book_code,
+                'book_code' => $erpIntegration->tripBook?->book_code,
             ]
         ));
 

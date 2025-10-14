@@ -54,12 +54,14 @@ class MoController extends Controller
     public function index(Request $request)
     {
         $parentUrl = request()->segments()[0];
+        $authUser = Helper::getAuthenticatedUser();
         $servicesAliasParam = ConstantHelper::MO_SERVICE_ALIAS;
         if (request()->ajax()) {
 
             $selectedfyYear = Helper::getFinancialYear(Carbon::now()->format('Y-m-d'));
             $boms = MfgOrder::withDraftListingLogic()->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']])
-              // apply filter code
+                -> selfCreatedDocuments($authUser)
+                // apply filter code
                 ->when($request->book_id, function ($q) use ($request) {
                     $q->where('book_id', $request->book_id);
                 })

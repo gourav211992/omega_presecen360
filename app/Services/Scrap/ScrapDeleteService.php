@@ -38,7 +38,7 @@ class ScrapDeleteService
 
             $scrap->dynamicFields()->delete();
             $scrap->media()->delete();
-            $scrap->clearExistingDocuments('bom');
+            $scrap->clearExistingDocuments('scrap');
             $scrap->delete();
 
             return SELF::successResponse("Scrap header and all dependencies deleted successfully.");

@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use App\Models\User;
@@ -348,12 +349,12 @@ class InspectionHeader extends Model
 
     public function createdBy()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(AuthUser::class, 'created_by', 'id');
     }
 
     public function updatedBy()
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(AuthUser::class, 'updated_by', 'id');
     }
 
     public function latestBillingAddress()

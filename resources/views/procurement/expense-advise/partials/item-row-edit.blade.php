@@ -54,11 +54,15 @@
          </select>
       </td>
       <td>
-         <input type="number" class="form-control mw-100 text-end accepted_qty" name="components[{{$rowCount}}][accepted_qty]" value="{{$item->accepted_qty}}" step="any" />
+         <input type="number" class="form-control mw-100 text-end accepted_qty" name="components[{{$rowCount}}][accepted_qty]" value="{{$item->accepted_qty}}" step="any" readonly />
       </td>
-      <td><input type="number" name="components[{{$rowCount}}][rate]" value="{{$item->rate}}" class="form-control mw-100 text-end rate checkNegativeVal" readonly step="any"/></td>
+      <td>
+        <input type="number" name="components[{{$rowCount}}][rate]" value="{{$item->rate}}" class="form-control mw-100 text-end rate checkNegativeVal" step="any"/>
+        <input type="hidden" name="components[{{$rowCount}}][po_val]" value="{{$item->po_rate}}" class="form-control mw-100 text-end po-rate checkNegativeVal" step="any"/>
+      </td>
       <td>
          <input type="number" name="components[{{$rowCount}}][basic_value]" value="{{($item->accepted_qty*$item->rate)}}" class="form-control text-end mw-100 basic_value" step="any" readonly />
+         <input type="hidden" name="components[{{$rowCount}}][po_b_value]" value="{{($item->accepted_qty*$item->po_rate)}}"  class="form-control text-end mw-100 basic_value checkNegativeVal" readonly step="any"/>
       </td>
       <td>
          <div class="position-relative d-flex align-items-center">
@@ -78,6 +82,7 @@
       </td>
       <td>
          <input type="number" name="components[{{$rowCount}}][item_total_cost]" value="{{$item->net_value}}" readonly class="form-control mw-100 text-end" step="any"/>
+         <input type="hidden" id="item_total_po_cost_{{$rowCount}}" name="components[{{$rowCount}}][po_total_cost]" value="{{($item->accepted_qty*$item->po_rate) - $item->discount_amount}}" readonly class="form-control mw-100 text-end item_total_cost" step="any"/>
          @foreach($item->taxes as $tax_key => $po_item_tax)
             <input type="hidden" value="{{$po_item_tax->id}}" name="components[{{$rowCount}}][taxes][{{$tax_key + 1}}][id]">
             <input type="hidden" value="{{$po_item_tax->ted_id}}" name="components[{{$rowCount}}][taxes][{{$tax_key + 1}}][t_d_id]">
@@ -87,6 +92,9 @@
             <input type="hidden" value="{{$po_item_tax->ted_percentage}}" name="components[{{$rowCount}}][taxes][{{$tax_key + 1}}][t_perc]">
             <input type="hidden" value="{{$po_item_tax->ted_amount}}" name="components[{{$rowCount}}][taxes][{{$tax_key + 1}}][t_value]">
          @endforeach
+      </td>
+      <td>
+         <input type="number" name="components[{{$rowCount}}][item_variance]" value="{{$item->item_variance}}" readonly class="form-control mw-100 text-end" step="any" />
       </td>
       <td>
          <div class="d-flex">

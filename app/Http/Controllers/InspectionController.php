@@ -174,6 +174,9 @@ class InspectionController extends Controller
                 ->addColumn('total_items', function ($row) {
                     return $row->items ? count($row->items) : 0;
                 })
+                ->addColumn('created_by', function ($row){
+                    return $row->createdBy?->name;
+                })
                 ->rawColumns(['document_status'])
                 ->make(true);
         }

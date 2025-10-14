@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use App\Traits\DateFormatTrait;
@@ -111,12 +112,12 @@ class StockLedger extends Model
 
     public function createdBy()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(AuthUser::class, 'created_by', 'id');
     }
 
     public function updatedBy()
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(AuthUser::class, 'updated_by', 'id');
     }
 
     public function deletedBy()
@@ -158,5 +159,4 @@ class StockLedger extends Model
         }
         return null;
     }
-
 }

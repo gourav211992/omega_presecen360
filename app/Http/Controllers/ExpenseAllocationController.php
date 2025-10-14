@@ -14,35 +14,33 @@ use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB as FacadesDB;
 use Illuminate\Http\Exceptions\HttpResponseException;
 
-use App\Exports\ExpenseAdviceExport;
-
 use Illuminate\Http\Request;
 use App\Http\Requests\ExpAllocationRequest;
 use App\Http\Requests\EditExpAllocationRequest;
 
-use App\Models\ExpenseAllocation\Ted;
 use App\Models\ExpenseAllocation\Header;
-use App\Models\ExpenseAllocation\Detail;
-use App\Models\ExpenseAllocation\Attribute;
+use App\Models\ExpenseAllocation\PoDetail;
+use App\Models\ExpenseAllocation\GrnDetail;
+use App\Models\ExpenseAllocation\PoAttribute;
+use App\Models\ExpenseAllocation\GrnAttribute;
+use App\Models\ExpenseAllocation\Allocation;
+use App\Models\ExpenseAllocation\Media;
+use App\Models\ExpenseAllocation\DynamicField;
 
-use App\Models\ExpenseAllocation\TedHistory;
-use App\Models\ExpenseAllocation\DetailHistory;
 use App\Models\ExpenseAllocation\HeaderHistory;
-use App\Models\ExpenseAllocation\AttributeHistory;
+use App\Models\ExpenseAllocation\PoDetailHistory;
+use App\Models\ExpenseAllocation\GrnDetailHistory;
+use App\Models\ExpenseAllocation\PoAttributeHistory;
+use App\Models\ExpenseAllocation\GrnAttributeHistory;
+use App\Models\ExpenseAllocation\AllocationHistory;
+use App\Models\ExpenseAllocation\MediaHistory;
+use App\Models\ExpenseAllocation\DynamicFieldHistory;
 
-use App\Models\Tax;
-use App\Models\Hsn;
 use App\Models\Unit;
-use App\Models\Book;
 use App\Models\Item;
-use App\Models\City;
-use App\Models\State;
-use App\Models\ErpBin;
 use App\Models\PoItem;
 use App\Models\Vendor;
-use App\Models\Country;
 use App\Models\Address;
-use App\Models\Currency;
 use App\Models\ErpStore;
 use App\Models\Customer;
 use App\Models\MrnHeader;
@@ -50,12 +48,10 @@ use App\Models\MrnDetail;
 use App\Models\ErpSoItem;
 use App\Models\ErpAddress;
 use App\Models\CostCenter;
-use App\Models\PaymentTerm;
 use App\Models\Organization;
 use App\Models\ErpSaleOrder;
 use App\Models\AlternateUOM;
 use App\Models\PurchaseOrder;
-use App\Models\NumberPattern;
 use App\Models\AttributeGroup;
 
 use App\Models\ErpItem;
@@ -74,12 +70,16 @@ use App\Helpers\InventoryHelper;
 use App\Helpers\DynamicFieldHelper;
 use App\Helpers\FinancialPostingHelper;
 use App\Helpers\ServiceParametersHelper;
-
+use App\Helpers\Common\OrganizationHelper;
+use App\Helpers\InventoryHelperV2;
 use App\Jobs\SendEmailJob;
-
-use App\Services\ExpenseAllocation\DeleteService;
-use App\Services\ExpenseAllocation\CheckAndUpdateService;
-
+use App\Models\Api\Currency;
+use App\Models\Currency as ModelsCurrency;
+use App\Models\ErpCurrency;
+use App\Services\ExpAlc\StoreService;
+use App\Services\ExpAlc\UpdateService;
+use App\Services\ExpAlc\DeleteService;
+use App\Services\ExpAlc\AmendmentService;
 
 class ExpenseAllocationController extends Controller
 {
@@ -98,28 +98,22 @@ class ExpenseAllocationController extends Controller
         if (request()->ajax()) {
             $selectColumns = [
                 'id',
-                'vendor_id',
-                'type',
                 'document_status',
                 'book_id',
                 'document_number',
                 'store_id',
                 'sub_store_id',
-                'currency_id',
                 'document_date',
                 'revision_number',
-                'total_item_value',
-                'total_discount_value',
-                'total_tax_value',
-                'total_expense_value'
+                'total_allocated_value',
+                'total_landed_cost_value'
             ];
             $records = Header::select($selectColumns)
                 ->bookViewAccess($orderType)
                 ->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']])
                 ->withDraftListingLogic()
-                ->with('vendor:id,vendor_code,company_name')
-                ->with('currency:id,short_name,name')
                 ->latest();
+
 
             // Apply drawer filters
             if ($request->filled('date_range')) {
@@ -141,9 +135,6 @@ class ExpenseAllocationController extends Controller
             if ($request->filled('store_id')) {
                 $records->whereIn('sub_store_id', $request->location_id);
             }
-            if ($request->filled('vendor_id')) {
-                $records->whereIn('vendor_id', $request->vendor_id);
-            }
             if ($request->filled('organization_id')) {
                 $records->whereIn('organization_id', $request->organization_id);
             }
@@ -151,7 +142,7 @@ class ExpenseAllocationController extends Controller
                 ->addIndexColumn()
                 ->editColumn('document_status', function ($row) {
                     $statusClasss = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$row->document_status];
-                    $route = route('expense-adv.edit', $row->id);
+                    $route = route('exp-allocation.edit', $row->id);
                     $displayStatus = $row->display_status;
                     return "<div style='text-align:right;'>
                         <span class='badge rounded-pill $statusClasss badgeborder-radius'>$displayStatus</span>
@@ -169,7 +160,7 @@ class ExpenseAllocationController extends Controller
                     </div>";
                 })
                 ->addColumn('book_code', function ($row) {
-                    return $row->book ? $row->book?->book_code : 'N/A';
+                    return $row->book ? $row?->book?->book_code : 'N/A';
                 })
                 ->editColumn('document_date', function ($row) {
                     return date('d/m/Y', strtotime($row->document_date)) ?? 'N/A';
@@ -177,38 +168,14 @@ class ExpenseAllocationController extends Controller
                 ->addColumn('location', function ($row) {
                     return strval($row->erpStore?->store_name) ?? 'N/A';
                 })
-                ->addColumn('cost_center', function ($row) {
-                    return strval($row->costCenters?->name) ?? 'N/A';
-                })
-                ->addColumn('currency', function ($row) {
-                    return strval($row->currency?->short_name) ?? 'N/A';
-                })
                 ->addColumn('revision_number', function ($row) {
                     return strval($row->revision_number);
                 })
-                ->addColumn('vendor_name', function ($row) {
-                    return $row->vendor ? $row->vendor?->company_name : 'N/A';
+                ->editColumn('total_allocated_value', function ($row) {
+                    return number_format($row->total_allocated_value, 2);
                 })
-                // ->addColumn('total_items', function ($row) {
-                //     return $row->items ? count($row->items) : 0;
-                // })
-                ->editColumn('total_item_amount', function ($row) {
-                    return number_format($row->total_item_amount, 2);
-                })
-                ->addColumn('total_discount', function ($row) {
-                    return number_format($row->total_discount, 2);
-                })
-                ->addColumn('taxable_amount', function ($row) {
-                    return number_format(($row->total_item_amount - $row->total_discount), 2);
-                })
-                ->addColumn('total_taxes', function ($row) {
-                    return number_format($row->total_taxes, 2);
-                })
-                ->addColumn('expense_amount', function ($row) {
-                    return number_format($row->expense_amount, 2);
-                })
-                ->addColumn('total_amount', function ($row) {
-                    return number_format($row->total_amount, 2);
+                ->addColumn('total_landed_cost_value', function ($row) {
+                    return number_format($row->total_landed_cost_value, 2);
                 })
                 ->rawColumns(['document_status'])
                 ->make(true);
@@ -223,7 +190,7 @@ class ExpenseAllocationController extends Controller
      */
     public function create(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         if (count($servicesBooks['services']) == 0) {
@@ -247,11 +214,11 @@ class ExpenseAllocationController extends Controller
         ]);
     }
 
-    # Purchase Order store
+    # Store Function
     public function store(ExpAllocationRequest $request)
     {
-        $user = Helper::getAuthenticatedUser();
-        DB::beginTransaction();
+        $user = request()->user();
+        \DB::beginTransaction();
         try {
             $parameters = [];
             $response = BookHelper::fetchBookDocNoAndParameters($request->book_id, $request->document_date);
@@ -259,14 +226,7 @@ class ExpenseAllocationController extends Controller
                 $parameters = json_decode(json_encode($response['data']['parameters']), true);
             }
 
-            $user = Helper::getAuthenticatedUser();
-            $organization = Organization::where('id', $user->organization_id)->first();
-            $organizationId = $organization?->id ?? null;
-            $groupId = $organization?->group_id ?? null;
-            $companyId = $organization?->company_id ?? null;
-            $purchaseOrderId = null;
-            $saleOrderId = null;
-            $refType = null;
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             //Tax Country and State
             $firstAddress = $organization->addresses->first();
             $companyCountryId = null;
@@ -281,38 +241,18 @@ class ExpenseAllocationController extends Controller
                 ], 422);
             }
 
-            # Expense Header save
-            $totalItemValue = 0.00;
-            $totalTaxValue = 0.00;
-            $totalDiscValue = 0.00;
-            $totalExpValue = 0.00;
-            $totalItemLevelDiscValue = 0.00;
-            $totalAmount = 0.00;
-            $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($request->currency_id, $request->document_date);
-            if ($currencyExchangeData['status'] == false) {
-                return response()->json([
-                    'message' => $currencyExchangeData['message']
-                ], 422);
-            }
-
             $expense = new Header();
             $expense->fill($request->all());
             $expense->organization_id = $organization->id;
+            $expense->currency_id = $organization->currency_id;
+            $expense->currency_code = $organization?->currency?->short_name;
             $expense->group_id = $organization->group_id;
             $expense->company_id = $organization->company_id;
             $expense->book_code = $request->book_code;
-            $expense->series_id = $request->book_id;
             $expense->book_id = $request->book_id;
-            $expense->vendor_id = $request->vendor_id;
-            $expense->vendor_code = $request->vendor_code;
             $expense->supplier_invoice_no = $request->supplier_invoice_no;
             $expense->supplier_invoice_date = date('Y-m-d', strtotime($request->supplier_invoice_date));
-            $expense->billing_to = $request->billing_id;
-            $expense->ship_to = $request->shipping_id;
-            $expense->billing_address = $request->billing_address;
-            $expense->shipping_address = $request->shipping_address;
             $expense->revision_number = 0;
-            $expense->reference_type = $request->reference_type;
             $document_number = $request->document_number ?? null;
             $numberPatternData = Helper::generateDocumentNumberNew($request->book_id, $request->document_date);
             if (!isset($numberPatternData)) {
@@ -339,52 +279,15 @@ class ExpenseAllocationController extends Controller
             $expense->doc_no = $numberPatternData['doc_no'];
             $expense->document_number = $document_number;
             $expense->document_date = $request->document_date;
-            $expense->final_remark = $request->remarks ?? null;
-            $expense->total_item_amount = 0.00;
-            $expense->total_discount = 0.00;
-            $expense->taxable_amount = 0.00;
-            $expense->total_taxes = 0.00;
-            $expense->total_after_tax_amount = 0.00;
-            $expense->expense_amount = 0.00;
-            $expense->total_amount = 0.00;
+            $expense->remark = $request->remark ?? null;
             $expense->store_id = $request->header_store_id ?? '';
             $expense->cost_center_id = $request->cost_center_id ?? '';
+            $expense->total_po_value = 0.00;
+            $expense->total_grn_value = 0.00;
+            $expense->total_allocated_value = 0.00;
+            $expense->total_landed_cost_value = 0.00;
             $expense->save();
 
-            $vendorBillingAddress = $expense->billingAddress ?? null;
-            $vendorShippingAddress = $expense->shippingAddress ?? null;
-
-            if ($vendorBillingAddress) {
-                $billingAddress = $expense->bill_address_details()->firstOrNew([
-                    'type' => 'billing',
-                ]);
-                $billingAddress->fill([
-                    'address' => $vendorBillingAddress->address,
-                    'country_id' => $vendorBillingAddress->country_id,
-                    'state_id' => $vendorBillingAddress->state_id,
-                    'city_id' => $vendorBillingAddress->city_id,
-                    'pincode' => $vendorBillingAddress->pincode,
-                    'phone' => $vendorBillingAddress->phone,
-                    'fax_number' => $vendorBillingAddress->fax_number,
-                ]);
-                $billingAddress->save();
-            }
-
-            if ($vendorShippingAddress) {
-                $shippingAddress = $expense->ship_address_details()->firstOrNew([
-                    'type' => 'shipping',
-                ]);
-                $shippingAddress->fill([
-                    'address' => $vendorShippingAddress->address,
-                    'country_id' => $vendorShippingAddress->country_id,
-                    'state_id' => $vendorShippingAddress->state_id,
-                    'city_id' => $vendorShippingAddress->city_id,
-                    'pincode' => $vendorShippingAddress->pincode,
-                    'phone' => $vendorShippingAddress->phone,
-                    'fax_number' => $vendorShippingAddress->fax_number,
-                ]);
-                $shippingAddress->save();
-            }
             # Store location address
             if ($expense?->erpStore) {
                 $storeAddress = $expense?->erpStore->address;
@@ -401,396 +304,16 @@ class ExpenseAllocationController extends Controller
                 ]);
                 $storeLocation->save();
             }
-            $totalItemValue = 0.00;
-            $totalTaxValue = 0.00;
-            $totalDiscValue = 0.00;
-            $totalExpValue = 0.00;
-            $totalItemLevelDiscValue = 0.00;
-            $totalTax = 0;
-            $finaltotalTax = 0;
 
-            $totalHeaderDiscount = 0;
-            if (isset($request->all()['disc_summary']) && count($request->all()['disc_summary']) > 0)
-                foreach ($request->all()['disc_summary'] as $DiscountValue) {
-                    $totalHeaderDiscount += floatval($DiscountValue['d_amnt']) ?? 0.00;
-                }
-
-            $totalHeaderExpense = 0;
-            if (isset($request->all()['exp_summary']) && count($request->all()['exp_summary']) > 0)
-                foreach ($request->all()['exp_summary'] as $expValue) {
-                    $totalHeaderExpense += floatval($expValue['total'] ?? $expValue['e_amnt']) ?? 0.00;
-                }
-
-            if (isset($request->all()['components'])) {
-                $expenseItemArr = [];
-                $totalValueAfterDiscount = 0;
-                $itemTotalValue = 0;
-                $itemTotalDiscount = 0;
-                $itemTotalHeaderDiscount = 0;
-                $itemValueAfterDiscount = 0;
-                $totalItemValueAfterDiscount = 0;
-                foreach ($request->all()['components'] as $c_key => $component) {
-                    $inputQty = floatval($component['accepted_qty'] ?? $component['order_qty'] ?? 0);
-                    $item = Item::find($component['item_id'] ?? null);
-                    if (!$item) {
-                        \DB::rollBack();
-                        return response()->json(['message' => 'Item not found.'], 422);
-                    }
-                    $refType = $request->reference_type ?? null;
-                    if (isset($component['po_detail_id']) && $component['po_detail_id']) {
-                        $poDetail = PoItem::find($component['po_detail_id']);
-                        $po_detail_id = $mrnDetail->id ?? null;
-                        $poHeaderId = $component['purchase_order_id'];
-                        if ($poDetail) {
-                            $inputQty = ($component['order_qty'] ?? $component['accepted_qty']);
-                            $balanceQty = ($poDetail->order_qty - ($poDetail->expense_advise_qty ?? 0.00));
-                            if ($balanceQty < $inputQty) {
-                                DB::rollBack();
-                                return response()->json([
-                                    'message' => 'Input qty can not be greater than balance qty.'
-                                ], 422);
-                            }
-                        } else {
-                            DB::rollBack();
-                            return response()->json([
-                                'message' => 'PO Not Found'
-                            ], 422);
-                        }
-                    } else if (isset($component['jo_detail_id']) && $component['jo_detail_id']) {
-                        $joDetail = JoProduct::find($component['jo_detail_id']);
-                        if ($joDetail) {
-                            $inputQty = ($component['order_qty'] ?? $component['accepted_qty']);
-                            $balanceQty = ($joDetail->order_qty - ($joDetail->expense_advise_qty ?? 0.00));
-                            if ($balanceQty < $inputQty) {
-                                DB::rollBack();
-                                return response()->json([
-                                    'message' => 'Input qty can not be greater than balance qty.'
-                                ], 422);
-                            }
-                        } else {
-                            DB::rollBack();
-                            return response()->json([
-                                'message' => 'JO Not Found'
-                            ], 422);
-                        }
-                    }
-                    switch ($refType) {
-                        case ConstantHelper::PO_SERVICE_ALIAS:
-                            $result = self::processPurchaseOrderComponent($component, $item, $inputQty);
-                            break;
-                        case ConstantHelper::JO_SERVICE_ALIAS:
-                            $result = self::processJobOrderComponent($component, $item, $inputQty);
-                            break;
-                        default:
-                            $result = self::processDirectComponent($component, $item, $inputQty);
-                            break;
-                    }
-                    if ($result !== true) {
-                        return $result;
-                    }
-
-                    $inventory_uom_id = null;
-                    $inventory_uom_code = null;
-                    $inventory_uom_qty = 0.00;
-                    $inventoryUom = Unit::find($item->uom_id ?? null);
-                    $inventory_uom_id = $inventoryUom->id ?? null;
-                    $inventory_uom_code = $inventoryUom->name ?? null;
-                    if (@$component['uom_id'] == $item->uom_id) {
-                        $inventory_uom_qty = floatval($component['accepted_qty']) ?? 0.00;
-                    } else {
-                        $alUom = AlternateUOM::where('item_id', $component['item_id'])->where('uom_id', $component['uom_id'])->first();
-                        if ($alUom) {
-                            $inventory_uom_qty = floatval($component['accepted_qty']) * $alUom->conversion_to_inventory;
-                        }
-                    }
-
-                    $itemValue = floatval($component['accepted_qty']) * floatval($component['rate']);
-                    $itemDiscount = floatval($component['discount_amount']) ?? 0.00;
-                    $itemTotalValue += $itemValue;
-                    $itemTotalDiscount += $itemDiscount;
-                    $itemValueAfterDiscount = $itemValue - $itemDiscount;
-                    $totalValueAfterDiscount += $itemValueAfterDiscount;
-                    $totalItemValueAfterDiscount += $itemValueAfterDiscount;
-                    $uom = Unit::find($component['uom_id'] ?? null);
-                    $expenseItemArr[] = [
-                        'header_id' => $expense->id,
-                        'purchase_order_item_id' => $component['po_detail_id'] ?? null,
-                        'so_id' => $component['so_id'] ?? null,
-                        'item_id' => $component['item_id'] ?? null,
-                        'item_code' => $component['item_code'] ?? null,
-                        'hsn_id' => $component['hsn_id'] ?? null,
-                        'hsn_code' => $component['hsn_code'] ?? null,
-                        'uom_id' => $component['uom_id'] ?? null,
-                        'uom_code' => $uom->name ?? null,
-                        'accepted_qty' => floatval($component['accepted_qty']) ?? 0.00,
-                        'inventory_uom_id' => $inventory_uom_id ?? null,
-                        'inventory_uom_code' => $inventory_uom_code ?? null,
-                        'inventory_uom_qty' => $inventory_uom_qty ?? 0.00,
-                        'rate' => floatval($component['rate']) ?? 0.00,
-                        'discount_amount' => floatval($component['discount_amount']) ?? 0.00,
-                        'header_discount_amount' => floatval($component['exp_amount_header']) ?? 0.00,
-                        'header_exp_amount' => 0.00,
-                        'tax_value' => 0.00,
-                        'company_currency_id' => @$component['company_currency_id'] ?? 0.00,
-                        'company_currency_exchange_rate' => @$component['company_currency_exchange_rate'] ?? 0.00,
-                        'group_currency_id' => @$component['group_currency_id'] ?? 0.00,
-                        'group_currency_exchange_rate' => @$component['group_currency_exchange_rate'] ?? 0.00,
-                        'remark' => $component['remark'] ?? null,
-                        'taxable_amount' => $itemValueAfterDiscount,
-                        'basic_value' => $itemValue,
-                        'job_order_item_id' => $component['jo_detail_id'] ?? null,
-                        'jo_service_item_id' => $component['jo_service_item_id'] ?? null
-                    ];
-                }
-
-                $isTax = false;
-                if (isset($parameters['tax_required']) && !empty($parameters['tax_required'])) {
-                    if (in_array('yes', array_map('strtolower', $parameters['tax_required']))) {
-                        $isTax = true;
-                    }
-                }
-
-                foreach ($expenseItemArr as &$expenseItem) {
-                    /*Header Level Item discount*/
-                    $headerDiscount = 0;
-                    $headerDiscount = ($expenseItem['taxable_amount'] / $totalValueAfterDiscount) * $totalHeaderDiscount;
-                    $valueAfterHeaderDiscount = $expenseItem['taxable_amount'] - $headerDiscount; // after both discount
-                    $expenseItem['header_discount_amount'] = $headerDiscount;
-                    $itemTotalHeaderDiscount += $headerDiscount;
-
-                    //Tax
-                    if ($isTax) {
-                        $itemTax = 0;
-                        $itemPrice = ($expenseItem['basic_value'] - $headerDiscount - $expenseItem['discount_amount']);
-                        $billingAddress = $expense->billingAddress;
-                        $partyCountryId = isset($billingAddress) ? $billingAddress->country_id : null;
-                        $partyStateId = isset($billingAddress) ? $billingAddress->state_id : null;
-                        $taxDetails = TaxHelper::calculateTax($expenseItem['hsn_id'], $itemPrice, $companyCountryId, $companyStateId, $partyCountryId ?? $request->hidden_country_id, $partyStateId ?? $request->hidden_state_id, 'purchase');
-                        $applicabilityType = $taxDetails[0]['applicability_type'];
-                        if (isset($taxDetails) && count($taxDetails) > 0) {
-                            foreach ($taxDetails as $taxDetail) {
-                                $itemTax += ((float) $taxDetail['tax_percentage'] / 100 * $valueAfterHeaderDiscount);
-                            }
-                        }
-                        $expenseItem['tax_value'] = $itemTax;
-                        $totalTax += $itemTax;
-                        if ($applicabilityType === ConstantHelper::COLLECTION) {
-                            $finaltotalTax += $itemTax;
-                        } else {
-                            $finaltotalTax -= $itemTax;
-                        }
-                    }
-                }
-                unset($expenseItem);
-
-                foreach ($expenseItemArr as $_key => $expenseItem) {
-                    $itemPriceAterBothDis = $expenseItem['basic_value'] - $expenseItem['discount_amount'] - $expenseItem['header_discount_amount'];
-                    if ($applicabilityType === ConstantHelper::COLLECTION) {
-                        $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount + $finaltotalTax;
-                    } else {
-                        $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount - $finaltotalTax;
-                    }
-                    $itemHeaderExp = $itemPriceAterBothDis / $totalAfterTax * $totalHeaderExpense;
-                    $expenseDetail = new Detail;
-                    $expenseDetail->header_id = $expenseItem['header_id'];
-                    $expenseDetail->purchase_order_item_id = $expenseItem['purchase_order_item_id'];
-                    // $expenseDetail->sale_order_item_id = $expenseItem['sale_order_item_id'];
-                    $expenseDetail->so_id = $expenseItem['so_id'];
-                    $expenseDetail->item_id = $expenseItem['item_id'];
-                    $expenseDetail->item_code = $expenseItem['item_code'];
-                    $expenseDetail->hsn_id = $expenseItem['hsn_id'];
-                    $expenseDetail->hsn_code = $expenseItem['hsn_code'];
-                    $expenseDetail->uom_id = $expenseItem['uom_id'];
-                    $expenseDetail->uom_code = $expenseItem['uom_code'];
-                    $expenseDetail->accepted_qty = $expenseItem['accepted_qty'];
-                    $expenseDetail->inventory_uom_id = $expenseItem['inventory_uom_id'];
-                    $expenseDetail->inventory_uom_code = $expenseItem['inventory_uom_code'];
-                    $expenseDetail->inventory_uom_qty = $expenseItem['inventory_uom_qty'];
-                    $expenseDetail->rate = $expenseItem['rate'];
-                    $expenseDetail->basic_value = $expenseItem['basic_value'];
-                    $expenseDetail->discount_amount = $expenseItem['discount_amount'];
-                    $expenseDetail->header_discount_amount = $expenseItem['header_discount_amount'];
-                    $expenseDetail->header_exp_amount = $itemHeaderExp;
-                    $expenseDetail->tax_value = $expenseItem['tax_value'];
-                    $expenseDetail->company_currency = $expenseItem['company_currency_id'];
-                    $expenseDetail->group_currency = $expenseItem['group_currency_id'];
-                    $expenseDetail->exchange_rate_to_group_currency = $expenseItem['group_currency_exchange_rate'];
-                    $expenseDetail->remark = $expenseItem['remark'];
-                    $expenseDetail->jo_service_item_id = $expenseItem['jo_service_item_id'];
-                    $expenseDetail->job_order_item_id = $expenseItem['job_order_item_id'];
-                    $expenseDetail->save();
-                    $_key = $_key + 1;
-                    $component = $request->all()['components'][$_key] ?? [];
-
-                    #Save component Attr
-                    foreach ($expenseDetail->item->itemAttributes as $itemAttribute) {
-                        if (isset($component['attr_group_id'][$itemAttribute->attribute_group_id])) {
-                            $expenseAttr = new Attribute;
-                            $expenseAttrName = @$component['attr_group_id'][$itemAttribute->attribute_group_id]['attr_name'];
-                            $expenseAttr->header_id = $expense->id;
-                            $expenseAttr->detail_id = $expenseDetail->id;
-                            $expenseAttr->item_attribute_id = $itemAttribute->id;
-                            $expenseAttr->item_code = $component['item_code'] ?? null;
-                            $expenseAttr->attr_name = $itemAttribute->attribute_group_id;
-                            $expenseAttr->attr_value = $expenseAttrName ?? null;
-                            $expenseAttr->save();
-                        }
-                    }
-
-                    /*Item Level Discount Save*/
-                    if (isset($component['discounts'])) {
-                        foreach ($component['discounts'] as $dis) {
-                            if (isset($dis['dis_amount']) && $dis['dis_amount']) {
-                                $ted = new Ted;
-                                $ted->header_id = $expense->id;
-                                $ted->detail_id = $expenseDetail->id;
-                                $ted->ted_type = 'Discount';
-                                $ted->ted_level = 'D';
-                                $ted->ted_id = $dis['ted_id'] ?? null;
-                                $ted->ted_name = $dis['dis_name'];
-                                $ted->ted_code = $dis['dis_name'];
-                                $ted->assesment_amount = $expenseItem['basic_value'];
-                                $ted->ted_percentage = $dis['dis_perc'] ?? 0.00;
-                                $ted->ted_amount = $dis['dis_amount'] ?? 0.00;
-                                $ted->applicability_type = 'Deduction';
-                                $ted->save();
-                                $totalItemLevelDiscValue = $totalItemLevelDiscValue + $dis['dis_amount'];
-                            }
-                        }
-                    }
-
-                    #Save Componet item Tax
-                    if (isset($component['taxes'])) {
-                        foreach ($component['taxes'] as $tax) {
-                            if (isset($tax['t_value']) && $tax['t_value']) {
-                                $ted = new Ted;
-                                $ted->header_id = $expense->id;
-                                $ted->detail_id = $expenseDetail->id;
-                                $ted->ted_type = 'Tax';
-                                $ted->ted_level = 'D';
-                                $ted->ted_id = $tax['t_d_id'] ?? null;
-                                $ted->ted_name = $tax['t_type'] ?? null;
-                                $ted->ted_code = $tax['t_type'] ?? null;
-                                // $ted->assesment_amount = $expenseDetail->assesment_amount;
-                                $ted->assesment_amount = $expenseItem['basic_value'] - $expenseItem['discount_amount'] - $expenseItem['header_discount_amount'];
-                                $ted->ted_percentage = $tax['t_perc'] ?? 0.00;
-                                $ted->ted_amount = $tax['t_value'] ?? 0.00;
-                                $ted->applicability_type = $tax['applicability_type'] ?? 'Collection';
-                                $ted->save();
-                            }
-                        }
-                    }
-                }
-
-                /*Header level save discount*/
-                if (isset($request->all()['disc_summary'])) {
-                    foreach ($request->all()['disc_summary'] as $dis) {
-                        if (isset($dis['d_amnt']) && $dis['d_amnt']) {
-                            $ted = new Ted;
-                            $ted->header_id = $expense->id;
-                            $ted->detail_id = null;
-                            $ted->ted_type = 'Discount';
-                            $ted->ted_level = 'H';
-                            $ted->ted_id = $dis['ted_d_id'] ?? null;
-                            $ted->ted_name = $dis['d_name'];
-                            $ted->ted_code = $dis['d_name'];
-                            $ted->assesment_amount = $itemTotalValue - $itemTotalDiscount;
-                            $ted->ted_percentage = $dis['d_perc'] ?? 0.00;
-                            $ted->ted_amount = $dis['d_amnt'] ?? 0.00;
-                            $ted->applicability_type = 'Deduction';
-                            $ted->save();
-                        }
-                    }
-                }
-
-                /*Header level save discount*/
-                if (isset($request->all()['exp_summary'])) {
-                    foreach ($request->all()['exp_summary'] as $dis) {
-                        if (isset($dis['e_amnt']) && $dis['e_amnt']) {
-                            if ($applicabilityType === ConstantHelper::COLLECTION) {
-                                $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount + $finaltotalTax;
-                            } else {
-                                $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount - $finaltotalTax;
-                            }
-                            $ted = new Ted;
-                            $ted->header_id = $expense->id;
-                            $ted->detail_id = null;
-                            $ted->hsn_id = $dis['hsn_id'] ?? null;
-                            $ted->tax_amount = $dis['tax_amount'] ?? 0.00;
-                            $ted->tax_breakup = $dis['tax_breakup'] ?? null;
-                            $ted->ted_type = 'Expense';
-                            $ted->ted_level = 'H';
-                            $ted->ted_id = $dis['ted_e_id'] ?? null;
-                            $ted->ted_name = $dis['e_name'];
-                            $ted->ted_code = $dis['e_name'];
-                            $ted->assesment_amount = $totalAfterTax;
-                            $ted->ted_percentage = $dis['e_perc'] ?? 0.00;
-                            $ted->ted_amount = $dis['e_amnt'] ?? 0.00;
-                            $ted->applicability_type = 'Collection';
-                            $ted->save();
-                        }
-                    }
-                }
-
-                /*Update total in main header Pb*/
-                $expense->total_item_amount = $itemTotalValue ?? 0.00;
-                $totalDiscValue = ($itemTotalHeaderDiscount + $itemTotalDiscount) ?? 0.00;
-                if ($itemTotalValue < $totalDiscValue) {
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => 'Negative value not allowed'
-                    ], 422);
-                }
-
-                $expense->total_discount = $totalDiscValue ?? 0.00;
-                $expense->taxable_amount = ($itemTotalValue - $totalDiscValue) ?? 0.00;
-                $expense->total_taxes = $totalTax ?? 0.00;
-
-                if ($applicabilityType === ConstantHelper::COLLECTION) {
-                    $expense->total_after_tax_amount = (($itemTotalValue - $totalDiscValue) + $finaltotalTax) ?? 0.00;
-                } else {
-                    $expense->total_after_tax_amount = (($itemTotalValue - $totalDiscValue) - $finaltotalTax) ?? 0.00;
-                }
-
-                $expense->expense_amount = $totalHeaderExpense ?? 0.00;
-                if ($applicabilityType === ConstantHelper::COLLECTION) {
-                    $totalAmount = (($itemTotalValue - $totalDiscValue) + ($finaltotalTax + $totalHeaderExpense)) ?? 0.00;
-                } else {
-                    $totalAmount = (($itemTotalValue - $totalDiscValue) - $finaltotalTax + $totalHeaderExpense) ?? 0.00;
-                }
-                $expense->total_amount = $totalAmount ?? 0.00;
-                $expense->save();
-
-                /*Update po and so in main header Expense Advise*/
-                $poIds = array_column($request->all()['components'], 'purchase_order_id');
-                $uniquePoIds = array_unique($poIds);
-                $finalPoId = count($uniquePoIds) === 1 ? reset($uniquePoIds) : array_values($uniquePoIds);
-                $joIds = array_column($request->all()['components'], 'job_order_id');
-                $uniqueJoIds = array_unique($joIds);
-                $finalJoId = count($uniqueJoIds) === 1 ? reset($uniqueJoIds) : array_values($uniqueJoIds);
-                $expense->purchase_order_id = $finalPoId ?? null;
-                $expense->job_order_id = $finalJoId ?? null;
-                $expense->save();
-            } else {
-                DB::rollBack();
+            $storeService = new StoreService();
+            $storeResponse = $storeService->store($request->all(), $expense, $user, $organization);
+            if ($storeResponse['status'] === 'error') {
+                \DB::rollBack();
                 return response()->json([
-                    'message' => 'Please add atleast one row in component table.',
-                    'error' => "",
+                    'message' => $storeResponse['message'],
+                    'error' => ''
                 ], 422);
             }
-
-            /*Store currency data*/
-            $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($expense->vendor->currency_id, $expense->document_date);
-            $expense->org_currency_id = $currencyExchangeData['data']['org_currency_id'];
-            $expense->org_currency_code = $currencyExchangeData['data']['org_currency_code'];
-            $expense->org_currency_exg_rate = $currencyExchangeData['data']['org_currency_exg_rate'];
-            $expense->comp_currency_id = $currencyExchangeData['data']['comp_currency_id'];
-            $expense->comp_currency_code = $currencyExchangeData['data']['comp_currency_code'];
-            $expense->comp_currency_exg_rate = $currencyExchangeData['data']['comp_currency_exg_rate'];
-            $expense->group_currency_id = $currencyExchangeData['data']['group_currency_id'];
-            $expense->group_currency_code = $currencyExchangeData['data']['group_currency_code'];
-            $expense->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
-            $expense->save();
 
             /*Create document submit log*/
             if ($request->document_status == ConstantHelper::SUBMITTED) {
@@ -812,9 +335,20 @@ class ExpenseAllocationController extends Controller
 
             /*Expense Attachment*/
             if ($request->hasFile('attachment')) {
-                $mediaFiles = $expense->uploadDocuments($request->file('attachment'), 'pb', false);
+                $mediaFiles = $expense->uploadDocuments($request->file('attachment'), 'exp-alc', false);
             }
             $expense->save();
+
+            if (($expense->document_status == ConstantHelper::APPROVED)) {
+                $expenseData = InventoryHelperV2::saveMrnExpenses($expense);
+                if ($expenseData && $expenseData['status'] == 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => $expenseData['message'],
+                        'error' => ''
+                    ], 422);
+                }
+            }
 
             $redirectUrl = '';
             if (($expense->document_status == ConstantHelper::APPROVED) || ($expense->document_status == ConstantHelper::POSTED)) {
@@ -847,7 +381,7 @@ class ExpenseAllocationController extends Controller
 
     public function show(string $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $expense = Header::with(['vendor', 'currency', 'items', 'book'])
             ->findOrFail($id);
         $totalItemValue = $expense->items()->sum('basic_value');
@@ -875,6 +409,7 @@ class ExpenseAllocationController extends Controller
      */
     public function edit(Request $request, string $id)
     {
+        $user = request()->user();
         $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         if (count($servicesBooks['services']) == 0) {
@@ -882,109 +417,99 @@ class ExpenseAllocationController extends Controller
         }
         $serviceAlias = ConstantHelper::EXP_ALC_SERVICE_ALIAS;
         $books = Helper::getBookSeriesNew($serviceAlias, $parentUrl)->get();
-        $user = Helper::getAuthenticatedUser();
-        $expense = Header::with(['vendor', 'currency', 'items', 'items.costCenter', 'book', 'erpStore'])
+        $expense = Header::with(
+            [
+                'book',
+                'erpStore',
+                'poDetails',
+                'grnDetails',
+            ]
+        )
             ->findOrFail($id);
-        $items = $expense['items'] ?? [];
-        $referenceType = $expense['reference_type'] ?? null;
 
-        $detailsField = null;
-        $serviceField = null;
-        $headerIds = [];
+        $poDetails = $expense['poDetails'] ?? [];
+        $grnDetails = $expense['grnDetails'] ?? [];
+        $poHeaderField = 'po_header_id';
+        $grnHeaderField = 'grn_header_id';
+        $poDetailsField = 'po_detail_id';
+        $grnDetailsField = 'grn_detail_id';
 
-        switch ($referenceType) {
-            case 'po':
-                $headerIds = $expense->toArray()['purchase_order_id'];
-                $detailsField = 'purchase_order_item_id';
-                break;
-            case 'jo':
-                $headerIds = $expense->toArray()['job_order_id'];
-                $detailsField = 'job_order_item_id';
-                $serviceField = 'jo_service_item_id';
-                break;
-        }
+        $poHeaderIds = collect($poDetails)
+            ->pluck($poHeaderField)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $grnHeaderIds = collect($grnDetails)
+            ->pluck($grnHeaderField)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $poDetailsIds = collect($poDetails)
+            ->pluck($poDetailsField)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $grnDetailsIds = collect($grnDetails)
+            ->pluck($grnDetailsField)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
-        $detailsIds = [];
-        $serviceItemIds = [];
-
-        if ($headerIds && $detailsField) {
-            $detailsIds = collect($items)
-                ->pluck($detailsField)
-                ->filter()
-                ->unique()
-                ->values()
-                ->all();
-            if ($serviceField) {
-                $serviceItemIds = collect($items)
-                    ->pluck($serviceField)
-                    ->filter()
-                    ->unique()
-                    ->values()
-                    ->all();
-            }
-        }
-
-        $totalItemValue = $expense->items()->sum('basic_value');
-        $vendors = Vendor::where('status', ConstantHelper::ACTIVE)->get();
         $revision_number = $expense->revision_number;
         $userType = Helper::userCheck();
-        $buttons = Helper::actionButtonDisplay($expense->book_id, $expense->document_status, $expense->id, $expense->total_amount, $expense->approval_level, $expense->created_by ?? 0, $userType['type'], $revision_number);
+        $buttons = Helper::actionButtonDisplay($expense->book_id, $expense->document_status, $expense->id, $expense->total_allocated_value, $expense->approval_level, $expense->created_by ?? 0, $userType['type'], $revision_number);
         $revNo = $expense->revision_number;
         if ($request->has('revisionNumber')) {
             $revNo = intval($request->revisionNumber);
         } else {
             $revNo = $expense->revision_number;
         }
-        $approvalHistory = Helper::getApprovalHistory($expense->book_id, $expense->id, $revNo, $expense->total_amount);
+        $approvalHistory = Helper::getApprovalHistory($expense->book_id, $expense->id, $revNo, $expense->total_allocated_value);
         $view = 'procurement.expense-allocation.edit';
         if ($request->has('revisionNumber') && $request->revisionNumber != $expense->revision_number) {
             $expense = $expense->source;
             $expense = HeaderHistory::where('revision_number', $request->revisionNumber)
-                ->where('header_id', $expense->header_id)
+                ->where('source_id', $expense->source_id)
                 ->first();
             $view = 'procurement.expense-allocation.view';
         }
         $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$expense->document_status] ?? '';
-        $revisionNumbers = $approvalHistory->pluck('revision_number')->unique()->values()->all();
         $costCenters = CostCenter::withDefaultGroupCompanyOrg()->get();
         $locations = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCKK);
-        $store = $expense->erpStore;
-        $deliveryAddress = $store?->address?->display_address;
-        $erpStores = ErpStore::withDefaultGroupCompanyOrg()
-            ->orderBy('id', 'DESC')
-            ->get();
+        $distributionTypes = ConstantHelper::getDistributionTypes();
         $dynamicFieldsUI = $expense->dynamicfieldsUi();
+
         return view($view, [
-            'deliveryAddress' => $deliveryAddress,
-            'mrn' => $expense,
             'user' => $user,
             'books' => $books,
             'buttons' => $buttons,
-            'vendors' => $vendors,
+            'expense' => $expense,
+            'locations' => $locations,
+            'poDetails' => $poDetails,
+            'grnDetails' => $grnDetails,
             'costCenters' => $costCenters,
+            'poHeaderIds' => $poHeaderIds,
+            'grnHeaderIds' => $grnHeaderIds,
+            'poDetailsIds' => $poDetailsIds,
+            'grnDetailsIds' => $grnDetailsIds,
             'docStatusClass' => $docStatusClass,
-            'totalItemValue' => $totalItemValue,
             'revision_number' => $revision_number,
             'approvalHistory' => $approvalHistory,
-            'locations' => $locations,
-            'erpStores' => $erpStores,
             'dynamicFieldsUI' => $dynamicFieldsUI,
-            'headerIds' => $headerIds,
-            'detailsIds' => $detailsIds,
-            'serviceItemIds' => $serviceItemIds,
+            'distributionTypes' => $distributionTypes
         ]);
     }
 
     # Expense Update
     public function update(EditExpAllocationRequest $request, $id)
     {
+        $user = request()->user();
         $expense = Header::find($id);
-        $user = Helper::getAuthenticatedUser();
-        $organization = Organization::where('id', $user->organization_id)->first();
-        $organizationId = $organization?->id ?? null;
-        $groupId = $organization?->group_id ?? null;
-        $companyId = $organization?->company_id ?? null;
-        $reference_type = $request->reference_type;
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         //Tax Country and State
         $firstAddress = $organization->addresses->first();
         $companyCountryId = null;
@@ -998,9 +523,9 @@ class ExpenseAllocationController extends Controller
                 'message' => 'Please create an organization first'
             ], 422);
         }
+
         DB::beginTransaction();
         try {
-
             $parameters = [];
             $response = BookHelper::fetchBookDocNoAndParameters($request->book_id, $request->document_date);
             if ($response['status'] === 200) {
@@ -1013,76 +538,36 @@ class ExpenseAllocationController extends Controller
             if ($currentStatus == ConstantHelper::APPROVED && $actionType == 'amendment') {
                 $revisionData = [
                     ['model_type' => 'header', 'model_name' => 'Header', 'relation_column' => ''],
-                    ['model_type' => 'detail', 'model_name' => 'Detail', 'relation_column' => 'header_id'],
-                    ['model_type' => 'sub_detail', 'model_name' => 'Attribute', 'relation_column' => 'detail_id'],
-                    ['model_type' => 'sub_detail', 'model_name' => 'Ted', 'relation_column' => 'detail_id']
+                    ['model_type' => 'detail', 'model_name' => 'PoDetail', 'relation_column' => 'header_id'],
+                    ['model_type' => 'detail', 'model_name' => 'GrnDetail', 'relation_column' => 'header_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'PoAttribute', 'relation_column' => 'detail_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'GrnAttribute', 'relation_column' => 'detail_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'Allocation', 'relation_column' => 'grn_detail_id']
                 ];
                 // $a = Helper::documentAmendment($revisionData, $id);
                 $this->amendmentSubmit($request, $id);
             }
 
-            $keys = ['deletedItemDiscTedIds', 'deletedHeaderDiscTedIds', 'deletedHeaderExpTedIds', 'deletedMrnItemIds'];
+            $keys = ['deletedMrnItemIds'];
             $deletedData = [];
 
             foreach ($keys as $key) {
                 $deletedData[$key] = json_decode($request->input($key, '[]'), true);
             }
 
-            $deleteService = new ExpenseDeleteService();
-            $deleteResponse = $deleteService->deleteByRequest($deletedData, $expense);
-            if ($deleteResponse['status'] === 'error') {
-                \DB::rollBack();
-                return response()->json([
-                    'message' => $deleteResponse['message'],
-                    'error' => ''
-                ], 422);
-            }
+            // $deleteService = new DeleteService();
+            // $deleteResponse = $deleteService->store($deletedData, $expense);
+            // if ($deleteResponse['status'] === 'error') {
+            //     \DB::rollBack();
+            //     return response()->json([
+            //         'message' => $deleteResponse['message'],
+            //         'error' => ''
+            //     ], 422);
+            // }
 
             # Expense Header save
-            $totalTaxValue = 0.00;
-            $expense->supplier_invoice_date = $request->supplier_invoice_date ? date('Y-m-d', strtotime($request->supplier_invoice_date)) : '';
-            $expense->supplier_invoice_no = $request->supplier_invoice_no ?? '';
-            $expense->final_remark = $request->remarks ?? '';
-            $expense->store_id = $request->header_store_id ?? '';
-            $expense->cost_center_id = $request->cost_center_id ?? '';
             $expense->document_status = $request->document_status ?? ConstantHelper::DRAFT;
-            $expense->reference_type = $request->reference_type ?? '';
             $expense->save();
-
-            $vendorBillingAddress = $expense->billingAddress ?? null;
-            $vendorShippingAddress = $expense->shippingAddress ?? null;
-
-            if ($vendorBillingAddress) {
-                $billingAddress = $expense->bill_address_details()->firstOrNew([
-                    'type' => 'billing',
-                ]);
-                $billingAddress->fill([
-                    'address' => $vendorBillingAddress->address,
-                    'country_id' => $vendorBillingAddress->country_id,
-                    'state_id' => $vendorBillingAddress->state_id,
-                    'city_id' => $vendorBillingAddress->city_id,
-                    'pincode' => $vendorBillingAddress->pincode,
-                    'phone' => $vendorBillingAddress->phone,
-                    'fax_number' => $vendorBillingAddress->fax_number,
-                ]);
-                $billingAddress->save();
-            }
-
-            if ($vendorShippingAddress) {
-                $shippingAddress = $expense->ship_address_details()->firstOrNew([
-                    'type' => 'shipping',
-                ]);
-                $shippingAddress->fill([
-                    'address' => $vendorShippingAddress->address,
-                    'country_id' => $vendorShippingAddress->country_id,
-                    'state_id' => $vendorShippingAddress->state_id,
-                    'city_id' => $vendorShippingAddress->city_id,
-                    'pincode' => $vendorShippingAddress->pincode,
-                    'phone' => $vendorShippingAddress->phone,
-                    'fax_number' => $vendorShippingAddress->fax_number,
-                ]);
-                $shippingAddress->save();
-            }
 
             # Store location address
             if ($expense?->erpStore) {
@@ -1101,392 +586,15 @@ class ExpenseAllocationController extends Controller
                 $storeLocation->save();
             }
 
-            $totalItemValue = 0.00;
-            $totalTaxValue = 0.00;
-            $totalDiscValue = 0.00;
-            $totalExpValue = 0.00;
-            $totalItemLevelDiscValue = 0.00;
-            $totalTax = 0;
-            $finaltotalTax = 0;
-
-            $totalHeaderDiscount = 0;
-            if (isset($request->all()['disc_summary']) && count($request->all()['disc_summary']) > 0)
-                foreach ($request->all()['disc_summary'] as $DiscountValue) {
-                    $totalHeaderDiscount += floatval($DiscountValue['d_amnt']) ?? 0.00;
-                }
-
-            $totalHeaderExpense = 0;
-            if (isset($request->all()['exp_summary']) && count($request->all()['exp_summary']) > 0)
-                foreach ($request->all()['exp_summary'] as $expValue) {
-                    $totalHeaderExpense += floatval($expValue['total'] ?? $expValue['e_amnt']) ?? 0.00;
-                }
-
-            if (isset($request->all()['components'])) {
-                $expenseItemArr = [];
-                $totalValueAfterDiscount = 0;
-                $itemTotalValue = 0;
-                $itemTotalDiscount = 0;
-                $itemTotalHeaderDiscount = 0;
-                $itemValueAfterDiscount = 0;
-                $totalItemValueAfterDiscount = 0;
-                foreach ($request->all()['components'] as $c_key => $component) {
-                    $item = Item::find($component['item_id'] ?? null);
-                    $so_detail_id = null;
-                    $po_detail_id = null;
-                    if (isset($component['detail_id']) && $component['detail_id']) {
-                        $expenseDetail = Detail::find($component['detail_id']);
-                    }
-
-                    $validateQty = self::validateQuantityBackend($component, $reference_type);
-                    if ($validateQty['status'] === 'error') {
-                        DB::rollBack();
-                        return response()->json([
-
-                            'message' => $validateQty['message']
-
-                        ], 422);
-                    }
-
-                    // $inputQty = floatval($component['accepted_qty'] ?? 0);
-                    if (isset($component['po_detail_id']) && $component['po_detail_id']) {
-                        $poItem = PoItem::find($component['po_detail_id'] ?? @$expenseDetail->purchase_order_item_id);
-                        if (isset($poItem) && $poItem) {
-                            if (isset($poItem->id) && $poItem->id) {
-                                $orderQty = floatval(@$expenseDetail->accepted_qty) ?? 0.00;
-                                $componentQty = floatval($component['accepted_qty'] ?? $component['order_qty']);
-                                $qtyDifference = $componentQty - $orderQty;
-                                if ($qtyDifference) {
-                                    $poItem->expense_advise_qty += $qtyDifference;
-                                }
-                            } else {
-                                // $poItem->order_qty += $component['qty'];
-                            }
-                            $poItem->save();
-                        }
-                    } else if (isset($component['jo_detail_id']) && $component['jo_detail_id']) {
-                        $joItem = JoProduct::find($component['jo_detail_id'] ?? @$expenseDetail->job_order_item_id);
-                        if (isset($joItem) && $joItem) {
-                            if (isset($joItem->id) && $joItem->id) {
-                                $orderQty = floatval(@$expenseDetail->accepted_qty) ?? 0;
-                                $componentQty = floatval($component['accepted_qty'] ?? $component['order_qty']);
-                                $qtyDifference = $componentQty - $orderQty;
-                                if ($qtyDifference) {
-                                    $joItem->expense_advise_qty += $qtyDifference;
-                                }
-                            } else {
-                                // $joItem->order_qty += $component['qty'];
-                            }
-                            $joItem->save();
-                        }
-                    } else {
-                    }
-                    $inventory_uom_id = null;
-                    $inventory_uom_code = null;
-                    $inventory_uom_qty = 0.00;
-                    $inventoryUom = Unit::find($item->uom_id ?? null);
-                    $inventory_uom_id = $inventoryUom->id;
-                    $inventory_uom_code = $inventoryUom->name;
-                    if (@$component['uom_id'] == $item->uom_id) {
-                        $inventory_uom_qty = floatval($component['accepted_qty']) ?? 0.00;
-                    } else {
-                        $alUom = AlternateUOM::where('item_id', $component['item_id'])->where('uom_id', $component['uom_id'])->first();
-                        if ($alUom) {
-                            $inventory_uom_qty = floatval($component['accepted_qty']) * $alUom->conversion_to_inventory;
-                        }
-                    }
-                    $itemValue = floatval($component['accepted_qty']) * floatval($component['rate']);
-                    $itemDiscount = floatval($component['discount_amount']) ?? 0.00;
-                    $itemTotalValue += $itemValue;
-                    $itemTotalDiscount += $itemDiscount;
-                    $itemValueAfterDiscount = $itemValue - $itemDiscount;
-                    $totalValueAfterDiscount += $itemValueAfterDiscount;
-                    $totalItemValueAfterDiscount += $itemValueAfterDiscount;
-                    $uom = Unit::find($component['uom_id'] ?? null);
-                    $expenseItemArr[] = [
-                        'index' => $c_key,
-                        'header_id' => $expense->id,
-                        'purchase_order_item_id' => @$component['po_detail_id'] ?? null,
-                        // 'sale_order_item_id' => $so_detail_id,
-                        'item_id' => $component['item_id'] ?? null,
-                        'item_code' => $component['item_code'] ?? null,
-                        'hsn_id' => $component['hsn_id'] ?? null,
-                        'hsn_code' => $component['hsn_code'] ?? null,
-                        'uom_id' => $component['uom_id'] ?? null,
-                        'uom_code' => $uom->name ?? null,
-                        'accepted_qty' => floatval($component['accepted_qty']) ?? 0.00,
-                        'inventory_uom_id' => $inventory_uom_id ?? null,
-                        'inventory_uom_code' => $inventory_uom_code ?? null,
-                        'inventory_uom_qty' => $inventory_uom_qty ?? 0.00,
-                        'rate' => floatval($component['rate']) ?? 0.00,
-                        'discount_amount' => floatval($component['discount_amount']) ?? 0.00,
-                        'header_discount_amount' => 0.00,
-                        'header_exp_amount' => floatval($component['exp_amount_header']) ?? 0.00,
-                        'tax_value' => 0.00,
-                        'company_currency_id' => @$component['company_currency_id'] ?? 0.00,
-                        'company_currency_exchange_rate' => @$component['company_currency_exchange_rate'] ?? 0.00,
-                        'group_currency_id' => @$component['group_currency_id'] ?? 0.00,
-                        'group_currency_exchange_rate' => @$component['group_currency_exchange_rate'] ?? 0.00,
-                        'remark' => $component['remark'] ?? null,
-                        'taxable_amount' => $itemValueAfterDiscount,
-                        'basic_value' => $itemValue,
-                        'job_order_item_id' => @$component['jo_detail_id'] ?? null,
-                        'jo_service_item_id' => @$component['jo_service_item_id'] ?? null
-                    ];
-                }
-
-                $isTax = false;
-                if (isset($parameters['tax_required']) && !empty($parameters['tax_required'])) {
-                    if (in_array('yes', array_map('strtolower', $parameters['tax_required']))) {
-                        $isTax = true;
-                    }
-                }
-
-                foreach ($expenseItemArr as &$expenseItem) {
-                    /*Header Level Item discount*/
-                    $headerDiscount = 0;
-                    $headerDiscount = ($expenseItem['taxable_amount'] / $totalValueAfterDiscount) * $totalHeaderDiscount;
-                    $valueAfterHeaderDiscount = $expenseItem['taxable_amount'] - $headerDiscount; // after both discount
-                    $expenseItem['header_discount_amount'] = $headerDiscount;
-                    $itemTotalHeaderDiscount += $headerDiscount;
-                    if ($isTax) {
-                        //Tax
-                        $itemTax = 0;
-                        $itemPrice = ($expenseItem['basic_value'] - $headerDiscount - $expenseItem['discount_amount']);
-                        $shippingAddress = $expense->shippingAddress;
-                        $partyCountryId = isset($shippingAddress) ? $shippingAddress->country_id : null;
-                        $partyStateId = isset($shippingAddress) ? $shippingAddress->state_id : null;
-                        $taxDetails = TaxHelper::calculateTax($expenseItem['hsn_id'], $itemPrice, $companyCountryId, $companyStateId, $partyCountryId ?? $request->hidden_country_id, $partyStateId ?? $request->hidden_state_id, 'purchase');
-                        $applicabilityType = $taxDetails[0]['applicability_type'];
-                        if (isset($taxDetails) && count($taxDetails) > 0) {
-                            foreach ($taxDetails as $taxDetail) {
-                                $itemTax += ((float) $taxDetail['tax_percentage'] / 100 * $valueAfterHeaderDiscount);
-                            }
-                        }
-                        $expenseItem['tax_value'] = $itemTax;
-                        $totalTax += $itemTax;
-                        if ($applicabilityType === ConstantHelper::COLLECTION) {
-                            $finaltotalTax += $itemTax;
-                        } else {
-                            $finaltotalTax -= $itemTax;
-                        }
-                    }
-                }
-                unset($expenseItem);
-                foreach ($expenseItemArr as $_key => $expenseItem) {
-                    $_key = $expenseItem['index'];
-                    $component = $request->all()['components'][$_key] ?? [];
-                    $itemPriceAterBothDis = $expenseItem['basic_value'] - $expenseItem['discount_amount'] - $expenseItem['header_discount_amount'];
-                    if ($applicabilityType === ConstantHelper::COLLECTION) {
-                        $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount + $finaltotalTax;
-                    } else {
-                        $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount - $finaltotalTax;
-                    }
-                    $itemHeaderExp = $itemPriceAterBothDis / $totalAfterTax * $totalHeaderExpense;
-                    # Expense Detail Save
-                    $expenseDetail = Detail::find($component['detail_id'] ?? null) ?? new Detail;
-                    $expenseDetail->header_id = $expenseItem['header_id'];
-                    $expenseDetail->purchase_order_item_id = $expenseItem['purchase_order_item_id'];
-                    $expenseDetail->job_order_item_id = $expenseItem['job_order_item_id'];
-                    $expenseDetail->jo_service_item_id = $expenseItem['jo_service_item_id'];
-                    $expenseDetail->item_id = $expenseItem['item_id'];
-                    $expenseDetail->item_code = $expenseItem['item_code'];
-                    $expenseDetail->hsn_id = $expenseItem['hsn_id'];
-                    $expenseDetail->hsn_code = $expenseItem['hsn_code'];
-                    $expenseDetail->uom_id = $expenseItem['uom_id'];
-                    $expenseDetail->uom_code = $expenseItem['uom_code'];
-                    $expenseDetail->accepted_qty = $expenseItem['accepted_qty'];
-                    $expenseDetail->inventory_uom_id = $expenseItem['inventory_uom_id'];
-                    $expenseDetail->inventory_uom_code = $expenseItem['inventory_uom_code'];
-                    $expenseDetail->inventory_uom_qty = $expenseItem['inventory_uom_qty'];
-                    $expenseDetail->rate = $expenseItem['rate'];
-                    $expenseDetail->basic_value = $expenseItem['basic_value'];
-                    $expenseDetail->discount_amount = $expenseItem['discount_amount'];
-                    $expenseDetail->header_discount_amount = $expenseItem['header_discount_amount'];
-                    $expenseDetail->tax_value = $expenseItem['tax_value'];
-                    $expenseDetail->header_exp_amount = $itemHeaderExp;
-                    $expenseDetail->company_currency = $expenseItem['company_currency_id'];
-                    $expenseDetail->group_currency = $expenseItem['group_currency_id'];
-                    $expenseDetail->exchange_rate_to_group_currency = $expenseItem['group_currency_exchange_rate'];
-                    $expenseDetail->remark = $expenseItem['remark'];
-                    $expenseDetail->save();
-
-                    #Save component Attr
-                    foreach ($expenseDetail->item->itemAttributes as $itemAttribute) {
-                        if (isset($component['attr_group_id'][$itemAttribute->attribute_group_id])) {
-                            $expenseAttrId = @$component['attr_group_id'][$itemAttribute->attribute_group_id]['attr_id'];
-                            $expenseAttrName = @$component['attr_group_id'][$itemAttribute->attribute_group_id]['attr_name'];
-                            $expenseAttr = Attribute::find($expenseAttrId) ?? new Attribute;
-                            $expenseAttr->header_id = $expense->id;
-                            $expenseAttr->detail_id = $expenseDetail->id;
-                            $expenseAttr->item_attribute_id = $itemAttribute->id;
-                            $expenseAttr->item_code = $component['item_code'] ?? null;
-                            $expenseAttr->attr_name = $itemAttribute->attribute_group_id;
-                            $expenseAttr->attr_value = $expenseAttrName ?? null;
-                            $expenseAttr->save();
-                        }
-                    }
-
-                    /*Item Level Discount Save*/
-                    if (isset($component['discounts'])) {
-                        foreach ($component['discounts'] as $dis) {
-                            if (isset($dis['dis_amount']) && $dis['dis_amount']) {
-                                $ted = Ted::find(@$dis['id']) ?? new Ted;
-                                $ted->header_id = $expense->id;
-                                $ted->detail_id = $expenseDetail->id;
-                                $ted->ted_type = 'Discount';
-                                $ted->ted_level = 'D';
-                                $ted->ted_id = $dis['ted_id'] ?? null;
-                                $ted->ted_name = $dis['dis_name'];
-                                $ted->ted_code = $dis['dis_name'];
-                                $ted->assesment_amount = $expenseItem['basic_value'];
-                                $ted->ted_percentage = $dis['dis_perc'] ?? 0.00;
-                                $ted->ted_amount = $dis['dis_amount'] ?? 0.00;
-                                $ted->applicability_type = 'Deduction';
-                                $ted->save();
-                                $totalItemLevelDiscValue = $totalItemLevelDiscValue + $dis['dis_amount'];
-                            }
-                        }
-                    }
-
-                    #Save Component item Tax
-                    if (isset($component['taxes'])) {
-                        foreach ($component['taxes'] as $key => $tax) {
-                            $expenseAmountId = null;
-                            $ted = Ted::find(@$tax['id']) ?? new Ted;
-                            $ted->header_id = $expense->id;
-                            $ted->detail_id = $expenseDetail->id;
-                            $ted->ted_type = 'Tax';
-                            $ted->ted_level = 'D';
-                            $ted->ted_id = $tax['t_d_id'] ?? null;
-                            $ted->ted_name = $tax['t_type'] ?? null;
-                            $ted->ted_code = $tax['t_type'] ?? null;
-                            $ted->assesment_amount = $expenseItem['basic_value'] - $expenseItem['discount_amount'] - $expenseItem['header_discount_amount'];
-                            $ted->ted_percentage = $tax['t_perc'] ?? 0.00;
-                            $ted->ted_amount = $tax['t_value'] ?? 0.00;
-                            $ted->applicability_type = $tax['applicability_type'] ?? 'Collection';
-                            $ted->save();
-                        }
-                    }
-                }
-
-                /*Header level save discount*/
-                if (isset($request->all()['disc_summary'])) {
-                    foreach ($request->all()['disc_summary'] as $dis) {
-                        if (isset($dis['d_amnt']) && $dis['d_amnt']) {
-                            $expenseAmountId = @$dis['d_id'] ?? null;
-                            $ted = Ted::find($expenseAmountId) ?? new Ted;
-                            $ted->header_id = $expense->id;
-                            $ted->detail_id = null;
-                            $ted->ted_type = 'Discount';
-                            $ted->ted_level = 'H';
-                            $ted->ted_id = $dis['ted_d_id'] ?? null;
-                            $ted->ted_name = $dis['d_name'];
-                            $ted->ted_code = @$dis['d_name'];
-                            $ted->assesment_amount = $itemTotalValue - $itemTotalDiscount;
-                            $ted->ted_percentage = $dis['d_perc'] ?? 0.00;
-                            $ted->ted_amount = $dis['d_amnt'] ?? 0.00;
-                            $ted->applicability_type = 'Deduction';
-                            $ted->save();
-                        }
-                    }
-                }
-
-                /*Header level save discount*/
-                if (isset($request->all()['exp_summary'])) {
-                    foreach ($request->all()['exp_summary'] as $dis) {
-                        if (isset($dis['e_amnt']) && $dis['e_amnt']) {
-                            if ($applicabilityType === ConstantHelper::COLLECTION) {
-                                $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount + $finaltotalTax;
-                            } else {
-                                $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount - $finaltotalTax;
-                            }
-                            $expenseAmountId = @$dis['e_id'] ?? null;
-                            $ted = Ted::find($expenseAmountId) ?? new Ted;
-                            $ted->header_id = $expense->id;
-                            $ted->detail_id = null;
-                            $ted->hsn_id = $dis['hsn_id'] ?? null;
-                            $ted->tax_amount = $dis['tax_amount'] ?? 0.00;
-                            $ted->tax_breakup = $dis['tax_breakup'] ?? null;
-                            $ted->ted_type = 'Expense';
-                            $ted->ted_level = 'H';
-                            $ted->ted_id = $dis['ted_e_id'] ?? null;
-                            $ted->ted_name = $dis['e_name'];
-                            $ted->ted_code = @$dis['d_name'];
-                            $ted->assesment_amount = $totalAfterTax;
-                            $ted->ted_percentage = $dis['e_perc'] ?? 0.00;
-                            $ted->ted_amount = $dis['e_amnt'] ?? 0.00;
-                            $ted->applicability_type = 'Collection';
-                            $ted->save();
-                        }
-                    }
-                }
-
-                /*Update total in main header Expense*/
-                $expense->total_item_amount = $itemTotalValue ?? 0.00;
-                $totalDiscValue = ($itemTotalHeaderDiscount + $itemTotalDiscount) ?? 0.00;
-                if ($itemTotalValue < $totalDiscValue) {
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => 'Negative value not allowed'
-                    ], 422);
-                }
-                $expense->total_discount = $totalDiscValue ?? 0.00;
-                $expense->taxable_amount = ($itemTotalValue - $totalDiscValue) ?? 0.00;
-                $expense->total_taxes = $totalTax ?? 0.00;
-                if ($applicabilityType === ConstantHelper::COLLECTION) {
-                    $expense->total_after_tax_amount = (($itemTotalValue - $totalDiscValue) + $finaltotalTax) ?? 0.00;
-                } else {
-                    $expense->total_after_tax_amount = (($itemTotalValue - $totalDiscValue) - $finaltotalTax) ?? 0.00;
-                }
-                $expense->expense_amount = $totalHeaderExpense ?? 0.00;
-                if ($applicabilityType === ConstantHelper::COLLECTION) {
-                    $totalAmount = (($itemTotalValue - $totalDiscValue) + ($finaltotalTax + $totalHeaderExpense)) ?? 0.00;
-                } else {
-                    $totalAmount = (($itemTotalValue - $totalDiscValue) - $finaltotalTax + $totalHeaderExpense) ?? 0.00;
-                }
-                $expense->total_amount = $totalAmount ?? 0.00;
-                $poIds = array_column($request->all()['components'], 'purchase_order_id');
-                $uniquePoIds = array_unique($poIds);
-                $finalPoId = count($uniquePoIds) === 1 ? reset($uniquePoIds) : array_values($uniquePoIds);
-                $expense->purchase_order_id = $finalPoId;
-                $joIds = array_column($request->all()['components'], 'job_order_id');
-                $uniqueJoIds = array_unique($joIds);
-                $finalJoId = count($uniqueJoIds) === 1 ? reset($uniqueJoIds) : array_values($uniqueJoIds);
-                $expense->job_order_id = $finalJoId;
-                $expense->save();
-            } else {
-                if ($request->document_status == ConstantHelper::SUBMITTED) {
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => 'Please add atleast one row in component table.',
-                        'error' => "",
-                    ], 422);
-                } else {
-                    // No items left — reset all values
-                    $expense->total_discount = 0.00;
-                    $expense->taxable_amount = 0.00;
-                    $expense->total_taxes = 0.00;
-                    $expense->total_after_tax_amount = 0.00;
-                    $expense->expense_amount = 0.00;
-                    $expense->total_amount = 0.00;
-                    $expense->total_item_amount = 0.00;
-                    $expense->purchase_order_id = null;
-                    $expense->save();
-                }
+            $updateService = new UpdateService();
+            $updateResponse = $updateService->update($request->all(), $expense, $user, $organization);
+            if ($updateResponse['status'] === 'error') {
+                \DB::rollBack();
+                return response()->json([
+                    'message' => $updateResponse['message'],
+                    'error' => ''
+                ], 422);
             }
-
-            /*Store currency data*/
-            $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($expense->vendor->currency_id, $expense->document_date);
-            $expense->org_currency_id = $currencyExchangeData['data']['org_currency_id'];
-            $expense->org_currency_code = $currencyExchangeData['data']['org_currency_code'];
-            $expense->org_currency_exg_rate = $currencyExchangeData['data']['org_currency_exg_rate'];
-            $expense->comp_currency_id = $currencyExchangeData['data']['comp_currency_id'];
-            $expense->comp_currency_code = $currencyExchangeData['data']['comp_currency_code'];
-            $expense->comp_currency_exg_rate = $currencyExchangeData['data']['comp_currency_exg_rate'];
-            $expense->group_currency_id = $currencyExchangeData['data']['group_currency_id'];
-            $expense->group_currency_code = $currencyExchangeData['data']['group_currency_code'];
-            $expense->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
-            $expense->save();
 
             /*Create document submit log*/
             $bookId = $expense->book_id;
@@ -1538,13 +646,24 @@ class ExpenseAllocationController extends Controller
             }
             $expense->save();
 
+            if (($expense->document_status == ConstantHelper::APPROVED)) {
+                $expenseData = InventoryHelperV2::saveMrnExpenses($expense);
+                if ($expenseData && $expenseData['status'] == 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => $expenseData['message'],
+                        'error' => ''
+                    ], 422);
+                }
+            }
+
             $redirectUrl = '';
             if (($expense->document_status == ConstantHelper::APPROVED) || ($expense->document_status == ConstantHelper::POSTED)) {
                 $parentUrl = request()->segments()[0];
                 $redirectUrl = url($parentUrl . '/' . $expense->id . '/pdf');
             }
 
-            $status = DynamicFieldHelper::saveDynamicFields(ErpExpDynamicField::class, $expense->id, $request->dynamic_field ?? []);
+            $status = DynamicFieldHelper::saveDynamicFields(DynamicField::class, $expense->id, $request->dynamic_field ?? []);
             if ($status && !$status['status']) {
                 DB::rollBack();
                 return response()->json([
@@ -1569,10 +688,10 @@ class ExpenseAllocationController extends Controller
 
     public function addItemRow(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $item = json_decode($request->item, true) ?? [];
         $componentItem = json_decode($request->component_item, true) ?? [];
-        $costCenters = CostCenter::withDefaultGroupCompanyOrg()->get();
+        $distributionTypes = ConstantHelper::getDistributionTypes();
         /*Check last tr in table mandatory*/
         if (isset($componentItem['attr_require']) && isset($componentItem['item_id']) && $componentItem['row_length']) {
             if (($componentItem['attr_require'] == true || !$componentItem['item_id']) && $componentItem['row_length'] != 0) {
@@ -1580,14 +699,14 @@ class ExpenseAllocationController extends Controller
             }
         }
         $rowCount = intval($request->count) == 0 ? 1 : intval($request->count) + 1;
-        $html = view('procurement.expense-allocation.partials.item-row', compact(['rowCount', 'costCenters']))->render();
+        $html = view('procurement.expense-allocation.partials.item-row', compact(['rowCount', 'distributionTypes']))->render();
         return response()->json(['data' => ['html' => $html], 'status' => 200, 'message' => 'fetched.']);
     }
 
     // PO Item Rows
     public function poItemRows(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $organization = Organization::where('id', $user->organization_id)->first();
         $item_ids = explode(',', $request->item_ids);
         $items = PoItem::whereIn('id', $item_ids)
@@ -1630,7 +749,7 @@ class ExpenseAllocationController extends Controller
     // PO Item Rows
     public function soItemRows(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $organization = Organization::where('id', $user->organization_id)->first();
         $item_ids = explode(',', $request->item_ids);
         $items = ErpSoItem::whereIn('id', $item_ids)
@@ -1723,7 +842,7 @@ class ExpenseAllocationController extends Controller
     # get tax calcualte
     public function taxCalculation(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $location = ErpStore::find($request->location_id ?? null);
 
         $organization = $user->organization;
@@ -1772,7 +891,7 @@ class ExpenseAllocationController extends Controller
     // Get Address
     public function getAddress(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $vendorId = $request?->id ?? null;
         $type = $request?->type ?? null;
         $typeId = $request?->typeId ?? null;
@@ -2014,7 +1133,7 @@ class ExpenseAllocationController extends Controller
     // genrate pdf
     public function generatePdf(Request $request, $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $organization = Organization::where('id', $user->organization_id)->first();
         $organizationAddress = Address::with(['city', 'state', 'country'])
@@ -2082,152 +1201,35 @@ class ExpenseAllocationController extends Controller
     {
         DB::beginTransaction();
         try {
-            // Header History
-            $expenseHeader = Header::find($request->id);
-            if (!$expenseHeader) {
-                return response()->json(['error' => 'Expense Header not found'], 404);
+            // Header
+            $expenseAlc = Header::find($id);
+            if (!$expenseAlc) {
+                return response()->json([
+                    'error' => 'Expense not found.'
+                ], 404);
             }
-            $expenseHeaderData = $expenseHeader->toArray();
-            unset($expenseHeaderData['id']); // You might want to remove the primary key, 'id'
-            $expenseHeaderData['header_id'] = $expenseHeader->id;
-            $headerHistory = HeaderHistory::create($expenseHeaderData);
-            $headerHistoryId = $headerHistory->id;
-
-            $vendorBillingAddress = $expenseHeader->billingAddress ?? null;
-            $vendorShippingAddress = $GateEntryHeader->shippingAddress ?? null;
-
-            if ($vendorBillingAddress) {
-                $billingAddress = $headerHistory->bill_address_details()->firstOrNew([
-                    'type' => 'billing',
-                ]);
-                $billingAddress->fill([
-                    'address' => $vendorBillingAddress->address,
-                    'country_id' => $vendorBillingAddress->country_id,
-                    'state_id' => $vendorBillingAddress->state_id,
-                    'city_id' => $vendorBillingAddress->city_id,
-                    'pincode' => $vendorBillingAddress->pincode,
-                    'phone' => $vendorBillingAddress->phone,
-                    'fax_number' => $vendorBillingAddress->fax_number,
-                ]);
-                $billingAddress->save();
+            if (!in_array($expenseAlc->document_status, [ConstantHelper::APPROVED])) {
+                return response()->json([
+                    'error' => 'Only Approved/Posted document can be amended.',
+                ], 404);
             }
-
-            if ($vendorShippingAddress) {
-                $shippingAddress = $headerHistory->ship_address_details()->firstOrNew([
-                    'type' => 'shipping',
-                ]);
-                $shippingAddress->fill([
-                    'address' => $vendorShippingAddress->address,
-                    'country_id' => $vendorShippingAddress->country_id,
-                    'state_id' => $vendorShippingAddress->state_id,
-                    'city_id' => $vendorShippingAddress->city_id,
-                    'pincode' => $vendorShippingAddress->pincode,
-                    'phone' => $vendorShippingAddress->phone,
-                    'fax_number' => $vendorShippingAddress->fax_number,
-                ]);
-                $shippingAddress->save();
+            $currentStatus = $expenseAlc->document_status;
+            $actionType = 'amendment';
+            $attachments = $request->file('amend_attachment');
+            $attachment = $request->file('attachment');
+            $amendementService = new AmendmentService();
+            $amendementResponse = $amendementService->submit($request->all(), $expenseAlc, $attachments, $attachment);
+            if ($amendementResponse['status'] === 'error') {
+                DB::rollBack();
+                return response()->json([
+                    'error' => $amendementResponse['message']
+                ], 404);
             }
-
-            if ($request->hasFile('amend_attachment')) {
-                $mediaFiles = $headerHistory->uploadDocuments($request->file('amend_attachment'), 'exp-adv', false);
-            }
-            $headerHistory->save();
-
-            // Detail History
-            $expenseDetails = Detail::where('header_id', $expenseHeader->id)->get();
-            if (!empty($expenseDetails)) {
-                foreach ($expenseDetails as $key => $detail) {
-                    $expenseDetailData = $detail->toArray();
-                    unset($expenseDetailData['id']); // You might want to remove the primary key, 'id'
-                    $expenseDetailData['header_id'] = $detail->header_id;
-                    $expenseDetailData['detail_id'] = $detail->id;
-                    $expenseDetailData['header_history_id'] = $headerHistoryId;
-                    $detailHistory = DetailHistory::create($expenseDetailData);
-                    $detailHistoryId = $detailHistory->id;
-
-                    // Attribute History
-                    $expenseAttributes = Attribute::where('header_id', $expenseHeader->id)
-                        ->where('detail_id', $detail->id)
-                        ->get();
-                    if (!empty($expenseAttributes)) {
-                        foreach ($expenseAttributes as $key1 => $attribute) {
-                            $expenseAttributeData = $attribute->toArray();
-                            unset($expenseAttributeData['id']); // You might want to remove the primary key, 'id'
-                            $expenseAttributeData['header_id'] = $detail->header_id;
-                            $expenseAttributeData['detail_id'] = $detail->id;
-                            $expenseAttributeData['attribute_id'] = $attribute->id;
-                            $expenseAttributeData['header_history_id'] = $headerHistoryId;
-                            $expenseAttributeData['detail_history_id'] = $detailHistoryId;
-                            $attributeHistory = AttributeHistory::create($expenseAttributeData);
-                            $attributeHistoryId = $attributeHistory->id;
-                        }
-                    }
-
-                    // Expense Item TED History
-                    $itemExtraAmounts = Ted::where('header_id', $expenseHeader->id)
-                        ->where('detail_id', $detail->id)
-                        ->where('ted_level', '=', 'D')
-                        ->get();
-
-                    if (!empty($itemExtraAmounts)) {
-                        foreach ($itemExtraAmounts as $key4 => $extraAmount) {
-                            $extraAmountData = $extraAmount->toArray();
-                            unset($extraAmountData['id']); // You might want to remove the primary key, 'id'
-                            $extraAmountData['header_id'] = $detail->header_id;
-                            $extraAmountData['detail_id'] = $detail->id;
-                            $extraAmountData['header_history_id'] = $headerHistoryId;
-                            $extraAmountData['detail_history_id'] = $detailHistoryId;
-                            $extraAmountData['expense_ted_id'] = $extraAmount->id;
-                            $extraAmountDataHistory = TedHistory::create($extraAmountData);
-                            $extraAmountDataId = $extraAmountDataHistory->id;
-                        }
-                    }
-                }
-            }
-
-            // Expense Header TED History
-            $expenseExtraAmounts = Ted::where('header_id', $expenseHeader->id)
-                ->where('ted_level', '=', 'H')
-                ->get();
-
-            if (!empty($expenseExtraAmounts)) {
-                foreach ($expenseExtraAmounts as $key4 => $extraAmount) {
-                    $extraAmountData = $extraAmount->toArray();
-                    unset($extraAmountData['id']); // You might want to remove the primary key, 'id'
-                    $extraAmountData['header_id'] = $detail->header_id;
-                    $extraAmountData['header_history_id'] = $headerHistoryId;
-                    $extraAmountData['expense_ted_id'] = $extraAmount->id;
-                    $extraAmountDataHistory = TedHistory::create($extraAmountData);
-                    $extraAmountDataId = $extraAmountDataHistory->id;
-                }
-            }
-
-            $randNo = rand(10000, 99999);
-
-            $revisionNumber = "Expense" . $randNo;
-            $expenseHeader->revision_number += 1;
-            // $expenseHeader->status = "draft";
-            // $expenseHeader->document_status = "draft";
-            // $expenseHeader->save();
-
-            /*Create document submit log*/
-            if ($expenseHeader->document_status == ConstantHelper::SUBMITTED) {
-                $bookId = $expenseHeader->series_id;
-                $docId = $expenseHeader->id;
-                $remarks = $expenseHeader->remarks;
-                $attachments = $request->file('attachment');
-                $currentLevel = $expenseHeader->approval_level ?? 1;
-                $revisionNumber = $expenseHeader->revision_number ?? 0;
-                $actionType = 'submit'; // Approve // reject // submit
-                $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
-                $expenseHeader->document_status = $approveDocument['approvalStatus'];
-            }
-            $expenseHeader->save();
 
             DB::commit();
             return response()->json([
                 'message' => 'Amendement done successfully!',
-                'data' => $expenseHeader,
+                'data' => $expenseAlc,
             ]);
         } catch (Exception $e) {
             DB::rollBack();
@@ -2339,15 +1341,15 @@ class ExpenseAllocationController extends Controller
         $selected_po_ids = json_decode($decoded, true) ?? [];
 
         $keys = [
-            'header_ids',
-            'details_ids',
+            'po_header_ids',
+            'po_details_ids',
         ];
 
         foreach ($keys as $key) {
             $$key = $request->$key ?? null;
 
             if (is_string($$key)) {
-                $decoded = urldecode(urldecode($$key));
+                $decoded = urldecode(urldecode($key));
 
                 if (strpos($decoded, ',') !== false) {
                     $$key = array_filter(explode(',', $decoded));
@@ -2366,11 +1368,13 @@ class ExpenseAllocationController extends Controller
             'erp_purchase_orders.id as po_id',
             'erp_purchase_orders.vendor_id',
             'erp_purchase_orders.book_id',
+            'erp_purchase_orders.currency_id',
         )
             ->leftJoin('erp_purchase_orders', 'erp_purchase_orders.id', 'erp_po_items.purchase_order_id')
             ->whereIn('erp_purchase_orders.book_id', $applicableBookIds)
             ->where('erp_purchase_orders.gate_entry_required', 'no')
             ->where('erp_purchase_orders.supp_invoice_required', 'no')
+            ->whereNull('erp_po_items.exp_allocation_id')
             ->whereHas('item', function ($item) use ($itemSearch) {
                 $item->where('type', 'Service');
                 if ($itemSearch) {
@@ -2404,19 +1408,13 @@ class ExpenseAllocationController extends Controller
             $poItems->where('item_id', $itemId);
         }
 
-        if ($request->type === 'create' && count($selected_po_ids)) {
+        if (count($selected_po_ids)) {
             $poItems->whereNotIn('erp_po_items.id', $selected_po_ids);
-        } elseif ($request->type === 'edit') {
-            if (!empty($header_ids)) {
+            if (count($po_header_ids)) {
                 $poItems->whereIn('erp_purchase_orders.id', $header_ids);
             }
-
-            if (!empty($details_ids)) {
-                $poItems->whereNotIn('erp_po_items.id', $details_ids);
-            }
-
-            if (!empty($selected_po_ids)) {
-                $poItems->whereNotIn('erp_po_items.id', $selected_po_ids);
+            if (count($po_details_ids)) {
+                $poItems->whereNotIn('erp_po_items.id', $po_details_ids);
             }
         }
 
@@ -2437,10 +1435,14 @@ class ExpenseAllocationController extends Controller
     # Process PO Item list
     public function processPoItem(Request $request)
     {
+        $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $currency = ModelsCurrency::find($organization->currency_id);
         $ids = json_decode($request->ids, true) ?? [];
         $tableRowCount = $request->tableRowCount ?: 0;
 
         $distributionTypes = ConstantHelper::getDistributionTypes();
+
         $poItems = PoItem::whereIn('id', $ids)
             ->get();
 
@@ -2448,6 +1450,7 @@ class ExpenseAllocationController extends Controller
             'procurement.expense-allocation.partials.po-item-row',
             [
                 'poItems' => $poItems,
+                'currency' => $currency,
                 'tableRowCount' => $tableRowCount,
                 'distributionTypes' => $distributionTypes,
             ]
@@ -2586,20 +1589,33 @@ class ExpenseAllocationController extends Controller
         $docNumber = $request->document_number ?? null;
         $vendorId = $request->vendor_id ?? null;
         $headerBookId = $request->header_book_id ?? null;
-        $itemId = $request->item_id ?? null;
         $storeId = $request->store_id ?? null;
-        $subStoreId = $request->sub_store_id ?? null;
         $itemSearch = $request->item_search ?? null;
-        $detailsIds = $request->details_ids ?? '';
-        $headerId = $request->header_id ?? '';
         $applicableBookIds = ServiceParametersHelper::getBookCodesForReferenceFromParam($headerBookId);
 
-        if (is_string($detailsIds)) {
-            $detailsIds = array_filter(explode(',', $detailsIds));
-        }
-
-        $decoded = urldecode(urldecode($request->selected_mrn_ids));
+        $decoded = urldecode(urldecode($request->selected_po_ids));
         $selected_mrn_ids = json_decode($decoded, true) ?? [];
+
+        $keys = [
+            'grn_header_ids',
+            'grn_details_ids',
+        ];
+
+        foreach ($keys as $key) {
+            $$key = $request->$key ?? null;
+
+            if (is_string($$key)) {
+                $decoded = urldecode(urldecode($key));
+
+                if (strpos($decoded, ',') !== false) {
+                    $$key = array_filter(explode(',', $decoded));
+                } else {
+                    $$key = strlen($decoded) ? [$decoded] : [];
+                }
+            } elseif (!is_array($$key)) {
+                $$key = [];
+            }
+        }
 
         $mrnItems = MrnDetail::query()
             ->select([
@@ -2620,12 +1636,12 @@ class ExpenseAllocationController extends Controller
                 'stock_ledger.deleted_at as stock_ledger_del_at',
                 'stock_ledger.document_status as stock_ledger_status',
             ])
-            ->join('stock_ledger', function ($join) use ($subStoreId) {
+            ->join('stock_ledger', function ($join) use ($storeId) {
                 $join->on('stock_ledger.document_detail_id', '=', 'erp_mrn_details.id')
                     ->where('stock_ledger.book_type', '=', ConstantHelper::MRN_SERVICE_ALIAS)
                     ->whereColumn('stock_ledger.document_detail_id', '=', 'erp_mrn_details.id')
                     ->whereRaw('stock_ledger.receipt_qty > 0')
-                    ->where('stock_ledger.sub_store_id', $subStoreId)
+                    ->where('stock_ledger.store_id', $storeId)
                     ->whereNull('stock_ledger.utilized_id')
                     ->where('stock_ledger.transaction_type', 'receipt')
                     ->whereNull('stock_ledger.deleted_at'); // ✅ this line is required;
@@ -2641,8 +1657,16 @@ class ExpenseAllocationController extends Controller
         ]);
 
         // Filter related to item/mrnHeader
-        $mrnItems->where(function ($query) use ($seriesId, $applicableBookIds, $docNumber, $itemId, $vendorId, $storeId, $itemSearch) {
-            $query->whereHas('item');
+        $mrnItems->where(function ($query) use ($seriesId, $applicableBookIds, $docNumber, $vendorId, $storeId, $itemSearch) {
+            $query->whereHas('item', function ($item) use ($itemSearch) {
+                $item->where('type', 'Goods');
+                if ($itemSearch) {
+                    $item->where(function ($query) use ($itemSearch) {
+                        $query->where('erp_items.item_name', 'LIKE', "%{$itemSearch}%")
+                            ->orWhere('erp_items.item_code', 'LIKE', "%{$itemSearch}%");
+                    });
+                }
+            });
 
             $query->whereHas('mrnHeader', function ($mrn) use ($seriesId, $applicableBookIds, $docNumber, $vendorId, $storeId) {
                 $mrn->withDefaultGroupCompanyOrg();
@@ -2678,12 +1702,14 @@ class ExpenseAllocationController extends Controller
             }
         });
 
-        if ($request->type === 'create' && count($selected_mrn_ids)) {
+        if (count($selected_mrn_ids)) {
             $mrnItems->whereNotIn('erp_mrn_details.id', $selected_mrn_ids);
-        } elseif ($request->type === 'edit') {
-            $mrnItems->where('erp_mrn_details.mrn_header_id', $headerId);
-            $mrnItems->whereNotIn('erp_mrn_details.id', $detailsIds);
-            $mrnItems->whereNotIn('erp_mrn_details.id', $selected_mrn_ids);
+            // if (count($grn_header_ids)) {
+            //     $mrnItems->whereIn('erp_mrn_details.mrn_header_id', $grn_header_ids);
+            // }
+            if (count($grn_details_ids)) {
+                $mrnItems->whereNotIn('erp_mrn_details.id', $grn_details_ids);
+            }
         }
 
         // ❌ Do not call get()
@@ -2699,6 +1725,10 @@ class ExpenseAllocationController extends Controller
     # Process Mrn Item
     public function processGrnItem(Request $request)
     {
+        $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $currency = ModelsCurrency::find($organization->currency_id);
+
         // Filters and config
         $ids = json_decode($request->ids, true) ?? [];
         $tableRowCount = $request->tableRowCount ?: 0;
@@ -2753,6 +1783,7 @@ class ExpenseAllocationController extends Controller
         // UI + Location + HTML render
         $html = view('procurement.expense-allocation.partials.grn-item-row', [
             'mrnItems' => $mrnItems,
+            'currency' => $currency,
             'tableRowCount' => $tableRowCount,
             'distributionTypes' => $distributionTypes,
         ])->render();
@@ -2790,16 +1821,16 @@ class ExpenseAllocationController extends Controller
             DB::beginTransaction();
             $data = FinancialPostingHelper::financeVoucherPosting($request->book_id ?? 0, $request->document_id ?? 0, "post");
             if ($data['status']) {
-                DB::commit();
+                \DB::commit();
             } else {
-                DB::rollBack();
+                \DB::rollBack();
             }
             return response()->json([
                 'status' => 'success',
                 'data' => $data
             ]);
-        } catch (Exception $ex) {
-            DB::rollBack();
+        } catch (\Exception $ex) {
+            \DB::rollBack();
             return response()->json([
                 'status' => 'exception',
                 'message' => 'Some internal error occured',
@@ -2844,7 +1875,7 @@ class ExpenseAllocationController extends Controller
     // Expense Advise Report
     public function Report()
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', null)->get();
         $sub_categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', '!=', null)->get();
         $items = Item::withDefaultGroupCompanyOrg()->get();
@@ -2873,7 +1904,7 @@ class ExpenseAllocationController extends Controller
 
     public function getReportFilter(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $period = $request->query('period');
         $startDate = $request->query('startDate');
         $endDate = $request->query('endDate');
@@ -3173,7 +2204,7 @@ class ExpenseAllocationController extends Controller
 
     public function expenseAdviseReport(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $pathUrl = route('expense-adv.index');
         $orderType = ConstantHelper::EXP_ALC_SERVICE_ALIAS;
         $expenseAdvises = Header::withDefaultGroupCompanyOrg()

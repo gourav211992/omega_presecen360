@@ -6,12 +6,14 @@ use App\Helpers\CommonHelper;
 use App\Helpers\ConstantHelper;
 use App\Models\ErpMiItem;
 use App\Models\ErpPlItem;
+use App\Models\ErpPsvItem;
 use App\Models\ErpTripPlanHeader;
 use App\Models\StockLedgerReservation;
 use App\Models\WHM\ErpItemUniqueCode;
 use App\Models\WHM\ErpWhmJob;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 
 class PickingJob
 {
@@ -27,9 +29,19 @@ class PickingJob
 
         $type = $jobType ?? CommonHelper::getJobType($namespace);
         $trnstype = CommonHelper::getJobTransactionType($namespace);
+        $subStoreId = isset($header->main_sub_store_id) ? $header->main_sub_store_id : NULL;
+
+        if ($namespace === \App\Models\ErpPsvHeader::class) {
+            $type = 'picking';
+            $hasPsvItems = $header->items()->where('adjusted_qty','<', 0)->exists();
+            if (!$hasPsvItems) {
+                return; // ⛔ No job creation
+            }
+
+            $subStoreId = isset($header->sub_store_id) ? $header->sub_store_id : NULL;
+        }
 
         // Step 2: Get or Create Job (prevents duplicate job on edit)
-        $subStoreId = isset($header->main_sub_store_id) ? $header->main_sub_store_id : NULL;
         $job = (new WhmJob())->createJob($header, $namespace, $type, $trnstype, $header->store_id, $subStoreId, NULL, NULL, NULL);
     }
     
@@ -56,7 +68,7 @@ class PickingJob
 
         $morphableType = get_class($detail);
         $trip = ErpTripPlanHeader::find($header->trip_id);
-
+         
         foreach ($packets as $code) {
             $newRecord = ErpItemUniqueCode::create([
                 'uid' => $this->generateUniqueUid(),
@@ -91,8 +103,8 @@ class PickingJob
                 'type' => 'qr',
                 'qty' => 1,
                 'status' => CommonHelper::SCANNED,
-                'trip_id' => $trip->id ? $trip->id : NULL,
-                'trip_no' => $trip->document_number ? $trip->document_number : NULL,
+                'trip_id' => isset($trip->id) ? $trip->id : NULL,
+                'trip_no' => isset($trip->document_number) ? $trip->document_number : NULL,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -102,63 +114,153 @@ class PickingJob
         }
     }
 
-    public function generateQRCodes($subStoreId,$job,$storeId = null)
+    public function generateQRCodes($subStoreId, $job, $storeId = null)
     {
-        $packets = $job->itemUniqueCodes()
+        $chunkSize = 100;
+
+        $job->itemUniqueCodes()
             ->where('status', CommonHelper::SCANNED)
             ->where('doc_type', CommonHelper::ISSUE)
             ->whereNull('utilized_id')
-            ->get();
+            ->chunk($chunkSize, function ($packets) use ($subStoreId, $storeId) {
 
-        if($packets->isNotEmpty()){
-            foreach ($packets as $packet) {
-                $newRecord = ErpItemUniqueCode::create([
-                    'uid' => $this->generateUniqueUid(),
-                    'job_id' => $packet->job_id,
-                    'organization_id' => $packet->organization_id,
-                    'group_id' => $packet->group_id,
-                    'company_id' => $packet->company_id,
-                    'morphable_type' => $packet->morphable_type,
-                    'morphable_id' => $packet->morphable_id,
-                    'job_type' => $packet->job_type,
-                    'trns_type' => ConstantHelper::PL_SERVICE_ALIAS,
-                    'doc_type' => CommonHelper::RECEIPT,
-                    'doc_no' => $packet->doc_no ?? null,
-                    'doc_date' => $packet->doc_date ?? null,
-                    'book_id' => $packet->book_id ?? null,
-                    'store_id' => $storeId ? $storeId : ($packet->store_id ?? null),
-                    'sub_store_id' => $subStoreId ?? null,
-                    'book_code' => $packet->book_code ?? null,
-                    'item_attributes' => json_encode($packet->item_attributes),
-                    'item_id' => $packet->item_id,
-                    'item_name' => $packet->item_name,
-                    'item_code' => $packet->item_code,
-                    'vendor_id' => $packet->vendor_id,
-                    'batch_id' => $packet->batch_id,
-                    'batch_number' => $packet->batch_number,
-                    'manufacturing_year' => $packet->manufacturing_year,
-                    'expiry_date' => $packet->expiry_date,
-                    'serial_no' => $packet->serial_no,
-                    'item_uid' => $packet->item_uid, 
-                    'trip_id' => $packet->trip_id, 
-                    'trip_no' => $packet->trip_no, 
-                    'storage_point_id' => Null, 
-                    'packet_no' => $packet->packet_no,
-                    'total_packets' => $packet->total_packets,
-                    'type' => 'qr',
-                    'qty' => 1,
-                    'status' => CommonHelper::SCANNED,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                    'action_by' => $packet->action_by,
-                    'action_at' => now()
-                ]);
-    
-                $packet->utilized_id = $newRecord->uid;
-                $packet->save();
-            }
-        }
+                if ($packets->isEmpty()) {
+                    return;
+                }
+
+                $now = now();
+                $insertData = [];
+                $updateData = [];
+
+                foreach ($packets as $packet) {
+                    $newUid = $this->generateUniqueUid();
+
+                    // Insert new QR copy
+                    $insertData[] = [
+                        'uid' => $newUid,
+                        'job_id' => $packet->job_id,
+                        'organization_id' => $packet->organization_id,
+                        'group_id' => $packet->group_id,
+                        'company_id' => $packet->company_id,
+                        'morphable_type' => $packet->morphable_type,
+                        'morphable_id' => $packet->morphable_id,
+                        'job_type' => $packet->job_type,
+                        'trns_type' => ConstantHelper::PL_SERVICE_ALIAS,
+                        'doc_type' => CommonHelper::RECEIPT,
+                        'doc_no' => $packet->doc_no ?? null,
+                        'doc_date' => $packet->doc_date ?? null,
+                        'book_id' => $packet->book_id ?? null,
+                        'store_id' => $storeId ?? $packet->store_id,
+                        'sub_store_id' => $subStoreId ?? null,
+                        'book_code' => $packet->book_code ?? null,
+                        'item_attributes' => json_encode($packet->item_attributes),
+                        'item_id' => $packet->item_id,
+                        'item_name' => $packet->item_name,
+                        'item_code' => $packet->item_code,
+                        'vendor_id' => $packet->vendor_id,
+                        'batch_id' => $packet->batch_id,
+                        'batch_number' => $packet->batch_number,
+                        'manufacturing_year' => $packet->manufacturing_year,
+                        'expiry_date' => $packet->expiry_date,
+                        'serial_no' => $packet->serial_no,
+                        'item_uid' => $packet->item_uid,
+                        'trip_id' => $packet->trip_id,
+                        'trip_no' => $packet->trip_no,
+                        'storage_point_id' => null,
+                        'packet_no' => $packet->packet_no,
+                        'total_packets' => $packet->total_packets,
+                        'type' => 'qr',
+                        'qty' => 1,
+                        'status' => CommonHelper::SCANNED,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                        'action_by' => $packet->action_by,
+                        'action_at' => $now
+                    ];
+
+                    // Store original UID and new UID for update
+                    $updateData[$packet->uid] = $newUid;
+                }
+
+                // Insert all new QR records
+                \DB::table('erp_item_unique_codes')->insert($insertData);
+
+                // Update original packets' utilized_id by UID
+                foreach ($updateData as $originalUid => $newUid) {
+                    \DB::table('erp_item_unique_codes')
+                        ->where('uid', $originalUid)
+                        ->update(['utilized_id' => $newUid]);
+                }
+                
+            });
     }
+
+
+    // public function generateQRCodes($subStoreId,$job,$storeId = null)
+    // {
+    //     $chunkSize = 100;
+
+    //     // Query to get packets to process, chunked for memory efficiency
+    //     $job->itemUniqueCodes()
+    //         ->where('status', CommonHelper::SCANNED)
+    //         ->where('doc_type', CommonHelper::ISSUE)
+    //         ->whereNull('utilized_id')
+    //         ->chunk($chunkSize, function ($packets) use ($subStoreId, $storeId) {
+
+    //         if ($packets->isEmpty()) {
+    //             // No packets in this chunk, nothing to do
+    //             return;
+    //         }
+
+    //         foreach ($packets as $packet) {
+    //             $newRecord = ErpItemUniqueCode::create([
+    //                 'uid' => $this->generateUniqueUid(),
+    //                 'job_id' => $packet->job_id,
+    //                 'organization_id' => $packet->organization_id,
+    //                 'group_id' => $packet->group_id,
+    //                 'company_id' => $packet->company_id,
+    //                 'morphable_type' => $packet->morphable_type,
+    //                 'morphable_id' => $packet->morphable_id,
+    //                 'job_type' => $packet->job_type,
+    //                 'trns_type' => ConstantHelper::PL_SERVICE_ALIAS,
+    //                 'doc_type' => CommonHelper::RECEIPT,
+    //                 'doc_no' => $packet->doc_no ?? null,
+    //                 'doc_date' => $packet->doc_date ?? null,
+    //                 'book_id' => $packet->book_id ?? null,
+    //                 'store_id' => $storeId ? $storeId : ($packet->store_id ?? null),
+    //                 'sub_store_id' => $subStoreId ?? null,
+    //                 'book_code' => $packet->book_code ?? null,
+    //                 'item_attributes' => json_encode($packet->item_attributes),
+    //                 'item_id' => $packet->item_id,
+    //                 'item_name' => $packet->item_name,
+    //                 'item_code' => $packet->item_code,
+    //                 'vendor_id' => $packet->vendor_id,
+    //                 'batch_id' => $packet->batch_id,
+    //                 'batch_number' => $packet->batch_number,
+    //                 'manufacturing_year' => $packet->manufacturing_year,
+    //                 'expiry_date' => $packet->expiry_date,
+    //                 'serial_no' => $packet->serial_no,
+    //                 'item_uid' => $packet->item_uid, 
+    //                 'trip_id' => $packet->trip_id, 
+    //                 'trip_no' => $packet->trip_no, 
+    //                 'storage_point_id' => Null, 
+    //                 'packet_no' => $packet->packet_no,
+    //                 'total_packets' => $packet->total_packets,
+    //                 'type' => 'qr',
+    //                 'qty' => 1,
+    //                 'status' => CommonHelper::SCANNED,
+    //                 'created_at' => now(),
+    //                 'updated_at' => now(),
+    //                 'action_by' => $packet->action_by,
+    //                 'action_at' => now()
+    //             ]);
+
+    //             $packet->utilized_id = $newRecord->uid;
+    //             $packet->save();
+    //         }
+    //     });
+
+    // }
 
     public function reservedStock($job, $issueDetailId)
     {
@@ -195,6 +297,8 @@ class PickingJob
     {
         if($trnsType == ConstantHelper::MATERIAL_ISSUE_SERVICE_ALIAS_NAME ){
             $detail = ErpMiItem::find($plItemId);
+        }elseif($trnsType == ConstantHelper::PSV_SERVICE_ALIAS ){
+            $detail = ErpPsvItem::find($plItemId);
         }else{
             $detail = ErpPlItem::find($plItemId);
         }

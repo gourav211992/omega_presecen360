@@ -105,7 +105,7 @@
                                 @if($buttons['revoke'])
                                     <button id = "revokeButton" type="button" onclick = "revokeDocument();" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</button>
                                 @endif
-                                @if($buttons['delete'])
+                                @if($buttons['delete']||$buttons['amend'])
                                     <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
                                         data-url="{{ route('production.slip.destroy', [$slip->id, $buttons['amend'] ? $buttons['amend'] : 0]) }}"
                                         data-redirect="{{ $redirect_url }}"

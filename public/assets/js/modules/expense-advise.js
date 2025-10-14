@@ -321,6 +321,7 @@ function setTableCalculation() {
     let totalItemValue = 0;
     let totalItemDiscount = 0;
     let totalItemCost = 0;
+    let totalItemVariance = 0;
     let totalHeaderDiscount = 0;
     let totalAfterBothDisc = 0;
     let totalTax = 0;
@@ -328,13 +329,18 @@ function setTableCalculation() {
     let totalAfterTax = 0;
     let totalHeaderExp = 0;
     let grandTotal = 0;
+    let totalPoItemValue = 0;
     $("#itemTable [id*='row_']").each(function (index, item) {
         let rowCount = Number($(item).attr('data-index'));
         let qty = $(item).find("[name*='[accepted_qty]']").val() || 0;
         let rate = $(item).find("[name*='[rate]']").val() || 0;
-        let itemValue = (Number(qty) * Number(rate)) || 0;
-        totalItemValue+=itemValue;
+        let po_rate = $(item).find("[name*='[po_val]']").val() || 0;
+        let itemValue = Number(qty) * Number(rate) || 0;
+        let poItemValue = Number(qty) * Number(po_rate) || 0;
+        totalItemValue += itemValue;
+        totalPoItemValue += poItemValue;
         $(item).find("[name*='[basic_value]']").val(itemValue.toFixed(2));
+        $(item).find("[name*='[po_b_value]']").val(poItemValue.toFixed(2));
 
         /*Bind Item Discount*/
         let itemDiscount = 0;
@@ -358,8 +364,21 @@ function setTableCalculation() {
         totalItemDiscount+=itemDiscount;
 
         let itemCost = itemValue - itemDiscount;
-        totalItemCost+=itemCost;
+        let actaulItemCost = 0;
+        let totalPoItemCost = 0;
+        let poItemCost = poItemValue;
+        totalItemCost += itemCost;
+        actaulItemCost += itemCost;
+        totalPoItemCost += poItemCost;
+        let itemVariance = actaulItemCost - totalPoItemCost;
+        if (po_rate <= 0) {
+            itemVariance = 0;
+        }
+        totalItemVariance += itemVariance;
+
         $(item).find("[name*='[item_total_cost]']").val(itemCost.toFixed(2));
+        $(item).find("[name*='[po_total_cost]']").val(poItemCost.toFixed(2));
+        $(item).find("[name*='[item_variance]']").val(itemVariance.toFixed(2));
         /*Bind Item Discount*/
 
     });
@@ -368,6 +387,7 @@ function setTableCalculation() {
     $("#totalItemValue").attr('amount',totalItemValue).text(totalItemValue.toFixed(2));
     $("#totalItemDiscount").attr('amount',totalItemDiscount).text(totalItemDiscount.toFixed(2));
     $("#TotalEachRowAmount").attr('amount',totalItemCost).text(totalItemCost.toFixed(2));
+    $("#TotalVarianceAmount").attr("amount", totalItemVariance).text(totalItemVariance.toFixed(2));
     /*Bind table footer*/
 
     $("#f_sub_total")
@@ -1269,7 +1289,7 @@ function qtyEnabledDisabled() {
         }
     });
 }
-qtyEnabledDisabled();
+// qtyEnabledDisabled();
 
 setTimeout(() => {
     if($("tr[id*='row_']").length) {

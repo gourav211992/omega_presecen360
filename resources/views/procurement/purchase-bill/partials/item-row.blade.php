@@ -25,7 +25,6 @@
     </td>
     <td>
         <input type="hidden" class="form-control mw-100 order_qty" name="components[{{$rowCount}}][order_qty]" value="0" />
-        <input type="hidden" class="form-control mw-100 rejected_qty" name="components[{{$rowCount}}][rejected_qty]" value="0" />
         <input type="number" step="any" class="form-control mw-100 accepted_qty text-end"  name="components[{{$rowCount}}][accepted_qty]"/>
     </td>
     <td>

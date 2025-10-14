@@ -16,21 +16,17 @@ class Attribute extends Model
         'attribute_group_id',
     ];
 
-    
+    public $referencingRelationships = [
+        'itemAttributes' => 'attribute_id',
+    ];
     protected $auditInclude = [
         'value',
         'attribute_group_id',
     ];
 
-    public function itemAttributes()
-    {
-        return $this->hasMany(ItemAttribute::class, 'attribute_id');
-    }
-
     public function attributeGroup()
     {
         return $this->belongsTo(AttributeGroup::class, 'attribute_group_id');
     }
-   
-    
+     
 }

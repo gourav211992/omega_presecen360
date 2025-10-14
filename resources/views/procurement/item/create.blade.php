@@ -192,6 +192,18 @@
                                                         <div class="col-md-5">
                                                             <input type="text" name="item_code" class="form-control" />
                                                         </div>
+                                                        <!-- Override Auto-Generated Code (Hidden) -->
+                                                        <input type="hidden" name="is_override_code" value="No">
+                                                            @if(($isOverrideCode ?? 'No') === 'Yes')
+                                                                <div class="col-md-4">
+                                                                    <div class="form-check mt-1">
+                                                                        <input type="checkbox" id="override_code" name="is_override_code" value="Yes" id="override_code" class="form-check-input">
+                                                                        <label class="form-check-label" for="override_code">
+                                                                            Override Auto-Generated Code
+                                                                        </label>
+                                                                    </div>
+                                                                </div>
+                                                            @endif
                                                     </div>
 
                                                     <div class="row align-items-center mb-1">
@@ -700,6 +712,8 @@
                                                                             <th>S.NO</th>
                                                                             <th width="300px">Vendor Name</th>
                                                                             <th>Vendor Code</th>
+                                                                            <th>Min Order Qty</th> 
+                                                                            <th>Lead Days</th>
                                                                             <th id="cost-price-header">Cost Price</th>
                                                                             <th>Purchase Uom</th>
                                                                             <th>Action</th>
@@ -715,6 +729,8 @@
                                                                             <td>
                                                                                 <input type="text" name="approved_vendor[0][vendor_code]" class="form-control mw-100" id="item-code_0" readonly>
                                                                             </td>
+                                                                            <td><input type="number" name="approved_vendor[0][minimum_order_qty]" class="form-control mw-100" placeholder="Min Order Qty"></td>
+                                                                            <td><input type="number" name="approved_vendor[0][lead_days]" class="form-control mw-100" placeholder="Lead Days"></td>
                                                                             <td><input type="text" name="approved_vendor[0][cost_price]" id="cost-price_0" class="form-control cost-price-approved-vendor mw-100"></td>
                                                                             <td>
                                                                              <select name="approved_vendor[0][uom_id]"  id="uom_0" class="form-select mw-100" disabled></select>
@@ -1876,11 +1892,24 @@ $(document).ready(function() {
     const subTypeCheckboxes = $('.subTypeCheckbox');
     const itemCodeInput = $('input[name="item_code"]'); 
     const typeRadios = $('input[name="type"]');
-    if (itemCodeType === 'Manual') {
-        itemCodeInput.prop('readonly', false); 
-    } else {
-        itemCodeInput.prop('readonly', true); 
+    const isOverrideCodeCheckbox = $('#override_code');
+    let lastAutoCode = itemCodeInput.val();
+    function updateItemCodeReadonly() {
+        if (itemCodeType === 'Manual' && isEditable) {
+            itemCodeInput.prop('readonly', false);
+        } else if (itemCodeType === 'Auto' && isOverrideCodeCheckbox.length) {
+            if (isOverrideCodeCheckbox.is(':checked')) {
+                itemCodeInput.prop('readonly', false);
+            } else {
+                itemCodeInput.prop('readonly', true);
+                itemCodeInput.val(lastAutoCode);
+            }
+        } else {
+            itemCodeInput.prop('readonly', true);
+        }
     }
+    updateItemCodeReadonly();
+    isOverrideCodeCheckbox.on('change', updateItemCodeReadonly);
     function getSelectedSubTypeSuffix() {
             let selectedSubTypes = [];
             let hasRawMaterial = false;

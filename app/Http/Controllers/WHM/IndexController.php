@@ -142,9 +142,17 @@ class IndexController extends Controller
         }
 
         
+        $job = ErpWhmJob::find($request->job_id);
+        if (!$job) {
+            throw ValidationException::withMessages([
+                'job_id' => ['Job not found.'],
+            ]);
+        }
+
         $storeId = $request->store_id;
-        $itemIds = ErpItemUniqueCode::where('job_id', $request->job_id)->pluck('item_id')->unique()->values()->toArray();
-        $response = StoragePointHelper::getStoragePointsForMultipleItems($itemIds, $storeId);
+        $subStoreId = $job->sub_store_id ?? NULL;
+        $itemIds = $job->itemUniqueCodes()->pluck('item_id')->unique()->values()->toArray();
+        $response = StoragePointHelper::getStoragePointsForMultipleItems($itemIds, $storeId, $subStoreId);
         
         if($response['code'] == 500){
             throw ValidationException::withMessages([

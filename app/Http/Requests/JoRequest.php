@@ -2,19 +2,19 @@
 
 namespace App\Http\Requests;
 
-use App\Helpers\BookHelper;
-use App\Helpers\ConstantHelper;
-use App\Helpers\Helper;
 use App\Models\Bom;
 use App\Models\Item;
-use App\Models\JobOrder\JoProduct;
-use App\Models\NumberPattern;
+use App\Models\Vendor;
+use App\Helpers\Helper;
+use App\Helpers\BookHelper;
 use App\Models\Organization;
 use App\Models\PwoSoMapping;
-use App\Models\Vendor;
-use Illuminate\Foundation\Http\FormRequest;
+use App\Models\NumberPattern;
 use Spatie\FlareClient\Flare;
+use App\Helpers\ConstantHelper;
+use App\Models\JobOrder\JoProduct;
 use App\Traits\ProcessesComponentJson;
+use Illuminate\Foundation\Http\FormRequest;
 
 class JoRequest extends FormRequest
 {
@@ -82,19 +82,19 @@ class JoRequest extends FormRequest
                 $isPast = false;
             }
         }
-        if($isFeature && $isPast) {
+        if ($isFeature && $isPast) {
             $rules['document_date'] = "required|date";
         }
         // Check the condition only if book_id is present
         if ($this->filled('book_id')) {
             $user = Helper::getAuthenticatedUser();
             $numPattern = NumberPattern::where('organization_id', $user->organization_id)
-                        ->where('book_id', $this->book_id)
-                        ->orderBy('id', 'DESC')
-                        ->first();
+                ->where('book_id', $this->book_id)
+                ->orderBy('id', 'DESC')
+                ->first();
             // Update document_number rule based on the condition
             if ($numPattern && $numPattern->series_numbering == 'Manually') {
-                if($poId) {
+                if ($poId) {
                     $rules['document_number'] = 'required|unique:erp_job_orders,document_number,' . $poId;
                 } else {
                     $rules['document_number'] = 'required|unique:erp_job_orders,document_number';
@@ -103,8 +103,8 @@ class JoRequest extends FormRequest
         }
         $rules['component_item_name.*'] = 'required';
         $rules['components.*.qty'] = 'required|numeric|min:0.000001';
-        $rules['components.*.sow'] = 'required';        
-        $rules['components.*.rate'] = 'required|numeric|min:0.01';        
+        $rules['components.*.sow'] = 'required';
+        $rules['components.*.rate'] = 'required|numeric|min:0.01';
         $rules['components.*.attr_group_id.*.attr_name'] = 'required';
         $rules['components.*.uom_id'] = 'required';
         $rules['components.*.delivery_date'] = ['required', 'date'];
@@ -137,23 +137,22 @@ class JoRequest extends FormRequest
             'document_date.after_or_equal' => 'The document date cannot be in the past.',
             'document_date.before_or_equal' => 'The document date cannot be in the future.',
         ];
- 
     }
 
     protected function withValidator($validator)
     {
         $authUser = Helper::getAuthenticatedUser();
         $organization = Organization::where('id', $authUser->organization_id)->first();
-        $organizationId = $organization ?-> id ?? null;
+        $organizationId = $organization?->id ?? null;
 
-        $validator->after(function ($validator) use($organizationId) {
+        $validator->after(function ($validator) use ($organizationId) {
             #check vendor location mapping
             $vendorId = $this->input('vendor_id');
             $locationId = $this->input('store_id');
             if ($vendorId && $locationId) {
                 $vendor = Vendor::with(['locations' => function ($query) use ($organizationId, $locationId) {
                     $query->where('organization_id', $organizationId)
-                    ->where('location_id', $locationId);
+                        ->where('location_id', $locationId);
                 }])->find($vendorId);
                 if (!$vendor || $vendor->locations->isEmpty()) {
                     $validator->errors()->add('vendor_id', 'Vendor is not mapped to the selected store.');
@@ -163,30 +162,30 @@ class JoRequest extends FormRequest
             $components = $this->input('components', []);
             $items = [];
             foreach ($components as $key => $component) {
-                
+
                 $itemValue = floatval($component['item_total_cost']);
-                if($itemValue < 0) {
+                if ($itemValue < 0) {
                     $validator->errors()->add("components.$key.item_name", "Item total can't be negative.");
                 }
                 $itemId = $component['item_id'] ?? null;
 
                 $bomExists = Bom::withDefaultGroupCompanyOrg()
-                ->where('item_id', $itemId)
-                ->where('type', ConstantHelper::BOM_SERVICE_ALIAS)
-                ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED)
-                ->exists();
+                    ->where('item_id', $itemId)
+                    ->where('type', ConstantHelper::BOM_SERVICE_ALIAS)
+                    ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED)
+                    ->exists();
 
-                if(!$bomExists) {
+                if (!$bomExists) {
                     $validator->errors()->add("components.$key.item_name", "Bom not exist.");
                 }
 
                 $bomExists = Bom::withDefaultGroupCompanyOrg()
-                ->where('item_id', $itemId)
-                ->where('type', ConstantHelper::BOM_SERVICE_ALIAS)
-                ->whereIn('production_type', ['Job Work'])
-                ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED)
-                ->exists();
-                
+                    ->where('item_id', $itemId)
+                    ->where('type', ConstantHelper::BOM_SERVICE_ALIAS)
+                    ->whereIn('production_type', ['Job Work'])
+                    ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED)
+                    ->exists();
+
                 if (!$bomExists) {
                     $validator->errors()->add("components.$key.item_name", "Only products with production type Job Work are allowed.");
                 }
@@ -246,10 +245,14 @@ class JoRequest extends FormRequest
 
                 // Short close resctriction
                 // $poItemId = $component['po_item_id'] ?? null;
-                // $poItem = JoItem::find($poItemId);
-                // if(floatval($component['short_close_qty']) && $poItem) {
-                //     if(floatval($poItem->order_qty) < max($poItem->grn_qty,$poItem->invoice_quantity) + floatval($component['short_close_qty'])) {
-                //         $validator->errors()->add("components.$key.short_close_qty", "Short close qty less then PO qty");
+                // $JoItem = JoItem::find($poItemId);
+                // if (floatval($component['short_close_qty']) && $JoItem) {
+                //     if (floatval($JoItem->order_qty) < (floatval($JoItem->grn_qty) + floatval($component['short_close_qty']))) {
+                //         $validator->errors()->add("components.$key.short_close_qty", "Qty. can't be less than $JoItem->grn_qty GRN qt.");
+                //     }
+
+                //     if (floatval($JoItem->order_qty) < (floatval($JoItem->invoice_quantity) + floatval($component['short_close_qty']))) {
+                //         $validator->errors()->add("components.$key.short_close_qty", "Qty. can't be less than $JoItem->invoice_quantity Billed qt.");
                 //     }
                 // }
             }

@@ -25,19 +25,22 @@ class WarehouseRequest
             'organization_id' => [
 				'required','integer'
 			],
-            'sub_store_ids' => [
-				'required', 'array'
+            'stock_type' => [
+				'required'
 			],
-			'sub_store_ids.*' => [
-				'integer'
-			],
+            // 'sub_store_ids' => [
+			// 	'nullable', 'array'
+			// ],
+			// 'sub_store_ids.*' => [
+			// 	'integer'
+			// ],
             'item_id' => [
 				'nullable','integer'
 			]
 
 		],[
 			'store_id.required' => 'Store id is required!',
-			'sub_store_ids.required' => 'Sub store id is required!',
+			'stock_type.required' => 'Stock type is required!',
 			'organization_id.required' => 'Organization id is required!',
 		]);
 
@@ -50,13 +53,13 @@ class WarehouseRequest
 			'barcode' => [
 				'required'
             ],
-            'trip_id' => [
-				'required','integer'
+            'trip_no' => [
+				'required'
 			]
 
 		],[
 			'barcode.required' => 'Barcode is required!',
-			'trip_id.required' => 'Trip id is required!',
+			'trip_no.required' => 'Trip no is required!',
 		]);
 
 		return $validator;

@@ -1,10 +1,4 @@
-<select class="form-select vendor-select" style="min-width: 150px" name="components[{{$rowCount}}][vendor_id]">
-    @if ($defaultOption)
-        <option value=""></option>
-    @endif
-    @foreach ($vendors as $vendor)
-        <option value="{{ $vendor->id }}" {{ $vendor->id == $firstVendorId ? 'selected' : '' }}>
-            {{ $vendor?->company_name ?? '' }}
-        </option>
-    @endforeach
-</select>
+<div class="vendor-autocomplete-wrapper">
+    <input type="text" class="form-control vendor-autocomplete vendor-select" placeholder="Select Vendor" data-ajax-url="{{ $ajaxSearchUrl ?? '#' }}" data-hidden-name="components[{{ $rowCount }}][vendor_id]" value="{{ $vendor?->company_name ?? '' }}">
+    <input type="hidden" name="components[{{ $rowCount }}][vendor_id]" value="{{ $vendor?->id ?? '' }}">
+</div>

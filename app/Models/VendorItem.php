@@ -21,6 +21,8 @@ class VendorItem extends Model
         'item_name',
         'part_number',
         'item_details',
+        'minimum_order_qty',
+        'lead_days',
         'cost_price',
         'uom_id',
         'organization_id', 

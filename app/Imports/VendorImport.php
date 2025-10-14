@@ -342,7 +342,8 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
 
             $vendorSubType = $uploadedVendor->vendor_sub_type === 'T' ? 'Transporter' : 'Regular';
         
-            $msmeType = null;
+           $msmeType = null;
+           
             if (!empty($uploadedVendor->msme_type)) {
                 if ($uploadedVendor->msme_type === 'mi') {
                     $msmeType = 'Micro';
@@ -350,9 +351,24 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                     $msmeType = 'Small';
                 } elseif ($uploadedVendor->msme_type === 'me') {
                     $msmeType = 'Medium';
+                } elseif ($uploadedVendor->msme_type === 'pr') {
+                    $msmeType = 'Producer';
+                } elseif ($uploadedVendor->msme_type === 'tr') {
+                    $msmeType = 'Trader';
+                } elseif ($uploadedVendor->msme_type === 'bo') {
+                    $msmeType = 'Brand Owner';
+                } 
+            }
+
+            $panNumber = $uploadedVendor->pan_number ?? null;
+
+            if (!empty($uploadedVendor->gst_applicable) && $uploadedVendor->gst_applicable == 1) {
+                $gstin = $uploadedVendor->gstin_no ?? null;
+                if (!empty($gstin) && strlen($gstin) === 15) {
+                    $panNumber = substr($gstin, 2, 10);
                 }
             }
-        
+                    
             try {
                 $uploadedVendorData = [
                     'organization_type_id' => $organizationTypeId ?? null,
@@ -370,7 +386,7 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'mobile' => $uploadedVendor->mobile ?? null,
                     'whatsapp_number' => $uploadedVendor->whatsapp_number ?? null,
                     'notification' => $uploadedVendor->notification_mode ?? null,
-                    'pan_number' => $uploadedVendor->pan_number ?? null,
+                    'pan_number' => $panNumber,
                     'tin_number' => $uploadedVendor->tin_number ?? null,
                     'aadhar_number' => $uploadedVendor->aadhar_number ?? null,
                     'ledger_id' => $ledgerId ?? null,
@@ -470,7 +486,12 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'whatsapp_number' => 'nullable|regex:/^\d{10,12}$/',
                     'notification' => 'nullable',
                     'notification.*' => 'nullable',
-                    'pan_number' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/'],
+                    'pan_number' => [
+                        'nullable',
+                        'string',
+                        'regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/',
+                        'required_if:compliance.gst_applicable,1'
+                    ],
                     'tin_number' => 'nullable|regex:/^\d{10}$/',
                     'aadhar_number' => 'nullable|regex:/^\d{12}$/',
                     'ledger_id' => 'nullable|exists:erp_ledgers,id', 

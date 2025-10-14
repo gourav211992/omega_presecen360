@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
+use App\Models\ItemAttribute; 
 
 
 trait Deletable
@@ -93,7 +94,27 @@ trait Deletable
                 'message' => $allReferences['message']
             ];
         }
-    
+
+        if ($table === 'erp_attributes') {
+            $exists = ItemAttribute::whereJsonContains('attribute_id', (string)$id)->exists();
+            if ($exists) {
+                return [
+                    'status' => false,
+                    'message' => 'Record cannot be deleted because it is already in use.',
+                    'referenced_tables' => ['erp_item_attributes']
+                ];
+            }
+        }
+         if ($table === 'erp_attribute_groups') {
+           $exists = ItemAttribute::where('attribute_group_id', $id)->exists();
+                if ($exists) {
+                    return [
+                        'status' => false,
+                        'message' => 'Record cannot be deleted because it is already in use.',
+                        'referenced_tables' => ['erp_item_attributes']
+                    ];
+                }
+        }
         foreach ($allReferences['referenced_tables'] as $referencingTable => $columns) {
             if (array_key_exists($referencingTable, $referenceTables)) {
                 $linkedRecords = DB::table($referencingTable)

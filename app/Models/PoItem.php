@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
-use App\Helpers\InventoryHelper;
 use App\Traits\DateFormatTrait;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Helpers\InventoryHelper;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PoItem extends Model
 {
-    use HasFactory,DateFormatTrait;
+    use HasFactory, DateFormatTrait, SoftDeletes;
 
     protected $table = 'erp_po_items';
 
@@ -33,6 +34,7 @@ class PoItem extends Model
         'inventory_uom_code',
         'inventory_uom_qty',
         'rate',
+        'is_rate_superceded',
         'item_discount_amount',
         'header_discount_amount',
         'tax_amount',
@@ -90,7 +92,7 @@ class PoItem extends Model
 
     public function mrn_details()
     {
-        return $this->hasMany(MrnDetail::class,'purchase_order_item_id');
+        return $this->hasMany(MrnDetail::class, 'purchase_order_item_id');
     }
 
     public function uom()
@@ -147,47 +149,47 @@ class PoItem extends Model
 
     public function attributes()
     {
-        return $this->hasMany(PoItemAttribute::class,'po_item_id')->with(['headerAttribute', 'headerAttributeValue']);
+        return $this->hasMany(PoItemAttribute::class, 'po_item_id')->with(['headerAttribute', 'headerAttributeValue']);
     }
 
     public function teds()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'po_item_id');
+        return $this->hasMany(PurchaseOrderTed::class, 'po_item_id');
     }
 
     public function ted_tax()
     {
-        return $this->hasOne(PurchaseOrderTed::class,'po_item_id')->where('ted_type','Tax')->latest();
+        return $this->hasOne(PurchaseOrderTed::class, 'po_item_id')->where('ted_type', 'Tax')->latest();
     }
 
     public function itemDelivery()
     {
-        return $this->hasMany(PoItemDelivery::class,'po_item_id');
+        return $this->hasMany(PoItemDelivery::class, 'po_item_id');
     }
 
     /*Detail level*/
     public function itemDiscount()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'po_item_id')->where('ted_level', 'D')->where('ted_type','Discount');
+        return $this->hasMany(PurchaseOrderTed::class, 'po_item_id')->where('ted_level', 'D')->where('ted_type', 'Discount');
     }
     public function discount_ted()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'po_item_id')->where('ted_level', 'D')->where('ted_type','Discount');
+        return $this->hasMany(PurchaseOrderTed::class, 'po_item_id')->where('ted_level', 'D')->where('ted_type', 'Discount');
     }
 
     /*Header Level Discount*/
     public function headerDiscount()
     {
-        return $this->hasMany(PurchaseOrderTed::class)->where('ted_level', 'H')->where('ted_type','Discount');
+        return $this->hasMany(PurchaseOrderTed::class)->where('ted_level', 'H')->where('ted_type', 'Discount');
     }
 
     public function taxes()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'po_item_id')->where('ted_type','Tax');
+        return $this->hasMany(PurchaseOrderTed::class, 'po_item_id')->where('ted_type', 'Tax');
     }
     public function tax_ted()
     {
-        return $this->hasMany(PurchaseOrderTed::class,'po_item_id')->where('ted_type','Tax');
+        return $this->hasMany(PurchaseOrderTed::class, 'po_item_id')->where('ted_type', 'Tax');
     }
 
     public function getCgstValueAttribute()
@@ -222,7 +224,7 @@ class PoItem extends Model
             ->where('ted_name', '=', 'SGST')
             ->sum('ted_amount');
 
-            $tedRecord = PurchaseOrderTed::with(['taxDetail'])
+        $tedRecord = PurchaseOrderTed::with(['taxDetail'])
             ->where('po_item_id', $this->id)
             ->where('purchase_order_id', $this->purchase_order_id)
             ->where('ted_type', '=', 'Tax')
@@ -245,7 +247,7 @@ class PoItem extends Model
             ->where('ted_name', '=', 'IGST')
             ->sum('ted_amount');
 
-            $tedRecord = PurchaseOrderTed::with(['taxDetail'])
+        $tedRecord = PurchaseOrderTed::with(['taxDetail'])
             ->where('po_item_id', $this->id)
             ->where('purchase_order_id', $this->purchase_order_id)
             ->where('ted_type', '=', 'Tax')
@@ -262,9 +264,9 @@ class PoItem extends Model
 
     public function getShortBalQtyAttribute()
     {
-        $maxQty = max($this->invoice_quantity,$this->grn_qty);
+        $maxQty = max($this->invoice_quantity, $this->grn_qty);
         // $maxQty = max((float) $this->invoice_quantity, (float) $this->grn_qty) - (float) $this->short_close_qty;
-        $balance = max(($this->order_qty - $maxQty - $this->short_close_qty),0);
+        $balance = max(($this->order_qty - $maxQty - $this->short_close_qty), 0);
         return $balance;
     }
 
@@ -275,7 +277,7 @@ class PoItem extends Model
 
     public function pi_item_mappings()
     {
-        return $this->hasMany(PiPoMapping::class,'po_item_id');
+        return $this->hasMany(PiPoMapping::class, 'po_item_id');
     }
 
     public function item_attributes_array()
@@ -287,9 +289,9 @@ class PoItem extends Model
         $itemAttributes = ItemAttribute::where('item_id', $itemId)->get();
         $processedData = [];
         $mappingAttributes = PoItemAttribute::where('po_item_id', $this->getAttribute('id'))
-        ->select(['item_attribute_id as attribute_id', 'attribute_value as attribute_value_id'])
-        ->get()
-        ->toArray();
+            ->select(['item_attribute_id as attribute_id', 'attribute_value as attribute_value_id'])
+            ->get()
+            ->toArray();
         foreach ($itemAttributes as $attribute) {
             $attributeIds = is_array($attribute->attribute_id) ? $attribute->attribute_id : [$attribute->attribute_id];
             $attribute->group_name = $attribute->group?->name;

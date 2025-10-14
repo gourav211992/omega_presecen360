@@ -83,6 +83,7 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
     {
         $validatedData = [];
         $itemCodeType = 'Manual';
+        $isOverrideCode = 'No';
 
         if ($services && isset($services['services']) && $services['services']->isNotEmpty()) {
             $firstService = $services['services']->first();
@@ -115,12 +116,16 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
                 if (isset($parameters->item_code_type) && is_array($parameters->item_code_type)) {
                     $itemCodeType = $parameters->item_code_type[0] ?? null;
                 }
+                if (!empty($parameters->override_auto_generated_code) && is_array($parameters->override_auto_generated_code)) {
+                    $isOverrideCode = $parameters->override_auto_generated_code[0] ?? 'No';
+                }
             }
         }
 
         return [
             'validatedData' => $validatedData,
             'itemCodeType' => $itemCodeType,
+            'isOverrideCode' => $isOverrideCode,
         ];
     }
 
@@ -138,6 +143,7 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
         $serviceData = $this->getServiceData($organization, $services);
         $validatedData = $serviceData['validatedData'];
         $itemCodeType = $serviceData['itemCodeType'];
+        $isOverrideCode = $serviceData['isOverrideCode'];
 
         $uploadedItems = [];
         $itemsToProcess = [];
@@ -339,6 +345,7 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'item_name' => $row['item_name'] ?? null,
                     'item_code' => $itemCode,
                     'item_code_type' => $itemCodeType,
+                    'is_override_code' => $isOverrideCode,
                     'subcategory' => $row['group'] ?? null,
                     'hsn' => $row['hsnsac'] ?? null,
                     'uom' => $row['inventory_uom'] ?? null,
@@ -572,6 +579,7 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'item_name' => $uploadedItem->item_name ?? null,
                     'item_code' => $uploadedItem->item_code ?? null,
                     'item_code_type' => $uploadedItem->item_code_type ?? null,
+                    'is_override_code' => $uploadedItem->is_override_code ?? null,
                     'hsn_id' => $hsnCodeId ?? null,
                     'uom_id' => $uomId ?? null,
                     'cost_price_currency_id' => $costPriceCurrencyId ?? null,

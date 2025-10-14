@@ -1,3 +1,61 @@
+$(function () {
+    const $table = $(".qo-order-detail");
+    const $tbody = $table.find("tbody");
+    const $headers = $table.find("th");
+    const initialRows = $tbody.children().toArray(); // store initial row order
+
+    // Append arrow span and style headers
+    $headers.each(function (index) {
+        if (index === 0) return; // skip first column if checkbox
+        $(this)
+            .css({
+                cursor: "pointer",
+                position: "relative",
+                "padding-right": "20px",
+            })
+            .append(
+                '<span class="sort-arrow" style="position:absolute; right:8px; font-size:11px; color:#0d6efd;"></span>'
+            );
+        $(this).data("order", "desc");
+    });
+
+    $headers.not(":first").click(function () {
+        const index = $(this).index();
+        const order = $(this).data("order") === "asc" ? "desc" : "asc";
+        $(this).data("order", order);
+
+        // Reset all arrows
+        $headers.find(".sort-arrow").text("");
+        $(this)
+            .find(".sort-arrow")
+            .text(order === "asc" ? "▲" : "▼");
+
+        const rows = $tbody.children().toArray();
+        rows.sort((a, b) => {
+            let aText = $(a).children().eq(index).text().trim().toLowerCase();
+            let bText = $(b).children().eq(index).text().trim().toLowerCase();
+
+            const aNum = parseFloat(aText.replace(/,/g, ""));
+            const bNum = parseFloat(bText.replace(/,/g, ""));
+
+            if (!isNaN(aNum) && !isNaN(bNum))
+                return order === "asc" ? aNum - bNum : bNum - aNum;
+            return order === "asc"
+                ? aText.localeCompare(bText)
+                : bText.localeCompare(aText);
+        });
+
+        $tbody.append(rows); // append sorted rows
+    });
+
+    $("#clearSortingBtn").click(function () {
+        // reset headers and arrows
+        $headers.data("order", "desc").find(".sort-arrow").text("");
+        // reset original row order
+        $tbody.append(initialRows);
+    });
+});
+
 /*Approve modal*/
 $(document).on("click", "#approved-button", (e) => {
     let actionType = "approve";
@@ -409,7 +467,6 @@ function copyItemRow() {
 
         initAutocompVendor("[name*='[vendor_code]']");
         initializeAutocomplete2(".comp_item_code");
-        console.log($clone.html());
 
         setTimeout(() => {
             $clone.closest("tr").find(".attributeBtn").trigger("click");
@@ -466,6 +523,14 @@ function cloneRow($row, newIndex) {
         .val(newIndex);
     return $clone;
 }
+
+$(document).on("click", "#backBtn", (e) => {
+    $("#soSubmitModal").modal("hide");
+    $("#analyzeModal").modal("hide");
+    setTimeout(() => {
+        $("#soModal").modal("show");
+    }, 0);
+});
 
 $(document).on("click", ".toggle-expand", function (e) {
     e.preventDefault();

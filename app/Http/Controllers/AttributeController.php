@@ -9,7 +9,7 @@ use App\Models\Organization;
 use Illuminate\Http\Request;
 use App\Helpers\ConstantHelper;
 use App\Helpers\Helper;
-use DB;
+use Illuminate\Support\Facades\DB;
 use Auth;
 
 class AttributeController extends Controller
@@ -234,24 +234,30 @@ class AttributeController extends Controller
         return response()->json($attributes);
     }
 
-    public function deleteAttributeDetail($id)
+   public function deleteAttributeDetail($id)
     {
+        DB::beginTransaction();
         try {
             $attributeDetail = Attribute::findOrFail($id);
             $result = $attributeDetail->deleteWithReferences();
+
             if (!$result['status']) {
+                DB::rollBack();
                 return response()->json([
                     'status' => false,
                     'message' => $result['message'],
                     'referenced_tables' => $result['referenced_tables'] ?? []
                 ], 400);
             }
+
+            DB::commit();
             return response()->json([
                 'status' => true,
                 'message' => 'Record deleted successfully.',
             ], 200);
-        
+
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => false,
                 'message' => 'An error occurred while deleting the record: ' . $e->getMessage(),
@@ -259,33 +265,39 @@ class AttributeController extends Controller
         }
     }
 
-    public function destroy($id)
+   public function destroy($id)
     {
+        DB::beginTransaction();
         try {
             $attributeGroup = AttributeGroup::findOrFail($id);
             $referenceTables = [
-                'erp_attributes' => ['attribute_group_id'], 
+                'erp_attributes' => ['attribute_group_id'],
             ];
+
             $result = $attributeGroup->deleteWithReferences($referenceTables);
+
             if (!$result['status']) {
+                DB::rollBack();
                 return response()->json([
                     'status' => false,
                     'message' => $result['message'],
                     'referenced_tables' => $result['referenced_tables'] ?? []
                 ], 400);
             }
+
+            DB::commit();
             return response()->json([
                 'status' => true,
                 'message' => 'Record deleted successfully',
             ], 200);
-            
+
         } catch (\Exception $e) {
+            DB::rollBack();
             return response()->json([
                 'status' => false,
                 'message' => 'An error occurred while deleting the attribute group: ' . $e->getMessage()
             ], 500);
         }
     }
-
     
 }

@@ -770,9 +770,6 @@
             height: 200
         });
 
-
-
-
         $(document).on('change', '#book_id', (e) => {
             let bookId = e.target.value;
             if (bookId) {
@@ -812,7 +809,8 @@
                         $("#po_type").val(poType);
                         setTableCalculation();
                     }
-                    if (data.status == 404) {
+
+                    if (data.status == 404 || data.status == 500) {
                         $("#book_code").val('');
                         $("#document_number").val('');
                         $("#tax_required").val("");
@@ -821,7 +819,14 @@
                         docDateInput.removeAttr('min');
                         docDateInput.removeAttr('max');
                         docDateInput.val(new Date().toISOString().split('T')[0]);
-                        alert(data.message);
+                        toggleSubmitButton('.ajax-input-form', true);
+                        Swal.fire({
+                            title: 'Error!',
+                            text: data.message,
+                            icon: 'error',
+                        });
+                    }else{
+                        toggleSubmitButton('.ajax-input-form', false);
                     }
                 });
             });
@@ -1553,7 +1558,6 @@
                         getIndents();
                     }
                 }
-                $(tableSelector + " .vendor-select").select2();
             });
         });
 
@@ -2210,6 +2214,14 @@
                         setTimeout(() => {
                             setTableCalculation();
                         }, 500);
+
+                        let $lastRow = $("#itemTable .mrntableselectexcel").find("tr[id^='row_']").last();
+                        if ($lastRow.length) {
+                            // $('html, body').animate({
+                            //     scrollTop: $lastRow.offset().top - 100
+                            // }, 400);
+                            $lastRow.find("input[name*='[qty]']").focus().select();
+                        }
                     }
                     if (data.status == 422) {
                         $(".editAddressBtn").removeClass('d-none');

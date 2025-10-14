@@ -276,6 +276,7 @@
                                                                 <th>Discount</th>
                                                                 <th class="text-end">Total</th>
                                                                 <th>Cost Center</th>
+                                                                <th class="text-end">Variance</th>
                                                                 <th width="50px">Action</th>
                                                             </tr>
                                                         </thead>
@@ -294,6 +295,7 @@
                                                                 <td class="text-end" id="TotalEachRowAmount">
                                                                     {{@$mrn->items->sum('net_value')}}
                                                                 </td>
+                                                                <td class="text-end" id="TotalVarianceAmount">0.00</td>
                                                             </tr>
                                                             <tr valign="top">
                                                                 <td colspan="7" rowspan="12">
@@ -795,7 +797,6 @@
             let actionUrl = '{{route("book.get.doc_no_and_parameters")}}'+'?book_id='+bookId+'&document_date='+document_date;
             fetch(actionUrl).then(response => {
                 return response.json().then(data => {
-                    // console.log(data.data);
                     if (data.status == 200) {
 
                         const parameters = data.data.parameters;

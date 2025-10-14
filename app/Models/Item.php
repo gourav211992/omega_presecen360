@@ -20,6 +20,22 @@ class Item extends Model implements Exportable
 
     protected $table = 'erp_items';
 
+     public $referencingRelationships = [
+        'uom' => 'uom_id',
+        'storageUom' => 'storage_uom_id',
+        'hsn' => 'hsn_id',
+        'category' => 'category_id',
+        'subCategory' => 'subcategory_id',
+        'itemAttributes' => 'item_id',      
+        'alternateUOMs' => 'item_id',
+        'packagingDetails' => 'item_id',
+        'subTypes' => 'item_id',
+        'approvedCustomers' => 'item_id',
+        'approvedVendors' => 'item_id',
+        'alternateItems' => 'item_id',
+        'specifications' => 'item_id',
+    ];
+    
     protected $fillable = [
         'type',
         'unit_id',
@@ -59,6 +75,7 @@ class Item extends Model implements Exportable
         'book_id',
         'book_code',
         'item_code_type',
+        'is_override_code',
         'min_stocking_level',
         'max_stocking_level',
         'reorder_level',

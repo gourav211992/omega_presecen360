@@ -433,6 +433,7 @@ function setTableCalculation() {
                 let partyStateId = $("#hidden_state_id").val();
                 let locationId = $("[name='store_id']").val();
                 let document_date = $("[name='document_date']").val();
+                let document_status = $("[name='document_status']").val() || '';
                 // Construct the query parameters
                 let queryParams = new URLSearchParams({
                     price: price,
@@ -445,6 +446,7 @@ function setTableCalculation() {
                     location_id: locationId,
                     rowCount: rowCount3,
                     document_date: document_date,
+                    document_status: document_status,
                 }).toString();
                 let urlWithParams = `${actionUrlTax}?${queryParams}`;
                 let promise = fetch(urlWithParams)
@@ -1230,6 +1232,56 @@ function checkComponentRowExist() {
 //         }
 //     }
 // }
+
+function initVendorAutocomplete(context = document) {
+    $(context).find('.vendor-select').each(function() {
+        const $input = $(this);
+        const ajaxUrl = $input.data('ajax-url');
+        const hiddenName = $input.data('hidden-name');
+        const $hiddenInput = $input.siblings(`input[name='${hiddenName}']`);
+
+        if (!ajaxUrl || ajaxUrl === '#') return;
+
+        if ($input.data('ui-autocomplete')) {
+            $input.autocomplete('destroy');
+        }
+
+        $input.autocomplete({
+            source: function(request, response) {
+                $.ajax({
+                    url: ajaxUrl,
+                    dataType: 'json',
+                    data: {
+                        term: request.term
+                    },
+                    success: function(data) {
+                        response(data);
+                    },
+                    error: function(xhr) {
+                        console.error('Vendor autocomplete failed:', xhr);
+                    }
+                });
+            },
+            minLength: 1,
+            select: function(event, ui) {
+                $input.val(ui.item.label);
+                $hiddenInput.val(ui.item.id);
+                return false;
+            },
+            focus: function(event, ui) {
+                $input.val(ui.item.label);
+                return false;
+            }
+        });
+    });
+}
+
+$(document).ready(function() {
+    initVendorAutocomplete();
+    $(document).on('draw.dt', function(e, settings) {
+        initVendorAutocomplete();
+    });
+});
 
 $("#attribute").on("hidden.bs.modal", function () {
     let rowCount = $("[id*=row_].trselected").attr("data-index");

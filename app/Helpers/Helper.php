@@ -2,72 +2,73 @@
 
 namespace App\Helpers;
 
-use App\Helpers\Common\OrganizationHelper;
-use App\Models\AmendmentWorkflow;
-use App\Models\ApprovalWorkflow;
-use App\Models\FixedAssetRegistration;
-use App\Models\Scopes\DefaultGroupCompanyOrgScope;
-use App\Models\AuthUser;
-use Illuminate\Validation\Rule;
-use App\Models\CostCenterOrgLocations;
-use App\Models\Book;
-use App\Models\BookLevel;
-use App\Models\BookType;
-use App\Models\DocumentApproval;
-use App\Models\Employee;
-use App\Models\EmployeeBookMapping;
-use App\Models\EmployeeRole;
-use App\Models\ErpAddress;
-use App\Models\CRM\ErpCurrencyMaster;
-use App\Models\FixedAssetSetup;
-use App\Models\FixedAssetSub;
-use App\Models\MrnHeader;
-use App\Models\MrnDetail;
-use App\Models\ErpFinancialYear;
-use App\Models\Group;
-use App\Models\HomeLoan;
-use App\Models\ItemDetail;
-use App\Models\Ledger;
-use App\Models\LoanDisbursement;
-use App\Models\LoanLog;
-use App\Models\Media;
-use App\Models\NumberPattern;
-use App\Models\Organization;
-use App\Models\OrganizationMenu;
-use App\Models\OrganizationService;
-use App\Models\PermissionMaster;
-use App\Models\Role;
-use App\Models\RolePermission;
-use App\Models\Service;
-use App\Models\ServiceMenu;
-use App\Models\Services;
-use Exception;
-use App\Models\OrganizationBookParameter;
-use App\Models\PLGroups;
-use App\Models\RecoveryLoan;
-use App\Models\User;
-use App\Models\Voucher;
-use App\Models\ErpOrganizationMasterPolicy;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Facades\Route;
-// use Request;
-use Illuminate\Http\Request;
 use stdClass;
-use Illuminate\Support\Str;
-
-use App\Models\Contact;
-use App\Models\BankInfo;
+use Exception;
+use Carbon\Carbon;
+use App\Models\Book;
 use App\Models\Note;
-use App\Models\Compliance;
-use App\Http\Controllers\VoucherController;
-use App\Models\AuthUserBookMapping;
-use App\Models\ErpFyMonth;
-use App\Models\MrnAssetDetail;
-use P360\Core\Interfaces\TagCacheInterface;
+use App\Models\Role;
+use App\Models\User;
+use App\Models\Group;
+use App\Models\Media;
+use App\Models\Ledger;
+use App\Models\Contact;
+use App\Models\LoanLog;
+use App\Models\Service;
+use App\Models\Voucher;
+use App\Models\AuthUser;
+use App\Models\BankInfo;
+use App\Models\BookType;
+use App\Models\Employee;
+use App\Models\HomeLoan;
 use App\Models\PbHeader;
+use App\Models\PLGroups;
+use App\Models\Services;
+use App\Models\BookLevel;
+use App\Models\MrnDetail;
+use App\Models\MrnHeader;
+use App\Models\Compliance;
+use App\Models\ErpAddress;
+use App\Models\ErpFyMonth;
+use App\Models\ItemDetail;
+use App\Helpers\MailHelper;
+use App\Models\ServiceMenu;
+use Illuminate\Support\Str;
+use App\Models\EmployeeRole;
+use App\Models\Organization;
+use App\Models\RecoveryLoan;
+use Illuminate\Http\Request;
+use App\Models\FixedAssetSub;
+use App\Models\NumberPattern;
+use App\Models\MrnAssetDetail;
+use App\Models\RolePermission;
+use App\Models\FixedAssetSetup;
+use Illuminate\Validation\Rule;
+use App\Models\ApprovalWorkflow;
+use App\Models\DocumentApproval;
+use App\Models\ErpFinancialYear;
+use App\Models\LoanDisbursement;
+use App\Models\OrganizationMenu;
+use App\Models\PermissionMaster;
+use App\Models\AmendmentWorkflow;
+use Illuminate\Support\Facades\DB;
+use App\Models\AuthUserBookMapping;
+// use Request;
+use App\Models\EmployeeBookMapping;
+use App\Models\OrganizationService;
+use Illuminate\Support\Facades\Log;
+
+use App\Models\CRM\ErpCurrencyMaster;
+use Illuminate\Support\Facades\Route;
+use App\Models\CostCenterOrgLocations;
+use App\Models\FixedAssetRegistration;
+use Illuminate\Support\Facades\Session;
+use App\Models\OrganizationBookParameter;
+use App\Helpers\Common\OrganizationHelper;
+use App\Http\Controllers\VoucherController;
+use App\Models\ErpOrganizationMasterPolicy;
+use P360\Core\Interfaces\TagCacheInterface;
+use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 
 class Helper
 {
@@ -1877,7 +1878,7 @@ class Helper
         return $buttons;
     }
 
-    public static function approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue = 0, $modelName = null, $documentType = NULL)
+    public static function approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue = 0, $modelName = null, $documentType = null, $docUrl = null)
     {
         $user = self::getAuthenticatedUser();
         $book = Book::where('id', $bookId)->first();
@@ -1910,6 +1911,7 @@ class Helper
         $nextLevel = 0;
         $message = '';
         $createdBy = null;
+        $emailReceiver = null;
         $document = null;
         if ($modelName) {
             $model = resolve($modelName);
@@ -1975,11 +1977,21 @@ class Helper
                     ->orderBy('level')
                     ->first();
                 if ($checNextLevel) {
+                    $nextApprover = ApprovalWorkflow::where('book_id', $book->id)
+                        ->where('organization_id', $user->organization_id)
+                        ->whereHas('level', function ($level) use ($currentLevel) {
+                            $level->where('level', '>', $currentLevel);
+                        })
+                        ->orderBy('level', 'ASC')
+                        ->first();
+
+                    $emailReceiver = $nextApprover->user ?? null;
                     $nextLevel = $checNextLevel->level;
                     $approvalStatus = ConstantHelper::PARTIALLY_APPROVED;
                 } else {
                     $nextLevel = $currentLevel;
                     $approvalStatus = ConstantHelper::APPROVED;
+                    $emailReceiver = $user;
                     if ($bookTypeServiceAlias != ConstantHelper::MO_SERVICE_ALIAS) {
                         $nextLevel = $currentLevel;
                         $approvalStatus = ConstantHelper::APPROVED;
@@ -2027,12 +2039,14 @@ class Helper
                 ->whereHas('level', function ($level) use ($currentLevel) {
                     $level->where('level', $currentLevel);
                 })->where('user_id', '!=', $createdBy)
-                ->get();
-            if (count($approvalWorkflow) == 0) {
+                ->count();
+
+            if ($approvalWorkflow == 0) {
                 $approvalStatus = ConstantHelper::APPROVAL_NOT_REQUIRED;
             } else {
                 $approvalStatus = self::checkApprovalRequired($book->id, $docValue);
             }
+
             if ($approvalStatus === ConstantHelper::APPROVAL_NOT_REQUIRED) {
                 if ($bookTypeServiceAlias != ConstantHelper::MO_SERVICE_ALIAS) {
                     //Finance posting
@@ -2043,6 +2057,16 @@ class Helper
                         $message = $postData['message'];
                     }
                 }
+            } else {
+                $nextApprover = ApprovalWorkflow::where('book_id', $book->id)
+                    ->where('organization_id', $user->organization_id)
+                    ->whereHas('level', function ($level) use ($currentLevel, $nextLevel) {
+                        $level->where('level', ($nextLevel > $currentLevel) ? ($nextLevel) : $currentLevel);
+                        $level->orderBy('level', 'ASC');
+                    })
+                    ->first();
+
+                $emailReceiver = $nextApprover->user ?? null;
             }
         }
 
@@ -2052,10 +2076,20 @@ class Helper
             if (isset($approvalRequired->approval_required) && $approvalRequired->approval_required) {
                 $approvalWorkflow = ApprovalWorkflow::where('book_id', $book->id)
                     ->where('organization_id', $user->organization_id)
-                    ->whereHas('level')->get();
-                if (count($approvalWorkflow) == 0) {
+                    ->whereHas('level')
+                    ->count();
+
+                if ($approvalWorkflow == 0) {
                     $approvalStatus = ConstantHelper::APPROVAL_NOT_REQUIRED;
                 } else {
+                    $nextApprover = ApprovalWorkflow::where('book_id', $book->id)
+                        ->where('organization_id', $user->organization_id)
+                        ->whereHas('level', function ($q) {
+                            $q->orderBy('level', 'ASC');
+                        })
+                        ->first();
+
+                    $emailReceiver = $nextApprover->user ?? null;
                     $approvalStatus = ConstantHelper::SUBMITTED;
                 }
             }
@@ -2080,6 +2114,37 @@ class Helper
                     $message = $postData['message'];
                 }
             }
+        }
+
+        $allApprovers = ApprovalWorkflow::with('user')
+            ->where('book_id', $book->id)
+            ->where('organization_id', $user->organization_id)
+            ->whereHas('level', function ($level) use ($currentLevel) {
+                $level->where('level', $currentLevel);
+            })
+            ->where('user_id', '!=', $createdBy)
+            ->pluck('user_id');
+
+        $ccUsers = AuthUser::whereIn('id', $allApprovers)->pluck('email') ?? [];
+        if ($emailReceiver && ($emailReceiver->id == $createdBy || $emailReceiver->id == $user->id)) {
+            $emailReceiver = null;
+        }
+
+        if (!empty($emailReceiver) && $emailReceiver->email) {
+            $mailData = [
+                'link'        => $docUrl,
+                'attachments' => $attachments,
+                'receiver'    => $emailReceiver,
+                'to_name'     => $emailReceiver->name,
+                'status'      => $approvalStatus ?? $actionType,
+                'document'    => $document->document_number ?? 'Document',
+                'cc'          => count($ccUsers) ? $ccUsers->toArray() : [],
+                'title'       => "Series: $docApproval->document_type, Document " . ucfirst($approvalStatus),
+                'content'     => "The Document from Series: {$docApproval->document_type}, " . "Document Number: " . ($document->document_number ?? '-') . " has been " . ucfirst($approvalStatus) . " by {$user->name} ({$user->email})",
+                'remarks'     => $remarks,
+            ];
+
+            MailHelper::sendDocumentStatusEmail($mailData);
         }
 
         return [
@@ -3278,7 +3343,7 @@ class Helper
                 ];
             } else {
                 $services = null;
-                if ($authUser -> authenticable_type === 'employee') {
+                if ($authUser->authenticable_type === 'employee') {
                     $services = EmployeeBookMapping::where('service_menu_id', $organizationMenu?->serviceMenu?->id)->where('employee_id', $authUser->id)->first();
                 } else {
                     $services = AuthUserBookMapping::where('service_menu_id', $organizationMenu?->serviceMenu?->id)->where('auth_user_id', $authUser->auth_user_id)->first();
@@ -4200,23 +4265,21 @@ class Helper
         return $finalItemCode;
     }
 
-    public static function mrnAssetRegister($mrn_id,$alias): array
+    public static function mrnAssetRegister($mrn_id, $alias): array
     {
 
         DB::beginTransaction();
         try {
-               Log::info('mrn register', [
+            Log::info('mrn register', [
                 'mrn_id' => $mrn_id,
                 'alias' => $alias,
                 'constantalisa' => ConstantHelper::PB_SERVICE_ALIAS
-                ]);
+            ]);
 
             if (!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS)) {
                 Log::error('pbheader get');
                 $mrn_id = PbHeader::where('id', $mrn_id)->pluck('mrn_header_id')->first();
-            }
-            else
-            {
+            } else {
                 $mrn_id = $mrn_id;
             }
             $assets = MrnHeader::where('id', $mrn_id)
@@ -4268,8 +4331,7 @@ class Helper
 
                 $glPostingBookId = $glPostingBookParam->parameter_value[0];
 
-                foreach ($mrn_assets as $mrn_asset)
-                {
+                foreach ($mrn_assets as $mrn_asset) {
                     $category_id = $mrn_asset->asset_category_id;
                     $asset_name = $mrn_asset->asset_name;
                     $capitalize_date = $mrn_asset->capitalization_date;
@@ -4348,8 +4410,8 @@ class Helper
                         ];
                     }
 
-                     if (!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS)) {
-                        Log::error('pb item value set: '.$mrn_detail->pb_item_value);
+                    if (!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS)) {
+                        Log::error('pb item value set: ' . $mrn_detail->pb_item_value);
                         $currentValue = $mrn_detail->pb_item_value;
                     } else {
                         Log::error('basic_value: ' . ($mrn_detail->basic_value + $mrn_detail->header_exp_amount));
@@ -4371,76 +4433,73 @@ class Helper
 
 
 
-                if(count($mrn_detail->batches) > 0)
-                {
-                    $count=count($mrn_detail->batches);
-                    $uniqueCodes = $mrn_detail->uniqueCodes->values();
-                    $totalqty = 0;
-                    foreach($mrn_detail->batches as $batch)
-                    {
-                        $totalqty += $batch->inventory_uom_qty;
-                    }
-                        $singlevalue = round($currentValue/$totalqty, 2);
+                    if (count($mrn_detail->batches) > 0) {
+                        $count = count($mrn_detail->batches);
+                        $uniqueCodes = $mrn_detail->uniqueCodes->values();
+                        $totalqty = 0;
+                        foreach ($mrn_detail->batches as $batch) {
+                            $totalqty += $batch->inventory_uom_qty;
+                        }
+                        $singlevalue = round($currentValue / $totalqty, 2);
 
-                     $offset = 0;
+                        $offset = 0;
 
-                    foreach($mrn_detail->batches as $batch)
-                    {
-                        $salvageValue = round(($singlevalue * $batch->inventory_uom_qty) * ($depreciationPercentage / 100), 2);
+                        foreach ($mrn_detail->batches as $batch) {
+                            $salvageValue = round(($singlevalue * $batch->inventory_uom_qty) * ($depreciationPercentage / 100), 2);
 
-                        $asset_code = self::generateAssetCode($category_id);
-                        $existingAsset = FixedAssetRegistration::where('asset_code', $asset_code)->first();
+                            $asset_code = self::generateAssetCode($category_id);
+                            $existingAsset = FixedAssetRegistration::where('asset_code', $asset_code)->first();
 
-                        $data = [
-                        'organization_id' => $user->organization_id,
-                        'group_id' => $organization->group_id,
-                        'company_id' => $organization->company_id,
-                        'created_by' => $user->id,
-                        'type' => get_class($user),
-                        'book_id' => $glPostingBookId,
-                        'document_number' => $mrn->document_number,
-                        'document_date' => $mrn->document_date,
-                        'mrn_detail_id' => $mrn_detail->id,
-                        'mrn_header_id' => $mrn->id,
-                        'asset_code' => $asset_code,
-                        'asset_name' => $asset_name,
-                        'brand_name' => $mrn_asset->brand_name,
-                        'model_no' => $mrn_asset->model_no,
-                        'procurement_type' => $mrn_asset->procurement_type,
-                        'quantity' => $batch->inventory_uom_qty,
-                        'category_id' => $category_id,
-                        'reference_doc_id' => $mrn->id,
-                        'reference_series' => ConstantHelper::MRN_SERVICE_ALIAS,
-                        'ledger_id' => $setup->ledger_id,
-                        'ledger_group_id' => $setup->ledger_group_id,
-                        'capitalize_date' => $capitalize_date,
-                        'last_dep_date' => $capitalize_date,
-                        'vendor_id' => $mrn->vendor_id,
-                        'currency_id' => $mrn->vendor?->currency_id,
-                        'sub_total' =>  $mrn_detail->basic_value,
-                        'tax' => $mrn_detail->tax_value,
-                        'purchase_amount' =>  $mrn_detail->basic_value + $mrn_detail->tax_value,
-                        'supplier_invoice_date' => $mrn->supplier_invoice_date,
-                        'book_date' => $mrn_detail->created_at ?? null,
-                        'supplier_invoice_no' => $mrn->supplier_invoice_no,
-                        'location_id' => $mrn->sub_store_id ?? null,
-                        'cost_center_id' => $mrn->cost_center_id ?? null,
-                        'maintenance_schedule' => $setup->maintenance_schedule ?? null,
-                        'depreciation_method' => $method,
-                        'useful_life' => $life,
-                        'salvage_value' => $salvageValue,
-                        'depreciation_percentage' => $depreciationRate,
-                        'depreciation_percentage_year' => $depreciationRate,
-                        'total_depreciation' => 0,
-                        'dep_type' => $organization->dep_type,
-                        'current_value' => ($singlevalue * $batch->inventory_uom_qty),
-                        'current_value_after_dep' => ($singlevalue * $batch->inventory_uom_qty),
-                        'document_status' => 'approved',
-                        'approval_level' => 1,
-                        'revision_number' => 0,
-                        'revision_date' => null,
-                        'status' => 'active',
-                    ];
+                            $data = [
+                                'organization_id' => $user->organization_id,
+                                'group_id' => $organization->group_id,
+                                'company_id' => $organization->company_id,
+                                'created_by' => $user->id,
+                                'type' => get_class($user),
+                                'book_id' => $glPostingBookId,
+                                'document_number' => $mrn->document_number,
+                                'document_date' => $mrn->document_date,
+                                'mrn_detail_id' => $mrn_detail->id,
+                                'mrn_header_id' => $mrn->id,
+                                'asset_code' => $asset_code,
+                                'asset_name' => $asset_name,
+                                'brand_name' => $mrn_asset->brand_name,
+                                'model_no' => $mrn_asset->model_no,
+                                'procurement_type' => $mrn_asset->procurement_type,
+                                'quantity' => $batch->inventory_uom_qty,
+                                'category_id' => $category_id,
+                                'reference_doc_id' => $mrn->id,
+                                'reference_series' => ConstantHelper::MRN_SERVICE_ALIAS,
+                                'ledger_id' => $setup->ledger_id,
+                                'ledger_group_id' => $setup->ledger_group_id,
+                                'capitalize_date' => $capitalize_date,
+                                'last_dep_date' => $capitalize_date,
+                                'vendor_id' => $mrn->vendor_id,
+                                'currency_id' => $mrn->vendor?->currency_id,
+                                'sub_total' =>  $mrn_detail->basic_value,
+                                'tax' => $mrn_detail->tax_value,
+                                'purchase_amount' =>  $mrn_detail->basic_value + $mrn_detail->tax_value,
+                                'supplier_invoice_date' => $mrn->supplier_invoice_date,
+                                'book_date' => $mrn_detail->created_at ?? null,
+                                'supplier_invoice_no' => $mrn->supplier_invoice_no,
+                                'location_id' => $mrn->sub_store_id ?? null,
+                                'cost_center_id' => $mrn->cost_center_id ?? null,
+                                'maintenance_schedule' => $setup->maintenance_schedule ?? null,
+                                'depreciation_method' => $method,
+                                'useful_life' => $life,
+                                'salvage_value' => $salvageValue,
+                                'depreciation_percentage' => $depreciationRate,
+                                'depreciation_percentage_year' => $depreciationRate,
+                                'total_depreciation' => 0,
+                                'dep_type' => $organization->dep_type,
+                                'current_value' => ($singlevalue * $batch->inventory_uom_qty),
+                                'current_value_after_dep' => ($singlevalue * $batch->inventory_uom_qty),
+                                'document_status' => 'approved',
+                                'approval_level' => 1,
+                                'revision_number' => 0,
+                                'revision_date' => null,
+                                'status' => 'active',
+                            ];
                             $asset = FixedAssetRegistration::create($data);
 
                             FixedAssetSub::generateSubAssets(
@@ -4456,85 +4515,81 @@ class Helper
                             $mrn_asset->asset_code = $asset_code;
                             $mrn_asset->asset_id = $asset->id;
                             $mrn_asset->save();
-                            $asset->batchupdateUniqueCodes($uniqueCodes,$batch,$offset);
+                            $asset->batchupdateUniqueCodes($uniqueCodes, $batch, $offset);
                             $offset += $batch->inventory_uom_qty;
+                        }
+                    } else {
+                        $asset_code = self::generateAssetCode($category_id);
+                        $existingAsset = FixedAssetRegistration::where('asset_code', $asset_code)->first();
+
+                        $data = [
+                            'organization_id' => $user->organization_id,
+                            'group_id' => $organization->group_id,
+                            'company_id' => $organization->company_id,
+                            'created_by' => $user->id,
+                            'type' => get_class($user),
+                            'book_id' => $glPostingBookId,
+                            'document_number' => $mrn->document_number,
+                            'document_date' => $mrn->document_date,
+                            'mrn_detail_id' => $mrn_detail->id,
+                            'mrn_header_id' => $mrn->id,
+                            'asset_code' => $asset_code,
+                            'asset_name' => $asset_name,
+                            'brand_name' => $mrn_asset->brand_name,
+                            'model_no' => $mrn_asset->model_no,
+                            'procurement_type' => $mrn_asset->procurement_type,
+                            'quantity' => $mrn_detail->accepted_inv_uom_qty,
+                            'category_id' => $category_id,
+                            'reference_doc_id' => $mrn->id,
+                            'reference_series' => ConstantHelper::MRN_SERVICE_ALIAS,
+                            'ledger_id' => $setup->ledger_id,
+                            'ledger_group_id' => $setup->ledger_group_id,
+                            'capitalize_date' => $capitalize_date,
+                            'last_dep_date' => $capitalize_date,
+                            'vendor_id' => $mrn->vendor_id,
+                            'currency_id' => $mrn->vendor?->currency_id,
+                            'sub_total' => $currentValue,
+                            'tax' => $mrn_detail->tax_value,
+                            'purchase_amount' => $currentValue + $mrn_detail->tax_value,
+                            'supplier_invoice_date' => $mrn->supplier_invoice_date,
+                            'book_date' => $mrn_detail->created_at ?? null,
+                            'supplier_invoice_no' => $mrn->supplier_invoice_no,
+                            'location_id' => $mrn->store_id ?? null,
+                            'cost_center_id' => $mrn->cost_center_id ?? null,
+                            'maintenance_schedule' => $setup->maintenance_schedule ?? null,
+                            'depreciation_method' => $method,
+                            'useful_life' => $life,
+                            'salvage_value' => $salvageValue,
+                            'depreciation_percentage' => $depreciationRate,
+                            'depreciation_percentage_year' => $depreciationRate,
+                            'total_depreciation' => 0,
+                            'dep_type' => $organization->dep_type,
+                            'current_value' => $currentValue,
+                            'current_value_after_dep' => $currentValue,
+                            'document_status' => 'approved',
+                            'approval_level' => 1,
+                            'revision_number' => 0,
+                            'revision_date' => null,
+                            'status' => 'active',
+                        ];
+                        $asset = FixedAssetRegistration::create($data);
+
+                        $batches = $mrn_detail->batches;
+
+                        FixedAssetSub::generateSubAssets(
+                            $asset->id,
+                            $asset->asset_code,
+                            $asset->quantity,
+                            $asset->current_value,
+                            $asset->salvage_value
+                        );
+                        $mrn_asset->salvage_value = $salvageValue;
+                        $mrn_asset->asset_code = $asset_code;
+                        $mrn_asset->asset_id = $asset->id;
+                        $mrn_asset->save();
+
+                        $asset->updateUniqueCodes();
                     }
-
-                }
-                else
-                {
-                    $asset_code = self::generateAssetCode($category_id);
-                    $existingAsset = FixedAssetRegistration::where('asset_code', $asset_code)->first();
-
-                    $data = [
-                        'organization_id' => $user->organization_id,
-                        'group_id' => $organization->group_id,
-                        'company_id' => $organization->company_id,
-                        'created_by' => $user->id,
-                        'type' => get_class($user),
-                        'book_id' => $glPostingBookId,
-                        'document_number' => $mrn->document_number,
-                        'document_date' => $mrn->document_date,
-                        'mrn_detail_id' => $mrn_detail->id,
-                        'mrn_header_id' => $mrn->id,
-                        'asset_code' => $asset_code,
-                        'asset_name' => $asset_name,
-                        'brand_name' => $mrn_asset->brand_name,
-                        'model_no' => $mrn_asset->model_no,
-                        'procurement_type' => $mrn_asset->procurement_type,
-                        'quantity' => $mrn_detail->accepted_inv_uom_qty,
-                        'category_id' => $category_id,
-                        'reference_doc_id' => $mrn->id,
-                        'reference_series' => ConstantHelper::MRN_SERVICE_ALIAS,
-                        'ledger_id' => $setup->ledger_id,
-                        'ledger_group_id' => $setup->ledger_group_id,
-                        'capitalize_date' => $capitalize_date,
-                        'last_dep_date' => $capitalize_date,
-                        'vendor_id' => $mrn->vendor_id,
-                        'currency_id' => $mrn->vendor?->currency_id,
-                        'sub_total' => $currentValue,
-                        'tax' => $mrn_detail->tax_value,
-                        'purchase_amount' => $currentValue + $mrn_detail->tax_value,
-                        'supplier_invoice_date' => $mrn->supplier_invoice_date,
-                        'book_date' => $mrn_detail->created_at ?? null,
-                        'supplier_invoice_no' => $mrn->supplier_invoice_no,
-                        'location_id' => $mrn->store_id ?? null,
-                        'cost_center_id' => $mrn->cost_center_id ?? null,
-                        'maintenance_schedule' => $setup->maintenance_schedule ?? null,
-                        'depreciation_method' => $method,
-                        'useful_life' => $life,
-                        'salvage_value' => $salvageValue,
-                        'depreciation_percentage' => $depreciationRate,
-                        'depreciation_percentage_year' => $depreciationRate,
-                        'total_depreciation' => 0,
-                        'dep_type' => $organization->dep_type,
-                        'current_value' => $currentValue,
-                        'current_value_after_dep' => $currentValue,
-                        'document_status' => 'approved',
-                        'approval_level' => 1,
-                        'revision_number' => 0,
-                        'revision_date' => null,
-                        'status' => 'active',
-                    ];
-                    $asset = FixedAssetRegistration::create($data);
-
-                    $batches= $mrn_detail->batches;
-
-                    FixedAssetSub::generateSubAssets(
-                        $asset->id,
-                        $asset->asset_code,
-                        $asset->quantity,
-                        $asset->current_value,
-                        $asset->salvage_value
-                    );
-                    $mrn_asset->salvage_value = $salvageValue;
-                    $mrn_asset->asset_code = $asset_code;
-                    $mrn_asset->asset_id = $asset->id;
-                    $mrn_asset->save();
-
-                    $asset->updateUniqueCodes();
-                }
-
                 }
 
 

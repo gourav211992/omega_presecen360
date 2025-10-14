@@ -236,9 +236,9 @@ class GstrController extends Controller
     public function json(Request $request){
         $organization = OrganizationHelper::getAuthenticatedOrganization();
         $supplierGstin = $organization->gst_number;
-        
+
         $startDate = Carbon::now()->startOfMonth(); // Start of the current month
-        $endDate = Carbon::now()->endOfMonth(); 
+        $endDate = Carbon::now()->endOfMonth();
 
         // Check if there's an applied date filter
         if ($request->has('date_range') && $request->date_range != '') {
@@ -247,8 +247,8 @@ class GstrController extends Controller
             $endDate = isset($dates[1]) ? Carbon::parse($dates[1])->startOfDay():  Carbon::parse($dates[0])->startOfDay();
         }
 
-        $financialPeriod = date('mY'); 
-        // $financialPeriod = self::currentFinancialYear(); 
+        $financialPeriod = date('mY');
+        // $financialPeriod = self::currentFinancialYear();
 
         // Fetch all invoice types
         $gstrInvoiceTypes = ErpGstInvoiceType::where(function($q) use($request){
@@ -274,7 +274,7 @@ class GstrController extends Controller
         // Loop through each invoice type and process data
         foreach ($gstrInvoiceTypes as $invoiceType) {
             $invoiceTypeName = strtolower($invoiceType->name);
-            
+
             $gstrCompiledData = GstrCompiledData::where(function ($query) use ($request) {
                     $this->filter($request,$query);
                 })
@@ -285,7 +285,7 @@ class GstrController extends Controller
                 ->groupBy('erp_gstr_compiled_data.invoice_id')
                 ->get();
 
-                
+
             if ($gstrCompiledData->isEmpty()) {
                 continue; // Skip if no data for this type
             }
@@ -297,7 +297,7 @@ class GstrController extends Controller
             }else{
                 $arr[$invoiceTypeName] = GstrHelper::prepareData($gstrCompiledData, $invoiceTypeName);
             }
-            
+
         }
 
         // Convert JSON to a pretty format
@@ -312,9 +312,9 @@ class GstrController extends Controller
     public function details(Request $request,$id){
         $pageLengths = ConstantHelper::PAGE_LENGTHS;
         $length = $request->length ? $request->length : ConstantHelper::PAGE_LENGTH_10;
-        
+
         $masterData = self::masterData();
- 
+
         // Get Start Date/ End Date
         $date = self::getStartEndDate($request);
         $startDate = $date['startDate'];
@@ -322,17 +322,17 @@ class GstrController extends Controller
 
         $organization = OrganizationHelper::getAuthenticatedOrganization();
         $supplierGstin = $organization->gst_number;
-        
+
         $type = ErpGstInvoiceType::where('id',$id)->first();
         // $gstrData = $this->getInvoiceDetail($request, $type, $supplierGstin);
         $query = GstrCompiledData::where(function($query) use($request){
                         $this->filter($request,$query);
-                
+
                         if($request->has('search')){
                             $query->where('erp_gstr_compiled_data.party_name', 'like', '%' . $request->search . '%')
                                 ->orWhere('erp_gstr_compiled_data.party_gstin', 'like', '%' . $request->search . '%');
                         }
-    
+
                     })
                     ->whereBetween('erp_gstr_compiled_data.invoice_date', [$startDate, $endDate])
                     ->where('supplier_gstin', $supplierGstin);
@@ -363,7 +363,7 @@ class GstrController extends Controller
                 $query->whereIn('invoice_type_id', $typeIds)
                         ->whereNotNull('hsn_code')
                         ->whereNotNull('uqc')
-                        ->groupBy('hsn_code','uqc');
+                        ->groupBy('hsn_code','uqc', 'rate');
                 break;
 
             case CommonHelper::HSN_B2C:
@@ -407,7 +407,7 @@ class GstrController extends Controller
         if($request->group_id){
             $query->where('erp_gstr_compiled_data.group_id', $request->group_id);
         }
-        
+
         if($request->company_id){
             $query->where('erp_gstr_compiled_data.company_id', $request->company_id);
         }
@@ -454,7 +454,7 @@ class GstrController extends Controller
 
     private function getStartEndDate($request){
         $startDate = Carbon::now()->startOfMonth(); // Start of the current month
-        $endDate = Carbon::now()->endOfMonth(); 
+        $endDate = Carbon::now()->endOfMonth();
 
         // Check if there's an applied date filter
         if ($request->has('date_range') && $request->date_range != '') {
@@ -527,7 +527,7 @@ class GstrController extends Controller
                 return back()->with('error', 'Could not create ZIP file');
             }
 
-        }else{    
+        }else{
             $type = ErpGstInvoiceType::where('id',$id)->first();
             if (!$type) {
                 return back()->with('error', 'Invalid export type selected.');

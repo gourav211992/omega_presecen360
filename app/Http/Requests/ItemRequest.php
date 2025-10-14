@@ -64,18 +64,20 @@ class ItemRequest extends FormRequest
             'organization_id' => 'nullable|exists:organizations,id', 
             'service_type' => 'nullable',
             'item_code_type'=>'nullable',
+            'is_override_code' => 'nullable|in:Yes,No',
             'book_id'=>'nullable',
             'book_code'=>'nullable',
             'item_code' => [
-            'required',
-            'string',
-            'max:255',
-            Rule::unique('erp_items', 'item_code')
-                ->ignore($itemId)  
-                ->whereNull('deleted_at') 
-                ->where($uniqueScope),
-           ],
-           'item_name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('erp_items', 'item_code')
+                    ->ignore($itemId)  
+                    ->whereNull('deleted_at') 
+                    ->where($uniqueScope),
+                'regex:/^(?!.*  ).*$/' 
+            ],
+            'item_name' => [
                 'required',
                 'string',
                 'max:300',
@@ -83,6 +85,7 @@ class ItemRequest extends FormRequest
                     ->ignore($itemId)  
                     ->whereNull('deleted_at')
                     ->where($uniqueScope),
+                'regex:/^(?!.*  ).*$/' 
             ],
             'item_initial'=>[
                 'required',
@@ -159,6 +162,8 @@ class ItemRequest extends FormRequest
             'approved_vendor.*.item_details' => 'nullable|string',
             'approved_vendor.*.cost_price' => 'nullable|regex:/^[0-9,]*(\.[0-9]{1,2})?$/|min:0', 
             'approved_vendor.*.uom_id' => 'nullable',
+            'approved_vendor.*.minimum_order_qty' => 'nullable|integer|min:0',
+            'approved_vendor.*.lead_days' => 'nullable|integer|min:0',
 
            // Packaging Fields
             'packaging' => 'nullable|array',
@@ -276,6 +281,8 @@ class ItemRequest extends FormRequest
             'organization_id.exists' => 'The selected organization is invalid.',
             'item_code.required' => 'The item code is required.',
             'item_code.unique' => 'The item code has already been taken.',
+            'item_code.regex' => 'Double spaces are not allowed in the item code.',
+            'item_name.regex' => 'Double spaces are not allowed in the item name.',
             'item_name.required' => 'The item name is required.',
             'item_initial.required' => 'The item initial is required.',
             'uom_id.required' => 'The unit name is required.',

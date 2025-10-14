@@ -5,11 +5,11 @@ use App\Traits\FileUploadTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class ExpMedia extends Model
+class Media extends Model
 {
     use HasFactory, FileUploadTrait;
 
-    protected $table = 'erp_exp_allocation_media';
+    protected $table = 'erp_exp_alc_media';
 
     protected $fillable = [
         'uuid',
@@ -28,4 +28,9 @@ class ExpMedia extends Model
         'responsive_images',
         'order_column',
     ];
+
+    public function source()
+    {
+        return $this->hasOne(MediaHistory::class, 'source_id');
+    }
 }

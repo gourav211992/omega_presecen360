@@ -20,6 +20,7 @@ class UploadItemMaster extends Model
         'hsn',
         'uom',
         'item_code_type',
+        'is_override_code',
         'cost_price',
         'cost_price_currency',
         'sell_price',

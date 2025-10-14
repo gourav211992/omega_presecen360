@@ -49,37 +49,75 @@ class Constants
     const RGR_SEGREGATION_PACK_MISSING = "Package Missing";
     const RGR_SEGREGATION_OK_TO_RECIEVE = "Ok to recieve";
 
-    const DEFECT_SEVERITY_MINOR = 'minor';
-    const DEFECT_SEVERITY_MAJOR = 'major';
-    const DEFECT_SEVERITY_SCRAP = 'scrap';
+    const DEFECT_SEVERITY_MINOR = 'Minor';
+    const DEFECT_SEVERITY_MAJOR = 'Major';
+    const DEFECT_SEVERITY_SCRAP = 'Scrap';
 
     const DEFECT_SEVERITY_LEVELS = [
-        ['label' => 'Minor', 'value' => self::DEFECT_SEVERITY_MINOR],
-        ['label' => 'Major', 'value' => self::DEFECT_SEVERITY_MAJOR],
-        ['label' => 'Scrap', 'value' => self::DEFECT_SEVERITY_SCRAP],
+        ['label' => self::DEFECT_SEVERITY_MINOR, 'value' => self::DEFECT_SEVERITY_MINOR],
+        ['label' => self::DEFECT_SEVERITY_MAJOR, 'value' => self::DEFECT_SEVERITY_MAJOR],
+        ['label' => self::DEFECT_SEVERITY_SCRAP, 'value' => self::DEFECT_SEVERITY_SCRAP],
     ];
 
-    const DAMAGE_NATURE_NO_DAMAGE = 'no_damage';
-    const DAMAGE_NATURE_CUSTOMER_DAMAGE = 'customer_damage';
-    const DAMAGE_NATURE_TRANSIT_HANDLE_DAMAGE = 'transit_handling_damage';
-    const DAMAGE_NATURE_WEAR_AND_TEAR = 'wear_tear_damage';
+    const DAMAGE_NATURE_NO_DAMAGE = 'No Damage';
+    const DAMAGE_NATURE_CUSTOMER_DAMAGE = 'Customer Damage';
+    const DAMAGE_NATURE_TRANSIT_HANDLE_DAMAGE = 'Transit / Handling Damage';
+    const DAMAGE_NATURE_WEAR_AND_TEAR = 'Wear and Tear';
 
     const DAMAGE_NATURES = [
-        ['label' => 'No Damage', 'value' => self::DAMAGE_NATURE_NO_DAMAGE],
-        ['label' => 'Customer Damage', 'value' => self::DAMAGE_NATURE_CUSTOMER_DAMAGE],
-        ['label' => 'Transit / Handling Damage', 'value' => self::DAMAGE_NATURE_TRANSIT_HANDLE_DAMAGE],
-        ['label' => 'Wear and Tear', 'value' => self::DAMAGE_NATURE_WEAR_AND_TEAR],
+        ['label' => self::DAMAGE_NATURE_NO_DAMAGE, 'value' => self::DAMAGE_NATURE_NO_DAMAGE],
+        ['label' => self::DAMAGE_NATURE_CUSTOMER_DAMAGE, 'value' => self::DAMAGE_NATURE_CUSTOMER_DAMAGE],
+        ['label' => self::DAMAGE_NATURE_TRANSIT_HANDLE_DAMAGE, 'value' => self::DAMAGE_NATURE_TRANSIT_HANDLE_DAMAGE],
+        ['label' => self::DAMAGE_NATURE_WEAR_AND_TEAR, 'value' => self::DAMAGE_NATURE_WEAR_AND_TEAR],
     ];
 
-    private static $severityMap = [
-        'minor' => [['label'=>'Component Missing','value'=>'component_missing']],
-        'major' => [['label'=>'Major Damage','value'=>'major_damage']],
-        'scrap' => [['label'=>'Full Hardware Missing','value'=>'full_hardware_missing']],
+    const DAMAGE_TYPE_TRANSIT = 'Transit Damage';
+    const DAMAGE_TYPE_WRONG_PRODUCT = 'Wrong Product';
+    const DAMAGE_TYPE_MISSING_PRODUCT = 'Missing Product';
+    const DAMAGE_TYPE_EXTRA_ASSET = 'Extra Asset';
+
+    const DAMAGE_TYPE = [
+        ['label' => self::DAMAGE_TYPE_TRANSIT, 'value' => self::DAMAGE_TYPE_TRANSIT],
+        ['label' => self::DAMAGE_TYPE_WRONG_PRODUCT, 'value' => self::DAMAGE_TYPE_WRONG_PRODUCT],
+        ['label' => self::DAMAGE_TYPE_MISSING_PRODUCT, 'value' => self::DAMAGE_TYPE_MISSING_PRODUCT],
+        ['label' => self::DAMAGE_TYPE_EXTRA_ASSET, 'value' => self::DAMAGE_TYPE_EXTRA_ASSET],
     ];
 
-    public static function getDefectTypesBySeverity($severity)
-    {
-        $severity = strtolower($severity);
-        return self::$severityMap[$severity] ?? [];
-    }
+    // REPAIR ACTION constants
+    const REPAIR_ACTION_CHANGE_DEFECT_LABEL = 'Change Defect Severity';
+    const REPAIR_ACTION_CHANGE_DEFECT_VALUE = 'change_defect_severity';
+
+    const REPAIR_ACTION_SEND_VENDOR_LABEL = 'Send to Vendor';
+    const REPAIR_ACTION_SEND_VENDOR_VALUE = 'send_to_vendor';
+
+    const REPAIR_ACTION_SCRAP_LABEL = 'Scrap';
+    const REPAIR_ACTION_SCRAP_VALUE = 'scrap';
+
+    const REPAIR_ACTION_REPAIR_LABEL = 'Repair';
+    const REPAIR_ACTION_REPAIR_VALUE = 'repair';
+
+    // QC ACTION constants
+    const QC_ACTION_REJECT_LABEL = 'Reject';
+    const QC_ACTION_REJECT_VALUE = 'reject';
+
+    const QC_ACTION_APPROVED_WITH_DEVIATION_LABEL = 'Approved with Deviation';
+    const QC_ACTION_APPROVED_WITH_DEVIATION_VALUE = 'approved_with_deviation';
+
+    const QC_ACTION_APPROVE_LABEL = 'Approve';
+    const QC_ACTION_APPROVE_VALUE = 'approve';
+
+    // Arrays using constants
+    const REPAIR_ACTION = [
+        ['label' => self::REPAIR_ACTION_CHANGE_DEFECT_LABEL, 'value' => self::REPAIR_ACTION_CHANGE_DEFECT_VALUE],
+        ['label' => self::REPAIR_ACTION_SEND_VENDOR_LABEL, 'value' => self::REPAIR_ACTION_SEND_VENDOR_VALUE],
+        ['label' => self::REPAIR_ACTION_SCRAP_LABEL, 'value' => self::REPAIR_ACTION_SCRAP_VALUE],
+        ['label' => self::REPAIR_ACTION_REPAIR_LABEL, 'value' => self::REPAIR_ACTION_REPAIR_VALUE],
+    ];
+
+    const QC_ACTION = [
+        ['label' => self::QC_ACTION_REJECT_LABEL, 'value' => self::QC_ACTION_REJECT_VALUE],
+        ['label' => self::QC_ACTION_APPROVED_WITH_DEVIATION_LABEL, 'value' => self::QC_ACTION_APPROVED_WITH_DEVIATION_VALUE],
+        ['label' => self::QC_ACTION_APPROVE_LABEL, 'value' => self::QC_ACTION_APPROVE_VALUE],
+    ];
+
 }

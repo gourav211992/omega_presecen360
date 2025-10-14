@@ -23,6 +23,7 @@ use App\Models\ErpRepMedia;
 use Illuminate\Support\Facades\DB;
 use App\Exceptions\ApiGenericException;
 use Illuminate\Support\Str;
+use App\Helpers\ReManufacturing\RepairOrder\Helper as RepHelper;
 
 class RepairOrderJobController extends Controller
 {
@@ -37,12 +38,14 @@ class RepairOrderJobController extends Controller
         if (!$storeExists) {
             throw ValidationException::withMessages(['store_id' => ['Store does not exist.']]);
         }
-
+        $subStoreId = $request->input('sub_store_id');
         try {
             $counts = ErpRepairOrder::where('store_id', $store_id)
-                ->selectRaw('LOWER(defect_status) as defect_status, COUNT(*) as total')
-                ->groupByRaw('LOWER(defect_status)')
-                ->pluck('total', 'defect_status');
+            ->when($subStoreId, fn($q) => $q->where('rgr_sub_store_id', $subStoreId))
+            ->whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])
+            ->selectRaw('LOWER(defect_status) as defect_status, COUNT(*) as total')
+            ->groupByRaw('LOWER(defect_status)')
+            ->pluck('total', 'defect_status');
 
             $result = [
                 'minor' => $counts['minor'] ?? 0,
@@ -84,10 +87,14 @@ class RepairOrderJobController extends Controller
                     );
                 })
                 ->when($defectStatus && strtolower($defectStatus) !== 'all', fn($q) => $q->where('defect_status', $defectStatus))
+                ->whereHas('job', function ($q) {
+                    $q->where('status', '!=', ConstantHelper::CLOSED)  
+                    ->where('morphable_type', ErpRepairOrder::class); 
+                })
                 ->orderBy('id','desc')
                 ->paginate(CommonHelper::PAGE_LENGTH_10);
 
-            $result = $repairOrders->map(function ($order) {
+                $result = $repairOrders->map(function ($order) {
                 $job = $order->job;
 
                 $itemObject = null;
@@ -162,7 +169,7 @@ class RepairOrderJobController extends Controller
         try {
             $job = ErpWhmJob::where('id', $job_id)
                 ->where('morphable_type', ErpRepairOrder::class)
-                ->with('morphable', 'itemUniqueCodes')
+                ->with('morphable', 'itemUniqueCodes.media')
                 ->first();
 
             if (!$job || !$job->morphable) {
@@ -199,12 +206,13 @@ class RepairOrderJobController extends Controller
                     ], $attrs);
                 }
 
-                $repItem = ErpRepItem::where('repair_order_id', $repairOrder->id)->first();
+                $repItem = ErpRepItem::where('repair_order_id', $repairOrder->id)
+                 ->where('item_id', $uniqueCode->item_id)
+                 ->first();
 
                 $defectDetails = [];
                 if ($repItem) {
                     $segregation = ErpRgrItemSegregation::where('rgr_id', $repairOrder->rgr_id)
-                        ->where('rgr_item_id', $repItem->rgr_item_id)
                         ->where('job_item_id', $repItem->rgr_job_detail_id)
                         ->first();
 
@@ -238,13 +246,17 @@ class RepairOrderJobController extends Controller
                 ];
             }
 
+            $scanned_count = ErpItemUniqueCode::where('job_id', $job_id)
+                ->where('status', 'scanned')
+                ->count();
+
             $data = [
                 'job_id' => $job->id,
                 'repair_order_id' => $repairOrder->id,
                 'repair_doc_no' => ($repairOrder->book_code ?? '') . '-' . ($repairOrder->document_number ?? ''),
                 'total_items' => $job->itemUniqueCodes->count(),
                 'repair_item' => $itemObject, 
-                'scanned_count' => $uniqueCode ? 1 : 0,
+                'scanned_count' => $scanned_count,
                 'rgr_id' => $rgr?->id,
                 'rgr_doc_no' => $rgr ? ($rgr->book_code . '-' . $rgr->document_number) : null,
                 'trip_no' => $rgr?->trip_no,
@@ -262,6 +274,115 @@ class RepairOrderJobController extends Controller
             throw new ApiGenericException($e->getMessage());
         }
     }
+
+    public function getRepairOrderDetailsByItemUid($item_uid)
+    {
+        if (!$item_uid) {
+            throw ValidationException::withMessages(['item_uid' => ['Invalid item_uid provided.']]);
+        }
+
+        try {
+            $uniqueCode = ErpItemUniqueCode::where('item_uid', $item_uid)
+                ->where('morphable_type', ErpRepItem::class)
+                 ->with('media', 'job') 
+                ->first();
+
+            if (!$uniqueCode || !$uniqueCode->job) {
+                throw ValidationException::withMessages(['item_uid' => ['No job found for this item.']]);
+            }
+
+            $job = $uniqueCode->job;
+
+            if ($job->morphable_type !== ErpRepairOrder::class || !$job->morphable) {
+                throw ValidationException::withMessages(['item_uid' => ['Related job is not a Repair Order.']]);
+            }
+
+            if ($job->status === 'closed') {
+                throw ValidationException::withMessages(['item_uid' => ['This job is closed.']]);
+            }
+
+            $repairOrder = $job->morphable;
+
+            $rgr = null;
+            if ($repairOrder->rgr_id) {
+                $rgr = ErpRgr::select('id', 'book_code', 'document_number', 'trip_no', 'vehicle_no')
+                    ->find($repairOrder->rgr_id);
+            }
+
+            $attributes = [];
+            if ($uniqueCode->item_attributes) {
+                $attrs = is_string($uniqueCode->item_attributes)
+                    ? json_decode($uniqueCode->item_attributes, true) ?? []
+                    : (array) $uniqueCode->item_attributes;
+
+                $attributes = array_map(fn($attr) => [
+                    'attribute_name'  => $attr['attribute_name'] ?? null,
+                    'attribute_value' => $attr['attribute_value'] ?? null,
+                ], $attrs);
+            }
+
+            $repItem = ErpRepItem::where('repair_order_id', $repairOrder->id)
+                ->where('item_id', $uniqueCode->item_id)
+                ->first();
+
+            $defectDetails = [];
+            if ($repItem) {
+                $segregation = ErpRgrItemSegregation::where('rgr_id', $repairOrder->rgr_id)
+                    ->where('job_item_id', $repItem->rgr_job_detail_id)
+                    ->first();
+
+                if ($segregation) {
+                    $defectDetails = [
+                        'segregation_id' => $segregation->id,
+                        'defect_severity' => $segregation->defect_severity,
+                        'defect_type' => $segregation->defect_type,
+                        'damage_nature' => $segregation->damage_nature,
+                        'remarks' => $segregation->remarks,
+                    ];
+                }
+            }
+
+            $item_image_urls = [];
+            foreach ($uniqueCode->media as $media) {
+                $item_image_urls[] = asset('storage/' . $media->file_name);
+            }
+
+            $itemObject = [
+                'id' => $uniqueCode->id ?? "",
+                'item_id' => $uniqueCode->item_id ?? "",
+                'item_code' => $uniqueCode->item_code ?? "",
+                'item_name' => $uniqueCode->item_name ?? "",
+                'attributes' => $attributes,
+                'uid' => $uniqueCode->uid ?? "",
+                'item_uid' => $uniqueCode->item_uid ?? "",
+                'status' => $uniqueCode->status ?? "",
+                'defect_detail' => $defectDetails ?? [],
+                'item_image_urls' => $item_image_urls,
+            ];
+
+            $data = [
+                'job_id' => $job->id,
+                'repair_order_id' => $repairOrder->id,
+                'repair_doc_no' => ($repairOrder->book_code ?? '') . '-' . ($repairOrder->document_number ?? ''),
+                'repair_item' => $itemObject,
+                'rgr_id' => $rgr?->id,
+                'rgr_doc_no' => $rgr ? ($rgr->book_code . '-' . $rgr->document_number) : null,
+                'trip_no' => $rgr?->trip_no,
+                'vehicle_no' => $rgr?->vehicle_no,
+            ];
+
+            return [
+                'message' => 'Data retrieved successfully.',
+                'data' => [
+                    'repair_order' => $data
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            throw new ApiGenericException($e->getMessage());
+        }
+    }
+
    public function getServiceItems(Request $request)
     {
         try {
@@ -453,12 +574,18 @@ class RepairOrderJobController extends Controller
                 $repItem->repair_remarks = $remark ?? $repItem->repair_remarks;
 
                 if ($rejuvenate_item_id) {
+                    
                     $rejuItem = Item::find($rejuvenate_item_id);
+                    $validatedAttributes = [];
+                    if (!empty($rejuvenate_item_attributes) && $rejuItem) {
+                       $validatedArray = RepHelper::validateItemAttributes($rejuvenate_item_attributes, $rejuItem->id, false);
+                       $validatedAttributes = !empty($validatedArray) ? json_encode($validatedArray, JSON_THROW_ON_ERROR) : null;
+                    }
                     if ($rejuItem) {
                         $repItem->rejuvenate_item_id = $rejuItem->id;
                         $repItem->rejuvenate_item_code = $rejuItem->item_code;
                         $repItem->rejuvenate_item_name = $rejuItem->item_name;
-                        $repItem->rejuvenate_item_attributes = json_encode($rejuvenate_item_attributes);
+                        $repItem->rejuvenate_item_attributes = $validatedAttributes; 
                     }
                 }
 
@@ -570,11 +697,17 @@ class RepairOrderJobController extends Controller
 
                 if ($rejuvenate_item_id) {
                     $rejuItem = Item::find($rejuvenate_item_id);
+                    $validatedAttributes = [];
+                    if (!empty($rejuvenate_item_attributes) && $rejuItem) {
+                         $validatedArray = RepHelper::validateItemAttributes($rejuvenate_item_attributes, $rejuItem->id, false);
+                          $validatedAttributes = !empty($validatedArray) ? json_encode($validatedArray, JSON_THROW_ON_ERROR) : null;
+                    }
+
                     if ($rejuItem) {
                         $repItem->rejuvenate_item_id = $rejuItem->id;
                         $repItem->rejuvenate_item_code = $rejuItem->item_code;
                         $repItem->rejuvenate_item_name = $rejuItem->item_name;
-                        $repItem->rejuvenate_item_attributes = json_encode($rejuvenate_item_attributes);
+                        $repItem->rejuvenate_item_attributes = $validatedAttributes;
                     }
                 }
 
@@ -610,6 +743,7 @@ class RepairOrderJobController extends Controller
         }
     }
 
+    
    public function changeDefectSeverityAction(Request $request)
     {
         DB::beginTransaction();

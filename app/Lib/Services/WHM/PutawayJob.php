@@ -67,7 +67,16 @@ class PutawayJob
 
         $type = $jobType ?? CommonHelper::getJobType($namespace);
         $trnstype = CommonHelper::getJobTransactionType($namespace);
-        
+
+        if ($namespace === \App\Models\ErpPsvHeader::class) {
+            $type = 'putaway';
+            $hasPsvItems = $header->items()->where('adjusted_qty','>', 0)->exists();
+
+            if (!$hasPsvItems) {
+                return; // ⛔ No job creation
+            }
+        }
+
         // Step 2: Get or Create Job (prevents duplicate job on edit)
         $job = ErpWhmJob::firstOrCreate(
             [
@@ -102,6 +111,11 @@ class PutawayJob
 
         if($referenceType == ConstantHelper::INSPECTION_SERVICE_ALIAS){
             $detailsQuery = InspectionDetail::where('header_id',$referenceId)->with('attributes');
+        }
+
+        if ($namespace === \App\Models\ErpPsvHeader::class) {
+            // Only include items that have batches
+            $detailsQuery->where('adjusted_qty','>', 0);
         }
         
         $details = $detailsQuery->get();

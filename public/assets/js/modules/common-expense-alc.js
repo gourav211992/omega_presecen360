@@ -1,3 +1,15 @@
+const isEditPage = window.location.pathname.includes("/edit");
+let currentProcessType;
+let po_header_ids = [];
+let grn_header_ids = [];
+let po_details_ids = [];
+let grn_details_ids = [];
+
+if (!isEditPage) {
+    currentProcessType = null;
+} else {
+    currentProcessType = currentProcessType;
+}
 $(document).on("change", ".book_id", (e) => {
     let bookId = e.target.value;
     if (bookId) {
@@ -32,24 +44,10 @@ function getDocNumberByBookId(bookId) {
                 }
                 const parameters = data.data.parameters;
                 setServiceParameters(parameters);
-                if (
-                    parameters?.tax_required.some(
-                        (val) => val.toLowerCase() === "yes"
-                    )
-                ) {
-                    $(".tax_required").val(parameters?.tax_required[0]);
-                } else {
-                    $(".tax_required").val("");
-                }
-                implementBookDynamicFields(
-                    data.data.dynamic_fields_html,
-                    data.data.dynamic_fields
-                );
             }
             if (data.status == 404) {
                 $(".book_code").val("");
                 $(".document_number").val("");
-                $(".tax_required").val("");
                 const docDateInput = $("[name='document_date']");
                 docDateInput.removeAttr("min");
                 docDateInput.removeAttr("max");
@@ -65,15 +63,6 @@ setTimeout(() => {
     getDocNumberByBookId(bookId);
 }, 0);
 
-function implementBookDynamicFields(html, data) {
-    let dynamicBookSection = document.getElementById("dynamic_fields_section");
-    dynamicBookSection.innerHTML = html;
-    if (data && data.length > 0) {
-        dynamicBookSection.classList.remove("d-none");
-    } else {
-        dynamicBookSection.classList.add("d-none");
-    }
-}
 /*Set Service Parameter*/
 function setServiceParameters(parameters) {
     /*Date Validation*/
@@ -206,6 +195,258 @@ function initializeAutocomplete1(selector, type) {
 }
 initializeAutocomplete1(".vendor_name");
 
+/*po qty on change in case of direct*/
+$(document).on("change", "[name*='po_qty']", function (e) {
+    edit = true; // Set edit to true when order_qty changes
+    const $tr = $(e.target).closest("tr");
+    const $poQtyInput = $tr.find("[name*='po_qty']");
+    const $poRateInput = $tr.find("[name*='po_rate']");
+    const $poValueInput = $tr.find("[name*='po_value']");
+    const dataIndex = $tr.attr("data-index");
+    const itemId = $tr.find("[name*='item_id']").val();
+
+    let poQty = parseFloat($poQtyInput.val()) || 0;
+    let poRate = parseFloat($poRateInput.val()) || 0;
+    let poValue = parseFloat($poValueInput.val()) || 0;
+
+    if (poQty <= 0) {
+        Swal.fire({
+            title: "Error!",
+            text: "Po Qty. cannot be less than 1.",
+            icon: "error",
+        });
+    }
+
+    if (Number(poRate)) {
+        let totalValue = parseFloat(poQty) * parseFloat(poRate);
+        $poValueInput.val(totalValue.toFixed(6));
+    } else {
+        $poValueInput.val("");
+    }
+    setTableCalculation();
+});
+
+/*po qty on change in case of direct*/
+$(document).on("change", "[name*='po_rate']", function (e) {
+    edit = true; // Set edit to true when order_qty changes
+    const $tr = $(e.target).closest("tr");
+    const $poQtyInput = $tr.find("[name*='po_qty']");
+    const $poRateInput = $tr.find("[name*='po_rate']");
+    const $poValueInput = $tr.find("[name*='po_value']");
+    const dataIndex = $tr.attr("data-index");
+    const itemId = $tr.find("[name*='item_id']").val();
+
+    let poQty = parseFloat($poQtyInput.val()) || 0;
+    let poRate = parseFloat($poRateInput.val()) || 0;
+    let poValue = parseFloat($poValueInput.val()) || 0;
+
+    if (poRate <= 0) {
+        Swal.fire({
+            title: "Error!",
+            text: "Po Rate cannot be less than 1.",
+            icon: "error",
+        });
+    }
+
+    if (Number(poRate)) {
+        let totalValue = parseFloat(poQty) * parseFloat(poRate);
+        $poValueInput.val(totalValue.toFixed(6));
+    } else {
+        $poValueInput.val("");
+    }
+    setTableCalculation();
+});
+
+function initializeAutocomplete2(selector, type) {
+    $(selector)
+        .autocomplete({
+            source: function (request, response) {
+                let selectedAllItemIds = [];
+                $(".poItemsTable tbody [id*='row_']").each(function (
+                    index,
+                    item
+                ) {
+                    if (Number($(item).find('[name*="item_id"]').val())) {
+                        selectedAllItemIds.push(
+                            Number($(item).find('[name*="item_id"]').val())
+                        );
+                    }
+                });
+                $.ajax({
+                    url: "/search",
+                    method: "GET",
+                    dataType: "json",
+                    data: {
+                        q: request.term,
+                        type: "service_item_list",
+                        selectedAllItemIds: JSON.stringify(selectedAllItemIds),
+                    },
+                    success: function (data) {
+                        response(
+                            $.map(data, function (item) {
+                                return {
+                                    id: item.id,
+                                    label: `${item.item_name} (${item.item_code})`,
+                                    code: item.item_code || "",
+                                    item_id: item.id,
+                                    item_name: item.item_name,
+                                    uom_name: item.uom?.name,
+                                    uom_id: item.uom_id,
+                                    hsn_id: item.hsn?.id,
+                                    hsn_code: item.hsn?.code,
+                                    alternate_u_o_ms: item.alternate_u_o_ms,
+                                };
+                            })
+                        );
+                    },
+                    error: function (xhr) {
+                        console.error(
+                            "Error fetching item data:",
+                            xhr.responseText
+                        );
+                    },
+                });
+            },
+            minLength: 0,
+            select: function (event, ui) {
+                let $input = $(this);
+                let itemCode = ui.item.code;
+                let itemName = ui.item.value;
+                let itemN = ui.item.item_name;
+                let itemId = ui.item.item_id;
+                let uomId = ui.item.uom_id;
+                let uomName = ui.item.uom_name;
+                let hsnId = ui.item.hsn_id;
+                let hsnCode = ui.item.hsn_code;
+                $input.attr("data-name", itemName);
+                $input.attr("data-code", itemCode);
+                $input.attr("data-id", itemId);
+                let closestTr = $input.closest("tr");
+                closestTr.find("[name*=item_id]").val(itemId);
+                closestTr.find("[name*=item_code]").val(itemCode);
+                closestTr.find("[name*=item_name]").val(itemN);
+                closestTr.find("[name*=hsn_id]").val(hsnId);
+                closestTr.find("[name*=hsn_code]").val(hsnCode);
+                closestTr.find("td[id*='itemAttribute_']").html(defautAttrBtn);
+                $input.val(itemCode);
+                let uomOption = `<option value=${uomId}>${uomName}</option>`;
+                if (ui.item?.alternate_u_o_ms) {
+                    for (let alterItem of ui.item.alternate_u_o_ms) {
+                        uomOption += `<option value="${alterItem.uom_id}" ${
+                            alterItem.is_purchasing ? "selected" : ""
+                        }>${alterItem.uom?.name}</option>`;
+                    }
+                }
+                closestTr.find("[name*=uom_id]").append(uomOption);
+                closestTr.find(".attributeBtn").trigger("click");
+                setTimeout(() => {
+                    $input
+                        .closest("tr")
+                        .find('[name*="[po_qty]"]')
+                        .val("1")
+                        .focus();
+                }, 100);
+                // getItemDetail(closestTr);
+                return false;
+            },
+            change: function (event, ui) {
+                if (!ui.item) {
+                    $(this).val("");
+                    // $('#itemId').val('');
+                    $(this).attr("data-name", "");
+                    $(this).attr("data-code", "");
+                }
+            },
+        })
+        .focus(function () {
+            if (this.value === "") {
+                $(this).autocomplete("search", "");
+            }
+        });
+}
+
+/*Add New Item Row*/
+$(document).on("click", ".addNewItemBtn", (e) => {
+    // for component item code
+    initializeAutocomplete2();
+    let rowsLength = $(".poItemsTable > tbody > tr").length;
+    /*Check last tr data shoud be required*/
+    let lastRow = $(".poItemsTable .mrntableselectexcel tr:last");
+    let lastTrObj = {
+        item_id: "",
+        attr_require: true,
+        row_length: lastRow.length,
+    };
+
+    if (lastRow.length == 0) {
+        lastTrObj.attr_require = false;
+        lastTrObj.item_id = "0";
+    }
+
+    if (lastRow.length > 0) {
+        let item_id = lastRow.find("[name*='item_id']").val();
+        if (lastRow.find("[name*='attr_name']").length) {
+            var emptyElements = lastRow
+                .find("[name*='attr_name']")
+                .filter(function () {
+                    return $(this).val().trim() === "";
+                });
+            attr_require = emptyElements?.length ? true : false;
+        } else {
+            attr_require = true;
+        }
+
+        lastTrObj = {
+            item_id: item_id,
+            attr_require: attr_require,
+            row_length: lastRow.length,
+        };
+
+        if (
+            $("tr[id*='row_']:last").find("[name*='[attr_group_id]']").length ==
+                0 &&
+            item_id
+        ) {
+            lastTrObj.attr_require = false;
+        }
+    }
+
+    let queryParams = new URLSearchParams({
+        count: rowsLength,
+        component_item: JSON.stringify(lastTrObj),
+    }).toString();
+
+    let actionUrl = `${addItemRowUrl}?${queryParams}`;
+    fetch(actionUrl).then((response) => {
+        return response.json().then((data) => {
+            if (data.status == 200) {
+                // $("#submit-button").click();
+                if (rowsLength) {
+                    $(".poItemsTable > tbody > tr:last").after(data.data.html);
+                } else {
+                    $(".poItemsTable > tbody").html(data.data.html);
+                }
+                initializeAutocomplete2(".comp_item_code");
+                $(".module_type").val("po");
+                focusAndScrollToLastRowInput();
+                setTableCalculation();
+            } else if (data.status == 422) {
+                Swal.fire({
+                    title: "Error!",
+                    text: data.message || "An unexpected error occurred.",
+                    icon: "error",
+                });
+            } else {
+                Swal.fire({
+                    title: "Error!",
+                    text: "Someting went wrong!",
+                    icon: "error",
+                });
+            }
+        });
+    });
+});
+
 /*Open Po model*/
 let poOrderTable;
 $(document).on("click", ".poSelect", (e) => {
@@ -235,15 +476,15 @@ function getSelectedPoTypes() {
 
 function openPurchaseRequest() {
     initializeAutocompleteQt(
-        "vendor_code_input_qt",
-        "vendor_id_qt_val",
+        "po_vendor_code_input_qt",
+        "po_vendor_id_qt_val",
         "vendor_list",
         "vendor_code",
         "company_name"
     );
     initializeAutocompleteQt(
-        "document_no_input_qt",
-        "document_id_qt_val",
+        "po_document_no_input_qt",
+        "po_document_id_qt_val",
         "po_document_qt",
         "document_number",
         ""
@@ -268,20 +509,14 @@ function initializeAutocompleteQt(
                     data: {
                         q: request.term,
                         type: typeVal,
-                        vendor_id: $("#vendor_id_qt_val").val(),
-                        header_book_id: $("#book_id").val(),
-                        store_id: $("#store_id_po").val() || "",
+                        vendor_id: $(".po_vendor_id_qt_val").val(),
+                        header_book_id: $(".book_id").val(),
+                        store_id: $(".store_id_po").val() || "",
                     },
                     success: function (data) {
                         response(
                             $.map(data, function (item) {
-                                // return {
-                                //     id: item.id,
-                                //     label: `${item[labelKey1]} ${labelKey2 ? (item[labelKey2] ? '(' + item[labelKey2] + ')' : '') : ''}`,
-                                //     code: item[labelKey1] || '',
-                                // };
                                 let label = "";
-
                                 if (
                                     "document_number" in item &&
                                     "book_code" in item
@@ -364,16 +599,14 @@ function getDynamicParams() {
         selectedPoIds = JSON.parse(selectedPoIds);
         selectedPoIds = encodeURIComponent(JSON.stringify(selectedPoIds));
         (document_date = $("[name ='document_date']").val() || ""),
-            (header_book_id = $("#book_id").val() || ""),
-            (series_id = $("#book_id_qt_val").val() || ""),
-            (document_number = $("#document_id_qt_val").val() || ""),
-            (asn_number = $("#asn_id_qt_val").val() || ""),
-            (item_id = $("#item_id_qt_val").val() || ""),
-            (vendor_id = $("#vendor_id_qt_val").val()),
+            (header_book_id = $(".book_id").val() || ""),
+            (series_id = $(".book_id_qt_val").val() || ""),
+            (document_number = $(".po_document_id_qt_val").val() || ""),
+            (item_id = $(".po_item_id_qt_val").val() || ""),
+            (vendor_id = $(".po_vendor_id_qt_val").val()),
             (store_id = $(".header_store_id").val() || ""),
-            (so_id = $("#po_so_qt_val").val() || ""),
-            (item_search = $("#item_name_search").length
-                ? $("#item_name_search").val()
+            (item_search = $(".po_item_name_search").length
+                ? $(".po_item_name_search").val()
                 : ""),
             (selected_po_ids = selectedPoIds);
         selected_po_ids = encodeURIComponent(selectedPoIds);
@@ -383,16 +616,14 @@ function getDynamicParams() {
         selectedGrnIds = JSON.parse(selectedGrnIds);
         selectedGrnIds = encodeURIComponent(JSON.stringify(selectedGrnIds));
         (document_date = $("[name ='document_date']").val() || ""),
-            (header_book_id = $("#book_id").val() || ""),
-            (series_id = $("#book_id_qt_val").val() || ""),
-            (document_number = $("#document_id_qt_val").val() || ""),
-            (asn_number = $("#asn_id_qt_val").val() || ""),
-            (item_id = $("#item_id_qt_val").val() || ""),
-            (vendor_id = $("#vendor_id_qt_val").val()),
+            (header_book_id = $(".book_id").val() || ""),
+            (series_id = $(".book_id_qt_val").val() || ""),
+            (document_number = $(".grn_document_id_qt_val").val() || ""),
+            (item_id = $(".grn_item_id_qt_val").val() || ""),
+            (vendor_id = $(".grn_vendor_id_qt_val").val()),
             (store_id = $(".header_store_id").val() || ""),
-            (so_id = $("#po_so_qt_val").val() || ""),
-            (item_search = $("#item_name_search").length
-                ? $("#item_name_search").val()
+            (item_search = $(".grn_item_name_search").length
+                ? $(".grn_item_name_search").val()
                 : ""),
             (selected_grn_ids = selectedGrnIds);
         selected_po_ids = encodeURIComponent(selectedGrnIds);
@@ -409,6 +640,10 @@ function getDynamicParams() {
         so_id: so_id,
         item_search: item_search,
         selected_po_ids: selected_po_ids,
+        po_header_ids: encodeURIComponent(po_header_ids),
+        po_details_ids: encodeURIComponent(po_details_ids),
+        grn_header_ids: encodeURIComponent(grn_header_ids),
+        grn_details_ids: encodeURIComponent(grn_details_ids),
     };
 }
 
@@ -534,7 +769,7 @@ function getPurchaseOrders() {
     initializeDataTableCustom(".poModal .po-order-detail", ajaxUrl, columns);
 }
 
-$(document).on("keyup", "#item_name_search", (e) => {
+$(document).on("keyup", ".po_item_name_search", (e) => {
     $(".poModal .po-order-detail").DataTable().ajax.reload();
 });
 
@@ -553,8 +788,6 @@ $(document).on("change", ".po-order-detail > thead .form-check-input", (e) => {
 
 function getSelectedPoIDS() {
     let ids = [];
-    let asnIds = [];
-    let asnItemIds = [];
     let referenceNos = [];
 
     $(".po_item_checkbox:checked").each(function () {
@@ -739,8 +972,6 @@ $(document).on("click", ".poProcess", (e) => {
             });
     }
 
-    let currencyId = $("select[name='currency_id']").val();
-    let transactionDate = $("input[name='document_date']").val() || "";
     let groupItems = [];
     $("tr[data-group-item]").each(function () {
         let groupItemData = $(this).data("group-item");
@@ -759,21 +990,13 @@ $(document).on("click", ".poProcess", (e) => {
 });
 
 $(document).on("click", ".clearPoFilter", (e) => {
-    $("#item_name_input_qt").val("");
-    $("#item_id_qt_val").val("");
-    $("#store_po").val("");
-    $("#store_id_po").val("");
-    $("#sub_store_po").val("");
-    $("#sub_store_id_po").val("");
-    $("#vendor_code_input_qt").val("");
-    $("#vendor_id_qt_val").val("");
-    $("#book_code_input_qt").val("");
-    $("#book_id_qt_val").val("");
-    $("#document_no_input_qt").val("");
-    $("#document_id_qt_val").val("");
-    $("#po_so_no_input_qt").val("");
-    $("#po_so_qt_val").val("");
-    $("#item_name_search").val("");
+    $(".po_item_name_input_qt").val("");
+    $(".po_item_id_qt_val").val("");
+    $(".po_vendor_code_input_qt").val("");
+    $(".po_vendor_id_qt_val").val("");
+    $(".po_document_no_input_qt").val("");
+    $(".po_document_id_qt_val").val("");
+    $(".po_item_name_search").val("");
     $(".poModal .po-order-detail").DataTable().ajax.reload();
 });
 
@@ -805,30 +1028,23 @@ function getSelectedGrnTypes() {
 }
 
 function openGrnRequest() {
-    initializeAutocompleteQt(
-        "vendor_code_input_qt",
-        "vendor_id_qt_val",
+    initializeAutocompleteQtGrn(
+        "grn_vendor_code_input_qt",
+        "grn_vendor_id_qt_val",
         "vendor_list",
         "vendor_code",
         "company_name"
     );
-    initializeAutocompleteQt(
-        "document_no_input_qt",
-        "document_id_qt_val",
+    initializeAutocompleteQtGrn(
+        "grn_document_no_input_qt",
+        "grn_document_id_qt_val",
         "mrn_document_qt",
         "document_number",
         ""
     );
-    initializeAutocompleteQt(
-        "so_no_input_qt",
-        "so_qt_val",
-        "so_qt",
-        "book_code",
-        "document_number"
-    );
 }
 
-function initializeAutocompleteQt(
+function initializeAutocompleteQtGrn(
     selector,
     selectorSibling,
     typeVal,
@@ -836,7 +1052,8 @@ function initializeAutocompleteQt(
     labelKey2 = ""
 ) {
     let modalType = ".grnModal";
-    $("#" + selector)
+
+    $("." + selector)
         .autocomplete({
             source: function (request, response) {
                 $.ajax({
@@ -846,9 +1063,9 @@ function initializeAutocompleteQt(
                     data: {
                         q: request.term,
                         type: typeVal,
-                        vendor_id: $("#vendor_id_qt_val").val(),
-                        header_book_id: $("#book_id").val(),
-                        store_id: $("#store_id").val() || "",
+                        vendor_id: $(".grn_vendor_id_qt_val").val(),
+                        header_book_id: $(".book_id").val(),
+                        store_id: $(".store_id").val() || "",
                     },
                     success: function (data) {
                         response(
@@ -914,21 +1131,6 @@ function initializeAutocompleteQt(
             }
         });
 }
-
-$(document).on(
-    "autocompletechange autocompleteselect",
-    "#store_po",
-    function (event, ui) {
-        let storeId = ui?.item?.id || "";
-        initializeAutocompleteQt(
-            "sub_store_po",
-            "sub_store_id_po",
-            "sub_store",
-            "name",
-            ""
-        );
-    }
-);
 
 function getGrn() {
     const ajaxUrl = getGrnUrl;
@@ -1027,7 +1229,7 @@ function getGrn() {
     initializeDataTableCustom(".grnModal .grn-order-detail", ajaxUrl, columns);
 }
 
-$(document).on("keyup", "#grn_item_name_search", (e) => {
+$(document).on("keyup", ".grn_item_name_search", (e) => {
     $(".grnModal .grn-order-detail").DataTable().ajax.reload();
 });
 
@@ -1075,7 +1277,7 @@ $(document).on("click", ".grnProcess", (e) => {
         $(".grnModal").modal("hide");
         Swal.fire({
             title: "Error!",
-            text: "Please select at least one one grn",
+            text: "Please select at least one grn",
             icon: "error",
         });
         return false;
@@ -1202,10 +1404,6 @@ $(document).on("click", ".grnProcess", (e) => {
                         } else {
                             $input
                                 .closest("tr")
-                                .find(".attributeBtn")
-                                .trigger("click");
-                            $input
-                                .closest("tr")
                                 .find('[name*="[order_qty]"]')
                                 .val("")
                                 .focus();
@@ -1250,83 +1448,179 @@ $(document).on("click", ".grnProcess", (e) => {
     asnProcess(processData, "grn-process");
 });
 
+$(document).on("click", ".clearGrnFilter", (e) => {
+    $(".grn_item_name_input_qt").val("");
+    $(".grn_item_id_qt_val").val("");
+    $(".grn_vendor_code_input_qt").val("");
+    $(".grn_vendor_id_qt_val").val("");
+    $(".grn_document_no_input_qt").val("");
+    $(".grn_document_id_qt_val").val("");
+    $(".grn_item_name_search").val("");
+    $(".grnModal .grn-order-detail").DataTable().ajax.reload();
+});
+
 // Asn Process
 function asnProcess(asnData, moduleProcess) {
-    const current_row_count = $("tbody tr[id*='row_']").length;
-    const processType = asnData.type;
-    let selectedIds =
-        processType === "grn"
-            ? localStorage.getItem("selectedGrnIds") ?? []
-            : localStorage.getItem("selectedPoIds") ?? [];
+    // ---------- tiny helpers (scoped to this function) ----------
+    const safeJSON = (v, fallback) => {
+        try {
+            return JSON.parse(v);
+        } catch {
+            return fallback;
+        }
+    };
+    const getMeta = (name, def = "") =>
+        $(`meta[name='${name}']`).attr("content") || def;
+    const toArr = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
 
-    const ids = JSON.stringify(asnData.ids);
-    const moduleTypes = JSON.stringify(asnData.module_type);
-    const moduleType = asnData.module_type?.[0] ?? "po";
+    // Map any incoming module_type to tab key
+    const resolveTabKey = (mt) => {
+        // normalize single value or first of array
+        const raw = Array.isArray(mt) ? mt[0] || "" : mt || "";
+        const s = String(raw).toLowerCase();
+        if (s === "mrn-order" || s === "grn" || s === "ge" || s === "asn")
+            return "grn";
+        // default to PO (purchase order / expense side)
+        return "po";
+    };
 
-    const currencyId = $("[name='currency_id']").val();
-    const transactionDate = $("[name='document_date']").val();
-    const type = $("meta[name='route-type']").attr("content"); // blade->meta
+    // Tab containers (adjust if your IDs differ)
+    const TABS = { po: ".poItems", grn: ".grnItems" };
+    // Row selectors inside each tab (adjust if your classes differ)
+    const ROWS = { po: ".po-row", grn: ".grn-row" };
 
+    // Count rows in a specific tab (even if hidden); ignore soft-deleted/template rows
+    function countRowsInTab(tabKey) {
+        const $scope = $(TABS[tabKey]).length
+            ? $(TABS[tabKey])
+            : $(document.body);
+        const rowSel = ROWS[tabKey];
+        return $scope.find(rowSel).filter(function () {
+            const $r = $(this);
+            const softRemoved =
+                $r.hasClass("is-deleted") ||
+                String($r.attr("data-removed")) === "1" ||
+                $r.data("removed") === 1;
+            const isTemplate = $r.is(
+                '[data-template="1"], .template-row, .d-template'
+            );
+            return !softRemoved && !isTemplate; // allow hidden (other tab)
+        }).length;
+    }
+
+    // Append HTML `pos` into the correct table inside a tab
+    function appendRowsIntoTab(tabKey, html) {
+        if (tabKey === "grn") {
+            return $(".grnItemsTable .mrntableselectexcel").append(html);
+        }
+        // default PO
+        return $(".poItemsTable .mrntableselectexcel").append(html);
+    }
+
+    // ---------- inputs & normalization ----------
+    const processType = (asnData?.type || "po").toLowerCase(); // "po" or "grn"
+    const idsJson = JSON.stringify(toArr(asnData?.ids));
+    const moduleTypesJson = JSON.stringify(toArr(asnData?.module_type));
+
+    const tabKey = resolveTabKey(asnData?.module_type); // "po" | "grn"
+    let current_row_count = countRowsInTab(tabKey);
+
+    // Selected IDs per processType (stored in localStorage as JSON array)
+    const lsKeys = { po: "selectedPoIds", grn: "selectedGrnIds" };
+    const selectedLsKey = lsKeys[processType] || lsKeys.po;
+    const selectedIdsArr = safeJSON(
+        localStorage.getItem(selectedLsKey) || "[]",
+        []
+    );
+
+    // Build base route & params
     const baseRoute = processType === "po" ? processPoUrl : processGrnUrl;
-    console.log(baseRoute, processType);
+    const routeType = getMeta("route-type", "create"); // e.g., "create" | "edit"
+    const transactionDate = $("[name='document_date']").val();
+
+    // Some backends expect tableRowCount; keep both names to be safe
+    const tableRowCount = current_row_count;
+
+    // Param for selected ids differs by type
+    const selectedParamKey =
+        processType === "grn" ? "selected_grn_ids" : "selected_po_ids";
 
     const actionUrl =
-        baseRoute.replace(":type", type) +
+        baseRoute.replace(":type", routeType) +
         "?ids=" +
-        encodeURIComponent(ids) +
+        encodeURIComponent(idsJson) +
         "&moduleTypes=" +
-        moduleTypes +
+        encodeURIComponent(moduleTypesJson) +
         "&tableRowCount=" +
         tableRowCount +
-        "&d_date=" +
-        encodeURIComponent(transactionDate) +
-        "&selected_po_ids=" +
-        encodeURIComponent(selectedIds) +
-        "&type=" +
-        "create" +
         "&current_row_count=" +
-        current_row_count;
+        current_row_count +
+        "&d_date=" +
+        encodeURIComponent(transactionDate || "") +
+        `&${selectedParamKey}=` +
+        encodeURIComponent(JSON.stringify(selectedIdsArr)) +
+        "&type=create";
 
+    // ---------- request ----------
     fetch(actionUrl)
         .then((res) => res.json())
         .then((data) => {
-            if (data.status !== 200) return handleAsnError(data.message);
+            console.log("ASN response", data);
 
-            const { pos, moduleType } = data.data;
+            if (data.status !== 200) {
+                return handleAsnError?.(
+                    data.message || "Unable to process ASN."
+                );
+            }
+
+            // Server payload
+            const payload = data.data || {};
+            const posHtml = payload.pos || ""; // HTML rows
+            const serverModuleType = payload.moduleType || tabKey; // fallback to our tabKey
+
+            // Final model type we operate on in UI ("po" or "grn")
             const modelType = processType === "grn" ? "grn" : "po";
-            const order =
-                modelType === "grn"
-                    ? data.data.grnOrder
-                    : data.data.purchaseOrder;
 
-            const getSelectedIdsFn =
-                modelType === "grn" ? getSelectedGrnIDS : getSelectedPoIDS;
+            // Merge & persist selected IDs
+            const getSelectedFn =
+                modelType === "grn"
+                    ? window.getSelectedGrnIDS
+                    : window.getSelectedPoIDS;
+            const fromUI =
+                typeof getSelectedFn === "function"
+                    ? getSelectedFn().ids || []
+                    : [];
+            const existing = safeJSON(
+                localStorage.getItem(selectedLsKey) || "[]",
+                []
+            );
+            const merged = Array.from(
+                new Set([...(existing || []), ...fromUI])
+            );
+            localStorage.setItem(selectedLsKey, JSON.stringify(merged));
+
+            // Hidden field per model
             const hiddenFieldName =
                 modelType === "grn" ? "grn_item_ids" : "po_item_ids";
-            const localStorageKey =
-                modelType === "grn" ? "selectedGrnIds" : "selectedPoIds";
+            $(`[name='${hiddenFieldName}']`).val(merged.join(","));
 
-            const newIds = getSelectedIdsFn().ids;
-            const existingIds = JSON.parse(
-                localStorage.getItem(localStorageKey) || "[]"
-            );
-            const mergedIds = Array.from(new Set([...existingIds, ...newIds]));
-            localStorage.setItem(localStorageKey, JSON.stringify(mergedIds));
-            $(`[name='${hiddenFieldName}']`).val(mergedIds.join(","));
-
+            // Stamp module type for form state/submit
             $(".module_type").val(modelType);
-            console.log("moduleType", modelType);
 
-            if (modelType === "po") {
-                $(".poItemsTable .mrntableselectexcel").append(pos);
-            } else {
-                $(".grnItemsTable .mrntableselectexcel").append(pos);
-            }
-            initializeAutocomplete2(".comp_item_code");
+            // Append new rows into the correct tab table
+            appendRowsIntoTab(modelType, posHtml);
 
+            // Recompute the tab-wise row count after insertion
+            current_row_count = countRowsInTab(modelType);
+
+            // Init any UI features for the inserted rows
+            try {
+                initializeAutocomplete2?.(".comp_item_code");
+            } catch (e) {}
             $(".poModal, .grnModal").modal("hide");
 
-            switch (moduleProcess) {
+            // Reference type (drives server-side processing later)
+            switch ((moduleProcess || "").toLowerCase()) {
                 case "po-process":
                     $(".reference_type_input").val("po");
                     break;
@@ -1338,17 +1632,42 @@ function asnProcess(asnData, moduleProcess) {
                     break;
             }
 
-            // Supplier details
+            // Supplier header fields reset
             $(
                 "[name='supplier_invoice_no'], [name='supplier_invoice_date'], [name='consignment_no'], [name='eway_bill_no'], [name='transporter_name'], [name='vehicle_no']"
             ).val("");
 
+            // Post-insert calculations & per-row attribute UI
             setTimeout(() => {
                 setTableCalculation();
-                $(".itemTable .mrntableselectexcel tr").each((index, item) => {
-                    setAttributesUIHelper(index + 1, ".itemTable");
+                const $targetTable =
+                    modelType === "grn"
+                        ? $(".grnItemsTable .mrntableselectexcel")
+                        : $(".poItemsTable .mrntableselectexcel");
+
+                const $tabTable =
+                    modelType === "grn" ? ".grnItemsTable" : ".poItemsTable";
+
+                $targetTable.find("tr").each((idx, tr) => {
+                    try {
+                        setAttributesUIHelper?.(idx + 1, $tabTable);
+                    } catch (e) {}
                 });
-            }, 3000);
+
+                // If your distribution engine exists, mark dirty or auto-run
+                if (typeof window.markDistributionDirty === "function") {
+                    window.markDistributionDirty();
+                }
+                if (
+                    typeof window.runDistribution === "function" &&
+                    window.distributedOK
+                ) {
+                    // keep allocations in sync if a distribution was already confirmed
+                    try {
+                        window.runDistribution({ showSuccess: false });
+                    } catch (e) {}
+                }
+            }, 1000); // faster feedback than 3000ms; adjust if your HTML needs longer
         })
         .catch(() => {
             Swal.fire({
@@ -1367,3 +1686,14 @@ function handleAsnError(message = "Invalid data") {
         icon: "error",
     });
 }
+
+setTimeout(() => {
+    $(".grnItemsTable .grnItemsBody tr").each(function (index, item) {
+        let currentIndex = index + 1;
+        setAttributesUIHelper(currentIndex, ".grnItemsTable");
+    });
+}, 100);
+
+$(document).on("click", 'td[id*="itemAttribute_"]', (e) => {
+    let dataAttributes = $(e.target).attr("data-attributes");
+});

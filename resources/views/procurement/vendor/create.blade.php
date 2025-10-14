@@ -728,7 +728,7 @@
                                                                             <input type="text" name="compliance[tan_number]" class="form-control numberonly">
                                                                         </div>
                                                                     </div>
-                                                                    
+
                                                                 </div>
 
                                                                 <!-- GST Info -->
@@ -839,6 +839,9 @@
                                                                                 <option value="Micro">Micro</option>
                                                                                 <option value="Small">Small</option>
                                                                                 <option value="Medium">Medium</option>
+                                                                                <option value="Producer">Producer</option>
+                                                                                <option value="Trader">Trader</option>
+                                                                                <option value="Brand Owner">Brand Owner</option>
                                                                             </select>
                                                                         </div>
                                                                     </div>
@@ -912,6 +915,8 @@
                                                                         <th>S.NO</th>
                                                                         <th width="300px">Item Name</th>
                                                                         <th>Item Code</th>
+                                                                        <th>Min Order Qty</th>
+                                                                        <th>Lead Days</th>   
                                                                         <th id="cost-price-header">Cost Price</th>
                                                                         <th>Purchase Uom</th>
                                                                         <th>Action</th>
@@ -925,6 +930,8 @@
                                                                                 <input type="hidden" id="item-id_0" name="vendor_item[0][item_id]" class="item-id" value="">
                                                                             </td>
                                                                             <td><input type="text" name="vendor_item[0][item_code]" class="form-control mw-100" id="item-code_0" readonly></td>
+                                                                            <td><input type="number" name="vendor_item[0][minimum_order_qty]" class="form-control mw-100" placeholder="Min Order Qty"></td>
+                                                                            <td><input type="number" name="vendor_item[0][lead_days]" class="form-control mw-100" placeholder="Lead Days"></td>
                                                                             <td><input type="text" name="vendor_item[0][cost_price]" id="cost-price_0" class="form-control cost-price-approved-vendor mw-100"></td>
                                                                             <td><select name="vendor_item[0][uom_id]"  id="uom_0" class="form-select mw-100" disabled></select></td>
                                                                             <td>

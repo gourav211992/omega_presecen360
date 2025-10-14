@@ -2,53 +2,45 @@
 
 namespace App\View\Components\PoBulk;
 
-use App\Helpers\ConstantHelper;
-use App\Helpers\ItemHelper;
 use Closure;
-use Illuminate\Contracts\View\View;
+use App\Helpers\ItemHelper;
 use Illuminate\View\Component;
+use Illuminate\Contracts\View\View;
 use App\Models\Vendor as ModelsVendor;
 
 class Vendor extends Component
 {
     public $row;
+    public $vendor;
     public $rowCount;
-    public $vendors;
+    public $ajaxSearchUrl;
     public $firstVendorId;
-    public bool $defaultOption;
-    /**
-     * Create a new component instance.
-     */
-    public function __construct($row, $documentDate, bool $defaultOption = false, $rowCount)
+
+    public function __construct($row, $documentDate, $rowCount)
     {
-        $approvedVendorIds = ItemHelper::getItemApprovedVendors($row?->item_id, $documentDate) ?? [];
-        if (count($approvedVendorIds)) {
-            $this->vendors = ModelsVendor::whereIn('id', $approvedVendorIds)->get();
-            $this->firstVendorId = $row?->vendor_id ?? $this->vendors?->first()?->id;
-            $this->defaultOption = false;
-        } else {
-            $this->vendors = ModelsVendor::withDefaultGroupCompanyOrg()
-                ->where('status', ConstantHelper::ACTIVE)
-                ->get();
-            $this->firstVendorId = $row?->vendor_id;
-            $this->defaultOption = true;
-        }
         $this->row = $row;
         $this->rowCount = $rowCount;
+        $approvedVendorIds = ItemHelper::getItemApprovedVendors($row?->item_id, $documentDate) ?? [];
+        $this->vendor = ModelsVendor::select('id', 'vendor_code', 'company_name')->withDefaultGroupCompanyOrg()->where('id', $row?->vendor_id)->first();
+        if (!$this->vendor && count($approvedVendorIds)) {
+            $this->vendor = ModelsVendor::select('id', 'vendor_code', 'company_name')->withDefaultGroupCompanyOrg()
+                ->whereIn('id', $approvedVendorIds)->first();
+        }
+
+        $this->firstVendorId = $this->vendor?->id;
+        $this->ajaxSearchUrl = route('po.vendors.search', ['type' => 'purchase-order']) . '?' . http_build_query(['item_id' => $row?->item_id, 'document_date' => $documentDate]);
     }
 
-    /**
-     * Get the view / contents that represent the component.
-     */
     public function render(): View|Closure|string
     {
-        return view('components.po-bulk.vendor',
-        [
-            'row' => $this->row,
-            'vendors' => $this->vendors,
-            'firstVendorId' => $this->firstVendorId,
-            'defaultOption' => $this->defaultOption,
-            'rowCount' => $this->rowCount
-        ]);
+        return view(
+            'components.po-bulk.vendor',
+            [
+                'row' => $this->row,
+                'vendor' => $this->vendor,
+                'rowCount' => $this->rowCount,
+                'ajaxSearchUrl' => $this->ajaxSearchUrl,
+            ]
+        );
     }
 }

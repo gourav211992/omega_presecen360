@@ -500,7 +500,7 @@ class ScrapController extends Controller
             }
 
             if ($request->hasFile('attachment')) {
-                $erpScrap->uploadDocuments($request->file('attachment'), 'erpScrap', false);
+                $erpScrap->uploadDocuments($request->file('attachment'), 'scrap', false);
             }
 
             if ($request->document_status == ConstantHelper::SUBMITTED) {

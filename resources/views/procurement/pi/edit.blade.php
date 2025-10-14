@@ -109,6 +109,12 @@
                             @if ($buttons['revoke'])
                                 <button id = "revokeButton" type="button" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</button>
                             @endif
+                            @if ($buttons['delete'])
+                                <button type="button" id="deleteButton" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn" data-url="{{ route('pi.destroy', ['id' => $pi->id, 'isAmedment' => $buttons['amend'] ? $buttons['amend'] : 0]) }}"
+                                        data-redirect="{{ route('pi.index') }}" data-message="Are you sure you want to delete entire document?">
+                                    <i data-feather="trash-2" class="me-50"></i> Delete
+                                </button>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -254,7 +260,7 @@
                                                     <i data-feather="x-circle"></i> Delete</a>
                                                 <a href="javascript:;" id="addNewItemBtn" class="btn btn-sm btn-outline-primary">
                                                     <i data-feather="plus"></i> Add Item</a>
-                                                <a href="#" onclick = "copyItemRow();" id = "copy_item_section" style = "{{ isset($pi->pi_items) && count($pi->pi_items) ? '' : 'display:none;' }}" class="btn btn-sm btn-outline-primary">
+                                                <a href="javascript:;" onclick="copyItemRow();" id="copy_item_section" style="{{ isset($pi->pi_items) && count($pi->pi_items) ? '' : 'display:none;' }}" class="btn btn-sm btn-outline-primary">
                                                     <i data-feather="copy"></i> Copy Item</a>
                                             </div>
                                         </div>
@@ -466,6 +472,8 @@
                 @endif
                 $("#deleteBtn").remove();
                 $("#addNewItemBtn").remove();
+                $("#copy_item_section").remove();
+                $("#itemTable .form-check-input").prop("disabled", true);
                 $(document).on('show.bs.modal', function(e) {
                     if (e.target.id != 'approveModal') {
                         $(e.target).find('.modal-footer').remove();
@@ -519,14 +527,21 @@
                         const parameters = data.data.parameters;
                         setServiceParameters(parameters);
                     }
-                    if (data.status == 404) {
+                    if (data.status == 404 || data.status == 500) {
                         $("#book_code").val('');
                         $("#document_number").val('');
                         const docDateInput = $("[name='document_date']");
                         docDateInput.removeAttr('min');
                         docDateInput.removeAttr('max');
                         // docDateInput.val(new Date().toISOString().split('T')[0]);
-                        alert(data.message);
+                        toggleSubmitButton('.ajax-input-form', true);
+                        Swal.fire({
+                            title: 'Error!',
+                            text: data.message,
+                            icon: 'error',
+                        });
+                    } else {
+                        toggleSubmitButton('.ajax-input-form', false);
                     }
                 });
             });
@@ -1485,13 +1500,6 @@
                 });
                 return false;
             }
-        });
-
-        $(document).on('click', '#backBtn', (e) => {
-            $("#soSubmitModal").modal('hide');
-            setTimeout(() => {
-                $("#soModal").modal('show');
-            }, 0);
         });
 
         document.addEventListener("DOMContentLoaded", function() {

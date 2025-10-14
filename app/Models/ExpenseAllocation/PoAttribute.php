@@ -7,12 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Models\Item;
 use App\Models\ItemAttribute;
 
-class Attribute extends Model
+class PoAttribute extends Model
 {
 
     use HasFactory;
 
-    protected $table = "erp_exp_allocation_attributes";
+    protected $table = "erp_exp_alc_po_attributes";
     protected $fillable = [
         'header_id',
         'detail_id',
@@ -23,9 +23,6 @@ class Attribute extends Model
         'attr_value'
     ];
 
-    protected $appends = [
-    ];
-
     protected $hidden = ['deleted_at'];
 
     public $referencingRelationships = [
@@ -34,14 +31,19 @@ class Attribute extends Model
         'headerAttributeValue' => 'attr_value'
     ];
 
-    public function expenseHeader()
+    public function header()
     {
-        return $this->belongsTo(Header::class);
+        return $this->belongsTo(Header::class, 'header_id');
     }
 
-    public function expenseDetail()
+    public function source()
     {
-        return $this->belongsTo(Detail::class);
+        return $this->hasOne(PoAttributeHistory::class, 'source_id');
+    }
+
+    public function poDetail()
+    {
+        return $this->belongsTo(PoDetail::class, 'detail_id');
     }
 
     public function item()

@@ -19,6 +19,7 @@ class ItemHistory extends Model
     protected $fillable = [
         'source_id',
         'item_code_type',
+        'is_override_code',
         'item_code',
         'item_initial',
         'item_name',

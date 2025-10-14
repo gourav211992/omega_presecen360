@@ -137,7 +137,12 @@ class CustomerRequest extends FormRequest
             'whatsapp_same_as_mobile' => 'nullable|string',
             'notification' => 'nullable|array',
             'notification.*' => 'nullable|string|max:255',
-            'pan_number' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/'],
+            'pan_number' => [
+                'nullable',
+                'string',
+                'regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/',
+                'required_if:compliance.gst_applicable,1'
+            ],
             'tin_number' => 'nullable|string|regex:/^\d{10}$/',
             'aadhar_number' => 'nullable|string|regex:/^\d{12}$/',
             'currency_id' => 'required|exists:mysql_master.currency,id',
@@ -289,7 +294,7 @@ class CustomerRequest extends FormRequest
             
             'notification.array' => 'The notification field must be an array.',
             'notification.*.string' => 'Each notification must be a string.',
-            
+            'pan_number.required_if' => 'The PAN number is required when GST is applicable.',
             'pan_number.regex' => 'The PAN number must be in the format: AAAAA9999A.',
             'tin_number.regex' => 'The TIN number must be in the format: 9999999999.',
             'aadhar_number.regex' => 'The Aadhaar number must be in the format: 999999999999.',

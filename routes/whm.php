@@ -42,11 +42,12 @@ Route::group(['middleware' => ['sso-api', 'apiresponse']], function () {
 
     Route::controller(UnloadingTaskController::class)->group(function () {
         Route::get('/unloading-tasks', 'index')->name('whm.unloading-tasks');
-        Route::get('/pending-tasks', 'pendingTasks')->name('whm.pending-tasks');
-        Route::post('/save-as-draft', 'saveAsDraft')->name('whm.save-as-draft');
-        Route::get('/scanned-packets', 'scannedPackets')->name('whm.scanned-packets');
-        Route::post('/close-job', 'closeJob')->name('whm.close-job');
-        Route::post('/update-status/packet', 'updateStatus')->name('whm.update-status');
+        Route::get('/pending-tasks', 'pendingTasks')->name('whm.unloading.pending-tasks');
+        Route::post('/save-as-draft', 'saveAsDraft')->name('whm.unloading.save-as-draft');
+        Route::get('/scanned-packets', 'scannedPackets')->name('whm.unloading.scanned-packets');
+        Route::post('/close-job', 'closeJob')->name('whm.unloading.close-job');
+        Route::post('/update-status/packet', 'updateStatus')->name('whm.unloading.update-status');
+        Route::post('/validate-qr', 'validateQr')->name('whm.unloading.validate-qr');
 
     });
 
@@ -59,6 +60,9 @@ Route::group(['middleware' => ['sso-api', 'apiresponse']], function () {
         Route::post('/putaway/update-status', 'updateStatus')->name('whm.putaway.update-status');
         Route::post('/putaway/close-job', 'closeJob')->name('whm.putaway.close-job');
         Route::get('/putaway/scanned-packets', 'scannedItemQrs')->name('whm.putaway.scanned-packets');
+        Route::get('/putaway/suggested-storage', 'suggestedStorage')->name('whm.putaway.suggested-storage');
+        Route::get('/putaway/storage-packets', 'storagePackets')->name('whm.putaway.storage-packets');
+        Route::post('/putaway/validate-qr', 'validateQr')->name('whm.putaway.validate-qr');
 
     });
 
@@ -72,6 +76,8 @@ Route::group(['middleware' => ['sso-api', 'apiresponse']], function () {
         Route::post('/picklist/close-job', 'closeJob')->name('whm.picklist.close-job');
         Route::post('/picklist/san-storage', 'scanStorage')->name('whm.picklist.san-storage');
         Route::get('/picklist/scanned-packets', 'scannedItemQrs')->name('whm.picklist.scanned-packets');
+        Route::get('/picklist/picked-packets', 'pickedPackets')->name('whm.picklist.picked-packets');
+        Route::post('/picklist/validate-qr', 'validateQr')->name('whm.picklist.validate-qr');
     });
 
     Route::controller(DispatchController::class)->group(function () {
@@ -124,6 +130,7 @@ Route::group(['middleware' => ['sso-api', 'apiresponse']], function () {
         Route::get('/get-repair-action','getRepairAction')->name('get.repair.action');
         Route::get('/get-vendors', 'getVendors')->name('vendors.get');
         Route::get('get-repair-defects-count/{store_id}', 'getDefectStatusCounts')->name('repair-orders.defects.counts');
+        Route::get('get-repair-orders-detail-by-item/{item_uid}', 'getRepairOrderDetailsByItemUid')->name('repair.get-rgr-detail-by-item');
         Route::post('/repair-action', 'repairAction')->name('repair.action');
         Route::post('/scrap-action', 'scrapAction')->name('scrap.action');
         Route::post('/send-to-vendor-action', 'sendToVendorAction')->name('send.to.vendor.action');

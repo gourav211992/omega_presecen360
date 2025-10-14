@@ -11,9 +11,6 @@ use App\Helpers\StoragePointHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\WHM\UnloadingResource;
 use App\Models\ErpMaterialIssueHeader;
-use App\Models\Item;
-use App\Models\MrnBatchDetail;
-use App\Models\MrnHeader;
 use App\Models\WHM\ErpItemUniqueCode;
 use App\Models\WHM\ErpWhmJob;
 use Illuminate\Http\Request;
@@ -96,51 +93,48 @@ class PutawayTaskController extends Controller
             ]);
         }
 
+        $scannedSubquery = ErpItemUniqueCode::select(
+            'morphable_id',
+            \DB::raw('COUNT(*) as scanned_quantity')
+        )
+        ->where('job_id', $request->job_id)
+        ->where('status', CommonHelper::SCANNED)
+        ->groupBy('morphable_id');
+
         $items = ErpItemUniqueCode::with(['item' => function($q){
                     $q->select('id','is_serial_no','is_asset');
                 }])
-                ->select('job_id','sub_store_id','group_id','morphable_id as putaway_item_id','company_id','organization_id','book_code','doc_no','doc_date','item_id','item_name','item_code','item_attributes','batch_number','manufacturing_year','expiry_date','serial_no', \DB::raw('COUNT(*) as quantity'))
+                ->select(
+                    'job_id',
+                    'sub_store_id',
+                    'group_id',
+                    'erp_item_unique_codes.morphable_id as putaway_item_id',
+                    'company_id',
+                    'organization_id',
+                    'book_code',
+                    'doc_no',
+                    'doc_date',
+                    'item_id',
+                    'item_name',
+                    'item_code',
+                    'item_attributes',
+                    'batch_number',
+                    'manufacturing_year',
+                    'expiry_date',
+                    'serial_no',
+                    \DB::raw('COUNT(*) as quantity')
+
+                )
+                ->leftJoinSub($scannedSubquery, 'scanned', function ($join) {
+                    $join->on('erp_item_unique_codes.morphable_id', '=', 'scanned.morphable_id');
+                })
+                ->addSelect(\DB::raw('COALESCE(scanned.scanned_quantity, 0) as scanned_quantity'))
                 ->where('store_id', $request->store_id)
                 ->where('job_id',$request->job_id)
                 ->where('job_type', CommonHelper::PUTAWAY)
                 ->where('doc_type', CommonHelper::RECEIPT)
-                ->groupBy('morphable_id')
+                ->groupBy('erp_item_unique_codes.morphable_id')
                 ->paginate(CommonHelper::PAGE_LENGTH_10);
-
-        // Get all morphable_ids from paginated items
-        $morphableIds = $items->pluck('putaway_item_id')->toArray();
-
-        // Get scanned quantities grouped by morphable_id
-        $scannedQuantities = ErpItemUniqueCode::select(
-                'morphable_id',
-                \DB::raw('COUNT(*) as scanned_quantity')
-            )
-            ->whereIn('morphable_id', $morphableIds)
-            ->where('job_id',$request->job_id)
-            ->where('status', CommonHelper::SCANNED)
-            ->groupBy('morphable_id')
-            ->pluck('scanned_quantity', 'morphable_id')
-            ->toArray();
-
-        foreach ($items as $item) {
-            $item->scanned_quantity = $scannedQuantities[$item->putaway_item_id] ?? 0;
-
-            $item->storage_points = [];
-            if ($item->item_id) {
-                $subStoreId = $item->sub_store_id;
-                $response = StoragePointHelper::getStoragePoints(
-                    $item->item_id,
-                    null,
-                    $request->store_id,
-                    $subStoreId
-                );
-
-                if (!empty($response['status']) && $response['status'] === 'success') {
-                    $item->storage_points = $response['data'];
-                }
-            }
-
-        }
 
         return [
             'message' => 'Records fetched successfully',
@@ -174,6 +168,7 @@ class PutawayTaskController extends Controller
             throw new ValidationException($validator);
         }
 
+        // Step 1: Get item summary
         $item = ErpItemUniqueCode::select('job_id','group_id','sub_store_id','morphable_id as putaway_item_id','company_id','organization_id','book_code','doc_no','doc_date','item_id','item_name','item_code','item_attributes', \DB::raw('COUNT(*) as quantity'))
                 ->where('store_id', $request->store_id)
                 ->where('job_id',$request->job_id)
@@ -183,93 +178,79 @@ class PutawayTaskController extends Controller
                 ->groupBy('morphable_id')
                 ->first();
 
-        if($item){
-
-            $item->storage_points = [];
-            $itemId = $item->item_id;
-
-            $storageData = ErpItemUniqueCode::where('store_id', $request->store_id)
-                ->where('job_id',$request->job_id)
-                ->where('morphable_id',$request->putaway_item_id)
-                ->where('job_type', CommonHelper::PUTAWAY)
-                ->where('doc_type', CommonHelper::RECEIPT)
-                ->where('status', CommonHelper::SCANNED)
-                ->select('storage_point_id', DB::raw('COUNT(*) as quantity'))
-                ->whereNotNull('storage_point_id')
-                ->groupBy('storage_point_id')
-                ->get();
-
-             // STEP 2: Map storage point detail with quantity
-            $item->storage_points = $storageData->map(function ($record) use($request, $itemId){
-                $detailsResponse = StoragePointHelper::getStoragePointDetailById($record->storage_point_id);
-                $scannedPackets = self::scannedPackets(
-                        $request->store_id,
-                        $itemId,
-                        $record->storage_point_id,
-                        $request->job_id,
-                        $request->putaway_item_id
-                );
-
-                return [
-                    'quantity' => $record->quantity,
-                    'details' => $detailsResponse['data'] ?? null,
-                    'scannedPacketCount' => $scannedPackets ? $scannedPackets->count() : null,
-                    'scannedPackets' => $scannedPackets ?? null,
-                ];
-            });
-
-            // Get storage points
-            // $response = StoragePointHelper::getStoragePoints(
-            //     $item->item_id,
-            //     null,
-            //     $request->store_id,
-            //     $subStoreId
-            // );
-
-            // if (!empty($response['status']) && $response['status'] === 'success') {
-            //     $item->storage_points = $response['data'];
-
-            //     $item->storage_points = collect($item->storage_points)->map(function($storageData) use($request, $item) {
-            //         $scannedPackets = self::scannedPackets(
-            //             $request->store_id,
-            //             $item->item_id,
-            //             $storageData->id,
-            //             $request->job_id,
-            //             $request->putaway_item_id
-            //         );
-            //         $storageData->scannedPacketCount = count($scannedPackets);
-            //         $storageData->scannedPackets = $scannedPackets;
-
-            //         return $storageData;
-            //     });
-            // }
-
-        }else {
-            $item->storage_points = null;
-            $item->scannedPacketCount = 0;
-            $item->scannedPackets = null;
+        if (!$item) {
+            return [
+                'data' => null,
+                'message' => "No record found."
+            ];
         }
 
+
+        $itemId = $item->item_id;
+        
+        $storageData = ErpItemUniqueCode::where('store_id', $request->store_id)
+            ->where('job_id',$request->job_id)
+            ->where('morphable_id',$request->putaway_item_id)
+            ->where('job_type', CommonHelper::PUTAWAY)
+            ->where('doc_type', CommonHelper::RECEIPT)
+            ->where('status', CommonHelper::SCANNED)
+            ->select('storage_point_id', DB::raw('COUNT(*) as quantity'))
+            ->whereNotNull('storage_point_id')
+            ->groupBy('storage_point_id')
+            ->paginate(CommonHelper::PAGE_LENGTH_10);
+
+        // STEP 2: Map storage point detail with quantity
+        $storageData->getCollection()->transform(function ($record) use($request, $itemId) {
+            $detailsResponse = StoragePointHelper::getStoragePointDetailById($record->storage_point_id);
+            $scannedPackets = self::scannedPackets(
+                    $request->store_id,
+                    $itemId,
+                    $record->storage_point_id,
+                    $request->job_id,
+                    $request->putaway_item_id
+            );
+
+            return [
+                'quantity' => $record->quantity,
+                'details' => $detailsResponse['data'] ?? null,
+                'scannedPacketCount' => $scannedPackets['count'],
+                'scannedPackets' => $scannedPackets['data'],
+            ];
+        });
+
         return [
-            'data' => $item,
+            'data' => [
+                'item' => $item,
+                'storagePoints' => $storageData
+            ],
             'message' => "Record fetched successfully.",
         ];
 
     }
 
     private function scannedPackets($storeId, $itemId, $storagePointId, $jobId, $putawayItemId){
-        $packets = ErpItemUniqueCode::where('item_id', $itemId)
+        $query = ErpItemUniqueCode::where('item_id', $itemId)
             ->where('store_id', $storeId)
             ->where('storage_point_id', $storagePointId)
             ->where('job_id', $jobId)
             ->where('morphable_id', $putawayItemId)
             ->where('job_type',CommonHelper::PUTAWAY)
             ->where('doc_type', CommonHelper::RECEIPT)
-            ->where('status',CommonHelper::SCANNED)
-            ->select('uid','item_uid','batch_number','manufacturing_year','expiry_date','serial_no')
+            ->where('status',CommonHelper::SCANNED);
+
+        // Total count of matching records
+        $totalCount = $query->count();
+
+        // Get only first 5 records
+        $packets = $query->select('uid', 'item_uid', 'batch_number', 'manufacturing_year', 'expiry_date', 'serial_no')
+            ->limit(5)
             ->get();
 
-        return $packets;
+        // Return both
+        return [
+            'count' => $totalCount,
+            'data'  => $packets
+        ];
     }
 
     public function pendingTasks(Request $request){
@@ -310,9 +291,8 @@ class PutawayTaskController extends Controller
             $query->where('status', $status);
         })
         ->where('job_type', CommonHelper::PUTAWAY)
-        // ->whereIn('status',[CommonHelper::PENDING,CommonHelper::SCANNED])
         ->select('uid','job_id','morphable_id as putaway_item_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_uid','item_name','item_code','item_attributes','status','vendor_id','batch_number','manufacturing_year','expiry_date','serial_no','packet_no','total_packets')
-        ->get();
+        ->paginate(CommonHelper::PAGE_LENGTH_10);
 
         return [
             'message' => 'Records fetched successfully',
@@ -324,7 +304,7 @@ class PutawayTaskController extends Controller
     public function saveAsDraft(Request $request){
         $validator = Validator::make($request->all(),[
             'job_id' => ['required'],
-            'packets' => ['required', 'array'],
+            'packets' => ['required', 'array', 'max:50'],
             'packets.*.packet_id' => ['required', 'string'],
             'packets.*.serial_no' => ['nullable', 'string'],
             'packets.*.manufacturing_year' => ['nullable', 'integer'],
@@ -384,7 +364,7 @@ class PutawayTaskController extends Controller
             $maxVolume = $storagePointDetail['data']->max_volume ?? null;
         }
 
-        $packetIds = collect($request->packets)->pluck('packet_id')->toArray();
+        $packetIds = array_column($request->packets, 'packet_id');
         $packets = ErpItemUniqueCode::with(['item' => function($q){
                     $q->select('id','is_serial_no','is_asset','storage_uom_count');
             }])
@@ -491,7 +471,7 @@ class PutawayTaskController extends Controller
             $user = Helper::getAuthenticatedUser();
             
             // Update Job Status
-            if($job->status != CommonHelper::DEVIATION){
+            if ($job->status !== CommonHelper::DEVIATION && $job->status !== CommonHelper::IN_PROGRESS) {
                 $job->status = CommonHelper::IN_PROGRESS;
                 $job->save();
             }
@@ -619,7 +599,7 @@ class PutawayTaskController extends Controller
             ->where('job_type', CommonHelper::PUTAWAY)
             ->where('status',CommonHelper::SCANNED)
             ->select('uid','job_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_uid','item_name','item_code','item_attributes','status','vendor_id','storage_point_id')
-            ->get();
+            ->paginate(CommonHelper::PAGE_LENGTH_10);
 
             \DB::commit();
             return [
@@ -659,13 +639,6 @@ class PutawayTaskController extends Controller
                 ]);
             }
         }
-        // $alreadyClosed = ErpWhmJob::where('id',$request->job_id)->where('job_closed_at')->first();
-        // if (!empty($alreadyClosed)) {
-        //     throw ValidationException::withMessages([
-        //         'job_id' => ['Job already closed.'],
-        //     ]);
-        // }
-
 
         \DB::beginTransaction();
         try {
@@ -687,7 +660,7 @@ class PutawayTaskController extends Controller
             $actionType = $job->status == CommonHelper::DEVIATION ? CommonHelper::DEVIATION : CommonHelper::getJobType($job->morphable_type) .' completed';
             $header = $job->morphable;
 
-            $bookId = $header->series_id;
+            $bookId = $header->book_id;
             $docId = $header->id;
             $revisionNumber = $header->revision_number ?? 0;
             $modelName = $job->morphable_type;
@@ -711,7 +684,7 @@ class PutawayTaskController extends Controller
                             return "";
                         }
                     }
-                } else if ($job -> trns_type === ConstantHelper::MRN_SERVICE_ALIAS || $jpb -> trns_type === ConstantHelper::INSPECTION_SERVICE_ALIAS) {
+                } else if ($job -> trns_type === ConstantHelper::MRN_SERVICE_ALIAS || $job -> trns_type === ConstantHelper::INSPECTION_SERVICE_ALIAS) {
                     $res = StoragePointHelper::saveStoragePoints($header, $detailIds, $job->trns_type, NULL, NULL, NULL, $subStoreId);
                     if($res['status'] == 'error'){
                         \DB::rollback();
@@ -730,5 +703,121 @@ class PutawayTaskController extends Controller
             \DB::rollback();
             throw new ApiGenericException($e->getMessage());
         }
+    }
+
+    public function suggestedStorage(Request $request){
+        $validator = Validator::make($request->all(),[
+            'job_id' => ['required'],
+            'item_id' => ['required'],
+            'page' => ['sometimes', 'integer', 'min:1'],       
+            'per_page' => ['sometimes', 'integer', 'min:1'],    
+        ],[
+            'job_id.required' => 'Job id is required',
+            'item_id.required' => 'Item id is required',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        $job = ErpWhmJob::find($request->job_id);
+        if (!$job) {
+            throw ValidationException::withMessages([
+                'job_id' => ['Job not found.'],
+            ]);
+        }
+
+        $page = $request->input('page', 1);
+        $perPage = $request->input('per_page', 10);
+
+        $response = StoragePointHelper::getStoragePoints(
+                    $request->item_id,
+                    $job->store_id,
+                    $job->sub_store_id,
+                    $page,
+                    $perPage
+                );
+
+        $storagePoints = [];
+        if (!empty($response['status']) && $response['status'] === 'success') {
+            $storagePoints = $response['data'];
+        }
+
+        return [
+            'message' => 'Records fetched successfully',
+            "data" => $storagePoints,
+        ];
+    }
+
+    public function storagePackets(Request $request){
+        $validator = Validator::make($request->all(),[
+            'storage_point_id' => ['required'],
+            'putaway_item_id' => ['required'],
+            'job_id' => ['required'],
+        ],[
+            'job_id.required' => 'Job id is required',
+            'putaway_item_id.required' => 'Putaway item id is required',
+            'storage_point_id.required' => 'Storage point id is required',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        $packets = ErpItemUniqueCode::where('storage_point_id', $request->storage_point_id)
+            ->where('job_id', $request->job_id)
+            ->where('morphable_id', $request->putaway_item_id)
+            ->where('job_type',CommonHelper::PUTAWAY)
+            ->where('doc_type', CommonHelper::RECEIPT)
+            ->where('status',CommonHelper::SCANNED)
+            ->select('uid', 'item_uid', 'batch_number', 'manufacturing_year', 'expiry_date', 'serial_no')
+            ->paginate(CommonHelper::PAGE_LENGTH_10);
+
+        return [
+            'data' => $packets,
+            'message' => "Record fetched successfully.",
+        ];
+    }
+
+    public function validateQr(Request $request){
+        $validator = Validator::make($request->all(),[
+            'packet_id' => ['required'],
+            'job_id' => ['required'],
+            'putaway_item_id' => ['required'],
+        ],[
+            'packet_id.required' => 'Packet id is required',
+            'job_id.required' => 'Job id is required',
+            'putaway_item_id.required' => 'Putaway item id is required',
+        ]);
+
+        if ($validator->fails()) {
+            throw new ValidationException($validator);
+        }
+
+        $job = ErpWhmJob::find($request->job_id);
+
+        if (!$job) {
+            throw ValidationException::withMessages([
+                'job_id' => ['Job not found.'],
+            ]);
+        }
+
+        $uniqueCode = ErpItemUniqueCode::where('job_id',$request->job_id)
+            ->where('item_uid', $request->packet_id)
+            ->where('morphable_id', $request->putaway_item_id)
+            ->select('job_id','group_id','sub_store_id','morphable_id as putaway_item_id','company_id','organization_id','book_code','doc_no','doc_date','item_id','item_name','item_code','item_attributes')
+            ->first();
+
+        if (!$uniqueCode) {
+            throw ValidationException::withMessages([
+                'packet_id' => ['Packet ID not found.'],
+            ]);
+        }
+
+        return [
+            'message' => 'Packet validated successfully.',
+            'data' => $uniqueCode
+        ];
+
     }
 }

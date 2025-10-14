@@ -278,8 +278,7 @@ class InventoryHelperV2
         // ->where(function ($q) {
         //     $q->whereNull('hold_qty')->orWhere('hold_qty', '<=', 0);
         // });
-        if($documentDetail['is_delete'])
-        {
+        if ($documentDetail['is_delete']) {
             $baseQuery->where('receipt_qty', $documentDetail['qty']);
         }
 
@@ -426,7 +425,7 @@ class InventoryHelperV2
             $isIssueStockDelete = 1;
         }
         if ($isIssueStockDelete) {
-            if(count($issueStock->attributes) > 0){
+            if (count($issueStock->attributes) > 0) {
                 $issueStock?->attributes()->delete();
             }
             $issueStock->delete();
@@ -681,6 +680,52 @@ class InventoryHelperV2
         return self::successResponse('Receipt qty updated.', $stock);
     }
 
+    // Add/Update Expenses for MRN
+    public static function saveMrnExpenses($expense)
+    {
+        try {
+            if (!$expense || !$expense->id) {
+                return self::errorResponse("Invalid expense data.");
+            }
+            $expenseDetails = $expense->grnDetails;
+            if (!$expenseDetails || $expenseDetails->isEmpty()) {
+                return self::errorResponse("No expense details found.");
+            }
+            foreach ($expenseDetails as $detail) {
+                $stockLedger = StockLedger::withDefaultGroupCompanyOrg()
+                    ->where('document_header_id', $detail->grn_header_id)
+                    ->where('document_detail_id', $detail->grn_detail_id)
+                    ->where('item_id', $detail->item_id)
+                    ->where('store_id', $expense->store_id)
+                    ->where('transaction_type', 'receipt')
+                    ->orderBy('original_receipt_date', 'ASC')
+                    ->orderBy('document_date', 'ASC')
+                    ->orderBy('id', 'ASC')
+                    ->first();
+                if ($stockLedger) {
+                    $additionalCost = (float) ($detail->allocated_cost ?? 0);
+                    $stockLedger->expense_amount = $additionalCost;
+                    $stockLedger->save();
+
+                    // if ($additionalCost > 0) {
+                    //     $newTotalCost = (float) $stockLedger->total_cost + $additionalCost;
+                    //     $newCostPerUnit = $stockLedger->receipt_qty > 0
+                    //         ? round($newTotalCost / $stockLedger->receipt_qty, 6)
+                    //         : 0.0;
+                    //     $stockLedger->total_cost = round($newTotalCost, 2);
+                    //     $stockLedger->cost_per_unit = $newCostPerUnit;
+                    //     self::updateStockCost($stockLedger);
+                    //     $stockLedger->save();
+                    // }
+                }
+            }
+            // You would typically interact with your models to save the expense data
+            return self::successResponse("MRN expenses saved successfully.", []);
+        } catch (\Exception $e) {
+            return self::errorResponse("Error in saveMrnExpenses: " . $e->getMessage());
+        }
+    }
+
     public static function getDnoteStockCostRateForReturn(int $detailId)
     {
         $stockLedger = StockLedger::whereIn('book_type', [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS])
@@ -688,7 +733,7 @@ class InventoryHelperV2
         if (!isset($stockLedger)) {
             return null;
         }
-        return $stockLedger -> cost_per_unit;
+        return $stockLedger->cost_per_unit;
     }
 
     // Error Response

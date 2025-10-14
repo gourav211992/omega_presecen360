@@ -188,31 +188,6 @@
                                                 </div>
 
                                                  <div class="col-md-3 border-start">
-                                                    <!-- <div class="row align-items-center mb-2">
-                                                        <div class="col-md-12"> 
-                                                            <label class="form-label text-primary"><strong>Status</strong></label>   
-                                                            <div class="demo-inline-spacing">
-                                                                @foreach ($status as $option)
-                                                                    <div class="form-check form-check-primary mt-25">
-                                                                        <input
-                                                                            type="radio"
-                                                                            id="status_{{ strtolower($option) }}"
-                                                                            name="status"
-                                                                            value="{{ $option }}"
-                                                                            class="form-check-input"
-                                                                            {{ $option == 'active' ? 'checked' : '' }} >
-                                                                            <label class="form-check-label fw-bolder" for="status_{{ strtolower($option) }}">
-                                                                                {{ ucfirst($option) }}
-                                                                            </label>
-                                                                    </div>
-                                                                @endforeach
-                                                            </div>
-                                                            @error('status')
-                                                                <div class="invalid-feedback d-block">{{ $message }}</div>
-                                                            @enderror
-                                                        </div> 
-                                                    </div>  -->
-
                                                     <div class="row align-items-center mb-2">
                                                         <div class="col-md-12"> 
                                                             <label class="form-label text-primary"><strong>Stop Billing</strong></label>   
@@ -802,6 +777,60 @@
                                                                         </div>
                                                                     </div>
                                                                 </div>
+
+                                                                   <!-- MSME Details -->
+                                                                <div class="col-md-6">
+                                                                    <h5 class="mt-1 mb-2 text-dark"><strong>MSME Details</strong></h5>
+                                                                    
+                                                                    <div class="row align-items-center mb-1">
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label">MSME Registered?</label>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <div class="form-check form-check-primary mt-25 custom-checkbox">
+                                                                                <input type="checkbox" class="form-check-input" name="compliance[msme_registered]" id="msmeRegisteredIndia">
+                                                                                <label class="form-check-label" for="msmeRegisteredIndia">This vendor is MSME registered</label>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div class="row align-items-center mb-1">
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label">MSME No.</label>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <input type="text" name="compliance[msme_no]" class="form-control numberonly">
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div class="row align-items-center mb-1">
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label">MSME Type</label>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <select class="form-select" name="compliance[msme_type]">
+                                                                                <option value="">Select</option>
+                                                                                <option value="Micro">Micro</option>
+                                                                                <option value="Small">Small</option>
+                                                                                <option value="Medium">Medium</option>
+                                                                                <option value="Producer">Producer</option>
+                                                                                <option value="Trader">Trader</option>
+                                                                                <option value="Brand Owner">Brand Owner</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                    
+                                                                    <div class="row align-items-center mb-1">
+                                                                        <div class="col-md-4">
+                                                                            <label class="form-label">Upload Certificate</label>
+                                                                        </div>
+                                                                        <div class="col-md-6">
+                                                                            <input type="file" name="compliance[msme_certificate][]" multiple class="form-control" onchange="simpleFileValidation(this)">
+                                                                            <div id="msmeCertificateLinks"></div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
                                                             </div>
                                                        </div>
                                                            <!-- Start Bank Info -->

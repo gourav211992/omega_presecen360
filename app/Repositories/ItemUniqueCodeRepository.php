@@ -10,7 +10,7 @@ use App\Models\WHM\ErpWhmJob;
 
 class ItemUniqueCodeRepository
 {
-    public function getDetail($barcode, $tripId)
+    public function getDetail($barcode, $tripNo)
     {
        $data = ErpItemUniqueCode::with([
             'subStore' => function($q){
@@ -23,9 +23,6 @@ class ItemUniqueCodeRepository
                         $q->select('id', 'addressable_id', 'addressable_type', 'state_id', 'country_id', 'address');
                     }
                 ]);
-            },
-            'trip' => function($q){
-                $q->select('id','book_code', 'document_number');
             },
             'item' => function($q){
                 $q->select('id', 'hsn_id', 'subcategory_id')
@@ -40,10 +37,10 @@ class ItemUniqueCodeRepository
             }
         ])
         ->where('item_uid',$barcode)
-        ->where('trip_id',$tripId)
+        ->where('trip_no',$tripNo)
         ->where('job_type',CommonHelper::PICKING)
         ->whereNull('utilized_id')
-        ->select('id','job_id','item_uid','store_id','sub_store_id','trip_id','item_id','item_name','item_code','morphable_id')
+        ->select('id','job_id','item_uid','store_id','sub_store_id','trip_id','trip_no','packet_no','item_id','item_name','item_code','morphable_id')
         ->first();
 
         if (!$data) {

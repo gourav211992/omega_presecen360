@@ -182,6 +182,9 @@ class ExpenseAdviseController extends Controller
                 ->addColumn('total_amount', function ($row) {
                     return number_format($row->total_amount, 2);
                 })
+                ->addColumn('created_by', function ($row){
+                    return $row->createdBy?->name;
+                })
                 ->rawColumns(['document_status'])
                 ->make(true);
         }
@@ -499,6 +502,7 @@ class ExpenseAdviseController extends Controller
                         'inventory_uom_code' => $inventory_uom_code ?? null,
                         'inventory_uom_qty' => $inventory_uom_qty ?? 0.00,
                         'rate' => floatval($component['rate']) ?? 0.00,
+                        'po_rate' => floatval($component['po_val']) ?? 0.00,
                         'discount_amount' => floatval($component['discount_amount']) ?? 0.00,
                         'header_discount_amount' => floatval($component['exp_amount_header']) ?? 0.00,
                         'header_exp_amount' => 0.00,
@@ -511,7 +515,8 @@ class ExpenseAdviseController extends Controller
                         'taxable_amount' => $itemValueAfterDiscount,
                         'basic_value' => $itemValue,
                         'job_order_item_id' => $component['jo_detail_id'] ?? null,
-                        'jo_service_item_id' => $component['jo_service_item_id'] ?? null
+                        'jo_service_item_id' => $component['jo_service_item_id'] ?? null,
+                        'item_variance' => $component['item_variance'] ?? null
                     ];
                 }
 
@@ -579,6 +584,8 @@ class ExpenseAdviseController extends Controller
                     $expenseDetail->inventory_uom_code = $expenseItem['inventory_uom_code'];
                     $expenseDetail->inventory_uom_qty = $expenseItem['inventory_uom_qty'];
                     $expenseDetail->rate = $expenseItem['rate'];
+                    $expenseDetail->item_variance = $expenseItem['item_variance'];
+                    $expenseDetail->po_rate = $expenseItem['po_rate'];
                     $expenseDetail->basic_value = $expenseItem['basic_value'];
                     $expenseDetail->discount_amount = $expenseItem['discount_amount'];
                     $expenseDetail->header_discount_amount = $expenseItem['header_discount_amount'];
@@ -1202,7 +1209,9 @@ class ExpenseAdviseController extends Controller
                         'taxable_amount' => $itemValueAfterDiscount,
                         'basic_value' => $itemValue,
                         'job_order_item_id' => @$component['jo_detail_id'] ?? null,
-                        'jo_service_item_id' => @$component['jo_service_item_id'] ?? null
+                        'jo_service_item_id' => @$component['jo_service_item_id'] ?? null,
+                        'item_variance' => $component['item_variance'],
+                        'po_rate' => floatval($component['po_val']) ?? 0.00,
                     ];
                 }
 
@@ -1272,6 +1281,8 @@ class ExpenseAdviseController extends Controller
                     $expenseDetail->inventory_uom_qty = $expenseItem['inventory_uom_qty'];
                     $expenseDetail->rate = $expenseItem['rate'];
                     $expenseDetail->basic_value = $expenseItem['basic_value'];
+                    $expenseDetail->item_variance = $expenseItem['item_variance'];
+                    $expenseDetail->po_rate = $expenseItem['po_rate'];
                     $expenseDetail->discount_amount = $expenseItem['discount_amount'];
                     $expenseDetail->header_discount_amount = $expenseItem['header_discount_amount'];
                     $expenseDetail->tax_value = $expenseItem['tax_value'];

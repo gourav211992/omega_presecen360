@@ -166,4 +166,14 @@ class ErpPsvItem extends Model
     {
         return $this->hasMany(ErpPsvBatchDetail::class, 'detail_id');
     }
+    
+    public function batches()
+    {
+        return $this->hasMany(ErpPsvBatchDetail::class, 'detail_id');
+    }
+
+    public function stockReservation()
+    {
+        return $this->hasMany(StockLedgerReservation::class, 'issue_detail_id','id');
+    }
 }

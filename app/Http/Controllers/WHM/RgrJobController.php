@@ -595,10 +595,11 @@ class RgrJobController extends Controller
                 $rgr = ErpRgr::find($job->morphable_id);
                 if (!$rgr) throw ValidationException::withMessages(['job_id'=>['RGR not found for this job.']]);
 
-                $itemAttributes = $this->validateItemAttributes($requestData['item_attributes'], $item->id);
-                $itemAttributesJson = !empty($itemAttributes) ? json_encode($itemAttributes, JSON_THROW_ON_ERROR) : null;
+                $itemAttributes = RepHelper::validateItemAttributes($requestData['item_attributes'], $item->id, false);
+                $itemAttributesJson = !empty($itemAttributes) 
+                    ? json_encode($itemAttributes, JSON_THROW_ON_ERROR) 
+                    : null;
                   
-
                 $uniqueItem = ErpItemUniqueCode::create([
                     'job_id' => $job->id,
                     'item_id' => $item->id,
@@ -630,8 +631,8 @@ class RgrJobController extends Controller
 
             $newItem = !empty($requestData['new_item_id']) ? Item::find($requestData['new_item_id']) : null;
             $newItemAttributesArray = !empty($requestData['new_item_attributes']) && $newItem
-            ? $this->validateItemAttributes($requestData['new_item_attributes'], $newItem->id)
-            : null;
+                ? RepHelper::validateItemAttributes($requestData['new_item_attributes'], $newItem->id, false)
+                : null;
 
             $newItemAttributes = !empty($newItemAttributesArray) 
                 ? json_encode($newItemAttributesArray, JSON_THROW_ON_ERROR) 
@@ -705,79 +706,6 @@ class RgrJobController extends Controller
             DB::rollBack();
             throw new ApiGenericException($e->getMessage());
         }
-    }
-
-   private function validateItemAttributes(array $attributes, int $itemId): array
-    {
-        $item = Item::where('id', $itemId)
-                    ->where('status', ConstantHelper::ACTIVE)
-                    ->first();
-
-        if (!$item) {
-            throw ValidationException::withMessages([
-                'item' => ['Item not found or not active.']
-            ]);
-        }
-
-        $itemAttributes = ItemAttribute::with('attributeGroup')
-            ->where('item_id', $itemId)
-            ->get();
-
-        if ($itemAttributes->isEmpty()) {
-            throw ValidationException::withMessages([
-                'item_attributes' => ['No attributes found for this item.']
-            ]);
-        }
-
-        $formatted = [];
-
-        foreach ($attributes as $inputAttr) {
-            $inputGroupName = $inputAttr['attribute_name'] ?? null;
-            $inputValue     = $inputAttr['attribute_value'] ?? null;
-
-            if (!$inputGroupName || $inputValue === null) continue;
-
-            $group = AttributeGroup::where('name', $inputGroupName)->first();
-            if (!$group) {
-                throw ValidationException::withMessages([
-                    'attribute_group' => ["Attribute group '{$inputGroupName}' does not exist."]
-                ]);
-            }
-
-            $itemAttr = $itemAttributes->first(fn($ia) => $ia->attribute_group_id == $group->id);
-            if (!$itemAttr) {
-                throw ValidationException::withMessages([
-                    'attribute_group' => ["Attribute group '{$inputGroupName}' is not linked with this item."]
-                ]);
-            }
-
-            $attributeIds = is_array($itemAttr->attribute_id)
-                ? $itemAttr->attribute_id
-                : json_decode($itemAttr->attribute_id, true);
-
-            $attributeIds = array_map('intval', $attributeIds);
-
-            $allAttributes = Attribute::whereIn('id', $attributeIds)
-                ->where('attribute_group_id', $group->id)
-                ->get(['id', 'value', 'attribute_group_id']);
-
-            $matchingAttr = $allAttributes->first(fn($a) => $a->value === $inputValue);
-
-            if (!$matchingAttr) {
-                throw ValidationException::withMessages([
-                    'item_attribute' => ["Invalid value '{$inputValue}' for attribute group '{$inputGroupName}'."]
-                ]);
-            }
-
-            $formatted[] = [
-                'attribute_name'  => strtoupper($group->name),
-                'attr_name'       => $group->id,
-                'attribute_value' => $matchingAttr->value,
-                'attr_value'      => $matchingAttr->id,
-            ];
-        }
-
-        return $formatted;
     }
 
     public function fetchManualItem(Request $request)
@@ -916,6 +844,13 @@ class RgrJobController extends Controller
                     'message' => 'Job not found',
                     'data' => []
                 ], 404);
+            }
+
+            if ($job->status === 'closed') {
+                return response()->json([
+                    'message' => 'Job already closed.',
+                    'data' => []
+                ], 400);
             }
 
             $items = $job->itemUniqueCodes;

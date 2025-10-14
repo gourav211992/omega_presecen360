@@ -9,6 +9,6 @@ use Illuminate\Database\Eloquent\Model;
 class CurrencyExchange extends Model
 {
     use HasFactory, DefaultGroupCompanyOrg;
-    
+
     public $table = 'erp_currency_exchanges';
 }

@@ -177,35 +177,42 @@ class ErpExternalIntegrationController extends Controller
                 'customer_id'     => $request->customer_id,
                 'status'          => $request->status,
             ]);
+
             // Save sub-store mappings
-            foreach ($request->data as $data) {
-                $subStoreId = $data['subLocation_id'];
+            if(isset($request->data) && count($request->data)){
+                foreach ($request->data as $data) {
+                    if(!isset($data['subLocation_id']) && empty($data['subLocation_id'])){
+                        continue;
+                    }
 
-                $exists = ErpStockStoreMapping::where('organization_id', $request->organization_id)
-                    ->where('store_id', $request->store_id)
-                    ->where('sub_store_id', $subStoreId)
-                    ->exists();
-
-                if ($exists) {
-                    DB::rollBack();
-                    $subStore = ErpSubStore::find($subStoreId);
-
-                    return response()->json([
-                        'status' => false,
-                        'message' => ($subStore?->name ?? 'This') . " sub-location is duplicate for this Location.",
-                    ], 422);
-
+                    $subStoreId = $data['subLocation_id'];
+    
+                    $exists = ErpStockStoreMapping::where('organization_id', $request->organization_id)
+                        ->where('store_id', $request->store_id)
+                        ->where('sub_store_id', $subStoreId)
+                        ->exists();
+    
+                    if ($exists) {
+                        DB::rollBack();
+                        $subStore = ErpSubStore::find($subStoreId);
+    
+                        return response()->json([
+                            'status' => false,
+                            'message' => ($subStore?->name ?? 'This') . " sub-location is duplicate for this Location.",
+                        ], 422);
+    
+                    }
+    
+                    ErpStockStoreMapping::create([
+                        'stock_type'      => $data['stock_type'],
+                        'group_id'        => $user->group_id,
+                        'company_id'      => $user->company_id,
+                        'organization_id' => $request->organization_id,
+                        'store_id'        => $request->store_id,
+                        'sub_store_id'    => $subStoreId,
+                        'is_primary'      => isset($data['is_primary']) ?$data['is_primary']: 0,
+                    ]);
                 }
-
-                ErpStockStoreMapping::create([
-                    'stock_type'      => $data['stock_type'],
-                    'group_id'        => $user->group_id,
-                    'company_id'      => $user->company_id,
-                    'organization_id' => $request->organization_id,
-                    'store_id'        => $request->store_id,
-                    'sub_store_id'    => $subStoreId,
-                    'is_primary'      => isset($data['is_primary']) ?$data['is_primary']: 0,
-                ]);
             }
 
             DB::commit();
@@ -353,9 +360,9 @@ class ErpExternalIntegrationController extends Controller
         try {
             $external = ErpExternalIntegration::findOrFail($id);
 
-            ErpStockStoreMapping::where('organization_id', $external->organization_id)
-                ->where('store_id', $external->store_id)
-                ->delete();
+            // ErpStockStoreMapping::where('organization_id', $external->organization_id)
+            //     ->where('store_id', $external->store_id)
+            //     ->delete();
 
             $external->delete();
 

@@ -38,7 +38,7 @@
                 </td>
                 <td style="text-align: center; vertical-align: bottom; font-weight: bold; font-size: 18px;"
                     width="33%">
-                    Debit Note
+                    {{ $heading }}
                     <br>
                     {{ Str::ucfirst(@$organization->name) }}
                 </td>
@@ -177,109 +177,7 @@
 
                 <td style="border: 1px solid #000; padding: 3px; border-left: none; vertical-align: top; width: 35%;">
                     <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
-                        <tr>
-                            <td><b>Invoice No.:</b></td>
-                            <td>{{ @$pb->book_code . '-' . @$pb->document_number }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td><b>Invoice Date:</b></td>
-                            @if ($pb->document_date)
-                                <td>{{ date('d-M-y', strtotime($pb->document_date)) }}
-                                </td>
-                            @endif
-                        </tr>
-                        <tr>
-                            <td>
-                                <b style="font-weight: 900;">Status :</b>
-                            </td>
-                            <td>
-                                @if ($pb->document_status == 'submitted')
-                                    <span class="status" style="color: #17a2b8 ">
-                                        {{ $pb->display_status }}
-                                    </span>
-                                @elseif($pb->document_status == 'draft')
-                                    <span style="color: #6c757d">
-                                        {{ $pb->display_status }}
-                                    </span>
-                                @elseif($pb->document_status == 'approved' || $pb->document_status == 'approval_not_required')
-                                    <span style="color: #28a745">
-                                        Approved
-                                    </span>
-                                @elseif($pb->document_status == 'rejected')
-                                    <span style="color: #dc3545">
-                                        {{ $pb->display_status }}
-                                    </span>
-                                @else
-                                    <span style="color: #007bff">
-                                        {{ $pb->display_status }}
-                                    </span>
-                                @endif
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <b>
-                                    {{ @$pb->document_status != App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED ? @$pb->display_status : 'Approved' }}
-                                    by:
-                                </b>
-                            </td>
-                            <td>
-                                {{ $approvedBy }}
-                            </td>
-                        </tr>
-                        {{-- <tr>
-                            <td style = "padding-bottom:10px;"><b>Reference:</b></td>
-                            @if ($pb->reference_number)
-                                <td style = "padding-bottom:10px;">
-                                    {{ $pb->reference_number }}
-                                </td>
-                            @endif
-                        </tr> --}}
 
-                        {{-- <tr style = "border-bottom:1px solid #000;">
-                            @if ($eInvoice->ewb_no)
-                                <td style = "padding-bottom:10px;"><b>EWB Number:</b></td>
-                                <td style = "padding-bottom:10px;">
-                                    {{ $eInvoice->ewb_no }}
-                                </td>
-                            @endif
-                            <br/>
-                        </tr> --}}
-                        @if (isset($eInvoice))
-                            <tr>
-                                @if ($pb->transporter_name)
-                                    <td style = "padding-bottom:3px;"><b>Transporter Name:</b></td>
-                                    <td style = "padding-bottom:3px;">
-                                        {{ $pb->transporter_name }}
-                                    </td>
-                                @endif
-                            </tr>
-                            <tr>
-                                @if ($pb->transportation_mode)
-                                    <td style = "padding-bottom:3px;"><b>Transport Mode:</b></td>
-                                    <td style = "padding-bottom:3px;">
-                                        {{ $pb->transportation_mode }}
-                                    </td>
-                                @endif
-                            </tr>
-                            <tr>
-                                @if ($pb->vehicle_no)
-                                    <td style = "padding-bottom:3px;"><b>Vehicle No:</b></td>
-                                    <td style = "padding-bottom:3px;">
-                                        {{ $pb->vehicle_no }}
-                                    </td>
-                                @endif
-                            </tr>
-                            <tr>
-                                @if ($eInvoice->ewb_no)
-                                    <td style = "padding-bottom:3px;"><b>EWB Number:</b></td>
-                                    <td style = "padding-bottom:3px;">
-                                        {{ $eInvoice->ewb_no }}
-                                    </td>
-                                @endif
-                            </tr>
-                        @endif
                     </table>
                     @if ($qrCodeBase64)
                         <img src="{{ $qrCodeBase64 }}" style = "margin-top:10px" width="100%" alt="QR Code">
@@ -353,55 +251,98 @@
                                 {{ @$pb->vendor?->compliances?->gstin_no }}
                             </td>
                         </tr>
+
                         <tr>
                             <td colspan="3"
                                 style="font-weight: 900; font-size: 13px; padding-bottom: 3px; padding-top: 10px; border-top: #000 thin solid">
-                                SHIP TO:
+                                Invoice Data:
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="2" style="font-weight: 900; vertical-align: top; padding-top:10px;">
-                                {{ Str::ucfirst(@$pb?->vendor?->company_name) }}
+                            <td><b>Invoice No.:</b></td>
+                            <td>{{ @$pb->book_code . '-' . @$pb->document_number }}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding-top: 10px;">ADDRESS:</td>
-                            <td style="padding-top: 10px;" colspan="2">
-                                {{ @$shippingAddress->address }}
+                            <td><b>Invoice Date:</b></td>
+                            @if ($pb->document_date)
+                                <td>{{ date('d-M-y', strtotime($pb->document_date)) }}
+                                </td>
+                            @endif
+                        </tr>
+                        <tr>
+                            <td>
+                                <b style="font-weight: 900;">Status :</b>
+                            </td>
+                            <td>
+                                @if ($pb->document_status == 'submitted')
+                                    <span class="status" style="color: #17a2b8 ">
+                                        {{ $pb->display_status }}
+                                    </span>
+                                @elseif($pb->document_status == 'draft')
+                                    <span style="color: #6c757d">
+                                        {{ $pb->display_status }}
+                                    </span>
+                                @elseif($pb->document_status == 'approved' || $pb->document_status == 'approval_not_required')
+                                    <span style="color: #28a745">
+                                        Approved
+                                    </span>
+                                @elseif($pb->document_status == 'rejected')
+                                    <span style="color: #dc3545">
+                                        {{ $pb->display_status }}
+                                    </span>
+                                @else
+                                    <span style="color: #007bff">
+                                        {{ $pb->display_status }}
+                                    </span>
+                                @endif
                             </td>
                         </tr>
                         <tr>
-                            <td>CITY:</td>
-                            <td colspan="2">
-                                {{ @$shippingAddress?->city?->name }}
+                            <td>
+                                <b>
+                                    {{ @$pb->document_status != App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED ? @$pb->display_status : 'Approved' }}
+                                    by:
+                                </b>
+                            </td>
+                            <td>
+                                {{ $approvedBy }}
                             </td>
                         </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">STATE:</td>
-                            <td style="padding-top: 3px;">
-                                {{ @$shippingAddress?->state?->name }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">
-                                STATE CODE:
-                            </td>
-                            <td style="padding-top: 3px; font-weight: 700;">
-                                {{ @$shippingAddress?->state?->state_code }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">COUNTRY:</td>
-                            <td colspan="2" style="padding-top: 3px;">
-                                {{ @$shippingAddress?->country?->name }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">PINCODE:</td>
-                            <td colspan="2" style="padding-top: 3px;">
-                                {{ @$shippingAddress->pincode }}
-                            </td>
-                        </tr>
+                        @if (isset($eInvoice))
+                            <tr>
+                                @if ($pb->transporter_name)
+                                    <td style = "padding-bottom:3px;"><b>Transporter Name:</b></td>
+                                    <td style = "padding-bottom:3px;">
+                                        {{ $pb->transporter_name }}
+                                    </td>
+                                @endif
+                            </tr>
+                            <tr>
+                                @if ($pb->transportation_mode)
+                                    <td style = "padding-bottom:3px;"><b>Transport Mode:</b></td>
+                                    <td style = "padding-bottom:3px;">
+                                        {{ $pb->transportation_mode }}
+                                    </td>
+                                @endif
+                            </tr>
+                            <tr>
+                                @if ($pb->vehicle_no)
+                                    <td style = "padding-bottom:3px;"><b>Vehicle No:</b></td>
+                                    <td style = "padding-bottom:3px;">
+                                        {{ $pb->vehicle_no }}
+                                    </td>
+                                @endif
+                            </tr>
+                            <tr>
+                                @if ($eInvoice->ewb_no)
+                                    <td style = "padding-bottom:3px;"><b>EWB Number:</b></td>
+                                    <td style = "padding-bottom:3px;">
+                                        {{ $eInvoice->ewb_no }}
+                                    </td>
+                                @endif
+                            </tr>
+                        @endif
                     </table>
                 </td>
             </tr>

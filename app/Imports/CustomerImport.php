@@ -193,6 +193,9 @@ class CustomerImport implements ToCollection, WithHeadingRow, WithChunkReading
                 'tds_applicable' => ($row['tds_applicable'] ?? 'N') === 'Y' ? 1 : 0,
                 'tds_certificate_no' => $row['tds_certificate_no'] ?? null,
                 'tan_number' => $row['tan_no'] ?? null,
+                'msme_registered' => ($row['msme_registered'] ?? 'N') === 'Y' ? 1 : 0,
+                'msme_no' => $row['msme_no'] ?? null,
+                'msme_type' =>$row['msme_type'],
                 'status' => 'Processed',
                 'group_id' => $validatedData['group_id'],
                 'company_id' => $validatedData['company_id'],
@@ -339,6 +342,32 @@ private function processCustomerFromUpload($uploadedCustomers)
             }
         }
 
+         $msmeType = null;
+           
+        if (!empty($uploadedCustomer->msme_type)) {
+            if ($uploadedCustomer->msme_type === 'mi') {
+                $msmeType = 'Micro';
+            } elseif ($uploadedCustomer->msme_type === 'sm') {
+                $msmeType = 'Small';
+            } elseif ($uploadedCustomer->msme_type === 'me') {
+                $msmeType = 'Medium';
+            } elseif ($uploadedCustomer->msme_type === 'pr') {
+                $msmeType = 'Producer';
+            } elseif ($uploadedCustomer->msme_type === 'tr') {
+                $msmeType = 'Trader';
+            } elseif ($uploadedCustomer->msme_type === 'bo') {
+                $msmeType = 'Brand Owner';
+            } 
+        }
+        $panNumber = $uploadedCustomer->pan_number ?? null;
+        if (!empty($uploadedCustomer->gst_applicable) && $uploadedCustomer->gst_applicable == 1) {
+            $gstin = $uploadedCustomer->gstin_no ?? null;
+            if (!empty($gstin) && strlen($gstin) === 15) {
+            $panNumber = substr($gstin, 2, 10);
+        }
+       }
+
+
         try {
             $customerData = [
                 'organization_type_id' => $organizationTypeId ?? null,
@@ -355,7 +384,7 @@ private function processCustomerFromUpload($uploadedCustomers)
                 'mobile' => $uploadedCustomer->mobile ?? null,
                 'whatsapp_number' => $uploadedCustomer->whatsapp_number ?? null,
                 'notification' => $uploadedCustomer->notification_mode ?? null,
-                'pan_number' => $uploadedCustomer->pan_number ?? null,
+                'pan_number' => $panNumber,
                 'tin_number' => $uploadedCustomer->tin_number ?? null,
                 'aadhar_number' => $uploadedCustomer->aadhar_number ?? null,
                 'ledger_id' => $ledgerId ?? null,
@@ -372,6 +401,9 @@ private function processCustomerFromUpload($uploadedCustomers)
                 'tds_applicable' => $uploadedCustomer->tds_applicable ?? 0,
                 'tds_certificate_no' => $uploadedCustomer->tds_certificate_no ?? null,
                 'tan_number' => $uploadedCustomer->tan_number ?? null,
+                'msme_registered' =>$uploadedCustomer->msme_registered ?? 0,
+                'msme_no' => $uploadedCustomer->msme_no ?? null,
+                'msme_type' => $msmeType,
                 'country_id' => $locationIds['country_id'] ?? null,
                 'state_id' => $locationIds['state_id'] ?? null,
                 'city_id' => $locationIds['city_id'] ?? null,
@@ -452,7 +484,12 @@ private function processCustomerFromUpload($uploadedCustomers)
                 'whatsapp_number' => 'nullable|regex:/^\d{10,12}$/',
                 'notification' => 'nullable',
                 'notification.*' => 'nullable',
-                'pan_number' => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/'],
+                'pan_number' => [
+                    'nullable',
+                    'string',
+                    'regex:/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/',
+                    'required_if:compliance.gst_applicable,1'
+                ],
                 'tin_number' => 'nullable|regex:/^\d{10}$/',
                 'aadhar_number' => 'nullable|regex:/^\d{12}$/',
                 'ledger_id' => 'nullable|exists:erp_ledgers,id',
@@ -471,6 +508,9 @@ private function processCustomerFromUpload($uploadedCustomers)
                     'required_if:tds_applicable,1'
                 ],
                 'tan_number' => 'nullable|string|max:255',
+                'msme_registered' => 'nullable',
+                'msme_no' => 'nullable|string|max:255',
+                'msme_type' => 'nullable|string|max:255',
                 'status' => 'nullable|string|max:255',
                 'group_id' => 'nullable',
                 'company_id' => 'nullable',
@@ -543,6 +583,11 @@ private function processCustomerFromUpload($uploadedCustomers)
                 'tds_certificate_no.max' => 'TDS Certificate Number cannot exceed 255 characters.',
                 'tan_number.string' => 'TAN number must be a string.',
                 'tan_number.max' => 'TAN number cannot exceed 255 characters.',
+                'msme_registered' => 'MSME Registration status must be specified.',
+                'msme_no.string' => 'MSME Number must be a string.',
+                'msme_no.max' => 'MSME Number cannot exceed 255 characters.',
+                'msme_type.string' => 'MSME Type must be a string.',
+                'msme_type.max' => 'MSME Type cannot exceed 255 characters.',
                 'status.string' => 'Status must be a string.',
                 'status.max' => 'Status cannot exceed 255 characters.',
                 'group_id' => 'The group ID is not valid.',
@@ -639,6 +684,9 @@ private function processCustomerFromUpload($uploadedCustomers)
                 'tds_applicable' => $uploadedCustomer->tds_applicable ?? 0,
                 'tds_certificate_no' => $uploadedCustomer->tds_certificate_no ?? null,
                 'tan_number' => $uploadedCustomer->tan_number ?? null,
+                'msme_registered' =>$uploadedCustomer->msme_registered ?? 0,
+                'msme_no' => $uploadedCustomer->msme_no ?? null,
+                'msme_type' => $msmeType,
                 'status' => 'active',
             ];
             if (isset($uploadedCustomer->gst_applicable)) {
@@ -674,5 +722,5 @@ private function processCustomerFromUpload($uploadedCustomers)
             Log::error("Error creating customer from upload: " . $e->getMessage(), ['error' => $e]);
         }
     });
-}
+ }
 }
