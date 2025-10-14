@@ -557,6 +557,7 @@
                                   <th>Attributes</th>
                                   <th>UOM</th>
                                   <th>Qty</th>
+                                  <th>Rate</th>
                                   <th>Available Stock</th>
                                 </tr>
                               </thead>
@@ -630,6 +631,10 @@
                                                  value="{{ $part['qty'] ?? ($part->qty ?? '') }}" required />
                                        </td>
                                        <td>
+                                          <input type="number" class="rate form-control mw-100" name="rate[]"
+                                                 value="{{ $part['rate'] ?? ($part->rate ?? 0) }}" required />
+                                       </td>
+                                       <td>
                                            <input type="number" class="available_stock form-control mw-100" name="available_stock[]"
                                                   value="{{ $part['available_stock'] }}" />
                                        </td>
@@ -663,12 +668,20 @@
                                       <input type="number" class="qty form-control mw-100" name="qty[]" required />
                                     </td>
                                     <td>
+                                      <input type="number" class="rate form-control mw-100" name="rate[]" required />
+                                    </td>
+                                    <td>
                                       <input type="number" class="available_stock form-control mw-100" name="available_stock[]"  readonly />
                                     </td>
                                   </tr>
                                 @endif
                               </tbody>
                               <tfoot>
+                                <tr>
+                                  <td colspan="6" class="text-end">Total</td>
+                                  <td class="fw-bolder text-dark text-end settleTotal">0.00</td>
+                                  <td></td>
+                                </tr>
                                  <tr valign="top">
                                    <td colspan="7" rowspan="10">
                                     <table class="table border">
@@ -732,6 +745,14 @@
                                             <span id="qty">
                                               @if(!empty($sparePartsData) && count($sparePartsData) > 0)
                                                 {{ $sparePartsData[0]['qty'] ?? ($sparePartsData[0]->qty ?? 'N/A') }}
+                                              @endif
+                                            </span>
+                                          </span>
+                                          <span class="badge rounded-pill badge-light-primary">
+                                            <strong>Rate</strong>: 
+                                            <span id="rate">
+                                              @if(!empty($sparePartsData) && count($sparePartsData) > 0)
+                                                {{ $sparePartsData[0]['rate'] ?? ($sparePartsData[0]->rate ?? '0') }}
                                               @endif
                                             </span>
                                           </span>
@@ -1533,6 +1554,7 @@
 					item_name: row.find('.item_name').val() || '',
 					attribute: row.find('.attribute').val() || '',
 					qty: row.find('.qty').val() || 0,
+					rate: row.find('.rate').val() || 0,
 					uom_id: row.find('.uom').val() || '',
 					uom_name: row.find('.uom option:selected').text() || '',
 					available_stock: row.find('.available_stock').val() || 0
@@ -1808,6 +1830,35 @@
 	// Initialize autocomplete for existing rows
 	$(document).ready(function() {
 		initAutoForItem('.item_code');
+		
+		// Function to calculate total for spare parts
+		function calculateSparePartsTotal() {
+			let total = 0;
+			console.log('🔢 Calculating spare parts total...');
+			$('.mrntableselectexcel tr').each(function() {
+				const qtyInput = $(this).find('input[name="qty[]"], input.qty');
+				const rateInput = $(this).find('input[name="rate[]"], input.rate');
+				
+				if (qtyInput.length && rateInput.length) {
+					const qty = parseFloat(qtyInput.val()) || 0;
+					const rate = parseFloat(rateInput.val()) || 0;
+					const rowTotal = qty * rate;
+					console.log(`Row: qty=${qty}, rate=${rate}, total=${rowTotal}`);
+					total += rowTotal;
+				}
+			});
+			console.log('Final total:', total);
+			$('.settleTotal').text(total.toFixed(2));
+		}
+
+		// Event listeners for qty and rate changes
+		$(document).on('input change keyup', '.mrntableselectexcel input[name="qty[]"], .mrntableselectexcel input[name="rate[]"], .mrntableselectexcel input.qty, .mrntableselectexcel input.rate', function() {
+			console.log('Input changed, recalculating total...');
+			calculateSparePartsTotal();
+		});
+
+		// Calculate total on page load
+		calculateSparePartsTotal();
 	});
 
 	// Add New Item functionality
@@ -1889,6 +1940,9 @@
 				<input type="number" class="qty form-control mw-100" name="qty[]" required />
 			</td>
 			<td>
+				<input type="number" class="rate form-control mw-100" name="rate[]" required />
+			</td>
+			<td>
 				<input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly />
 			</td>
 		</tr>`;
@@ -1898,6 +1952,9 @@
 		if (typeof initAutoForItem === 'function') {
 			initAutoForItem('.item_code');
 		}
+		
+		// Recalculate total after adding new row
+		calculateSparePartsTotal();
 	});
 
 	
@@ -1925,6 +1982,7 @@
 			let partName = $selected.find('.item_name').val() || 'N/A';
 			let uomText = $selected.find('.uom option:selected').text() || $selected.find('.uom').val() || 'N/A';
 			let qty = $selected.find('.qty').val() || '0';
+			let rate = $selected.find('.rate').val() || '0';
 			let availableStock = $selected.find('.available_stock').val() || '0'; // Get available stock
 			
 	
@@ -1932,6 +1990,7 @@
 			$('#part_name').text(partName);
 			$('#uom').text(uomText);
 			$('#qty').text(qty);
+			$('#rate').text(rate);
 			$('#available_stock').text(availableStock); // Update available stock in Part Details
 			
 			
@@ -2143,6 +2202,7 @@
 						</select>
 					</td>
 					<td><input type="number" class="qty form-control mw-100" name="qty[]" required /></td>
+					<td><input type="number" class="rate form-control mw-100" name="rate[]" required /></td>
 					<td><input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly /></td>
 				</tr>
 			`;

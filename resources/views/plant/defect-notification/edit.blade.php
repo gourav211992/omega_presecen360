@@ -255,7 +255,7 @@
 
                                         {{-- Report Date & Time --}}
                                         <div class="col-md-3 mb-1">
-                                            <label class="form-label">Report Date & Time <span class="text-danger">*</span></label>
+                                            <label class="form-label">Down Date & Time <span class="text-danger">*</span></label>
                                             <input type="text" name="report_date_time" value="{{ $defectNotification->report_date_time ? \Carbon\Carbon::parse($defectNotification->report_date_time)->format('d-m-Y H:i') : '' }}" class="form-control" placeholder="dd-mm-yyyy HH:mm" required>
                                         </div>
 

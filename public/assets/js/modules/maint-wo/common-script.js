@@ -121,7 +121,7 @@ function onSeriesChange(element, reset = true) {
         let newSeriesHTML = ``;
         data.data.forEach((book, i) => { newSeriesHTML += `<option value="${book.id}" ${i == 0 ? 'selected' : ''}>${book.book_code}</option>`; });
         document.getElementById('book_id').innerHTML = newSeriesHTML;
-        getDocNumberByBookId(document.getElementById('book_id'), reset);
+        // Document number generation handled in blade file
       } else {
         document.getElementById('book_id').innerHTML = '';
       }
@@ -139,44 +139,7 @@ function resetParametersDependentElements(reset = true) {
   if (reset) { var today = moment().format("YYYY-MM-DD"); $("#document_date").val(today); }
   $('#document_date').on('input', function () { restrictBothFutureAndPastDates(this); });
 }
-function getDocNumberByBookId(element, reset = true) {
-  resetParametersDependentElements(reset);
-
-  let actionUrl = `${window.routes.docParams}?book_id=${$("#book_id").val()}&document_date=${$("#document_date").val()}`;
-
-  fetch(actionUrl).then(response => response.json().then(data => {
-    if (data.status == 200) {
-      $("#book_code_input").val(data.data.book_code);
-
-      if (!data.data.doc.document_number && reset) {
-        $("#document_number, #doc_number_type, #doc_reset_pattern, #doc_prefix, #doc_suffix, #doc_no").val('');
-      } else if (reset) {
-        $("#document_number").val(data.data.doc.document_number);
-        $('#doc_number_type').val(data.data.doc.type);
-        $('#doc_reset_pattern').val(data.data.doc.reset_pattern);
-        $('#doc_prefix').val(data.data.doc.prefix);
-        $('#doc_suffix').val(data.data.doc.suffix);
-        $('#doc_no').val(data.data.doc.doc_no);
-      }
-
-      $("#document_number").attr('readonly', data.data.doc.type !== 'Manually');
-      if (data.data.parameters) implementBookParameters(data.data.parameters);
-    }
-
-    if (data.status == 404 && reset) {
-      $("#book_code_input, #document_number, #doc_number_type, #doc_reset_pattern, #doc_prefix, #doc_suffix, #doc_no").val('');
-      showToast?.('error', data.message); // optional
-    }
-
-    if (data.status == 500 && reset) {
-      $("#book_code_input, #book_id, #document_number, #doc_number_type, #doc_reset_pattern, #doc_prefix, #doc_suffix, #doc_no").val('');
-      Swal.fire({ title: 'Error!', text: data.message, icon: 'error' });
-    }
-
-    enableDisableQtButton();
-    if (!reset) viewModeScript();
-  }));
-}
+// Document number generation moved to individual blade files
 
 function enableDisableQtButton() {
   const bookId = document.getElementById('book_id').value;
@@ -416,7 +379,7 @@ function onServiceChange(element, reset = true) {
         let newSeriesHTML = ``;
         data.data.forEach((book, i) => { newSeriesHTML += `<option value="${book.id}" ${i == 0 ? 'selected' : ''}>${book.book_code}</option>`; });
         document.getElementById('book_id').innerHTML = newSeriesHTML;
-        getDocNumberByBookId(document.getElementById('book_id'), reset);
+        // Document number generation handled in blade file
       } else {
         document.getElementById('book_id').innerHTML = '';
       }
@@ -630,8 +593,6 @@ function populateChecklistTable(equipmentData, maintenanceTypeId) {
 function createChecklistInputField(checklistItem, groupIndex, itemIndex) {
   const fieldName = `checklist_data[${groupIndex}][checklist][${itemIndex}][value]`;
   const fieldId = `checklist_${groupIndex}_${itemIndex}`;
-  const isRequired = checklistItem.mandatory ? 'required' : '';
-  const currentValue = checklistItem.value || '';
   let hiddenFields = `
     <input type="hidden" name="checklist_data[${groupIndex}][main_name]" value="${checklistItem.name}">
     <input type="hidden" name="checklist_data[${groupIndex}][checklist][${itemIndex}][name]" value="${checklistItem.name}">
@@ -639,40 +600,43 @@ function createChecklistInputField(checklistItem, groupIndex, itemIndex) {
     <input type="hidden" name="checklist_data[${groupIndex}][checklist][${itemIndex}][mandatory]" value="${checklistItem.mandatory ? 1 : 0}">
   `;
   let inputField = '';
+  const currentValue = checklistItem.value || '';
+
   switch (checklistItem.data_type) {
     case 'list':
-      if (checklistItem.values && checklistItem.values.length == 0) {
+      if (checklistItem.values && checklistItem.values.length > 0) {
         inputField = `
-          <select class="form-control mw-100" name="${fieldName}" id="${fieldId}" ${isRequired}>
+          <select class="form-control mw-100" name="${fieldName}" id="${fieldId}">
             <option value="">Select an option</option>
             ${checklistItem.values.map(v => `<option value="${v}" ${currentValue === v ? 'selected' : ''}>${v}</option>`).join('')}
           </select>`;
       } else {
-        inputField = `<input type="text" class="form-control mw-100" name="${fieldName}" id="${fieldId}" value="${currentValue}" placeholder="Enter value" ${isRequired}>`;
+        inputField = `<input type="text" class="form-control mw-100" name="${fieldName}" id="${fieldId}" value="${currentValue}" placeholder="Enter value">`;
       }
       break;
     case 'number':
-      inputField = `<input type="number" class="form-control mw-100" name="${fieldName}" id="${fieldId}" value="${currentValue}" placeholder="Enter number" ${isRequired}>`;
+      inputField = `<input type="number" class="form-control mw-100" name="${fieldName}" id="${fieldId}" value="${currentValue}" placeholder="Enter number">`;
       break;
     case 'boolean':
     case 'checkbox':
       inputField = `
-         <select class="form-control mw-100" name="${fieldName}" id="${fieldId}" ${isRequired}>
+         <select class="form-control mw-100" name="${fieldName}" id="${fieldId}">
               <option value="">Select an option</option>
               <option value="1" ${currentValue == 1 ? 'selected' : ''}>Yes</option>
               <option value="0" ${currentValue == 0 ? 'selected' : ''}>No</option>
             </select>`;
       break;
     case 'date':
-      inputField = `<input type="date" class="form-control mw-100" name="${fieldName}" id="${fieldId}" value="${currentValue}" ${isRequired}>`;
+      inputField = `<input type="date" class="form-control mw-100" name="${fieldName}" id="${fieldId}" value="${currentValue}">`;
       break;
     case 'textarea':
-      inputField = `<textarea class="form-control mw-100" name="${fieldName}" id="${fieldId}" rows="3" placeholder="Enter details" ${isRequired}>${currentValue}</textarea>`;
+      inputField = `<textarea class="form-control mw-100" name="${fieldName}" id="${fieldId}" rows="3" placeholder="Enter details">${currentValue}</textarea>`;
       break;
     default:
-      inputField = `<input type="text" class="form-control mw-100" name="${fieldName}" id="${fieldId}" value="${currentValue}" placeholder="Enter text" ${isRequired}>`;
+      inputField = `<input type="text" class="form-control mw-100" name="${fieldName}" id="${fieldId}" value="${currentValue}" placeholder="Enter text">`;
       break;
   }
+
   return hiddenFields + inputField;
 }
 
@@ -797,6 +761,9 @@ function populateSparePartsTable(sparePartsData) {
         </td>
         <td>
           <input type="number" class="qty form-control mw-100" name="qty[]" value="${part.qty || 0}" required />
+        </td>
+        <td>
+          <input type="number" class="rate form-control mw-100" name="rate[]" value="${part.rate || 0}" required />
         </td>
         <td>
           <input type="number" class="available_stock form-control mw-100" name="available_stock[]" value="${part.available_stock || 0}" readonly />

@@ -21,7 +21,8 @@ class ErpEquipment extends Model
     protected $fillable = [
         'organization_id', 'group_id', 'company_id', 'category_id', 'location_id', 
         'name', 'alias', 'description', 'final_remarks', 'book_id', 'document_status', 
-        'created_by', 'asset_code_id', 'upload_document'
+        'created_by', 'asset_code_id', 'upload_document', 'status',
+        'model_name', 'manufacturer_name', 'yom', 'commission_date', 'purchase_cost'
     ];
 
     public function organization(): BelongsTo

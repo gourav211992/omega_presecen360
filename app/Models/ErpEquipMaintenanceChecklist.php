@@ -19,6 +19,7 @@ class ErpEquipMaintenanceChecklist extends Model
         'updated_by',
         'deleted_by',
         'checklist_detail',
+        'equipment_id',
     ];
 
     public function maintenanceDetail()

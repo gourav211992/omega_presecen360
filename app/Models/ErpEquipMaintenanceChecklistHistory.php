@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 class ErpEquipMaintenanceChecklistHistory extends Model
 {
     use HasFactory;
+
+    protected $table = 'erp_equip_maintenance_checklists_history';
     
     protected $fillable = [
         'erp_equip_maintenance_id',
@@ -17,7 +19,8 @@ class ErpEquipMaintenanceChecklistHistory extends Model
         'status',
         'created_by',
         'updated_by',
-        'deleted_by'
+        'deleted_by',
+        'equipment_id'
     ];
 
     public function maintenanceDetail()

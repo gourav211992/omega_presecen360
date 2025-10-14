@@ -484,7 +484,7 @@ class MaintWoController extends Controller
                 'uom_name'        => optional($item->uom)->name,
                 'uom_id'          => optional($item->uom)->id,
                 'item_attributes' => $item->attributes,
-                'available_stock' => $stockLookup[$item->item_code] ?? 0,// ✅ Use batch lookup
+                'available_stock' => 100,// ✅ Use batch lookup
             ];
         });
 
@@ -613,7 +613,7 @@ class MaintWoController extends Controller
                 'uom_name' => optional($item->uom)->name,
                 'uom_id' => optional($item->uom)->id,
                 'item_attributes' => collect($processedData),
-                'available_stock' => $stockLookup[$item->item_code] ?? 0, // ✅ Use batch lookup
+                'available_stock' => 100, // ✅ Use batch lookup
             ];
         });
 
@@ -672,13 +672,11 @@ class MaintWoController extends Controller
 
         $request->validate($rules, $messages, $attributes);
 
-        $documentNumber = $request->document_number;
-        $existingWo = PlantMaintWo::where('document_number', $documentNumber)->first();
-        if ($existingWo) {
-            return redirect()
-                ->route('maint-wo.create')
-                ->withInput()
-                ->withErrors("Work Order Number '{$documentNumber}' already exists.");
+        if($request->doc_no==''){
+            $doc_no = $request->document_number;
+        }
+        else{
+            $doc_no = $request->doc_no;
         }
 
         $user = Helper::getAuthenticatedUser();
@@ -690,6 +688,7 @@ class MaintWoController extends Controller
             'company_id' => $user->organization->company_id,
             'approval_level' => 1,
             'revision_number' => 0,
+            'doc_no' => $doc_no,
         ];
 
         $data = array_merge($request->all(), $additionalData);
@@ -959,7 +958,7 @@ class MaintWoController extends Controller
                 'uom_name' => optional($item->uom)->name,
                 'uom_id' => optional($item->uom)->id,
                 'item_attributes' => $item->attributes,
-                'available_stock' => $confirmedStock, 
+                'available_stock' => 100, 
             ];
         });
 
@@ -1492,6 +1491,7 @@ class MaintWoController extends Controller
             });
         
         $equipmentData = $query->get();
+     
         
           
             foreach ($equipmentData as $eqpt) {
@@ -1880,7 +1880,7 @@ class MaintWoController extends Controller
                         'uom_id' => $sparePart['uom_id'] ?? null,
                         'attribute' => $sparePart['attribute'] ?? '[]',
                         'attributes' => [],
-                        'available_stock' => $confirmedStock,
+                        'available_stock' =>100,
                     ];
 
                     // Process attributes if they exist
@@ -2084,28 +2084,48 @@ class MaintWoController extends Controller
     {
         try {
             $documentNumber = $request->document_number;
+            $bookId = $request->book_id;
             $currentId = $request->current_id; // For edit mode
-            $errors = [];
 
-            // Check document number
-            if ($documentNumber) {
-                $query = PlantMaintWo::where('document_number', $documentNumber);
-                if ($currentId) {
-                    $query->where('id', '!=', $currentId);
+            // Get current user's organization
+            $user = Helper::getAuthenticatedUser();
+            $organizationId = $user->organization_id;
+
+            $response = [
+                'document_exists' => false,
+                'message' => null
+            ];
+
+            // Check document number uniqueness based on book series numbering (same as PoRequest and MaintBomController)
+            if ($documentNumber && $bookId) {
+                $numPattern = \App\Models\NumberPattern::where('organization_id', $organizationId)
+                    ->where('book_id', $bookId)
+                    ->orderBy('id', 'DESC')
+                    ->first();
+
+                // Only check uniqueness if series_numbering is 'Manually' (same as PoRequest)
+                if ($numPattern && $numPattern->series_numbering == 'Manually') {
+                    // Check if the user-entered document number already exists within organization
+                    $documentExists = PlantMaintWo::where('document_number', $documentNumber)
+                        ->where('organization_id', $organizationId);
+
+                    // For edit mode, exclude current record
+                    if ($currentId) {
+                        $documentExists->where('id', '!=', $currentId);
+                    }
+
+                    $documentExists = $documentExists->exists();
+
+                    if ($documentExists) {
+                        $response['document_exists'] = true;
+                        $response['message'] = "Work Order Number '{$documentNumber}' already exists. Please use a different document number.";
+
+                        return response()->json([
+                            'success' => false,
+                            'errors' => ['document_number' => $response['message']]
+                        ], 422);
+                    }
                 }
-                $existingDocNumber = $query->first();
-                
-                if ($existingDocNumber) {
-                    $errors['document_number'] = "Work Order Number '{$documentNumber}' already exists.";
-                }
-            }
-
-
-            if (!empty($errors)) {
-                return response()->json([
-                    'success' => false,
-                    'errors' => $errors
-                ], 422);
             }
 
             return response()->json([

@@ -1120,4 +1120,42 @@ class DefectNotificationController extends Controller
                 ->with('error', 'Failed to delete defect notification.');
         }
     }
+
+    /**
+     * Check if document number already exists
+     */
+    public function checkDocumentNumber(Request $request)
+    {
+        $documentNumber = $request->get('document_number');
+        $currentId = $request->get('current_id'); // For edit mode to exclude current record
+
+        $user = Helper::getAuthenticatedUser();
+        $organizationId = $user->organization_id;
+        
+        $response = [
+            'document_exists' => false,
+            'message' => null
+        ];
+        
+        // Check document number if provided
+        if ($documentNumber) {
+            // Check if the user-entered document number already exists within organization
+            $documentExists = DefectNotification::where('document_number', $documentNumber)
+                ->where('organization_id', $organizationId);
+                
+            // For edit mode, exclude current record
+            if ($currentId) {
+                $documentExists->where('id', '!=', $currentId);
+            }
+            
+            $documentExists = $documentExists->exists();
+            
+            if ($documentExists) {
+                $response['document_exists'] = true;
+                $response['message'] = "Document number '{$documentNumber}' already exists. Please use a different document number.";
+            }
+        }
+        
+        return response()->json($response, 200);
+    }
 }

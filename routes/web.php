@@ -3028,6 +3028,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('plant/maint-wo/{id}/amendment', [MaintWoController::class, 'amendment'])
     ->name('maint-wo.amendment');
     Route::get('plant/defect-noti/get-ajax-data', [DefectNotificationController::class, 'getDefectNotificationsData'])->name('defect-notification.ajax-data');
+    Route::post('plant/defect-noti/check-document-number', [DefectNotificationController::class, 'checkDocumentNumber'])->name('defect-notification.check-document-number');
     Route::get('plant/populate-modal', [MaintWoController::class, 'populateModal'])->name('maint-wo.populateModal');
 
     Route::get('plant/defect-noti/filter', [DefectNotificationController::class, 'filter'])->name('defect-notification.filter');
@@ -3288,14 +3289,17 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('/equipments/data', [ErpEquipmentController::class, 'getData'])->name('equipments.data');
         Route::get('/create', [ErpEquipmentController::class, 'create'])->name('equipment.create');
         Route::post('/store', [ErpEquipmentController::class, 'store'])->name('equipment.store');
+        Route::get('/show/{id}', [ErpEquipmentController::class, 'show'])->name('equipment.show');
         Route::get('/edit/{id}', [ErpEquipmentController::class, 'edit'])->name('equipment.edit');
         Route::post('/update/{id}', [ErpEquipmentController::class, 'update'])->name('equipment.update');
+        Route::delete('/delete/{id}', [ErpEquipmentController::class, 'destroy'])->name('equipment.destroy');
         Route::post('/approve', [ErpEquipmentController::class, 'documentApproval'])->name('equipment.approval');
         Route::get('amend/{id}', [ErpEquipmentController::class, 'amendment'])->name('equipment.amendment');
         Route::post('/get-asset-codes-by-book', [ErpEquipmentController::class, 'getFixedAssetCodesByBookId'])->name('equipment.get-asset-codes-by-book');
         Route::post('/get-checklist-details', [ErpEquipmentController::class, 'getChecklistDetails'])->name('equipment.get-checklist-details');
         Route::post('/popup-checklist-data', [ErpEquipmentController::class, 'getPopupChecklistData'])->name('equipment.popup-checklist-data');
         Route::post('/search-checklists', [ErpEquipmentController::class, 'searchChecklists'])->name('equipment.search-checklists');
+        Route::get('revoke', [ErpEquipmentController::class, 'revoke'])->name('equipment.revoke.document');
     });
 
     Route::prefix('maintenance')->group(function () {

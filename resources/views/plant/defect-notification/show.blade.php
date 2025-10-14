@@ -290,7 +290,7 @@
 													
 													<div class="col-md-3">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Report Date & Time <span class="text-danger">*</span></label>
+                                                            <label class="form-label">Down Date & Time <span class="text-danger">*</span></label>
                                                             <input type="datetime-local" name="report_date_time" value="{{ $defectNotification->report_date_time ? \Carbon\Carbon::parse($defectNotification->report_date_time)->format('Y-m-d\TH:i') : '' }}" class="form-control" /> 
                                                         </div>
                                                     </div>
@@ -1152,7 +1152,7 @@
 				}
 				if (!$('input[name="report_date_time"]').val()) {
 					isValid = false;
-					errorMessage += 'Report Date & Time is required.\n';
+					errorMessage += 'Down Date & Time is required.\n';
 				}
 			}
 

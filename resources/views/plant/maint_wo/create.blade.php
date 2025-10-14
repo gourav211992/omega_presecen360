@@ -370,6 +370,7 @@
 														<th>Attributes</th>
 														<th>UOM</th>
 														<th>Qty</th>
+														<th>Rate</th>
 														<th>Available Stock</th>
 													</tr>
 												</thead>
@@ -405,15 +406,21 @@
 														</td>
 														<td><input type="number" class="qty form-control mw-100"
 																name="qty[]" /></td>
+														<td><input type="number" class="rate form-control mw-100"
+																name="rate[]" /></td>
 														<td><input type="number" class="available_stock form-control mw-100"
 																name="available_stock[]"  readonly /></td>
 													</tr>
 												</tbody>
 												<tfoot>
-
-
+													<tr>
+														<td colspan="6" class="text-end">Total</td>
+														<td class="fw-bolder text-dark text-end settleTotal">0</td>
+														<td></td>
+													</tr>
+													
 													<tr valign="top">
-														<td colspan="7" rowspan="10">
+														<td colspan="4" rowspan="4">
 															<table class="table border">
 																<tr>
 																	<td class="p-0">
@@ -443,6 +450,9 @@
 																		<span
 																			class="badge rounded-pill badge-light-primary"><strong>Qty.</strong>:
 																			<span id="qty"></span></span>
+																		<span
+																			class="badge rounded-pill badge-light-primary"><strong>Rate</strong>:
+																			<span id="rate"></span></span>
 																		<span
 																			class="badge rounded-pill badge-light-primary"><strong>Available Stock</strong>:
 																			<span id="available_stock"></span></span>
@@ -917,6 +927,7 @@
 							</select>
 						</td>
 						<td><input type="number" class="qty form-control mw-100" name="qty[]" /></td>
+						<td><input type="number" class="rate form-control mw-100" name="rate[]" /></td>
 						<td><input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly /></td>
 					</tr>
 				`;
@@ -981,6 +992,7 @@
 				let partName = $selected.find('.item_name').val() || 'N/A';
 				let uomText = $selected.find('.uom option:selected').text() || $selected.find('.uom').val() || 'N/A';
 				let qty = $selected.find('.qty').val() || '0';
+				let rate = $selected.find('.rate').val() || '0';
 				let availableStock = $selected.find('.available_stock').val() || '0';
 				
 				
@@ -988,6 +1000,7 @@
 				$('#part_name').text(partName);
 				$('#uom').text(uomText);
 				$('#qty').text(qty);
+				$('#rate').text(rate);
 				$('#available_stock').text(availableStock);
 				
 				let $selectElement = $selected.find('.item_code');
@@ -1090,6 +1103,7 @@
 																</select>
 															</td>
 															<td><input type="number" class="qty form-control mw-100"  name="qty[]" /></td>
+															<td><input type="number" class="rate form-control mw-100"  name="rate[]" /></td>
 															<td><input type="number" class="available_stock form-control mw-100"
 																	name="available_stock[]"  readonly /></td>
 														</tr>																  `;
@@ -1170,6 +1184,7 @@
 						item_name: row.find('.item_name').val() || '',
 						attribute: row.find('.attribute').val() || '',
 						qty: row.find('.qty').val() || 0,
+						rate: row.find('.rate').val() || 0,
 						uom_id: row.find('.uom').val() || '',
 						uom_name: row.find('.uom option:selected').text() || '',
 						available_stock: row.find('.available_stock').val() || 0,
@@ -1180,13 +1195,19 @@
 			$('#spare_parts').val(JSON.stringify(allRows));
 		}
 
-		// AJAX validation function
+		// AJAX validation function with visual feedback
 		function validateWorkOrder(isDraft = false) {
-			const documentNumber = $('#document_number').val();
+			const documentNumber = $('#document_number').val().trim();
+			const bookId = $('#book_id').val();
+			const currentDate = $('#document_date').val();
 			
-			if (!documentNumber) {
+			
+			if (!documentNumber || documentNumber.length < 1) {
 				return Promise.resolve(true); // No validation needed if document number is empty
 			}
+
+			// Clear any existing error state
+			resetDocumentInputState();
 
 			return $.ajax({
 				url: '{{ route("maint-wo.validate") }}',
@@ -1196,6 +1217,7 @@
 					document_number: documentNumber
 				}
 			}).then(function(response) {
+				console.log('✅ Document number validation passed');
 				return true; // Validation passed
 			}).catch(function(xhr) {
 				if (xhr.status === 422) {
@@ -1204,24 +1226,45 @@
 					
 					if (errors.document_number) {
 						errorMessage = errors.document_number;
+						
+						// Add visual feedback - red border
+						const documentInput = document.getElementById('document_number');
+						if (documentInput) {
+							documentInput.style.border = '1px solid red';
+						}
 					}
 					
 					Swal.fire({
 						icon: 'error',
-						title: 'Document Number!',
+						title: 'Validation Error!',
 						text: errorMessage,
-						confirmButtonText: 'OK'
+						confirmButtonText: 'OK',
+						confirmButtonColor: '#d33'
+					}).then(() => {
+						// Focus on document number field after closing alert
+						if (document.getElementById('document_number')) {
+							document.getElementById('document_number').focus();
+						}
 					});
 				} else {
 					Swal.fire({
 						icon: 'error',
 						title: 'Validation Error!',
 						text: 'Unable to validate document number. Please try again.',
-						confirmButtonText: 'OK'
+						confirmButtonText: 'OK',
+						confirmButtonColor: '#d33'
 					});
 				}
 				return false; // Validation failed
 			});
+		}
+
+		// Function to reset document input visual state
+		function resetDocumentInputState() {
+			const documentInput = document.getElementById('document_number');
+			if (documentInput) {
+				documentInput.style.border = '';
+			}
 		}
 
 		document.getElementById('save-draft-btn').addEventListener('click', function () {
@@ -1349,7 +1392,7 @@
 				"@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach"
 			);
 		@endif
-		$(document).on('input change', '.qty, .uom, .item_name, .item_code, .attribute', function () {
+		$(document).on('input change', '.qty, .rate, .uom, .item_name, .item_code, .attribute', function () {
 			updateFooterFromSelected();
 		});
 
@@ -2486,6 +2529,61 @@
 			}
 		};
 
+		// Function to calculate total for spare parts
+		function calculateSparePartsTotal() {
+			let total = 0;
+			console.log('Starting calculation...');
+			
+			// Try different selectors
+			let rows = $('.mrntableselectexcel tbody tr');
+			if (rows.length === 0) {
+				console.log('No tbody rows, trying direct tr...');
+				rows = $('.mrntableselectexcel tr');
+			}
+			
+			console.log('Using rows:', rows.length);
+			
+			rows.each(function(index) {
+				console.log('Processing row ' + index);
+				
+				// Try different selectors to find the inputs
+				let qtyInput = $(this).find('input[name="qty[]"]');
+				let rateInput = $(this).find('input[name="rate[]"]');
+				
+				if (qtyInput.length === 0) {
+					qtyInput = $(this).find('.qty');
+				}
+				if (rateInput.length === 0) {
+					rateInput = $(this).find('.rate');
+				}
+				
+				console.log('Qty input found:', qtyInput.length, 'Rate input found:', rateInput.length);
+				
+				if (qtyInput.length > 0 && rateInput.length > 0) {
+					const qty = parseFloat(qtyInput.val()) || 0;
+					const rate = parseFloat(rateInput.val()) || 0;
+					const rowTotal = qty * rate;
+					total += rowTotal;
+					console.log('Row ' + index + ' calculation: qty=' + qty + ', rate=' + rate + ', rowTotal=' + rowTotal);
+				} else {
+					console.log('Row ' + index + ' skipped - inputs not found');
+				}
+			});
+			console.log('Final total: ' + total);
+			$('.settleTotal').text(total.toFixed(2));
+		}
+
+		// Event listeners for qty and rate changes - more specific selectors
+		$(document).on('input change keyup', '.mrntableselectexcel input.qty, .mrntableselectexcel input.rate', function() {
+			console.log('Input changed, calculating total...');
+			calculateSparePartsTotal();
+		});
+
+		// Also trigger calculation when page loads
+		$(document).ready(function() {
+			calculateSparePartsTotal();
+		});
+
 		});
 
 		function calculateDueDate(startDate, frequency) {
@@ -2536,11 +2634,44 @@
 					return false;
 				}
 
-				let attrValue = attribute.val();
-				if (attrValue === "{}" || !attrValue) {
-					attrTd.addClass("border border-danger");
-					allValid = false;
-					return false;
+				// Only validate attributes if the item has attributes
+				const currentItemId = $(this).find('.item_id').val();
+				let itemHasAttributes = false;
+				
+				// Check if this item has attributes by looking for attribute data
+				if (currentItemId && window.itemsWithAttributes && window.itemsWithAttributes[currentItemId]) {
+					itemHasAttributes = window.itemsWithAttributes[currentItemId].length > 0;
+				}
+				
+				// Alternative check: look for attribute-enriched data
+				const attributeEnriched = $(this).find('.attribute-enriched').val();
+				if (attributeEnriched) {
+					try {
+						const enrichedData = JSON.parse(attributeEnriched);
+						itemHasAttributes = enrichedData && enrichedData.length > 0;
+					} catch (e) {
+						// Ignore parsing errors
+					}
+				}
+				
+				// Only validate attributes if the item actually has attributes
+				if (itemHasAttributes) {
+					let attrValue = attribute.val();
+					if (attrValue === "{}" || !attrValue) {
+						attrTd.addClass("border border-danger");
+						
+						// Show SweetAlert error for attribute selection
+						Swal.fire({
+							icon: 'error',
+							title: 'Attribute Selection Required!',
+							html: `Please select at least one attribute for item: <strong>${itemName || 'Unknown Item'}</strong><br><br>Click on the attribute column to select attributes.`,
+							confirmButtonText: 'OK',
+							confirmButtonColor: '#d33'
+						});
+						
+						allValid = false;
+						return false;
+					}
 				}
 
 				if (!uom.val()) {
@@ -3076,6 +3207,13 @@
 				inputElement.value = "";
 			}
 		}
+
+		// Add event listener to clear error state when user starts typing in document number
+		$(document).ready(function() {
+			$('#document_number').on('input', function() {
+				resetDocumentInputState();
+			});
+		});
 
 	</script>
 @endsection
