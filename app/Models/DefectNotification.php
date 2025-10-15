@@ -99,4 +99,47 @@ class DefectNotification extends Model
     {
         return $this->morphMany(DefectNotificationMedia::class, 'model')->select('id', 'model_type', 'model_id', 'file_name');
     }
+
+
+    /**
+     * Override getRawOriginal to ensure proper format for Helper methods
+     * This prevents double JSON encoding in history creation
+     */
+    public function getRawOriginal($key = null, $default = null)
+    {
+        $original = parent::getRawOriginal($key, $default);
+        
+        // If getting all attributes or specific attachment fields
+        if ($key === null) {
+            // Handle attachment field
+            if (isset($original['attachment']) && is_string($original['attachment'])) {
+                $decoded = json_decode($original['attachment'], true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    // It's already properly encoded JSON, convert to array for Helper
+                    $original['attachment'] = $decoded;
+                }
+            }
+            
+            // Handle upload_document field
+            if (isset($original['upload_document']) && is_string($original['upload_document'])) {
+                $decoded = json_decode($original['upload_document'], true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    // It's already properly encoded JSON, convert to array for Helper
+                    $original['upload_document'] = $decoded;
+                }
+            }
+        } elseif ($key === 'attachment' && is_string($original)) {
+            $decoded = json_decode($original, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $original = $decoded;
+            }
+        } elseif ($key === 'upload_document' && is_string($original)) {
+            $decoded = json_decode($original, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $original = $decoded;
+            }
+        }
+        
+        return $original;
+    }
 }

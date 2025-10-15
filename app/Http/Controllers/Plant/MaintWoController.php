@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use App\Http\Requests\MaintWoRequest;
 use Yajra\DataTables\DataTables;
 use App\Models\Item;
+use App\Models\MailBox;
 use App\Models\ItemAttribute;
 use App\Models\ErpAttribute;
 use App\Helpers\Helper;
@@ -21,6 +22,7 @@ use App\Models\ErpEquipment;
 use App\Models\ErpMaintenanceType;
 use App\Models\ErpDefectType;
 use App\Models\ErpItem;
+use App\Models\AuthUser;
 use App\Models\ErpItemAttribute;
 use App\Models\InspectionChecklist;
 use App\Models\InspectionChecklistDetail;
@@ -2404,5 +2406,168 @@ class MaintWoController extends Controller
                 'message' => 'Failed to revoke document: ' . $ex->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Process work order due date reminders in chunks
+     * Stores reminder entries in mailbox table for external cron processing
+     */
+    public function processWorkOrderReminders(Request $request)
+    {
+        try {
+            $chunkSize = $request->get('chunk_size', 50); // Default chunk size of 50
+            $today = Carbon::today();
+            $tomorrow = Carbon::tomorrow();
+            
+            \Log::info("Processing Work Order Due Date Reminders for tomorrow: {$tomorrow->format('Y-m-d')}");
+            
+            // Get all active work orders
+            $workOrders = PlantMaintWo::withoutGlobalScopes()
+                ->whereIn('document_status', ['submitted', 'approved', 'approval_not_required'])
+                ->select('id', 'document_number', 'document_status', 'created_by', 'equipment_details', 'final_remark', 'organization_id', 'equipment_id', 'maintenance_type_id')
+                ->get();
+            
+            \Log::info("Found {$workOrders->count()} active work orders to check");
+            
+            $reminderCount = 0;
+            $processedCount = 0;
+            
+            // Process work orders in chunks
+            $workOrders->chunk($chunkSize)->each(function ($chunk) use ($tomorrow, &$reminderCount, &$processedCount) {
+                foreach ($chunk as $workOrder) {
+                    $processedCount++;
+                    
+                    $equipmentDetails = json_decode($workOrder->equipment_details, true);
+                    $dueDate = $equipmentDetails['due_date'] ?? null;
+                    
+                    \Log::info("Checking WO {$workOrder->document_number} - Due Date: " . ($dueDate ?? 'Not set'));
+                    
+                    if ($dueDate) {
+                        $dueDateCarbon = Carbon::parse($dueDate);
+                        
+                        // Check if work order is due tomorrow
+                        if ($dueDateCarbon->isSameDay($tomorrow)) {
+                            \Log::info("WO {$workOrder->document_number} is due tomorrow, creating mailbox entry...");
+                            
+                            if ($this->createReminderMailboxEntry($workOrder, $dueDateCarbon)) {
+                                $reminderCount++;
+                            }
+                        }
+                    }
+                }
+                
+                // Add small delay between chunks to prevent overwhelming the system
+                usleep(100000); // 0.1 second delay
+            });
+            
+            \Log::info("Work Order Reminder Processing completed. Processed {$processedCount} work orders, created {$reminderCount} reminder entries.");
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => "Processed {$processedCount} work orders, created {$reminderCount} reminder entries",
+                'data' => [
+                    'processed_count' => $processedCount,
+                    'reminder_count' => $reminderCount,
+                    'chunk_size' => $chunkSize
+                ]
+            ]);
+            
+        } catch (Exception $e) {
+            \Log::error("Failed to process work order reminders: " . $e->getMessage());
+            
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to process work order reminders: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Create mailbox entry for work order reminder
+     */
+    private function createReminderMailboxEntry($workOrder, Carbon $dueDate)
+    {
+        try {
+            $equipmentDetails = json_decode($workOrder->equipment_details, true);
+            $emailRecipients = $this->getWorkOrderEmailRecipients($workOrder);
+            
+            if (empty($emailRecipients['to'])) {
+                \Log::warning("No valid email recipients found for WO {$workOrder->document_number}");
+                return false;
+            }
+            
+            $dateo = date('d-m-Y');
+            $subject = "Work Order Due Date Reminder - {$workOrder->document_number} | {$dateo}";
+            
+            $equipmentName = $equipmentDetails['equipment_name'] ?? 'N/A';
+            $maintenanceType = $equipmentDetails['maintenance_type_name'] ?? $equipmentDetails['equipment_maintenance_type_name'] ?? 'N/A';
+            $location = $equipmentDetails['location'] ?? null;
+            
+            // Create mailbox entry
+            $mailBox = new MailBox();
+            $mailBox->mail_to = implode(',', $emailRecipients['to']);
+            $mailBox->mail_cc = !empty($emailRecipients['cc']) ? implode(',', $emailRecipients['cc']) : null;
+            $mailBox->layout = 'emails.work_order_reminder';
+            $mailBox->subject = $subject;
+            $mailBox->status = MailBox::STATUS_PENDING;
+            
+            $mailBox->mail_body = json_encode([
+                'document_number' => $workOrder->document_number,
+                'equipment_name' => $equipmentName,
+                'due_date' => $dueDate->format('d-m-Y'),
+                'maintenance_type' => $maintenanceType,
+                'location' => $location,
+                'priority' => $equipmentDetails['priority'] ?? null,
+                'remarks' => $workOrder->final_remark ?? null,
+                'assigned_to' => 'Maintenance Team',
+                'work_order_id' => $workOrder->id
+            ]);
+            
+            $mailBox->save();
+            
+            \Log::info("Work order reminder mailbox entry created for {$workOrder->document_number}", [
+                'work_order_id' => $workOrder->id,
+                'mailbox_id' => $mailBox->id,
+                'due_date' => $dueDate->format('Y-m-d'),
+                'recipients' => $emailRecipients
+            ]);
+            
+            return true;
+            
+        } catch (Exception $e) {
+            \Log::error("Failed to create mailbox entry for WO {$workOrder->document_number}: {$e->getMessage()}");
+            return false;
+        }
+    }
+    
+    /**
+     * Get email recipients for work order reminders
+     */
+    private function getWorkOrderEmailRecipients($workOrder)
+    {
+        $recipients = [
+            'to' => [],
+            'cc' => []
+        ];
+        
+        // Add work order creator
+        if ($workOrder->created_by) {
+            try {
+                $creator = AuthUser::find($workOrder->created_by);
+                if ($creator && $creator->email && filter_var($creator->email, FILTER_VALIDATE_EMAIL)) {
+                    $recipients['to'][] = $creator->email;
+                    $recipients['cc'][] = $creator->email;
+                    \Log::info("Added creator email: {$creator->email} for WO {$workOrder->document_number}");
+                }
+            } catch (Exception $e) {
+                \Log::warning("Could not fetch creator email for WO {$workOrder->document_number}: " . $e->getMessage());
+            }
+        }
+        
+        // Remove duplicates and empty values
+        $recipients['to'] = array_unique(array_filter($recipients['to']));
+        $recipients['cc'] = array_unique(array_filter($recipients['cc']));
+        
+        return $recipients;
     }
 }

@@ -1,3 +1,4 @@
+
 @extends('layouts.app')
 
 @section('styles')
@@ -305,21 +306,49 @@
                                                                 
                                                                 {{-- Current attachments display inline --}}
                                                                 @if($defectNotification->attachment)
-                                                                    @php
-                                                                        $attachments = is_string($defectNotification->attachment) ? 
-                                                                            (json_decode($defectNotification->attachment, true) ?: [$defectNotification->attachment]) : 
-                                                                            [$defectNotification->attachment];
-                                                                    @endphp
-                                                                    @foreach($attachments as $attachment)
-                                                                        @if($attachment)
-                                                                            <div class="file-upload-preview ms-2" style="cursor: pointer;">
-                                                                                <div class="image-uplodasection expenseadd-sign">
-                                                                                    <i onclick="window.open('{{ asset('storage/' . $attachment) }}', '_blank')" data-feather="file-text"></i>
-                                                                                </div>
-                                                                            </div>
-                                                                        @endif
-                                                                    @endforeach
-                                                                @endif
+																	@php
+																		$attachments = [];
+
+																		if (is_string($defectNotification->attachment)) {
+																			// First attempt to decode normally
+																			$decoded = json_decode($defectNotification->attachment, true);
+
+																			// If that result is still a string starting with "[" or "\"["
+																			if (is_string($decoded) && (str_starts_with($decoded, '[') || str_starts_with($decoded, '\"['))) {
+																				// Decode again for double-encoded JSON
+																				$decoded = json_decode(json_decode($defectNotification->attachment, true), true);
+																			}
+
+																			// If we got an array, good — otherwise wrap it
+																			if (is_array($decoded)) {
+																				$attachments = $decoded;
+																			} elseif (is_string($decoded) && !empty(trim($decoded))) {
+																				$attachments = [$decoded];
+																			} else {
+																				$attachments = [$defectNotification->attachment];
+																			}
+
+																		} elseif (is_array($defectNotification->attachment)) {
+																			$attachments = $defectNotification->attachment;
+																		} else {
+																			$attachments = [$defectNotification->attachment];
+																		}
+
+																		// Ensure we always have a clean array of strings
+																		$attachments = array_filter($attachments, fn($a) => is_string($a) && !empty(trim($a)));
+																	@endphp
+
+																	@if(count($attachments) > 0)
+																		@foreach($attachments as $attachment)
+																			<div class="file-upload-preview ms-2" style="cursor: pointer;">
+																				<div class="image-uplodasection expenseadd-sign">
+																					<i onclick="window.open('{{ asset('storage/' . ltrim($attachment, '/')) }}', '_blank')" data-feather="file-text"></i>
+																				</div>
+																			</div>
+																		@endforeach
+																	@endif
+																@endif
+
                                                             </div>
                                                             <span class="text-primary small">{{__("message.attachment_caption")}}</span>
                                                         </div>
