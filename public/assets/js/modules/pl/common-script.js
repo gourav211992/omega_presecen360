@@ -11,6 +11,7 @@ let csrfToken = window.pageData.csrf_token;
 const menuAlias = window.pageData.menu_alias;
 const calTaxUrl = window.routes.calTax;
 const calTaxTcsUrl = window.routes.calTcsTax;
+const calRetTaxTcsUrl = window.routes.returnTcsTax;
 // Assume bookId is already defined
 
 let actionUrl = `${window.routes.docParams}?book_id=${$("#series_id_input").val()}&document_date=${$("#order_date_input").val()}`;
@@ -115,8 +116,10 @@ function getItemTax(itemIndex)
             const itemTotalInput = document.getElementById('item_total_' + itemIndex);
             itemTotalInput.value = parseFloat(valueAfterHeaderDiscount ? valueAfterHeaderDiscount : 0) +  parseFloat(TotalItemTax ? TotalItemTax : 0);
             //Get All Total Values
-            if (menuAlias === 'sale-invoices' || menuAlias === 'delivery-note-cum-invoice' || menuAlias === 'sale-returns') {
+            if (menuAlias === 'sale-invoices' || menuAlias === 'delivery-note-cum-invoice') {
                 getTcsTax();
+            }else if (menuAlias === 'sale-returns') {
+                handleTcsCalculation(itemIndex);
             } else {
                 setAllTotalFields();
                 updateHeaderExpenses();
@@ -136,9 +139,11 @@ function getItemTax(itemIndex)
             const itemTotalInput = document.getElementById('item_total_' + itemIndex);
             itemTotalInput.value = parseFloat(valueAfterHeaderDiscount ? valueAfterHeaderDiscount : 0) +  parseFloat(TotalItemTax ? TotalItemTax : 0);
             //Get All Total Values
-            if (menuAlias === 'sale-invoices' || menuAlias === 'delivery-note-cum-invoice' || menuAlias === 'sale-returns') {
+            if (menuAlias === 'sale-invoices' || menuAlias === 'delivery-note-cum-invoice') {
                 getTcsTax();
-            } else {
+            }else if (menuAlias === 'sale-returns') {
+                handleTcsCalculation();
+            }else {
                 setAllTotalFields();
                 updateHeaderExpenses();
             }
@@ -150,14 +155,7 @@ function getTcsTax()
 {
     //Call TCS TAX
     let oldTaxValue = 0;
-    if(menuAlias == 'sale-returns')
-    {
-        oldTaxValue = order ? order.total_return_value - order.total_discount_value : 0;
-    }
-    else
-    {
-        oldTaxValue = order ? order.total_item_value - order.total_discount_value : 0;
-    }
+    oldTaxValue = order ? order.total_item_value - order.total_discount_value : 0;
     oldTaxValue = Number(oldTaxValue.toFixed(2));
     
     let nonTcsAccessableAmt = $("#order_tcs_assessable_amt").val() ?? 0;
@@ -207,6 +205,45 @@ function getTcsTax()
             updateHeaderExpenses();
         }
     })
+}
+
+async function fetchTcsTax(invoiceItemId, taxableValue, saleReturnId = null) {
+    if (!invoiceItemId || !taxableValue) {
+        console.warn("fetchTcsTax: Missing invoice ID or taxable value.");
+        return null;
+    }
+    console.log("Fetching TCS for Invoice ID:", invoiceItemId, "Taxable Value:", taxableValue, "Sale Return ID:", saleReturnId);
+    try {
+        const response = await $.ajax({
+            url: calRetTaxTcsUrl,
+            type: "POST",
+            data: {
+                _token: "{{ csrf_token() }}",
+                invoice_item_id: invoiceItemId,
+                taxable_value: taxableValue,
+                sale_return_id: saleReturnId,
+            },
+        });
+
+        // If the backend returns a valid tax object
+        if (response) {
+            return {
+                ted_id: response.ted_id ?? null,
+                ted_name: response.ted_name ?? '',
+                ted_percentage: parseFloat(response.ted_percentage ?? 0),
+                assessment_amount: parseFloat(response.assessment_amount ?? 0),
+                tax_amount: parseFloat(response.ted_amount ?? 0),
+                applicable_type: response.applicable_type ?? '',
+            };
+        } else {
+            // No TCS applicable
+            return null;
+        }
+
+    } catch (error) {
+        console.error("TCS fetch failed:", error.responseJSON?.message || error.statusText);
+        return null;
+    }
 }
 
 function setAllTotalFields() {

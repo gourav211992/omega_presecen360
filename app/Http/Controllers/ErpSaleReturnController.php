@@ -1416,14 +1416,15 @@ class ErpSaleReturnController extends Controller
             ])) {
                 $totalTaxableValue = ($itemTotalValue - ($totalHeaderDiscount + $itemTotalDiscount));
 
-                // Invoice TCS total
+                // --- Invoice TCS total ---
                 $invTcsAssess = $saleInvoice->reference->header_tax()
-                    ->where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS)->first();
+                    ->where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS)
+                    ->first();
+
                 $invTcsAssessAmt = $invTcsAssess?->assessment_amount ?? 0;
-                $ted_perc = $invTcsAssess?->ted_percentage ?? 0;
                 $ted_id = $invTcsAssess?->ted_id ?? null;
-                $applicable_type = $invTcsAssess?->applicable_type ?? 'Collection';
-                // Returned TCS excluding current one (if editing)
+
+                // --- Returned TCS excluding current one (if editing) ---
                 $returnedTcsAssessAmt = ErpSaleReturn::where('reference_id', $saleInvoice->reference_id)
                     ->where('reference_doc_type', $saleInvoice->reference_doc_type)
                     ->when($request->sale_return_id, fn($q) => $q->where('id', '!=', $request->sale_return_id))
@@ -1433,28 +1434,58 @@ class ErpSaleReturnController extends Controller
                     ->flatten()
                     ->sum('assessment_amount') ?? 0;
 
+                // --- Balance available for TCS assessment ---
                 $balanceTcsAssessAmt = $invTcsAssessAmt - $returnedTcsAssessAmt;
+
                 if ($balanceTcsAssessAmt > 0) {
                     $newTcsAssessableAmt = min($totalTaxableValue, $balanceTcsAssessAmt);
-                    $tcsQuery = ErpSaleReturnTed::updateOrCreate(
-                        [
-                            'sale_return_id' => $saleInvoice->id,
-                            'sale_return_item_id' => null,
-                            'ted_type' => "Tax",
-                            'ted_level' => 'H',
-                            'ted_id' => $ted_id,
-                        ],
-                        [
-                            'ted_name' => ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS,
-                            'assessment_amount' => $newTcsAssessableAmt,
-                            'ted_percentage' => $ted_perc,
-                            'ted_amount' => ($ted_perc / 100 * $newTcsAssessableAmt),
-                            'applicable_type' => $applicable_type,
-                        ]
-                    );
+
+                    // ✅ Reuse the universal controller function
+                    $tcsRequest = new Request([
+                        'invoice_id' => $saleInvoice->reference_id,
+                        'taxable_value' => $newTcsAssessableAmt,
+                        'sale_return_id' => $request->sale_return_id ?? null,
+                    ]);
+
+                    // Call getTcsTax() directly to get consistent calculation
+                    $tcsData = app(static::class)->getTcsTax($tcsRequest);
+
+                    // 🧩 Check if $tcsData is a JsonResponse (error returned from getTcsTax)
+                    if ($tcsData instanceof \Illuminate\Http\JsonResponse) {
+                        // Optionally, ensure it contains the 'Invoice not found' message
+                        $data = $tcsData->getData(true);
+                        if (($data['status'] ?? '') === 'error' && ($data['message'] ?? '') === 'Invoice not found.') {
+                            return response()->json($data, 404);
+                        }
+                    }
+
+                    // ✅ Continue only if valid data returned
+                    if ($tcsData) {
+                        $tcsQuery = ErpSaleReturnTed::updateOrCreate(
+                            [
+                                'sale_return_id' => $saleInvoice->id,
+                                'sale_return_item_id' => null,
+                                'ted_type' => "Tax",
+                                'ted_level' => 'H',
+                                'ted_id' => $tcsData['ted_id'],
+                            ],
+                            [
+                                'ted_name' => $tcsData['ted_name'],
+                                'assessment_amount' => $tcsData['assessment_amount'],
+                                'ted_percentage' => $tcsData['ted_percentage'],
+                                'ted_amount' => $tcsData['ted_amount'],
+                                'applicable_type' => $tcsData['applicable_type'],
+                            ]
+                        );
+
+                        if ($tcsQuery instanceof ErpSaleReturnTed) {
+                            $tcsQuery->save();
+                        }
+                    }
+
                 } else {
-                    // No TCS applicable, remove if exists
-                    $tcsQuery = ErpSaleReturnTed::where([
+                    // No TCS applicable — remove existing record if any
+                    ErpSaleReturnTed::where([
                         'sale_return_id' => $saleInvoice->id,
                         'sale_return_item_id' => null,
                         'ted_type' => ConstantHelper::TCS,
@@ -1462,11 +1493,8 @@ class ErpSaleReturnController extends Controller
                         'ted_id' => $ted_id,
                     ])->delete();
                 }
-                if(isset($tcsQuery) && $tcsQuery instanceof ErpSaleReturnTed)
-                {
-                    $tcsQuery ->save();
-                }
             }
+
 
             if ($itemTotalValue - ($totalHeaderDiscount + $itemTotalDiscount) + $totalExpenseAmount < 0) {
                 DB::rollBack();
@@ -2573,6 +2601,59 @@ class ErpSaleReturnController extends Controller
             ]);
         }
     }
+    public function getTcsTax(Request $request)
+    {
+        $request->validate([
+            'invoice_item_id' => 'required_without:invoice_id|integer|nullable',
+            'invoice_id' => 'required_without:invoice_item_id|integer|nullable',
+            'taxable_value' => 'required|numeric',
+            'sale_return_id' => 'nullable|integer',
+        ], [
+            'invoice_item_id.required_without' => 'Either Invoice Item ID or Invoice ID is required.',
+            'invoice_id.required_without' => 'Either Invoice ID or Invoice Item ID is required.',
+        ]);
+                
+        // ✅ Fetch based on which ID is present
+        if ($request->filled('invoice_item_id')) {
+            $invoiceItem = ErpInvoiceItem::with(['header.header_tax'])->find($request->invoice_item_id);
+            $invoice = $invoiceItem?->header;
+        } else {
+            $invoice = ErpSaleInvoice::with('header_tax')->find($request->invoice_id);
+        }
+
+        // ✅ Safety check if invoice not found
+        if (!$invoice) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invoice not found.',
+            ], 404);
+        }
+
+        // Now you can safely use $invoice and its header_tax
+
+        if (!$invoice) {
+            return response()->json(['error' => 'Invalid invoice ID'], 404);
+        }
+
+        $taxDetails = $invoice->header_tax
+            ->where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS)
+            ->first();
+
+        if (!$taxDetails) {
+            return null;
+        }
+
+
+        return [
+            'ted_name' => $taxDetails->ted_name,
+            'ted_id' => $taxDetails->ted_id,
+            'ted_percentage' => $taxDetails->ted_percentage ?? 0,
+            'assessment_amount' => $taxDetails->assessment_amount ?? 0,
+            'ted_amount' => $taxDetails->ted_amount ?? 0,
+            'applicable_type' => $taxDetails->applicable_type ?? 'Collection',
+        ];
+    }
+
 
     public function salesreturnReport(Request $request)
     {

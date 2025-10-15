@@ -121,7 +121,7 @@
                                             <div class="col-md-8">
                                                 <input type = "hidden" name = "type" id = "type_hidden_input"></input>
                                            @if (isset($order))
-                                                <input type = "hidden" value = "{{$order -> id}}" name = "sale_return_id"></input>
+                                                <input type = "hidden" value = "{{$order -> id}}" name = "sale_return_id" id="sale_return_id_input"></input>
                                             @endif
                                             <div class="row align-items-center d-none mb-1">
                                                         <div class="col-md-3">
@@ -619,6 +619,7 @@
                                                                 @foreach ($order -> items as $orderItemIndex => $orderItem)
 
                                                                 <tr id = "item_row_{{$orderItemIndex}}" class = "item_header_rows" onclick = "onItemClick('{{$orderItemIndex}}');" data-detail-id = "{{$orderItem -> id}}" data-id = "{{$orderItem -> id}}">
+                                                                    <input type = 'hidden' name = "si_id[]" value = "{{$orderItem -> header -> id}}">
 
 
                                                                         <input type = 'hidden' name = "si_item_id[]" value = "{{$orderItem -> id}}" {{$orderItem -> is_editable ? '' : 'readonly'}}>
@@ -3876,6 +3877,42 @@
             false,     // serverSide
             false      // processing
         );
+    }
+
+    async function handleTcsCalculation(itemIndex = null) {
+        let invoiceItemId = $('#qt_id_'+itemIndex).val();
+        let taxableValue = $("#all_items_total_total_summary").text();
+        // Remove commas and convert to number
+        let totalSummary = parseFloat(taxableValue.replace(/,/g, ''));
+        let saleReturnId = $('#sale_return_id_input').val() || null;
+
+        const taxInput = document.getElementById('order_tcs_tax');
+        // console.log('Calculating TCS for Invoice Item ID:', invoiceItemId, 'Taxable Value:', totalSummary, 'Sale Return ID:', saleReturnId);
+        // Call your existing fetch function
+        const tcsData = await fetchTcsTax(invoiceItemId, totalSummary, saleReturnId);
+
+        // Prepare tax attributes in the same style as getTcsTax()
+        let taxAttrs = [];
+
+        if (tcsData) {
+            taxAttrs.push({
+                tax_index: taxAttrs.length,
+                tax_name: tcsData.ted_name ?? "TCS",
+                tax_group: "TCS",
+                tax_type: tcsData.ted_name,
+                taxable_value: tcsData.assessment_amount ?? 0,
+                tax_percentage: (tcsData.ted_percentage).toFixed(2) ?? 0,
+                tax_value: (tcsData.tax_amount ?? 0).toFixed(2),
+                tax_applicability_type: tcsData.applicable_type ?? "Collection",
+            });
+        }
+
+        // Store tax details in the element
+        taxInput.setAttribute('tax_details', JSON.stringify(taxAttrs));
+
+        // Trigger your summary / header updates
+        setAllTotalFields();
+        updateHeaderExpenses();
     }
 
 

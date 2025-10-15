@@ -52,6 +52,9 @@ class Kernel extends ConsoleKernel
         $schedule->command('app:generate-cr-dr-report')->everyMinute();
         $schedule->command('app:generate-cashflow-report')->everyMinute();
         
+        // Work order due date reminders
+        $schedule->command('work-order:due-date-reminder')->daily();
+        
     }
 
     /**
