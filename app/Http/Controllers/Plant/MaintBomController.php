@@ -28,261 +28,160 @@ class MaintBomController extends Controller
             return $this->ajaxData($request);
         }
 
-        // Fetch filter data for the view
         $parentURL = "plant_maint-bom";
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
-        
-        // Get series data
+
         $series = collect();
         if (count($servicesBooks['services']) > 0) {
             $firstService = $servicesBooks['services'][0];
             $series = Helper::getBookSeriesNew($firstService->alias, $parentURL)->get();
         }
-        
-        // Get unique BOM names
+
         $bomNames = PlantMaintBom::select('bom_name')
             ->distinct()
             ->whereNotNull('bom_name')
             ->where('bom_name', '!=', '')
             ->orderBy('bom_name')
             ->pluck('bom_name');
-            
-        // Get organization data
+
         $user = Helper::getAuthenticatedUser();
         $organizationId = $user->organization_id;
         $mappings = Helper::access_org();
 
         return view('plant.maint_bom.index', compact('series', 'bomNames', 'mappings', 'organizationId'));
     }
-    /**
-     * Check if document number or BOM name already exists
-     */
-    public function checkDocumentNumber(Request $request)
+
+   
+
+    public function ajaxData(Request $request)
     {
-        $numberPatternData = Helper::generateDocumentNumberNew($request->book_id, $request->date);
-
-        if (!isset($numberPatternData)) {
-            return response()->json([
-                'message' => "Invalid Book",
-                'error' => "",
-            ], 422);
-        }
-
-        $documentNumber = $request->get('document_number');
-        $bomName = $request->get('bom_name');
-        $bookId = $request->get('book_id');
-        $currentId = $request->get('current_id'); // For edit mode to exclude current record
-
-        $user = Helper::getAuthenticatedUser();
-        $organizationId = $user->organization_id;
-
-        $response = [
-            'document_exists' => false,
-            'bom_name_exists' => false,
-            'message' => null
-        ];
-
-        // Check document number uniqueness based on book series numbering (same as PoRequest)
-        if ($bookId) {
-            $numPattern = \App\Models\NumberPattern::where('organization_id', $organizationId)
-                ->where('book_id', $bookId)
-                ->orderBy('id', 'DESC')
-                ->first();
-
-            // Only check uniqueness if series_numbering is 'Manually' (same as PoRequest)
-            if ($numPattern && $numPattern->series_numbering == 'Manually') {
-                $query = PlantMaintBom::where('document_number', $documentNumber)
-                    ->where('organization_id', $organizationId);
-
-                // Exclude current record in edit mode
-                if ($currentId) {
-                    $query->where('id', '!=', $currentId);
-                }
-
-                $existingBom = $query->first();
-                if ($existingBom) {
-                    $response['document_exists'] = true;
-                    $response['message'] = "Document number '{$documentNumber}' already exists. Please use a different document number.";
+        $query = PlantMaintBom::query()
+            ->with(['book:id,book_code,book_name']);
+    
+        if ($request->filled('date_range')) {
+            $dateRange = $request->date_range;
+            if (strpos($dateRange, ' to ') !== false) {
+                $dates = explode(' to ', $dateRange);
+                if (count($dates) == 2) {
+                    $startDate = \Carbon\Carbon::createFromFormat('Y-m-d', trim($dates[0]))->startOfDay();
+                    $endDate = \Carbon\Carbon::createFromFormat('Y-m-d', trim($dates[1]))->endOfDay();
+                    $query->whereBetween('document_date', [$startDate, $endDate]);
                 }
             }
         }
-
-        // Check BOM name uniqueness (only if document number is valid)
-        if (!$response['document_exists'] && $bomName) {
-            $query = PlantMaintBom::where('bom_name', $bomName)
-                ->where('organization_id', $organizationId);
-
-            // Exclude current record in edit mode
-            if ($currentId) {
-                $query->where('id', '!=', $currentId);
-            }
-
-            $existingBomName = $query->first();
-            if ($existingBomName) {
-                $response['bom_name_exists'] = true;
-                $response['message'] = "BOM name '{$bomName}' already exists. Please use a different BOM name.";
+    
+        if ($request->filled('series_filter')) {
+            $query->whereHas('book', function ($q) use ($request) {
+                $q->where('book_code', $request->series_filter);
+            });
+        }
+    
+        if ($request->filled('bom_name_filter')) {
+            $query->where('bom_name', 'like', '%' . $request->bom_name_filter . '%');
+        }
+    
+        if ($request->filled('filter_organization')) {
+            $organizationFilters = is_array($request->filter_organization)
+                ? $request->filter_organization
+                : [$request->filter_organization];
+    
+            $query->whereIn('organization_id', $organizationFilters);
+        }
+    
+        if ($request->filled('status_filter')) {
+            $statusFilter = $request->status_filter;
+            if ($statusFilter === 'approved') {
+                $query->where('document_status', ConstantHelper::APPROVAL_NOT_REQUIRED);
+            } elseif ($statusFilter === 'submitted') {
+                $query->where('document_status', ConstantHelper::SUBMITTED);
+            } elseif ($statusFilter === 'rejected') {
+                $query->where('document_status', ConstantHelper::REJECTED);
+            } else {
+                $query->where('document_status', $statusFilter);
             }
         }
-        
-        return response()->json($response, 200);
-    }
-
-    /**
-     * Get data for DataTables server-side processing
-     */
-
-     public function ajaxData(Request $request)
-     {
-         $query = PlantMaintBom::query()
-             ->with(['book:id,book_code,book_name']);
-     
-         // Handle filter parameters
-         if ($request->filled('date_range')) {
-             $dateRange = $request->date_range;
-             if (strpos($dateRange, ' to ') !== false) {
-                 $dates = explode(' to ', $dateRange);
-                 if (count($dates) == 2) {
-                     $startDate = \Carbon\Carbon::createFromFormat('Y-m-d', trim($dates[0]))->startOfDay();
-                     $endDate = \Carbon\Carbon::createFromFormat('Y-m-d', trim($dates[1]))->endOfDay();
-                     $query->whereBetween('document_date', [$startDate, $endDate]);
-                 }
-             }
-         }
-
-         if ($request->filled('series_filter')) {
-             $query->whereHas('book', function($q) use ($request) {
-                 $q->where('book_code', $request->series_filter);
-             });
-         }
-
-         if ($request->filled('bom_name_filter')) {
-             $query->where('bom_name', 'like', '%' . $request->bom_name_filter . '%');
-         }
-
-         if ($request->filled('filter_organization')) {
-             $organizationFilters = is_array($request->filter_organization) 
-                 ? $request->filter_organization 
-                 : [$request->filter_organization];
-             
-             $query->whereIn('organization_id', $organizationFilters);
-         }
-
-         if ($request->filled('status_filter')) {
-             $statusFilter = $request->status_filter;
-             if ($statusFilter === 'approved') {
-                 $query->where('document_status', ConstantHelper::APPROVAL_NOT_REQUIRED);
-             } elseif ($statusFilter === 'submitted') {
-                 $query->where('document_status', ConstantHelper::SUBMITTED);
-             } elseif ($statusFilter === 'rejected') {
-                 $query->where('document_status', ConstantHelper::REJECTED);
-             } else {
-                 $query->where('document_status', $statusFilter);
-             }
-         }
-     
-         // Handle global search
-         if ($request->has('search') && !empty($request->search['value'])) {
-             $searchValue = trim($request->search['value']);
-           
-             $query->where(function ($q) use ($searchValue) {
-                 $q->orWhere('bom_name', 'like', "%{$searchValue}%")
-                   ->orWhere('document_number', 'like', "%{$searchValue}%")
-                   ->orWhere('document_status', 'like', "%{$searchValue}%")
-                   ->orWhereHas('book', function($bookQuery) use ($searchValue) {
-                       $bookQuery->where('book_code', 'like', "%{$searchValue}%");
-                   })
-                   ->orWhere('document_date', 'like', "%{$searchValue}%")
-                   ->orWhereRaw("DATE_FORMAT(document_date, '%d-%m-%Y') LIKE ?", ["%{$searchValue}%"])
-                   ->orWhereRaw("DATE_FORMAT(document_date, '%d/%m/%Y') LIKE ?", ["%{$searchValue}%"])
-                   ->orWhereRaw("DATE_FORMAT(document_date, '%Y-%m-%d') LIKE ?", ["%{$searchValue}%"])
-                   // Handle "Approved" search - map display text to database values
-                   ->orWhere(function($statusQuery) use ($searchValue) {
+    
+        if ($request->has('search') && !empty($request->search['value'])) {
+            $searchValue = trim($request->search['value']);
+    
+            $query->where(function ($q) use ($searchValue) {
+                $q->orWhere('bom_name', 'like', "%{$searchValue}%")
+                    ->orWhere('document_number', 'like', "%{$searchValue}%")
+                    ->orWhere('document_status', 'like', "%{$searchValue}%")
+                    ->orWhereHas('book', function ($bookQuery) use ($searchValue) {
+                        $bookQuery->where('book_code', 'like', "%{$searchValue}%");
+                    })
+                    ->orWhere('document_date', 'like', "%{$searchValue}%")
+                    ->orWhereRaw("DATE_FORMAT(document_date, '%d-%m-%Y') LIKE ?", ["%{$searchValue}%"])
+                    ->orWhereRaw("DATE_FORMAT(document_date, '%d/%m/%Y') LIKE ?", ["%{$searchValue}%"])
+                    ->orWhereRaw("DATE_FORMAT(document_date, '%Y-%m-%d') LIKE ?", ["%{$searchValue}%"])
+                    ->orWhere(function ($statusQuery) use ($searchValue) {
                         $lowerSearchValue = strtolower(trim($searchValue));
-                        
-                        // If searching for "approve" variations, find approval_not_required records
-                        // because frontend shows approval_not_required as "Approved"
                         if (strpos($lowerSearchValue, 'approv') !== false) {
                             $statusQuery->where('document_status', 'approval_not_required');
                         }
                     });
-             });
-         }
-
-         $query->orderByRaw('CAST(REGEXP_REPLACE(document_number, "[^0-9]", "") AS UNSIGNED) DESC')
-          ->orderByDesc('id');
+            });
+        }
+    
+        $query->orderByRaw('CAST(REGEXP_REPLACE(document_number, "[^0-9]", "") AS UNSIGNED) DESC')
+            ->orderByDesc('id');
+    
+        return DataTables::of($query)
+            ->addIndexColumn()
+            ->editColumn('document_date', fn($row) =>
+                $row->document_date
+                    ? \Carbon\Carbon::parse($row->document_date)->format('d-m-Y')
+                    : '-'
+            )
+            ->editColumn('series', fn($row) =>
+                $row->book?->book_code ?? '-'
+            )
+            ->addColumn('status', function ($row) {
+                $status = $row->document_status ?: 'draft';
+                $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$status] ?? 'badge-light-secondary';
+                $statusText = $row->document_status == ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($status);
+                return "<span class='badge rounded-pill {$statusClass} badgeborder-radius'>{$statusText}</span>";
+            })
+            ->addColumn('action', function ($row) {
+                $showUrl = url('plant/maint-bom/' . $row->id);
+                $editUrl = url('plant/maint-bom/' . $row->id . '/edit');
+    
+                if ($row->document_status === 'draft' || $row->document_status === 'rejected') {
+                    return '
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
+                                <i data-feather="more-vertical"></i>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a class="dropdown-item" href="' . $editUrl . '">
+                                    <i data-feather="edit-3" class="me-50"></i>
+                                    <span>Edit</span>
+                                </a>
+                            </div>
+                        </div>
+                    ';
+                }
+    
+                return '
+                    <div class="dropdown">
+                        <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
+                            <i data-feather="more-vertical"></i>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end">
+                            <a class="dropdown-item" href="' . $showUrl . '">
+                                <i data-feather="eye" class="me-50"></i>
+                                <span>View</span>
+                            </a>
+                        </div>
+                    </div>
+                ';
+            })
+            ->rawColumns(['status', 'action'])
+            ->make(true);
+    }
+    
      
-        
-         return DataTables::of($query)
-             ->addIndexColumn()
-
-     
-            
-             ->editColumn('document_date', fn($row) =>
-                 $row->document_date
-                     ? \Carbon\Carbon::parse($row->document_date)->format('d-m-Y')
-                     : '-'
-             )
-     
-           
-             ->editColumn('series', fn($row) =>
-                 $row->book?->book_code ?? '-'
-             )
-     
-             ->addColumn('status', function ($row) {
-                 $status = $row->document_status ?: 'draft';
-                 $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$status] ?? 'badge-light-secondary';
-                 $statusText = $row->document_status == ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($status);
-                 return "<span class='badge rounded-pill {$statusClass} badgeborder-radius'>{$statusText}</span>";
-             })
-     
-             
-             ->addColumn('action', function ($row) {
-                 $showUrl = url('plant/maint-bom/'.$row->id);
-                 $editUrl = url('plant/maint-bom/'.$row->id.'/edit');
-     
-                 if ($row->document_status === 'draft' || $row->document_status === 'rejected') {
-                     return '
-                         <div class="dropdown">
-                             <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
-                                 <i data-feather="more-vertical"></i>
-                             </button>
-                             <div class="dropdown-menu dropdown-menu-end">
-                                 <a class="dropdown-item" href="'.$editUrl.'">
-                                     <i data-feather="edit-3" class="me-50"></i>
-                                     <span>Edit</span>
-                                 </a>
-                             </div>
-                         </div>
-                     ';
-                 }
-     
-                 return '
-                     <div class="dropdown">
-                         <button type="button" class="btn btn-sm dropdown-toggle hide-arrow py-0" data-bs-toggle="dropdown">
-                             <i data-feather="more-vertical"></i>
-                         </button>
-                         <div class="dropdown-menu dropdown-menu-end">
-                             <a class="dropdown-item" href="'.$showUrl.'">
-                                 <i data-feather="eye" class="me-50"></i>
-                                 <span>View</span>
-                             </a>
-                         </div>
-                     </div>
-                 ';
-             })
-     
-             ->rawColumns(['status', 'action'])
-             ->make(true);
-     }
-     
-     
-
-
-
-
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
 
@@ -341,50 +240,36 @@ class MaintBomController extends Controller
         return view('plant.maint_bom.create', compact('series', 'items'));
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(MaintBOMRequest $request)
     {
-      
-        // FormRequest handles validation automatically
-        $validator = $request->validated();
-
-        $numberPatternData = Helper::generateDocumentNumberNew($request->book_id, $request->document_date);
-        if (!isset($numberPatternData)) {
-            return response()->json([
-                'message' => "Invalid Book",
-                'error' => "",
-            ], 422);
+        
+        // Handle action parameter like PO system
+        if ($request->has('action')) {
+            $request->merge(['document_status' => $request->action]);
         }
-
-        if (!$validator) {
-            return redirect()
-                ->route('maint-bom.create')
-                ->withInput()
-                ->withErrors($request->errors());
-        }
+        
+        // Validation is handled by MaintBOMRequest automatically
+        // If validation fails, it will return 422 response with errors automatically
 
         $name = $request->bom_name;
 
-        // Check for duplicate BOM name (skip for draft saves)
         if ($request->document_status !== 'draft') {
             $existingAsset = PlantMaintBom::where('bom_name', $name)->first();
             if ($existingAsset) {
-                return redirect()
-                    ->route('maint-bom.create')
-                    ->withInput()
-                    ->withErrors(['bom_name' => "BOM Name '{$name}' already exists."]);
+                return response()->json([
+                    'message' => "BOM Name '{$name}' already exists.",
+                    'errors' => ['bom_name' => ["BOM Name '{$name}' already exists."]]
+                ], 422);
             }
         }
-
        
-        if($request->doc_no==''){
+
+        if ($request->doc_no == '') {
             $doc_no = $request->document_number;
-        }
-        else{
+        } else {
             $doc_no = $request->doc_no;
         }
+
         $user = Helper::getAuthenticatedUser();
         $additionalData = [
             'created_by' => $user->auth_user_id,
@@ -397,7 +282,6 @@ class MaintBomController extends Controller
             'revision_number' => 0,
         ];
 
-        // Handle multiple document uploads
         $documentPaths = [];
         if ($request->hasFile('document')) {
             foreach ($request->file('document') as $index => $file) {
@@ -408,69 +292,79 @@ class MaintBomController extends Controller
         }
 
         $data = array_merge($request->all(), $additionalData);
-        
-        // Add document paths if uploaded
+
         if (!empty($documentPaths)) {
             $data['document'] = json_encode($documentPaths);
         }
 
-
+      
         try {
-            DB::transaction(function () use ($data) {
-                $bom = PlantMaintBom::create($data);
-
-                if ($bom->document_status != ConstantHelper::DRAFT) {
-                    $doc = Helper::approveDocument(
-                        $bom->book_id,
-                        $bom->id,
-                        $bom->revision_number,
-                        "",
-                        null,
-                        1,
-                        'submit',
-                        0,
-                        get_class($bom)
-                    );
-
-                    $bom->document_status = $doc['approvalStatus'] ?? $bom->document_status;
-                    $bom->save();
-                }
-            });
-
-            return redirect()
-                ->route("maint-bom.index")
-                ->with('success', 'Maintenance BOM created!');
-        } catch (\Throwable $e) {
-            return redirect()
-                ->route("maint-bom.create")
-                ->withInput()
-                ->with('error', $e->getMessage());
+            DB::beginTransaction();
+        
+            $bom = PlantMaintBom::create($data);
+        
+            $numberPatternData = Helper::generateDocumentNumberNew($request->book_id, $request->document_date);
+            if (!isset($numberPatternData)) {
+                throw new \Exception("Invalid Book");
+            }
+        
+            $document_number = $numberPatternData['document_number'];
+            $bom->doc_number_type = $numberPatternData['type'];
+            $bom->doc_reset_pattern = $numberPatternData['reset_pattern'];
+            $bom->doc_prefix = $numberPatternData['prefix'];
+            $bom->doc_suffix = $numberPatternData['suffix'];
+            $bom->doc_no = $numberPatternData['doc_no'];
+            $bom->save();
+        
+            // ✅ auto-approve if not draft
+            if ($bom->document_status != ConstantHelper::DRAFT) {
+                $doc = Helper::approveDocument(
+                    $bom->book_id,
+                    $bom->id,
+                    $bom->revision_number,
+                    "",
+                    null,
+                    1,
+                    'submit',
+                    0,
+                    get_class($bom)
+                );
+        
+                $bom->document_status = $doc['approvalStatus'] ?? $bom->document_status;
+                $bom->save();
+            }
+        
+            DB::commit();  // ✅ simple commit
+        
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => $e->getMessage(),
+                'error' => 'Something went wrong'
+            ], 422);
         }
     }
 
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Request $r,string $id)
+    public function show(Request $r, string $id)
     {
         $data = PlantMaintBom::find($id);
         $currNumber = $r->revisionNumber;
-       
+
         if ($r->has('revisionNumber') && $data->revision_number != $currNumber) {
             $data = PlantMaintBomHistory::where('source_id', $id)->where('revision_number', $currNumber)->first();
-        } 
-        
-        // Check if the main record exists
+        }
+
         if (!$data) {
             abort(404, 'Maintenance BOM not found');
         }
+
         $parentURL = "plant_maint-bom";
         $series = [];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
         if (count($servicesBooks['services']) == 0) {
             return redirect()->route('/');
         }
+
         $firstService = $servicesBooks['services'][0];
         $series = Helper::getBookSeriesNew($firstService->alias, $parentURL)->get();
 
@@ -487,15 +381,17 @@ class MaintBomController extends Controller
             $userType['type'],
             $revision_number
         );
+
         $revNo = $r->has('revisionNumber') ? intval($r->revisionNumber) : $data->revision_number;
-        $approvalHistory = Helper::getApprovalHistory($data->book_id, $id, $revNo, 0,$data->created_by);
+        $approvalHistory = Helper::getApprovalHistory($data->book_id, $id, $revNo, 0, $data->created_by);
 
         $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$data->document_status] ?? '';
         $documentDate = \Carbon\Carbon::parse($data->document_date)->format('d-m-Y') ?? '-';
-        
+
         $items = Item::where("type", "goods")
             ->with(["uom", "category", "itemAttributes"])
             ->get();
+
         foreach ($items as $item) {
             $itemId = $item->id;
 
@@ -504,23 +400,33 @@ class MaintBomController extends Controller
             } else {
                 $itemAttributes = [];
             }
+
             $processedData = [];
             foreach ($itemAttributes as $key => $attribute) {
-                $attributesArray = array();
+                $attributesArray = [];
                 $attribute_group_id = $attribute->attribute_group_id;
                 $attribute->group_name = $attribute->group?->name;
 
-                $attributeValueData = ErpAttribute::whereIn('id', $attribute->attribute_id)->select('id', 'value')->where('status', 'active')->get();
+                $attributeValueData = ErpAttribute::whereIn('id', $attribute->attribute_id)
+                    ->select('id', 'value')
+                    ->where('status', 'active')
+                    ->get();
 
                 $attribute->values_data = $attributeValueData;
                 $attribute = $attribute->only(['id', 'group_name', 'values_data', 'attribute_group_id']);
 
-                array_push($processedData, ['id' => $attribute['id'], 'group_name' => $attribute['group_name'], 'values_data' => $attributeValueData, 'attribute_group_id' => $attribute['attribute_group_id']]);
+                array_push($processedData, [
+                    'id' => $attribute['id'],
+                    'group_name' => $attribute['group_name'],
+                    'values_data' => $attributeValueData,
+                    'attribute_group_id' => $attribute['attribute_group_id']
+                ]);
             }
-            $processedData = collect($processedData);
 
+            $processedData = collect($processedData);
             $item->attributes = $processedData;
         }
+
         $items = $items->map(function ($item) {
             return [
                 'id' => $item->id,
@@ -531,10 +437,19 @@ class MaintBomController extends Controller
                 'item_attributes' => $item->attributes,
             ];
         });
-       
-        return view('plant.maint_bom.show', compact('series', 'items','data','buttons', 'docStatusClass', 'revision_number', 'currNumber', 'approvalHistory'));
-}
 
+        return view('plant.maint_bom.show', compact(
+            'series',
+            'items',
+            'data',
+            'buttons',
+            'docStatusClass',
+            'revision_number',
+            'currNumber',
+            'approvalHistory'
+        ));
+    }
+    
     /**
      * Show the form for editing the specified resource.
      */
@@ -622,9 +537,11 @@ class MaintBomController extends Controller
         $validator = $request->validated();
 
         if (!$validator) {
+            // Store spare parts data in session for restoration
+            session(['bom_spare_parts_backup' => $request->input('spare_parts')]);
             return redirect()
                 ->route('maint-bom.edit', $id)
-                ->withInput()
+                ->withInput($request->except(['spare_parts'])) // Exclude spare_parts from old input
                 ->withErrors($request->errors());
         }
 
@@ -721,6 +638,9 @@ class MaintBomController extends Controller
             $bom->update($data);
             DB::commit();
           
+            
+            // Clear session backup data after successful update
+            session()->forget('bom_spare_parts_backup');
             
             // Return JSON response for AJAX requests (amendment)
             if ($request->ajax() || $request->action_type == "amendment") {
