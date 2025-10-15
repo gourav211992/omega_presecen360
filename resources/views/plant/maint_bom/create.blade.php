@@ -38,11 +38,8 @@
 				</div>
 			</div>
 			<div class="content-body">
-				<form id="maint-bom-form" method="POST" action="{{ route('maint-bom.store') }}"
-					enctype="multipart/form-data">
-
+				<form class="ajax-input-form" method="POST" data-module="maint-bom" action="{{ route('maint-bom.store') }}" data-redirect="{{ route('maint-bom.index') }}" enctype="multipart/form-data" id="maint-bom-form">
 					@csrf
-
 					<section id="basic-datatable">
 						<div class="row">
 							<div class="col-12">
@@ -73,7 +70,7 @@
 											<input type="hidden" name="doc_prefix" id="doc_prefix">
 											<input type="hidden" name="doc_suffix" id="doc_suffix">
 											<input type="hidden" name="doc_no" id="doc_no">
-											<input type="hidden" name="document_status" id="document_status" value="">
+											<input type="hidden" name="document_status" id="document_status" value="draft">
 
 
 											<div class="col-md-8">
@@ -868,188 +865,111 @@
 		}
 
 
-		document.getElementById('save-draft-btn').addEventListener('click', async function () {
-			$('.preloader').show();
-			document.getElementById('document_status').value = 'draft';
+		// Handle series selection to populate hidden fields
+		$('#book_id').on('change', function() {
+			const selectedOption = $(this).find('option:selected');
+			const bookCode = selectedOption.text();
+			
+			// Populate hidden fields required for validation
+			$('#book_code_input').val(bookCode);
+			$('#doc_number_type').val('Auto'); // Default to Auto, can be changed based on your logic
+		});
 
-			// Validate header fields for draft save
-			let headerValidationPassed = await validateHeaderFields();
-			if (!headerValidationPassed) {
-				$('.preloader').hide();
-				return; // Stop submission if validation fails
-			}
+		// Initialize on page load if a series is already selected
+		if ($('#book_id').val()) {
+			$('#book_id').trigger('change');
+		}
 
-			// Also validate document number uniqueness for draft save using simple AJAX
-			const documentNumber = document.getElementById('document_number').value.trim();
-			const bomName = document.getElementById('bom_name').value.trim();
-			const bookId = document.getElementById('book_id').value;
-
-			// If no document number and no BOM name, proceed with submission
-			if ((!documentNumber || documentNumber.length < 1) && (!bomName || bomName.length < 1)) {
-				updateJsonData();
-				document.getElementById('maint-bom-form').submit();
-				return;
-			}
-
-			// Clear any existing error state
-			resetDocumentInputState();
-			resetBomNameInputState();
-
-			// Simple AJAX validation
-			$.ajax({
-				url: '{{ route("maint-bom.check-document-number") }}',
-				type: 'POST',
-				data: {
-					document_number: documentNumber,
-					bom_name: bomName,
-					book_id: bookId,
-					_token: $('meta[name="csrf-token"]').attr('content')
-				},
-				success: function(data) {
-					console.log('Validation response:', data);
-					let hasErrors = false;
-
-					// Check document number validation
-					if (data.document_exists) {
-						const documentInput = document.getElementById('document_number');
-						documentInput.style.border = '1px solid red';
-						hasErrors = true;
-					}
-
-					// Check BOM name validation
-					if (data.bom_name_exists) {
-						const bomInput = document.getElementById('bom_name');
-						bomInput.style.border = '1px solid red';
-						hasErrors = true;
-					}
-
-					if (hasErrors) {
-						$('.preloader').hide();
-						if (data.message) {
-							Swal.fire({
-								icon: 'error',
-								title: 'Validation Error!',
-								text: data.message,
-								confirmButtonText: 'OK',
-								confirmButtonColor: '#d33'
-							});
-						}
-						document.getElementById('document_number').focus();
-					} else {
-						// No errors, proceed with submission
-						updateJsonData();
-						document.getElementById('maint-bom-form').submit();
-					}
-				},
-				error: function(xhr, status, error) {
-					console.error('Validation error:', error);
-					$('.preloader').hide();
-					// On error, allow submission (server will handle)
-					updateJsonData();
-					document.getElementById('maint-bom-form').submit();
-				}
-			});
-
+		document.getElementById('save-draft-btn').addEventListener('click', function(e) {
+			e.preventDefault();
+			$('#document_status').val('draft');
+			updateJsonData();
+			$('#maint-bom-form').submit();
 		});
 
 
-		$('#maint-bom-form').on('submit', async function (e) {
-			$('.preloader').show();
-			document.getElementById('document_status').value = 'submitted';
-			e.preventDefault(); // Always prevent default first
-
-			// Validate header fields
-			let headerValidationPassed = await validateHeaderFields();
-			if (!headerValidationPassed) {
-				$('.preloader').hide();
-				return; // Stop submission if validation fails
-			}
-
-			// Validate quantity fields
-			let qtyValidationPassed = validateQuantities();
-			if (!qtyValidationPassed) {
-				$('.preloader').hide();
-				return; // Stop submission if validation fails
-			}
-
-			// Validate attributes
-			let attributeValidationPassed = validateAttributes();
-			if (!attributeValidationPassed) {
-				$('.preloader').hide();
-				return; // Stop submission if validation fails
-			}
-
-			// Validate document number uniqueness before submission using simple AJAX
-			const documentNumber = document.getElementById('document_number').value.trim();
-			const bomName = document.getElementById('bom_name').value.trim();
-			const bookId = document.getElementById('book_id').value;
-
-			// If no document number and no BOM name, proceed with submission
-			if ((!documentNumber || documentNumber.length < 1) && (!bomName || bomName.length < 1)) {
-				updateJsonData();
-				document.getElementById('maint-bom-form').submit();
-				return;
-			}
-
-			// Clear any existing error state
-			resetDocumentInputState();
-			resetBomNameInputState();
-
-			// Simple AJAX validation
-			$.ajax({
-				url: '{{ route("maint-bom.check-document-number") }}',
-				type: 'POST',
-				data: {
-					document_number: documentNumber,
-					bom_name: bomName,
-					book_id: bookId,
-					_token: $('meta[name="csrf-token"]').attr('content')
-				},
-				success: function(data) {
-					console.log('Validation response:', data);
-					let hasErrors = false;
-
-					// Check document number validation
-					if (data.document_exists) {
-						const documentInput = document.getElementById('document_number');
-						documentInput.style.border = '1px solid red';
-						hasErrors = true;
-					}
-
-					// Check BOM name validation
-					if (data.bom_name_exists) {
-						const bomInput = document.getElementById('bom_name');
-						bomInput.style.border = '1px solid red';
-						hasErrors = true;
-					}
-
-					if (hasErrors) {
-						$('.preloader').hide();
-						if (data.message) {
-							Swal.fire({
-								icon: 'error',
-								title: 'Validation Error!',
-								text: data.message,
-								confirmButtonText: 'OK',
-								confirmButtonColor: '#d33'
-							});
-						}
-						document.getElementById('document_number').focus();
+		// Validate UOM fields - improved version
+		function validateUOM() {
+			let isValid = true;
+			let errors = [];
+			let missingUOMRows = [];
+			
+			$('.mrntableselectexcel tr').each(function(index) {
+				let $row = $(this);
+				let itemId = $row.find('.item_id').val();
+				let uomValue = $row.find('.uom').val();
+				let itemName = $row.find('.item_name').val() || 'Unknown Item';
+				let rowNumber = index + 1;
+				
+				// If row has an item but no UOM selected (check for null, undefined, empty string)
+				if (itemId && itemId.trim() !== '') {
+					if (!uomValue || uomValue.trim() === '' || uomValue === null || uomValue === 'null') {
+						isValid = false;
+						$row.find('.uom').addClass('is-invalid');
+						missingUOMRows.push(rowNumber);
+						errors.push(`<span style="color:red;">${itemName}</span> (Row ${rowNumber})`);
 					} else {
-						// No errors, proceed with submission
-						updateJsonData();
-						document.getElementById('maint-bom-form').submit();
+						$row.find('.uom').removeClass('is-invalid');
 					}
-				},
-				error: function(xhr, status, error) {
-					console.error('Validation error:', error);
-					$('.preloader').hide();
-					// On error, allow submission (server will handle)
-					updateJsonData();
-					document.getElementById('maint-bom-form').submit();
 				}
 			});
+			
+			if (!isValid) {
+				let message = missingUOMRows.length === 1 
+					? `Please select UOM for the following item:`
+					: `Please select UOM for the following items:`;
+					
+				Swal.fire({ 
+					icon: 'warning',
+					title: 'UOM Required', 
+					html: `${message}<br><br>${errors.join('<br>')}`,
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#7367f0'
+				});
+			}
+			
+			return isValid;
+		}
 
+		document.getElementById('submit-btn').addEventListener('click', function(e) {
+			e.preventDefault();
+			$('#document_status').val('submitted');
+			
+			// First validate that we have spare parts
+			let hasSpareparts = false;
+			$('.mrntableselectexcel tr').each(function() {
+				let itemId = $(this).find('.item_id').val();
+				if (itemId && itemId.trim() !== '') {
+					hasSpareparts = true;
+					return false; // break the loop
+				}
+			});
+			
+			if (!hasSpareparts) {
+				Swal.fire({
+					icon: 'warning',
+					title: 'No Spare Parts',
+					text: 'Please add at least one spare part before submitting.',
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#7367f0'
+				});
+				return false;
+			}
+			
+			// Validate UOM for submitted status
+			let uomValidationPassed = validateUOM();
+			if (!uomValidationPassed) {
+				return false;
+			}
+			
+			// Validate attributes for submitted status
+			let attributeValidationPassed = validateAttributes();
+			if (!attributeValidationPassed) {
+				return false;
+			}
+			
+			updateJsonData();
+			$('#maint-bom-form').submit();
 		});
 
 		function showToast(icon, title) {
@@ -2106,4 +2026,5 @@
 			}
 		}
 	</script>
+
 @endsection

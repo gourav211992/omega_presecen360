@@ -919,83 +919,90 @@
 				}
 				if (!$('input[name="report_date_time"]').val()) {
 					isValid = false;
-					errorMessage += 'Down Date & Time is required.\n';
+					errorMessage += 'Report date and time is required.\n';
 				}
 			}
 
+			// Simplified validation - let FormRequest handle document number uniqueness
 			if (!isValid) {
 				Swal.fire({
 					icon: 'error',
-					title: 'Validation Error!',
-					html: errorMessage.replace(/\n/g, '<br>'),
+					title: 'Validation Error',
+					html: errorMessage,
 					confirmButtonText: 'OK',
 					confirmButtonColor: '#d33'
 				});
 				return;
 			}
 
-			// AJAX validation for document number uniqueness
-			const documentNumber = $('#document_number').val().trim();
-			const bookId = $('#book_id').val();
-
-			// If no document number, proceed with submission
-			if (!documentNumber || documentNumber.length < 1) {
-				// Show loading
-				$('.preloader').show();
-				// Submit the form
-				$('#defect-notification-form')[0].submit();
-				return;
-			}
-
 			// Clear any existing error state
 			resetDocumentInputState();
+			clearFieldErrors();
 
-			// Show loading for AJAX
+			// Show loading and submit form via AJAX
 			$('.preloader').show();
-
-			// AJAX validation
+			
+			// Create FormData for AJAX submission (handles file uploads)
+			const formData = new FormData($('#defect-notification-form')[0]);
+			
 			$.ajax({
-				url: '{{ route("defect-notification.check-document-number") }}',
+				url: $('#defect-notification-form').attr('action'),
 				type: 'POST',
-				data: {
-					document_number: documentNumber,
-					book_id: bookId,
-					_token: $('meta[name="csrf-token"]').attr('content')
+				data: formData,
+				processData: false,
+				contentType: false,
+				headers: {
+					'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
 				},
-				success: function(data) {
-					console.log('Validation response:', data);
-
-					if (data.document_exists) {
-						$('.preloader').hide();
-						
-						// Add visual feedback - red border
-						const documentInput = document.getElementById('document_number');
-						if (documentInput) {
-							documentInput.style.border = '1px solid red';
+				success: function(response) {
+					$('.preloader').hide();
+					
+					// Show success message
+					Swal.fire({
+						icon: 'success',
+						title: 'Success!',
+						text: response.message,
+						confirmButtonText: 'OK',
+						confirmButtonColor: '#28a745'
+					}).then(() => {
+						// Redirect to index page
+						if (response.redirect_url) {
+							window.location.href = response.redirect_url;
 						}
-
+					});
+				},
+				error: function(xhr) {
+					$('.preloader').hide();
+					
+					if (xhr.status === 422) {
+						// Validation errors - show field-specific errors
+						const errors = xhr.responseJSON.errors;
+						displayFieldErrors(errors);
+						
+						// Also show SweetAlert with summary
+						let errorMessages = [];
+						Object.keys(errors).forEach(field => {
+							errorMessages.push(errors[field][0]);
+						});
+						
 						Swal.fire({
 							icon: 'error',
-							title: 'Validation Error!',
-							text: data.message,
+							title: 'Validation Error',
+							html: errorMessages.join('<br>'),
 							confirmButtonText: 'OK',
 							confirmButtonColor: '#d33'
-						}).then(() => {
-							// Focus on document number field after closing alert
-							if (document.getElementById('document_number')) {
-								document.getElementById('document_number').focus();
-							}
 						});
 					} else {
-						// No errors, proceed with submission
-						$('#defect-notification-form')[0].submit();
+						// Other errors
+						const errorMessage = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+						Swal.fire({
+							icon: 'error',
+							title: 'Error',
+							text: errorMessage,
+							confirmButtonText: 'OK',
+							confirmButtonColor: '#d33'
+						});
 					}
-				},
-				error: function(xhr, status, error) {
-					console.error('Validation error:', error);
-					$('.preloader').hide();
-					// On error, allow submission (server will handle)
-					$('#defect-notification-form')[0].submit();
 				}
 			});
 		}
@@ -1006,6 +1013,45 @@
 			if (documentInput) {
 				documentInput.style.border = '';
 			}
+		}
+
+		// Function to clear all field errors
+		function clearFieldErrors() {
+			// Remove error classes and messages
+			$('.form-control, .form-select').removeClass('is-invalid');
+			$('.invalid-feedback').remove();
+		}
+
+		// Function to display field-specific errors
+		function displayFieldErrors(errors) {
+			Object.keys(errors).forEach(fieldName => {
+				const errorMessage = errors[fieldName][0];
+				
+				// Find the field element
+				let fieldElement = $(`[name="${fieldName}"]`);
+				
+				// Handle specific field mappings
+				if (fieldName === 'book_id') {
+					fieldElement = $('#book_id');
+				} else if (fieldName === 'document_number') {
+					fieldElement = $('#document_number');
+				} else if (fieldName === 'document_date') {
+					fieldElement = $('#document_date');
+				} else if (fieldName === 'location_id') {
+					fieldElement = $('#location_id');
+				}
+				
+				if (fieldElement.length > 0) {
+					// Add error class
+					fieldElement.addClass('is-invalid');
+					
+					// Remove existing error message for this field
+					fieldElement.siblings('.invalid-feedback').remove();
+					
+					// Add error message
+					fieldElement.after(`<div class="invalid-feedback">${errorMessage}</div>`);
+				}
+			});
 		}
 
 		function showToast(icon, title) {

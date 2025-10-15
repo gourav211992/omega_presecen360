@@ -1271,10 +1271,15 @@
 			// Validate even for draft
 			validateWorkOrder(true).then(function(isValid) {
 				if (isValid) {
+					// Clear any existing error states
+					clearFieldErrors();
+					
 					$('.preloader').show();
 					document.getElementById('document_status').value = 'draft';
 					updateJsonData();
-					document.getElementById('maint-wo-form').submit();
+					
+					// Submit via AJAX
+					submitFormAjax();
 				}
 			});
 		});
@@ -1350,13 +1355,126 @@
 			validateWorkOrder(false).then(function(isValid) {
 				if (isValid) {
 					console.log('✅ All validations passed - submitting form');
+					// Clear any existing error states
+					clearFieldErrors();
+					
 					$('.preloader').show();
 					document.getElementById('document_status').value = 'submitted';
 					updateJsonData();
-					formElement.submit();
+					
+					// Submit via AJAX
+					submitFormAjax();
 				}
 			});
 		});
+
+		// AJAX form submission function
+		function submitFormAjax() {
+			// Create FormData for AJAX submission (handles file uploads)
+			const formData = new FormData($('#maint-wo-form')[0]);
+			
+			$.ajax({
+				url: $('#maint-wo-form').attr('action'),
+				type: 'POST',
+				data: formData,
+				processData: false,
+				contentType: false,
+				headers: {
+					'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+				},
+				success: function(response) {
+					$('.preloader').hide();
+					
+					// Show success message
+					Swal.fire({
+						icon: 'success',
+						title: 'Success!',
+						text: response.message,
+						confirmButtonText: 'OK',
+						confirmButtonColor: '#28a745'
+					}).then(() => {
+						// Redirect to index page
+						if (response.redirect_url) {
+							window.location.href = response.redirect_url;
+						}
+					});
+				},
+				error: function(xhr) {
+					$('.preloader').hide();
+					
+					if (xhr.status === 422) {
+						// Validation errors - show field-specific errors
+						const errors = xhr.responseJSON.errors;
+						displayFieldErrors(errors);
+						
+						// Also show SweetAlert with summary
+						let errorMessages = [];
+						Object.keys(errors).forEach(field => {
+							errorMessages.push(errors[field][0]);
+						});
+						
+						Swal.fire({
+							icon: 'error',
+							title: 'Validation Error',
+							html: errorMessages.join('<br>'),
+							confirmButtonText: 'OK',
+							confirmButtonColor: '#d33'
+						});
+					} else {
+						// Other errors
+						const errorMessage = xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+						Swal.fire({
+							icon: 'error',
+							title: 'Error',
+							text: errorMessage,
+							confirmButtonText: 'OK',
+							confirmButtonColor: '#d33'
+						});
+					}
+				}
+			});
+		}
+
+		// Function to clear all field errors
+		function clearFieldErrors() {
+			// Remove error classes and messages
+			$('.form-control, .form-select').removeClass('is-invalid');
+			$('.invalid-feedback').remove();
+		}
+
+		// Function to display field-specific errors
+		function displayFieldErrors(errors) {
+			Object.keys(errors).forEach(fieldName => {
+				const errorMessage = errors[fieldName][0];
+				
+				// Find the field element
+				let fieldElement = $(`[name="${fieldName}"]`);
+				
+				// Handle specific field mappings
+				if (fieldName === 'book_id') {
+					fieldElement = $('#book_id');
+				} else if (fieldName === 'document_number') {
+					fieldElement = $('#document_number');
+				} else if (fieldName === 'document_date') {
+					fieldElement = $('#document_date');
+				} else if (fieldName === 'location_id') {
+					fieldElement = $('#location_id');
+				} else if (fieldName === 'reference_type') {
+					fieldElement = $('#reference_type');
+				}
+				
+				if (fieldElement.length > 0) {
+					// Add error class
+					fieldElement.addClass('is-invalid');
+					
+					// Remove existing error message for this field
+					fieldElement.siblings('.invalid-feedback').remove();
+					
+					// Add error message
+					fieldElement.after(`<div class="invalid-feedback">${errorMessage}</div>`);
+				}
+			});
+		}
 
 		function showToast(icon, title) {
 			const Toast = Swal.mixin({
@@ -2926,9 +3044,14 @@
 				const attributeEnrichedInput = row.querySelector('input.attribute-enriched');
 				const itemDataAttr = itemInput ? itemInput.getAttribute('data-attr') : null;
 
+				// Get item name for better error messages
+				const itemNameInput = row.querySelector('input[name="item_name[]"]');
+				const itemNameText = itemNameInput ? itemNameInput.value : '';
+				const displayName = itemNameText || `Item ${index + 1}`;
+
 				// Check if item is selected
 				if (!itemInput || !itemInput.value.trim()) {
-					errorMessages.push(`Item ${index + 1}: Please select an item.`);
+					errorMessages.push(`${displayName}: Please select an item.`);
 				} else {
 					// Check if item has attributes available but none selected
 					let hasAttributesAvailable = false;
@@ -3024,34 +3147,34 @@
 
 					// If item has attributes available but none selected, show error
 					if (hasAttributesAvailable && !hasAttributesSelected) {
-						console.log(`❌ Item ${index + 1}: Has attributes available but none selected`);
-						errorMessages.push(`Item ${index + 1}: Please select attributes for the selected item.`);
+						console.log(`❌ ${displayName}: Has attributes available but none selected`);
+						errorMessages.push(`${displayName}: Please select attributes for the selected item.`);
 					}
 				}
 
 				// Check if quantity is entered and greater than 0
 				if (!quantityInput || !quantityInput.value || quantityInput.value.trim() === '') {
-					errorMessages.push(`Item ${index + 1}: Quantity is required.`);
+					errorMessages.push(`${displayName}: Quantity is required.`);
 				} else {
 					const qtyValue = parseFloat(quantityInput.value);
-					console.log(`🔍 Item ${index + 1}: quantity = ${qtyValue}, available stock = ${availableStockInput ? availableStockInput.value : 'N/A'}`);
+					console.log(`🔍 ${displayName}: quantity = ${qtyValue}, available stock = ${availableStockInput ? availableStockInput.value : 'N/A'}`);
 
 					if (isNaN(qtyValue)) {
-						errorMessages.push(`Item ${index + 1}: Quantity must be a valid number.`);
+						errorMessages.push(`${displayName}: Quantity must be a valid number.`);
 					} else if (qtyValue <= 0) {
-						console.log(`❌ Item ${index + 1}: Quantity ${qtyValue} is <= 0 - blocking submission`);
-						errorMessages.push(`Item ${index + 1}: Quantity must be greater than 0.`);
+						console.log(`❌ ${displayName}: Quantity ${qtyValue} is <= 0 - blocking submission`);
+						errorMessages.push(`${displayName}: Quantity must be greater than 0.`);
 					} else if (availableStockInput && availableStockInput.value) {
 						const availableStock = parseFloat(availableStockInput.value);
 						if (!isNaN(availableStock) && qtyValue > availableStock) {
-							errorMessages.push(`Item ${index + 1}: Quantity (${qtyValue}) cannot exceed available stock (${availableStock}).`);
+							errorMessages.push(`${displayName}: Quantity (${qtyValue}) cannot exceed available stock (${availableStock}).`);
 						}
 					}
 				}
 
 				// Check if UOM is selected
 				if (!uomSelect || !uomSelect.value) {
-					errorMessages.push(`Item ${index + 1}: Please select a unit of measurement.`);
+					errorMessages.push(`${displayName}: Please select a unit of measurement.`);
 				}
 
 				// If all validations pass for this row, mark as having valid items

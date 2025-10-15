@@ -35,7 +35,7 @@
 									<i data-feather="save"></i> Save as Draft
 								</button>
 							
-								<button type="submit" form="maint-bom-form" class="btn btn-primary btn-sm" id="submit-btn">
+								<button type="button" class="btn btn-primary btn-sm" id="submit-btn">
 									<i data-feather="check-circle"></i> Submit
 								</button>
 							@endif
@@ -45,7 +45,7 @@
 									<i data-feather="save"></i> Save as Draft
 								</button>
 							
-								<button type="submit" form="maint-bom-form" class="btn btn-primary btn-sm" id="submit-btn">
+								<button type="button" class="btn btn-primary btn-sm" id="submit-btn">
 									<i data-feather="check-circle"></i> Submit
 								</button>
 							@endif
@@ -925,6 +925,49 @@ function validateRowsCompletion() {
 	}
 
 	// ==========================
+	// 🔸 Validate UOM fields
+	// ==========================
+	function validateUOM() {
+		console.log('UOM validation started'); // Debug log
+		let isValid = true;
+		let errors = [];
+		
+		$('.mrntableselectexcel tr').each(function(index) {
+			let $row = $(this);
+			let itemId = $row.find('.item_id').val();
+			let uomValue = $row.find('.uom').val();
+			let itemName = $row.find('.item_name').val() || 'Unknown Item';
+			let rowNumber = index + 1;
+			
+			console.log(`Row ${rowNumber}: itemId=${itemId}, uomValue=${uomValue}, itemName=${itemName}`); // Debug log
+			
+			// If row has an item but no UOM selected
+			if (itemId && itemId.trim() !== '') {
+				if (!uomValue || uomValue.trim() === '' || uomValue === 'null') {
+					isValid = false;
+					errors.push(`<span style="color:red;">${itemName}</span> (Row ${rowNumber})`);
+					console.log(`UOM missing for row ${rowNumber}: ${itemName}`); // Debug log
+				}
+			}
+		});
+		
+		if (!isValid) {
+			console.log('UOM validation failed, showing SweetAlert'); // Debug log
+			Swal.fire({ 
+				icon: 'warning',
+				title: 'UOM Required', 
+				html: `Please select UOM for the following items:<br><br>${errors.join('<br>')}`,
+				confirmButtonText: 'OK',
+				confirmButtonColor: '#7367f0'
+			});
+		} else {
+			console.log('UOM validation passed'); // Debug log
+		}
+		
+		return isValid;
+	}
+
+	// ==========================
 	// 🔸 Submit Button
 	// ==========================
 	const submitBtn = document.getElementById('submit-btn');
@@ -934,6 +977,9 @@ function validateRowsCompletion() {
 			$('#document_status').val('submitted');
 
 			if (!validateQuantities()) return;
+			
+			// Validate UOM before submission
+			if (!validateUOM()) return;
 			
 			// Validate attributes (same as create page)
 			let attributeValidationPassed = validateAttributes();
