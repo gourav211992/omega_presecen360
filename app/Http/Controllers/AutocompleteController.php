@@ -1376,7 +1376,7 @@ class AutocompleteController extends Controller
                 $results = AuthUser::when($term, function ($termQuery) use($term, $authUser) {
                     $termQuery -> where('name', 'LIKE', '%'.$term.'%');
                 })->where('status', ConstantHelper::ACTIVE)
-                ->whereNotNull('name')
+                ->whereNotNull('name')->where('organization_id',$organizationId)
                 ->limit(10)
                 ->get(['id', 'name']);
             } else if ($type === 'location') {
