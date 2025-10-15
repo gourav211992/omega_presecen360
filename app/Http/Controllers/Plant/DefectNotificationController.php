@@ -411,6 +411,32 @@ class DefectNotificationController extends Controller
     }
 
     /**
+     * Get equipment by category for filtering
+     */
+    public function getEquipmentByCategory(Request $request)
+    {
+        $categoryId = $request->category_id;
+        
+        if (!$categoryId) {
+            // Return all equipment if no category selected
+            $equipments = ErpEquipment::select('id', 'name')
+                ->orderBy('name')
+                ->get();
+        } else {
+            // Filter equipment by category
+            $equipments = ErpEquipment::select('id', 'name')
+                ->where('category_id', $categoryId)
+                ->orderBy('name')
+                ->get();
+        }
+        
+        return response()->json([
+            'status' => 'success',
+            'equipments' => $equipments
+        ]);
+    }
+
+    /**
      * Store a newly created resource in storage.
      */
     public function store(DefectNotificationRequest $request)

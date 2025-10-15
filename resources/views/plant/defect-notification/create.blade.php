@@ -1209,7 +1209,79 @@
 			$('#document_number').on('input', function() {
 				resetDocumentInputState();
 			});
+
+			// Category change event listener for equipment filtering
+			$('select[name="category_id"]').on('change', function() {
+				const categoryId = $(this).val();
+				filterEquipmentByCategory(categoryId);
+			});
 		});
+
+		// Function to filter equipment by category
+		function filterEquipmentByCategory(categoryId) {
+			const equipmentSelect = $('select[name="equipment_id"]');
+			
+			// Show loading state
+			equipmentSelect.html('<option value="">Loading equipment...</option>');
+			equipmentSelect.prop('disabled', true);
+
+			// Make AJAX request to get equipment by category
+			$.ajax({
+				url: '{{ route("defect-notification.equipment-by-category") }}',
+				type: 'GET',
+				data: {
+					category_id: categoryId
+				},
+				success: function(response) {
+					if (response.status === 'success') {
+						// Clear current options
+						equipmentSelect.html('<option value="">Select Equipment</option>');
+						
+						// Add filtered equipment options
+						$.each(response.equipments, function(index, equipment) {
+							equipmentSelect.append(
+								'<option value="' + equipment.id + '">' + equipment.name + '</option>'
+							);
+						});
+						
+						// Re-enable the select
+						equipmentSelect.prop('disabled', false);
+						
+						// Show success message if category was selected
+						if (categoryId) {
+							console.log('Equipment filtered by category: ' + categoryId);
+						}
+					} else {
+						// Handle error
+						equipmentSelect.html('<option value="">Error loading equipment</option>');
+						equipmentSelect.prop('disabled', false);
+						
+						Swal.fire({
+							icon: 'error',
+							title: 'Error!',
+							text: 'Failed to load equipment for selected category.',
+							confirmButtonText: 'OK',
+							confirmButtonColor: '#d33'
+						});
+					}
+				},
+				error: function(xhr, status, error) {
+					console.error('AJAX Error:', error);
+					
+					// Reset to default state
+					equipmentSelect.html('<option value="">Error loading equipment</option>');
+					equipmentSelect.prop('disabled', false);
+					
+					Swal.fire({
+						icon: 'error',
+						title: 'Network Error!',
+						text: 'Failed to connect to server. Please try again.',
+						confirmButtonText: 'OK',
+						confirmButtonColor: '#d33'
+					});
+				}
+			});
+		}
 
 	</script>
 @endsection
