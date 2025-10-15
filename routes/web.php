@@ -2984,6 +2984,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('plant/bom/get-item-attribute', [MaintBomController::class, 'getItemAttribute'])->name('maint-bom.attr');
     Route::get('plant/search', [MaintBomController::class, 'search'])->name('plant.search');
     Route::post('plant/bom/approval', [MaintBomController::class, 'documentApproval'])->name('maint-bom.approval');
+    Route::get('plant/maint_bom/revoke/document', [MaintBomController::class, 'revokeDocument'])->name('plant.maint_bom.revoke.document');
 
     Route::post('plant/maint-wo/validate', [MaintWoController::class, 'validateWorkOrder'])->name('maint-wo.validate');
      Route::post('plant/maint-bom/{id}/amendment', [MaintBomController::class, 'amendment'])
@@ -3023,6 +3024,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('plant/maint-wo/revoke-document', [MaintWoController::class, 'revokeDocument'])->name('plant.maint_wo.revoke.document');
     Route::get('plant/maint-wo/search-items', [MaintWoController::class, 'searchItems'])->name('maint-wo.search-items');
     Route::get('plant/maint-wo/process-reminders', [MaintWoController::class, 'processWorkOrderReminders'])->name('maint-wo.process-reminders');
+
     Route::resource('plant/maint-wo', MaintWoController::class)->names([
         'index' => 'maint-wo.index',
         'create' => 'maint-wo.create',
