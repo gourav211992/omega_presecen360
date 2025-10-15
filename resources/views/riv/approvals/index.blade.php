@@ -210,6 +210,15 @@ function BulkAction(actionType) {
         }
     });
 }
+console.log('script loaded');
+window.addEventListener('pageshow', function(event) {
+    // event.persisted is true if page is loaded from bfcache
+    // performance.navigation.type === 2 is an alternative for older browsers
+    console.log(event, performance.getEntriesByType('navigation')[0]?.type);
+    if (event.persisted || performance.getEntriesByType('navigation')[0]?.type === 'back_forward') {
+        window.location.reload();
+    }
+});
 </script>
 @include('partials.index-filter',$filterArray)
 @endsection

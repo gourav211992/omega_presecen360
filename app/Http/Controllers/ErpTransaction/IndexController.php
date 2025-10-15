@@ -135,7 +135,7 @@ class IndexController extends Controller
                 ->addColumn('party_code', fn($row) => $row -> party_code ?? 'NA')  
                 ->addColumn('currency', fn($row) => $row->currency_code ?? Organization::find($row->organization_id)?->currency_code ?? 'NA')
                 ->editColumn('total_amount', fn($row) => number_format($row->total_amount, 2))
-                ->editColumn('submitted_by', fn($row) => $user->name ?? 'N/A')
+                ->editColumn('submitted_by', fn($row) => $row->createdBy->name ?? 'N/A')
                 ->rawColumns(['document_status', 'checkbox'])
                 ->make(true);
         }

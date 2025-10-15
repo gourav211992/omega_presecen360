@@ -28,6 +28,7 @@ window.pageData = {
         amend :  "{{ route('sale.order.amend', isset($order) ? $order -> id : 0) }}",
         calTax : "{!!route('tax.calculate.sales', ['alias' => $order?->book?->service?->alias??" "]) !!}",
         calTcsTax : "{!!route('tax.calculate.tcs')!!}",
+        returnTcsTax : "{!!route('return.tcs.calculate')!!}",
         getSeries : "{{ url('get-series') }}/",
         consigneeAddressRoute : "{{ url('sales/customer-consignee/addresses') }}"
     };

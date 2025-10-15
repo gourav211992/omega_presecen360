@@ -109,6 +109,9 @@ class ErpTransaction extends Model
                 return null;
         }
     }
-
+    public function createdBy()
+    {
+        return $this -> belongsTo(AuthUser::class, 'created_by');
+    }
 
 }

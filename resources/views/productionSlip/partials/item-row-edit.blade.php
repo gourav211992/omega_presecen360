@@ -52,6 +52,7 @@
         </td>
         <td>
             <input type="text" id = "item_so_qty_{{$slipItemIndex}}" value = "{{$slipItem ?->so_item?->order_qty}}" name = "item_so_qty[{{$slipItemIndex}}]" class="form-control mw-100 text-end"/>
+            <input type="hidden" id = "wip_item_so_qty_{{$slipItemIndex}}" value = "{{$slipItem->qty+$slipItem->wip_qty}}" name = "wip_item_so_qty[{{$slipItemIndex}}]" class="form-control mw-100 text-end"/>
         </td>
         <td>
             <input type="text" id = "item_qty_{{$slipItemIndex}}"  value = "{{$slipItem->qty}}" oninput = "changeItemQty(this, {{$slipItemIndex}});" onblur = "setFormattedNumericValue(this);" name = "item_qty[{{$slipItemIndex}}]" class="form-control mw-100 text-end" />

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('content')
 
-<form class="ajax-input-form" method="POST" action="{{ route('shift.store') }}" data-redirect="{{ url('/shift') }}">
+<form class="ajax-input-form" method="POST" action="{{ route('shift.store') }}" data-redirect="{{ url('/erp-shift') }}">
     @csrf
     <div class="app-content content">
         <div class="content-overlay"></div>

@@ -1799,7 +1799,7 @@
             let rejectedQty = totalProduced - acceptedQty - subPrimedQty;
             $("#item_rejected_qty_" + index).val(Math.max(rejectedQty, 0));
             
-            const soQty = parseFloat($("#item_so_qty_" + index).val()) || 0;
+            const soQty = parseFloat($("#wip_item_so_qty_" + index).val()) || 0;
             let wip = soQty-totalProduced;
             $("#item_wip_qty_" + index).val(Math.max(wip, 0));
             $("#item_total_qty_" + index).val(Math.max(soQty, 0));
