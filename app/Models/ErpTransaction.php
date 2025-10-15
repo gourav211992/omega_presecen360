@@ -4,6 +4,8 @@ namespace App\Models;
 use App\Helpers\ConstantHelper;
 use App\Traits\DefaultGroupCompanyOrg;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\Relation;
 
 class ErpTransaction extends Model
 {
@@ -42,4 +44,71 @@ class ErpTransaction extends Model
         $status = str_replace('_', ' ', $this->document_status);
         return ucwords($status);
     }
+    public function party(): ?MorphTo
+    {
+        if (empty($this->party_type) || empty($this->party_id)) {
+            return null;
+        }
+
+        // Normalize type to lowercase before mapping
+        $normalizedType = strtolower($this->party_type);
+
+        Relation::morphMap([
+            'vendor' => \App\Models\Vendor::class,
+            'customer' => \App\Models\Customer::class,
+            'items' => \App\Models\Item::class,
+            'department' => \App\Models\Department::class,
+            'user' => \App\Models\AuthUser::class,
+            'voucher' => \App\Models\Voucher::class,
+            'ledger' => \App\Models\Ledger::class,
+        ]);
+
+        // Dynamically set normalized type so morphTo works
+        $this->party_type = $normalizedType;
+
+        return $this->morphTo(__FUNCTION__, 'party_type', 'party_id');
+    }
+
+    public function getPartyDisplayName(): ?string
+    {
+        // Return null if not linked
+        if (empty($this->party_type) || empty($this->party_id)) {
+            return null;
+        }
+
+        // Ensure relationship is loaded or fetched
+        $party = $this->party;
+
+        if (!$party) {
+            return null;
+        }
+
+        switch (strtolower($this->party_type)) {
+            case 'vendor':
+                return $party->display_name ?? null;
+                
+            case 'customer':
+                return $party->display_name ?? null;
+
+            case 'item':
+                return $party->item_name ?? null;
+
+            case 'department':
+                return $party->name ?? null;
+
+            case 'user':
+                return $party->name ?? null;
+
+            case 'voucher':
+                return $party->voucher_no ?? null;
+
+            case 'ledger':
+                return $party->name ?? null;
+
+            default:
+                return null;
+        }
+    }
+
+
 }

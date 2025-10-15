@@ -2723,7 +2723,7 @@ class ErpSaleOrderController extends Controller
             $attributes = $request -> attributes_data ?? [];
             $currencyId = $request -> currency_id;
             $customerId = $request -> customer_id;
-            $itemQty = 100;
+            $itemQty = $request -> item_qty ?? 0;
             $documentDate = $request -> document_date;
             $type = $request -> price_type;
             if ($type == 'selling') {

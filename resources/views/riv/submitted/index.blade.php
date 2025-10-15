@@ -41,6 +41,7 @@
                                             <th>Doc No.</th>
                                             <th>Rev No</th>
                                             <th>Party Name</th>
+                                            <th>Party Code</th>
                                             <th>Currency</th>
                                             <th class="text-end">Total Amt</th>
                                             <th class="text-center">Status</th>
@@ -115,6 +116,7 @@ $(document).ready(function() {
         { data: 'document_number', name: 'document_number', render: renderData, createdCell: (td) => $(td).addClass('no-wrap') },
         { data: 'revision_number', name: 'revision_number', render: renderData, createdCell: (td) => $(td).addClass('no-wrap') },
         { data: 'party_name', name: 'party_name', render: renderData, createdCell: (td) => $(td).addClass('no-wrap') },
+        { data: 'party_code', name: 'party_code', render: renderData, createdCell: (td) => $(td).addClass('no-wrap') },
         { data: 'currency', name: 'currency', render: renderData, createdCell: (td) => $(td).addClass('text-end') },
         { data: 'total_amount', name: 'total_amount', render: renderData, createdCell: (td) => $(td).addClass('text-end') },
         { data: 'document_status', name: 'document_status', render: renderData, createdCell: (td) => $(td).addClass('no-wrap text-center') },

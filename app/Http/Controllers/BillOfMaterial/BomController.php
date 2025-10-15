@@ -50,7 +50,6 @@ class BomController extends Controller
     {
 
         $canView = true;
-        $authUser = Helper::getAuthenticatedUser();
         $parentUrl = request()->segments()[0];
         $servicesAliasParam = $parentUrl == 'quotation-bom' ? ConstantHelper::COMMERCIAL_BOM_SERVICE_ALIAS : ConstantHelper::BOM_SERVICE_ALIAS;
         if ($servicesAliasParam === ConstantHelper::COMMERCIAL_BOM_SERVICE_ALIAS) {
@@ -70,7 +69,6 @@ class BomController extends Controller
             $boms = Bom::where('type', $type)
                 ->where('bom_type', ConstantHelper::FIXED)
                 ->withDraftListingLogic()
-                -> selfCreatedDocuments($authUser)
                   // apply filter code
                 ->when($request->book_id, function ($q) use ($request) {
                     $q->where('book_id', $request->book_id);
@@ -2069,12 +2067,6 @@ class BomController extends Controller
                     'message' => 'Document cannot be deleted unless it is in draft status.',
                 ], 422);
             }
-            // if ($bom->revision_number) {
-            //     return response()->json([
-            //         'status' => false,
-            //         'message' => 'Deletion is not allowed. The document has already been reviewed(amend).',
-            //     ], 422);
-            // }
 
              // Check dependencies in any related table
             if (

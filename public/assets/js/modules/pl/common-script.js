@@ -439,6 +439,10 @@ function enableHeader()
     {
         customerSection.disabled = false;
     }
+    var selectionSectionElement = document.getElementById('selection_section');
+    if (selectionSectionElement) {
+        selectionSectionElement.style.display = "";
+    }
     let siButton = document.getElementById('select_si_button');
     if (siButton) {
         siButton.disabled = false;
@@ -600,7 +604,7 @@ function editScript()
         }
             let mainPullHeader = document.getElementById('selection_section');
             if (mainPullHeader) {
-                mainPullHeader.classList.add('d-none');
+                mainPullHeader.style.display = "none";
             }
         //Disable header fields which cannot be changed
         disableHeader();
@@ -608,6 +612,9 @@ function editScript()
         order?.media_files?.forEach((mediaFile, mediaIndex) => {
             appendFilePreviews(mediaFile.file_url, 'main_order_file_preview', mediaIndex, mediaFile.id, order.document_status == 'draft' ? false : true);
         });
+        if (order.items.length == 0) {
+            enableHeader();
+        }
     }
     renderIcons();
    

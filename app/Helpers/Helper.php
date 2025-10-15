@@ -2747,8 +2747,7 @@ class Helper
                 $user->db_name = $authUser->db_name;
                 $user->user_type = $authUser->user_type;
                 $user->organization_id = $authUser->organization_id;
-
-
+                $user->group_alias = $authUser->group_alias;
                 return $user;
             },
             storeName: 'redis_p360'

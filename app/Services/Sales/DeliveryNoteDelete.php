@@ -20,10 +20,11 @@ class DeliveryNoteDelete
                 // Check Stock and delete
                 $selectedAttr = $dnItem->attributes->pluck('attr_value')->filter()->values()->toArray();
                 //Issue Stock Delete
-                $issueCheck = $this->checkIssueStock($dnItem, $dnItem->sale_invoice_id, $dn->document_status, $selectedAttr);
-                if ($issueCheck !== true) return $issueCheck;
-
-                $dnQty = $dnItem->issue_qty;
+                if (in_array($dn->document_type, [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS])) {
+                    $issueCheck = $this->checkIssueStock($dnItem, $dnItem->sale_invoice_id, $dn->document_status, $selectedAttr);
+                    if ($issueCheck !== true) return $issueCheck;
+                }
+                $dnQty = $dnItem->order_qty;
                 //Back Update in SO
                 if ($dnItem -> so_item_id) {
                     $soItem = ErpSoItem::find($dnItem -> so_item_id);
@@ -32,6 +33,16 @@ class DeliveryNoteDelete
                         $soItem -> save();
                     }
                 }
+                if (in_array($dn->document_type, [ConstantHelper::SI_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS])) {
+                    if ($dnItem -> dnote_item_id) {
+                        $sinvItem = ErpInvoiceItem::find($dnItem -> dnote_item_id);
+                        if (isset($sinvItem)) {
+                            $sinvItem -> invoice_qty -= $dnQty;
+                            $sinvItem -> save();
+                        }
+                    }
+                }
+                
                 //Back Update in Pick List (PL)
                 if ($dnItem -> pl_item_id) {
                     $plItem = ErpPlItemDetail::find($dnItem -> pl_item_id);
@@ -43,9 +54,11 @@ class DeliveryNoteDelete
                 //Packing List (Pack List) - TODO
                 
                 //Free up all the bundles
-                ErpPslipItemDetail::where('dn_item_id', $dnItem -> id) -> update([
-                    'dn_item_id' => null
-                ]);
+                if (in_array($dn->document_type, [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS])) {
+                    ErpPslipItemDetail::where('dn_item_id', $dnItem -> id) -> update([
+                        'dn_item_id' => null
+                    ]);
+                }
                 //Remove Taxes/Discount/Expenses
                 $dnItem->teds()->delete();
                 //Remove Attributes

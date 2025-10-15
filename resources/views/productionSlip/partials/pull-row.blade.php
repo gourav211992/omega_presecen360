@@ -43,8 +43,8 @@
         {{-- @endif --}}
         <td><input type="text" id="item_rejected_qty_{{$currentOrderIndexVal}}" name = "item_rejected_qty[{{$currentOrderIndexVal}}]" oninput = "changeItemQty(this, {{$currentOrderIndexVal}});" class="form-control mw-100 text-end disabled-input" onblur = "setFormattedNumericValue(this);" value = ""/></td>
         @if($isWipQty)
-            <td>{{ $isWipQty }}: <input type="text" id="item_wip_qty_{{$currentOrderIndexVal}}" name = "item_wip_qty[{{$currentOrderIndexVal}}]" oninput = "changeItemQty(this, {{$currentOrderIndexVal}});" class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);" value = ""/></td>
-            <td><input type="text" id="item_total_qty_{{$currentOrderIndexVal}}" name = "item_total_qty[{{$currentOrderIndexVal}}]" oninput = "changeItemQty(this, {{$currentOrderIndexVal}});" class="form-control mw-100 text-end disabled-input" onblur = "setFormattedNumericValue(this);" value = ""/></td>
+            <td><input type="text" id="item_wip_qty_{{$currentOrderIndexVal}}" name = "item_wip_qty[{{$currentOrderIndexVal}}]" oninput = "changeItemQty(this, {{$currentOrderIndexVal}});" class="form-control mw-100 text-end disabled-input" onblur = "setFormattedNumericValue(this);" value = "{{$order?->soItem?->order_qty-$order->pslip_bal_qty}}"/></td>
+            <td><input type="text" id="item_total_qty_{{$currentOrderIndexVal}}" name = "item_total_qty[{{$currentOrderIndexVal}}]" oninput = "changeItemQty(this, {{$currentOrderIndexVal}});" class="form-control mw-100 text-end disabled-input" onblur = "setFormattedNumericValue(this);" value = "{{$order?->soItem?->order_qty}}"/></td>
         @endif
         @if($machines->isNotEmpty())
             <td>

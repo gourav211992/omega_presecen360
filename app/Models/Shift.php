@@ -11,7 +11,15 @@ class Shift extends Model
     use HasFactory, SoftDeletes;
     protected $table = 'shifts';
     protected $appends = ['label'];
-    
+    protected $fillable = [
+        'organization_id',
+        'name',
+        'start_time',
+        'end_time',
+        'status',
+        'created_by',
+    ];
+
     public function getLabelAttribute()
     {
         $start = date('h:i A', strtotime($this->start_time));

@@ -564,11 +564,11 @@ class ErpSaleInvoiceController extends Controller
     {
         try {
             //Reindex
-            $request -> item_qty =  array_values($request -> item_qty);
+            $request -> item_qty =  array_values($request -> item_qty ?? []);
             $request -> item_remarks =  array_values($request -> item_remarks ?? []);
-            $request -> uom_id =  array_values($request -> uom_id);
+            $request -> uom_id =  array_values($request -> uom_id ?? []);
             $request -> item_discount_value =  array_values($request -> item_discount_value ?? []);
-            $request -> item_rate =  array_values($request -> item_rate);
+            $request -> item_rate =  array_values($request -> item_rate ?? []);
 
             DB::beginTransaction();
             $user = Helper::getAuthenticatedUser();
@@ -721,7 +721,82 @@ class ErpSaleInvoiceController extends Controller
                 // $saleInvoice -> eway_bill_no = $request -> eway_bill_no;
                 $saleInvoice -> remarks = $request -> final_remarks;
                 $saleInvoice -> customer_terms = $request -> terms;
+                $saleInvoice -> customer_id = $request -> customer_id;
                 $saleInvoice -> customer_terms_id = $request -> terms_id;
+                $saleInvoice -> payment_term_id = $request -> payment_terms_id;
+                $saleInvoice -> payment_term_code = $request -> payment_terms_code;
+                $actionType = $request -> action_type ?? '';
+                $tcsAssessableAmt = $saleInvoice -> header_tax() -> where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS) -> first() ?-> assessment_amount ?? 0;
+                $oldNonTcsAccesableAmt = ($saleInvoice -> total_item_value - $saleInvoice -> total_discount_value) - $tcsAssessableAmt;
+                //Address Update (Billing)
+                $customerBillingAddress = ErpAddress::find($request -> billing_address);
+                if (isset($customerBillingAddress)) {
+                    $billingAddress = $saleInvoice -> billing_address_details() -> update([
+                        'address' => $customerBillingAddress -> address,
+                        'country_id' => $customerBillingAddress -> country_id,
+                        'state_id' => $customerBillingAddress -> state_id,
+                        'city_id' => $customerBillingAddress -> city_id,
+                        'type' => 'billing',
+                        'pincode' => $customerBillingAddress -> pincode,
+                        'phone' => $customerBillingAddress -> phone,
+                        'fax_number' => $customerBillingAddress -> fax_number
+                    ]);
+                } else {
+                    $billingAddress = $saleInvoice -> billing_address_details() -> update([
+                        'address' => $request -> new_billing_address,
+                        'country_id' => $request -> new_billing_country_id,
+                        'state_id' => $request -> new_billing_state_id,
+                        'city_id' => $request -> new_billing_city_id,
+                        'type' => 'billing',
+                        'pincode' => $request -> new_billing_pincode,
+                        'phone' => $request -> new_billing_phone,
+                        'fax_number' => null
+                    ]);
+                }
+                // Shipping Address
+                $customerShippingAddress = ErpAddress::find($request -> shipping_address);
+                if (isset($customerShippingAddress)) {
+                    $shippingAddress = $saleInvoice -> shipping_address_details() -> update([
+                        'address' => $customerShippingAddress -> address,
+                        'country_id' => $customerShippingAddress -> country_id,
+                        'state_id' => $customerShippingAddress -> state_id,
+                        'city_id' => $customerShippingAddress -> city_id,
+                        'type' => 'shipping',
+                        'pincode' => $customerShippingAddress -> pincode,
+                        'phone' => $customerShippingAddress -> phone,
+                        'fax_number' => $customerShippingAddress -> fax_number
+                    ]);
+                } else {
+                    $shippingAddress = $saleInvoice -> shipping_address_details() -> update([
+                        'address' => $request -> new_shipping_address,
+                        'country_id' => $request -> new_shipping_country_id,
+                        'state_id' => $request -> new_shipping_state_id,
+                        'city_id' => $request -> new_shipping_city_id,
+                        'type' => 'shipping',
+                        'pincode' => $request -> new_shipping_pincode,
+                        'phone' => $request -> new_shipping_phone,
+                        'fax_number' => null
+                    ]);
+                }
+                //Location Address
+                if (!isset($store->address)) {
+                    DB::rollBack();
+                    return response() -> json([
+                        'message' => 'Location Address not assigned',
+                        'error' => ''
+                    ], 422);
+                }
+                $locationAddress = $saleInvoice -> location_address_details() -> update([
+                    'address' => $store -> address -> address,
+                    'country_id' => $store -> address -> country_id,
+                    'state_id' => $store -> address -> state_id,
+                    'city_id' => $store -> address -> city_id,
+                    'type' => 'location',
+                    'pincode' => $store -> address -> pincode,
+                    'phone' => $store -> address -> phone,
+                    'fax_number' => $store -> address -> fax_number
+                ]);
+                //Address Update (Billing)
                 $actionType = $request -> action_type ?? '';
                 $tcsAssessableAmt = $saleInvoice -> header_tax() -> where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS) -> first() ?-> assessment_amount ?? 0;
                 $oldNonTcsAccesableAmt = ($saleInvoice -> total_item_value - $saleInvoice -> total_discount_value) - $tcsAssessableAmt;
@@ -1552,11 +1627,13 @@ class ErpSaleInvoiceController extends Controller
                         ]) -> whereNotIn('id', $itemAttributeIds) -> delete();
                     }
                 } else {
-                    DB::rollBack();
-                    return response()->json([
-                        'message' => 'Please select Items',
-                        'error' => "",
-                    ], 422);
+                    if ($request -> document_status === ConstantHelper::SUBMITTED) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => 'Please select Items',
+                            'error' => "",
+                        ], 422);
+                    }
                 }
                 //Header TED (Discount)
                 if (isset($request -> order_discount_value) && count($request -> order_discount_value) > 0) {

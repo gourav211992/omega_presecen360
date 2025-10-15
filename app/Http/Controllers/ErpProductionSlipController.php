@@ -205,7 +205,7 @@ class ErpProductionSlipController extends Controller
         $parentURL = request() -> segments()[0];
         $user = Helper::getAuthenticatedUser();
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL, '', $user);
-        $groupAlias = $user?->auth_user?->group_alias ?? 'Staqo';
+        $groupAlias = $user?->group_alias ?? '';
         $isWipQty = in_array($groupAlias, Constants::GROUP_PSLIP_WIP_QTY);
         $autoCompleteFilters = isset(TransactionReportHelper::FILTERS_MAPPING[$servicesAliasParam]) ? 
         TransactionReportHelper::FILTERS_MAPPING[$servicesAliasParam] : [];
@@ -238,9 +238,9 @@ class ErpProductionSlipController extends Controller
         $shifts = Shift::where('organization_id', $organizationId)->where("status", ConstantHelper::ACTIVE)->get();
         $machines = collect();
         $stationLines = collect();
-        $groupAlias = $user?->auth_user?->group_alias ?? '';
-        $isWipQty = in_array($groupAlias, Constants::GROUP_PSLIP_WIP_QTY);
+        $groupAlias = $user?->group_alias ?? '';
 
+        $isWipQty = in_array($groupAlias, Constants::GROUP_PSLIP_WIP_QTY);
         $data = [
             'user' => $user,
             'services' => $servicesBooks['services'],
@@ -352,7 +352,8 @@ class ErpProductionSlipController extends Controller
                 $stationLines = $doc?->mo?->station?->lines;
             }
             $dynamicFieldsUI = $doc -> dynamicfieldsUi();
-            $groupAlias = $user?->auth_user?->group_alias ?? 'Staqo';
+            $groupAlias = $user?->group_alias ?? '';
+            // dd($groupAlias);
             $isWipQty = in_array($groupAlias, Constants::GROUP_PSLIP_WIP_QTY);
             $data = [
                 'isWipQty' => $isWipQty,
@@ -438,28 +439,6 @@ class ErpProductionSlipController extends Controller
                 ], 422);
             }
 
-            // if (!$request -> production_slip_id)
-            // {
-            //     $numberPatternData = Helper::generateDocumentNumberNew($request -> book_id, $request -> document_date);
-            //     if (!isset($numberPatternData)) {
-            //         DB::rollBack();
-            //         return response()->json([
-            //             'message' => "Invalid Book",
-            //             'error' => "",
-            //         ], 422);
-            //     }
-            //     $document_number = $numberPatternData['document_number'] ? $numberPatternData['document_number'] : $request -> document_no;
-            //     $regeneratedDocExist = ErpProductionSlip::where('book_id',$request->book_id)
-            //         ->where('document_number',$document_number)->first();
-            //         //Again check regenerated doc no
-            //         if (isset($regeneratedDocExist)) {
-            //             DB::rollBack();
-            //             return response()->json([
-            //                 'message' => ConstantHelper::DUPLICATE_DOCUMENT_NUMBER,
-            //                 'error' => "",
-            //             ], 422);
-            //         }
-            // }
 
             $productionSlip = null;
             $productionSlip = ErpProductionSlip::find($request -> pslip_id);
@@ -539,13 +518,13 @@ class ErpProductionSlipController extends Controller
                 // Centralised helper to handle service deletion responses
                 $deletion = function ($response) {
                     if ($response['status'] === 'error') {
-                        DB::rollBack(); // Revert DB changes if error occurs
+                        DB::rollBack(); 
                         return response()->json([
                             'message' => $response['message'],
                             'error'   => ''
                         ], 422);
                     }
-                    return null; // Continue if success
+                    return null; 
                 };
 
                 // ---------------------------------------------------------------
@@ -567,20 +546,6 @@ class ErpProductionSlipController extends Controller
                 if ($result = $deletion($pslipDeleteService->deleteConsumptionItems($deletedData, $productionSlip))) {
                     return $result;
                 }
-
-                // ---------------------------------------------------------------
-                // If no items remain in production slip, reset slip properties
-                // ---------------------------------------------------------------
-                // if ($productionSlip->fresh()->items->isEmpty()) {
-                //     $productionSlip->update([
-                //         'mo_id'          => null,
-                //         'is_last_station'=> 0,
-                //         'station_id'     => null,
-                //         'fg_sub_store_id'=> null,
-                //         'rg_sub_store_id'=> null,
-                //     ]);
-                // }
-
 
             } else {
                  //Create
@@ -859,21 +824,11 @@ class ErpProductionSlipController extends Controller
 
 
                             $pslipBomConsId = @$consuption['pslip_bom_cons_id'];
+                            
                             $pslipBomMapping = PslipBomConsumption::find($pslipBomConsId) ??  new PslipBomConsumption;
-                            // $pslipBomMapping = PslipBomConsumption::where('pslip_id', $productionSlip?->id)
-                            //             ->where('pslip_item_id', $psItem?->id)
-                            //             ->where('bom_detail_id', $bomDetail->bom_detail_id)
-                            //             ->when(isset($consuption['pslip_bom_cons_id']) && !empty($consuption['pslip_bom_cons_id']),
-                            //                 fn($q) => $q->where('id', $consuption['pslip_bom_cons_id'])
-                            //             )
-                            //             ->where('station_id', $bomDetail->station_id)
-                            //             ->first() ?? new PslipBomConsumption;
-
                             $previousConsumption = $pslipBomMapping->exists ? $pslipBomMapping->consumption_qty : 0;
                             $newConsumption = floatval($bomDetail->bom_qty) * floatval($itemDataValue['qty']);
-
                             $pslipBomMapping->mo_bom_mapping_id = $bomDetail?->id;
-                            // $pslipBomMapping->rm_type = $bomDetail?->rm_type;
                             $pslipBomMapping->rm_type = $alternateId ? $consuption['item_type'] : $bomDetail?->rm_type;
                             $pslipBomMapping->pslip_id = $productionSlip?->id;
                             $pslipBomMapping->pslip_item_id = $psItem?->id;
@@ -883,19 +838,14 @@ class ErpProductionSlipController extends Controller
                             $pslipBomMapping->bom_detail_id = $bomDetail->bom_detail_id;
                             $pslipBomMapping->item_id = $consuption['item_id'];
                             $pslipBomMapping->item_code = $item?->item_code;
-                            // $pslipBomMapping->item_id = $bomDetail->item_id;
-                            // $pslipBomMapping->item_code = $bomDetail->item_code;
                             if(isset($consuption['attribute_value']) && !empty($consuption['attribute_value'])) {
                                 $pslipBomMapping->attributes = json_decode($consuption['attribute_value']);
                             }else {
                                 $pslipBomMapping->attributes = $bomDetail->attributes;
                             }
-                            // $pslipBomMapping->attributes = $bomDetail->attributes;
                             $pslipBomMapping->uom_id = $consuption['uom_id'];
-                            // $pslipBomMapping->uom_id = $bomDetail->uom_id;
                             $pslipBomMapping->qty = $bomDetail->bom_qty;
                             $pslipBomMapping->base_item_id = $alternateId;
-
                             $pslipBomMapping->required_qty = floatval($bomDetail->bom_qty)*floatval($itemDataValue['qty']);
                             $pslipBomMapping->consumption_qty = floatval($consuption['consumption_qty']);
                             $pslipBomMapping->inventory_uom_qty = floatval($consuption['consumption_qty']);
@@ -903,6 +853,7 @@ class ErpProductionSlipController extends Controller
                             $pslipBomMapping->section_id = $bomDetail->section_id;
                             $pslipBomMapping->sub_section_id = $bomDetail->sub_section_id;
                             $pslipBomMapping->save();
+
 
                             $consArr[] = $pslipBomMapping->toArray();
 
@@ -1238,10 +1189,8 @@ class ErpProductionSlipController extends Controller
 
                 DB::commit();
 
-                $module = "Production slip";
-                $docStatus = 'updated';
                 return response() -> json([
-                    'message' => $module .  " $docStatus successfully",
+                    'message' => "Production slip updated successfully",
                     'redirect_url' => route('production.slip.index')
                 ]);
         } catch(Exception $ex) {
@@ -1406,7 +1355,7 @@ class ErpProductionSlipController extends Controller
             $consHtml = view('productionSlip.partials.process-consumtion', ['consumptions' => $consumptions])->render();
             $user = Helper::getAuthenticatedUser();
             // $groupAlias = $user->group?->alias ?? '';
-            $groupAlias = $user?->auth_user?->group_alias ?? '';
+            $groupAlias = $user?->group_alias ?? '';
             $isWipQty = in_array($groupAlias, Constants::GROUP_PSLIP_WIP_QTY);
 
             $html = view('productionSlip.partials.pull-row', [

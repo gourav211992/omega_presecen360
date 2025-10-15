@@ -35,6 +35,9 @@ class RouteServiceProvider extends ServiceProvider
 
             Route::middleware(['SwitchDatabaseConnection','web'])
                 ->group(base_path('routes/web.php'));
+                
+            Route::middleware(['SwitchDatabaseConnection','web'])
+                ->group(base_path('routes/erp.php'));
 
             Route::middleware(['web'])
                 ->prefix('crm')

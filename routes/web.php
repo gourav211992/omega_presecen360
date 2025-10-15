@@ -148,7 +148,7 @@ use App\Http\Controllers\WarehouseStructureController;
 use App\Http\Controllers\ComplaintManagementController;
 use App\Http\Controllers\InspectionChecklistController;
 use App\Http\Controllers\OrganizationServiceController;
-use App\Http\Controllers\refined_index\IndexController;
+use App\Http\Controllers\ErpTransaction\IndexController;
 use App\Http\Controllers\CostCenter\CostGroupController;
 use App\Http\Controllers\ErpMultiPointPricingController;
 use App\Http\Controllers\FixedAsset\InsuranceController;

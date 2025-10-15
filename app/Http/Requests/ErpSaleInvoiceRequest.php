@@ -84,10 +84,12 @@ class ErpSaleInvoiceRequest extends FormRequest
             $itemIds = $this -> input('item_id', []);
             $itemsQty = $this -> input('item_qty', []);
             $itemRate = $this -> input('item_id', []);
-
-            if (empty($itemIds) || empty($itemsQty) || empty($itemRate))
-            {
-                $validator->errors()->add("custom_error", "Alteast one item is required with all fields");
+            $docStatus = $this -> input('document_status', '');
+            if ($docStatus === ConstantHelper::SUBMITTED) {
+                if (empty($itemIds) || empty($itemsQty) || empty($itemRate))
+                {
+                    $validator->errors()->add("custom_error", "Alteast one item is required with all fields");
+                }
             }
             if ((count($itemIds) !== count($itemsQty)) || (count($itemIds) !== count($itemRate)))
             {

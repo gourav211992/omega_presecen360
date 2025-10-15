@@ -2777,6 +2777,7 @@
                     return;
                 }
             }
+            getAndSetItemRate(index, 'selling');
         }
 
         function changeItemQty(element, index)
@@ -2807,7 +2808,7 @@
                     return;
                 }
             }
-
+            getAndSetItemRate(index, 'selling');
             itemRowCalculation(index);
         }
 

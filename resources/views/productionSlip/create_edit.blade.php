@@ -1792,10 +1792,17 @@
                 alert("Sub-Prime Qty cannot be greater than (Produced - Accepted).");
                 $("#item_sub_prime_qty_" + index).val('');
                 subPrimedQty = 0;
-            }
+            }   
+
+            
             // Auto-calculate Rejected Qty
             let rejectedQty = totalProduced - acceptedQty - subPrimedQty;
             $("#item_rejected_qty_" + index).val(Math.max(rejectedQty, 0));
+            
+            const soQty = parseFloat($("#item_so_qty_" + index).val()) || 0;
+            let wip = soQty-totalProduced;
+            $("#item_wip_qty_" + index).val(Math.max(wip, 0));
+            $("#item_total_qty_" + index).val(Math.max(soQty, 0));
         }
 
         function addHiddenInput(id, val, name, classname, docId, dataId = null)

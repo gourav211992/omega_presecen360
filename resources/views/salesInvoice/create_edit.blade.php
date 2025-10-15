@@ -86,9 +86,18 @@
                                                         'Triplicate',
                                                         'Tax Invoice Attribute Grouped',
                                                     ];
+                                                } elseif ($order->document_type == "si-dnote") {
+                                                    $options = [
+                                                        'Tax Invoice',
+                                                        'Original',
+                                                        'Duplicate',
+                                                        'Triplicate',
+                                                        'Tax Invoice Attribute Grouped',
+                                                        'Delivery Note',
+                                                    ];
                                                 } elseif ($order->document_type == "dnote") {
                                                     $options = ['Delivery Note'];
-                                                } elseif ($order->document_type == 'si-dnote') {
+                                                } elseif ($order->document_type == 'sinv') {
                                                     $options = [
                                                         'Tax Invoice',
                                                         'Original',
@@ -777,7 +786,7 @@
                                                                         </td>
                                                                          <td class="poprod-decpt">
 
-                                                                         @if (isset($orderItem -> sale_order_id))
+                                                                        @if (isset($orderItem -> sale_order_id) && !isset($orderItem -> dnote_item_id))
 
                                                                             <input type = "hidden" id = "qt_book_id_{{$orderItemIndex}}" value = "{{$orderItem -> sale_order ?-> book_id}}"  />
                                                                             <input type = "hidden" id = "qt_book_code_{{$orderItemIndex}}" value = "{{$orderItem -> sale_order ?-> book_code}}" />
@@ -785,12 +794,20 @@
                                                                             <input type = "hidden" id = "qt_document_no_{{$orderItemIndex}}" value = "{{$orderItem -> sale_order ?-> document_number}}" />
                                                                             <input type = "hidden" id = "qt_document_date_{{$orderItemIndex}}" value = "{{$orderItem -> sale_order ?-> document_date}}" />
 
-                                                                            <input type = "hidden" id = "qt_id_{{$orderItemIndex}}" value = "{{$orderItem -> sale_order ?-> document_number}}" />
-
-
                                                                             <input type = "hidden" id = "qt_id_{{$orderItemIndex}}" value = "{{$orderItem -> so_item_id}}" name = "quotation_item_ids[]"/>
 
                                                                             <input type = "hidden" id = "qt_id_header_{{$orderItemIndex}}" value = "{{$orderItem ?-> header ?-> id}}" name = "quotation_item_ids_header[]"/>
+
+                                                                        @elseif (isset($orderItem -> dnote_item_id))
+                                                                                <input type = "hidden" id = "qt_book_id_{{$orderItemIndex}}" value = "{{$orderItem -> dnoteItem ?-> header ?-> book_id}}"  />
+                                                                                    <input type = "hidden" id = "qt_book_code_{{$orderItemIndex}}" value = "{{$orderItem -> dnoteItem ?-> header ?-> book_code}}" />
+
+                                                                                    <input type = "hidden" id = "qt_document_no_{{$orderItemIndex}}" value = "{{$orderItem -> dnoteItem ?-> header ?-> document_number}}" />
+                                                                                    <input type = "hidden" id = "qt_document_date_{{$orderItemIndex}}" value = "{{$orderItem -> dnoteItem ?-> header ?-> document_date}}" />
+
+                                                                                    <input type = "hidden" id = "qt_id_{{$orderItemIndex}}" value = "{{$orderItem -> dnote_item_id}}" name = "quotation_item_ids[]"/>
+
+                                                                                    <input type = "hidden" id = "qt_id_header_{{$orderItemIndex}}" value = "{{$orderItem ?-> dnoteItem ?-> header ?-> id}}" name = "quotation_item_ids_header[]"/>
                                                                         @endif
 
                                                                         @if (isset($orderItem -> land_lease_id) || isset($orderItem -> lease_schedule_id))
