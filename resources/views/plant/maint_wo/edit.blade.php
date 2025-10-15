@@ -3091,49 +3091,74 @@ function processDefectSelection() {
 
 	function validateItemRows() {
 		let allValid = true;
+		let errorMessages = [];
 
-		$('.mrntableselectexcel tr').each(function () {
+		console.log('🔍 Starting UOM validation for edit form...');
+
+		// Check all rows in the spare parts table that have actual data
+		$('.mrntableselectexcel tr').each(function (index) {
+			// Skip header row and empty rows
+			if ($(this).find('th').length > 0) {
+				return true; // Skip header row
+			}
+
 			const itemCode   = $(this).find('.item_code');
 			const itemName   = $(this).find('.item_name');
 			const attribute  = $(this).find('.attribute');
 			const uom        = $(this).find('.uom');
 			const qty        = $(this).find('.qty');
 
+			// Skip completely empty rows
+			if (!itemCode.length && !itemName.length && !uom.length && !qty.length) {
+				return true;
+			}
+
 			$(this).find('select, input').removeClass('is-invalid');
 			$(this).removeClass('table-danger');
 
-			if (itemCode.length && !itemCode.val()) {
-				itemCode.addClass('is-invalid').focus();
-				allValid = false;
-				return false;
+			// Debug logging for UOM validation
+			if (itemCode.length && itemCode.val()) {
+				console.log(`🔍 Row ${index}: Item Code = ${itemCode.val()}`);
+				console.log(`🔍 Row ${index}: UOM Element exists = ${uom.length > 0}`);
+				console.log(`🔍 Row ${index}: UOM Value = "${uom.val()}"`);
+				console.log(`🔍 Row ${index}: UOM is null/empty = ${!uom.val() || uom.val() === 'null' || uom.val() === ''}`);
 			}
-			if (itemName.length && !itemName.val()) {
-				itemName.addClass('is-invalid').focus();
-				allValid = false;
-				return false;
-			}
-			// if (attribute.length && (!attribute.val() || attribute.val() === '[]')) {
-			// 	$(this).addClass('table-danger');
-			// 	setTimeout(() => $(this).removeClass('table-danger'), 2000);
-			// 	allValid = false;
-			// 	return false;
-			// }
-			// if (uom.length && !uom.val()) {
-			// 	uom.addClass('is-invalid').focus();
-			// 	allValid = false;
-			// 	return false;
-			// }
-			if (qty.length && (!qty.val() || parseFloat(qty.val()) <= 0)) {
-				qty.addClass('is-invalid').focus();
-				allValid = false;
-				return false;
+
+			// Only validate rows that have an item selected
+			if (itemCode.length && itemCode.val()) {
+				const itemNameText = itemName.length ? itemName.val() : 'Unknown Item';
+				const displayName = itemNameText || `Item ${index + 1}`;
+				
+				if (itemName.length && !itemName.val()) {
+					itemName.addClass('is-invalid').focus();
+					errorMessages.push(`${displayName}: Please select an item name.`);
+					allValid = false;
+				}
+				
+				// Check UOM validation - UOM should not be null or empty
+				if (uom.length && (!uom.val() || uom.val() === 'null' || uom.val() === '')) {
+					uom.addClass('is-invalid').focus();
+					errorMessages.push(`${displayName}: Please select a unit of measurement (UOM).`);
+					allValid = false;
+					console.log(`❌ Row ${index}: UOM validation failed for ${displayName}`);
+				} else if (uom.length) {
+					console.log(`✅ Row ${index}: UOM validation passed for ${displayName}`);
+				}
+				
+				if (qty.length && (!qty.val() || parseFloat(qty.val()) <= 0)) {
+					qty.addClass('is-invalid').focus();
+					errorMessages.push(`${displayName}: Quantity must be greater than 0.`);
+					allValid = false;
+				}
 			}
 
 			// Check available stock
-			if (qty.length && qty.val()) {
+			if (qty.length && qty.val() && itemCode.length && itemCode.val()) {
 				const itemId = $(this).find('.item_id').val();
 				const availableStock = parseFloat($(this).find('.available_stock').val()) || 0; // ✅ Use stored value instead of looking up in itemsData
 				const requestedQty = parseFloat(qty.val());
+				const itemNameText = itemName.length ? itemName.val() : 'Unknown Item';
+				const displayName = itemNameText || `Item ${index + 1}`;
 
 				console.log('📋 Form submission stock check:', {
 					rowIndex: $('.mrntableselectexcel tr').index($(this)),
@@ -3146,19 +3171,24 @@ function processDefectSelection() {
 
 				if (requestedQty > availableStock) {
 					qty.addClass('is-invalid');
-					Swal.fire({
-						title: 'Insufficient Stock!',
-						text: `Insufficient stock for ${itemName.val()}. Available: ${availableStock}`,
-						icon: 'error',
-						confirmButtonText: 'OK',
-						timer: 3000, // Auto close after 3 seconds
-						timerProgressBar: true
-					});
+					errorMessages.push(`${displayName}: Insufficient stock. Available: ${availableStock}, Requested: ${requestedQty}`);
 					allValid = false;
-					return false;
 				}
 			}
 		});
+
+		// Show validation errors if any
+		if (errorMessages.length > 0) {
+			console.log('❌ Item validation errors:', errorMessages);
+			Swal.fire({
+				icon: 'error',
+				title: 'Item Validation Error!',
+				html: errorMessages.join('<br>'),
+				confirmButtonText: 'OK',
+				confirmButtonColor: '#d33'
+			});
+			return false;
+		}
 
 		return allValid;
 	}

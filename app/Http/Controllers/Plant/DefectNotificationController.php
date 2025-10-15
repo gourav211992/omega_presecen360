@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Plant;
 use Illuminate\Http\Request;
 use App\Models\DefectNotification;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DefectNotificationRequest;
 use App\Models\Item;
 use App\Models\ErpAttribute;
 use App\Models\ItemAttribute;
@@ -412,34 +413,10 @@ class DefectNotificationController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(DefectNotificationRequest $request)
     {
-        // Base rules that are always required
-        $rules = [
-            'book_id' => 'required',
-            'document_number' => 'required|string|max:100',
-            'document_date' => 'required|date',
-            'location_id' => 'required', // Location is always required
-        ];
-
-        // If not saving as draft, add additional required fields
-        if ($request->document_status !== 'draft') {
-            $rules = array_merge($rules, [
-                'equipment_id' => 'required',
-                'category_id' => 'required',
-                'defect_type_id' => 'required',
-                'priority' => 'required|in:Low,Medium,High,Critical',
-                'problem' => 'required|string',
-                'report_date_time' => 'required|date',
-            ]);
-        }
-
-        // Add file validation if files are uploaded
-        if ($request->hasFile('attachment')) {
-            $rules['attachment.*'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max per file
-        }
-
-        $request->validate($rules);
+        // Validation is handled by DefectNotificationRequest automatically
+        // If validation fails, it will return 422 response with errors automatically
 
         try {
             DB::beginTransaction();
@@ -459,7 +436,7 @@ class DefectNotificationController extends Controller
             
             $defectNotification = new DefectNotification();
             $defectNotification->fill($data);
-            $defectNotification->document_status = $request->document_status ?? 'draft';
+            $defectNotification->document_status = $request->document_status;
 
             // Handle multiple file uploads
             if ($request->hasFile('attachment')) {
@@ -472,7 +449,20 @@ class DefectNotificationController extends Controller
                 $defectNotification->attachment = json_encode($attachmentPaths);
             }
 
+            $numberPatternData = Helper::generateDocumentNumberNew($request->book_id, $request->document_date);
+            if (!isset($numberPatternData)) {
+                throw new \Exception("Invalid Book");
+            }
+            
+            $document_number = $numberPatternData['document_number'];
+            $defectNotification->doc_number_type = $numberPatternData['type'];
+            $defectNotification->doc_reset_pattern = $numberPatternData['reset_pattern'];
+            $defectNotification->doc_prefix = $numberPatternData['prefix'];
+            $defectNotification->doc_suffix = $numberPatternData['suffix'];
+            $defectNotification->doc_no = $numberPatternData['doc_no'];
             $defectNotification->save();
+
+            
 
             // Create DefectNotificationHistory record if document is submitted (not draft)
            if ($defectNotification->document_status != ConstantHelper::DRAFT) {
@@ -494,6 +484,14 @@ class DefectNotificationController extends Controller
 
             DB::commit();
             
+            // Return JSON response for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'message' => 'Defect notification created successfully!',
+                    'redirect_url' => route('defect-notification.index')
+                ], 200);
+            }
+            
             return redirect()
                 ->route('defect-notification.index')
                 ->with('success', 'Defect Notification created successfully!');
@@ -501,6 +499,14 @@ class DefectNotificationController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error creating defect notification: ' . $e->getMessage());
+            
+            // Return JSON error response for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'error' => 'Something went wrong'
+                ], 500);
+            }
             
             return redirect()
                 ->back()

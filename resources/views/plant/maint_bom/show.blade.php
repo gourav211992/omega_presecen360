@@ -29,7 +29,7 @@
 							</a>
 							@if(!request('revisionNumber'))
 								@if($buttons['approve'])
-	                                <button type="button" class="btn btn-primary btn-sm" id="approved-button" name="action"
+	                                <button type="button" class="btn btn-success btn-sm" id="approved-button" name="action"
 	                                    value="approved"><i data-feather="check-circle"></i> Approve</button>
 	                                <button type="button" id="reject-button"
 	                                    class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg

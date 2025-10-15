@@ -6,6 +6,7 @@ use App\Helpers\ConstantHelper;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use App\Http\Requests\MaintWoRequest;
 use Yajra\DataTables\DataTables;
 use App\Models\Item;
 use App\Models\ItemAttribute;
@@ -628,49 +629,10 @@ class MaintWoController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(MaintWoRequest $request)
     {
-      
-        $rules = [
-            'book_id' => 'required',
-            'document_number' => 'required|string|max:100',
-            'document_date' => 'required|date',
-            'document_status' => 'required|string',
-            'location_id' => 'required|integer',
-        ];
-
-        if ($request->document_status !== 'draft') {
-            $rules['reference_type'] = 'required|string';
-        }
-
-        if ($request->hasFile('upload_file')) {
-            $rules['upload_file.*'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max, matching frontend validation
-        }
-
-        if ($request->hasFile('supporting_documents')) {
-            $rules['supporting_documents.*'] = 'file|mimes:pdf,docx,jpg,jpeg,png,xls,xlsx|max:5120'; // 5MB max, matching frontend validation
-        }
-
-        $messages = [
-            'book_id.required' => 'The series field is required.',
-            'document_number.required' => 'The document number field is required.',
-            'document_date.required' => 'The document date field is required.',
-            'document_status.required' => 'The document status field is required.',
-            'location_id.required' => 'The location field is required.',
-            'location_id.integer' => 'The location field must be a valid selection.',
-        ];
-
-        $attributes = [
-            'book_id' => 'series',
-            'document_number' => 'document number',
-            'document_date' => 'document date',
-            'document_status' => 'document status',
-            'location_id' => 'location',
-            'reference_type' => 'reference type',
-            'upload_file' => 'uploaded file',
-        ];
-
-        $request->validate($rules, $messages, $attributes);
+        // Validation is handled by MaintWoRequest automatically
+        // If validation fails, it will return 422 response with errors automatically
 
         if($request->doc_no==''){
             $doc_no = $request->document_number;
@@ -798,10 +760,26 @@ class MaintWoController extends Controller
                 }
             });
 
+            // Return JSON response for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'message' => 'Maintenance Work Order created successfully!',
+                    'redirect_url' => route('maint-wo.index')
+                ], 200);
+            }
+
             return redirect()
                 ->route("maint-wo.index")
                 ->with('success', 'Maintenance Work Order created!');
         } catch (\Throwable $e) {
+            // Return JSON error response for AJAX requests
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'error' => 'Something went wrong'
+                ], 500);
+            }
+
             return redirect()
                 ->route("maint-wo.create")
                 ->withInput()
@@ -1076,19 +1054,6 @@ class MaintWoController extends Controller
         $request->validate($rules);
 
         $workOrder = PlantMaintWo::findOrFail($id);
-
-        $documentNumber = $request->document_number;
-        $existingWo = PlantMaintWo::where('document_number', $documentNumber)
-            ->where('id', '!=', $id)
-            ->first();
-
-        if ($existingWo) {
-            return redirect()
-                ->route('maint-wo.edit', $id)
-                ->withInput()
-                ->withErrors("Work Order Number '{$documentNumber}' already exists.");
-        }
-
         DB::beginTransaction();
 
         try {
