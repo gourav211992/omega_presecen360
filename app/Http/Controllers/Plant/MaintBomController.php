@@ -316,25 +316,30 @@ class MaintBomController extends Controller
             $bom->doc_no = $numberPatternData['doc_no'];
             $bom->save();
         
-            // ✅ auto-approve if not draft
-            if ($bom->document_status != ConstantHelper::DRAFT) {
-                $doc = Helper::approveDocument(
-                    $bom->book_id,
-                    $bom->id,
-                    $bom->revision_number,
-                    "",
-                    null,
-                    1,
-                    'submit',
-                    0,
-                    get_class($bom)
-                );
-        
-                $bom->document_status = $doc['approvalStatus'] ?? $bom->document_status;
+            // ✅ Handle approval process for submitted documents
+            if ($bom->document_status == ConstantHelper::SUBMITTED) {
+                $bookId = $bom->book_id;
+                $docId = $bom->id;
+                $revisionNumber = $bom->revision_number ?? 0;
+                $remarks = $bom->remarks ?? "";
+                $attachments = null; // No attachments in create
+                $currentLevel = $bom->approval_level ?? 1;
+                $actionType = 'submit';
+                $modelName = get_class($bom);
+                $totalValue = 0; // BOM doesn't have monetary value
+                
+                $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
+                $bom->document_status = $approveDocument['approvalStatus'] ?? $bom->document_status;
                 $bom->save();
             }
         
             DB::commit();  // ✅ simple commit
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'BOM Created successfully',
+                'redirect_url' => route('maint-bom.index')
+            ]);
         
         } catch (\Exception $e) {
             DB::rollBack();
@@ -619,8 +624,8 @@ class MaintBomController extends Controller
         DB::beginTransaction();
 
         try {
-            if ($request->action_type == "amendment") {
-                $PlantMaintBom = PlantMaintBom::find($id);
+            // Handle amendment only for approved documents (following PO/Sale Order pattern)
+            if (($bom->document_status == ConstantHelper::APPROVED || $bom->document_status == ConstantHelper::APPROVAL_NOT_REQUIRED) && $request->action_type == "amendment") {
                 $revisionData = [
                     [
                         "model_type" => "header",
@@ -629,10 +634,19 @@ class MaintBomController extends Controller
                     ],
                 ];
                 Helper::documentAmendment($revisionData, $id);
-                Helper::approveDocument($bom->book_id, $bom->id, $bom->revision_number, $request->amend_remarks, $request->file('amend_attachment'), $bom->approval_level, 'amendment', 0, get_class($bom));
-                $PlantMaintBom->revision_number = $bom->revision_number + 1;
-                $PlantMaintBom->revision_date =now();
-                $PlantMaintBom->save();
+                
+                // Increment revision number and call approveDocument with new revision number
+                $revisionNumber = $bom->revision_number + 1;
+                $actionType = 'amendment';
+                $totalValue = 0; // BOM doesn't have monetary value
+                $approveDocument = Helper::approveDocument($bom->book_id, $bom->id, $revisionNumber, $request->amend_remarks, $request->file('amend_attachment'), $bom->approval_level, $actionType, $totalValue, get_class($bom));
+                
+                $bom->revision_number = $revisionNumber;
+                $bom->approval_level = 1;
+                $bom->revision_date = now();
+                $amendAfterStatus = $approveDocument['approvalStatus'] ?? $bom->document_status;
+                $bom->document_status = $amendAfterStatus;
+                $bom->save();
             }
 
             $bom->update($data);
@@ -642,8 +656,8 @@ class MaintBomController extends Controller
             // Clear session backup data after successful update
             session()->forget('bom_spare_parts_backup');
             
-            // Return JSON response for AJAX requests (amendment)
-            if ($request->ajax() || $request->action_type == "amendment") {
+            // Return JSON response only for AJAX amendment submissions
+            if ($request->ajax() && $request->action_type == "amendment") {
                 return response()->json([
                     'success' => true,
                     'message' => 'Amendment Done Successfully',
@@ -651,7 +665,9 @@ class MaintBomController extends Controller
                 ]);
             }
             
-            return redirect()->route("maint-bom.index")->with('success', 'Maintenance BOM updated!');
+            // For draft saves and regular updates, redirect to index with success message
+            $message = $request->document_status === 'draft' ? 'Maintenance BOM saved as draft!' : 'Maintenance BOM updated!';
+            return redirect()->route("maint-bom.index")->with('success', $message);
         } catch (\Exception $e) {
             DB::rollBack();
             
@@ -758,10 +774,20 @@ class MaintBomController extends Controller
 
             DB::commit();
 
-            return response()->json([
-                'message' => "Maintenance BOM {$actionType}d successfully!",
-                'data' => $doc,
-            ]);
+            if($actionType === 'reject') {
+                return response()->json([
+                    'message' => "Maintenance BOM rejected successfully!",
+                    'data' => $doc,
+                ]);
+            }
+
+            if($actionType === 'approve') {
+                return response()->json([
+                    'message' => "Maintenance BOM approved successfully!",
+                    'data' => $doc,
+                ]);
+            }
+           
         } catch (Exception $e) {
             DB::rollBack();
 

@@ -27,7 +27,7 @@
 							<a href="{{ route('maint-bom.index') }}"> <button class="btn btn-secondary btn-sm"><i
 										data-feather="arrow-left-circle"></i> Back</button>
 							</a>
-							@if(!request('revisionNumber'))
+							@if(!request()->has('revisionNumber'))
 								@if($buttons['approve'])
 	                                <button type="button" class="btn btn-success btn-sm" id="approved-button" name="action"
 	                                    value="approved"><i data-feather="check-circle"></i> Approve</button>
@@ -619,12 +619,14 @@
 		$(document).on('click', '#approved-button', (e) => {
                 let actionType = 'approve';
                 $("#approveModal").find("#action_type").val(actionType);
+                $("#approveModal").find("#popupTitle").text('Approve Application');
                 $("#approveModal").modal('show');
             });
 
             $(document).on('click', '#reject-button', (e) => {
                 let actionType = 'reject';
                 $("#approveModal").find("#action_type").val(actionType);
+                $("#approveModal").find("#popupTitle").text('Reject Application');
                 $("#approveModal").modal('show');
             });
             
@@ -1192,31 +1194,45 @@
 				});
 			});
 			
-			// Amendment confirmation - redirect to edit page with amendment parameter
-			// Following maint WO pattern - no AJAX, no SweetAlert success
-			$(document).on('click', '#revokeButton', (e) => {
-			let actionUrl = '{{ route("plant.maint_bom.revoke.document") }}'+ '?id='+'{{$data->id}}';
-			fetch(actionUrl).then(response => {
-				return response.json().then(data => {
-					if(data.status == 'error') {
+			// Revoke button AJAX functionality
+			$(document).on('click', '#revokeButton', function(e) {
+				e.preventDefault();
+
+				let actionUrl = '{{ route("plant.maint_bom.revoke.document") }}' + '?id=' + '{{$data->id}}';
+
+				$.ajax({
+					url: actionUrl,
+					type: 'GET',
+					dataType: 'json',
+					success: function(response) {
+						if (response.status === 'error') {
+							Swal.fire({
+								title: 'Error!',
+								text: response.message,
+								icon: 'error',
+							});
+						} else {
+							Swal.fire({
+								title: 'Success!',
+								text: response.message,
+								icon: 'success',
+							}).then(() => {
+								// Redirect to edit page after successful revoke
+								window.location.href = '{{ route("maint-bom.edit", $data->id) }}';
+							});
+						}
+					},
+					error: function(xhr, status, error) {
 						Swal.fire({
 							title: 'Error!',
-							text: data.message,
+							text: 'Something went wrong. Please try again later.',
 							icon: 'error',
 						});
-					} else {
-						Swal.fire({
-							title: 'Success!',
-							text: data.message,
-							icon: 'success',
-						}).then(() => {
-							// Redirect to edit page after successful revoke
-							window.location.href = '{{ route("maint-bom.edit", $data->id) }}';
-						});
+						console.error('AJAX Error:', error);
 					}
 				});
 			});
-		});
+
 
 		// Multiple file upload functionality
 		function checkFileTypeandSize(event) {
