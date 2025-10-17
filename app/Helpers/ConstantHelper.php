@@ -498,6 +498,7 @@ class ConstantHelper
         self::JO_SERVICE_ALIAS => "Job Order",
         self::VOUCHERS => "Vouchers",
         self::PAYMENTS_SERVICE_ALIAS => 'Payment Voucher',
+        self::ADVANCE_PAYMENTS_SERVICE_ALIAS => 'Advance Payment Voucher',
         self::RECEIPTS_SERVICE_ALIAS => 'Receipt Voucher',
         self::PL_SERVICE_ALIAS => "Pick List",
         self::PSV_SERVICE_ALIAS => "Physical Stock Verification",
@@ -579,13 +580,17 @@ class ConstantHelper
     const VOUCHERS = 'voucher';
     const RECEIPT_VOUCHER = 'receipt-voucher';
     const PAYMENT_VOUCHER = 'payment-voucher';
+    const ADVANCE_PAYMENT_VOUCHER = 'advance-payment-voucher';
     const DEBIT_Note = 'dn';
     const CREDIT_Note = 'cn';
     const JOURNAL_VOUCHER = 'jv';
     const CONTRA_VOUCHER = 'cv';
     const PAYMENT_VOUCHER_RECEIPT = 'receipt-payment-voucher';
+    const ADVANCE_PAYMENT_VOUCHER_RECEIPT = 'advance-receipt-payment-voucher';
     const PAYMENTS_SERVICE_ALIAS = 'payments';
+    const ADVANCE_PAYMENTS_SERVICE_ALIAS = 'advance-payments';
     const RECEIPTS_SERVICE_ALIAS = 'receipts';
+    const ADVANCE_RECEIPTS_SERVICE_ALIAS = 'advance-receipts';
 
     const RC_SERVICE_ALIAS = "rc";
     const PSV_SERVICE_ALIAS = "psv";
@@ -719,9 +724,12 @@ class ConstantHelper
         self::PURCHASE_RETURN_SERVICE_ALIAS => self::PURCHASE_VOUCHER,
         self::RECEIPT_VOUCHER => self::RECEIPT_VOUCHER,
         self::PAYMENT_VOUCHER_RECEIPT => self::PAYMENT_VOUCHER_RECEIPT,
+        self::ADVANCE_PAYMENT_VOUCHER_RECEIPT => self::ADVANCE_PAYMENT_VOUCHER_RECEIPT,
         self::LEASE_INVOICE_SERVICE_ALIAS => self::SALES_VOUCHER,
         self::PAYMENTS_SERVICE_ALIAS => self::PAYMENTS_SERVICE_ALIAS,
         self::RECEIPTS_SERVICE_ALIAS => self::RECEIPTS_SERVICE_ALIAS,
+        self::ADVANCE_PAYMENTS_SERVICE_ALIAS => self::ADVANCE_PAYMENTS_SERVICE_ALIAS,
+        self::ADVANCE_RECEIPTS_SERVICE_ALIAS => self::ADVANCE_RECEIPTS_SERVICE_ALIAS,
         self::FIXED_ASSET_DEPRECIATION => self::FIXED_ASSET_DEPRECIATION,
         self::MAINT => self::MAINT,
         self::FIXED_ASSET_SPLIT => self::FIXED_ASSET_SPLIT,
@@ -782,9 +790,12 @@ class ConstantHelper
         self::JOURNAL_VOUCHER => 'Voucher',
         self::CONTRA_VOUCHER => 'Voucher',
         self::PAYMENT_VOUCHER_RECEIPT => 'PaymentVoucher',
+        self::ADVANCE_PAYMENT_VOUCHER_RECEIPT => 'AdvancePaymentVoucher',
         self::OPENING_BALANCE => 'Voucher',
         self::PAYMENTS_SERVICE_ALIAS => 'PaymentVoucher',
         self::RECEIPTS_SERVICE_ALIAS => 'PaymentVoucher',
+        self::ADVANCE_PAYMENTS_SERVICE_ALIAS => 'AdvancePaymentVoucher',
+        self::ADVANCE_RECEIPTS_SERVICE_ALIAS => 'AdvancePaymentVoucher',
         self::LEGAL_FILE => 'FileTracking',
         self::LOAN_GRANT_FILE => 'FileTracking',
         self::PROJECT_FILES => 'FileTracking',
@@ -879,6 +890,8 @@ class ConstantHelper
     const SERVICE_ALIAS_VIEW_ROUTE = [
         self::PAYMENTS_SERVICE_ALIAS => 'payments.edit',
         self::RECEIPTS_SERVICE_ALIAS => 'receipts.edit',
+        self::ADVANCE_PAYMENTS_SERVICE_ALIAS => 'advancepayments.edit',
+        self::ADVANCE_RECEIPTS_SERVICE_ALIAS => 'advancereceipts.edit',
         self::HOMELOAN => 'loan.view_all_detail',
         self::TERMLOAN => 'loan.view_term_detail',
         self::VEHICLELOAN => 'loan.view_vehicle_detail',
@@ -925,6 +938,8 @@ class ConstantHelper
         self::FIXED_ASSET_REV_IMP => 'finance.fixed-asset.revaluation-impairement.show',
         self::RECEIPT_VOUCHER => 'receipts.edit',
         self::PAYMENT_VOUCHER => 'payments.edit',
+        self::ADVANCE_RECEIPT_VOUCHER => 'advancereceipts.edit',
+        self::ADVANCE_PAYMENT_VOUCHER => 'advancepayments.edit',
         self::FIXEDASSET => 'finance.fixed-asset.registration.show',
         self::SALES_VOUCHER => 'vouchers.edit',
         self::CONTRA_VOUCHER => 'vouchers.edit',
