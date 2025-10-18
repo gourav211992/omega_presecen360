@@ -131,14 +131,25 @@
                                                     <h4 class="card-title text-theme">Basic Information</h4>
                                                     <p class="card-text">Update the details</p>
                                                 </div>
-                                                <div class="text-end">
-                                                    <span class="badge rounded-pill {{ App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$defectNotification->document_status] ?? '' }} forminnerstatus">
-                                                        <span class="text-dark">Status:</span>
-                                                        <span class="{{ App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS[$defectNotification->document_status] ?? '' }}">
-                                                            {{ ucfirst($defectNotification->document_status) }}
-                                                        </span>
-                                                    </span>
-                                                </div>
+                                                <div class="header-right">
+														@php
+															use App\Helpers\Helper;
+														@endphp
+														<div class="col-md-6 text-sm-end">
+															<span
+																class="badge rounded-pill {{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$defectNotification->document_status] ?? ''}} forminnerstatus">
+																<span class="text-dark">Status</span>
+																: <span
+																	class="{{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS['CLOSED'] ?? ''}}">
+																	@if ($defectNotification->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED)
+																		Approved
+																	@else
+																		{{ ucfirst($defectNotification->document_status) }}
+																	@endif
+																</span>
+															</span>
+														</div>
+													</div>
                                             </div>
                                         </div>
 
@@ -256,8 +267,18 @@
                                         {{-- Report Date & Time --}}
                                         <div class="col-md-3 mb-1">
                                             <label class="form-label">Down Date & Time <span class="text-danger">*</span></label>
-                                            <input type="text" name="report_date_time" value="{{ $defectNotification->report_date_time ? \Carbon\Carbon::parse($defectNotification->report_date_time)->format('d-m-Y H:i') : '' }}" class="form-control" placeholder="dd-mm-yyyy HH:mm" required>
+                                            <input 
+                                                type="text" 
+                                                name="report_date_time"
+                                                value="{{ $defectNotification->report_date_time 
+                                                            ? \Carbon\Carbon::parse($defectNotification->report_date_time)->format('d-m-Y H:i') 
+                                                            : now()->format('d-m-Y H:i') }}" 
+                                                class="form-control" 
+                                                placeholder="dd-mm-yyyy HH:mm" 
+                                                required
+                                            >
                                         </div>
+
 
                                         {{-- Attachment --}}
                                         <div class="col-md-3 mb-1">
@@ -465,11 +486,8 @@ $(document).on('click', '#save-draft-btn', function () {
     window.allowFormSubmission = true;
     $('.preloader').show();
 
-    if (isAmendmentMode) {
-        $('#amendmentModal').modal('show');
-    } else {
-        $('#defect-notification-form').trigger('submit');
-    }
+    // Always save draft directly - no amendment modal needed for drafts
+    $('#defect-notification-form').trigger('submit');
 });
 
 // ===============================
@@ -484,7 +502,7 @@ $(document).on('click', '#submit-btn', function (e) {
         return;
     }
 
-    $('#document_status').val('submitted');
+    // $('#document_status').val('submitted');
     if (isAmendmentMode) {
         $('#amendmentModal').modal('show');
     } else {
@@ -573,7 +591,6 @@ $(document).on('click', '#amendmentBtnSubmit', function (e) {
     
     $('#amendRemarkError').addClass('d-none');
     $('#amendmentModal').modal('hide');
-    $('#document_status').val('submitted');
     window.allowFormSubmission = true;
 
     // Remove any existing amendment inputs to prevent duplicates

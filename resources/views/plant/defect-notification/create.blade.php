@@ -1121,6 +1121,7 @@
 
 		function handleFileUpload(event, previewElement) {
 			var files = event.target.files;
+			var inputElement = event.target;
 			var previewContainer = $(previewElement);
 			previewContainer.empty();
 
@@ -1174,9 +1175,12 @@
 				feather.replace();
 			}
 
-			previewContainer.find('.delete-img').click(function() {
-				var fileIndex = $(this).parent().data('file-index');
-				removeFilePreview(fileIndex, previewContainer, event.target);
+			// Use event delegation for dynamically created delete buttons
+			previewContainer.off('click', '.delete-img').on('click', '.delete-img', function(e) {
+				e.preventDefault();
+				e.stopPropagation();
+				var fileIndex = $(this).data('file-index');
+				removeFilePreview(fileIndex, previewContainer, inputElement);
 			});
 		}
 

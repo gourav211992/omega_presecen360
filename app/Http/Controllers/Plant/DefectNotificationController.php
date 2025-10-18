@@ -163,7 +163,7 @@ class DefectNotificationController extends Controller
         $query = DefectNotification::with(['equipment', 'location', 'category', 'defectType', 'book'])
             ->select([
                 'id', 'document_date', 'book_id', 'doc_no', 'equipment_id', 'category_id', 'location_id', 
-                'defect_type_id', 'problem', 'priority', 'document_status', 'revision_number', 'organization_id'
+                'defect_type_id', 'problem', 'priority', 'document_status', 'revision_number', 'organization_id','document_number'
             ]);
 
             // Apply date range filter
@@ -258,12 +258,12 @@ class DefectNotificationController extends Controller
             $orderColumn = $request->order[0]['column'];
             $orderDirection = $request->order[0]['dir'];
             
-            $columns = ['id', 'document_date', 'book_id', 'doc_no', 'equipment_id', 'category_id', 'location_id', 'defect_type_id', 'problem', 'priority', 'document_status'];
+            $columns = ['id', 'document_date', 'book_id', 'doc_no', 'equipment_id', 'category_id', 'location_id', 'defect_type_id', 'problem', 'priority', 'document_status','document_number'];
             if (isset($columns[$orderColumn])) {
                 $query->orderBy($columns[$orderColumn], $orderDirection);
             }
         } else {
-            $query->orderBy('doc_no', 'desc')->orderBy('document_date', 'desc');
+            $query->orderBy('document_number', 'desc')->orderBy('document_date', 'desc');
         }
 
         if ($request->has('start') && $request->has('length')) {
@@ -276,6 +276,8 @@ class DefectNotificationController extends Controller
 
         $data = [];
         foreach ($defectNotifications as $index => $notification) {
+            // Debug: Log what we're getting from database
+           
             $statusClass = 'badge-light-secondary';
             if (isset(ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$notification->document_status ?? 'draft'])) {
                 $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$notification->document_status ?? 'draft'];
@@ -304,12 +306,11 @@ class DefectNotificationController extends Controller
                         </div>
                     </div>
                 </div>';
-
             $data[] = [
                 'DT_RowIndex' => $request->start + $index + 1,
                 'document_date' => $notification->document_date ? '<span style="white-space: nowrap;">' . \Carbon\Carbon::parse($notification->document_date)->format('d-m-Y') . '</span>' : '-',
                 'series' => $notification->book?->book_name ?? '',
-                'document_number' => $notification->doc_no ? '<span style="text-align: center; display: block;">' . $notification->doc_no . '</span>' : '<span style="text-align: center; display: block;">-</span>',
+                'document_number' => ($notification->document_number ?: $notification->doc_no) ? '<span style="text-align: center; display: block;">' . ($notification->document_number ?: $notification->doc_no) . '</span>' : '<span style="text-align: center; display: block;">-</span>',
                 'equipment' => $notification->equipment?->name ?? '',
                 'category' => $notification->category?->name ?? '',
                 'location' => $notification->location?->store_name ?? '',
@@ -441,30 +442,43 @@ class DefectNotificationController extends Controller
      */
     public function store(DefectNotificationRequest $request)
     {
-        // Validation is handled by DefectNotificationRequest automatically
-        // If validation fails, it will return 422 response with errors automatically
-
         try {
             DB::beginTransaction();
-            
+    
             $user = Helper::getAuthenticatedUser();
-            $additionalData = [
-                'created_by' => $user->auth_user_id,
-                'type' => get_class($user),
+    
+            $data = [
+                'book_id'         => $request->book_id,
+                'document_number' => $request->document_number,
+                'document_date'   => $request->document_date,
+                'equipment_id'    => $request->equipment_id,
+                'created_by'      => $user->auth_user_id,
+                'type'            => get_class($user),
                 'organization_id' => $user->organization->id,
-                'group_id' => $user->organization->group_id,
-                'company_id' => $user->organization->company_id,
-                'approval_level' => 1,
+                'group_id'        => $user->organization->group_id,
+                'company_id'      => $user->organization->company_id,
+                'approval_level'  => 1,
                 'revision_number' => 0,
+                'document_status' => $request->document_status ?? ConstantHelper::DRAFT,
+                'doc_no'          => $request->doc_no,
+                'problem'        =>  $request->problem,
+                'priority'        =>  $request->priority,
+                'report_date_time' => $request->report_date_time,
+                'location_id'     => $request->location_id,
+                'category_id'     => $request->category_id,
+                'defect_type_id'  => $request->defect_type_id,
             ];
 
-            $data = array_merge($request->all(), $additionalData);
-            
-            $defectNotification = new DefectNotification();
-            $defectNotification->fill($data);
-            $defectNotification->document_status = $request->document_status;
-
-            // Handle multiple file uploads
+            if($request->doc_no==''){
+                $data['doc_no'] = $request->document_number ;
+            }
+    
+            $defectNotification = DefectNotification::create($data);
+    
+            if (!$defectNotification || !$defectNotification->id) {
+                throw new \Exception('Defect Notification could not be created or ID missing.');
+            }
+    
             if ($request->hasFile('attachment')) {
                 $attachmentPaths = [];
                 foreach ($request->file('attachment') as $index => $file) {
@@ -473,80 +487,69 @@ class DefectNotificationController extends Controller
                     $attachmentPaths[] = $path;
                 }
                 $defectNotification->attachment = json_encode($attachmentPaths);
+                $defectNotification->save();
             }
-
-            $numberPatternData = Helper::generateDocumentNumberNew($request->book_id, $request->document_date);
-            if (!isset($numberPatternData)) {
-                throw new \Exception("Invalid Book");
+    
+            if ($request->document_status === ConstantHelper::SUBMITTED) {
+                $bookId        = $defectNotification->book_id;
+                $docId         = $defectNotification->id;
+                $remarks       = $request->remarks ?? '';
+                $attachments   = '';
+                $currentLevel  = $defectNotification->approval_level ?? 1;
+                $revisionNo    = $defectNotification->revision_number ?? 0;
+                $actionType    = 'submit';
+                $modelName     = get_class($defectNotification);
+                $totalValue    = 0;
+    
+                $approveDocument = Helper::approveDocument(
+                    $bookId,
+                    $docId,
+                    $revisionNo,
+                    $remarks,
+                    $attachments,
+                    $currentLevel,
+                    $actionType,
+                    $totalValue,
+                    $modelName
+                );
+    
+                $defectNotification->document_status = $approveDocument['approvalStatus'] ?? ConstantHelper::SUBMITTED;
+                $defectNotification->save();
             }
-            
-            $document_number = $numberPatternData['document_number'];
-            $defectNotification->doc_number_type = $numberPatternData['type'];
-            $defectNotification->doc_reset_pattern = $numberPatternData['reset_pattern'];
-            $defectNotification->doc_prefix = $numberPatternData['prefix'];
-            $defectNotification->doc_suffix = $numberPatternData['suffix'];
-            $defectNotification->doc_no = $numberPatternData['doc_no'];
-            $defectNotification->save();
-
-            
-
-            // Create DefectNotificationHistory record if document is submitted (not draft)
-           if ($defectNotification->document_status != ConstantHelper::DRAFT) {
-                    $doc = Helper::approveDocument(
-                        $defectNotification->book_id,
-                        $defectNotification->id,
-                        $defectNotification->revision_number,
-                        "",
-                        null,
-                        1,
-                        'submit',
-                        0,
-                        get_class($defectNotification)
-                    );
-
-                    $defectNotification->document_status = $doc['approvalStatus'] ?? $defectNotification->document_status;
-                    $defectNotification->save();
-                }
-
+    
             DB::commit();
-            
-            // Return JSON response for AJAX requests
+    
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
-                    'message' => 'Defect notification created successfully!',
+                    'message' => 'Defect Notification created successfully!',
+                    'defect_notification_id' => $defectNotification->id,
                     'redirect_url' => route('defect-notification.index')
                 ], 200);
             }
-            
+    
             return redirect()
                 ->route('defect-notification.index')
                 ->with('success', 'Defect Notification created successfully!');
-
+    
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Error creating defect notification: ' . $e->getMessage());
-            
-            // Return JSON error response for AJAX requests
+    
             if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'message' => $e->getMessage(),
                     'error' => 'Something went wrong'
                 ], 500);
             }
-            
+    
             return redirect()
                 ->back()
                 ->withInput()
                 ->with('error', 'Failed to create defect notification: ' . $e->getMessage());
         }
     }
+    
 
-    /**
-     * Display the specified resource.
-     */
-     /**
-     * Display the specified resource.
-     */
     public function show(Request $request, string $id)
     {
        
@@ -782,7 +785,7 @@ class DefectNotificationController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        // dd($request->all());
+       
         $defectNotification = DefectNotification::findOrFail($id);
         $rules = [
             'document_date' => 'required|date',
@@ -807,19 +810,6 @@ class DefectNotificationController extends Controller
         }
 
         $request->validate($rules);
-
-        // Check for duplicate document number
-        $documentNumber = $request->doc_no;
-        $existingDefect = DefectNotification::where('doc_no', $documentNumber)
-            ->where('id', '!=', $id)
-            ->first();
-
-        if ($existingDefect) {
-            return redirect()
-                ->route('defect-notification.edit', $id)
-                ->withInput()
-                ->withErrors("Document Number '{$documentNumber}' already exists.");
-        }
 
         DB::beginTransaction();
 
@@ -846,7 +836,7 @@ class DefectNotificationController extends Controller
                     throw new \Exception('Failed to create DefectNotificationHistory record during amendment');
                 }
                 
-                Helper::approveDocument(
+                $approveDocument=Helper::approveDocument(
                     $defectNotification->book_id,
                     $defectNotification->id,
                     $defectNotification->revision_number,
@@ -857,8 +847,27 @@ class DefectNotificationController extends Controller
                     0,
                     get_class($defectNotification)
                 );
+               
+
+                $defectNotification->revision_number = $defectNotification->revision_number + 1;
+                $defectNotification->revision_date = now();
+                $defectNotification->save();
                 DB::commit();
             }
+           
+                $revisionNumber = $defectNotification->revision_number ?? 0;
+                $actionType = 'submit';
+                $remarks='';
+                $attachments='';
+                $currentLevel=$defectNotification->approval_level;
+                $modelName=get_class($defectNotification);
+                $totalValue = $defectNotification->grand_total_amount ?? 0;
+                $approveDocument = Helper::approveDocument($defectNotification->book_id, $defectNotification->id, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
+                $document_status = $approveDocument['approvalStatus'] ?? $defectNotification->document_status;
+                $defectNotification->document_status = $document_status;
+                $data['document_status'] = $document_status;
+                $defectNotification->save();
+          
         
             // Handle file attachments
             $finalAttachments = [];
@@ -908,7 +917,7 @@ class DefectNotificationController extends Controller
                 $defectNotification->attachment = null;
             }
 
-            $defectNotification->fill($request->except(['_token', '_method', 'upload_document', 'attachment']));        
+            $defectNotification->fill($request->except(['_token', '_method', 'upload_document', 'attachment','document_status']));        
             $defectNotification->save();
             $defectNotification = DefectNotification::find($id);
             
@@ -947,15 +956,13 @@ class DefectNotificationController extends Controller
                 ['model_type' => 'header', 'model_name' => 'DefectNotification', 'relation_column' => '']
             ];
 
-            $a = Helper::documentAmendment($revisionData, $id);
-            if ($a) {
-                Helper::approveDocument($defectNotification->book_id, $defectNotification->id, $defectNotification->revision_number, 'Amendment', $request->file('attachment'), $defectNotification->approval_level, 'amendment');
+            // $a = Helper::documentAmendment($revisionData, $id);
+            // if ($a) {
+            //     Helper::approveDocument($defectNotification->book_id, $defectNotification->id, $defectNotification->revision_number, 'Amendment', $request->file('attachment'), $defectNotification->approval_level, 'amendment');
 
-                // $defectNotification->document_status = ConstantHelper::DRAFT;
-                $defectNotification->revision_number = $defectNotification->revision_number + 1;
-                $defectNotification->revision_date = now();
-                $defectNotification->save();
-            }
+            //     $defectNotification->revision_date = now();
+            //     $defectNotification->save();
+            // }
 
             DB::commit();
             return response()->json(['data' => [], 'message' => "Amendment processed successfully.", 'status' => 200]);
