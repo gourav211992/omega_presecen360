@@ -644,6 +644,16 @@ $(function(){
                     docDateInput.val(new Date().toISOString().split('T')[0]);
                     alert(data.message);
                 }
+               
+                if(data.status == 500) {
+                        $("#book_code").val("");
+                        $("#book_id").val("");
+                        Swal.fire({
+                            title: 'Error!',
+                            text: data.message,
+                            icon: 'error',
+                        });
+                }
             });
         });
     }
@@ -724,6 +734,7 @@ $(function(){
        }
 
        if(parameters.section_required.includes('yes')) {
+
             if (parameters.sub_section_required && !parameters.sub_section_required.includes('yes')) {
             let td = $('tfoot .totalsubheadpodetail:eq(0)').find("td[colspan]");
             if (td.length > 0) {

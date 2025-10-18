@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use App\Helpers\ConstantHelper;
 use App\Helpers\Helper;
 use App\Traits\Deletable;
+use Illuminate\Support\Str;
 
 class ErpEinvoice extends Model
 {
@@ -80,6 +81,19 @@ class ErpEinvoice extends Model
     public function source()
     {
         return $this->hasOne(ErpEinvoiceHistory::class, 'source_id');
+    }
+
+    public function getEwbUrlAttribute($value)
+    {
+        if (empty($value)) {
+            return null;
+        }
+        // If already starts with http/https, return as-is
+        if (Str::startsWith($value, ['http://', 'https://'])) {
+            return $value;
+        }
+        // Otherwise prepend http://
+        return 'https://' . ltrim($value, '/');
     }
 
 }

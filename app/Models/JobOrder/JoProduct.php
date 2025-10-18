@@ -2,26 +2,28 @@
 
 namespace App\Models\JobOrder;
 
-use App\Helpers\InventoryHelper;
-use App\Models\ErpItem;
-use App\Models\ErpSaleOrder;
 use App\Models\Hsn;
 use App\Models\Item;
-use App\Models\ItemAttribute;
+use App\Models\Unit;
+use App\Models\ErpItem;
 use App\Models\Attribute;
 use App\Models\ErpMiItem;
-use App\Models\PwoSoMapping;
-use App\Models\Unit;
-use App\Models\VendorAsnItem;
 use App\Models\VendorAsn;
+use App\Models\ErpSaleOrder;
+use App\Models\PwoSoMapping;
+use App\Models\ItemAttribute;
+use App\Models\VendorAsnItem;
+use App\Traits\UserStampTrait;
 use App\Models\GateEntryDetail;
 use App\Traits\DateFormatTrait;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Helpers\InventoryHelper;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class JoProduct extends Model
 {
-    use HasFactory, DateFormatTrait;
+    use HasFactory, DateFormatTrait, UserStampTrait, SoftDeletes;
     protected $table = 'erp_jo_products';
     protected $fillable = [
         'jo_id',

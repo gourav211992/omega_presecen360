@@ -1120,7 +1120,8 @@ class ErpProductionSlipController extends Controller
                     $moItemValue = PslipBomConsumption::where('pslip_id', $productionSlip->id)
                                     ->where('pslip_item_id', $moProdItem->id)
                                     ->sum(DB::raw('consumption_qty * rate'));
-                    $prodItemRate = $moItemValue / $moProdItem->qty;
+                    // $prodItemRate = $moItemValue / $moProdItem->qty;
+                    $prodItemRate = $moItemValue / (($moProdItem->accepted_qty ?? 0)+($moProdItem->subprime_qty ?? 0));
                     $detailIds[] = $moProdItem->id;
                     $moProdItem->rate = $prodItemRate;
                     $moProdItem->save();

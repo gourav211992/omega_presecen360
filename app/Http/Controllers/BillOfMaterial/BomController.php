@@ -919,7 +919,11 @@ class BomController extends Controller
         if (count($servicesBooks['services']) == 0) {
             return redirect()->back();
         }
-        $bom = Bom::findOrFail($id);
+        $bom = Bom::find($id);
+       
+        if(!$bom) {
+            return redirect($parentUrl)->with('error', 'The provided document id is invalid.');
+        }
         $createdBy = $bom->created_by;
         $revision_number = $bom->revision_number;
         $books = Helper::getBookSeriesNew($servicesAliasParam, $parentUrl, true)->get();
@@ -1471,8 +1475,7 @@ class BomController extends Controller
                     'data' => $bom,
                 ]);
             }
-
-            if($currentStatus == ConstantHelper::APPROVED && $actionType == 'amendment')
+            if(($currentStatus == ConstantHelper::APPROVED || $currentStatus == ConstantHelper::APPROVAL_NOT_REQUIRED) && $actionType == 'amendment')
             {
                 //*amendmemnt document log*/
                 $revisionNumber = $bom->revision_number + 1;

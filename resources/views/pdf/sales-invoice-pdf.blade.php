@@ -318,7 +318,7 @@
                 </td>
                 <td
                     style="font-weight: bold; padding: 6px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
-                    HSN Code
+                    {{@$hsnLabel}} Code
                 </td>
                 <td
                     style="font-weight: bold; padding: 4px; border: 1px solid #000; border-left: none; background: #80808070; text-align: center;">
@@ -700,7 +700,7 @@
                     style="border: 1px solid #000; width: 50%; border-top: none; vertical-align: top;">
                     <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
                         <tr>
-                            <td style="font-weight: bold; padding: 4px; background: #80808070; text-align: center;"> <b>HSN / SAC</b></td>
+                            <td style="font-weight: bold; padding: 4px; background: #80808070; text-align: center;"> <b>{{@$hsnLabel}}</b></td>
                             <td style="font-weight: bold; padding: 4px; border-left: 1px solid #000; background: #80808070; text-align: center;"> <b>Tax Rate</b></td>
                             <td style="font-weight: bold; padding: 4px; border-left: 1px solid #000; background: #80808070; text-align: center;"> <b>Taxable Amount</b></td>
                             <td style="font-weight: bold; padding: 4px; border-left: 1px solid #000; background: #80808070; text-align: center;"> <b>CGST Amt</b></td>

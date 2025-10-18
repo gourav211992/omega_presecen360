@@ -2506,7 +2506,7 @@
                     <div class="d-flex">
                         @if(request() -> type === 'so')
                             <div class="me-50 cursor-pointer" onclick = "openDeliverySchedule(${newIndex});">    <span data-bs-toggle="tooltip" data-bs-placement="top" title="Delivery Schedule" class="text-primary"><i data-feather="calendar"></i></span></div>
-                            <div class="me-50 cursor-pointer dynamic_bom_div" id = "dynamic_bom_div_${newIndex}" onclick = "getCustomizableBOM(${newIndex})" style = "display:none;"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="BOM" class="text-primary"><i data-feather="table"></i></span></div>
+                            <div class="me-50 cursor-pointer dynamic_bom_div ${showBomIcon ? '' : 'd-none'}" id = "dynamic_bom_div_${newIndex}" onclick = "getCustomizableBOM(${newIndex})" style = "display:none;"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="BOM" class="text-primary"><i data-feather="table"></i></span></div>
                         @endif
                         <div class="me-50 cursor-pointer" onclick = "setViewDetailedStocks('${newIndex}');"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="Stocks" class="text-primary"><i data-feather="layers"></i></span></div>
                         <div class="me-50 cursor-pointer" data-bs-toggle="modal" data-bs-target="#Remarks" onclick = "setItemRemarks('item_remarks_${newIndex}');">        <span data-bs-toggle="tooltip" data-bs-placement="top" title="Remarks" class="text-primary"><i data-feather="file-text"></i></span></div>
@@ -4270,6 +4270,8 @@
         });
     }
 
+    let showBomIcon = true;
+
     function implementBookParameters(paramData)
     {
         var selectedRefFromServiceOption = paramData.reference_from_service;
@@ -4303,6 +4305,20 @@
 
         var backDateAllow = false;
         var futureDateAllow = false;
+        var allowBomIconParam = paramData.display_bom;
+        if (allowBomIconParam) {
+            if  (allowBomIconParam && allowBomIconParam.length > 0) {
+                //Handle according to param
+                if (allowBomIconParam[0] == 'yes') {
+                    showBomIcon = true;
+                } else {
+                    showBomIcon = false;
+                }
+            } else {
+                //By Default show it
+                showBomIcon = true;
+            }
+        }
 
         //Back Date Allow
         if (selectedBackDateOption) {
@@ -4310,8 +4326,22 @@
             if (selectVal && selectVal.length > 0) {
                 if (selectVal[0] == "yes") {
                     backDateAllow = true;
+                    $(".dynamic_bom_div").removeClass('d-none');
                 } else {
                     backDateAllow = false;
+                    $(".dynamic_bom_div").addClass('d-none');
+                }
+            }
+        }
+
+        //Future Date Allow
+        if (selectedFutureDateOption) {
+            var selectVal = selectedFutureDateOption;
+            if (selectVal && selectVal.length > 0) {
+                if (selectVal[0] == "yes") {
+                    futureDateAllow = true;
+                } else {
+                    futureDateAllow = false;
                 }
             }
         }
@@ -5071,7 +5101,7 @@
                                     <div class="d-flex">
                                         @if(request() -> type === 'so')
                                             <div class="me-50 cursor-pointer" onclick = "openDeliverySchedule('${currentOrderIndexVal}');">    <span data-bs-toggle="tooltip" data-bs-placement="top" title="Delivery Schedule" class="text-primary"><i data-feather="calendar"></i></span></div>
-                                            <div class="me-50 cursor-pointer dynamic_bom_div" id = "dynamic_bom_div_${currentOrderIndexVal}" onclick = "getCustomizableBOM(${currentOrderIndexVal})" style = "display:none;"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="BOM" class="text-primary"><i data-feather="table"></i></span></div>
+                                            <div class="me-50 cursor-pointer dynamic_bom_div ${showBomIcon ? '' : 'd-none'}" id = "dynamic_bom_div_${currentOrderIndexVal}" onclick = "getCustomizableBOM(${currentOrderIndexVal})" style = "display:none;"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="BOM" class="text-primary"><i data-feather="table"></i></span></div>
                                         @endif
                                         <div class="me-50 cursor-pointer" onclick = "setViewDetailedStocks('${currentOrderIndexVal}');"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="Stocks" class="text-primary"><i data-feather="layers"></i></span></div>
                                         <div class="me-50 cursor-pointer" data-bs-toggle="modal" data-bs-target="#Remarks" onclick = "setItemRemarks('item_remarks_${currentOrderIndexVal}');">        <span data-bs-toggle="tooltip" data-bs-placement="top" title="Remarks" class="text-primary"><i data-feather="file-text"></i></span></div>
@@ -6097,7 +6127,7 @@ document.addEventListener('input', function (e) {
                 <div class="d-flex">
                     @if(request() -> type === 'so')
                         <div class="me-50 cursor-pointer" onclick = "openDeliverySchedule(${newIndex});">    <span data-bs-toggle="tooltip" data-bs-placement="top" title="Delivery Schedule" class="text-primary"><i data-feather="calendar"></i></span></div>
-                        <div class="me-50 cursor-pointer dynamic_bom_div" id = "dynamic_bom_div_${newIndex}" onclick = "getCustomizableBOM(${newIndex})" style = "display:none;"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="BOM" class="text-primary"><i data-feather="table"></i></span></div>
+                        <div class="me-50 cursor-pointer dynamic_bom_div ${showBomIcon ? '' : 'd-none'}" id = "dynamic_bom_div_${newIndex}" onclick = "getCustomizableBOM(${newIndex})" style = "display:none;"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="BOM" class="text-primary"><i data-feather="table"></i></span></div>
                     @endif
                     <div class="me-50 cursor-pointer" onclick = "setViewDetailedStocks('${newIndex}');"> <span data-bs-toggle="tooltip" data-bs-placement="top" title="Stocks" class="text-primary"><i data-feather="layers"></i></span></div>
                     <div class="me-50 cursor-pointer" data-bs-toggle="modal" data-bs-target="#Remarks" onclick = "setItemRemarks('item_remarks_${newIndex}');">        <span data-bs-toggle="tooltip" data-bs-placement="top" title="Remarks" class="text-primary"><i data-feather="file-text"></i></span></div>
@@ -7090,9 +7120,10 @@ $('#attribute').on('hidden.bs.modal', function () {
             },
             success: function(data) {
                     if (data && data.status == "success") {
-                        rateInput.value = data.data;
+                        if (data.data && Number(data.data) > 0) {
+                            rateInput.value = (data.data).toFixed(2);
+                        }
                         itemRowCalculation(itemIndex);
-
                     }
             },
             error: function(xhr) {

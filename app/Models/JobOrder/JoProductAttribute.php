@@ -2,16 +2,18 @@
 
 namespace App\Models\JobOrder;
 
-use App\Models\AttributeGroup;
 use App\Models\Item;
-use App\Models\ItemAttribute;
 use App\Models\Attribute;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\ItemAttribute;
+use App\Models\AttributeGroup;
+use App\Traits\UserStampTrait;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class JoProductAttribute extends Model
 {
-    use HasFactory;
+    use HasFactory, UserStampTrait, SoftDeletes;
     protected $table = 'erp_jo_product_attributes';
     protected $fillable = [
         'jo_id',

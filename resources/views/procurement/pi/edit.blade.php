@@ -966,7 +966,13 @@
                         $(tr).find("td[id*='itemAttribute_']").attr('attribute-array', JSON.stringify(data.data.itemAttributeArray));
                         if (data.data.attr) {
                             $("#attribute").modal('show');
-                            $(".select2").select2();
+                            $('#attribute').on('shown.bs.modal', function() {
+                                $("#attribute .select2").select2({
+                                    dropdownParent: $("#attribute"),
+                                    searchInputPlaceholder: 'Search'
+                                });
+                                feather.replace();
+                            });
                         }
                         qtyEnabledDisabled();
                     }

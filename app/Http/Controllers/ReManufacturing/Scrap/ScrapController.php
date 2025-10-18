@@ -27,11 +27,16 @@ class ScrapController extends Controller
 {
     public function index(Request $request)
     {
+        $user = Helper::getAuthenticatedUser();
+        $parentUrl = request()->segments()[0];
         if (request()->ajax()) {
             $selectedfyYear = Helper::getFinancialYear(Carbon::now());
-            $selectColumns = ['id', 'document_date', 'document_status', 'book_id', 'store_id', 'sub_store_id', 'user_id', 'revision_number', 'document_number'];
             $scrapHeaders = ErpScrap::withDraftListingLogic()
+                ->bookViewAccess($parentUrl)
+                ->withDefaultGroupCompanyOrg()
+                ->selfCreatedDocuments($user)
                 ->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']])
+                ->with(['createdBy'])
                 ->latest();
 
             return DataTables::of($scrapHeaders)
@@ -60,19 +65,19 @@ class ScrapController extends Controller
                     return $row?->subStore ? $row?->subStore?->name : '';
                 })
                 ->addColumn('reference_from', function ($row) {
-                    return $row?->reference_type ? $row?->reference_type : '';
+                    return $row?->reference_type ? $row?->reference_type : '-';
                 })
                 ->addColumn('total_reference_qty', function ($row) {
                     return $row->reference_type === 'pslip'
-                        ? $row?->pslipItems?->sum('rejected_qty')
+                        ? ($row->pslipItems ? number_format($row?->pslipItems?->sum('rejected_qty'), 2) : 0)
                         : 0;
                 })
                 ->addColumn('total_qty', function ($row) {
-                    return $row?->total_qty ? $row?->total_qty : '';
+                    return $row?->total_qty ? number_format($row?->total_qty, 2) : '';
                 })
-                ->addColumn('total_cost', function ($row) {
-                    return $row?->total_cost ? round($row?->total_cost, 4) : '';
-                })
+                // ->addColumn('total_cost', function ($row) {
+                //     return $row?->total_cost ? number_format($row?->total_cost, 2) : '';
+                // })
                 ->editColumn('document_date', function ($row) {
                     return $row->getFormattedDate('document_date') ?? '';
                 })
@@ -82,10 +87,12 @@ class ScrapController extends Controller
                 ->addColumn('components', function ($row) {
                     return $row->items->count() ?? 0;
                 })
+                ->addColumn('created_by', function ($row) {
+                    return $row->createdBy?->name;
+                })
                 ->rawColumns(['document_status'])
                 ->make(true);
         }
-        $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
 
         return view('remanufacturing.scrap.index', ['servicesBooks' => $servicesBooks]);
@@ -94,9 +101,6 @@ class ScrapController extends Controller
     public function create()
     {
         $parentUrl = request()->segments()[0];
-        // $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
-        // if (count($servicesBooks['services']) == 0)  return redirect()->back();
-
         $user = Helper::getAuthenticatedUser();
         $serviceAlias = ConstantHelper::SCRAP_SERVICE_ALIAS;
         $books = Helper::getBookSeriesNew($serviceAlias, $parentUrl)->get();
@@ -157,8 +161,6 @@ class ScrapController extends Controller
         if ($response['status'] === 200) {
             $parameters = json_decode(json_encode($response['data']['parameters']), true);
         }
-
-
 
         return view($view, [
             'isEdit' => $isEdit,
@@ -242,9 +244,9 @@ class ScrapController extends Controller
                 $item = Item::find($component['item_id'] ?? null);
                 $unit = Unit::find($component['uom_id'] ?? null);
 
-                $qty = floatval($component['qty']) ?? 0;
-                $rate = floatval($component['rate']) ?? 0;
-                $totalCost = floatval($component['total_cost']) ?? ($qty * $rate);
+                $qty = floatval($component['qty'] ?? 0);
+                $rate = floatval($component['rate'] ?? 0);
+                $totalCost = floatval($component['total_cost'] ?? 0) ?? ($qty * $rate);
 
                 $totalScrapQty += $qty;
                 $totalScrapCost += $totalCost;
@@ -299,13 +301,6 @@ class ScrapController extends Controller
             }
 
             /** ------------------------------
-             * Attachments
-             * ------------------------------ */
-            if ($request->hasFile('attachment')) {
-                $erpScrap->uploadDocuments($request->file('attachment'), 'scrap', false);
-            }
-
-            /** ------------------------------
              * Document Status & Workflow
              * ------------------------------ */
             if ($request->document_status == ConstantHelper::SUBMITTED) {
@@ -339,22 +334,30 @@ class ScrapController extends Controller
                 }
             }
 
+            /** ------------------------------
+             * Attachments
+             * ------------------------------ */
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments') as $singleFile) {
+                    $erpScrap->uploadDocuments($singleFile, 'scrap', false);
+                }
+            }
+
             $redirectUrl = route('scrap.index');
             // $redirectUrl = route('scrap.edit', $erpScrap->id);
 
             DB::commit();
-
             return response()->json([
                 'message' => 'Record created successfully',
                 'data' => $erpScrap,
                 'redirect_url' => $redirectUrl,
             ]);
         } catch (\Throwable $e) {
-            DB::rollBack();
 
+            DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while creating the record.',
-                'error' => $e->getMessage(),
+                'error' => $e->getTraceAsString(),
             ], 500);
         }
     }
@@ -442,9 +445,9 @@ class ScrapController extends Controller
                 $unit = Unit::find($component['uom_id']);
                 $erpScrapItem = ErpScrapItem::find($component['scrap_item_id'] ?? null) ?? new ErpScrapItem;
 
-                $qty = floatval($component['qty']) ?? 0;
-                $rate = floatval($component['rate']) ?? 0;
-                $totalCost = floatval($component['total_cost']) ?? ($qty * $rate);
+                $qty = floatval($component['qty'] ?? 0);
+                $rate = floatval($component['rate'] ?? 0);
+                $totalCost = floatval($component['total_cost'] ?? 0) ?? ($qty * $rate);
 
                 $totalScrapQty += $qty;
                 $totalScrapCost += $totalCost;
@@ -470,12 +473,12 @@ class ScrapController extends Controller
                 if ($component['uom_id'] == $item?->uom_id) {
                     $erpScrapItem->inventory_uom_id = $component['uom_id'];
                     $erpScrapItem->inventory_uom_code = $component['uom_code'] ?? $item?->uom?->name;
-                    $erpScrapItem->inventory_uom_qty = $component['qty'] ?? 0;
+                    $erpScrapItem->inventory_uom_qty = $qty ?? 0;
                 } else {
                     $alUom = $item?->alternateUOMs()->where('uom_id', $component['uom_id'])->first();
                     $erpScrapItem->inventory_uom_id = $component['uom_id'];
                     $erpScrapItem->inventory_uom_code = $component['uom_code'] ?? $unit?->name;
-                    $erpScrapItem->inventory_uom_qty = ($component['qty'] ?? 0) * ($alUom?->conversion_to_inventory ?? 1);
+                    $erpScrapItem->inventory_uom_qty = ($qty ?? 0) * ($alUom?->conversion_to_inventory ?? 1);
                 }
 
                 $erpScrapItem->save();
@@ -497,10 +500,6 @@ class ScrapController extends Controller
                     $scrapAttr->attribute_value = $scrapAttrName ?? null;
                     $scrapAttr->save();
                 }
-            }
-
-            if ($request->hasFile('attachment')) {
-                $erpScrap->uploadDocuments($request->file('attachment'), 'scrap', false);
             }
 
             if ($request->document_status == ConstantHelper::SUBMITTED) {
@@ -543,6 +542,15 @@ class ScrapController extends Controller
                 }
             }
 
+            /** ------------------------------
+             * Attachments
+             * ------------------------------ */
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments') as $singleFile) {
+                    $erpScrap->uploadDocuments($singleFile, 'scrap', false);
+                }
+            }
+
             $redirectUrl = route('scrap.index');
 
             DB::commit();
@@ -555,7 +563,7 @@ class ScrapController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while updating the record.',
-                'error' => $e->getMessage(),
+                'error' => $e->getTraceAsString(),
             ], 500);
         }
     }
@@ -614,7 +622,7 @@ class ScrapController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while approving the record.',
-                'error' => $e->getMessage(),
+                'error' => $e->getTraceAsString(),
             ], 500);
         }
     }
@@ -938,7 +946,7 @@ class ScrapController extends Controller
 
             return response()->json([
                 'status'  => false,
-                'message' => 'Error deleting Production Slip: ' . $e->getMessage(),
+                'message' => 'Error deleting Production Slip: ' . $e->getTraceAsString(),
             ], 500);
         }
     }
@@ -980,7 +988,7 @@ class ScrapController extends Controller
 
             return response()->json([
                 'status' => 'error',
-                'message' => $ex->getMessage(),
+                'message' => $ex->getTraceAsString(),
             ]);
         }
     }

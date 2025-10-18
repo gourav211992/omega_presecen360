@@ -112,6 +112,7 @@
                                                     </div>
                                                     <div class="col-md-5">
                                                         <input type="hidden" name="book_id" value="{{ $po->book_id }}">
+                                                        <input type="hidden" name="jo_id" id="jo_id" value="{{ $po->id }}">
                                                         <select class="form-select" disabled id="book_id" name="book_id" readonly>
                                                             @foreach ($books as $book)
                                                                 <option value="{{ $book->id }}" {{ $book->id == $po->book_id ? 'selected' : '' }}>{{ $book->book_code }}</option>
@@ -910,6 +911,7 @@
     <script type="text/javascript">
         var type = '{{ request()->route('type') }}';
         var actionUrlTax = '{{ route('jo.tax.calculation') }}';
+        let taxCalUrl = '{{ route('tax.group.calculate') }}';
         var getLocationUrl = '{{ route('store.get') }}';
         var getAddressOnVendorChangeUrl = "{{ route('jo.get.address') }}";
         var getPwoUrl = '{{ route('jo.get.pi') }}';
@@ -1185,7 +1187,13 @@
                         $(tr).find("td[id*='itemAttribute_']").attr('attribute-array', JSON.stringify(data.data.itemAttributeArray));
                         if (data.data.attr) {
                             $("#attribute").modal('show');
-                            $(".select2").select2();
+                            $('#attribute').on('shown.bs.modal', function() {
+                                $("#attribute .select2").select2({
+                                    dropdownParent: $("#attribute"),
+                                    searchInputPlaceholder: 'Search'
+                                });
+                                feather.replace();
+                            });
                         }
                     }
                 });

@@ -2,57 +2,59 @@
 
 namespace App\Http\Controllers\Report;
 
-use App\Exports\Reports\TransactionReportExport;
-use App\Helpers\ConstantHelper;
-use App\Helpers\Helper;
-use App\Jobs\SendEmailJob;
-use App\Models\AuthUser;
-use App\Services\Reports\TransactionReport;
-use Illuminate\Http\Request;
-use Illuminate\Routing\Controller;
-use Illuminate\Validation\ValidationException;
-use Maatwebsite\Excel\Facades\Excel;
 use Validator;
+use App\Helpers\Helper;
+use App\Models\AuthUser;
+use App\Jobs\SendEmailJob;
+use Illuminate\Http\Request;
+use App\Helpers\ConstantHelper;
+use Illuminate\Routing\Controller;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Services\Reports\TransactionReport;
+use App\Exports\Reports\TransactionReportExport;
 
 
 class TransactionReportController extends Controller
 {
     public function index(Request $request, string $serviceAlias)
     {
-        $reportType = $request -> reportType ?? '';
+        $reportType = $request->reportType ?? '';
         $reportService = new TransactionReport($serviceAlias, $reportType);
         $reportService->reportName = ConstantHelper::SERVICE_LABEL[$serviceAlias] ?? 'Transaction';
-        $data = $reportService -> getIndexPageData();
+        $data = $reportService->getIndexPageData();
         return view('reports.transaction', $data);
     }
 
     public function emailReport(Request $request)
     {
-        try{
+        try {
             $user = Helper::getAuthenticatedUser();
             // Validate email_to and email_cc
-            $validator = Validator::make($request->all(), [
-                'email_to' => ['required', 'array', 'min:1'],
-                'email_to.*' => ['required', 'email'],
-                'email_cc' => ['nullable', 'array'],
-                'email_cc.*' => ['required_with:email_cc', 'email'],
-            ],
-            [
-                'email_to.required' => 'At least one recipient email is required.',
-                'email_to.array' => 'The recipient emails must be provided as an array.',
-                'email_to.min' => 'At least one email address must be specified in email_to.',
-                'email_to.*.required' => 'Each email address in email_to is required.',
-                'email_to.*.email' => 'Each email in email_to must be a valid email address.',
+            $validator = Validator::make(
+                $request->all(),
+                [
+                    'email_to' => ['required', 'array', 'min:1'],
+                    'email_to.*' => ['required', 'email'],
+                    'email_cc' => ['nullable', 'array'],
+                    'email_cc.*' => ['required_with:email_cc', 'email'],
+                ],
+                [
+                    'email_to.required' => 'At least one recipient email is required.',
+                    'email_to.array' => 'The recipient emails must be provided as an array.',
+                    'email_to.min' => 'At least one email address must be specified in email_to.',
+                    'email_to.*.required' => 'Each email address in email_to is required.',
+                    'email_to.*.email' => 'Each email in email_to must be a valid email address.',
 
-                'email_cc.array' => 'The CC emails must be provided as an array.',
-                'email_cc.*.required_with' => 'Each email in email_cc is required if CC is present.',
-                'email_cc.*.email' => 'Each email in email_cc must be a valid email address.',
-            ]);
+                    'email_cc.array' => 'The CC emails must be provided as an array.',
+                    'email_cc.*.required_with' => 'Each email in email_cc is required if CC is present.',
+                    'email_cc.*.email' => 'Each email in email_cc must be a valid email address.',
+                ]
+            );
 
             if ($validator->fails()) {
                 return response()->json([
                     'status' => 'error',
-                    'message' => $validator -> messages() -> first()
+                    'message' => $validator->messages()->first()
                 ], 422);
             }
             $headers = $request->input('displayedHeaders');
@@ -65,12 +67,12 @@ class TransactionReportController extends Controller
             $blankSpaces = count($headers) - 1;
             $centerPosition = (int)floor($blankSpaces / 2);
             $folderName = $request->input('folder_name');
-            $fileName = 'report_'.$string.'.xlsx';
-            $filePath = storage_path('app/public/'.$folderName.'/' . $fileName);
-            $directoryPath = storage_path('app/public/'.$folderName);
+            $fileName = 'report_' . $string . '.xlsx';
+            $filePath = storage_path('app/public/' . $folderName . '/' . $fileName);
+            $directoryPath = storage_path('app/public/' . $folderName);
             $customHeader = array_merge(
                 array_fill(0, $centerPosition, ''),
-                [$folderName.' Report' ],
+                [$folderName . ' Report'],
                 array_fill(0, $blankSpaces - $centerPosition, '')
             );
 
@@ -89,12 +91,11 @@ class TransactionReportController extends Controller
             $email_to = $request->email_to ?? [];
             $email_cc = $request->email_cc ?? [];
 
-            foreach($email_to as $email)
-            {
+            foreach ($email_to as $email) {
                 $mailUser = AuthUser::where('email', $email)
-                ->where('organization_id', Helper::getAuthenticatedUser()->organization_id)
-                ->where('status', ConstantHelper::ACTIVE)
-                ->first();
+                    ->where('organization_id', Helper::getAuthenticatedUser()->organization_id)
+                    ->where('status', ConstantHelper::ACTIVE)
+                    ->first();
 
 
                 if (!$mailUser) {
@@ -102,8 +103,8 @@ class TransactionReportController extends Controller
                     $mailUser->email = $email;
                 }
 
-                $title = $folderName." Report Generated";
-                $heading = $folderName." Report";
+                $title = $folderName . " Report Generated";
+                $heading = $folderName . " Report";
 
                 $remarks = $request->remarks ?? null;
                 $mail_from = '';
@@ -134,13 +135,12 @@ class TransactionReportController extends Controller
                     </tr>
                 </table>
                 HTML;
-                self::sendMail($mailUser,$title,$description,$cc,$bcc, $attachment,$mail_from,$mail_from_name);
+                self::sendMail($mailUser, $title, $description, $cc, $bcc, $attachment, $mail_from, $mail_from_name);
             }
             return response()->json([
                 'status' => 'success',
                 'message' => 'emails sent successfully.'
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'status' => 'error',
@@ -150,17 +150,15 @@ class TransactionReportController extends Controller
         }
     }
 
-    public function sendMail($receiver, $title, $description, $cc= null, $bcc= null, $attachment, $mail_from=null, $mail_from_name=null)
+    public function sendMail($receiver, $title, $description, $cc = null, $bcc = null, $attachment, $mail_from = null, $mail_from_name = null)
     {
         if (!$receiver || !isset($receiver->email)) {
             return "Error: Receiver details are missing or invalid.";
         }
-        dispatch(new SendEmailJob($receiver, $mail_from, $mail_from_name,$title,$description,$cc,$bcc, $attachment));
-        return response() -> json([
+        dispatch(new SendEmailJob($receiver, $mail_from, $mail_from_name, $title, $description, $cc, $bcc, $attachment));
+        return response()->json([
             'status' => 'success',
             'message' => 'Email request sent succesfully',
         ]);
-
     }
-
 }

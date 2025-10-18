@@ -36,9 +36,7 @@ use App\Models\PiSoMappingItem;
 use App\Helpers\InventoryHelper;
 use App\Http\Requests\PiRequest;
 use Yajra\DataTables\DataTables;
-use App\Models\PurchaseIndentMedia;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Storage;
 use App\Helpers\ServiceParametersHelper;
 
 class PiController extends Controller
@@ -46,6 +44,7 @@ class PiController extends Controller
     # Po List
     public function index(Request $request)
     {
+        $user = Helper::getAuthenticatedUser();
         if (request()->ajax()) {
             $pathUrl = request()->segments()[0];
             $selectedfyYear = Helper::getFinancialYear(Carbon::now());
@@ -54,6 +53,7 @@ class PiController extends Controller
                 ->bookViewAccess($pathUrl)
                 ->withDefaultGroupCompanyOrg()
                 ->withDraftListingLogic()
+                ->selfCreatedDocuments($user)
                 ->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']])
                 ->latest();
             // Apply filters
@@ -129,7 +129,7 @@ class PiController extends Controller
                 ->addColumn('components', function ($row) {
                     return $row->pi_items->count() ?? 0;
                 })
-                ->addColumn('created_by', function ($row){
+                ->addColumn('created_by', function ($row) {
                     return $row->createdBy?->name;
                 })
                 ->rawColumns(['document_status'])
@@ -432,12 +432,6 @@ class PiController extends Controller
                 ], 422);
             }
 
-
-            /*Pi Attachment*/
-            if ($request->hasFile('attachment')) {
-                $mediaFiles = $pi->uploadDocuments($request->file('attachment'), 'pi', false);
-            }
-
             $pi->save();
 
             /*Create document submit log*/
@@ -458,6 +452,12 @@ class PiController extends Controller
 
             $pi->save();
 
+            if ($request->hasFile('attachments')) {
+                foreach ($request->file('attachments') as $singleFile) {
+                    $mediaFiles = $pi->uploadDocuments($singleFile, 'pi', false);
+                }
+            }
+
             $redirectUrl = '';
             if ($pi->document_status == ConstantHelper::APPROVED) {
                 $redirectUrl = route('pi.generate-pdf', $pi->id);
@@ -474,7 +474,7 @@ class PiController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while creating the record.',
-                'error' => $e->getMessage(),
+                'error' => $e,
             ], 500);
         }
     }

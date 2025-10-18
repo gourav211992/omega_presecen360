@@ -9,6 +9,7 @@ use App\Models\ErpEinvoiceLog;
 use GuzzleHttp\Client;
 use Illuminate\Support\Facades\Cache;
 use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 
 class MasterIndiaService
@@ -77,7 +78,6 @@ class MasterIndiaService
             $requestHeader = array(
                 "Content-Type: application/json"
             );
-
             // Send the HTTP request and return the response as an associative array
             $response = $this->client->request('POST', $this->baseURL . $endpoint, [
                 'headers' => $requestHeader,
@@ -89,7 +89,43 @@ class MasterIndiaService
 
             if(!isset($result['access_token']))
             {
-                $errorMsg = "ERROR: Error in Master India Auth API: {$e->getMessage()}";
+                $errorMsg = "ERROR: Error in Master India Auth API";
+                return $this->returnResponse($errorMsg);
+            }
+
+            return $result['access_token'];
+
+        } catch (\Exception $e) {
+            $errorMsg = "ERROR: Master India Authentication failed: {$e->getMessage()}";
+            return $this->returnResponse($errorMsg);
+        }
+    }
+
+    public function getAuthTokenEInvoice(){
+        try{
+            $userData = array(
+                "username"=> config('app.masterindia.user_name'),
+                "password"=> config('app.masterindia.password'),
+                "client_id"=> config('app.masterindia.client_id'),
+                "client_secret"=> config('app.masterindia.client_secret'),
+                "grant_type"=> config('app.masterindia.grant_type')
+                );
+            $endpoint = 'oauth/access_token';
+            $requestHeader = array(
+                "Content-Type: application/json"
+            );
+            // Send the HTTP request and return the response as an associative array
+            $response = $this->client->request('POST', config('app.masterindia.e_invoice_base_url'). $endpoint, [
+                'headers' => $requestHeader,
+                'json' => $userData,
+            ]);
+
+            $result =  json_decode($response->getBody(), true);
+            $this->createApiLog($endpoint, 'POST', $userData, ConstantHelper::MASTERINDIA, $result); //Updating API response in eInvoice Log
+
+            if(!isset($result['access_token']))
+            {
+                $errorMsg = "ERROR: Error in Master India Auth API";
                 return $this->returnResponse($errorMsg);
             }
 
@@ -160,21 +196,20 @@ class MasterIndiaService
                 'headers' => $requestHeader,
                 'json' => [],
             ]);
-
         $result =  json_decode($response->getBody(), true);
         $this->createApiLog($endpoint, 'GET', $requestHeader, ConstantHelper::MASTERINDIA, $result);
         if(isset($result['results']))
         {
             $distance = [
                 "status" => "success",
-                "distance" => $result['results']['distance']
+                "distance" => Arr::get($result, 'results.distance') ?? 0
             ];
         }
         else
         {
             $distance = [
                 "status" => "error",
-                "distance" => $result['error_description']
+                "distance" => Arr::get($result, 'error_description') ?? 'Distance not available'
             ];
         }
         return $distance;
@@ -184,6 +219,30 @@ class MasterIndiaService
     {
         try {
             $endpoint = "cancelEinvoice";
+            $requestHeader = [
+                "Accept" => "application/json",
+                "Content-Type" => "application/json"
+            ];
+
+            $einvoiceBaseUrl = config('app.masterindia.e_invoice_base_url');
+            $response = $this->client->request('POST', $einvoiceBaseUrl . $endpoint, [
+                'headers' => $requestHeader,
+                'json' => $cancelData,
+            ]);
+            $result =  json_decode($response->getBody(), true);
+            $this->createApiLog($endpoint, 'POST', $cancelData, ConstantHelper::MASTERINDIA, $result);
+            return $result;
+
+        } catch (\Exception $e) {
+            $errorMsg = "ERROR: Invoice cancellation failed: " . $e->getMessage();
+            throw new \Exception($errorMsg);
+        }
+    }
+
+    public function cancelEwayBill(array $cancelData)
+    {
+        try {
+            $endpoint = "ewayBillCancel";
             $requestHeader = [
                 "Accept" => "application/json",
                 "Content-Type" => "application/json"

@@ -61,7 +61,9 @@ use App\Helpers\ConstantHelper;
 use App\Models\GateEntryHeader;
 use App\Models\ProductionRoute;
 use App\Helpers\InventoryHelper;
+use App\Models\ERP\ErpConsignee;
 use App\Helpers\CostCenterHelper;
+use App\Models\ErpProductionSlip;
 use App\Models\ErpSubStoreParent;
 use App\Models\JobOrder\JobOrder;
 use App\Models\TermsAndCondition;
@@ -79,7 +81,6 @@ use Illuminate\Console\Events\CommandStarting;
 use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use App\Helpers\SubStore\Constants as SubStoreConstants;
 use App\Helpers\PackingList\Constants as PackingListConstants;
-use App\Models\ErpProductionSlip;
 
 class AutocompleteController extends Controller
 {
@@ -2250,6 +2251,31 @@ class AutocompleteController extends Controller
                         ->limit(10)
                         ->get(['id', 'book_code']);
                 }
+            }else if ($type === 'report_jo_book') {
+                $service = Service::where('alias', ConstantHelper::JO_SERVICE_ALIAS) -> first();
+                $query = Book::where('service_id', $service ?-> id);
+                $results = $query->when($term, function ($q) use ($term) {
+                    return $q->where(function($query) use ($term) {
+                        $query->where('book_code', 'LIKE', "%$term%")
+                        ->orWhere('book_name', 'LIKE', "%$term%");
+                    });
+                }) -> get(['id', 'book_code']);
+                if ($results->isEmpty()) {
+                    $results = Book::where('service_id', $service ?-> id)
+                        ->limit(10)
+                        ->get(['id', 'book_code']);
+                }
+            }else if ($type === 'report_jo_documents') {
+                $query = JobOrder::query();
+                $results = $query->when($term, function ($q) use ($term) {
+                    return $q->where(function($query) use ($term) {
+                        $query->where('document_number', 'LIKE', "%$term%");
+                    });
+                }) -> get(['id', 'document_number']);
+                if ($results->isEmpty()) {
+                    $results = JobOrder::limit(10)
+                        ->get(['id', 'document_number']);
+                }
             }else if ($type === 'report_pslip_book') {
                 $service = Service::where('alias', ConstantHelper::PRODUCTION_SLIP_SERVICE_ALIAS) -> first();
 
@@ -2549,6 +2575,30 @@ class AutocompleteController extends Controller
                 $results = $query
                     ->limit(10)
                     ->get(['id', 'item_name', 'item_code', 'uom_id']);
+            }elseif ($type === 'consignee') {
+                $isVendor = $request->is_vendor;
+                $isCostumer = $request->is_customer;
+                $results = ErpConsignee::select('id', 'consignee_name', 'consignee_code')
+                    ->groupCheck($request->user())
+                    ->where('status', ConstantHelper::ACTIVE)
+                    ->when($isVendor, function ($termQuery) use ($isVendor) {
+                        $termQuery->where('is_vendor', $isVendor);
+                    })
+                    ->when($isCostumer, function ($termQuery) use ($isCostumer) {
+                        $termQuery->where('is_customer', $isCostumer);
+                    })
+                    ->when($term, function ($termQuery) use ($term) {
+                        $termQuery->where(function ($q) use ($term) {
+                            $q->where('consignee_name', 'LIKE', "%{$term}%")
+                              ->orWhere('consignee_code', 'LIKE', "%{$term}%")
+                              ->orWhere('email', 'LIKE', "%{$term}%")
+                              ->orWhere('phone', 'LIKE', "%{$term}%")
+                              ->orWhere('mobile', 'LIKE', "%{$term}%");
+                        });
+                    })
+                    ->with(['address'])
+                    ->limit(10)
+                    ->get();
             } else {
                 return response()->json(['error' => 'Invalid type specified'], 400);
             }

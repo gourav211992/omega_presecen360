@@ -198,20 +198,22 @@ class JobOrderService
     # Save Header Level Exp
     public static function saveHeaderLevelExpenses(array $expSummary, float $itemTotalValue, float $itemTotalDiscount, float $itemTotalHeaderDiscount, float $totalTax, int $jobOrderId): void
     {
-        $totalAfterTax = $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount + $totalTax;
         foreach ($expSummary as $exp) {
             if (!empty($exp['e_amnt'])) {
                 $ted = JobOrderTed::find($exp['e_id'] ?? null) ?? new JobOrderTed;
-                $ted->jo_id = $jobOrderId;
-                $ted->jo_product_id = null;
-                $ted->ted_type = 'Expense';
-                $ted->ted_level = 'H';
-                $ted->ted_id = $exp['ted_e_id'] ?? null;
-                $ted->ted_name = $exp['e_name'] ?? null;
-                $ted->assessment_amount = $totalAfterTax;
-                $ted->ted_perc = $exp['e_perc'] ?? 0.00;
-                $ted->ted_amount = $exp['e_amnt'] ?? 0.00;
-                $ted->applicable_type = 'Collection';
+                $ted->jo_id              =      $jobOrderId;
+                $ted->jo_product_id      =      null;
+                $ted->hsn_id             =      $exp['hsn_id'] ?? null;
+                $ted->ted_type           =      'Expense';
+                $ted->ted_level          =      'H';
+                $ted->ted_id             =      $exp['ted_e_id'] ?? null;
+                $ted->ted_name           =      $exp['e_name'] ?? null;
+                $ted->assessment_amount  =      $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount + $totalTax;
+                $ted->ted_amount         =      $exp['e_amnt'] ?? 0.00;
+                $ted->ted_perc           =      0.00;
+                $ted->tax_amount         =      $exp['tax_amount'] ?? 0.00;
+                $ted->tax_breakup        =      $exp['tax_breakup'] ?? null;
+                $ted->applicable_type    =      $exp['applicable_type'] ?? 'Collection';
                 $ted->save();
             }
         }

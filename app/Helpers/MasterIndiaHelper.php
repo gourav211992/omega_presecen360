@@ -74,6 +74,7 @@ class MasterIndiaHelper
     const CREDIT_NOTE_INVOICE_UNREG_TYPE = "CDNUR";
     const TRANPORTER_DOC_NO_MAX_LIMIT = 15;
     const EWAY_BILL_MIN_AMOUNT_LIMIT = 50000;
+    const DISTANCE_LIMIT = 4000;
 
         public static function getGstInvoiceType($partyId, $partyCountryId, $sellerCountryId, string $partyType = 'customer', $header = null): string|null
     {
@@ -159,7 +160,7 @@ class MasterIndiaHelper
         }
     }
 
-    public static function generateInvoice($documentHeader, $documentDetails, $user)
+    public static function generateInvoice($documentHeader, $documentDetails, $user, $generateEwb = true)
     {
         $organization = Organization::find($user->organization_id);
         $requestUid = 'GOV-EINVOICE-'.date('dmy').time();
@@ -175,14 +176,14 @@ class MasterIndiaHelper
         $authCredentials = [
             'gstin'        => $organization->gst_number ?? env('EINVOICE_GSTIN', ''),
         ];
-        $postData = self::prepareRequestPayload($documentHeader, $documentDetails, $authToken, $authCredentials, $user);
+        $postData = self::prepareRequestPayload($documentHeader, $documentDetails, $authToken, $authCredentials, $user, $generateEwb);
         $response = $masterIndiaService->generateInvoice($postData);
         return $response;
     }
 
-    private static function prepareRequestPayload($documentHeader, $documentDetails, $authToken, $authCredentials, $user)
+    private static function prepareRequestPayload($documentHeader, $documentDetails, $authToken, $authCredentials, $user, $generateEwb = true)
     {
-        $invoiceDtls = self::getInvoiceDetail($documentHeader, $documentDetails, $user, $authToken);
+        $invoiceDtls = self::getInvoiceDetail($documentHeader, $documentDetails, $user, $authToken, $generateEwb);
         $invoiceData = [
             "access_token" => $authToken,
             "user_gstin" => $authCredentials['gstin'],
@@ -219,13 +220,18 @@ class MasterIndiaHelper
     //     }
     // }
 
-    public static function cancelEInvoice($cancelData)
-    {
+    public static function cancelEInvoice($cancelData, $document) {
         $user = Helper::getAuthenticatedUser();
         $organization = Organization::find($user -> organization_id);
         $configurations = ErpEInvoiceConfiguration::where('group_id', $organization ?-> group_id)
             -> where('gst_number', $organization ?-> gst_number) -> first();
+            $requestUid = 'GOV-EINVOICE-'.date('dmy').time();
+        $masterIndiaService = new MasterIndiaService($requestUid);
         $authToken = $configurations ?-> client_access_token ?? null;
+        $appEnv = config('app.env');
+        if (strtolower($appEnv) !== 'production') {
+            $authToken = $masterIndiaService->getAuthTokenEInvoice();
+        }
         $cancelData = [
             "access_token" => $authToken,
             "user_gstin" => $cancelData['user_gstin'],
@@ -245,8 +251,89 @@ class MasterIndiaHelper
                         : ($response['results']['errorMessage'] ?? 'Unknown error'),
                 ];
             }
+            else {
+                $irnCancelDate = Arr::get($response, 'results.message.CancelDate');
+                $errorMessage = Arr::get($response, 'results.errorMessage');
+                if ($irnCancelDate) {
+                    $irnDetail = $document -> irnDetail;
+                    if ($irnDetail) {
+                        $irnDetail -> cancel_date = $irnCancelDate;
+                        $irnDetail -> cancel_reason = $cancelData['cancel_reason'];
+                        $irnDetail -> cancel_remarks = $cancelData['cancel_remarks'];
+                        $irnDetail -> save();
+                    } 
+                    return [
+                        'status'  => 'success',
+                        'message' => 'IRN cancelled successfully',
+                    ];
+                } else {
+                    return [
+                        'status'  => 'error',
+                        'message' => $errorMessage ?? "Cannot access Master India Service. Please check the credentials you're using and try again",
+                    ];
+                }
+                
+            }
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    public static function cancelEWayBill($cancelData, $document)
+    {
+        $user = Helper::getAuthenticatedUser();
+        $organization = Organization::find($user -> organization_id);
+        $configurations = ErpEInvoiceConfiguration::where('group_id', $organization ?-> group_id)
+            -> where('gst_number', $organization ?-> gst_number) -> first();
+            $requestUid = 'GOV-EINVOICE-'.date('dmy').time();
+        $masterIndiaService = new MasterIndiaService($requestUid);
+        $authToken = $configurations ?-> client_access_token ?? null;
+        $appEnv = config('app.env');
+        if (strtolower($appEnv) !== 'production') {
+            $authToken = $masterIndiaService->getAuthTokenEInvoice();
+        }
+        $cancelData = [
+            "access_token" => $authToken,
+            "userGstin" => $cancelData['user_gstin'],
+            "eway_bill_number" => $cancelData['eway_bill_number'],
+            "reason_of_cancel" => $cancelData['cancel_reason'],
+            "cancel_remark" => $cancelData['cancel_remarks'],
+            'data_source' => 'erp'
+        ];
+        $requestUid = 'GOV-EINVOICE-' . now()->format('dmyHis');
+        $masterIndiaService = new MasterIndiaService($requestUid);
+        try {
+            $response = $masterIndiaService->cancelEwayBill($cancelData);
+            if(isset($response['results']['status']) && $response['results']['status'] != 'Success'){
+                return [
+                    'status'  => 'error',
+                    'message' => !empty($response['results']['message'])
+                        ? $response['results']['message']
+                        : ($response['results']['errorMessage'] ?? 'Unknown error'),
+                ];
+            }
             else{
-                return $response;
+                $ewbCancelDate = Arr::get($response, 'results.message.cancelDate');
+                $errorMessage = is_string(Arr::get($response, 'results.message')) ? Arr::get($response, 'results.message') : null;
+                if ($ewbCancelDate) {
+                    $irnDetail = $document -> irnDetail;
+                    if ($irnDetail) {
+                        $irnDetail -> ewb_cancel_date = $ewbCancelDate;
+                        $irnDetail -> ewb_cancel_reason = $cancelData['cancel_reason'];
+                        $irnDetail -> ewb_cancel_remarks = $cancelData['cancel_remarks'];
+                        $irnDetail -> save();
+                    } 
+                    return [
+                        'status'  => 'success',
+                        'message' => 'E-Way Bill cancelled successfully',
+                    ];
+                } else {
+                    return [
+                        'status'  => 'error',
+                        'message' => $errorMessage ?? "Cannot access Master India Service. Please check the credentials you're using and try again",
+                    ];
+                }
+                
             }
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -546,7 +633,7 @@ class MasterIndiaHelper
         return $authCredentials;
     }
 
-    private static function getInvoiceDetail($documentHeader, $documentDetails, $user, $authToken)
+    private static function getInvoiceDetail($documentHeader, $documentDetails, $user, $authToken, $generateEwb = true)
     {
         $itemList = array();
         $result = array();
@@ -563,6 +650,10 @@ class MasterIndiaHelper
         $totalIGSTValue = 0.00;
         $documentNumber = $documentHeader->book_code .'-'. $documentHeader->document_number;
         if (strlen($documentNumber) >= 16) {
+            $documentNumber = $documentHeader->document_number;
+        }
+        $bookPattern = $documentHeader -> doc_number_type;
+        if ($bookPattern === 'Manually') {
             $documentNumber = $documentHeader->document_number;
         }
 
@@ -612,7 +703,7 @@ class MasterIndiaHelper
         ];
 
         $buyerDetails = (object) [
-            "gstin" => $documentHeader?->vendor->compliances->gstin_no,
+            "gstin" => $documentHeader?->vendor?->compliances?->gstin_no ?? $organization?->gst_number,
             "legal_name" => $documentHeader?->vendor?->company_name,
             "trade_name" => null,
             "address1" => substr($sellerBillingAddress?->address ?? '', 0, 90),
@@ -635,7 +726,7 @@ class MasterIndiaHelper
         ];
 
         $shipDetails = (object) [
-            "gstin" => $documentHeader?->vendor->compliances->gstin_no,
+            "gstin" => $documentHeader?->vendor?->compliances?->gstin_no ?? $organization?->gst_number,
             "legal_name" => $documentHeader?->vendor?->company_name,
             "trade_name" => null,
             "address1" => substr($sellerShippingAddress?->address ?? '', 0, 90),
@@ -644,6 +735,12 @@ class MasterIndiaHelper
             "pincode" => $sellerShippingAddress->pincode,
             "state_code" => $sellerShippingAddressStateCode->name,
         ];
+
+        $serviceInvoice = $documentHeader?->document_type === ConstantHelper::SERVICE_INV_SERVICE_ALIAS ? true : false;
+        if ($serviceInvoice) {
+            $dispatchDetails = null;
+            $shipDetails = null;
+        }
 
         $headerTotalValue = 0;
         $headerTotalAmount = 0;
@@ -681,10 +778,11 @@ class MasterIndiaHelper
             $totalSGSTValue += $val->sgst_value['value'];
             $totalIGSTValue += $val->igst_value['value'];
             $totalTaxValue = $totalCGSTValue + $totalIGSTValue + $totalSGSTValue;
+            $isService = $val?->item?->type === ConstantHelper::SERVICE ? 'Y' : 'N';
             $itemList[] = (object) [
                 "item_serial_number" => (string) $key,
 				"product_description" => $val?->item?->item_name,
-				"is_service" => "N",
+				"is_service" => $isService,
 				"hsn_code" => $val?->hsn_code,
 				"bar_code" => null,
 				"quantity" => round($orderQty,2),
@@ -761,25 +859,36 @@ class MasterIndiaHelper
         $expDtls = (object) [
             "ship_bill_number" => null,
             "ship_bill_date" => null,
-            "country_code" => null,
+            "country_code" => $sellerBillingAddress?->country?->code,
             "foreign_currency" => null,
             "refund_claim" => null,
             "port_code" => null,
             "export_duty" => null
         ];
 
-        $timezone = UtlilityHelper::getAuthUserTimezone($user);
+        if ($tranDetails -> supply_type === self::EXPORT_INVOICE_W_PAY_TYPE || $tranDetails -> supply_type === self::EXPORT_INVOICE_WO_PAY_TYPE) {
+            $buyerDetails -> country_code = $sellerBillingAddress?->country?->code;
+            $buyerDetails -> gstin = "URP";
+            $buyerDetails -> place_of_supply = 96;
+            $shipDetails -> state_code = $sellerStateCode->state_code;
+            $expDtls -> country_code = $sellerBillingAddress?->country?->code;
+            $expDtls -> refund_claim = $tranDetails -> supply_type === self::EXPORT_INVOICE_W_PAY_TYPE ? "Y" : "N";
+        }
 
-        $ewbDtls = (object) [
-            "transporter_id" => "",
-            "transporter_name" => $documentHeader->transportation_name,
-            "transportation_mode" => $documentHeader->transportation_mode,
-            'transportation_distance' => isset($distance['distance']) ? $distance['distance'] : 0,
-            "transporter_document_number" => "12345",
-            "transporter_document_date" => date('d/m/Y', strtotime($documentHeader->document_date)),
-            "vehicle_number" => $documentHeader->vehicle_no,
-            "vehicle_type" => "R"
-        ];
+        $timezone = UtlilityHelper::getAuthUserTimezone($user);
+        $ewbDtls = null;
+        if ($generateEwb) {
+            $ewbDtls = (object) [
+                "transporter_id" => "",
+                "transporter_name" => $documentHeader->transporter_name,
+                "transportation_mode" => $documentHeader->transportation_mode,
+                'transportation_distance' => isset($distance['distance']) ? min($distance['distance'], self::DISTANCE_LIMIT) : 0,
+                "transporter_document_number" => $documentHeader?->lr_number ?? "12345",
+                "transporter_document_date" => date('d/m/Y', strtotime($documentHeader->document_date)),
+                "vehicle_number" => $documentHeader->vehicle_no,
+                "vehicle_type" => "R"
+            ];
+        }
 
         $result = [
             'tranDetails' => $tranDetails,
@@ -885,12 +994,12 @@ class MasterIndiaHelper
         return $stateCode ? $stateCode : null;
     }
 
-    private  static function generateIrn($docId, $document, $documentType, $user) {
+    private  static function generateIrn($docId, $document, $documentType, $user, $generateEwb = true) {
         $condition = self::checkIfGstInShouldGenerate($document, $documentType);
         if($condition){
             $documentHeader = $document;
             $documentDetails = $document -> items;
-            $generateInvoice = MasterIndiaHelper::generateInvoice($documentHeader, $documentDetails, $user);
+            $generateInvoice = MasterIndiaHelper::generateInvoice($documentHeader, $documentDetails, $user, $generateEwb);
             if ((isset($generateInvoice['results']) && isset(['results']['message']) && isset(['results']['message']['alert'])) && !empty($generateInvoice['results']['message']['alert'])) {
                 return [
                         'results' => [
@@ -1001,20 +1110,20 @@ class MasterIndiaHelper
     {
         $serviceAlias = $document ?-> book ?-> service ?-> alias;
         if ($serviceAlias === ConstantHelper::PURCHASE_RETURN_SERVICE_ALIAS || $serviceAlias === ConstantHelper::SR_SERVICE_ALIAS ||
-        ($serviceAlias === ConstantHelper::SI_SERVICE_ALIAS) ||
-        ($serviceAlias === ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS && !$document -> invoice_required)) {
+        ($serviceAlias === ConstantHelper::SI_SERVICE_ALIAS) || ($serviceAlias === ConstantHelper::SERVICE_INV_SERVICE_ALIAS) ||
+        ($serviceAlias === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS)) {
             return true;
         } else {
             return false;
         }
     }
 
-    public static function saveGstIn(Model $document, $user)
+    public static function saveGstIn(Model $document, $user, $generateEwb = true)
     {
         $value = self::checkIfGstInShouldGenerate($document, null);
         if ($value) {
             // Generate Invoice
-            $generateInvoice = self::generateIrn($document -> id, $document, null, $user);
+            $generateInvoice = self::generateIrn($document -> id, $document, null, $user, $generateEwb);
             if(isset($generateInvoice['results']) && $generateInvoice['results']['status'] == "Error"){
                 return [
                     'status' => 'error',
@@ -1033,6 +1142,10 @@ class MasterIndiaHelper
         $configurations = ErpEInvoiceConfiguration::where('group_id', $organization ?-> group_id)
             -> where('gst_number', $organization ?-> gst_number) -> first();
         $authToken = $configurations ?-> client_access_token ?? null;
+        $appEnv = config('app.env');
+        if (strtolower($appEnv) != 'production') {
+            $authToken = (new MasterIndiaService('GOV-EINVOICE-'.date('dmy').time())) -> getAuthTokenEInvoice();
+        }
         $documentHeader = $document;
         $requestData = self::generateHeader($documentHeader, $authToken, $user);
         return $requestData;
@@ -1098,7 +1211,7 @@ class MasterIndiaHelper
 			'transporter_document_number' => $data['ewbDtls']->transporter_document_number,
 			'transporter_document_date' => $data['ewbDtls']->transporter_document_date,
 			'transportation_mode' => $data['ewbDtls']->transportation_mode,
-			'transportation_distance' => isset($distance['distance']) ? $distance['distance'] : 0,
+            'transportation_distance' => isset($distance['distance']) ? min($distance['distance'], self::DISTANCE_LIMIT) : 0,
 			'vehicle_number' => $data['ewbDtls']->vehicle_number,
 			'vehicle_type' => $data['ewbDtls']->vehicle_type,
 			'generate_status' => 1,
@@ -1181,7 +1294,7 @@ class MasterIndiaHelper
 
     public static function getDocType($header)
     {
-        if ($header instanceof \App\Models\ErpSaleInvoice) {
+        if ($header instanceof \App\Models\ErpSaleInvoice || $header instanceof \App\Models\ErpMaterialIssueHeader) {
            return 'INV';
         } else if ($header instanceof \App\Models\ErpSaleReturn) {
            return 'CRN';

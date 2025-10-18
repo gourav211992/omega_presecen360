@@ -314,26 +314,26 @@ class SaleModuleHelper
     public static function updateEInvoiceDataFromHelper(Model $document, bool $invoiceTypeField = true) : Model
     {
         //Update Organization Address
-        if ($invoiceTypeField) {
-            $organization = Organization::find($document -> organization_id);
-            $actualOrgAddress = $organization -> addresses ?-> first();
-            if (isset($actualOrgAddress)) {
-                $document->organization_address()->updateOrCreate(
-                    [
-                        'type' => 'organization'
-                    ],
-                    [
-                        'address' => $actualOrgAddress->address,
-                        'country_id' => $actualOrgAddress->country_id,
-                        'state_id' => $actualOrgAddress->state_id,
-                        'city_id' => $actualOrgAddress->city_id,
-                        'pincode' => $actualOrgAddress->pincode,
-                        'phone' => $actualOrgAddress->phone,
-                        'fax_number' => $actualOrgAddress->fax_number
-                    ]
-                );
-            }
-        }
+        // if ($invoiceTypeField) {
+        //     $organization = Organization::find($document -> organization_id);
+        //     $actualOrgAddress = $organization -> addresses ?-> first();
+        //     if (isset($actualOrgAddress)) {
+        //         $document->organization_address()->updateOrCreate(
+        //             [
+        //                 'type' => 'organization'
+        //             ],
+        //             [
+        //                 'address' => $actualOrgAddress->address,
+        //                 'country_id' => $actualOrgAddress->country_id,
+        //                 'state_id' => $actualOrgAddress->state_id,
+        //                 'city_id' => $actualOrgAddress->city_id,
+        //                 'pincode' => $actualOrgAddress->pincode,
+        //                 'phone' => $actualOrgAddress->phone,
+        //                 'fax_number' => $actualOrgAddress->fax_number
+        //             ]
+        //         );
+        //     }
+        // }
         
         //Update Store Address
         $store = ErpStore::find($document -> store_id);
@@ -400,7 +400,7 @@ class SaleModuleHelper
         if ($invoiceTypeField) {
             //Update GST Invoice
             $document -> gst_invoice_type = EInvoiceHelper::getGstInvoiceType($document -> customer_id, 
-            $document ?-> shipping_address_details ?-> country_id, $document ?-> location_address_details ?-> country_id);
+            $document ?-> shipping_address_details ?-> country_id, $document ?-> location_address_details ?-> country_id, 'customer', $document);
         }
         
         //Save
@@ -577,64 +577,49 @@ class SaleModuleHelper
         ErpInvoicePaymentTerm::where('invoice_header_id', $invoiceHeaderId) -> whereNotIn('id', $soPaymentTermIds) -> delete();
     }
 
-    public static function buildCustomerSaleInvoiceSummary(ErpSaleInvoice $saleInvoice, ErpFinancialYear $fyYear, ErpSaleInvoiceHistory|null $oldSaleInvoice = null)
+    public static function showCancelEInvoiceButton(ErpSaleInvoice $saleInvoice)
     {
-        //Only run for approved documents and SI, SI-DNOTE
-        $requiredStatuses = [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::POSTED];
-        $requiredDocumentTypes = [ConstantHelper::SI_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS];
-        if (!in_array($saleInvoice -> document_status, $requiredStatuses) || !in_array($saleInvoice -> document_type, $requiredDocumentTypes)) {
-            return;
+        $irnDetail = $saleInvoice->irnDetail()->first();
+        if (!$irnDetail) {
+            return false;
         }
-        //Create or update the summary
-        $customerSaleSummary = ErpCustomerSaleSummary::firstOrCreate([
-            'group_id' => $saleInvoice -> group_id,
-            'company_id' => $saleInvoice -> company_id,
-            'organization_id' => $saleInvoice -> organization_id,
-            'customer_id' => $saleInvoice -> customer_id,
-            'fy_id' => $fyYear -> id,
-            'currency_id' => $saleInvoice -> org_currency_id
-        ]);
-        $customerSaleSummary -> fy_code = $fyYear -> alias;
-        //Default to current invoice value to be incremented
-        $newInvoiceValue = $saleInvoice -> total_item_value - $saleInvoice -> total_discount_value;
-        $incrementInvoiceValue = $newInvoiceValue;
-        //Update - Amend
-        if ($oldSaleInvoice) {
-            //Keep the difference
-            $oldSaleInvoice = $oldSaleInvoice -> total_item_value - $oldSaleInvoice -> total_discount_value;
-            $incrementInvoiceValue = $newInvoiceValue - $oldSaleInvoice;
+        if (!$irnDetail->irn_number) {
+            return false;
         }
-        //Increment the value or difference
-        $customerSaleSummary -> increment('total_invoice_value', $incrementInvoiceValue);
+        if ($irnDetail -> cancel_date) {
+            return false;
+        }
+        // $timeDiff = Carbon::parse($irnDetail->created_at) -> diffInHours(Carbon::now());
+        // if ($timeDiff >= 26) {
+        //     return false;
+        // }
+        $voucher = $saleInvoice->voucher;
+        if ($voucher) {
+            return false;
+        }
+        return true;
     }
 
-    public static function buildCustomerSaleReturnSummary(ErpSaleReturn $saleInvoice, ErpFinancialYear $fyYear, ErpSaleReturnHistory|null $oldSaleInvoice = null)
+    public static function showCancelEWayBillButton(ErpSaleInvoice $saleInvoice)
     {
-        //Only run for approved documents and SI, SI-DNOTE
-        $requiredStatuses = [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::POSTED];
-        if (!in_array($saleInvoice -> document_status, $requiredStatuses)) {
-            return;
+        $irnDetail = $saleInvoice->irnDetail()->first();
+        if (!$irnDetail) {
+            return false;
         }
-        //Create or update the summary
-        $customerSaleSummary = ErpCustomerSaleSummary::firstOrCreate([
-            'group_id' => $saleInvoice -> group_id,
-            'company_id' => $saleInvoice -> company_id,
-            'organization_id' => $saleInvoice -> organization_id,
-            'customer_id' => $saleInvoice -> customer_id,
-            'fy_id' => $fyYear -> id,
-            'currency_id' => $saleInvoice -> org_currency_id
-        ]);
-        $customerSaleSummary -> fy_code = $fyYear -> alias;
-        //Default to current invoice value to be incremented
-        $newInvoiceValue = $saleInvoice -> total_item_value - $saleInvoice -> total_discount_value;
-        $incrementInvoiceValue = $newInvoiceValue;
-        //Update - Amend
-        if ($oldSaleInvoice) {
-            //Keep the difference
-            $oldSaleInvoice = $oldSaleInvoice -> total_item_value - $oldSaleInvoice -> total_discount_value;
-            $incrementInvoiceValue = $newInvoiceValue - $oldSaleInvoice;
+        if (!$irnDetail->ewb_no) {
+            return false;
         }
-        //Increment the value or difference
-        $customerSaleSummary -> increment('total_return_value', $incrementInvoiceValue);
+        if ($irnDetail -> ewb_cancel_date) {
+            return false;
+        }
+        // $timeDiff = Carbon::parse($irnDetail->ewb_date) -> diffInHours(Carbon::now());
+        // if ($timeDiff >= 26) {
+        //     return false;
+        // }
+        $voucher = $saleInvoice->voucher;
+        if ($voucher) {
+            return false;
+        }
+        return true;
     }
 }

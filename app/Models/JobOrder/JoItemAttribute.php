@@ -6,12 +6,14 @@ use App\Models\AttributeGroup;
 use App\Models\Item;
 use App\Models\ItemAttribute;
 use App\Models\Attribute;
+use App\Traits\UserStampTrait;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class JoItemAttribute extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes, UserStampTrait;
     protected $table = 'erp_jo_item_attributes';
     protected $fillable = [
         'jo_id',
@@ -38,10 +40,10 @@ class JoItemAttribute extends Model
     }
     public function headerAttribute()
     {
-        return $this->hasOne(AttributeGroup::class,'id' ,'attribute_name');
+        return $this->hasOne(AttributeGroup::class, 'id', 'attribute_name');
     }
     public function headerAttributeValue()
     {
-        return $this->hasOne(Attribute::class,'id','attribute_value');
+        return $this->hasOne(Attribute::class, 'id', 'attribute_value');
     }
 }

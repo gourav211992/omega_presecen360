@@ -4,12 +4,14 @@ namespace App\Models\JobOrder;
 
 use App\Models\Item;
 use App\Models\StockLedger;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Traits\UserStampTrait;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class JoBomMapping extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes, UserStampTrait;
     protected $table = 'erp_jo_bom_mapping';
     protected $fillable = [
         'jo_id',
@@ -28,16 +30,17 @@ class JoBomMapping extends Model
         'section_id',
         'sub_section_id'
     ];
+
     protected $casts = ['attributes' => 'array'];
 
     public function jo()
     {
-        return $this->belongsTo(JobOrder::class,'jo_id');
+        return $this->belongsTo(JobOrder::class, 'jo_id');
     }
 
     public function joProduct()
     {
-        return $this->belongsTo(JoProduct::class,'jo_product_id');
+        return $this->belongsTo(JoProduct::class, 'jo_product_id');
     }
 
     public function stockMappings()
@@ -48,5 +51,4 @@ class JoBomMapping extends Model
     {
         return $this->belongsTo(Item::class, 'item_id');
     }
-
 }

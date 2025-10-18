@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Sales\CustomerConsigneeController;
+use App\Http\Controllers\Sales\EInvoiceController;
 use App\Http\Controllers\Sales\SalesAutoCompleteController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,6 +21,8 @@ Route::group(['middleware' => ['user.auth']], function () {
      Route::get('/auto-complete/customer-consignee', [SalesAutoCompleteController::class, 'customerConsigneeList'])->name('autoComplete.customer.consignee');
      Route::get('/auto-complete/transporters', [SalesAutoCompleteController::class, 'transporterList'])->name('autoComplete.transporters');
      Route::get('/customer-consignee/addresses/{id}', [CustomerConsigneeController::class, 'getCustomerConsigneeAddresses'])->name('customer.consignee.addresses');
+     Route::post('/cancel-e-invoice', [EInvoiceController::class, 'cancelEInvoice'])->name('cancel.e-invoice');
+     Route::post('/cancel-ewb', [EInvoiceController::class, 'cancelEWayBill'])->name('cancel.ewb');
 });
 
 

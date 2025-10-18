@@ -97,7 +97,7 @@
                                                     ];
                                                 } elseif ($order->document_type == "dnote") {
                                                     $options = ['Delivery Note'];
-                                                } elseif ($order->document_type == 'sinv') {
+                                                } elseif ($order->document_type == 'si-dnote' || $order->document_type == 'sinv') {
                                                     $options = [
                                                         'Tax Invoice',
                                                         'Original',
@@ -153,20 +153,23 @@
                                         </ul>
                                     </div>
                                 @endif
-                                @if(isset($einvoice) && !$einvoice->ewb_no && $order -> total_amount > 50000)
+                                @if($enableEwayBill)
+                                @if((isset($einvoice) && !$einvoice->ewb_no) || (isset($order) && $order -> document_status != App\Helpers\ConstantHelper::DRAFT && $order -> document_status != App\Helpers\ConstantHelper::SUBMITTED) && !isset($einvoice))
+                                    @if(isset($einvoice) && !$einvoice->cancel_date)
                                     <a type="button" class="btn btn-primary btn-sm" id="eWayBillBtn" href="#" onclick = "generateEwayBill();">
                                         <i data-feather="check-circle"></i> Generate Eway Bill
                                     </a>
-                                @endif
-                                @if((isset($einvoice) && !$einvoice->ewb_no) || (isset($order) && $order -> document_type == App\Helpers\ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS && $order -> document_status != App\Helpers\ConstantHelper::DRAFT && $order -> document_status != App\Helpers\ConstantHelper::SUBMITTED) && !isset($einvoice))
+                                    @elseif(!isset($einvoice))
                                     <a type="button" class="btn btn-primary btn-sm" id="eWayBillBtn" href="#" onclick = "generateEwayBill();">
                                         <i data-feather="check-circle"></i> Generate Eway Bill
                                     </a>
+                                    @endif
                                 @endif
-                                @if((isset($order) && $order -> document_type == App\Helpers\ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS && $order -> document_status != App\Helpers\ConstantHelper::DRAFT && $order -> document_status != App\Helpers\ConstantHelper::SUBMITTED) && !isset($einvoice))
+                                @if((isset($order) && $order -> document_status != App\Helpers\ConstantHelper::DRAFT && $order -> document_status != App\Helpers\ConstantHelper::SUBMITTED) && !isset($einvoice))
                                     <a type="button" class="btn btn-warning btn-sm" id="eWayBillBtnManual" href="#" onclick = "openGenerateEwayBillPopup({{ $order -> id }});">
                                         <i data-feather="check-circle"></i> Update EWB
                                     </a>
+                                @endif
                                 @endif
                                 @if($order->document_status != App\Helpers\ConstantHelper::DRAFT)
 
@@ -209,6 +212,29 @@
                                     <i data-feather="check-circle"></i> Generate E-Invoice
                                 </a>
                                 @endif
+                                @if($cancelEInvoice || $cancelEWayBill)
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-danger btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <i data-feather="x-circle"></i> Cancel
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            @if($cancelEInvoice)
+                                                <li>
+                                                    <a class="dropdown-item" href="javascript:void(0)" onclick="openCancelEInvoiceModal({{ $order->id }})">
+                                                        <i data-feather="file-text" class="me-2"></i> Cancel E-Invoice
+                                                    </a>
+                                                </li>
+                                            @endif
+                                            @if($cancelEWayBill)
+                                                <li>
+                                                    <a class="dropdown-item" href="javascript:void(0)" onclick="openCancelEWayBillModal({{ $order->id }})">
+                                                        <i data-feather="truck" class="me-2"></i> Cancel E-Way Bill
+                                                    </a>
+                                                </li>
+                                            @endif
+                                        </ul>
+                                    </div>
+                                    @endif
 
                             @else
                                 <button type = "button" name="action" value="draft" id = "save-draft-button" onclick = "submitForm('draft');" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0"><i data-feather='save'></i> Save as Draft</button>
@@ -348,7 +374,7 @@
                                                                 <label class="form-label">{{ $einvoice->irn_number }}</label>
                                                                 </div>
                                                             </div>
-                                                            <div class="row align-items-center mb-1 lease-hidden">
+                                                            <div class="row align-items-center lease-hidden">
                                                                 <div class="col-md-3">
                                                                     <label class="form-label">Acknowledgement No.</label>
                                                                 </div>
@@ -357,6 +383,17 @@
                                                                 <label class="form-label">{{ $einvoice->ack_no }}</label>
                                                                 </div>
                                                             </div>
+                                                            @if ($einvoice -> cancel_date)
+                                                                <div class="row align-items-center mb-1 lease-hidden">
+                                                                    <div class="col-md-3">
+                                                                        <label class="form-label">IRN Cancelled on</label>
+                                                                    </div>
+
+                                                                    <div class="col-md-5">
+                                                                    <label class="form-label">{{ Carbon\Carbon::parse($einvoice->cancel_date) -> format('d-m-Y h:i A') ?? '' }}</label>
+                                                                    </div>
+                                                                </div>
+                                                            @endif
                                                         @endif
 
                                                     <div class="row align-items-center mb-1" id = "selection_section" style = "display:none;">
@@ -2788,6 +2825,8 @@
       </div>
    </div>
 </div>
+@include('salesInvoice.popups.cancelEInvoice');
+@include('salesInvoice.popups.cancelEwayBill');
 
 
 
@@ -5663,6 +5702,7 @@ function initializeAutocompleteTed(selector, idSelector, type, percentageVal) {
                 transporter_mode : $("#transporter_mode_input").val(),
                 transporter_name : $("#transporter_name_input").val(),
                 vehicle_no : $("#vehicle_no_input").val(),
+                doc_type : $("#service_id_input").val()
             },
             success: function(data) {
                 document.getElementById('erp-overlay-loader').style.display = "none";
@@ -6050,6 +6090,18 @@ function initializeAutocompleteTed(selector, idSelector, type, percentageVal) {
     {
         $("#manual_ewb_dn_id").val(saleInvoiceId);
         openModal('manualEwayBill');
+    }
+
+    function openCancelEInvoiceModal(invoiceId)
+    {
+        $("#canceEInvoiceModal").modal('show');
+        $("#si_cancel_invoice_id").val(invoiceId);
+    }
+
+    function openCancelEWayBillModal(invoiceId)
+    {
+        $("#canceEWayBillModal").modal('show');
+        $("#si_cancel_ewb_id").val(invoiceId);
     }
 
     const debouncedGetOrders = debounce(getOrders, 600);

@@ -72,14 +72,14 @@
     </td>
 
     {{-- Rate --}}
-    <td>
+    {{-- <td>
         <input type="number" step="any" class="form-control text-end mw-100" name="components[{{ $rowCount }}][rate]" value="{{ $item->rate ?? '' }}" readonly>
-    </td>
+    </td> --}}
 
     {{-- Total Cost --}}
-    <td>
+    {{-- <td>
         <input type="number" {{ @$createEditReadonly }} step="any" class="form-control text-end mw-100" name="components[{{ $rowCount }}][total_cost]" value="{{ $item->total_cost ?? '' }}">
-    </td>
+    </td> --}}
 
     {{-- Cost Center --}}
     <td>

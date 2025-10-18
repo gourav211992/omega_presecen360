@@ -3,8 +3,6 @@ $(document).on("click", ".summaryTaxBtn", (e) => {
     getTaxSummary();
 });
 
-
-
 /*Approve modal*/
 $(document).on("click", "#approved-button", (e) => {
     let actionType = "approve";
@@ -411,7 +409,7 @@ function setTableCalculation() {
     /*Bind Tax*/
     const taxPromises = [];
     let isTax = $("#tax_required").val().trim().toLowerCase() === "yes";
-    let poId = $('#po_id').val(); // get the hidden input's value directly
+    let poId = $("#po_id").val(); // get the hidden input's value directly
     $("#itemTable [id*='row_']").each(function (index, item3) {
         let rowCount3 = Number($(item3).attr("data-index"));
         let qty3 = $(item3).find("[name*='[qty]']").val() || 0;
@@ -423,7 +421,8 @@ function setTableCalculation() {
             Number($(item3).find("[name*='[discount_amount_header]']").val()) ||
             0;
         let itemId = $(item3).find('[name*="[item_id]"]').val();
-        let poItemId = Number($(item3).find(".form-check-input").attr("data-id")) || '';
+        let poItemId =
+            Number($(item3).find(".form-check-input").attr("data-id")) || "";
 
         let price = itemValue3 - itemDisc3 - itemHeaderDisc;
         if (price > 0 && itemId) {
@@ -433,7 +432,7 @@ function setTableCalculation() {
                 let partyStateId = $("#hidden_state_id").val();
                 let locationId = $("[name='store_id']").val();
                 let document_date = $("[name='document_date']").val();
-                let document_status = $("[name='document_status']").val() || '';
+                let document_status = $("[name='document_status']").val() || "";
                 // Construct the query parameters
                 let queryParams = new URLSearchParams({
                     price: price,
@@ -703,6 +702,7 @@ function setTableCalculation() {
             }
         });
     });
+
     updateTotalAfterExchangeRate();
 }
 
@@ -1234,51 +1234,59 @@ function checkComponentRowExist() {
 // }
 
 function initVendorAutocomplete(context = document) {
-    $(context).find('.vendor-select').each(function() {
-        const $input = $(this);
-        const ajaxUrl = $input.data('ajax-url');
-        const hiddenName = $input.data('hidden-name');
-        const $hiddenInput = $input.siblings(`input[name='${hiddenName}']`);
+    $(context)
+        .find(".vendor-select")
+        .each(function () {
+            const $input = $(this);
+            const ajaxUrl = $input.data("ajax-url");
+            const hiddenName = $input.data("hidden-name");
+            const $hiddenInput = $input.siblings(`input[name='${hiddenName}']`);
 
-        if (!ajaxUrl || ajaxUrl === '#') return;
+            if (!ajaxUrl || ajaxUrl === "#") return;
 
-        if ($input.data('ui-autocomplete')) {
-            $input.autocomplete('destroy');
-        }
-
-        $input.autocomplete({
-            source: function(request, response) {
-                $.ajax({
-                    url: ajaxUrl,
-                    dataType: 'json',
-                    data: {
-                        term: request.term
-                    },
-                    success: function(data) {
-                        response(data);
-                    },
-                    error: function(xhr) {
-                        console.error('Vendor autocomplete failed:', xhr);
-                    }
-                });
-            },
-            minLength: 1,
-            select: function(event, ui) {
-                $input.val(ui.item.label);
-                $hiddenInput.val(ui.item.id);
-                return false;
-            },
-            focus: function(event, ui) {
-                $input.val(ui.item.label);
-                return false;
+            if ($input.data("ui-autocomplete")) {
+                $input.autocomplete("destroy");
             }
+
+            $input.autocomplete({
+                source: function (request, response) {
+                    $.ajax({
+                        url: ajaxUrl,
+                        dataType: "json",
+                        data: { term: request.term },
+                        success: function (data) {
+                            response(data);
+                        },
+                        error: function (xhr) {
+                            console.error("Vendor autocomplete failed:", xhr);
+                        },
+                    });
+                },
+                minLength: 0,
+                select: function (event, ui) {
+                    $input.val(ui.item.label);
+                    $hiddenInput.val(ui.item.id);
+                    return false;
+                },
+                focus: function () {
+                    return false;
+                },
+                open: function () {
+                    $(".ui-autocomplete").css("z-index", 9999);
+                },
+            });
+
+            $input
+                .off("focus click.autoload")
+                .on("focus click.autoload", function () {
+                    $input.autocomplete("search", $input.val() || "");
+                });
         });
-    });
 }
 
-$(document).ready(function() {
+$(document).ready(function () {
     initVendorAutocomplete();
-    $(document).on('draw.dt', function(e, settings) {
+    $(document).on("draw.dt", function () {
         initVendorAutocomplete();
     });
 });

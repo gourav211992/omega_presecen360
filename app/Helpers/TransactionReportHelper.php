@@ -2,19 +2,20 @@
 
 namespace App\Helpers;
 
-use App\Helpers\TransactionReport\expenseReportHelper;
 use App\Helpers\TransactionReport\geReportHelper;
-use App\Helpers\TransactionReport\mrnReportHelper;
+use App\Helpers\TransactionReport\JoReportHelper;
+use App\Helpers\TransactionReport\moReportHelper;
 use App\Helpers\TransactionReport\pbReportHelper;
+use App\Helpers\TransactionReport\plReportHelper;
 use App\Helpers\TransactionReport\pqReportHelper;
 use App\Helpers\TransactionReport\prReportHelper;
-use App\Helpers\TransactionReport\plReportHelper;
-use App\Helpers\TransactionReport\bomReportHelper;
-use App\Helpers\TransactionReport\pslipReportHelper;
-use App\Helpers\TransactionReport\pwoReportHelper;
-use App\Helpers\TransactionReport\moReportHelper;
-use App\Helpers\TransactionReport\rfqReportHelper;
 use App\Helpers\TransactionReport\rcReportHelper;
+use App\Helpers\TransactionReport\bomReportHelper;
+use App\Helpers\TransactionReport\mrnReportHelper;
+use App\Helpers\TransactionReport\pwoReportHelper;
+use App\Helpers\TransactionReport\rfqReportHelper;
+use App\Helpers\TransactionReport\pslipReportHelper;
+use App\Helpers\TransactionReport\expenseReportHelper;
 
 class TransactionReportHelper
 {
@@ -37,6 +38,7 @@ class TransactionReportHelper
         ConstantHelper::PSV_SERVICE_ALIAS => 'psv.report',
         ConstantHelper::PO_SERVICE_ALIAS => 'po.report,{"type":"purchase-order"}',
         ConstantHelper::PI_SERVICE_ALIAS => 'pi.report',
+        ConstantHelper::JO_SERVICE_ALIAS => 'jo.report',
         ConstantHelper::PL_SERVICE_ALIAS => 'PL.report',
         ConstantHelper::MO_SERVICE_ALIAS => 'mo.report',
         ConstantHelper::BOM_SERVICE_ALIAS => 'bill.of.material.report',
@@ -54,6 +56,7 @@ class TransactionReportHelper
         ConstantHelper::PSV_SERVICE_ALIAS => 'psv.index',
         ConstantHelper::PO_SERVICE_ALIAS => 'po.index',
         ConstantHelper::PI_SERVICE_ALIAS => 'pi.index',
+        ConstantHelper::JO_SERVICE_ALIAS => 'jo.index',
         ConstantHelper::PL_SERVICE_ALIAS => 'PL.index',
         ConstantHelper::MO_SERVICE_ALIAS => 'mo.index',
         ConstantHelper::BOM_SERVICE_ALIAS => 'bom.index',
@@ -3400,6 +3403,7 @@ class TransactionReportHelper
         ConstantHelper::PURCHASE_RETURN_SERVICE_ALIAS => prReportHelper::PR_FILTERS,
         ConstantHelper::PSV_SERVICE_ALIAS => self::PSV_FILTERS,
         ConstantHelper::PO_SERVICE_ALIAS => self::PO_FILTERS,
+        ConstantHelper::JO_SERVICE_ALIAS => JoReportHelper::REPORT_FILTERS,
         ConstantHelper::PI_SERVICE_ALIAS => self::PI_FILTERS,
         ConstantHelper::PL_SERVICE_ALIAS => plReportHelper::PL_FILTERS,
         ConstantHelper::MO_SERVICE_ALIAS => moReportHelper::MO_FILTERS,
@@ -3429,6 +3433,7 @@ class TransactionReportHelper
             ConstantHelper::PURCHASE_RETURN_SERVICE_ALIAS => prReportHelper::PR_TABLE_HEADERS,
             ConstantHelper::PSV_SERVICE_ALIAS => self::PSV_TABLE_HEADERS,
             ConstantHelper::PO_SERVICE_ALIAS => self::PO_TABLE_HEADERS,
+            ConstantHelper::JO_SERVICE_ALIAS => JoReportHelper::REPORT_TABLE_HEADERS,
             ConstantHelper::PI_SERVICE_ALIAS => self::PI_TABLE_HEADERS,
             ConstantHelper::PL_SERVICE_ALIAS => plReportHelper::PL_TABLE_HEADERS,
             ConstantHelper::MO_SERVICE_ALIAS => moReportHelper::MO_TABLE_HEADERS,
@@ -3437,7 +3442,7 @@ class TransactionReportHelper
             ConstantHelper::BOM_SERVICE_ALIAS => bomReportHelper::getBomTableHeaders('bill-of-material'),
             ConstantHelper::RFQ_SERVICE_ALIAS => rfqReportHelper::RFQ_TABLE_HEADERS,
             ConstantHelper::PQ_SERVICE_ALIAS => pqReportHelper::PQ_TABLE_HEADERS,
-            ConstantHelper::RC_SERVICE_ALIAS => rcReportHelper::RC_TABLE_HEADERS, 
+            ConstantHelper::RC_SERVICE_ALIAS => rcReportHelper::RC_TABLE_HEADERS,
         ];
     }
     const DYNAMIC_FIELDS_SEPERATION_INDEX = [

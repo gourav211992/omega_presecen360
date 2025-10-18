@@ -871,7 +871,13 @@
                             .data.itemAttributeArray));
                         if (data.data.attr) {
                             $("#attribute").modal('show');
-                            $(".select2").select2();
+                            $('#attribute').on('shown.bs.modal', function() {
+                                $("#attribute .select2").select2({
+                                    dropdownParent: $("#attribute"),
+                                    searchInputPlaceholder: 'Search'
+                                });
+                                feather.replace();
+                            });
                         }
                         qtyEnabledDisabled();
                     }
@@ -1770,8 +1776,8 @@
                         </td>
                         <td>
                             ${typeof soTrackingRequired !== 'undefined' && soTrackingRequired ? `
-                                                                                                                                                                <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />
-                                                                                                                                                            ` : ''}
+                                                                                                                                                                    <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />
+                                                                                                                                                                ` : ''}
                         </td>
                         <td>
                             <input type="text" name="components[${index}][remark]" class="form-control mw-100 mb-25" value="${remarks}"/>

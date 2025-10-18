@@ -364,6 +364,12 @@ class PurchaseOrder extends Model
     {
         return $this->belongsTo(AuthUser::class, 'created_by', 'id');
     }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(AuthUser::class, 'updated_by', 'id');
+    }
+
     public function department()
     {
         return $this->belongsTo(Department::class);

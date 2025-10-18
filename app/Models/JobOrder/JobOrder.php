@@ -2,32 +2,34 @@
 
 namespace App\Models\JobOrder;
 
-use App\Helpers\ConstantHelper;
+use App\Models\Book;
+use App\Models\Vendor;
 use App\Helpers\Helper;
 use App\Models\AuthUser;
-use App\Models\Book;
 use App\Models\Currency;
+use App\Models\ErpStore;
+use App\Models\VendorAsn;
 use App\Models\Department;
 use App\Models\ErpAddress;
-use App\Models\ErpPoDynamicField;
-use App\Models\ErpStore;
-use App\Models\GateEntryHeader;
-use App\Models\JobOrder\JoTerm;
-use App\Models\Organization;
 use App\Models\PaymentTerm;
 use App\Models\PiPoMapping;
-use App\Models\Vendor;
-use App\Models\VendorAsn;
+use App\Models\Organization;
+use App\Traits\UserStampTrait;
+use App\Helpers\ConstantHelper;
+use App\Models\GateEntryHeader;
+use App\Models\JobOrder\JoTerm;
 use App\Traits\DateFormatTrait;
-use App\Traits\DefaultGroupCompanyOrg;
-use App\Traits\DynamicFieldsTrait;
 use App\Traits\FileUploadTrait;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Models\ErpPoDynamicField;
+use App\Traits\DynamicFieldsTrait;
+use App\Traits\DefaultGroupCompanyOrg;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class JobOrder extends Model
 {
-    use HasFactory, DateFormatTrait, DynamicFieldsTrait, FileUploadTrait, DefaultGroupCompanyOrg;
+    use HasFactory, DateFormatTrait, DynamicFieldsTrait, FileUploadTrait, DefaultGroupCompanyOrg, UserStampTrait, SoftDeletes;
     protected $table = 'erp_job_orders';
     protected $fillable = [
         'job_order_type',
@@ -72,28 +74,6 @@ class JobOrder extends Model
         'supp_invoice_required',
         'partial_delivery'
     ];
-    public static function boot()
-    {
-        parent::boot();
-        static::creating(function ($model) {
-            $user = Helper::getAuthenticatedUser();
-            if ($user) {
-                $model->created_by = $user->auth_user_id;
-            }
-        });
-        static::updating(function ($model) {
-            $user = Helper::getAuthenticatedUser();
-            if ($user) {
-                $model->updated_by = $user->auth_user_id;
-            }
-        });
-        static::deleting(function ($model) {
-            $user = Helper::getAuthenticatedUser();
-            if ($user) {
-                $model->deleted_by = $user->auth_user_id;
-            }
-        });
-    }
 
     public $referencingRelationships = [
         'vendor' => 'vendor_id',
@@ -104,6 +84,7 @@ class JobOrder extends Model
         'org_currency' => 'org_currency_id',
         'comp_currency' => 'comp_currency_id',
     ];
+
     public function getSoIdAttribute()
     {
         return $this->joProducts
@@ -113,6 +94,12 @@ class JobOrder extends Model
             ->values()
             ->toArray();
     }
+
+    public function source()
+    {
+        return $this->hasOne(JobOrderHistory::class, 'source_id');
+    }
+
     public function organization()
     {
         return $this->belongsTo(Organization::class, 'organization_id', 'id');

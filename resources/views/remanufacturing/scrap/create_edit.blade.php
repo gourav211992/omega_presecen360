@@ -357,8 +357,8 @@
                                                                         <th>Attributes</th>
                                                                         <th>UOM</th>
                                                                         <th>Qty</th>
-                                                                        <th>Rate</th>
-                                                                        <th>Total Cost</th>
+                                                                        {{-- <th>Rate</th>
+                                                                        <th>Total Cost</th> --}}
                                                                         <th>Cost Center</th>
                                                                         <th>Remark</th>
                                                                     </tr>

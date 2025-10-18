@@ -20,10 +20,10 @@
                 </div>
                 <div class="content-header-right text-sm-end col-md-7 mb-50 mb-sm-0">
                     <div class="form-group breadcrumb-right">
-                        <button class="btn btn-warning btn-sm mb-50 mb-sm-0" data-bs-target="#filter" data-bs-toggle="modal"><i data-feather="filter"></i> Filter</button>
+                        <button class="btn btn-warning btn-sm mb-50 mb-sm-0" onclick ='openFiltersModal();'><i data-feather="filter"></i> Filter</button>
                         @if (count($servicesBooks['services']))
                             <a class="btn btn-primary btn-sm mb-50 mb-sm-0" href="{{ route('jo.create') }}"><i data-feather="plus-circle"></i> Create JO</a>
-                            <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('transactions.report', ['serviceAlias' => 'job-order']) }}"><i data-feather="bar-chart-2"></i>Report</a>
+                            <a class="btn btn-dark btn-sm mb-50 mb-sm-0" href="{{ route('transactions.report', ['serviceAlias' => 'jo']) }}"><i data-feather="bar-chart-2"></i>Report</a>
                         @endif
                     </div>
                 </div>
@@ -68,6 +68,7 @@
 @section('scripts')
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
     <script>
+        let reportDataTableInstance = null;
         $(document).ready(function() {
             function renderData(data) {
                 return data ? data : '';
@@ -187,26 +188,27 @@
                     }
                 },
             ];
-            var filters = {
-                status: '#filter-status',
-                category: '#filter-category',
-                item_code: '#filter-item-code'
+
+            let filtersComponents = @json($filterArray);
+            let filters = {
+                'date_range': '#document_date_filter'
             };
+
+            filtersComponents.forEach(filter => {
+                filters[filter.requestName] = "#" + (filter.id + "_input");
+            });
 
             let title = '';
             title = 'Job Order';
             var exportColumns = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
-            initializeDataTable('.datatables-basic',
+            reportDataTableInstance = initializeDataTable('.datatables-basic',
                 '{{ route('jo.index') }}',
                 columns,
                 filters,
                 title,
                 exportColumns,
-                // [[1, "desc"]] // default order
-
             );
-            // Apply filter on button click
-            // applyFilter('.apply-filter');
         });
     </script>
+    @include('partials.index-filter', $filterArray)
 @endsection

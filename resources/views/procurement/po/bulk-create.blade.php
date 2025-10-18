@@ -356,51 +356,61 @@
         }
 
         function initVendorAutocomplete(context = document) {
-            $(context).find('.vendor-autocomplete').each(function() {
-                const $input = $(this);
-                const ajaxUrl = $input.data('ajax-url');
-                const hiddenName = $input.data('hidden-name');
-                const $hiddenInput = $input.siblings(`input[name='${hiddenName}']`);
+            $(context)
+                .find(".vendor-select")
+                .each(function() {
+                    const $input = $(this);
+                    const ajaxUrl = $input.data("ajax-url");
+                    const hiddenName = $input.data("hidden-name");
+                    const $hiddenInput = $input.siblings(`input[name='${hiddenName}']`);
 
-                if (!ajaxUrl || ajaxUrl === '#') return;
+                    if (!ajaxUrl || ajaxUrl === "#") return;
 
-                if ($input.data('ui-autocomplete')) {
-                    $input.autocomplete('destroy');
-                }
-
-                $input.autocomplete({
-                    source: function(request, response) {
-                        $.ajax({
-                            url: ajaxUrl,
-                            dataType: 'json',
-                            data: {
-                                term: request.term
-                            },
-                            success: function(data) {
-                                response(data);
-                            },
-                            error: function(xhr) {
-                                console.error('Vendor autocomplete failed:', xhr);
-                            }
-                        });
-                    },
-                    minLength: 1,
-                    select: function(event, ui) {
-                        $input.val(ui.item.label);
-                        $hiddenInput.val(ui.item.id);
-                        return false;
-                    },
-                    focus: function(event, ui) {
-                        $input.val(ui.item.label);
-                        return false;
+                    if ($input.data("ui-autocomplete")) {
+                        $input.autocomplete("destroy");
                     }
+
+                    $input.autocomplete({
+                        source: function(request, response) {
+                            $.ajax({
+                                url: ajaxUrl,
+                                dataType: "json",
+                                data: {
+                                    term: request.term
+                                },
+                                success: function(data) {
+                                    response(data);
+                                },
+                                error: function(xhr) {
+                                    console.error("Vendor autocomplete failed:", xhr);
+                                },
+                            });
+                        },
+                        minLength: 0,
+                        select: function(event, ui) {
+                            $input.val(ui.item.label);
+                            $hiddenInput.val(ui.item.id);
+                            return false;
+                        },
+                        focus: function() {
+                            return false;
+                        },
+                        open: function() {
+                            $(".ui-autocomplete").css("z-index", 9999);
+                        },
+                    });
+
+                    $input
+                        .off("focus click.autoload")
+                        .on("focus click.autoload", function() {
+                            $input.autocomplete("search", $input.val() || "");
+                        });
                 });
-            });
         }
 
         $(document).ready(function() {
             initVendorAutocomplete();
-            $(document).on('draw.dt', function(e, settings) {
+            $(document).on("draw.dt", function() {
                 initVendorAutocomplete();
             });
         });

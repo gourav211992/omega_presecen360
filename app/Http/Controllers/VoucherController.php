@@ -1701,4 +1701,29 @@ class VoucherController extends Controller
             ])->toArray();
     }
 
+    /**
+     * Download sample file for voucher import
+     */
+    public function downloadSample()
+    {
+        try {
+            $filePath = public_path('sampleFile/voucherUploadSample.xls');
+            $fileName = 'voucherUploadSample.xls';
+
+            // Check if file exists
+            if (!file_exists($filePath)) {
+                return redirect()->back()->with('error', 'Sample file not found.');
+            }
+
+            // Return file download response
+            return response()->download($filePath, $fileName, [
+                'Content-Type' => 'application/vnd.ms-excel',
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Error downloading voucher sample file: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to download sample file.');
+        }
+    }
+
 }

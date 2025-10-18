@@ -635,6 +635,7 @@
     <script type="text/javascript">
         var type = '{{ request()->route('type') }}';
         var actionUrlTax = '{{ route('jo.tax.calculation') }}';
+        let taxCalUrl = '{{ route('tax.group.calculate') }}';
         var getLocationUrl = '{{ route('store.get') }}';
         var getAddressOnVendorChangeUrl = "{{ route('jo.get.address') }}";
         var getPwoUrl = '{{ route('jo.get.pi') }}';
@@ -807,7 +808,12 @@
                 let rowCount = tr.getAttribute('data-index');
                 getItemAttribute(item_id, rowCount, selectedAttr, tr);
             } else {
-                // alert("Please select first item name.");
+                Swal.fire({
+                    title: 'Error!',
+                    text: "Please select first item name.",
+                    icon: 'error',
+                });
+                return false;
             }
         });
 
@@ -832,7 +838,13 @@
                         $(tr).find("td[id*='itemAttribute_']").attr('attribute-array', JSON.stringify(data.data.itemAttributeArray));
                         if (data.data.attr) {
                             $("#attribute").modal('show');
-                            $(".select2").select2();
+                            $('#attribute').on('shown.bs.modal', function() {
+                                $("#attribute .select2").select2({
+                                    dropdownParent: $("#attribute"),
+                                    searchInputPlaceholder: 'Search'
+                                });
+                                feather.replace();
+                            });
                         }
                         qtyEnabledDisabled();
                     }

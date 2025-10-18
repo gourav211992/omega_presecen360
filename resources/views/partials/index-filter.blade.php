@@ -7,7 +7,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">×</button>
             </div>
             <div class="modal-body flex-grow-1" id="auto-complete-filters-row">
-            
+
             </div>
             <div class="modal-footer justify-content-start">
                 <button type="button" class="btn btn-primary data-submit mr-1" onclick = "applyFilters();">Apply</button>
@@ -21,6 +21,8 @@
 let filtersComponents = @json($filterArray);
 let autoCompleteFiltersContainer = document.getElementById('auto-complete-filters-row');
 filtersComponents.forEach(filterData => {
+    console.log(filterData);
+
     if (filterData.type == 'auto_complete') {
         autoCompleteFiltersContainer.innerHTML += `
         <div class="mb-1">
@@ -43,7 +45,7 @@ filtersComponents.forEach(filterData => {
         <input type="text" class="form-control flatpickr-range flatpickr-input flatpickr-filter" name="${filterData.requestName}" id="${filterData.id + "_input"}" />
             </div>
         `;
-    } else if (filterData.type == 'multi_select') 
+    } else if (filterData.type == 'multi_select')
     {
         autoCompleteFiltersContainer.innerHTML += `
         <div class="mb-1">
@@ -53,7 +55,7 @@ filtersComponents.forEach(filterData => {
         </div>
         `;
     }
-                
+
     });
     filtersComponents.forEach(filterData => {
         if (filterData.type == 'auto_complete') {
@@ -90,7 +92,7 @@ filtersComponents.forEach(filterData => {
             var $input = $(this);
             var itemCode = ui.item.label;
             var itemId = ui.item.id;
-            
+
             $input.val(itemCode);
             $("#" + selector + "_input").val(itemId);
             //Reset the dependent elements

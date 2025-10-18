@@ -223,28 +223,11 @@ class PiRequest extends FormRequest
                         $piItem = PiItem::with('po_items')->find($piItemId);
                         if ($piItem && $piItem->po_items->count()) {
                             $minOrderQty = $piItem->po_items->sum('order_qty');
-                            if (round($inputQty, 2) < round($minOrderQty, 2)) {
+                            if (ceil($inputQty) < ceil($minOrderQty)) {
                                 $validator->errors()->add("components.$key.qty", "Quantity can't be less than PO.");
                             }
                         }
-
-                        $utilizedQty = PiPoMapping::where('pi_item_id', $piItemId)
-                            ->whereHas('po', function ($q) {
-                                $q->whereIn('document_status', [
-                                    ConstantHelper::APPROVED,
-                                    ConstantHelper::APPROVAL_NOT_REQUIRED,
-                                ]);
-                            })
-                            ->sum('po_qty');
-
-                        if (round($inputQty, 2) < round($utilizedQty, 2)) {
-                            $validator->errors()->add(
-                                "components.$key.qty",
-                                "Quantity cannot be less than already utilized qty ($utilizedQty) in PO(s)."
-                            );
-                        }
                     }
-
                     $poSiMappingIds = PiSoMappingItem::where('pi_item_id', $piItemId)
                         ->pluck('pi_so_mapping_id')
                         ->toArray();
@@ -252,7 +235,7 @@ class PiRequest extends FormRequest
                     if (count($poSiMappingIds)) {
                         $avlQty = PiSoMapping::whereIn('id', $poSiMappingIds)
                             ->sum('qty');
-                        if (round($inputQty, 2) > round($avlQty, 2)) {
+                        if (ceil($inputQty) > ceil($avlQty)) {
                             $validator->errors()->add("components.$key.qty", "Quantity can't be grater than avl Qty.");
                         }
                     }
@@ -298,8 +281,8 @@ class PiRequest extends FormRequest
                             ->whereJsonContains('attributes', $attributes)
                             ->sum('pi_item_qty');
 
-                        if ($qty > 0 && round(($inputQty + $pi_item_qty), 2) > round($qty, 2)) {
-                            $validator->errors()->add("components.$key.qty", "Quantity can't be grater than avl Qty.");
+                        if ($qty > 0 && ceil(($inputQty + $pi_item_qty)) > ceil($qty)) {
+                            $validator->errors()->add("components.$key.qty", ceil(($inputQty + $pi_item_qty)) . " Quantity can't be grater than " . ceil($qty) . " avl Qty.");
                         }
                     }
                 }

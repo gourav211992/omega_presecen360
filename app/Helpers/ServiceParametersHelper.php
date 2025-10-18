@@ -88,6 +88,8 @@ class ServiceParametersHelper
     const SO_GATE_ENTRY_REQUIRED_PARAM_VALUES = ['Yes', 'No'];
     const SO_CUSTOMER_PO_REQUIRED_PARAM = 'so_customer_po_required';
     const SO_CUSTOMER_PO_REQUIRED_PARAM_VALUES = ['Yes', 'No'];
+    const SO_CUSTOMER_DISPLAY_BOM_PARAM = 'display_bom';
+    const SO_CUSTOMER_DISPLAY_BOM_PARAM_VALUES = ['Yes', 'No'];
     const ITEM_SERVICE_PARAMETERS = [
         [
             "name" => self::ITEM_CODE_TYPE_PARAM,
@@ -197,6 +199,7 @@ class ServiceParametersHelper
         self::ITEM_CODE_TYPE_OVERRIDE_PARAM  => 'Override Auto-Generated Code',
         self::SO_GATE_ENTRY_REQUIRED_PARAM => 'Inter Company DN Gate Entry Required?',
         self::SO_CUSTOMER_PO_REQUIRED_PARAM => 'Customer PO No. Required?',
+        self::SO_CUSTOMER_DISPLAY_BOM_PARAM => 'Display BOM?',
     ];
 
     // Service Parameters Mapping
@@ -241,6 +244,7 @@ class ServiceParametersHelper
         self::ITEM_CODE_TYPE_OVERRIDE_PARAM=>self::ITEM_CODE_TYPE_OVERRIDE_PARAM_VALUES,
         self::SO_GATE_ENTRY_REQUIRED_PARAM => self::SO_GATE_ENTRY_REQUIRED_PARAM_VALUES,
         self::SO_CUSTOMER_PO_REQUIRED_PARAM => self::SO_CUSTOMER_PO_REQUIRED_PARAM_VALUES,
+        self::SO_CUSTOMER_DISPLAY_BOM_PARAM => self::SO_CUSTOMER_DISPLAY_BOM_PARAM_VALUES,
     ];
     const SO_SERVICE_PARAMETERS = [
         [
@@ -1658,70 +1662,6 @@ class ServiceParametersHelper
             'type' => self::GL_PARAMETERS
         ]
     ];
-    const ADVANCE_PV_SERVICE_PARAMETERS = [
-        [
-            "name" => self::BACK_DATE_ALLOW_PARAM,
-            "applicable_values" => self::BACK_DATE_ALLOW_PARAM_VALUES,
-            "default_value" => ['yes'],
-            'is_multiple' => false,
-            'service_level_visibility' => true
-        ],
-        [
-            "name" => self::ON_ACCOUNT_REQUIRED_PARAM,
-            "applicable_values" => self::ON_ACCOUNT_REQUIRED_PARAM_VALUES,
-            "default_value" => ['yes'],
-            'is_multiple' => false,
-            'service_level_visibility' => true
-        ],
-
-        [
-            "name" => self::FUTURE_DATE_ALLOW_PARAM,
-            "applicable_values" => self::FUTURE_DATE_ALLOW_PARAM_VALUES,
-            "default_value" => ['yes'],
-            'is_multiple' => false,
-            'service_level_visibility' => true
-        ],
-        [
-            "name" => self::GL_POSTING_REQUIRED_PARAM,
-            "applicable_values" => self::GL_POSTING_REQUIRED_PARAM_VALUES,
-            "default_value" => ['no'],
-            'is_multiple' => false,
-            'service_level_visibility' => true,
-            'type' => self::GL_PARAMETERS
-        ],
-        [
-            "name" => self::GL_POSTING_SERIES_PARAM,
-            "applicable_values" => [],
-            "default_value" => [],
-            'is_multiple' => true,
-            'service_level_visibility' => false,
-            'type' => self::GL_PARAMETERS
-        ],
-        [
-            "name" => self::CONTRA_POSTING_SERIES_PARAM,
-            "applicable_values" => [],
-            "default_value" => [],
-            'is_multiple' => true,
-            'service_level_visibility' => false,
-            'type' => self::GL_PARAMETERS
-        ],
-        [
-            "name" => self::GL_SEPERATE_DISCOUNT_PARAM,
-            "applicable_values" => self::GL_SEPERATE_DISCOUNT_PARAM_VALUE,
-            "default_value" => ['no'],
-            'is_multiple' => false,
-            'service_level_visibility' => true,
-            'type' => self::GL_PARAMETERS
-        ],
-        [
-            "name" => self::POST_ON_ARROVE_PARAM,
-            "applicable_values" => self::POST_ON_ARROVE_PARAM_VALUES,
-            "default_value" => ['no'],
-            'is_multiple' => false,
-            'service_level_visibility' => true,
-            'type' => self::GL_PARAMETERS
-        ]
-    ];
     const RV_SERVICE_PARAMETERS = [
         [
             "name" => self::BACK_DATE_ALLOW_PARAM,
@@ -2931,7 +2871,6 @@ class ServiceParametersHelper
         ConstantHelper::MO_SERVICE_ALIAS => self::MO_SERVICE_PARAMETERS,
         ConstantHelper::PAYMENT_VOUCHER_RECEIPT => self::PV_SERVICE_PARAMETERS,
         ConstantHelper::PAYMENTS_SERVICE_ALIAS => self::PV_SERVICE_PARAMETERS,
-        ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS => self::ADVANCE_PV_SERVICE_PARAMETERS,
         ConstantHelper::RECEIPTS_SERVICE_ALIAS => self::RV_SERVICE_PARAMETERS,
         ConstantHelper::FIXED_ASSET_DEPRECIATION => self::ASSET_SERVICE_PARAMETERS,
         ConstantHelper::FIXED_ASSET_SPLIT => self::ASSET_POSTING_SERVICE_PARAMETERS,

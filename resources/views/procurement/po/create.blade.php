@@ -825,7 +825,7 @@
                             text: data.message,
                             icon: 'error',
                         });
-                    }else{
+                    } else {
                         toggleSubmitButton('.ajax-input-form', false);
                     }
                 });
@@ -1209,7 +1209,13 @@
                             .data.itemAttributeArray));
                         if (data.data.attr) {
                             $("#attribute").modal('show');
-                            $(".select2").select2();
+                            $('#attribute').on('shown.bs.modal', function() {
+                                $("#attribute .select2").select2({
+                                    dropdownParent: $("#attribute"),
+                                    searchInputPlaceholder: 'Search'
+                                });
+                                feather.replace();
+                            });
                         }
                         qtyEnabledDisabled();
                     }

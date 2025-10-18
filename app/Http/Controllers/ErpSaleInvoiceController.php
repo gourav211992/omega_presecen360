@@ -509,11 +509,16 @@ class ErpSaleInvoiceController extends Controller
             }
             $editBundle = !in_array($order -> document_status, [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED]);
             $einvoice = $order -> irnDetail() -> first();
-            $enableEinvoice = ($order -> document_type === ConstantHelper::SI_SERVICE_ALIAS) ||
+            $enableEinvoice = ($order -> document_type === ConstantHelper::SI_SERVICE_ALIAS) || ($order->document_type === ConstantHelper::SERVICE_INV_SERVICE_ALIAS)
+                || $order -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS;
+            // if ($order -> gst_invoice_type !== EInvoiceHelper::B2B_INVOICE_TYPE) {
+            //     $enableEinvoice = false;
+            // }
+            $enableEwayBill = ($order -> document_type === ConstantHelper::SI_SERVICE_ALIAS) ||
                 $order -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS;
-            if ($order -> gst_invoice_type !== EInvoiceHelper::B2B_INVOICE_TYPE) {
-                $enableEinvoice = false;
-            }
+            // if ($order -> gst_invoice_type !== EInvoiceHelper::B2B_INVOICE_TYPE) {
+            //     $enableEinvoice = false;
+            // }
             $subStores = InventoryHelper::getAccesibleSubLocations($order -> store_id);
             $transportationModes = EwayBillMaster::where('status', 'active')
                 ->where('type', '=', 'transportation-mode')
@@ -555,7 +560,10 @@ class ErpSaleInvoiceController extends Controller
                 'termsAndConditions' => $termsAndConditions,
                 'showGeneralInfo' => $showGeneralInfo,
                 'showSubLocation' => $subLocationVisibility,
-                'showCreditDays' => $showCreditDays
+                'showCreditDays' => $showCreditDays,
+                'cancelEInvoice' => SaleModuleHelper::showCancelEInvoiceButton($order),
+                'cancelEWayBill' => SaleModuleHelper::showCancelEWayBillButton($order),
+                'enableEwayBill' => $enableEwayBill
             ];
             return view('salesInvoice.create_edit', $data);
     }
@@ -741,6 +749,56 @@ class ErpSaleInvoiceController extends Controller
                         'phone' => $customerBillingAddress -> phone,
                         'fax_number' => $customerBillingAddress -> fax_number
                     ]);
+                }
+                // Shipping Address
+                $customerShippingAddress = ErpAddress::find($request -> shipping_address);
+                if (isset($customerShippingAddress)) {
+                    $shippingAddress = $saleInvoice -> shipping_address_details() -> update([
+                        'address' => $customerShippingAddress -> address,
+                        'country_id' => $customerShippingAddress -> country_id,
+                        'state_id' => $customerShippingAddress -> state_id,
+                        'city_id' => $customerShippingAddress -> city_id,
+                        'type' => 'shipping',
+                        'pincode' => $customerShippingAddress -> pincode,
+                        'phone' => $customerShippingAddress -> phone,
+                        'fax_number' => $customerShippingAddress -> fax_number
+                    ]);
+                }
+                //Location Address
+                if (!isset($store->address)) {
+                    DB::rollBack();
+                    return response() -> json([
+                        'message' => 'Location Address not assigned',
+                        'error' => ''
+                    ], 422);
+                }
+                $locationAddress = $saleInvoice -> location_address_details() -> update([
+                    'address' => $store -> address -> address,
+                    'country_id' => $store -> address -> country_id,
+                    'state_id' => $store -> address -> state_id,
+                    'city_id' => $store -> address -> city_id,
+                    'type' => 'location',
+                    'pincode' => $store -> address -> pincode,
+                    'phone' => $store -> address -> phone,
+                    'fax_number' => $store -> address -> fax_number
+                ]);
+                //Address Update (Billing)
+                $actionType = $request -> action_type ?? '';
+                $tcsAssessableAmt = $saleInvoice -> header_tax() -> where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS) -> first() ?-> assessment_amount ?? 0;
+                $oldNonTcsAccesableAmt = ($saleInvoice -> total_item_value - $saleInvoice -> total_discount_value) - $tcsAssessableAmt;
+                //Address Update (Billing)
+                $customerBillingAddress = ErpAddress::find($request -> billing_address);
+                if (isset($customerBillingAddress)) {
+                    $billingAddress = $saleInvoice -> billing_address_details() -> update([
+                        'address' => $customerBillingAddress -> address,
+                        'country_id' => $customerBillingAddress -> country_id,
+                        'state_id' => $customerBillingAddress -> state_id,
+                        'city_id' => $customerBillingAddress -> city_id,
+                        'type' => 'billing',
+                        'pincode' => $customerBillingAddress -> pincode,
+                        'phone' => $customerBillingAddress -> phone,
+                        'fax_number' => $customerBillingAddress -> fax_number
+                    ]);
                 } else {
                     $billingAddress = $saleInvoice -> billing_address_details() -> update([
                         'address' => $request -> new_billing_address,
@@ -797,9 +855,6 @@ class ErpSaleInvoiceController extends Controller
                     'fax_number' => $store -> address -> fax_number
                 ]);
                 //Address Update (Billing)
-                $actionType = $request -> action_type ?? '';
-                $tcsAssessableAmt = $saleInvoice -> header_tax() -> where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS) -> first() ?-> assessment_amount ?? 0;
-                $oldNonTcsAccesableAmt = ($saleInvoice -> total_item_value - $saleInvoice -> total_discount_value) - $tcsAssessableAmt;
                 $locationAddress = $saleInvoice -> location_address_details;
                 $billingAddress = $saleInvoice -> billing_address_details;
                 //Amend backup
@@ -1066,7 +1121,7 @@ class ErpSaleInvoiceController extends Controller
                     'phone' => $orgLocationAddress -> address -> phone,
                     'fax_number' => $orgLocationAddress -> address -> fax_number
                 ]);
-                $saleInvoice -> gst_invoice_type = EInvoiceHelper::getGstInvoiceType($request -> customer_id, $saleInvoice -> shipping_address_details -> country_id, $saleInvoice ?->  location_address_details ?-> country_id);
+                $saleInvoice -> gst_invoice_type = EInvoiceHelper::getGstInvoiceType($request -> customer_id, $saleInvoice -> billing_address_details -> country_id, $saleInvoice ?->  location_address_details ?-> country_id, 'customer', $saleInvoice);
             }
             //Manual E-Way Bill
             //Get all the required data
@@ -1169,8 +1224,7 @@ class ErpSaleInvoiceController extends Controller
                             $invoiceQty = 0;
                             if (($saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS 
                                 || $saleInvoice -> document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS)
-                                && !isset($request -> quotation_item_ids))
-                                {
+                                && !isset($request -> quotation_item_ids)) {
                                 $dnoteQty = isset($request -> item_qty[$itemKey]) ? $request -> item_qty[$itemKey] : 0;
                             }
                             if (($saleInvoice -> document_type === ConstantHelper::SI_SERVICE_ALIAS 
@@ -2851,10 +2905,15 @@ class ErpSaleInvoiceController extends Controller
                 }]);
         })->find($id);
 
+        $hsnLabel = "HSN";
+        if ($order->document_type===ConstantHelper::SERVICE_INV_SERVICE_ALIAS) {
+            $hsnLabel = "SAC";
+        }
         // Determine PDF template
         $pdfFile = "pdf.sales-invoice-pdf";
         if ($order->document_type === ConstantHelper::SI_SERVICE_ALIAS ||
-            $order->document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS) {
+            $order->document_type === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS ||
+            $order->document_type === ConstantHelper::SERVICE_INV_SERVICE_ALIAS ) {
             $pdfFile = 'pdf.sales-invoice-pdf';
         } else {
             $pdfFile = "pdf.sales-document";
@@ -3006,7 +3065,8 @@ class ErpSaleInvoiceController extends Controller
             'billingAddress' => $billingAddress,
             'eInvoice' => $eInvoice,
             'hsnSummary' => $hsnSummary,
-            'shufabOrg' => $shufabOrg
+            'shufabOrg' => $shufabOrg,
+            'hsnLabel' => $hsnLabel
         ])->render();
 
 
@@ -3214,28 +3274,33 @@ class ErpSaleInvoiceController extends Controller
 
     public function generateEInvoice(Request $request)
     {
-        $validator = Validator::make(
-            $request->all(),
-            [
-                'vehicle_no' => [
-                    'required',
-                    'regex:/^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/'
-                ],
-                'transporter_mode' => 'required|integer',
-                "transporter_name" => [
-                   "required",
-                   'string'
-                ],
+        $rules = [
+            'vehicle_no' => [
+                'required',
+                'regex:/^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/'
             ],
-            [
-                'vehicle_no.required' => 'Vehicle number is required.',
-                'vehicle_no.regex' => 'Vehicle number format is invalid. Example: MH12AB1234.',
-                'transporter_mode.required' => 'Transporter mode is required.',
-                'transporter_mode.integer' => 'Transporter mode must be an integer.',
-                'transporter_name.required' => 'Transporter name is required.',
-                'transporter_name.string' => 'Transporter name must be a string.',
-            ]
-        );
+            'transporter_mode' => 'required|integer',
+            'transporter_name' => [
+                'required',
+                'string'
+            ],
+        ];
+
+        $messages = [
+            'vehicle_no.required' => 'Vehicle number is required.',
+            'vehicle_no.regex' => 'Vehicle number format is invalid. Example: MH12AB1234.',
+            'transporter_mode.required' => 'Transporter mode is required.',
+            'transporter_mode.integer' => 'Transporter mode must be an integer.',
+            'transporter_name.required' => 'Transporter name is required.',
+            'transporter_name.string' => 'Transporter name must be a string.',
+        ];
+
+        // 👉 If doc_type = 'si', skip these validations
+        if ($request->input('doc_type') === ConstantHelper::SERVICE_INV_SERVICE_ALIAS) {
+            $rules = []; // no validation required for these fields
+        }
+
+        $validator = Validator::make($request->all(), $rules, $messages);
 
         if ($validator->fails()) {
             return response()->json([
@@ -3245,21 +3310,16 @@ class ErpSaleInvoiceController extends Controller
         }
         $id = $request -> id;
         try{
+            $generateEwb = $request -> generate_ewb ? true : false;
             $authUser = Helper::getAuthenticatedUser();
             $documentHeader = ErpSaleInvoice::find($id);
             $documentHeader = SaleModuleHelper::updateEInvoiceDataFromHelper($documentHeader);
-            $documentDetails = ErpInvoiceItem::where('sale_invoice_id', $id)->get();
-            // $generateInvoice = EInvoiceHelper::generateInvoice($documentHeader, $documentDetails);
-
             $shippingAddress = $documentHeader->billing_address_details;
             $storeAddress = $documentHeader->location_address_details;
-
-            // $gstInvoiceType = EInvoiceHelper::getGstInvoiceType($documentHeader -> vendor_id, $shippingAddress -> country_id, $storeAddress -> country_id, 'vendor');
-            // if ($gstInvoiceType === EInvoiceHelper::B2B_INVOICE_TYPE) {
-            //     $data = EInvoiceHelper::saveGstIn($documentHeader);
-            $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($documentHeader -> customer_id, $shippingAddress -> country_id, $storeAddress -> country_id, 'customer');
-            if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE) {
-                $data = MasterIndiaHelper::saveGstIn($documentHeader, $authUser);
+            $gstInvoiceType = MasterIndiaHelper::getGstInvoiceType($documentHeader -> customer_id, $shippingAddress -> country_id, $storeAddress -> country_id, 'customer', $documentHeader);
+            if ($gstInvoiceType === MasterIndiaHelper::B2B_INVOICE_TYPE || $gstInvoiceType === MasterIndiaHelper::EXPORT_INVOICE_WO_PAY_TYPE 
+                || $gstInvoiceType === MasterIndiaHelper::EXPORT_INVOICE_W_PAY_TYPE) {
+                $data = MasterIndiaHelper::saveGstIn($documentHeader, $authUser, $generateEwb);
                 if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
                     return response()->json([
                         'status' => 'error',
@@ -3268,15 +3328,12 @@ class ErpSaleInvoiceController extends Controller
                     ], 500);
                 } else{
                     $transportationMode = EwayBillMaster::find($request->transporter_mode);
-
                     $documentHeader->transporter_name=$request->transporter_name;
                     $documentHeader->transportation_mode=$transportationMode?->description ?? null;
                     $documentHeader->eway_bill_master_id=$transportationMode?->id ?? null;
                     $documentHeader->vehicle_no=$request->vehicle_no;
-
                     $documentHeader->e_invoice_status = ConstantHelper::GENERATED;
                     $documentHeader->save();
-                    
                     return response() -> json([
                         'status' => 'success',
                         'results' => $data,
@@ -3289,7 +3346,6 @@ class ErpSaleInvoiceController extends Controller
                     'message' => 'Not valid for '.$gstInvoiceType,
                 ], 500);
             }
-
         } catch(Exception $ex) {
             throw new ApiGenericException($ex -> getMessage());
         }
@@ -3733,7 +3789,7 @@ class ErpSaleInvoiceController extends Controller
                 $reportRow = new stdClass();
                 //Header Details
                 $header = $soItem -> header;
-                $reportRow -> id = $soItem -> id;
+                $reportRow -> id = $header -> id;
                 $reportRow -> book_name = $header -> book_code;
                 $reportRow -> document_number = $header -> document_number;
                 $reportRow -> document_date = $header -> document_date;

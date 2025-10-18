@@ -880,6 +880,8 @@ class InventoryHelper
                             $stockLedger->stock_type = 'W';
                             $stockLedger->wip_station_id = $documentHeader?->station_id ?? null;
                         }
+                        $totalItemCost = ($documentDetail->qty * $documentDetail->rate);
+                        $costPerUnit = $totalItemCost / $qty;
                     } elseif ($stockType == 'S') { // SubStandard
                         $qty = ($documentItemLocation->subprime_qty - $utilizedQty);
                         $stockLedger->stock_type = 'S';
@@ -893,6 +895,8 @@ class InventoryHelper
                             $stockLedger->stock_type = 'W';
                             $stockLedger->wip_station_id = $documentHeader?->station_id ?? null;
                         }
+                        $totalItemCost = ($documentDetail->qty * $documentDetail->rate);
+                        $costPerUnit = $totalItemCost / $qty;
                     } elseif ($stockType == 'J') { // Rejected
                         $qty = ($documentItemLocation->rejected_qty - $utilizedQty);
                         $stockLedger->stock_type = 'J';
@@ -905,6 +909,8 @@ class InventoryHelper
                         if (!$documentHeader->is_last_station) {
                             $stockLedger->wip_station_id = $documentHeader?->station_id ?? null;
                         }
+                        $totalItemCost = 0;
+                        $costPerUnit = 0;
                     }
 
                     // Over ride attribute
@@ -912,8 +918,7 @@ class InventoryHelper
                     $stockLedger->vendor_code = null;
                     $stockLedger->receipt_qty = $qty ?? 0;
                     $stockLedger->book_id = @$documentHeader->book_id;
-                    $totalItemCost = ($documentDetail->qty * $documentDetail->rate);
-                    $costPerUnit = $totalItemCost / $qty;
+              
                     // Item Location Data
                     $stockLedger->store_id = $documentHeader->store_id ?? null;
                     $stockLedger->store = $documentHeader?->store?->store_code;

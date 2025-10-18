@@ -2133,7 +2133,7 @@ class Helper
                         ->whereHas('level', function ($level) use ($currentLevel) {
                             $level->where('level', '>', $currentLevel);
                         })
-                        ->orderBy('level', 'ASC')
+                        // ->orderBy('level', 'ASC')
                         ->first();
 
                     $emailReceiver = $nextApprover->user ?? null;
@@ -2295,7 +2295,7 @@ class Helper
                 'remarks'     => $remarks,
             ];
 
-            MailHelper::sendDocumentStatusEmail($mailData);
+            // MailHelper::sendDocumentStatusEmail($mailData);
         }
 
         return [
@@ -3481,7 +3481,6 @@ class Helper
                 'message' => 'Organization Menu not found'
             ];
         } else {
-            
             if ($selectedServiceAlias) {
                 $organizationServices = OrganizationService::withDefaultGroupCompanyOrg()
                     ->where('alias', $selectedServiceAlias)->get();

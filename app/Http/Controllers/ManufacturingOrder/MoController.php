@@ -736,6 +736,9 @@ class MoController extends Controller
             return redirect()->back();
         }
         $bom = MfgOrder::find($id);
+        if(!$bom) {
+            return redirect($parentUrl)->with('error', 'The provided document id is invalid.');
+        }
         $createdBy = $bom->created_by;
         $revision_number = $bom->revision_number;
         $books = Helper::getBookSeriesNew($servicesAliasParam,$parentUrl, true)->get();

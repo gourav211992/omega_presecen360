@@ -1621,6 +1621,7 @@ class BookController extends Controller
                     }
                 }
                 $docNum = Helper::generateDocumentNumberNew($book->id, $request->document_date, $parameters);
+
                 if (isset($docNum['error'])) {
                     return response()->json(['data' => [], 'message' => $docNum['error'], 'status' => 500]);
                 }

@@ -14,6 +14,7 @@ use App\Models\ERP\ErpStockStoreMapping;
 use App\Models\ERP\ErpExternalIntegration;
 use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use App\Http\Requests\ErpExternalIntegrationRequest;
+use App\Helpers\Configuration\Helper as ConfigurationHelper;
 use App\Models\Customer;
 use App\Models\ErpSubStore;
 use Exception;
@@ -129,15 +130,15 @@ class ErpExternalIntegrationController extends Controller
 
         $dn_parentUrl = 'delivery-note';
         $dn_servicesAliasParam = ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS;
-        $dnbook = Helper::getBookSeriesNew($dn_servicesAliasParam, $dn_parentUrl, false,true)->get();
+        $dnbook = ConfigurationHelper::getBookSeriesByType($dn_servicesAliasParam, $dn_parentUrl, false,'Auto')->get();
 
         $Sale_parentUrl = 'sales-order';
         $Sale_servicesAliasParam = ConstantHelper::SO_SERVICE_ALIAS;
-        $sobook = Helper::getBookSeriesNew($Sale_servicesAliasParam, $Sale_parentUrl, false,true)->get();
+        $sobook = ConfigurationHelper::getBookSeriesByType($Sale_servicesAliasParam, $Sale_parentUrl, false,'Auto')->get();
         
         $trip_parentUrl = 'trip-plan';
         $trip_servicesAliasParam = ConstantHelper::TRIP_SERVICE_ALIAS;
-        $tripbook = Helper::getBookSeriesNew($trip_servicesAliasParam, $trip_parentUrl, false,true)->get();
+        $tripbook = ConfigurationHelper::getBookSeriesByType($trip_servicesAliasParam, $trip_parentUrl, false,'Manually')->get();
         
       
 
@@ -249,15 +250,15 @@ class ErpExternalIntegrationController extends Controller
 
         $dnParentUrl = 'delivery-note';
         $dn_servicesAliasParam = SaleModuleHelper::SALES_INVOICE_DN_TYPE;
-        $dnbook = Helper::getBookSeriesNew($dn_servicesAliasParam, $dnParentUrl, true,true)->get();
+        $dnbook = ConfigurationHelper::getBookSeriesByType($dn_servicesAliasParam, $dnParentUrl, true,'Auto')->get();
         
         $saleParentUrl = 'sales-order';
         $Sale_servicesAliasParam = ConstantHelper::SO_SERVICE_ALIAS;
-        $sobook = Helper::getBookSeriesNew($Sale_servicesAliasParam, $saleParentUrl, true,true)->get();
+        $sobook = ConfigurationHelper::getBookSeriesByType($Sale_servicesAliasParam, $saleParentUrl, true,'Auto')->get();
         
         $tripParentUrl = 'trip-plan';
         $trip_servicesAliasParam = ConstantHelper::TRIP_SERVICE_ALIAS;
-        $tripbook = Helper::getBookSeriesNew($trip_servicesAliasParam, $tripParentUrl, true,true)->get();
+        $tripbook = ConfigurationHelper::getBookSeriesByType($trip_servicesAliasParam, $tripParentUrl, true,'Manually')->get();
         
 
         $status = ConstantHelper::STATUS;

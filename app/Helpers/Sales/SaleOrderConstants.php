@@ -60,5 +60,12 @@ class SaleOrderConstants
             'is_multiple' => false,
             'service_level_visibility' => true
         ],
+        [
+            "name" => ServiceParametersHelper::SO_CUSTOMER_DISPLAY_BOM_PARAM,
+            "applicable_values" => ServiceParametersHelper::SO_CUSTOMER_DISPLAY_BOM_PARAM_VALUES,
+            "default_value" => ['Yes'],
+            'is_multiple' => false,
+            'service_level_visibility' => true
+        ],
     ];
 }

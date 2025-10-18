@@ -8,7 +8,6 @@ use App\Models\Unit;
 use App\Models\ErpAttribute;
 use App\Models\ItemAttribute;
 use App\Models\Scrap\ErpScrap;
-use App\Models\ErpItemAttribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

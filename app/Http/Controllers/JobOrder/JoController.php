@@ -2,63 +2,128 @@
 
 namespace App\Http\Controllers\JobOrder;
 
-use App\Helpers\BookHelper;
-use App\Helpers\ConstantHelper;
-use App\Helpers\CurrencyHelper;
-use App\Helpers\DynamicFieldHelper;
-use App\Helpers\InventoryHelper;
-use App\Helpers\Helper;
-use App\Helpers\NumberHelper;
-use App\Helpers\ServiceParametersHelper;
-use App\Helpers\TaxHelper;
-use App\Http\Controllers\Controller;
-use App\Jobs\SendEmailJob;
-use App\Models\Attribute;
-use App\Models\AttributeGroup;
-use App\Models\AuthUser;
-use App\Models\ErpSaleOrder;
-use App\Http\Requests\JoRequest;
-use App\Models\Address;
+use DB;
+use PDF;
+use Carbon\Carbon;
 use App\Models\Bom;
 use App\Models\City;
-use App\Models\Country;
-use App\Models\Currency;
-use App\Models\ErpAddress;
 use App\Models\Item;
-use App\Models\Organization;
-use App\Models\JobOrder\JobOrder;
-use App\Models\JobOrder\JobOrderMedia;
-use App\Models\JobOrder\JobOrderTed;
-use App\Models\TermsAndCondition;
 use App\Models\Unit;
-use App\Models\Vendor;
-use Carbon\Carbon;
-use DB;
-use Illuminate\Http\Request;
-use PDF;
-use Yajra\DataTables\DataTables;
-use Illuminate\Support\Facades\Storage;
-use App\Models\ErpStore;
-use App\Models\JobOrder\JoBomMapping;
-use App\Models\JobOrder\JoItem;
-use App\Models\JobOrder\JoItemAttribute;
-use App\Models\JobOrder\JoProduct;
-use App\Models\JobOrder\JoProductDelivery;
-use App\Models\PwoSoMapping;
 use App\Models\State;
+use App\Models\Vendor;
+use App\Helpers\Helper;
+use App\Models\Address;
+use App\Models\Country;
+use App\Models\AuthUser;
+use App\Models\Currency;
+use App\Models\ErpStore;
+use App\Models\Attribute;
+use App\Helpers\TaxHelper;
+use App\Jobs\SendEmailJob;
+use App\Models\ErpAddress;
+use App\Helpers\BookHelper;
+use App\Models\ErpSaleOrder;
+use App\Models\Organization;
+use App\Models\PwoSoMapping;
+use Illuminate\Http\Request;
+use App\Helpers\NumberHelper;
+use App\Models\AttributeGroup;
+use App\Helpers\ConstantHelper;
+use App\Helpers\CurrencyHelper;
+use App\Models\JobOrder\JoItem;
+use App\Helpers\InventoryHelper;
+use App\Http\Requests\JoRequest;
+use Yajra\DataTables\DataTables;
+use App\Models\JobOrder\JobOrder;
+use App\Models\TermsAndCondition;
 use App\Services\JobOrderService;
+use App\Models\JobOrder\JoProduct;
+use App\Helpers\DynamicFieldHelper;
+use App\Http\Controllers\Controller;
+use App\Models\JobOrder\JobOrderTed;
+use App\Models\JobOrder\JoBomMapping;
+use App\Models\JobOrder\JobOrderMedia;
+use Illuminate\Support\Facades\Storage;
+use App\Helpers\ServiceParametersHelper;
+use App\Helpers\TransactionReportHelper;
+use App\Models\JobOrder\JoItemAttribute;
+use App\Helpers\Common\OrganizationHelper;
+use App\Models\JobOrder\JoProductDelivery;
+use App\Models\JobOrder\JobOrderTedHistory;
+use App\Services\Common\FinancialYearService;
 
 class JoController extends Controller
 {
     # Po List
     public function index(Request $request)
     {
+        $parentUrl = request()->segments()[0];
+        $user = Helper::getAuthenticatedUser();
+
         if (request()->ajax()) {
-            $pos = JobOrder::withDefaultGroupCompanyOrg()
+            $dateRange = $request->date_range ??  null;
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
+            $accessible_locations = InventoryHelper::getAccessibleLocations()->pluck('id')->toArray();
+            $selectedfyYear = app(FinancialYearService::class)->getFinancialYear(date('Y-m-d'), request()->user());
+
+            $jobOrders = JobOrder::withDefaultGroupCompanyOrg()
                 ->withDraftListingLogic()
-                ->with('vendor')
+                ->bookViewAccess($parentUrl)
+                ->selfCreatedDocuments($user)
+                ->with(['vendor'])
+                ->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']])
+                ->when($request->customer_id, function ($custQuery) use ($request) {
+                    $custQuery->where('customer_id', $request->customer_id);
+                })->when($request->vendor_id, function ($custQuery) use ($request) {
+                    $custQuery->where('vendor_id', $request->vendor_id);
+                })->when($request->book_id, function ($bookQuery) use ($request) {
+                    $bookQuery->where('book_id', $request->book_id);
+                })->when($request->document_number, function ($docQuery) use ($request) {
+                    $docQuery->where('document_number', 'LIKE', '%' . $request->document_number . '%');
+                })->when($request->location_id, function ($docQuery) use ($request) {
+                    $docQuery->where('store_id', $request->location_id);
+                })->when($request->company_id, function ($docQuery) use ($request) {
+                    $docQuery->where('company_id', $request->company_id);
+                })->when($request->organization_id, function ($docQuery) use ($request) {
+                    $docQuery->where('organization_id', $request->organization_id);
+                })->when($request->created_by, function ($docQuery) use ($request) {
+                    $docQuery->where('created_by', $request->created_by);
+                })->when($request->status, function ($docStatusQuery) use ($request) {
+                    $searchDocStatus = [];
+                    if ($request->status === ConstantHelper::DRAFT) {
+                        $searchDocStatus = [ConstantHelper::DRAFT];
+                    } else if ($request->status === ConstantHelper::SUBMITTED) {
+                        $searchDocStatus = [ConstantHelper::SUBMITTED, ConstantHelper::PARTIALLY_APPROVED];
+                    } else {
+                        $searchDocStatus = [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED];
+                    }
+                    $docStatusQuery->whereIn('document_status', $searchDocStatus);
+                })->when($dateRange, function ($dateRangeQuery) use ($request, $dateRange) {
+                    $dateRanges = explode('to', $dateRange);
+                    if (count($dateRanges) == 2) {
+                        $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
+                        $toDate = Carbon::parse(trim($dateRanges[1]))->format('Y-m-d');
+                        $dateRangeQuery->whereDate('document_date', ">=", $fromDate)->where('document_date', '<=', $toDate);
+                    } else {
+                        $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
+                        $dateRangeQuery->whereDate('document_date', $fromDate);
+                    }
+                })->when($request->item_id, function ($itemQuery) use ($request) {
+                    $itemQuery->withWhereHas('items', function ($itemSubQuery) use ($request) {
+                        $itemSubQuery->where('item_id', $request->item_id)
+                            ->when($request->item_category_id, function ($itemCatQuery) use ($request) {
+                                $itemCatQuery->whereHas('item', function ($itemRelationQuery) use ($request) {
+                                    $itemRelationQuery->where('category_id', $request->category_id)
+                                        ->when($request->item_sub_category_id, function ($itemSubCatQuery) use ($request) {
+                                            $itemSubCatQuery->where('subcategory_id', $request->item_sub_category_id);
+                                        });
+                                });
+                            });
+                    });
+                })->orderByDesc('id')
                 ->latest();
-            return DataTables::of($pos)
+
+            return DataTables::of($jobOrders)
                 ->addIndexColumn()
                 ->editColumn('document_status', function ($row) {
                     return view('partials.action-dropdown', [
@@ -126,9 +191,11 @@ class JoController extends Controller
                 ->rawColumns(['document_status'])
                 ->make(true);
         }
-        $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
-        return view('procurement.jo.index', ['servicesBooks' => $servicesBooks]);
+        return view('procurement.jo.index', [
+            'servicesBooks' => $servicesBooks,
+            'filterArray' => TransactionReportHelper::FILTERS_MAPPING[ConstantHelper::JO_SERVICE_ALIAS],
+        ]);
     }
 
     # Po create
@@ -282,7 +349,33 @@ class JoController extends Controller
         }
 
         try {
-            $taxDetails = TaxHelper::calculateTax($hsnId, $price, $fromCountry, $fromState, $upToCountry, $upToState, $transactionType, $document_date);
+            if ($request->jo_id && $request->jo_product_id && $request->document_status && $request->document_status !== ConstantHelper::DRAFT) {
+                $revNo = intval($request->revisionNumber);
+                $class = JobOrderTed::class;
+                if ($revNo) {
+                    $class = JobOrderTedHistory::class;
+                }
+                $taxDetails = $class::where('jo_id', $request->jo_id)
+                    ->where('jo_product_id', $request->jo_product_id)
+                    ->where('ted_type', 'Tax')
+                    ->where('ted_level', 'D')
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            "id"                => $row->ted_id,
+                            "applicability_type" => $row->applicable_type ?? '',
+                            "tax_percentage"    => $row->ted_perc ?? '',
+                            "tax_type"          => $row->ted_name ?? '',
+                            "tax_group"         => $row?->taxDetail?->erpTax?->tax_group ?? '',
+                            "tax_id"            => $row?->taxDetail?->tax_id ?? '',
+                            "tax_code"          => $row->ted_name ?? '',
+                        ];
+                    })
+                    ->toArray();
+            } else {
+                $taxDetails = TaxHelper::calculateTax($hsnId, $price, $fromCountry, $fromState, $upToCountry, $upToState, $transactionType, $document_date);
+            }
+
             $rowCount = intval($request->rowCount) ?? 1;
             $itemPrice = floatval($request->price) ?? 0;
             $html = view('procurement.jo.partials.item-tax', compact('taxDetails', 'rowCount', 'itemPrice'))->render();
@@ -359,17 +452,20 @@ class JoController extends Controller
                     'error' => 'tnc exceeds maximum length',
                 ], 422);
             }
+
             $parameters = [];
             $response = BookHelper::fetchBookDocNoAndParameters($request->book_id, $request->document_date);
             if ($response['status'] === 200) {
                 $parameters = json_decode(json_encode($response['data']['parameters']), true);
             }
+
             $user = Helper::getAuthenticatedUser();
             $organization = Organization::where('id', $user->organization_id)->first();
             //Tax Country and State
             $firstAddress = $organization->addresses->first();
             $companyCountryId = null;
             $companyStateId = null;
+
             if ($firstAddress) {
                 $companyCountryId = $firstAddress->country_id;
                 $companyStateId = $firstAddress->state_id;
@@ -378,20 +474,21 @@ class JoController extends Controller
                     'message' => 'Please create an organization first'
                 ], 422);
             }
+
             # PO Header Save
-            $po = new JobOrder;
-            $po->organization_id = $organization->id;
-            $po->group_id = $organization->group_id;
-            $po->company_id = $organization->company_id;
-            $po->store_id = $request->store_id;
-            $po->job_order_type = $request->job_order_type;
-            $po->book_id = $request->book_id;
-            $po->book_code = $request->book_code;
+            $jo = new JobOrder;
+            $jo->organization_id = $organization->id;
+            $jo->group_id = $organization->group_id;
+            $jo->company_id = $organization->company_id;
+            $jo->store_id = $request->store_id;
+            $jo->job_order_type = $request->job_order_type;
+            $jo->book_id = $request->book_id;
+            $jo->book_code = $request->book_code;
             $document_number = $request->document_number ?? null;
-            $po->tnc = $request->tnc ?? null;
-            $po->gate_entry_required = $parameters['gate_entry_required'][0] ?? 'no';
-            $po->partial_delivery = $parameters['partial_delivery_allowed'][0] ?? 'no';
-            /**/
+            $jo->tnc = $request->tnc ?? null;
+            $jo->gate_entry_required = $parameters['gate_entry_required'][0] ?? 'no';
+            $jo->partial_delivery = $parameters['partial_delivery_allowed'][0] ?? 'no';
+
             $numberPatternData = Helper::generateDocumentNumberNew($request->book_id, $request->document_date);
             if (!isset($numberPatternData)) {
                 return response()->json([
@@ -404,6 +501,7 @@ class JoController extends Controller
                 ->where('book_id', $request->book_id)
                 ->where('document_number', $document_number)
                 ->first();
+
             //Again check regenerated doc no
             if (isset($regeneratedDocExist)) {
                 return response()->json([
@@ -412,34 +510,37 @@ class JoController extends Controller
                 ], 422);
             }
 
-            $po->doc_number_type = $numberPatternData['type'];
-            $po->doc_reset_pattern = $numberPatternData['reset_pattern'];
-            $po->doc_prefix = $numberPatternData['prefix'];
-            $po->doc_suffix = $numberPatternData['suffix'];
-            $po->doc_no = $numberPatternData['doc_no'];
-            $po->document_number = $document_number;
-            $po->document_date = $request->document_date;
-            $po->reference_number = $request->reference_number;
-            $po->vendor_id = $request->vendor_id;
-            $po->vendor_code = $request->vendor_code;
-            $po->billing_address = $request->billing_address_id;
-            $po->shipping_address = $request->vendor_address_id;
-            $po->currency_id = $request->currency_id;
+            $jo->doc_number_type = $numberPatternData['type'];
+            $jo->doc_reset_pattern = $numberPatternData['reset_pattern'];
+            $jo->doc_prefix = $numberPatternData['prefix'];
+            $jo->doc_suffix = $numberPatternData['suffix'];
+            $jo->doc_no = $numberPatternData['doc_no'];
+            $jo->document_number = $document_number;
+            $jo->document_date = $request->document_date;
+            $jo->reference_number = $request->reference_number;
+            $jo->vendor_id = $request->vendor_id;
+            $jo->vendor_code = $request->vendor_code;
+            $jo->billing_address = $request->billing_address_id;
+            $jo->shipping_address = $request->vendor_address_id;
+            $jo->currency_id = $request->currency_id;
             $currency = Currency::find($request->currency_id ?? null);
-            $po->currency_code = $currency?->short_name;
-            $po->document_status = $request->document_status;
-            $po->remarks = $request->remarks ?? null;
-            $po->payment_term_id = $request->payment_term_id;
-            // $po->payment_term_code = $request->payment_term_code;
-            $po->save();
-            if ($po?->vendor?->supplier_books?->count()) {
-                $po->supp_invoice_required = 'yes';
-                $po->save();
+            $jo->currency_code = $currency?->short_name;
+            $jo->document_status = $request->document_status;
+            $jo->remarks = $request->remarks ?? null;
+            $jo->payment_term_id = $request->payment_term_id;
+            // $jo->payment_term_code = $request->payment_term_code;
+            $jo->save();
+            if ($jo?->vendor?->supplier_books?->count()) {
+                $jo->supp_invoice_required = 'yes';
+                $jo->save();
             }
+
             # Store Billing address
-            JobOrderService::saveAddressDetails($po, 'billing', $po->bill_address ?? null);
+            JobOrderService::saveAddressDetails($jo, 'billing', $jo->bill_address ?? null);
+
             # Store Vendor address
-            JobOrderService::saveAddressDetails($po, 'shipping', $po->ship_address ?? null);
+            JobOrderService::saveAddressDetails($jo, 'shipping', $jo->ship_address ?? null);
+
             $storeAddress = null;
             if (!empty($request->delivery_address_id)) {
                 $storeAddress = ErpAddress::find($request->delivery_address_id);
@@ -454,11 +555,13 @@ class JoController extends Controller
                     'fax_number' => null,
                 ];
             }
+
             if (!$storeAddress) {
-                $storeAddress = $po->store_location->address;
+                $storeAddress = $jo->store_location->address;
             }
+
             # Store Delivery address
-            JobOrderService::saveAddressDetails($po, 'location', $storeAddress);
+            JobOrderService::saveAddressDetails($jo, 'location', $storeAddress);
 
             $totalTax = 0;
             $totalHeaderDiscount = 0;
@@ -472,7 +575,7 @@ class JoController extends Controller
                     $totalHeaderExpense += floatval($expValue['e_amnt']) ?? 0.00;
                 }
             if (isset($request->all()['components']) && count($request->all()['components'])) {
-                $poItemArr = [];
+                $joItemArr = [];
                 $totalValueAfterDiscount = 0;
                 $itemTotalValue = 0;
                 $itemTotalDiscount = 0;
@@ -491,6 +594,7 @@ class JoController extends Controller
                     $inventory_uom_id = null;
                     $inventory_uom_code = null;
                     $inventory_uom_qty = 0.00;
+
                     if (@$component['uom_id'] == $item->uom_id) {
                         $inventory_uom_id = $component['uom_id'] ?? null;
                         $inventory_uom_code = $component['uom_code'] ?? null;
@@ -503,6 +607,7 @@ class JoController extends Controller
                             $inventory_uom_qty = floatval($component['qty']) * $alUom->conversion_to_inventory;
                         }
                     }
+
                     $itemValue = floatval($component['qty']) * floatval($component['rate']);
                     $itemDiscount = floatval($component['discount_amount']) ?? 0.00;
 
@@ -513,10 +618,10 @@ class JoController extends Controller
                     $totalItemValueAfterDiscount += $itemValueAfterDiscount;
                     $unit = Unit::find($component['uom_id']);
                     $sowItem = Item::find($component['sow_id']);
-                    $poItemArr[] = [
+                    $joItemArr[] = [
                         'key' => $c_key,
                         'so_id' => $component['so_id'] ?? null,
-                        'jo_id' => $po->id,
+                        'jo_id' => $jo->id,
                         'item_id' => $component['item_id'] ?? null,
                         'service_item_id' => $component['sow_id'] ?? null,
                         'item_code' => $component['item_code'] ?? null,
@@ -540,25 +645,27 @@ class JoController extends Controller
                         'pwo_so_mapping_id' => $component['pwo_so_mapping_id'] ?? null,
                     ];
                 }
+
                 $isTax = false;
                 if (isset($parameters['tax_required']) && !empty($parameters['tax_required'])) {
                     if (in_array('yes', array_map('strtolower', $parameters['tax_required']))) {
                         $isTax = true;
                     }
                 }
-                foreach ($poItemArr as &$poItem) {
+
+                foreach ($joItemArr as &$joItem) {
                     $headerDiscount = 0;
-                    $headerDiscount = ($poItem['value_after_discount'] / $totalValueAfterDiscount) * $totalHeaderDiscount;
-                    $valueAfterHeaderDiscount = $poItem['value_after_discount'] - $headerDiscount;
-                    $poItem['header_discount_amount'] = $headerDiscount;
+                    $headerDiscount = ($joItem['value_after_discount'] / $totalValueAfterDiscount) * $totalHeaderDiscount;
+                    $valueAfterHeaderDiscount = $joItem['value_after_discount'] - $headerDiscount;
+                    $joItem['header_discount_amount'] = $headerDiscount;
                     $itemTotalHeaderDiscount += $headerDiscount;
                     if ($isTax) {
                         $itemTax = 0;
-                        $itemPrice = ($poItem['item_value'] - $headerDiscount - $poItem['item_discount_amount']);
-                        $shippingAddress = $po->ship_address;
+                        $itemPrice = ($joItem['item_value'] - $headerDiscount - $joItem['item_discount_amount']);
+                        $shippingAddress = $jo->ship_address;
                         $partyCountryId = isset($shippingAddress) ? $shippingAddress->country_id : null;
                         $partyStateId = isset($shippingAddress) ? $shippingAddress->state_id : null;
-                        $taxDetails = TaxHelper::calculateTax($poItem['hsn_id'], $itemPrice, $companyCountryId, $companyStateId, $partyCountryId ?? $request->shipping_country_id, $partyStateId ?? $request->shipping_state_id, 'purchase');
+                        $taxDetails = TaxHelper::calculateTax($joItem['hsn_id'], $itemPrice, $companyCountryId, $companyStateId, $partyCountryId ?? $request->shipping_country_id, $partyStateId ?? $request->shipping_state_id, 'purchase');
                         if (isset($taxDetails) && count($taxDetails) > 0) {
                             foreach ($taxDetails as $taxDetail) {
                                 if ($taxDetail['applicability_type'] == 'collection') {
@@ -568,44 +675,41 @@ class JoController extends Controller
                                 }
                             }
                         }
-                        $poItem['tax_amount'] = abs($itemTax);
+                        $joItem['tax_amount'] = abs($itemTax);
                         $totalTax += $itemTax;
                     }
                 }
-                unset($poItem);
-                foreach ($poItemArr as $_key => $poItem) {
-                    $_key = $poItem['key'] ?? $_key;
+                unset($joItem);
+                foreach ($joItemArr as $_key => $joItem) {
+                    $_key = $joItem['key'] ?? $_key;
                     $component = $request->all()['components'][$_key] ?? [];
                     # Save Jo Item with Attribute
-                    $joProduct = JobOrderService::saveJoProductWithAttributes($poItem, $component, $po->id);
+                    $joProduct = JobOrderService::saveJoProductWithAttributes($joItem, $component, $jo->id);
                     #Save Componet Delivery
-                    JobOrderService::saveJoProductDeliveries($joProduct, $component, $po->id);
+                    JobOrderService::saveJoProductDeliveries($joProduct, $component, $jo->id);
                     #Save Componet Discount
-                    JobOrderService::saveJoProductDiscounts($joProduct, $component, $poItem, $po->id);
+                    JobOrderService::saveJoProductDiscounts($joProduct, $component, $joItem, $jo->id);
                     #Save Componet item Tax
-                    JobOrderService::saveJoProductTaxes($joProduct, $component, $poItem, $po->id);
+                    JobOrderService::saveJoProductTaxes($joProduct, $component, $joItem, $jo->id);
                     #Pwo so mapping to JO
-                    JobOrderService::syncPwoJoMapping($poItem, $joProduct);
+                    JobOrderService::syncPwoJoMapping($joItem, $joProduct);
                     # Job Order Bom Mapping
-                    JobOrderService::mapJobOrderBom($po, $joProduct);
+                    JobOrderService::mapJobOrderBom($jo, $joProduct);
                 }
+
                 # Save Jo Item
-                JobOrderService::saveJoItems($po);
+                JobOrderService::saveJoItems($jo);
+
                 /*Header level save discount*/
                 if (isset($request->all()['disc_summary'])) {
-                    JobOrderService::saveHeaderLevelDiscounts($request->all()['disc_summary'], $itemTotalValue, $itemTotalDiscount, $po->id);
+                    JobOrderService::saveHeaderLevelDiscounts($request->all()['disc_summary'], $itemTotalValue, $itemTotalDiscount, $jo->id);
                 }
+
                 /*Header level save Exp*/
                 if (isset($request->all()['exp_summary'])) {
-                    JobOrderService::saveHeaderLevelExpenses(
-                        $request->input('exp_summary'),
-                        $itemTotalValue,
-                        $itemTotalDiscount,
-                        $itemTotalHeaderDiscount,
-                        $totalTax,
-                        $po->id
-                    );
+                    JobOrderService::saveHeaderLevelExpenses($request->input('exp_summary'), $itemTotalValue, $itemTotalDiscount, $itemTotalHeaderDiscount, $totalTax, $jo->id);
                 }
+
                 /*Update total in main header PO*/
                 if ($itemTotalValue < ($itemTotalHeaderDiscount + $itemTotalDiscount)) {
                     DB::rollBack();
@@ -614,14 +718,14 @@ class JoController extends Controller
                         'error' => "",
                     ], 422);
                 }
-                $po->total_item_value = $itemTotalValue ?? 0.00;
-                $po->total_discount_value = ($itemTotalHeaderDiscount + $itemTotalDiscount) ?? 0.00;
-                if ($po?->jo_ted_tax?->count()) {
-                    $po->total_tax_value = abs($totalTax) ?? 0.00;
-                }
-                $po->total_expense_value =  $totalHeaderExpense ?? 0.00;
-                $po->save();
+
+                $jo->total_item_value = $itemTotalValue ?? 0.00;
+                $jo->total_discount_value = ($itemTotalHeaderDiscount + $itemTotalDiscount) ?? 0.00;
+                if ($jo?->jo_ted_tax?->count())  $jo->total_tax_value = abs($totalTax) ?? 0.00;
+                $jo->total_expense_value = $totalHeaderExpense ?? 0.00;
+                $jo->save();
             } else {
+
                 DB::rollBack();
                 return response()->json([
                     'message' => 'Please add atleast one row in component table.',
@@ -630,49 +734,55 @@ class JoController extends Controller
             }
 
             /*Store currency data*/
-            $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($po->vendor->currency_id, $po->document_date);
-            $po->org_currency_id = $currencyExchangeData['data']['org_currency_id'];
-            $po->org_currency_code = $currencyExchangeData['data']['org_currency_code'];
-            $po->org_currency_exg_rate = $request?->exchange_rate ?? 1;
-            // $po->org_currency_exg_rate = $currencyExchangeData['data']['org_currency_exg_rate'];
-            $po->comp_currency_id = $currencyExchangeData['data']['comp_currency_id'];
-            $po->comp_currency_code = $currencyExchangeData['data']['comp_currency_code'];
-            $po->comp_currency_exg_rate = $currencyExchangeData['data']['comp_currency_exg_rate'];
-            $po->group_currency_id = $currencyExchangeData['data']['group_currency_id'];
-            $po->group_currency_code = $currencyExchangeData['data']['group_currency_code'];
-            $po->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
-            $po->save();
+            $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($jo->vendor->currency_id, $jo->document_date);
+            $jo->org_currency_id = $currencyExchangeData['data']['org_currency_id'];
+            $jo->org_currency_code = $currencyExchangeData['data']['org_currency_code'];
+            $jo->org_currency_exg_rate = $request?->exchange_rate ?? 1;
+            // $jo->org_currency_exg_rate = $currencyExchangeData['data']['org_currency_exg_rate'];
+            $jo->comp_currency_id = $currencyExchangeData['data']['comp_currency_id'];
+            $jo->comp_currency_code = $currencyExchangeData['data']['comp_currency_code'];
+            $jo->comp_currency_exg_rate = $currencyExchangeData['data']['comp_currency_exg_rate'];
+            $jo->group_currency_id = $currencyExchangeData['data']['group_currency_id'];
+            $jo->group_currency_code = $currencyExchangeData['data']['group_currency_code'];
+            $jo->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
+            $jo->save();
+
             #Save Term & Condition
-            JobOrderService::saveJobOrderTerms($po, $request);
+            JobOrderService::saveJobOrderTerms($jo, $request);
+
             /*Create document submit log*/
             if ($request->document_status == ConstantHelper::SUBMITTED) {
-                $bookId = $po->book_id;
-                $docId = $po->id;
-                $remarks = $po->remarks;
+                $bookId = $jo->book_id;
+                $docId = $jo->id;
+                $remarks = $jo->remarks;
                 $attachments = $request->file('attachment');
-                $currentLevel = $po->approval_level ?? 1;
-                $revisionNumber = $po->revision_number ?? 0;
+                $currentLevel = $jo->approval_level ?? 1;
+                $revisionNumber = $jo->revision_number ?? 0;
                 $actionType = 'submit'; // Approve // reject // submit
-                $modelName = get_class($po);
-                $totalValue = $po->grand_total_amount ?? 0;
+                $modelName = get_class($jo);
+                $totalValue = $jo->grand_total_amount ?? 0;
                 $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
-                $po->document_status = $approveDocument['approvalStatus'] ?? $po->document_status;
+                $jo->document_status = $approveDocument['approvalStatus'] ?? $jo->document_status;
             } else {
-                $po->document_status = $request->document_status ?? ConstantHelper::DRAFT;
+                $jo->document_status = $request->document_status ?? ConstantHelper::DRAFT;
             }
-            $po->save();
+
+            $jo->save();
+
             /*Po Attachment*/
             if ($request->hasFile('attachment')) {
-                $mediaFiles = $po->uploadDocuments($request->file('attachment'), 'jo', false);
+                $mediaFiles = $jo->uploadDocuments($request->file('attachment'), 'jo', false);
             }
+
             $redirectUrl = '';
-            if ($po->document_status == ConstantHelper::APPROVED) {
-                $redirectUrl = route('jo.generate-pdf', $po->id);
+            if ($jo->document_status == ConstantHelper::APPROVED) {
+                $redirectUrl = route('jo.generate-pdf', $jo->id);
             }
+
             DB::commit();
             return response()->json([
                 'message' => 'Record created successfully',
-                'data' => $po,
+                'data' => $jo,
                 'redirect_url' => $redirectUrl
             ]);
         } catch (Exception $e) {
@@ -718,15 +828,24 @@ class JoController extends Controller
             $currentStatus = $po->document_status;
             $actionType = $request->action_type;
             if ($currentStatus == ConstantHelper::APPROVED && $actionType == 'amendment') {
-                // $revisionData = [
-                //     ['model_type' => 'header', 'model_name' => 'JobOrder', 'relation_column' => ''],
-                //     ['model_type' => 'detail', 'model_name' => 'PoItem', 'relation_column' => 'jo_id'],
-                //     ['model_type' => 'detail', 'model_name' => 'PoTerm', 'relation_column' => 'jo_id'],
-                //     ['model_type' => 'sub_detail', 'model_name' => 'PoItemAttribute', 'relation_column' => 'jo_item_id'],
-                //     ['model_type' => 'sub_detail', 'model_name' => 'PoItemDelivery', 'relation_column' => 'jo_item_id'],
-                //     ['model_type' => 'sub_detail', 'model_name' => 'JobOrderTed', 'relation_column' => 'jo_item_id']
-                // ];
-                // $a = Helper::documentAmendment($revisionData, $id);
+                $revisionData = [
+                    ['model_type' => 'header', 'model_name' => 'JobOrder\\JobOrder', 'relation_column' => ''],
+                    ['model_type' => 'detail', 'model_name' => 'JobOrder\\JoItem', 'relation_column' => 'jo_id'],
+                    ['model_type' => 'detail', 'model_name' => 'JobOrder\\JoTerm', 'relation_column' => 'jo_id'],
+                    ['model_type' => 'detail', 'model_name' => 'JobOrder\\JoProduct', 'relation_column' => 'jo_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'JobOrder\\JoProductAttribute', 'relation_column' => 'jo_product_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'JobOrder\\JoProductDelivery', 'relation_column' => 'jo_product_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'JobOrder\\JoItemAttribute', 'relation_column' => 'jo_item_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'JobOrder\\JobOrderTed', 'relation_column' => 'jo_product_id'],
+                    ['model_type' => 'sub_detail', 'model_name' => 'JobOrder\\JoBomMapping', 'relation_column' => 'jo_product_id']
+                ];
+                if (!Helper::documentAmendment($revisionData, $id)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Error occurred while sending amendment request for approval.',
+                        'error' => '',
+                    ], 500);
+                }
             }
 
             $keys = ['deletedItemDiscTedIds', 'deletedHeaderDiscTedIds', 'deletedHeaderExpTedIds', 'deletedPiItemIds', 'deletedDelivery', 'deletedAttachmentIds'];
@@ -1185,7 +1304,8 @@ class JoController extends Controller
         $html = view('procurement.jo.partials.comp-item-detail2', compact('item', 'selectedAttr', 'uomName', 'qty', 'specifications'))->render();
         return response()->json(['data' => ['html' => $html, 'po_item' => $poItem], 'status' => 200, 'message' => 'fetched.']);
     }
-    # Edit Po
+
+    # Edit Jo
     public function edit(Request $request, $id)
     {
         $users = AuthUser::where('organization_id', Helper::getAuthenticatedUser()->organization_id)
@@ -1208,43 +1328,42 @@ class JoController extends Controller
         $short_title = 'JO';
         $reference_from_title = 'PWO';
         $books = Helper::getBookSeriesNew($serviceAlias, $parentUrl)->get();
-        $po = JobOrder::where('id', $id)->first();
-        if (!$po) {
+        $jo = JobOrder::where('id', $id)->first();
+        if (!$jo) {
             abort(404);
         }
-        $createdBy = $po?->created_by;
-        $revision_number = $po->revision_number;
-        $totalValue = $po->grand_total_amount ?? 0;
+        $createdBy = $jo?->created_by;
+        $revision_number = $jo->revision_number;
+        $totalValue = $jo->grand_total_amount ?? 0;
         $creatorType = Helper::userCheck()['type'];
-        $approval_level = $po->approval_level ?? 1;
-        $buttons = Helper::actionButtonDisplay($po->book_id, $po->document_status, $po->id, $totalValue, $approval_level, $po->created_by ?? 0, $creatorType, $revision_number);
-        $revNo = $po->revision_number;
+        $approval_level = $jo->approval_level ?? 1;
+        $buttons = Helper::actionButtonDisplay($jo->book_id, $jo->document_status, $jo->id, $totalValue, $approval_level, $jo->created_by ?? 0, $creatorType, $revision_number);
+        $revNo = $jo->revision_number;
         if ($request->has('revisionNumber')) {
             $revNo = intval($request->revisionNumber);
         } else {
-            $revNo = $po->revision_number;
+            $revNo = $jo->revision_number;
         }
-        $approvalHistory = Helper::getApprovalHistory($po->book_id, $po->id, $revNo, $totalValue, $createdBy);
+        $approvalHistory = Helper::getApprovalHistory($jo->book_id, $jo->id, $revNo, $totalValue, $createdBy);
         $termsAndConditions = TermsAndCondition::withDefaultGroupCompanyOrg()
             ->where('status', ConstantHelper::ACTIVE)->get();
         $view = 'procurement.jo.edit';
-        if ($request->has('revisionNumber') && $request->revisionNumber != $po->revision_number) {
-            $po = $po->source()->where('revision_number', $request->revisionNumber)->first();
+        if ($request->has('revisionNumber') && $request->revisionNumber != $jo->revision_number) {
+            $jo = $jo->source()->where('revision_number', $request->revisionNumber)->first();
             $view = 'procurement.jo.view';
         }
-        $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$po->document_status] ?? '';
-        $user = Helper::getAuthenticatedUser();
+        $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$jo->document_status] ?? '';
         $organization = Organization::where('id', $user->organization_id)->first();
-        $locations = $locations = InventoryHelper::getAccessibleLocations('stock', $po->store_id);
+        $locations = $locations = InventoryHelper::getAccessibleLocations('stock', $jo->store_id);
         $shortClose = 0;
-        if (intval($po->revision_number) > 0) {
+        if (intval($jo->revision_number) > 0) {
             $shortClose = 1;
         } else {
-            if ($po->document_status == ConstantHelper::APPROVED || $po->document_status == ConstantHelper::APPROVAL_NOT_REQUIRED) {
+            if ($jo->document_status == ConstantHelper::APPROVED || $jo->document_status == ConstantHelper::APPROVAL_NOT_REQUIRED) {
                 $shortClose = 1;
             }
         }
-        $pendingOrder = JoProduct::where('jo_id', $po->id)
+        $pendingOrder = JoProduct::where('jo_id', $jo->id)
             ->whereRaw('order_qty > (grn_qty + short_close_qty)')
             ->count();
         if ($pendingOrder) {
@@ -1256,21 +1375,22 @@ class JoController extends Controller
         if (!$isEdit) {
             $isEdit = $buttons['amend'] && intval(request('amendment') ?? 0) ? true : false;
         }
-        $saleOrders = ErpSaleOrder::whereIn('id', $po->so_id ?? [])
+        $saleOrders = ErpSaleOrder::whereIn('id', $jo->so_id ?? [])
             ->get();
         $currencyName = $organization?->currency?->short_name ?? '';
-        $isDifferentCurrency = intval($po?->vendor?->currency_id) !== intval($organization?->currency_id);
+        $isDifferentCurrency = intval($jo?->vendor?->currency_id) !== intval($organization?->currency_id);
         $jobOrderTypes = ConstantHelper::JOB_ORDER_TYPES;
         $isRawMaterial = false;
-        if (strtolower($po->job_order_type) === strtolower(ConstantHelper::TYPE_SUBCONTRACTING)) {
+        if (strtolower($jo->job_order_type) === strtolower(ConstantHelper::TYPE_SUBCONTRACTING)) {
             $isRawMaterial = true;
         }
+
         return view($view, [
             'isRawMaterial' => $isRawMaterial,
             'users' => $users,
             'isEdit' => $isEdit,
             'books' => $books,
-            'po' => $po,
+            'po' => $jo,
             'buttons' => $buttons,
             'approvalHistory' => $approvalHistory,
             'docStatusClass' => $docStatusClass,
@@ -1292,6 +1412,7 @@ class JoController extends Controller
 
         ]);
     }
+
     // genrate pdf
     public function generatePdf(Request $request, $id)
     {
@@ -1583,202 +1704,141 @@ class JoController extends Controller
             'message' => 'Email request sent succesfully',
         ]);
     }
-    public function poReport(Request $request)
+
+    public function joReport(Request $request)
     {
-        $pathUrl = route('jo.index', ['type' => request()->route('type')]);
-        $orderType = ConstantHelper::JO_SERVICE_ALIAS;
-        $poItems = JoProduct::whereHas('po', function ($headerQuery) use ($orderType, $pathUrl, $request) {
-            $headerQuery->where('type', $orderType)->withDefaultGroupCompanyOrg()->withDraftListingLogic();
-            //Vendor Filter
-            $headerQuery = $headerQuery->when($request->vendor_id, function ($custQuery) use ($request) {
-                $custQuery->where('vendor_id', $request->vendor_id);
-            });
-            //Book Filter
-            $headerQuery = $headerQuery->when($request->book_id, function ($bookQuery) use ($request) {
-                $bookQuery->where('book_id', $request->book_id);
-            });
-            //Document Id Filter
-            $headerQuery = $headerQuery->when($request->document_number, function ($docQuery) use ($request) {
-                $docQuery->where('document_number', 'LIKE', '%' . $request->document_number . '%');
-            });
-            //Location Filter
-            $headerQuery = $headerQuery->when($request->location_id, function ($docQuery) use ($request) {
-                $docQuery->where('store_id', $request->location_id);
-            });
-            //Company Filter
-            $headerQuery = $headerQuery->when($request->company_id, function ($docQuery) use ($request) {
-                $docQuery->where('store_id', $request->company_id);
-            });
-            //Organization Filter
-            $headerQuery = $headerQuery->when($request->organization_id, function ($docQuery) use ($request) {
-                $docQuery->where('organization_id', $request->organization_id);
-            });
-            //Document Status Filter
-            $headerQuery = $headerQuery->when($request->doc_status, function ($docStatusQuery) use ($request) {
-                $searchDocStatus = [];
-                if ($request->doc_status === ConstantHelper::DRAFT) {
-                    $searchDocStatus = [ConstantHelper::DRAFT];
-                } else if ($searchDocStatus === ConstantHelper::SUBMITTED) {
-                    $searchDocStatus = [ConstantHelper::SUBMITTED, ConstantHelper::PARTIALLY_APPROVED];
-                } else {
-                    $searchDocStatus = [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED];
-                }
-                $docStatusQuery->whereIn('document_status', $searchDocStatus);
-            });
-            //Date Filters
-            $dateRange = $request->date_range ??  Carbon::now()->startOfMonth()->format('Y-m-d') . " to " . Carbon::now()->endOfMonth()->format('Y-m-d');
-            $headerQuery = $headerQuery->when($dateRange, function ($dateRangeQuery) use ($request, $dateRange) {
-                $dateRanges = explode('to', $dateRange);
-                if (count($dateRanges) == 2) {
-                    $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
-                    $toDate = Carbon::parse(trim($dateRanges[1]))->format('Y-m-d');
-                    $dateRangeQuery->whereDate('document_date', ">=", $fromDate)->where('document_date', '<=', $toDate);
-                } else {
-                    $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
-                    $dateRangeQuery->whereDate('document_date', $fromDate);
-                }
-            });
-            //Item Id Filter
-            $headerQuery = $headerQuery->when($request->item_id, function ($itemQuery) use ($request) {
-                $itemQuery->withWhereHas('jo_items', function ($itemSubQuery) use ($request) {
-                    $itemSubQuery->where('item_id', $request->item_id)
-                        //Compare Item Category
-                        ->when($request->item_category_id, function ($itemCatQuery) use ($request) {
-                            $itemCatQuery->whereHas('item', function ($itemRelationQuery) use ($request) {
-                                $itemRelationQuery->where('category_id', $request->category_id)
-                                    //Compare Item Sub Category
-                                    ->when($request->item_sub_category_id, function ($itemSubCatQuery) use ($request) {
-                                        $itemSubCatQuery->where('subcategory_id', $request->item_sub_category_id);
-                                    });
-                            });
-                        });
+        $pathUrl = route('jo.index');
+
+        // 🔹 Eager load required relationships to prevent N+1 queries
+        $poItems = JoProduct::with([
+            'jo.book',
+            'jo.store_location',
+            'item',
+            'uom',
+            'hsn',
+            'sow',
+            'attributes',
+        ])
+            ->whereHas('jo', function ($headerQuery) use ($pathUrl, $request) {
+                // 🔹 Book Filter
+                $headerQuery->when($request->book_id, fn($q) => $q->where('book_id', $request->book_id));
+
+                // 🔹 Document Number Filter
+                $headerQuery->when(
+                    $request->document_number,
+                    fn($q) =>
+                    $q->where('document_number', 'LIKE', "%{$request->document_number}%")
+                );
+
+                // 🔹 Location Filter
+                $headerQuery->when($request->location_id, fn($q) => $q->where('store_id', $request->location_id));
+
+                // 🔹 Company Filter
+                $headerQuery->when($request->company_id, fn($q) => $q->where('company_id', $request->company_id));
+
+                // 🔹 Organization Filter
+                $headerQuery->when($request->organization_id, fn($q) => $q->where('organization_id', $request->organization_id));
+
+                // 🔹 Document Status Filter
+                $headerQuery->when($request->doc_status, function ($q) use ($request) {
+                    $status = match ($request->doc_status) {
+                        ConstantHelper::DRAFT => [ConstantHelper::DRAFT],
+                        ConstantHelper::SUBMITTED => [ConstantHelper::SUBMITTED, ConstantHelper::PARTIALLY_APPROVED],
+                        default => [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED],
+                    };
+                    $q->whereIn('document_status', $status);
                 });
-            });
-        })->orderByDesc('id');
+
+                // 🔹 Date Range Filter
+                $dateRange = $request->date_range ?? now()->startOfMonth()->format('Y-m-d') . " to " . now()->endOfMonth()->format('Y-m-d');
+                $headerQuery->when($dateRange, function ($q) use ($dateRange) {
+                    $dates = explode('to', $dateRange);
+                    $from = trim($dates[0]);
+                    $to = trim($dates[1] ?? $dates[0]);
+                    $q->whereBetween('document_date', [
+                        Carbon::parse($from)->format('Y-m-d'),
+                        Carbon::parse($to)->format('Y-m-d')
+                    ]);
+                });
+
+                // 🔹 Item & Category Filters
+                $headerQuery->when($request->item_id, function ($query) use ($request) {
+                    $query->whereHas('jo_items', function ($subQuery) use ($request) {
+                        $subQuery->where('item_id', $request->item_id)
+                            ->when($request->item_category_id, function ($catQuery) use ($request) {
+                                $catQuery->whereHas(
+                                    'item',
+                                    fn($item) =>
+                                    $item->where('category_id', $request->item_category_id)
+                                        ->when(
+                                            $request->item_sub_category_id,
+                                            fn($subCat) =>
+                                            $subCat->where('subcategory_id', $request->item_sub_category_id)
+                                        )
+                                );
+                            });
+                    });
+                });
+            })
+            ->orderByDesc('id');
+
         $dynamicFields = DynamicFieldHelper::getServiceDynamicFields(ConstantHelper::JO_SERVICE_ALIAS);
-        $datatables = DataTables::of($poItems)->addIndexColumn()
-            ->editColumn('status', function ($row) use ($orderType) {
-                $statusClasss = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$row->po->document_status ?? ConstantHelper::DRAFT];
-                $displayStatus = ucfirst($row->po->document_status);
-                $editRoute = null;
-                $editRoute = route('jo.edit', ['id' => $row->po->id, 'type' => request()->route('type')]);
+
+        $datatables = DataTables::of($poItems)
+            ->addIndexColumn()
+            ->editColumn('status', function ($row) {
+                $status = $row->jo->document_status ?? ConstantHelper::DRAFT;
+                $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$status];
+                $editUrl = route('jo.edit', ['id' => $row->jo->id, 'type' => request()->route('type')]);
+
                 return "
-                <div style='text-align:right;'>
-                    <span class='badge rounded-pill $statusClasss badgeborder-radius'>$displayStatus</span>
-                        <a href='" . $editRoute . "'>
-                            <i class='cursor-pointer' data-feather='eye'></i>
-                        </a>
+                <div class='text-center'>
+                    <span class='badge rounded-pill {$statusClass}'>{$status}</span>
+                    <a href='{$editUrl}' class='ms-2'><i class='cursor-pointer' data-feather='eye'></i></a>
                 </div>
             ";
             })
-            ->addColumn('book_name', function ($row) {
-                return $row->po->book->book_code;
-            })
-            ->addColumn('indent', function ($row) {
-                return $row?->pi_item?->pi?->book_code . "-" . $row?->pi_item?->pi?->document_number;
-            })
-            ->addColumn('order', function ($row) {
-                return $row?->so?->book_code . "-" . $row?->so?->document_number;
-            })
-            ->addColumn('item_name', function ($row) {
-                return $row->item->item_name;
-            })
-            ->addColumn('item_code', function ($row) {
-                return $row->item->item_code;
-            })
-            ->editColumn('location', function ($row) {
-                return $row?->po?->store_location?->store_name;
-            })
-            ->addColumn('vendor_currency', function ($row) {
-                return $row->po?->currency?->name;
-            })
-            ->addColumn('document_number', function ($row) {
-                return $row->po->document_number;
-            })
-            ->addColumn('document_date', function ($row) {
-                return $row->po->document_date;
-            })
-            ->addColumn('store_name', function ($row) {
-                return $row->po?->store?->store_name;
-            })
-            ->addColumn('store_name', function ($row) {
-                return $row->po?->store?->store_name;
-            })
-            ->addColumn('vendor_name', function ($row) {
-                return $row->po?->vendor?->company_name;
-            })
-            ->addColumn('vendor_currency', function ($row) {
-                return $row->po->currency_code;
-            })
-            ->addColumn('payment_terms_name', function ($row) {
-                return $row->po->payment_term_code;
-            })
-            ->addColumn('hsn_code', function ($row) {
-                return $row->hsn?->code;
-            })
-            ->addColumn('uom_name', function ($row) {
-                return $row->uom?->name;
-            })
-            ->addColumn('po_qty', function ($row) {
-                return number_format($row->order_qty, 2);
-            })
-            ->editColumn('ge_qty', function ($row) {
-                return number_format($row->ge_qty, 2);
-            })
-            ->editColumn('grn_qty', function ($row) {
-                return number_format($row->grn_qty, 2);
-            })
-            ->editColumn('short_close_qty', function ($row) {
-                return number_format($row->short_close_qty, 2);
-            })
-            ->editColumn('rate', function ($row) {
-                return number_format($row->rate, 2);
-            })
-            ->addColumn('total_discount_amount', function ($row) {
-                return number_format($row->header_discount_amount + $row->item_discount_amount, 2);
-            })
-            ->editColumn('tax_amount', function ($row) {
-                return number_format($row->tax_amount, 2);
-            })
-            ->addColumn('taxable_amount', function ($row) {
-                return number_format(($row->rate * $row->order_qty) - ($row->header_discount_amount + $row->item_discount_amount), 2);
-            })
-            ->editColumn('total_item_amount', function ($row) {
-                return number_format(($row->rate * $row->order_qty) - ($row->header_discount_amount + $row->item_discount_amount) + $row->tax_amount, 2);
-            })
-            // ->editColumn('pending_qty', function ($row) {
-            //     return number_format($row -> pending_qty, 2);
-            // })
+            ->addColumn('book_name', fn($row) => $row?->jo?->book?->book_code)
+            ->addColumn('document_number', fn($row) => $row?->jo?->document_number)
+            ->addColumn('document_date', fn($row) => $row?->jo?->document_date)
+            ->addColumn('job_order_type', fn($row) => $row?->jo?->job_order_type)
+            ->addColumn('store_name', fn($row) => $row?->jo?->store_location?->store_name)
+            ->addColumn('item_name', fn($row) => $row?->item?->item_name)
+            ->addColumn('item_code', fn($row) => $row?->item?->item_code)
+            ->addColumn('hsn_code', fn($row) => $row?->hsn?->code)
+            ->addColumn('uom_name', fn($row) => $row?->uom?->name)
+            ->addColumn('jo_qty', fn($row) => number_format($row->order_qty, 2))
+            ->addColumn('ge_qty', fn($row) => number_format($row->ge_qty, 2))
+            ->addColumn('grn_qty', fn($row) => number_format($row->grn_qty, 2))
+            ->addColumn('short_close_qty', fn($row) => number_format($row->short_close_qty, 2))
+            ->addColumn('service_item', fn($row) => $row?->sow?->item_name ?? 'N/A')
+            ->addColumn('service_charge', fn($row) => number_format($row->rate, 2))
+            ->addColumn('taxable_amount', fn($row) => number_format(($row->rate * $row->order_qty) - ($row->header_discount_amount + $row->item_discount_amount), 2))
+            ->addColumn('tax_amount', fn($row) => number_format($row->tax_amount, 2))
+            ->addColumn('total_item_amount', fn($row) => number_format(($row->rate * $row->order_qty) - ($row->header_discount_amount + $row->item_discount_amount) + $row->tax_amount, 2))
             ->addColumn('item_attributes', function ($row) {
-                $attributesUi = '';
-                if (count($row->attributes) > 0) {
-                    foreach ($row->attributes as $soAttribute) {
-                        $attrName = AttributeGroup::find($soAttribute->attribute_name);
-                        $attrValue = Attribute::find($soAttribute->attribute_value);
-                        $attributesUi .= "<span class='badge rounded-pill badge-light-primary' > $attrName?->name : $attrValue?->value </span>";
-                    }
-                } else {
-                    $attributesUi = 'N/A';
+                if ($row->attributes->isEmpty()) {
+                    return 'N/A';
                 }
-                return $attributesUi;
+
+                return $row->attributes->map(function ($attr) {
+                    $name = optional(AttributeGroup::find($attr->attribute_name))->name ?? '';
+                    $value = optional(Attribute::find($attr->attribute_value))->value ?? '';
+                    return "<span class='badge rounded-pill badge-light-primary'>{$name}: {$value}</span>";
+                })->implode(' ');
             });
+
         foreach ($dynamicFields as $field) {
-            $datatables = $datatables->addColumn($field->name, function ($row) use ($field) {
-                $value = "";
-                $actualDynamicFields = $row->po?->dynamic_fields;
-                foreach ($actualDynamicFields as $actualDynamicField) {
-                    if ($field->name == $actualDynamicField->name) {
-                        $value = $actualDynamicField->value;
-                    }
-                }
-                return $value;
+            $datatables->addColumn($field->name, function ($row) use ($field) {
+                return collect($row->jo?->dynamic_fields)
+                    ->firstWhere('name', $field->name)?->value ?? '';
             });
         }
-        $datatables = $datatables
-            ->rawColumns(['item_attributes', 'status'])
-            ->make(true);
-        return $datatables;
+
+        return $datatables->rawColumns(['item_attributes', 'status'])->make(true);
     }
+
+
     // Check bom job
     public function checkBomJob(Request $request)
     {

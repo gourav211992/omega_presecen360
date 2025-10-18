@@ -27,7 +27,7 @@ class MailHelper
                     $senderName    = $params['sender_name'] ?? request()->user()?->name ?? config('mail.from.name', 'P360');
                     $description   = $params['description'] ?? SELF::buildDefaultEmailTemplate($documentType, $receiver->name, $content, $remarks, $url);
 
-                    dispatch(new SendEmailJob($receiver, $sender, $senderName, $title, $description, $cc, $bcc, $attachments));
+                    dispatch(new SendEmailJob($receiver, $sender, $senderName, $title, $description, $cc, $bcc, null));
                 }
             } catch (\Throwable $e) {
                 throw new ApiGenericException($e->getMessage());

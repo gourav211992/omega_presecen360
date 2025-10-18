@@ -3,21 +3,24 @@
 namespace App\Models\Scrap;
 
 use App\Models\Book;
+use App\Helpers\Helper;
+use App\Models\AuthUser;
 use App\Models\ErpStore;
 use App\Models\ErpSubStore;
+use App\Models\ErpPslipItem;
 use App\Traits\UserStampTrait;
 use App\Helpers\ConstantHelper;
 use App\Traits\DateFormatTrait;
 use App\Traits\FileUploadTrait;
-use App\Models\ErpPslipItem;
 use App\Traits\DynamicFieldsTrait;
 use App\Traits\DefaultGroupCompanyOrg;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class ErpScrap extends Model
 {
-    use HasFactory, DefaultGroupCompanyOrg, FileUploadTrait, DateFormatTrait, UserStampTrait, DynamicFieldsTrait;
+    use HasFactory, DefaultGroupCompanyOrg, FileUploadTrait, DateFormatTrait, UserStampTrait, DynamicFieldsTrait, SoftDeletes;
 
     protected $fillable = [
         'organization_id',
@@ -61,6 +64,32 @@ class ErpScrap extends Model
         "store" => "store_id",
         "subStore" => "sub_store_id",
     ];
+
+    public static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            $user = Helper::getAuthenticatedUser();
+            if ($user) {
+                $model->created_by = $user->auth_user_id;
+            }
+        });
+
+        static::updating(function ($model) {
+            $user = Helper::getAuthenticatedUser();
+            if ($user) {
+                $model->updated_by = $user->auth_user_id;
+            }
+        });
+
+        static::deleting(function ($model) {
+            $user = Helper::getAuthenticatedUser();
+            if ($user) {
+                $model->deleted_by = $user->auth_user_id;
+            }
+        });
+    }
 
     /* -------------------------
      | Accessors
@@ -139,10 +168,6 @@ class ErpScrap extends Model
             ->select('id', 'model_type', 'model_id', 'file_name');
     }
 
-    public function createdBy()
-    {
-        return $this->belongsTo(AuthUser::class, 'created_by', 'id');
-    }
     public function applyReference(string $type): void
     {
         $items = match ($type) {
@@ -156,5 +181,15 @@ class ErpScrap extends Model
 
         $this->{$type . '_ids'}      = json_encode($ids, JSON_THROW_ON_ERROR);
         $this->{$type . '_item_ids'} = json_encode($itemIds, JSON_THROW_ON_ERROR);
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(AuthUser::class, 'created_by', 'id');
+    }
+
+    public function updatedBy()
+    {
+        return $this->belongsTo(AuthUser::class, 'updated_by', 'id');
     }
 }

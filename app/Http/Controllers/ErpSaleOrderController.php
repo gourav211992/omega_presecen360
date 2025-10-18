@@ -349,10 +349,13 @@ class ErpSaleOrderController extends Controller
             $soItem->discount_editable=true;
             $soItem->bom_editable=true;
 
-            if ($soItem -> pwo_qty || $soItem -> pslip_qty || $soItem -> plist_qty || $soItem -> invoice_qty || 
-            $soItem -> dnote_qty || $soItem -> srn_qty || $soItem -> expense_advise_qty || $soItem -> picked_qty || $soItem -> planned_qty) {
-                $soItem->rate_editable=false;
+            if ($soItem -> pwo_qty > 0 || $soItem -> pslip_qty  >0 || $soItem -> plist_qty > 0 || $soItem -> invoice_qty > 0 || 
+            $soItem -> dnote_qty > 0 || $soItem -> srn_qty > 0 || $soItem -> expense_advise_qty > 0 || $soItem -> picked_qty > 0 || 
+            $soItem -> planned_qty > 0) {
                 $soItem->bom_editable=false;
+            }
+            if ($soItem -> dnote_qty > 0 || $soItem -> srn_qty > 0 || $soItem -> invoice_qty > 0) {
+                $soItem->rate_editable=false;
             }
             //Disable Discount if full qty is utilized
             if ($soItem -> order_qty <= $soItem -> dnote_qty) {

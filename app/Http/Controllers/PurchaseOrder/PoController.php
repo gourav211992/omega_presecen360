@@ -71,7 +71,9 @@ class PoController extends Controller
     # Po List
     public function index(Request $request)
     {
+
         $type = $this->type;
+        $user = Helper::getAuthenticatedUser();
         $parentUrl = request()->segments()[0];
         if (request()->ajax()) {
             $selectColumns = [
@@ -96,6 +98,7 @@ class PoController extends Controller
                 ->bookViewAccess($parentUrl)
                 ->withDefaultGroupCompanyOrg()
                 ->withDraftListingLogic()
+                ->selfCreatedDocuments($user)
                 ->with('vendor:id,vendor_code,company_name')
                 ->with('currency:id,short_name,name')
                 ->latest();
@@ -371,7 +374,7 @@ class PoController extends Controller
         } else {
             return response()->json(['error' => 'No address found for the organization.'], 404);
         }
-        $price = $request->input('price', 6000);
+        $price = $request->input('price', 0);
         $document_date = $request->document_date ?? date('Y-m-d');
         $hsnId = null;
         $item = Item::find($request->item_id);
@@ -396,35 +399,29 @@ class PoController extends Controller
         $rowCount = intval($request->rowCount) ?? 1;
         $itemPrice = floatval($request->price) ?? 0;
 
-        if ($request->po_id && $request->po_item_id && $request->document_status && $request->document_status !== ConstantHelper::DRAFT) {
-            $taxDetails = PurchaseOrderTed::where('purchase_order_id', $request->po_id)
-                ->where('po_item_id', $request->po_item_id)
-                ->where('ted_type', 'Tax')
-                ->where('ted_level', 'D')
-                ->get()
-                ->map(function ($row) {
-                    return [
-                        "id"                => $row->ted_id,
-                        "applicability_type" => $row->applicable_type ?? '',
-                        "tax_percentage"    => $row->ted_perc ?? '',
-                        "tax_type"          => $row->ted_type ?? '',
-                        "tax_group"         => $row?->taxDetail?->erpTax?->tax_group ?? '',
-                        "tax_id"            => $row?->taxDetail?->tax_id ?? '',
-                        "tax_code"          => $row->ted_type ?? '',
-                    ];
-                })
-                ->toArray();
-
-            $html = view('procurement.po.partials.item-tax', compact('taxDetails', 'rowCount', 'itemPrice'))->render();
-            return response()->json([
-                'data' => ['html' => $html, 'rowCount' => $rowCount],
-                'message' => 'fetched',
-                'status' => 200
-            ]);
-        }
-
         try {
-            $taxDetails = TaxHelper::calculateTax($hsnId, $price, $fromCountry, $fromState, $upToCountry, $upToState, $transactionType, $document_date);
+            if ($request->po_id && $request->po_item_id && $request->document_status && $request->document_status !== ConstantHelper::DRAFT) {
+                $taxDetails = PurchaseOrderTed::where('purchase_order_id', $request->po_id)
+                    ->where('po_item_id', $request->po_item_id)
+                    ->where('ted_type', 'Tax')
+                    ->where('ted_level', 'D')
+                    ->get()
+                    ->map(function ($row) {
+                        return [
+                            "id"                => $row->ted_id,
+                            "applicability_type" => $row->applicable_type ?? '',
+                            "tax_group"         => $row?->taxDetail?->erpTax?->tax_group ?? '',
+                            "tax_percentage"    => $row->ted_perc ?? '',
+                            "tax_type"          => $row->ted_name ?? '',
+                            "tax_id"            => $row?->taxDetail?->tax_id ?? '',
+                            "tax_code"          => $row->ted_name ?? '',
+                        ];
+                    })
+                    ->toArray();
+            } else {
+                $taxDetails = TaxHelper::calculateTax($hsnId, $price, $fromCountry, $fromState, $upToCountry, $upToState, $transactionType, $document_date);
+            }
+
             $html = view('procurement.po.partials.item-tax', compact('taxDetails', 'rowCount', 'itemPrice'))->render();
             return response()->json(['data' => ['html' => $html, 'rowCount' => $rowCount], 'message' => 'fetched', 'status' => 200]);
         } catch (\Exception $e) {
@@ -977,23 +974,23 @@ class PoController extends Controller
                 }
 
                 if (isset($request->all()['exp_summary'])) {
-                    foreach ($request->all()['exp_summary'] as $dis) {
-                        if (isset($dis['e_amnt']) && $dis['e_amnt']) {
+                    foreach ($request->all()['exp_summary'] as $exp) {
+                        if (isset($exp['e_amnt']) && $exp['e_amnt']) {
                             $ted = new PurchaseOrderTed;
                             $ted->purchase_order_id  =      $po->id;
                             $ted->po_item_id         =      null;
-                            $ted->hsn_id             =      $dis['hsn_id'] ?? null;
+                            $ted->hsn_id             =      $exp['hsn_id'] ?? null;
                             $ted->ted_type           =      'Expense';
                             $ted->ted_level          =      'H';
-                            $ted->ted_id             =      $dis['ted_e_id'] ?? null;
-                            $ted->ted_name           =      $dis['e_name'] ?? null;
+                            $ted->ted_id             =      $exp['ted_e_id'] ?? null;
+                            $ted->ted_name           =      $exp['e_name'] ?? null;
                             $ted->assessment_amount  =      $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount + $totalTax;
-                            $ted->ted_amount         =      $dis['e_amnt'] ?? 0.00;
+                            $ted->ted_amount         =      $exp['e_amnt'] ?? 0.00;
                             $ted->ted_perc           =      0.00;
-                            $ted->tax_amount         =      $dis['tax_amount'] ?? 0.00;
-                            // $ted->total_amount       =      $dis['total'] ?? ($ted->ted_amount + $ted->tax_amount);
-                            $ted->tax_breakup        =      $dis['tax_breakup'] ?? null;
-                            $ted->applicable_type    =      'Collection';
+                            $ted->tax_amount         =      $exp['tax_amount'] ?? 0.00;
+                            // $ted->total_amount       =      $exp['total'] ?? ($ted->ted_amount + $ted->tax_amount);
+                            $ted->tax_breakup        =      $exp['tax_breakup'] ?? null;
+                            $ted->applicable_type    =      $exp['applicable_type'] ?? 'Collection';
                             $ted->save();
                         }
                     }
@@ -1614,23 +1611,23 @@ class PoController extends Controller
                 }
                 /*Header level save discount*/
                 if (isset($request->all()['exp_summary'])) {
-                    foreach ($request->all()['exp_summary'] as $dis) {
-                        if (isset($dis['e_amnt']) && $dis['e_amnt']) {
-                            $ted = PurchaseOrderTed::find($dis['e_id'] ?? null) ?? new PurchaseOrderTed;
+                    foreach ($request->all()['exp_summary'] as $exp) {
+                        if (isset($exp['e_amnt']) && $exp['e_amnt']) {
+                            $ted = PurchaseOrderTed::find($exp['e_id'] ?? null) ?? new PurchaseOrderTed;
                             $ted->purchase_order_id  =      $po->id;
-                            $ted->hsn_id             =      $dis['hsn_id'] ?? null;
+                            $ted->hsn_id             =      $exp['hsn_id'] ?? null;
                             $ted->po_item_id         =      null;
                             $ted->ted_type           =      'Expense';
                             $ted->ted_level          =      'H';
-                            $ted->ted_id             =      $dis['ted_e_id'] ?? null;
-                            $ted->ted_name           =      $dis['e_name'] ?? null;
+                            $ted->ted_id             =      $exp['ted_e_id'] ?? null;
+                            $ted->ted_name           =      $exp['e_name'] ?? null;
                             $ted->assessment_amount  =      $itemTotalValue - $itemTotalDiscount - $itemTotalHeaderDiscount + $totalTax;
-                            $ted->ted_amount         =      $dis['e_amnt'] ?? 0.00;
+                            $ted->ted_amount         =      $exp['e_amnt'] ?? 0.00;
                             $ted->ted_perc           =      0.00;
-                            $ted->tax_amount         =      $dis['tax_amount'] ?? 0.00;
-                            // $ted->total_amount       =      $dis['total'] ?? ($ted->ted_amount + $ted->tax_amount);
-                            $ted->tax_breakup        =      $dis['tax_breakup'] ?? null;
-                            $ted->applicable_type    =      'Collection';
+                            $ted->tax_amount         =      $exp['tax_amount'] ?? 0.00;
+                            // $ted->total_amount       =      $exp['total'] ?? ($ted->ted_amount + $ted->tax_amount);
+                            $ted->tax_breakup        =      $exp['tax_breakup'] ?? null;
+                            $ted->applicable_type    =      $exp['applicable_type'] ?? 'Collection';
                             $ted->save();
                         }
                     }

@@ -46,9 +46,10 @@
                                                 <th>Sub Store</th>
                                                 <th>Items</th>
                                                 <th>Total Qty</th>
-                                                <th>Total Cost</th>
+                                                {{-- <th>Total Cost</th> --}}
                                                 <th>Reference From.</th>
                                                 <th>Total Reference Qty.</th>
+                                                <th>Created By</th>
                                                 <th style="width:100px">Status</th>
                                             </tr>
                                         </thead>
@@ -125,14 +126,14 @@
                         $(td).addClass('no-wrap');
                     }
                 },
-                {
-                    data: 'total_cost',
-                    name: 'total_cost',
-                    render: renderData,
-                    createdCell: function(td, cellData, rowData, row, col) {
-                        $(td).addClass('no-wrap');
-                    }
-                },
+                // {
+                //     data: 'total_cost',
+                //     name: 'total_cost',
+                //     render: renderData,
+                //     createdCell: function(td, cellData, rowData, row, col) {
+                //         $(td).addClass('no-wrap');
+                //     }
+                // },
                 {
                     data: 'reference_from',
                     name: 'reference_from',
@@ -150,6 +151,11 @@
                     }
                 },
                 {
+                    data: 'created_by',
+                    name: 'created_by',
+                    render: renderData,
+                },
+                {
                     data: 'document_status',
                     name: 'document_status',
                     render: renderData,
@@ -164,7 +170,7 @@
                 category: '#filter-category', // Category filter (dropdown)
                 item_code: '#filter-item-code' // Item code filter (input text field)
             };
-            var exportColumns = [0, 1, 2, 3, 4, 5, 6]; // Columns to export
+            var exportColumns = [0, 1, 2, 3, 4, 5, 6];
             initializeDataTable('.datatables-basic',
                 "{{ route('scrap.index') }}",
                 columns,

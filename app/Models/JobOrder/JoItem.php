@@ -7,14 +7,16 @@ use App\Models\Unit;
 use App\Models\Attribute;
 use App\Models\ErpSaleOrder;
 use App\Models\ItemAttribute;
+use App\Traits\UserStampTrait;
 use App\Traits\DateFormatTrait;
 use App\Helpers\InventoryHelper;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class JoItem extends Model
 {
-    use HasFactory, DateFormatTrait;
+    use HasFactory, DateFormatTrait, UserStampTrait, SoftDeletes;
     protected $table = 'erp_jo_items';
     protected $fillable = [
         'jo_id',
@@ -33,6 +35,7 @@ class JoItem extends Model
         'inventory_uom_code',
         'inventory_uom_qty'
     ];
+
     public $referencingRelationships = [
         'item' => 'item_id',
         'uom' => 'uom_id',
