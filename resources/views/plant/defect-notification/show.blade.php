@@ -96,7 +96,7 @@
 									@endif
 									
 									@if($buttons['revoke'])
-										<a id="revokeButton" type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</a>
+										<a id="revokeButton" type="button" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</a>
 									@endif
 								@endif
 

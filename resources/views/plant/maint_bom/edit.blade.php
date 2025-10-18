@@ -77,24 +77,24 @@
 													<p class="card-text">Edit the details</p>
 													</div>
 													<div class="header-right">
-													@php
-														use App\Helpers\Helper;
-													@endphp
+														@php
+															use App\Helpers\Helper;
+														@endphp
 														<div class="col-md-6 text-sm-end">
-														<span
-															class="badge rounded-pill {{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$bom->document_status] ?? ''}} forminnerstatus">
-															<span class="text-dark">Status</span>
-															: <span
-																class="{{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS['CLOSED'] ?? ''}}">
-																@if ($bom->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED)
-																	Approved
-																@else
-																	{{ ucfirst($bom->document_status) }}
-																@endif
+															<span
+																class="badge rounded-pill {{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$bom->document_status] ?? ''}} forminnerstatus">
+																<span class="text-dark">Status</span>
+																: <span
+																	class="{{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS['CLOSED'] ?? ''}}">
+																					@if ($bom->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED)
+																		Approved
+																	@else
+																		{{ ucfirst($bom->document_status) }}
+																	@endif
+																</span>
 															</span>
-														</span>
 														</div>
-												</div>
+													</div>
 												</div>
 											</div>
 										</div>
@@ -974,8 +974,6 @@ function validateRowsCompletion() {
 	if (submitBtn) {
 		submitBtn.addEventListener('click', function(e) {
 			e.preventDefault();
-			$('#document_status').val('submitted');
-
 			if (!validateQuantities()) return;
 			
 			// Validate UOM before submission

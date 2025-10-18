@@ -302,26 +302,13 @@ class MaintBomController extends Controller
             DB::beginTransaction();
         
             $bom = PlantMaintBom::create($data);
-        
-            $numberPatternData = Helper::generateDocumentNumberNew($request->book_id, $request->document_date);
-            if (!isset($numberPatternData)) {
-                throw new \Exception("Invalid Book");
-            }
-        
-            $document_number = $numberPatternData['document_number'];
-            $bom->doc_number_type = $numberPatternData['type'];
-            $bom->doc_reset_pattern = $numberPatternData['reset_pattern'];
-            $bom->doc_prefix = $numberPatternData['prefix'];
-            $bom->doc_suffix = $numberPatternData['suffix'];
-            $bom->doc_no = $numberPatternData['doc_no'];
-            $bom->save();
-        
+    
             // ✅ Handle approval process for submitted documents
             if ($bom->document_status == ConstantHelper::SUBMITTED) {
                 $bookId = $bom->book_id;
                 $docId = $bom->id;
                 $revisionNumber = $bom->revision_number ?? 0;
-                $remarks = $bom->remarks ?? "";
+                $remarks = "";
                 $attachments = null; // No attachments in create
                 $currentLevel = $bom->approval_level ?? 1;
                 $actionType = 'submit';
@@ -443,6 +430,8 @@ class MaintBomController extends Controller
             ];
         });
 
+      
+
         return view('plant.maint_bom.show', compact(
             'series',
             'items',
@@ -537,7 +526,7 @@ class MaintBomController extends Controller
      */
     public function update(MaintBOMRequest $request, $id)
     {
-        // dd($request->all());
+       
         // Validation via FormRequest
         $validator = $request->validated();
 
@@ -551,6 +540,7 @@ class MaintBomController extends Controller
         }
 
         $bom = PlantMaintBom::findOrFail($id);
+      
 
         // Check for duplicate BOM Name except current record (skip for draft saves)
         if ($request->document_status !== 'draft') {
@@ -624,8 +614,18 @@ class MaintBomController extends Controller
         DB::beginTransaction();
 
         try {
-            // Handle amendment only for approved documents (following PO/Sale Order pattern)
-            if (($bom->document_status == ConstantHelper::APPROVED || $bom->document_status == ConstantHelper::APPROVAL_NOT_REQUIRED) && $request->action_type == "amendment") {
+            $bookId = $bom->book_id;
+            $docId = $bom->id;
+            $amendRemarks = $request->amend_remarks ?? null;
+            $remarks = $bom->remarks;
+            $amendAttachments = $request->file('amend_attachment');
+            $attachments = '';
+            $currentLevel = $bom->approval_level ?? 1;
+            $modelName = get_class($bom);
+            
+
+            if ($request->action_type == 'amendment') {
+
                 $revisionData = [
                     [
                         "model_type" => "header",
@@ -633,28 +633,36 @@ class MaintBomController extends Controller
                         "relation_column" => "",
                     ],
                 ];
-                Helper::documentAmendment($revisionData, $id);
                 
-                // Increment revision number and call approveDocument with new revision number
-                $revisionNumber = $bom->revision_number + 1;
+                // Create DefectNotificationHistory record before amendment
+                $amendmentResult = Helper::documentAmendment($revisionData, $id);
+
+                $revisionNumber = $bom->revision_number;
                 $actionType = 'amendment';
-                $totalValue = 0; // BOM doesn't have monetary value
-                $approveDocument = Helper::approveDocument($bom->book_id, $bom->id, $revisionNumber, $request->amend_remarks, $request->file('amend_attachment'), $bom->approval_level, $actionType, $totalValue, get_class($bom));
-                
+                $totalValue = $bom->grand_total_amount ?? 0;
+                $approveDocument = Helper::approveDocument($bom->book_id, $bom->id, $revisionNumber, $amendRemarks, $amendAttachments, $currentLevel, $actionType, $totalValue, $modelName);
                 $bom->revision_number = $revisionNumber;
                 $bom->approval_level = 1;
                 $bom->revision_date = now();
+                $revisionNumber = $bom->revision_number + 1;
                 $amendAfterStatus = $approveDocument['approvalStatus'] ?? $bom->document_status;
-                $bom->document_status = $amendAfterStatus;
+                $bom->revision_number = $revisionNumber;
                 $bom->save();
-            }
+            } 
+                $revisionNumber = $bom->revision_number ?? 0;
+                $actionType = 'submit';
+                $totalValue = $bom->grand_total_amount ?? 0;
+                $approveDocument = Helper::approveDocument($bom->book_id, $bom->id, $revisionNumber, $amendRemarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
+                $document_status = $approveDocument['approvalStatus'] ?? $bom->document_status;
+                $bom->document_status = $document_status;
+                $data['document_status'] = $document_status;
+                $bom->save();
+         
+            DB::commit();
 
             $bom->update($data);
-            DB::commit();
           
             
-            // Clear session backup data after successful update
-            session()->forget('bom_spare_parts_backup');
             
             // Return JSON response only for AJAX amendment submissions
             if ($request->ajax() && $request->action_type == "amendment") {
@@ -798,26 +806,7 @@ class MaintBomController extends Controller
         }
     }
 
-    // public function amendment(Request $request, $id)
-    // {
-    //     try {
-    //         $bom = PlantMaintBom::findOrFail($id);
-
-    //         $bom->document_status = $request->input('document_status', 'draft');
-    //         $bom->save();
-    //         return response()->json([
-    //             'success' => true,
-    //             'message' => 'Amendment created successfully',
-    //             'data' => $bom
-    //         ]);
-    //     } catch (\Exception $e) {
-    //         return response()->json([
-    //             'success' => false,
-    //             'message' => $e->getMessage()
-    //         ], 500);
-    //     }
-    // }
-
+   
     public function amendment(Request $request, $id)
     {
         DB::beginTransaction();
@@ -831,15 +820,12 @@ class MaintBomController extends Controller
                 ['model_type' => 'header', 'model_name' => 'PlantMaintBom', 'relation_column' => ''],
             ];
 
-            $a = Helper::documentAmendment($revisionData, $id);
-            if ($a) {
-                Helper::approveDocument($PlantBom->book_id, $PlantBom->id, $PlantBom->revision_number, 'Amendment', $request->file('attachment'), $PlantBom->approval_level, 'amendment');
-
-                // $PlantBom->document_status = ConstantHelper::DRAFT;
-                $PlantBom->revision_number = $PlantBom->revision_number + 1;
-                $PlantBom->revision_date = now();
-                $PlantBom->save();
-            }
+            // $a = Helper::documentAmendment($revisionData, $id);
+            // if ($a) {
+            //     Helper::approveDocument($PlantBom->book_id, $PlantBom->id, $PlantBom->revision_number, 'Amendment', $request->file('attachment'), $PlantBom->approval_level, 'amendment');
+            //     $PlantBom->revision_date = now();
+            //     $PlantBom->save();
+            // }
 
             DB::commit();
             return response()->json([

@@ -505,8 +505,8 @@
                         <div class="row mt-1">
                             <div class="col-md-12">
                                 <div class="mb-1">
-                                    <label class="form-label">Remarks {{-- <span class="text-danger">*</span> --}}</label>
-                                    <textarea name="remarks" class="form-control indian-number"></textarea>
+                                    <label class="form-label">Remarks <span class="text-danger">*</span></label>
+                                    <textarea name="remarks" class="form-control indian-number" required></textarea>
                                 </div>
                                 <div class="row">
                                     <div class="col-md-8">
@@ -628,6 +628,22 @@
                 $("#approveModal").find("#action_type").val(actionType);
                 $("#approveModal").find("#popupTitle").text('Reject Application');
                 $("#approveModal").modal('show');
+            });
+
+            // Validate remarks before form submission
+            $('#approveModal form').on('submit', function(e) {
+                let remarks = $(this).find('textarea[name="remarks"]').val().trim();
+                
+                if (!remarks || remarks === '') {
+                    e.preventDefault();
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validation Error',
+                        text: 'Please enter remarks before submitting.',
+                        confirmButtonText: 'OK'
+                    });
+                    return false;
+                }
             });
             
 

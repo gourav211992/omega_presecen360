@@ -244,7 +244,7 @@
             { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
             { data: 'document_date', name: 'document_date', searchable: true },
             { data: 'series', name: 'book_id', searchable: true },
-            { data: 'document_number', name: 'doc_no', searchable: true },
+            { data: 'document_number', name: 'document_number', searchable: true },
             { data: 'equipment', name: 'equipment.name', searchable: true },
             { data: 'category', name: 'category.name', searchable: true },
             { data: 'location', name: 'location.store_name', searchable: true },

@@ -931,45 +931,60 @@
 			return isValid;
 		}
 
-		document.getElementById('submit-btn').addEventListener('click', function(e) {
-			e.preventDefault();
-			$('#document_status').val('submitted');
-			
-			// First validate that we have spare parts
-			let hasSpareparts = false;
-			$('.mrntableselectexcel tr').each(function() {
-				let itemId = $(this).find('.item_id').val();
-				if (itemId && itemId.trim() !== '') {
-					hasSpareparts = true;
-					return false; // break the loop
-				}
-			});
-			
-			if (!hasSpareparts) {
-				Swal.fire({
-					icon: 'warning',
-					title: 'No Spare Parts',
-					text: 'Please add at least one spare part before submitting.',
-					confirmButtonText: 'OK',
-					confirmButtonColor: '#7367f0'
+		// Form submit validation - runs before form is actually submitted
+		$('#maint-bom-form').on('submit', function(e) {
+			// Only validate if submitting (not draft)
+			if ($('#document_status').val() === 'submitted') {
+				// First validate that we have spare parts
+				let hasSpareparts = false;
+				$('.mrntableselectexcel tr').each(function() {
+					let itemId = $(this).find('.item_id').val();
+					if (itemId && itemId.trim() !== '') {
+						hasSpareparts = true;
+						return false; // break the loop
+					}
 				});
-				return false;
+				
+				if (!hasSpareparts) {
+					e.preventDefault();
+					Swal.fire({
+						icon: 'warning',
+						title: 'No Spare Parts',
+						text: 'Please add at least one spare part before submitting.',
+						confirmButtonText: 'OK',
+						confirmButtonColor: '#7367f0'
+					});
+					return false;
+				}
+				
+				// Validate UOM for submitted status
+				let uomValidationPassed = validateUOM();
+				if (!uomValidationPassed) {
+					e.preventDefault();
+					return false;
+				}
+				
+				// Validate attributes for submitted status
+				let attributeValidationPassed = validateAttributes();
+				if (!attributeValidationPassed) {
+					e.preventDefault();
+					return false;
+				}
+				
+				// Validate quantities for submitted status
+				let quantityValidationPassed = validateQuantities();
+				if (!quantityValidationPassed) {
+					e.preventDefault();
+					return false;
+				}
 			}
 			
-			// Validate UOM for submitted status
-			let uomValidationPassed = validateUOM();
-			if (!uomValidationPassed) {
-				return false;
-			}
-			
-			// Validate attributes for submitted status
-			let attributeValidationPassed = validateAttributes();
-			if (!attributeValidationPassed) {
-				return false;
-			}
-			
+			// If we reach here, validation passed or it's a draft - update JSON and allow submit
 			updateJsonData();
-			$('#maint-bom-form').submit();
+		});
+
+		document.getElementById('submit-btn').addEventListener('click', function(e) {
+			$('#document_status').val('submitted');
 		});
 
 		function showToast(icon, title) {
@@ -1632,16 +1647,38 @@
 			let isValid = true;
 			let errorMessages = [];
 
-			// Loop through all quantity fields
-			$('.qty').each(function(index) {
-				let qtyValue = $(this).val().trim();
-				let rowIndex = index + 1; // 1-based row numbering
-
-				// Check if quantity is empty or zero
-				if (!qtyValue || qtyValue === '' || parseFloat(qtyValue) <= 0) {
-					let itemName = $(this).closest('tr').find('.item_name').val() || 'Unknown Item';
-					errorMessages.push(`Item <span style="color: red;">${itemName}</span> quantity can not be 0 or empty`);
-					isValid = false;
+			// Loop through all rows to check for incomplete rows and quantity validation
+			$('.mrntableselectexcel tr').each(function(index) {
+				let $row = $(this);
+				let rowNumber = index + 1;
+				let itemCode = $row.find('.item_code').val();
+				let itemName = $row.find('.item_name').val();
+				let uomValue = $row.find('.uom').val();
+				let qtyValue = $row.find('.qty').val();
+				
+				// Check if row has any data (not completely empty)
+				let hasAnyData = itemCode || itemName || uomValue || qtyValue;
+				
+				if (hasAnyData) {
+					// Row has some data, validate all required fields
+					
+					// Check if item is selected
+					if (!itemCode || !itemName) {
+						errorMessages.push(`Row ${rowNumber}: Please select an item`);
+						isValid = false;
+					}
+					
+					// Check if UOM is selected (only if item is selected)
+					if (itemCode && itemName && (!uomValue || uomValue.trim() === '')) {
+						errorMessages.push(`Row ${rowNumber}: Please select UOM for item <span style="color: red;">${itemName}</span>`);
+						isValid = false;
+					}
+					
+					// Check quantity (only if item is selected)
+					if (itemCode && itemName && (!qtyValue || qtyValue.trim() === '' || parseFloat(qtyValue) <= 0)) {
+						errorMessages.push(`Row ${rowNumber}: Please enter quantity greater than 0 for item <span style="color: red;">${itemName}</span>`);
+						isValid = false;
+					}
 				}
 			});
 
@@ -1973,6 +2010,7 @@
 
 		function handleFileUpload(event, previewElement) {
 			var files = event.target.files;
+			var inputElement = event.target;
 			var previewContainer = $(previewElement);
 			previewContainer.empty();
 
@@ -1996,9 +2034,12 @@
 				feather.replace();
 			}
 
-			previewContainer.find('.delete-img').click(function() {
-				var fileIndex = $(this).parent().data('file-index');
-				removeFilePreview(fileIndex, previewContainer, event.target);
+			// Use event delegation for dynamically created delete buttons
+			previewContainer.off('click', '.delete-img').on('click', '.delete-img', function(e) {
+				e.preventDefault();
+				e.stopPropagation();
+				var fileIndex = $(this).data('file-index');
+				removeFilePreview(fileIndex, previewContainer, inputElement);
 			});
 		}
 
