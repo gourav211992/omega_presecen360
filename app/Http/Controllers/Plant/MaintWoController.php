@@ -408,6 +408,29 @@ class MaintWoController extends Controller
             $maintenanceTypesByEquipment[$equipmentId] = $maintenanceTypes;
         }
 
+        // Process spare parts data and calculate total amount
+        $sparePartsData = [];
+        $totalAmount = 0;
+        if (!empty($data->spare_parts)) {
+            $sparePartsData = json_decode($data->spare_parts, true);
+            if (is_array($sparePartsData)) {
+                foreach ($sparePartsData as $sparePart) {
+                    $qty = floatval($sparePart['qty'] ?? 0);
+                    $rate = floatval($sparePart['rate'] ?? 0);
+                    $totalAmount += ($qty * $rate);
+                }
+            }
+        }
+
+        // Process checklist data
+        $checklistData = [];
+        if (!empty($data->checklist_data)) {
+            $checklistData = json_decode($data->checklist_data, true);
+            if (!is_array($checklistData)) {
+                $checklistData = [];
+            }
+        }
+
         return view('plant.maint_wo.show', compact(
             'series',
             'items',
@@ -420,7 +443,10 @@ class MaintWoController extends Controller
             'locations',
             'maintenanceTypesByEquipment',
             'defectTypes',
-            'equipments'
+            'equipments',
+            'sparePartsData',
+            'checklistData',
+            'totalAmount'
         ));
     }
 
@@ -744,20 +770,19 @@ class MaintWoController extends Controller
                     }
                 }
 
-                if ($workOrder->document_status != ConstantHelper::DRAFT) {
-                    $doc = Helper::approveDocument(
-                        $workOrder->book_id,
-                        $workOrder->id,
-                        $workOrder->revision_number,
-                        "",
-                        null,
-                        1,
-                        'submit',
-                        0,
-                        get_class($workOrder)
-                    );
-
-                    $workOrder->document_status = $doc['approvalStatus'] ?? $workOrder->document_status;
+                if ($workOrder->document_status == ConstantHelper::SUBMITTED) {
+                    $bookId = $workOrder->book_id;
+                    $docId = $workOrder->id;
+                    $revisionNumber = $workOrder->revision_number ?? 0;
+                    $remarks = $workOrder->remarks ?? "";
+                    $attachments = null; // No attachments in create
+                    $currentLevel = $bom->approval_level ?? 1;
+                    $actionType = 'submit';
+                    $modelName = get_class($workOrder);
+                    $totalValue = 0; // BOM doesn't have monetary value
+                    
+                    $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
+                    $workOrder->document_status = $approveDocument['approvalStatus'] ?? $workOrder->document_status;
                     $workOrder->save();
                 }
             });
@@ -1082,10 +1107,9 @@ class MaintWoController extends Controller
                     get_class($workOrder)
                 );
 
-                $request->merge([
-                    'revision_number' => $workOrder->revision_number + 1,
-                    'revision_date' => now(),
-                ]);
+                $workOrder->revision_number = $workOrder->revision_number + 1;
+                $workOrder->revision_date = now();
+                $workOrder->save();
             }
 
             // Prepare update data (exclude file fields to prevent array to string conversion)
@@ -1118,6 +1142,36 @@ class MaintWoController extends Controller
             // Only update checklist_data if it's not empty
             if (empty($request->checklist_data) || $request->checklist_data === 'null' || $request->checklist_data === '[]') {
                 unset($updateData['checklist_data']);
+            }
+            
+            // Handle spare_parts data - ensure it's properly formatted as JSON string
+            if (isset($updateData['spare_parts'])) {
+                \Log::info('Processing spare_parts data', [
+                    'type' => gettype($updateData['spare_parts']),
+                    'data' => $updateData['spare_parts']
+                ]);
+                
+                if (is_string($updateData['spare_parts'])) {
+                    // If it's already a JSON string, validate it
+                    $decodedSpareParts = json_decode($updateData['spare_parts'], true);
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        // If invalid JSON, remove it
+                        \Log::warning('Invalid JSON in spare_parts, removing field');
+                        unset($updateData['spare_parts']);
+                    } else {
+                        \Log::info('Valid JSON spare_parts data', ['decoded' => $decodedSpareParts]);
+                    }
+                } elseif (is_array($updateData['spare_parts'])) {
+                    // If it's an array, encode it to JSON
+                    $updateData['spare_parts'] = json_encode($updateData['spare_parts']);
+                    \Log::info('Encoded array spare_parts to JSON');
+                } else {
+                    // If it's neither string nor array, remove it
+                    \Log::warning('Invalid spare_parts data type, removing field', ['type' => gettype($updateData['spare_parts'])]);
+                    unset($updateData['spare_parts']);
+                }
+            } else {
+                \Log::info('No spare_parts data in request');
             }
             
            
@@ -1587,7 +1641,8 @@ class MaintWoController extends Controller
             
             foreach ($equipmentData as $detail) {
                 if ($detail->equipment) {
-                    $checklistsData = isset($detail->checklistsData) ? $detail->checklistsData : [];
+                    // Get checklist data from JSON column
+                    $checklistsData = $this->getChecklistDataFromJson($detail);
             
                     $equipment = $detail->equipment;
                     $equipment->checklists_data = $checklistsData;
@@ -1960,7 +2015,7 @@ class MaintWoController extends Controller
 
         $query = ErpEquipMaintenanceDetail::where('erp_equipment_id', $equipmentId)
             ->whereNotNull('maintenance_bom_id')
-            ->with(['bom.book', 'maintenanceType', 'equipment.category', 'checklists']);
+            ->with(['bom.book', 'maintenanceType', 'equipment.category']);
 
         if ($maintenanceTypeId) {
             $query->where('maintenance_type_id', $maintenanceTypeId);
@@ -1987,48 +2042,19 @@ class MaintWoController extends Controller
                     ];
                 })->unique('id')->values();
 
-                $maintenance_type_id = $firstDetail->maintenance_type_id;
-                $maintenanceChecklists = ErpEquipMaintenanceChecklist::where('erp_equip_maintenance_id', $maintenance_type_id)
-                    ->select('erp_equip_maintenance_id', 'name')
-                    ->get();
-
-                $checklistsData = [];
-                foreach ($maintenanceChecklists as $maintenanceChecklist) {
-                    $checklistName = $maintenanceChecklist->name;
-                    $inspectionChecklist = InspectionChecklist::where('name', $checklistName)->first();
-                    if ($inspectionChecklist) {
-                        $checklistDetails = InspectionChecklistDetail::where('header_id', $inspectionChecklist->id)
-                            ->select('id', 'name', 'data_type', 'description', 'mandatory')
-                            ->get();
-                        $detailsWithValues = [];
-                        foreach ($checklistDetails as $detail) {
-                            $detailData = [
-                                'name'        => $detail->name,
-                                'data_type'   => $detail->data_type,
-                                'description' => $detail->description,
-                                'mandatory'   => $detail->mandatory,
-                                'value'       => '',
-                            ];
-                            $detailValues = InspectionChecklistDetailValue::where('inspection_checklist_detail_id', $detail->id)
-                                ->pluck('value')
-                                ->toArray();
-                            if ($detail->data_type === 'list') {
-                                $detailData['values'] = $detailValues;
-                                $detailData['value'] = !empty($detailValues) ? $detailValues[0] : '';
-                            } else {
-                                $detailData['value'] = !empty($detailValues) ? $detailValues[0] : '';
-                            }
-                            $detailsWithValues[] = $detailData;
-                        }
-                        $checklistsData[] = [
-                            'main_name' => $checklistName,
-                            'checklist' => $detailsWithValues,
-                        ];
-                    }
-                }
+                // Get checklist data from JSON column
+                $checklistsData = $this->getChecklistDataFromJson($firstDetail);
 
                 $equipment = $firstDetail->equipment;
                 $equipment->checklists_data = $checklistsData;
+
+                // Calculate next due date based on last submitted work order
+                $nextDueDate = $this->calculateNextMaintenanceDueDate(
+                    $equipmentId, 
+                    $maintenanceTypes->first()['id'], 
+                    $firstDetail->frequency,
+                    $firstDetail->start_date
+                );
 
                 $data[] = [
                     'equipment'         => $equipment,
@@ -2037,11 +2063,119 @@ class MaintWoController extends Controller
                     'bom'               => $firstDetail->bom,
                     'start_date'        => $firstDetail->start_date,
                     'frequency'         => $firstDetail->frequency,
+                    'next_due_date'     => $nextDueDate,
                 ];
             }
         }
 
         return response()->json($data);
+    }
+
+    /**
+     * Calculate next maintenance due date based on last submitted work order
+     */
+    private function calculateNextMaintenanceDueDate($equipmentId, $maintenanceTypeId, $frequency, $startDate)
+    {
+        try {
+            // Find the last submitted work order for this equipment + maintenance type combination
+            $lastWorkOrder = PlantMaintWo::where('equipment_id', $equipmentId)
+                ->where('maintenance_type_id', $maintenanceTypeId)
+                ->whereIn('document_status', ['submitted', 'approved', 'approval_not_required', 'closed'])
+                ->orderBy('document_date', 'desc')
+                ->first();
+
+            // If no previous work order found, use the start date from equipment maintenance detail
+            if (!$lastWorkOrder) {
+                $baseDate = $startDate ? Carbon::parse($startDate) : Carbon::now();
+            } else {
+                // Use the document date of the last work order as base date
+                $baseDate = Carbon::parse($lastWorkOrder->document_date);
+            }
+
+            // Calculate next due date based on frequency
+            $nextDueDate = null;
+            switch (strtolower(trim($frequency))) {
+                case 'daily':
+                    $nextDueDate = $baseDate->copy()->addDay();
+                    break;
+                case 'weekly':
+                    $nextDueDate = $baseDate->copy()->addWeek();
+                    break;
+                case 'monthly':
+                    $nextDueDate = $baseDate->copy()->addMonth();
+                    break;
+                case 'quarterly':
+                    $nextDueDate = $baseDate->copy()->addMonths(3);
+                    break;
+                case 'semi-annually':
+                case 'semi annually':
+                case 'semi annualy':
+                    $nextDueDate = $baseDate->copy()->addMonths(6);
+                    break;
+                case 'annually':
+                case 'annualy':
+                case 'yearly':
+                    $nextDueDate = $baseDate->copy()->addYear();
+                    break;
+                default:
+                    // If frequency is not recognized, return start date or current date
+                    $nextDueDate = $baseDate;
+                    break;
+            }
+
+            return $nextDueDate ? $nextDueDate->format('Y-m-d') : null;
+
+        } catch (\Exception $e) {
+            \Log::error("Error calculating next maintenance due date: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get checklist data from maintenance detail JSON column
+     */
+    private function getChecklistDataFromJson($maintenanceDetail)
+    {
+        if (!$maintenanceDetail || empty($maintenanceDetail->checklist_data)) {
+            return [];
+        }
+
+        $checklistData = $maintenanceDetail->checklist_data;
+        
+        // If it's a string, decode it
+        if (is_string($checklistData)) {
+            $checklistData = json_decode($checklistData, true);
+        }
+
+        if (!is_array($checklistData)) {
+            return [];
+        }
+
+        // Group checklist items by main checklist name
+        $groupedChecklists = collect($checklistData)->groupBy('main_checklist_name');
+        
+        $checklistsData = [];
+        foreach ($groupedChecklists as $mainChecklistName => $items) {
+            $checklistDetails = [];
+            
+            foreach ($items as $item) {
+                $checklistDetails[] = [
+                    'name' => $item['name'] ?? '',
+                    'data_type' => $item['data_type'] ?? 'text',
+                    'description' => $item['description'] ?? '',
+                    'mandatory' => $item['mandatory'] ?? false,
+                    'value' => '',
+                    'values' => isset($item['values']) ? $item['values'] : []
+                ];
+            }
+            
+            $checklistsData[] = [
+                'main_name' => $mainChecklistName,
+                'checklist' => $checklistDetails,
+            ];
+        }
+
+        return $checklistsData;
     }
 
     /**

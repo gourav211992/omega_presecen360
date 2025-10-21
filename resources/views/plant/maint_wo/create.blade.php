@@ -2968,6 +2968,10 @@
 				return true;
 			}
 
+			// Check if checklist exists but is not filled
+			let hasChecklistData = false;
+			let hasEmptyMandatoryFields = false;
+
 			checklistRows.forEach((row, index) => {
 				// Look for input/select/textarea fields in the checklist row
 				const inputs = row.querySelectorAll('input:not([type="hidden"]), select, textarea');
@@ -2976,6 +2980,8 @@
 					// Find the corresponding mandatory hidden field
 					const fieldName = input.name;
 					if (fieldName && fieldName.includes('[value]')) {
+						hasChecklistData = true; // Mark that checklist data exists
+						
 						// Extract the group and item indices from the field name
 						const matches = fieldName.match(/checklist_data\[(\d+)\]\[checklist\]\[(\d+)\]\[value\]/);
 						if (matches) {
@@ -2986,27 +2992,83 @@
 							console.log(`🔍 Checking field ${fieldName}, mandatory field:`, mandatoryField, 'value:', mandatoryField ? mandatoryField.value : 'not found');
 
 							// Check if this field is mandatory and empty
-							if (mandatoryField && mandatoryField.value === '1' && input.value.trim() === '') {
+							if (mandatoryField && mandatoryField.value === '1') {
+								if (input.value.trim() === '') {
+									const nameField = row.querySelector(`input[name="checklist_data[${groupIndex}][checklist][${itemIndex}][name]"]`);
+									const fieldLabel = nameField ? nameField.value : `Checklist Item ${index + 1}`;
+									console.log(`❌ Found incomplete mandatory field: ${fieldLabel}`);
+									errorMessages.push(`Mandatory checklist item "${fieldLabel}" is required.`);
+									hasIncompleteMandatory = true;
+									hasEmptyMandatoryFields = true;
+								}
+							}
+							
+							// Check if any field (mandatory or not) is empty when checklist exists
+							if (input.value.trim() === '') {
 								const nameField = row.querySelector(`input[name="checklist_data[${groupIndex}][checklist][${itemIndex}][name]"]`);
 								const fieldLabel = nameField ? nameField.value : `Checklist Item ${index + 1}`;
-								console.log(`❌ Found incomplete mandatory field: ${fieldLabel}`);
-								errorMessages.push(`Mandatory checklist item "${fieldLabel}" is required.`);
-								hasIncompleteMandatory = true;
+								console.log(`⚠️ Found empty checklist field: ${fieldLabel}`);
+								if (!mandatoryField || mandatoryField.value !== '1') {
+									// Only add to error if not already added as mandatory
+									errorMessages.push(`Checklist item "${fieldLabel}" should be filled.`);
+								}
 							}
 						}
 					}
 				});
 			});
 
+			// Special validation: If checklist exists but no fields are filled
+			if (hasChecklistData && errorMessages.length === 0) {
+				// Check if all fields are empty
+				let allFieldsEmpty = true;
+				checklistRows.forEach((row) => {
+					const inputs = row.querySelectorAll('input:not([type="hidden"]), select, textarea');
+					inputs.forEach((input) => {
+						if (input.name && input.name.includes('[value]') && input.value.trim() !== '') {
+							allFieldsEmpty = false;
+						}
+					});
+				});
+				
+				if (allFieldsEmpty) {
+					console.log('❌ Checklist exists but no fields are filled');
+					Swal.fire({
+						icon: 'warning',
+						title: 'Checklist Not Completed!',
+						text: 'Checklist items are available but none are filled. Please complete the checklist before submitting.',
+						confirmButtonText: 'OK',
+						confirmButtonColor: '#f39c12'
+					});
+					return false;
+				}
+			}
+
 			// Show validation errors if any mandatory fields are incomplete
 			if (errorMessages.length > 0) {
 				console.log('❌ Validation failed with errors:', errorMessages);
+				
+				// Separate mandatory and optional field errors
+				const mandatoryErrors = errorMessages.filter(msg => msg.includes('required'));
+				const optionalErrors = errorMessages.filter(msg => msg.includes('should be filled'));
+				
+				let title = 'Checklist Validation Error!';
+				let icon = 'error';
+				
+				if (mandatoryErrors.length > 0 && optionalErrors.length === 0) {
+					title = 'Mandatory Checklist Items Required!';
+					icon = 'error';
+				} else if (mandatoryErrors.length === 0 && optionalErrors.length > 0) {
+					title = 'Checklist Items Incomplete!';
+					icon = 'warning';
+				}
+				
 				Swal.fire({
-					icon: 'error',
-					title: 'Checklist Validation Error!',
+					icon: icon,
+					title: title,
 					html: errorMessages.join('<br>'),
 					confirmButtonText: 'OK',
-					confirmButtonColor: '#d33'
+					confirmButtonColor: icon === 'error' ? '#d33' : '#f39c12'
 				});
 				return false;
 			}

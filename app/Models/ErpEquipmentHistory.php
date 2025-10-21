@@ -44,13 +44,13 @@ class ErpEquipmentHistory extends Model
 
     public function spareParts(): HasMany
     {
-        return $this->hasMany(ErpEquipSparepartDetailHistory::class,'erp_equipment_id','source_id'
+        return $this->hasMany(ErpEquipSparepartDetailHistory::class,'erp_equipment_id','id'
         );
     }
 
     public function maintenanceDetails(): HasMany
     {
-        return $this->hasMany(ErpEquipMaintenanceDetailHistory::class,'erp_equipment_id','source_id'
+        return $this->hasMany(ErpEquipMaintenanceDetailHistory::class,'erp_equipment_id','id'
         );
     }
 

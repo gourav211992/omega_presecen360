@@ -28,6 +28,7 @@ class MaintBOMRequest extends FormRequest
             'document_status' => 'required|string',
             'book_id' => $isEdit ? 'nullable|integer' : ($isDraft ? 'nullable|integer' : 'required|integer'),
             'document_date' => $isEdit ? 'nullable|date' : ($isDraft ? 'nullable|date' : 'required|date'),
+            'bom_name' => $isEdit ? 'nullable|string|max:255' : ($isDraft ? 'nullable|string|max:255' : 'required|string|max:255'),
             'document.*' => 'nullable|file|mimes:png,jpeg,jpg,xls,xlsx,docx,pdf|max:5120',
             'spare_parts' => 'nullable|string',
             'item' => 'nullable|array',
@@ -89,6 +90,8 @@ class MaintBOMRequest extends FormRequest
             'book_id.integer' => 'The Book ID must be an integer.',
             'document_date.required' => 'The Document Date field is required.',
             'document_date.date' => 'The Document Date must be a valid date.',
+            'bom_name.required' => 'The BOM Name field is required.',
+            'bom_name.max' => 'The BOM Name may not be greater than 255 characters.',
         ];
     }
 }
