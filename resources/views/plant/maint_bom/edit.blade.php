@@ -118,6 +118,7 @@
 												value="{{ old('doc_no', $bom->doc_no) }}">
 											<input type="hidden" name="document_status" id="document_status"
 												value="{{ old('document_status', $bom->document_status) }}">
+											
 
 											<div class="col-md-8">
 
@@ -914,7 +915,18 @@ function validateRowsCompletion() {
 	if (saveDraftBtn) {
 		saveDraftBtn.addEventListener('click', function(e) {
 			e.preventDefault();
+			console.log('Save Draft clicked - Before setting values');
 			$('#document_status').val('draft');
+			$('#action_type').val('draft');
+			console.log('After setting - action_type:', $('#action_type').val(), 'document_status:', $('#document_status').val());
+			
+			// Check for duplicate action_type fields
+			const actionTypeFields = $('input[name="action_type"]');
+			console.log('Total action_type fields found:', actionTypeFields.length);
+			actionTypeFields.each(function(index) {
+				console.log('Field', index + 1, '- ID:', $(this).attr('id'), 'Value:', $(this).val());
+			});
+			
 			updateJsonData();
 			$('.preloader').show();
 			form.submit();

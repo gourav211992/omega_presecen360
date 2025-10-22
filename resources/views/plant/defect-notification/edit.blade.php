@@ -109,6 +109,7 @@
                 @method('PUT')
 
                 <input type="hidden" name="document_status" id="document_status" value="{{ $defectNotification->document_status }}">
+                <input type="hidden" name="action_type" id="action_type" value="submit">
                 <input type="hidden" name="book_code" id="book_code_input" value="{{ $defectNotification->book_code }}">
                 <input type="hidden" name="doc_number_type" id="doc_number_type" value="{{ $defectNotification->doc_number_type }}">
                 <input type="hidden" name="doc_reset_pattern" id="doc_reset_pattern" value="{{ $defectNotification->doc_reset_pattern }}">
@@ -268,13 +269,12 @@
                                         <div class="col-md-3 mb-1">
                                             <label class="form-label">Down Date & Time <span class="text-danger">*</span></label>
                                             <input 
-                                                type="text" 
+                                                type="datetime-local" 
                                                 name="report_date_time"
                                                 value="{{ $defectNotification->report_date_time 
-                                                            ? \Carbon\Carbon::parse($defectNotification->report_date_time)->format('d-m-Y H:i') 
-                                                            : now()->format('d-m-Y H:i') }}" 
+                                                            ? \Carbon\Carbon::parse($defectNotification->report_date_time)->format('Y-m-d\TH:i') 
+                                                            : now()->format('Y-m-d\TH:i') }}" 
                                                 class="form-control" 
-                                                placeholder="dd-mm-yyyy HH:mm" 
                                                 required
                                             >
                                         </div>
@@ -483,6 +483,7 @@ $(document).on('change', '#attachment, #amendmentModal [name="amend_attachment"]
 // ===============================
 $(document).on('click', '#save-draft-btn', function () {
     $('#document_status').val('draft');
+    $('#action_type').val('draft');
     window.allowFormSubmission = true;
     $('.preloader').show();
 
@@ -692,7 +693,6 @@ $('.expandable-input').each(function () { autoExpand(this); });
 <div class="modal fade" id="amendmentModal" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <input type="hidden" name="action_type" value="{{ $buttons['amend'] && request('amendment')==1 ? 'amendment':'submit' }}" id="action_type">
             <input type="hidden" name="id" value="{{ $defectNotification->id }}">
             <div class="modal-header">
                 <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal">Amendment Application</h4>

@@ -932,10 +932,7 @@
                                                    accept=".png,.jpeg,.jpg,.xls,.xlsx,.docx,.pdf"/>
                                         </div>
                                     </div>
-                                    <div class="col-md-4" style="margin-top:19px;">
-                                        <div class="row" id="approval_files_preview">
-                                        </div>
-                                    </div>
+                                 
                                 </div>
                                 <span class="text-primary small">{{__("message.attachment_caption")}}</span>
                             </div>

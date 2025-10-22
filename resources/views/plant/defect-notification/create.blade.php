@@ -195,7 +195,7 @@
 													<div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">Down Date & Time</label>
-                                                            <input type="text" name="report_date_time" class="form-control" value="{{ now()->format('d-m-Y H:i') }}" placeholder="dd-mm-yyyy HH:mm"/> 
+                                                            <input type="datetime-local" name="report_date_time" class="form-control" value="{{ now()->format('Y-m-d\TH:i') }}"/> 
                                                         </div>
                                                     </div>
 													
@@ -963,7 +963,7 @@
 						title: 'Success!',
 						text: response.message,
 						confirmButtonText: 'OK',
-						confirmButtonColor: '#28a745'
+						confirmButtonColor: '#7367f0'
 					}).then(() => {
 						// Redirect to index page
 						if (response.redirect_url) {
