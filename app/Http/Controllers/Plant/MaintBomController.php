@@ -649,6 +649,7 @@ class MaintBomController extends Controller
                 $bom->revision_number = $revisionNumber;
                 $bom->save();
             } 
+              if($request->action_type == 'submit'){
                 $revisionNumber = $bom->revision_number ?? 0;
                 $actionType = 'submit';
                 $totalValue = $bom->grand_total_amount ?? 0;
@@ -657,6 +658,7 @@ class MaintBomController extends Controller
                 $bom->document_status = $document_status;
                 $data['document_status'] = $document_status;
                 $bom->save();
+            }
          
             DB::commit();
 

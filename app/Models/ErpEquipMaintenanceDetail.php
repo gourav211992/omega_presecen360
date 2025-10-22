@@ -10,6 +10,10 @@ class ErpEquipMaintenanceDetail extends Model
     use HasFactory;
 
     protected $guarded = ['id'];
+    
+    protected $casts = [
+        'checklist_data' => 'array',
+    ];
 
     public function equipment()
     {

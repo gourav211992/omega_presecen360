@@ -1325,50 +1325,6 @@
 		}
 	});
 	
-	// Make sure badges are updated when a new row is added
-	$(document).on('click', '#addNewRowBtn', function(e) {
-		e.preventDefault();
-		
-		if (!validateItemRows()) {
-			return false;
-		}
-
-		rowCount++;
-		let newRow = `
-		<tr>
-			<td class="customernewsection-form">
-				<div class="form-check form-check-primary custom-checkbox">
-					<input type="checkbox" class="form-check-input row-check" id="row_${rowCount}">
-					<label class="form-check-label" for="row_${rowCount}"></label>
-				</div>
-			</td>
-			<td class="poprod-decpt">
-				<input type="hidden" class="item_id">
-				<input required type="text" placeholder="Select" name="item[]" class="item_code form-control mw-100 ledgerselecct mb-25" />
-			</td>
-			<td class="poprod-decpt">
-				<input type="text" placeholder="Select" class="item_name form-control mw-100 ledgerselecct mb-25" />
-			</td>
-			<td class="poprod-decpt">
-				<input type="hidden" class="attribute" value="[]">
-				<div class="d-flex flex-wrap gap-1 attribute-badges">
-					<span class="text-muted small">No attributes selected</span>
-				</div>
-			</td>
-			<td>
-				<select class="uom form-select mw-100" name="uom[]" required></select>
-			</td>
-			<td>
-				<input type="number" class="qty form-control mw-100" name="qty[]" required />
-			</td>
-			<td>
-				<input type="number" class="available_stock form-control mw-100" name="available_stock[]" readonly />
-			</td>
-		</tr>`;
-
-		$('.mrntableselectexcel').append(newRow);
-		initAutoForItem('.item_code');
-	});
 	
 	// Function to update attribute badges
 	function updateAttributeBadges($row) {
@@ -1590,6 +1546,8 @@
 	const saveDraftBtn = document.getElementById('save-draft-btn');
 	if (saveDraftBtn) {
 		saveDraftBtn.addEventListener('click', function() {
+			// For drafts, we allow submission without reference validation
+			console.log('🔍 Draft submission - skipping reference validation');
 			$('.preloader').show();
 			document.getElementById('document_status').value = 'draft';
 			updateJsonData();
@@ -1827,29 +1785,29 @@
 		};
 	}
 
+	// Function to calculate total for spare parts (Global scope)
+	function calculateSparePartsTotal() {
+		let total = 0;
+		console.log('🔢 Calculating spare parts total...');
+		$('.mrntableselectexcel tr').each(function() {
+			const qtyInput = $(this).find('input[name="qty[]"], input.qty');
+			const rateInput = $(this).find('input[name="rate[]"], input.rate');
+			
+			if (qtyInput.length && rateInput.length) {
+				const qty = parseFloat(qtyInput.val()) || 0;
+				const rate = parseFloat(rateInput.val()) || 0;
+				const rowTotal = qty * rate;
+				console.log(`Row: qty=${qty}, rate=${rate}, total=${rowTotal}`);
+				total += rowTotal;
+			}
+		});
+		console.log('Final total:', total);
+		$('.settleTotal').text(total.toFixed(2));
+	}
+
 	// Initialize autocomplete for existing rows
 	$(document).ready(function() {
 		initAutoForItem('.item_code');
-		
-		// Function to calculate total for spare parts
-		function calculateSparePartsTotal() {
-			let total = 0;
-			console.log('🔢 Calculating spare parts total...');
-			$('.mrntableselectexcel tr').each(function() {
-				const qtyInput = $(this).find('input[name="qty[]"], input.qty');
-				const rateInput = $(this).find('input[name="rate[]"], input.rate');
-				
-				if (qtyInput.length && rateInput.length) {
-					const qty = parseFloat(qtyInput.val()) || 0;
-					const rate = parseFloat(rateInput.val()) || 0;
-					const rowTotal = qty * rate;
-					console.log(`Row: qty=${qty}, rate=${rate}, total=${rowTotal}`);
-					total += rowTotal;
-				}
-			});
-			console.log('Final total:', total);
-			$('.settleTotal').text(total.toFixed(2));
-		}
 
 		// Event listeners for qty and rate changes
 		$(document).on('input change keyup', '.mrntableselectexcel input[name="qty[]"], .mrntableselectexcel input[name="rate[]"], .mrntableselectexcel input.qty, .mrntableselectexcel input.rate', function() {
@@ -1909,6 +1867,37 @@
 
 	$('#addNewRowBtn').on('click', function (e) {
 		e.preventDefault();
+
+		// Check if there are any empty rows before adding new one
+		let hasEmptyRow = false;
+		$('.mrntableselectexcel tr').each(function() {
+			const $row = $(this);
+			// Skip header row
+			if ($row.find('th').length > 0) {
+				return true;
+			}
+			
+			const itemCode = $row.find('.item_code').val();
+			const itemName = $row.find('.item_name').val();
+			const qty = $row.find('.qty').val();
+			
+			// If any row has empty essential fields, consider it empty
+			if (!itemCode || !itemName || !qty) {
+				hasEmptyRow = true;
+				return false; // Break the loop
+			}
+		});
+		
+		if (hasEmptyRow) {
+			Swal.fire({
+				icon: 'warning',
+				title: 'Empty Row Found!',
+				text: 'Please complete the existing empty row before adding a new one.',
+				confirmButtonText: 'OK',
+				confirmButtonColor: '#f39c12'
+			});
+			return false;
+		}
 
 		if (!validateItemRows()) {
 			return false;
@@ -2996,24 +2985,25 @@ function processDefectSelection() {
 			submitBtn.addEventListener('click', function (e) {
 				e.preventDefault(); // Always prevent default first
 				
-				// Validate reference type first
-				let referenceType = $('#reference_type').val();
-				if (!referenceType) {
-					Swal.fire({
-						icon: 'error',
-						title: 'Validation Error',
-						text: 'Please select a reference type (Equipment or Defect Notification)',
-						confirmButtonText: 'OK'
-					});
-					$('#reference_type_error').show();
+				// Validate reference selection for non-draft submissions
+				if (!validateReferenceSelection(false)) {
 					return false;
 				}
-				$('#reference_type_error').hide();
 				
 				if (isAmendmentMode) {
 					// Show amendment modal for amendment mode
 					$("#amendmentSubmitModal").modal('show');
 				} else {
+					// Validate checklist items (only for equipment reference)
+					const referenceType = $('#reference_type').val();
+					if (referenceType === 'equipment') {
+						console.log('🔍 Validating checklist items...');
+						if (!validateChecklistItems()) {
+							console.log('❌ Checklist validation failed - preventing form submission');
+							return false;
+						}
+					}
+
 					// Validate items before direct form submission for regular edit
 					console.log('🔍 Validating items before form submission...');
 					if (!validateItemRows()) {
@@ -3033,19 +3023,10 @@ function processDefectSelection() {
 		$(document).on('click', '#confirmAmendmentSubmit', function(e) {
 			e.preventDefault();
 			
-			// Validate reference type first
-			let referenceType = $('#reference_type').val();
-			if (!referenceType) {
-				Swal.fire({
-					icon: 'error',
-					title: 'Validation Error',
-					text: 'Please select a reference type (Equipment or Defect Notification)',
-					confirmButtonText: 'OK'
-				});
-				$('#reference_type_error').show();
+			// Validate reference selection for non-draft submissions
+			if (!validateReferenceSelection(false)) {
 				return false;
 			}
-			$('#reference_type_error').hide();
 			
 			let remarks = $("#amendment_remarks").val().trim();
 			if (!remarks) {
@@ -3060,6 +3041,16 @@ function processDefectSelection() {
 				$("#amendment_remarks").next('.invalid-feedback').remove();
 			}
 			
+			// Validate checklist items (only for equipment reference)
+			const referenceType = $('#reference_type').val();
+			if (referenceType === 'equipment') {
+				console.log('🔍 Validating checklist items for amendment...');
+				if (!validateChecklistItems()) {
+					console.log('❌ Checklist validation failed - preventing amendment submission');
+					return false;
+				}
+			}
+
 			// Validate items before amendment form submission
 			console.log('🔍 Validating items before amendment submission...');
 			if (!validateItemRows()) {
@@ -3088,6 +3079,181 @@ function processDefectSelection() {
 			$("#amendmentSubmitModal").modal('show');
 		});
 	});
+
+	// Function to validate reference selection
+	function validateReferenceSelection(isDraft = false) {
+		console.log('🔍 Validating reference selection, isDraft:', isDraft);
+		
+		// Skip validation for draft submissions
+		if (isDraft) {
+			console.log('✅ Draft mode - skipping reference validation');
+			return true;
+		}
+		
+		// Validate reference type selection
+		let referenceType = $('#reference_type').val();
+		if (!referenceType) {
+			Swal.fire({
+				icon: 'error',
+				title: 'Reference Required!',
+				text: 'Please select a reference type (Equipment or Defect Notification)',
+				confirmButtonText: 'OK',
+				confirmButtonColor: '#d33'
+			});
+			$('#reference_type_error').show();
+			return false;
+		}
+		$('#reference_type_error').hide();
+
+		// Validate that an item is selected from the chosen reference
+		if (referenceType === 'equipment') {
+			const equipmentId = $('#equipment_id').val();
+			if (!equipmentId) {
+				Swal.fire({
+					icon: 'error',
+					title: 'Equipment Selection Required!',
+					text: 'Please select an equipment from the equipment reference before submitting.',
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				return false;
+			}
+		} else if (referenceType === 'defect_notification') {
+			const defectNotificationId = $('#defect_notification_id_hidden').val();
+			if (!defectNotificationId) {
+				Swal.fire({
+					icon: 'error',
+					title: 'Defect Notification Selection Required!',
+					text: 'Please select a defect notification from the defect reference before submitting.',
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#d33'
+				});
+				return false;
+			}
+		}
+
+		console.log('✅ Reference validation passed');
+		return true;
+	}
+
+	// Function to validate checklist items
+	function validateChecklistItems() {
+		console.log('🚀 validateChecklistItems() function called');
+		
+		const checklistRows = document.querySelectorAll('.mrntableselectexcel1 tr');
+		let errorMessages = [];
+		let hasChecklistData = false;
+
+		console.log('🔍 Validating checklist items. Found rows:', checklistRows.length);
+
+		// Skip if no checklist rows (empty table)
+		if (checklistRows.length === 0) {
+			console.log('⚠️ No checklist rows found');
+			return true;
+		}
+
+		checklistRows.forEach((row, index) => {
+			// Look for input/select/textarea fields in the checklist row
+			const inputs = row.querySelectorAll('input:not([type="hidden"]), select, textarea');
+
+			inputs.forEach((input) => {
+				// Find the corresponding mandatory hidden field
+				const fieldName = input.name;
+				if (fieldName && fieldName.includes('[value]')) {
+					hasChecklistData = true; // Mark that checklist data exists
+					
+					// Extract the group and item indices from the field name
+					const matches = fieldName.match(/checklist_data\[(\d+)\]\[checklist\]\[(\d+)\]\[value\]/);
+					if (matches) {
+						const groupIndex = matches[1];
+						const itemIndex = matches[2];
+						const mandatoryField = row.querySelector(`input[name="checklist_data[${groupIndex}][checklist][${itemIndex}][mandatory]"]`);
+
+						console.log(`🔍 Checking field ${fieldName}, mandatory field:`, mandatoryField, 'value:', mandatoryField ? mandatoryField.value : 'not found');
+
+						// Check if this field is mandatory and empty
+						if (mandatoryField && mandatoryField.value === '1') {
+							if (input.value.trim() === '') {
+								const nameField = row.querySelector(`input[name="checklist_data[${groupIndex}][checklist][${itemIndex}][name]"]`);
+								const fieldLabel = nameField ? nameField.value : `Checklist Item ${index + 1}`;
+								console.log(`❌ Found incomplete mandatory field: ${fieldLabel}`);
+								errorMessages.push(`Mandatory checklist item "${fieldLabel}" is required.`);
+							}
+						}
+						
+						// Check if any field (mandatory or not) is empty when checklist exists
+						if (input.value.trim() === '') {
+							const nameField = row.querySelector(`input[name="checklist_data[${groupIndex}][checklist][${itemIndex}][name]"]`);
+							const fieldLabel = nameField ? nameField.value : `Checklist Item ${index + 1}`;
+							console.log(`⚠️ Found empty checklist field: ${fieldLabel}`);
+							if (!mandatoryField || mandatoryField.value !== '1') {
+								// Only add to error if not already added as mandatory
+								errorMessages.push(`Checklist item "${fieldLabel}" should be filled.`);
+							}
+						}
+					}
+				}
+			});
+		});
+
+		// Special validation: If checklist exists but no fields are filled
+		if (hasChecklistData && errorMessages.length === 0) {
+			// Check if all fields are empty
+			let allFieldsEmpty = true;
+			checklistRows.forEach((row) => {
+				const inputs = row.querySelectorAll('input:not([type="hidden"]), select, textarea');
+				inputs.forEach((input) => {
+					if (input.name && input.name.includes('[value]') && input.value.trim() !== '') {
+						allFieldsEmpty = false;
+					}
+				});
+			});
+			
+			if (allFieldsEmpty) {
+				console.log('❌ Checklist exists but no fields are filled');
+				Swal.fire({
+					icon: 'warning',
+					title: 'Checklist Not Completed!',
+					text: 'Checklist items are available but none are filled. Please complete the checklist before submitting.',
+					confirmButtonText: 'OK',
+					confirmButtonColor: '#f39c12'
+				});
+				return false;
+			}
+		}
+
+		// Show validation errors if any mandatory fields are incomplete
+		if (errorMessages.length > 0) {
+			console.log('❌ Validation failed with errors:', errorMessages);
+			
+			// Separate mandatory and optional field errors
+			const mandatoryErrors = errorMessages.filter(msg => msg.includes('required'));
+			const optionalErrors = errorMessages.filter(msg => msg.includes('should be filled'));
+			
+			let title = 'Checklist Validation Error!';
+			let icon = 'error';
+			
+			if (mandatoryErrors.length > 0 && optionalErrors.length === 0) {
+				title = 'Mandatory Checklist Items Required!';
+				icon = 'error';
+			} else if (mandatoryErrors.length === 0 && optionalErrors.length > 0) {
+				title = 'Checklist Items Incomplete!';
+				icon = 'warning';
+			}
+			
+			Swal.fire({
+				icon: icon,
+				title: title,
+				html: errorMessages.join('<br>'),
+				confirmButtonText: 'OK',
+				confirmButtonColor: icon === 'error' ? '#d33' : '#f39c12'
+			});
+			return false;
+		}
+
+		console.log('✅ Checklist validation passed');
+		return true;
+	}
 
 	function validateItemRows() {
 		let allValid = true;
@@ -3256,29 +3422,40 @@ function processDefectSelection() {
 			const itemCode = $row.find('.item_code').val();
 			const itemName = $row.find('.item_name').val();
 			const qty = $row.find('.qty').val();
+			const rate = $row.find('.rate').val();
 			const uomId = $row.find('.uom').val();
 			const uomName = $row.find('.uom option:selected').text();
 			const attribute = $row.find('.attribute').val();
 			const availableStock = $row.find('.available_stock').val();
 
+			// Debug logging for rate collection
+			if (rate) {
+				console.log(`Row ${index}: Collecting rate = ${rate} for item ${itemName}`);
+			}
+
 			// Only include rows with valid data
 			if (itemId && itemCode && itemName && qty) {
 				const itemData = itemsData.find(item => item.id == itemId);
 
-				sparePartsData.push({
+				const rowData = {
 					item_id: itemId,
 					item_code: itemCode,
 					item_name: itemName,
 					qty: qty,
+					rate: rate || 0,
 					uom_id: uomId,
 					uom_name: uomName,
 					attribute: attribute || '[]',
 					attributes: itemData ? itemData.item_attributes : [], // ✅ This is fine - used for attributes display
 					available_stock: availableStock || 0
-				});
+				};
+
+				console.log(`Adding spare part data:`, rowData);
+				sparePartsData.push(rowData);
 			}
 		});
 
+		console.log('Final spare parts data:', sparePartsData);
 		// Update hidden field with JSON data
 		$('#spare_parts').val(JSON.stringify(sparePartsData));
 	}
@@ -3343,18 +3520,28 @@ function processDefectSelection() {
 		
 		if (!validateItemRows()) {
 			e.preventDefault(); // Prevent form submission
-			return false;
-		}
 		// ... allow submission
+		}
 	});
 
 	// Real-time validation for quantity changes
-	$(document).on('input change blur', '.qty', function() {
+	$(document).on('input change keyup', '.mrntableselectexcel .qty', function() {
 		const $row = $(this).closest('tr');
 		
 		validateStockForRow($row);
 
 		// Update hidden field immediately when quantity changes
+		setTimeout(() => {
+			collectFormData();
+		}, 100);
+	});
+
+	// Real-time validation for rate changes
+	$(document).on('input change keyup', '.mrntableselectexcel .rate', function() {
+		const $row = $(this).closest('tr');
+		console.log('Rate changed:', $(this).val());
+		
+		// Update hidden field immediately when rate changes
 		setTimeout(() => {
 			collectFormData();
 		}, 100);
@@ -3403,6 +3590,9 @@ function processDefectSelection() {
 
 		// Update the hidden spare_parts field after deletion
 		collectFormData();
+
+		// Recalculate total after deletion
+		calculateSparePartsTotal();
 
 		// Reset the "check all" checkbox if it was checked
 		$('#checkAll').prop('checked', false);

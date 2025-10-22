@@ -13,6 +13,7 @@ class ErpEquipMaintenanceChecklistHistory extends Model
     
     protected $fillable = [
         'erp_equip_maintenance_id',
+        'source_id', // Original checklist ID
         'name',
         'description',
         'type',
@@ -26,5 +27,10 @@ class ErpEquipMaintenanceChecklistHistory extends Model
     public function maintenanceDetail()
     {
         return $this->belongsTo(ErpEquipMaintenanceDetailHistory::class, 'erp_equip_maintenance_id');
+    }
+    
+    public function equipment()
+    {
+        return $this->belongsTo(ErpEquipmentHistory::class, 'equipment_id');
     }
 }

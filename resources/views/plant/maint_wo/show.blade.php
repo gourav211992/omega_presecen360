@@ -34,7 +34,6 @@
                     <i data-feather="arrow-left-circle"></i> Back
                   </button>
                 </a>
-                
                 @if(!isset(request() -> revisionNumber))
                     @if($buttons['approve'])
                     <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#approveModal" onclick = "setApproval();" ><i data-feather="check-circle"></i> Approve</button>
@@ -54,7 +53,7 @@
                     
                     @if ($buttons['revoke'])
                         <a id = "revokeButton" type="button"
-                            class="btn btn-danger btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
+                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
                             Revoke</a>
                     @endif
                   @endif
@@ -518,7 +517,11 @@
                                 @if(!empty($sparePartsData))
                                   @php $totalAmount=0; @endphp
                                   @foreach($sparePartsData as $index => $part)
-                                    @php $totalAmount += $part['qty'] * $part['rate']; @endphp
+                                    @php 
+                                      $qty = $part['qty'] ?? ($part->qty ?? 0);
+                                      $rate = $part['rate'] ?? ($part->rate ?? 0);
+                                      $totalAmount += $qty * $rate; 
+                                    @endphp
                                     <tr @if($index === 0) class="trselected" @endif>
                                       <td>
                                         <div class="form-check form-check-primary custom-checkbox">
@@ -1048,8 +1051,8 @@
                 
                 <div class="modal-body">
                     <div class="mb-1">
-                        <label class="form-label">Remarks</label>
-                        <textarea name="remarks" class="form-control cannot_disable"></textarea>
+                        <label class="form-label">Remarks <span class="text-danger">*</span></label>
+                        <textarea name="remarks" class="form-control cannot_disable" placeholder="Please provide detailed remarks for this action..." rows="4" required></textarea>
                     </div>
                     <div class="row">
                         <div class="col-md-8">
@@ -2102,11 +2105,55 @@ function setRejection() {
     document.getElementById('approve_reject_heading_label').textContent = "Reject Maintenance Work Order";
 }
 
+// Real-time validation for remarks field
+$(document).on('input', '#approveModal textarea[name="remarks"]', function() {
+    const remarksField = $(this);
+    const remarksValue = remarksField.val().trim();
+    
+    if (remarksValue !== '') {
+        // Remove validation error styling if user starts typing
+        remarksField.removeClass('is-invalid');
+        remarksField.next('.invalid-feedback').remove();
+    }
+});
+
 
 $(document).on('submit', '.ajax-submit-2', function(e) {
     e.preventDefault();
     
     const form = $(this);
+    
+    // Validate remarks field for approve/reject actions
+    const remarksField = form.find('textarea[name="remarks"]');
+    const actionType = form.find('input[name="action_type"]').val();
+    
+    if (remarksField.length > 0 && (actionType === 'approve' || actionType === 'reject')) {
+        const remarksValue = remarksField.val().trim();
+        
+        if (remarksValue === '') {
+            // Show validation error
+            Swal.fire({
+                icon: 'error',
+                title: 'Validation Error!',
+                text: 'Remarks are required for ' + (actionType === 'approve' ? 'approval' : 'rejection') + '.',
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#d33'
+            });
+            
+            // Highlight the field
+            remarksField.addClass('is-invalid');
+            if (!remarksField.next('.invalid-feedback').length) {
+                remarksField.after('<div class="invalid-feedback">Remarks are required.</div>');
+            }
+            
+            return false;
+        } else {
+            // Remove validation error styling
+            remarksField.removeClass('is-invalid');
+            remarksField.next('.invalid-feedback').remove();
+        }
+    }
+    
     const formData = new FormData(this);
     const submitBtn = form.find('button[type="submit"]');
     const originalBtnText = submitBtn.html();

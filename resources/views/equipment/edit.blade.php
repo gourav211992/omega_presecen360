@@ -2,6 +2,16 @@
 @extends('layouts.app')
 
 @section('content')
+    <style>
+        .itemactive { position: absolute; left: 6px; font-size: 11px; top: 6px; color: #fff } 
+        .iteminactive {  left: 24px; color: #999 } 
+        .customernewsection-form .statusactiinactive .form-check-input { width: 80px; cursor: pointer}
+        .customernewsection-form .statusactiinactive .form-check-input:checked + .itemactive { display: inline-block}
+        .customernewsection-form .statusactiinactive .form-check-input:checked ~ .iteminactive { display: none }
+        
+        .customernewsection-form .statusactiinactive .form-check-input:not(:checked) + .itemactive { display: none}
+        .customernewsection-form .statusactiinactive .form-check-input:not(:checked) ~ .iteminactive { display: inline-block }
+    </style>
     <!-- BEGIN: Content-->
     <div class="app-content content ">
         <div class="content-overlay"></div>
@@ -89,11 +99,11 @@
                                                         <h4 class="card-title text-theme">Basic Information</h4>
                                                         <p class="card-text">Fill the details</p>
                                                     </div>
-                                                    <div class="header-right">
+                                                    <div class="header-right d-flex align-items-center gap-3">
                                                         @php
                                                             use App\Helpers\Helper;
                                                         @endphp
-                                                        <div class="col-md-6 text-sm-end">
+                                                        <div class="text-sm-end">
                                                             <span class="badge rounded-pill {{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$equipment->document_status] ?? ''}} forminnerstatus">
                                                                 <span class="text-dark">Status</span>
                                                                  : <span class="{{App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS[$equipment->document_status] ?? ''}}">
@@ -104,6 +114,13 @@
                                                                 @endif
                                                             </span>
                                                             </span>        
+                                                        </div>
+                                                        
+                                                        <div class="form-check form-check-primary form-switch statusactiinactive">
+                                                            <input type="checkbox" name="active_status" {{ old('active_status', $equipment->status) == 1 ? 'checked' : '' }} class="form-check-input" id="customSwitch3" />
+                                                            <span class="itemactive">Active</span>
+                                                            <span class="itemactive iteminactive">Inactive</span>
+                                                        </div>
                                                     </div>
                                              </div>
                                                 </div>
@@ -215,7 +232,7 @@
 
                                             </div>
                                             
-                                            @include('partials.approval-history', ['document_status' => $equipment->document_status, 'revision_number' => $equipment->revision_number, 'approvalHistory' => $approvalHistory])
+                                            
                                  
                                         </div>
                                     </div>
@@ -267,7 +284,7 @@
                                                         <div class="col-md-3">
                                                             <div class="mb-1">
                                                                 <label class="form-label" for="purchase_cost">Machine Purchase Cost (₹)</label>
-                                                                <input type="number" class="form-control" id="purchase_cost" name="purchase_cost" placeholder="Enter Machine Purchase Cost" value="{{ old('purchase_cost', $equipment->purchase_cost) }}" />
+                                                                <input type="number" class="form-control" id="purchase_cost" name="purchase_cost" placeholder="Enter Machine Purchase Cost" value="{{ old('purchase_cost', $equipment->purchase_cost) }}" min="1" step="0.01" />
                                                             </div>
                                                         </div>
 
@@ -1095,12 +1112,27 @@
                 bomOptions += `<option value="${type.id}" ${data.maintenance_bom_id == type.id ? 'selected' : ''}>${type.name}</option>`;
             });
                 
-                // Extract checklist data properly from checklist_detail JSON
+                // Extract checklist data from JSON column (checklist_data)
                 let checklistData = [];
                 let selectedNames = [];
                 let selectedIds = [];
                 
-                if (data.checklists && Array.isArray(data.checklists)) {
+                // New approach: Get checklist data from JSON column
+                if (data.checklist_data && Array.isArray(data.checklist_data)) {
+                    data.checklist_data.forEach(checklistItem => {
+                        checklistData.push({
+                            checklist_id: checklistItem.checklist_id,
+                            checklist_detail_id: checklistItem.checklist_detail_id,
+                            name: checklistItem.main_checklist_name,
+                            description: checklistItem.description,
+                            type: checklistItem.data_type
+                        });
+                        selectedNames.push(checklistItem.main_checklist_name);
+                        selectedIds.push(checklistItem.checklist_detail_id);
+                    });
+                }
+                // Fallback: Legacy support for old checklist relationship (for backward compatibility)
+                else if (data.checklists && Array.isArray(data.checklists)) {
                     data.checklists.forEach(checklist => {
                         let checklistDetail = null;
                         
@@ -1114,7 +1146,6 @@
                         }
                         
                         if (checklistDetail) {
-                            // Use data from checklist_detail JSON (preferred)
                             checklistData.push({
                                 checklist_id: checklistDetail.checklist_id,
                                 checklist_detail_id: checklistDetail.checklist_detail_id,
@@ -1124,17 +1155,6 @@
                             });
                             selectedNames.push(checklistDetail.main_checklist_name || checklist.name);
                             selectedIds.push(checklistDetail.checklist_detail_id);
-                        } else {
-                            // Fallback to direct checklist data
-                            checklistData.push({
-                                checklist_id: null,
-                                checklist_detail_id: checklist.id,
-                                name: checklist.name,
-                                description: checklist.description,
-                                type: checklist.type
-                            });
-                            selectedNames.push(checklist.name);
-                            selectedIds.push(checklist.id);
                         }
                     });
                 }
@@ -1157,6 +1177,7 @@
                                     <input type="checkbox" class="form-check-input row-checkbox">
                                     <label class="form-check-label"></label>
                                 </div>
+                                ${data.id ? `<input type="hidden" name="maintenance[${rowId}][id]" value="${data.id}">` : ''}
                             </td>
                             <td class="poprod-decpt">
                                 <select name="maintenance[${rowId}][type]" class="form-select mw-100 maintenance-type">
@@ -3489,6 +3510,85 @@
                 `);
             });
         }
+
+        // YOM Validation (up to 50 years old)
+        function validateYOM() {
+            const yomInput = document.getElementById('yom');
+            const currentYear = new Date().getFullYear();
+            const minYear = currentYear - 50; // 50 years old
+            const maxYear = currentYear; // Current year
+            
+            // Only validate on blur (when user finishes typing)
+            yomInput.addEventListener('blur', function() {
+                const yomValue = parseInt(this.value);
+                
+                if (yomValue && (yomValue < minYear || yomValue > maxYear)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid YOM!',
+                        text: `YOM must be between ${minYear} and ${maxYear} (up to 50 years old)`,
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#d33'
+                    });
+                    this.value = '';
+                    this.focus();
+                }
+            });
+        }
+
+        // Purchase Cost Validation (cannot be 00000 or zero)
+        function validatePurchaseCost() {
+            const costInput = document.getElementById('purchase_cost');
+            
+            costInput.addEventListener('input', function() {
+                const costValue = parseFloat(this.value);
+                
+                // Check for zero or invalid values
+                if (this.value === '00000' || this.value === '0' || costValue <= 0) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid Purchase Cost!',
+                        text: 'Purchase cost cannot be zero or 00000. Please enter a valid amount.',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#d33'
+                    });
+                    this.value = '';
+                    this.focus();
+                }
+            });
+            
+            // Prevent typing zeros at the beginning
+            costInput.addEventListener('keydown', function(e) {
+                if (this.value === '' && e.key === '0') {
+                    e.preventDefault();
+                }
+            });
+        }
+
+        // Prevent form submission on Enter key
+        function preventEnterSubmission() {
+            $('form').on('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    
+                    // Show validation message
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Form Submission Prevented!',
+                        text: 'Please use the Submit button to submit the form after completing all required fields.',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#3085d6'
+                    });
+                    
+                    return false;
+                }
+            });
+        }
+
+        // Initialize validations
+        validateYOM();
+        validatePurchaseCost();
+        preventEnterSubmission();
 
         // Make functions globally accessible
         window.addPortion = addPortion;

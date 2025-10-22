@@ -354,7 +354,7 @@
                                                         <div class="col-md-3">
                                                             <div class="mb-1">
                                                                 <label class="form-label" for="purchase_cost">Machine Purchase Cost (₹) <span class="text-danger">*</span></label>
-                                                                <input type="number" class="form-control" id="purchase_cost" name="purchase_cost" placeholder="Enter Machine Purchase Cost" />
+                                                                <input type="number" class="form-control" id="purchase_cost" name="purchase_cost" placeholder="Enter Machine Purchase Cost" min="1" step="0.01" />
                                                             </div>
                                                         </div>
 
@@ -878,7 +878,7 @@
             currentChecklistRowRef = $(this).closest('tr');
             currentRowId = getRowIdFromElement(currentChecklistRowRef);
             
-            console.log('Opening checklist modal for row:', currentRowId);
+            
             
             // Reset modal completely when switching rows
             resetChecklistModal();
@@ -924,7 +924,6 @@
             $('#checklist .modal-body input[type="checkbox"]').prop('checked', false);
             $('#checkListPortion .checklist-portion').remove(); 
             $('#checkListPortion tbody').empty();
-            console.log('Checklist modal reset for row:', currentRowId);
         }
 
         
@@ -1032,7 +1031,6 @@
             // Update the row with selected checklist data
             updateRowWithChecklistData(selectedData);
             
-            console.log('Saved checklist selections for row:', currentRowId, selectedData);
         }
         
         /**
@@ -1042,7 +1040,7 @@
         function collectSelectedChecklistData() {
             const selectedData = [];
             
-            console.log('Collecting data from all portions:', portionChecklistData);
+            
             
             // Loop through each portion and collect checked items
             $('#checkListPortion .checklist-portion, #checkListPortion .row').each(function() {
@@ -1057,14 +1055,13 @@
                 // Get the stored checklist data for this portion
                 const portionData = portionChecklistData[portionId];
                 if (!portionData) {
-                    console.log('No stored data for portion:', portionId);
                     return; // Skip this portion
                 }
                 
                 const mainChecklistId = portionData.checklistId;
                 const mainChecklistName = portionData.checklistName;
                 
-                console.log('Processing portion:', portionId, 'with checklist:', mainChecklistId, mainChecklistName);
+                
                 
                 // Find checked checkboxes in this portion
                 portionRow.find('input[type="checkbox"]:checked').each(function () {
@@ -1077,16 +1074,11 @@
                             main_checklist_name: mainChecklistName
                         });
                         
-                        console.log('Added item:', {
-                            checklist_id: mainChecklistId,
-                            checklist_detail_id: checklistDetailId,
-                            main_checklist_name: mainChecklistName
-                        });
                     }
                 });
             });
             
-            console.log('Final collected checklist data:', selectedData);
+            
             return selectedData;
         }
         
@@ -1095,7 +1087,7 @@
          */
         
          function updateRowWithChecklistData(selectedData) {
-            console.log('Updating checklist data for row:', selectedData);
+            
 
             const selectedIds = selectedData.map(item => item.checklist_detail_id);
 
@@ -1192,8 +1184,7 @@
                 checklistName: dropdown.find('option:selected').text()
             };
             
-            console.log('Search clicked - storing for portion:', portionId, 'ID:', checklistId, 'Name:', dropdown.find('option:selected').text());
-            console.log('All portion data:', portionChecklistData);
+            
             
             // AJAX call to get checklist details
             $.ajax({
@@ -1217,7 +1208,7 @@
                                 // Match detail for this checklist
                                 const detail = details.find(d => d.checklist_id === checklist.id);
                                 
-                                console.log("check the id of checklist here",checklist.id);
+                               
                                 
                                 const tableRow = `
                                     <tr>
@@ -1425,7 +1416,7 @@
                 }
             });
             
-            console.log('Collected checklist data from all rows:', allChecklistData);
+            
             return allChecklistData;
         }
 
@@ -1438,10 +1429,7 @@
             // The checklist data is already stored in hidden inputs within each row
             // This function can be used for any final validation or processing
             const checklistData = collectChecklistData();
-            
-            console.log('Final checklist data for form submission:', checklistData);
-            console.log('Total checklist items across all maintenance rows:', checklistData.length);
-            
+                  
             // Validation: Ensure each checklist item has required IDs
             let isValid = true;
             checklistData.forEach((item, index) => {
@@ -1720,11 +1708,6 @@
                     return;
                 }
 
-                console.log('File validation passed:', {
-                    name: file.name,
-                    size: (file.size / 1024 / 1024).toFixed(2) + 'MB',
-                    type: file.type
-                });
             }
         });
 
@@ -1851,40 +1834,33 @@
     });
 
         function submitForm(status) {
-            console.log('submitForm called with status:', status);
             $('#status').val(status);
 
             let isValid = true;
             let errorMessage = '';
 
             // Basic Information validation
-            console.log('Validating basic information...');
             if ($('#organization_id').val() === '') {
-                console.log('Organization is empty');
                 isValid = false;
                 errorMessage += 'Organization is required.<br>';
             }
 
             if ($('#location_id').val() === '' && isValid) {
-                console.log('Location is empty');
                 isValid = false;
                 errorMessage += 'Location is required.<br>';
             }
 
             if ($('#category_id').val() === '' && isValid) {
-                console.log('Category is empty');
                 isValid = false;
                 errorMessage += 'Category is required.<br>';
             }
 
             if ($('input[name="name"]').val() === '' && isValid) {
-                console.log('Name is empty');
                 isValid = false;
                 errorMessage += 'Name is required.<br>';
             }
 
             // Validate maintenance rows if any exist
-            console.log('Validating maintenance rows...');
             let hasCompleteMaintenanceRow = false;
             let maintenanceRowCount = 0;
 
@@ -1892,7 +1868,6 @@
                 const row = $(this);
                 const rowNumber = index + 1;
                 maintenanceRowCount++;
-                console.log(`Validating maintenance row ${rowNumber}`);
 
                 const typeSelect = row.find('select[name^="maintenance"][name$="[type]"]');
                 const frequencySelect = row.find('select[name^="maintenance"][name$="[frequency]"]');
@@ -1901,15 +1876,6 @@
                 const bomSelect = row.find('select[name^="maintenance"][name$="[bom]"]');
                 const checklistHidden = row.find('.selected-checklists');
 
-                console.log(`Row ${rowNumber} field values:`, {
-                    type: typeSelect.val(),
-                    frequency: frequencySelect.val(),
-                    date: dateInput.val(),
-                    time: timeInput.val(),
-                    bom: bomSelect.val(),
-                    checklist: checklistHidden.val()
-                });
-
                 // Check if this row is completely filled
                 const isRowComplete = typeSelect.val() !== '' && frequencySelect.val() !== '' &&
                                     dateInput.val() !== '' && timeInput.val() !== '' &&
@@ -1917,45 +1883,37 @@
 
                 if (isRowComplete) {
                     hasCompleteMaintenanceRow = true;
-                    console.log(`Row ${rowNumber} is completely filled`);
                 }
 
                 // For final submission (not draft), ALL rows must be completely filled
                 if (status === 'submitted') {
-                    console.log(`Final submission - validating ALL fields in row ${rowNumber}`);
 
                     if (typeSelect.val() === '') {
-                        console.log(`Row ${rowNumber}: Maintenance type is empty`);
                         isValid = false;
                         errorMessage += `Maintenance type is required for row ${rowNumber}.<br>`;
                     }
 
                     if (frequencySelect.val() === '') {
-                        console.log(`Row ${rowNumber}: Frequency is empty`);
                         isValid = false;
                         errorMessage += `Frequency is required for row ${rowNumber}.<br>`;
                     }
 
                     if (dateInput.val() === '') {
-                        console.log(`Row ${rowNumber}: Date is empty`);
                         isValid = false;
                         errorMessage += `Start date is required for row ${rowNumber}.<br>`;
                     }
 
                     if (timeInput.val() === '') {
-                        console.log(`Row ${rowNumber}: Time is empty`);
                         isValid = false;
                         errorMessage += `Time is required for row ${rowNumber}.<br>`;
                     }
 
                     if (bomSelect.val() === '') {
-                        console.log(`Row ${rowNumber}: BOM is empty`);
                         isValid = false;
                         errorMessage += `Maintenance BOM is required for row ${rowNumber}.<br>`;
                     }
 
                     if (!checklistHidden.val() || checklistHidden.val() === '') {
-                        console.log(`Row ${rowNumber}: Checklist is empty`);
                         isValid = false;
                         errorMessage += `Checklist is required for row ${rowNumber}.<br>`;
                     }
@@ -1966,16 +1924,12 @@
                                        bomSelect.val() !== '' || checklistHidden.val() !== '';
 
                     if (hasAnyValue && isValid) {
-                        console.log(`Draft submission - validating partial row ${rowNumber}`);
-
                         if (typeSelect.val() === '') {
-                            console.log(`Row ${rowNumber}: Maintenance type is empty`);
                             isValid = false;
                             errorMessage += `Maintenance type is required for row ${rowNumber}.<br>`;
                         }
 
                         if (frequencySelect.val() === '') {
-                            console.log(`Row ${rowNumber}: Frequency is empty`);
                             isValid = false;
                             errorMessage += `Frequency is required for row ${rowNumber}.<br>`;
                         }
@@ -2210,6 +2164,87 @@
                     : ''
             };
         }
+
+        // YOM Validation (up to 50 years old)
+        function validateYOM() {
+            const yomInput = document.getElementById('yom');
+            const currentYear = new Date().getFullYear();
+            const minYear = currentYear - 50; // 50 years old
+            const maxYear = currentYear; // Current year
+            
+            // Only validate on blur (when user finishes typing)
+            yomInput.addEventListener('blur', function() {
+                const yomValue = parseInt(this.value);
+                
+                if (yomValue && (yomValue < minYear || yomValue > maxYear)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid YOM!',
+                        text: `YOM must be between ${minYear} and ${maxYear} (up to 50 years old)`,
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#d33'
+                    });
+                    this.value = '';
+                    this.focus();
+                }
+            });
+        }
+
+        // Purchase Cost Validation (cannot be 00000 or zero)
+        function validatePurchaseCost() {
+            const costInput = document.getElementById('purchase_cost');
+            
+            costInput.addEventListener('input', function() {
+                const costValue = parseFloat(this.value);
+                
+                // Check for zero or invalid values
+                if (this.value === '00000' || this.value === '0' || costValue <= 0) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Invalid Purchase Cost!',
+                        text: 'Purchase cost cannot be zero or 00000. Please enter a valid amount.',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#d33'
+                    });
+                    this.value = '';
+                    this.focus();
+                }
+            });
+            
+            // Prevent typing zeros at the beginning
+            costInput.addEventListener('keydown', function(e) {
+                if (this.value === '' && e.key === '0') {
+                    e.preventDefault();
+                }
+            });
+        }
+
+        // Prevent form submission on Enter key
+        function preventEnterSubmission() {
+            $('form').on('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    
+                    // Show validation message
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Form Submission Prevented!',
+                        text: 'Please use the Submit button to submit the form after completing all required fields.',
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#3085d6'
+                    });
+                    
+                    return false;
+                }
+            });
+        }
+
+        // Initialize validations on document ready
+        $(document).ready(function() {
+            validateYOM();
+            validatePurchaseCost();
+            preventEnterSubmission();
+        });
 
     // Multiple file upload functionality
 		function checkFileTypeandSize(event) {

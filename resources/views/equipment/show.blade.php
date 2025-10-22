@@ -1119,12 +1119,27 @@
                 bomOptions += `<option value="${type.id}" ${data.maintenance_bom_id == type.id ? 'selected' : ''}>${type.name}</option>`;
             });
                 
-                // Extract checklist data properly from checklist_detail JSON
+                // Extract checklist data from JSON column (checklist_data)
                 let checklistData = [];
                 let selectedNames = [];
                 let selectedIds = [];
                 
-                if (data.checklists && Array.isArray(data.checklists)) {
+                // New approach: Get checklist data from JSON column
+                if (data.checklist_data && Array.isArray(data.checklist_data)) {
+                    data.checklist_data.forEach(checklistItem => {
+                        checklistData.push({
+                            checklist_id: checklistItem.checklist_id,
+                            checklist_detail_id: checklistItem.checklist_detail_id,
+                            name: checklistItem.main_checklist_name,
+                            description: checklistItem.description,
+                            type: checklistItem.data_type
+                        });
+                        selectedNames.push(checklistItem.main_checklist_name);
+                        selectedIds.push(checklistItem.checklist_detail_id);
+                    });
+                }
+                // Fallback: Legacy support for old checklist relationship (for backward compatibility)
+                else if (data.checklists && Array.isArray(data.checklists)) {
                     data.checklists.forEach(checklist => {
                         let checklistDetail = null;
                         
@@ -1138,7 +1153,6 @@
                         }
                         
                         if (checklistDetail) {
-                            // Use data from checklist_detail JSON (preferred)
                             checklistData.push({
                                 checklist_id: checklistDetail.checklist_id,
                                 checklist_detail_id: checklistDetail.checklist_detail_id,
@@ -1148,17 +1162,6 @@
                             });
                             selectedNames.push(checklistDetail.main_checklist_name || checklist.name);
                             selectedIds.push(checklistDetail.checklist_detail_id);
-                        } else {
-                            // Fallback to direct checklist data
-                            checklistData.push({
-                                checklist_id: null,
-                                checklist_detail_id: checklist.id,
-                                name: checklist.name,
-                                description: checklist.description,
-                                type: checklist.type
-                            });
-                            selectedNames.push(checklist.name);
-                            selectedIds.push(checklist.id);
                         }
                     });
                 }
@@ -1211,7 +1214,7 @@
                                 </td>
                             <td class="poprod-decpt checklist-cell">
                                 <span class="checklist-badges">${badgesHtml}</span>
-                                <button type="button" class="btn p-25 btn-sm btn-outline-secondary @if($buttons['submit']) open-checklist-modal @else view-checklist-modal @endif" style="font-size: 10px" @if(!$buttons['submit']) onclick="getPopupChecklistData(${data.erp_equipment_id},${data.id})" @endif>Add Checklist</button>
+                                <button type="button" class="btn p-25 btn-sm btn-outline-secondary @if($buttons['submit']) open-checklist-modal @else view-checklist-modal @endif" style="font-size: 10px" @if(!$buttons['submit']) onclick="getPopupChecklistData({{ $equipment->source_id ?? $equipment->id }},${data.id})" @endif>Add Checklist</button>
                                 <input type="hidden" class="selected-checklists" value="${selectedIdsString}" />
                                 <!-- Store checklist data for form submission -->
                                 <div class="existing-checklist-data" style="display: none;">
@@ -1220,6 +1223,8 @@
                                         <input type="hidden" name="maintenance[${rowId}][checklists][${index}][checklist_detail_id]" value="${item.checklist_detail_id}">
                                     `).join('')}
                                 </div>
+                                <!-- Store complete checklist data for popup display -->
+                                <div class="checklist-json-data" style="display: none;" data-checklist='${JSON.stringify(checklistData).replace(/'/g, "&apos;")}'></div>
                                 <!-- Legacy hidden inputs removed - only modal-driven inputs will be used -->
                             </td>
                         </tr>`;
@@ -2855,14 +2860,68 @@
 
 
    
+        /**
+         * Show checklist data from maintenance row (no AJAX needed)
+         */
+        function showChecklistDataFromRow(buttonElement) {
+            const row = $(buttonElement).closest('tr');
+            
+            // Get checklist data from data attribute
+            const jsonDiv = row.find('.checklist-json-data');
+            let checklistData = [];
+            
+            if (jsonDiv.length > 0) {
+                try {
+                    const jsonString = jsonDiv.attr('data-checklist');
+                    if (jsonString) {
+                        checklistData = JSON.parse(jsonString.replace(/&apos;/g, "'"));
+                    }
+                } catch (e) {
+                    console.error('Error parsing checklist JSON:', e);
+                }
+            }
+            
+            // Clear and populate the modal
+            $("#viewCheckListPortion").empty();
+            
+            if (checklistData && checklistData.length > 0) {
+                checklistData.forEach(function(item) {
+                    if (item.checklist_id && item.checklist_detail_id) {
+                        $("#viewCheckListPortion").append(`
+                            <div class="checklist-item mb-2 p-2 border rounded">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="badge bg-primary">${item.main_checklist_name || 'Checklist'}</span>
+                                        <span class="fw-bold ms-2">${item.name || 'Item'}</span>
+                                    </div>
+                                    <small class="text-muted">${item.data_type || ''}</small>
+                                </div>
+                                ${item.description ? `<div class="text-muted mt-1"><small>${item.description}</small></div>` : ''}
+                            </div>
+                        `);
+                    }
+                });
+            } else {
+                $("#viewCheckListPortion").html('<div class="text-center p-3"><p class="text-muted mb-0">No checklist data available for this maintenance row</p></div>');
+            }
+            
+            // Show the modal
+            $('#viewCheckListModal').modal('show');
+        }
+
         function getPopupChecklistData(equipId, mainTypeId){
             if(equipId && mainTypeId){
+                // Get revision number from URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const revisionNumber = urlParams.get('revisionNumber');
+                
                 $.ajax({
                     url: "{{ route('equipment.popup-checklist-data') }}",
                     type: "post",
                     data: {
                         equipment_id: equipId,
                         id: mainTypeId,
+                        revision_number: revisionNumber, // Pass revision number to backend
                         _token: "{{ csrf_token() }}"
                     },
                     success: function (response) {
@@ -2876,12 +2935,25 @@
                             if(response.maintenanceChecklist && response.maintenanceChecklist.length > 0){
                                 response.maintenanceChecklist.forEach(mc => {
                                     try {
-                                        let parsed = JSON.parse(mc.checklist_detail);
-                                        if(parsed && parsed.checklist_detail_id){
-                                            selectedDetails.push(parsed.checklist_detail_id.toString());
+                                        // Check if this is history data (no checklist_detail field) or current data
+                                        if(mc.checklist_detail) {
+                                            // Current data - parse JSON
+                                            let parsed = JSON.parse(mc.checklist_detail);
+                                            if(parsed && parsed.checklist_detail_id){
+                                                selectedDetails.push(parsed.checklist_detail_id.toString());
+                                            }
+                                        } else {
+                                            // History data - use direct ID
+                                            if(mc.id){
+                                                selectedDetails.push(mc.id.toString());
+                                            }
                                         }
                                     } catch(e){
                                         console.error("Invalid checklist_detail JSON", e);
+                                        // Fallback to direct ID for history data
+                                        if(mc.id){
+                                            selectedDetails.push(mc.id.toString());
+                                        }
                                     }
                                 });
                             }
@@ -3060,5 +3132,24 @@
         });
 
     </script>
+
+    <!-- Modal for Viewing Checklist -->
+    <div class="modal fade" id="viewCheckListModal" tabindex="-1" aria-labelledby="viewCheckListModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="viewCheckListModalLabel">View Checklist</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="viewCheckListPortion">
+                    <p class="text-muted">Loading checklist data...</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- END: Modal for Viewing Checklist -->
     
 @endsection

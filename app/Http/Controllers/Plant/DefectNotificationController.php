@@ -467,6 +467,7 @@ class DefectNotificationController extends Controller
                 'location_id'     => $request->location_id,
                 'category_id'     => $request->category_id,
                 'defect_type_id'  => $request->defect_type_id,
+                'detailed_oberservation' => $request->detailed_oberservation,
             ];
 
             if($request->doc_no==''){
@@ -854,7 +855,7 @@ class DefectNotificationController extends Controller
                 $defectNotification->save();
                 DB::commit();
             }
-           
+                if($request->action_type == 'submit'){
                 $revisionNumber = $defectNotification->revision_number ?? 0;
                 $actionType = 'submit';
                 $remarks='';
@@ -867,6 +868,7 @@ class DefectNotificationController extends Controller
                 $defectNotification->document_status = $document_status;
                 $data['document_status'] = $document_status;
                 $defectNotification->save();
+                }
           
         
             // Handle file attachments
@@ -917,7 +919,22 @@ class DefectNotificationController extends Controller
                 $defectNotification->attachment = null;
             }
 
-            $defectNotification->fill($request->except(['_token', '_method', 'upload_document', 'attachment','document_status']));        
+            if ($request->action_type === 'draft') {
+                $defectNotification->document_status = 'draft';
+            }
+
+            $defectNotification->fill([
+                'equipment_id'    => $request->equipment_id,
+                'location_id'     => $request->location_id,
+                'category_id'     => $request->category_id,
+                'defect_type_id'  => $request->defect_type_id,
+                'priority'        => $request->priority,
+                'problem'         => $request->problem,
+                'report_date_time'=> $request->report_date_time,
+                'detailed_oberservation' => $request->detailed_oberservation,
+            ]);
+
+           
             $defectNotification->save();
             $defectNotification = DefectNotification::find($id);
             
