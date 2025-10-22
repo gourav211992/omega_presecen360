@@ -108,6 +108,7 @@ use App\Http\Controllers\ErpSaleInvoiceController;
 use App\Http\Controllers\ErpVehicleTypeController;
 use App\Http\Controllers\OverheadMasterController;
 use App\Http\Controllers\PaymentVoucherController;
+use App\Http\Controllers\AdvancePaymentVoucherController;
 use App\Http\Controllers\Plant\MaintBomController;
 use App\Http\Controllers\ProductSectionController;
 use App\Http\Controllers\PurchaseReturnController;
@@ -309,6 +310,22 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/payment-receipt/email', [PaymentVoucherController::class, 'sendMail'])->name('paymentVouchers.email');
     Route::post('/voucher/check-reference', [PaymentVoucherController::class, 'checkReference'])->name('voucher.checkReference');
 
+    Route::post('advanceuploadVouchers', [AdvancePaymentVoucherController::class, 'uploadVouchers'])->name('advanceuploadVouchers');
+    Route::get('advance-receipt-vouchers/{type}', [AdvancePaymentVoucherController::class, 'index'])->name('advancepaymentVoucher.receipt');
+    Route::post('advanceapprovePaymentVoucher', [AdvancePaymentVoucherController::class, 'approvePaymentVoucher'])->name('advanceapprovePaymentVoucher');
+    Route::post('advancegetParties', [AdvancePaymentVoucherController::class, 'getParties'])->name('advancegetParties');
+    Route::get('advancepaymentVouchersAmendment/{id}', [AdvancePaymentVoucherController::class, 'amendment'])->name('advancepaymentVouchers.amendment');
+    Route::resource('advance-payments', AdvancePaymentVoucherController::class)->except(['show', 'destroy', 'edit']);
+    Route::resource('advance-receipts', AdvancePaymentVoucherController::class)->except(['show', 'destroy', 'edit']);
+    Route::get('advance-payments/{payment}/edit', [AdvancePaymentVoucherController::class, 'edit'])->name('advance-payments.edit');
+    Route::get('advance-receipts/{payment}/edit', [AdvancePaymentVoucherController::class, 'edit'])->name('advance-receipts.edit');
+    Route::get('/advancepayment-vouchers/voucher/get', [AdvancePaymentVoucherController::class, 'getPostingDetails'])->name('advancepaymentVouchers.getPostingDetails');
+    Route::post('/advancepayment-vouchers/voucher/post', [AdvancePaymentVoucherController::class, 'postPostingDetails'])->name('advancepaymentVouchers.post');
+    Route::get('/advancepayment-receipt/revoke', [AdvancePaymentVoucherController::class, 'revokeDocument'])->name('advancepaymentVouchers.revoke.document');
+    Route::get('/advancepayment-receipt/cancel', [AdvancePaymentVoucherController::class, 'cancelDocument'])->name('advancepaymentVouchers.cancel.document');
+    Route::get('/advancepayment-receipt/print/{id}/{ledger}/{group}', [AdvancePaymentVoucherController::class, 'getPrint'])->name('advancepaymentVouchers.print');
+    Route::post('/advancepayment-receipt/email', [AdvancePaymentVoucherController::class, 'sendMail'])->name('advancepaymentVouchers.email');
+    Route::post('/advancevoucher/check-reference', [AdvancePaymentVoucherController::class, 'checkReference'])->name('advancevoucher.checkReference');
 
 
     Route::post('getLedgerVouchers', [VoucherController::class, 'getLedgerVouchers'])->name('getLedgerVouchers');

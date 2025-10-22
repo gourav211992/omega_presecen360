@@ -1662,6 +1662,134 @@ class ServiceParametersHelper
             'type' => self::GL_PARAMETERS
         ]
     ];
+    const ADVANCE_PV_SERVICE_PARAMETERS = [
+        [
+            "name" => self::BACK_DATE_ALLOW_PARAM,
+            "applicable_values" => self::BACK_DATE_ALLOW_PARAM_VALUES,
+            "default_value" => ['yes'],
+            'is_multiple' => false,
+            'service_level_visibility' => true
+        ],
+        [
+            "name" => self::ON_ACCOUNT_REQUIRED_PARAM,
+            "applicable_values" => self::ON_ACCOUNT_REQUIRED_PARAM_VALUES,
+            "default_value" => ['yes'],
+            'is_multiple' => false,
+            'service_level_visibility' => true
+        ],
+
+        [
+            "name" => self::FUTURE_DATE_ALLOW_PARAM,
+            "applicable_values" => self::FUTURE_DATE_ALLOW_PARAM_VALUES,
+            "default_value" => ['yes'],
+            'is_multiple' => false,
+            'service_level_visibility' => true
+        ],
+        [
+            "name" => self::GL_POSTING_REQUIRED_PARAM,
+            "applicable_values" => self::GL_POSTING_REQUIRED_PARAM_VALUES,
+            "default_value" => ['no'],
+            'is_multiple' => false,
+            'service_level_visibility' => true,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::GL_POSTING_SERIES_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => false,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::CONTRA_POSTING_SERIES_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => false,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::GL_SEPERATE_DISCOUNT_PARAM,
+            "applicable_values" => self::GL_SEPERATE_DISCOUNT_PARAM_VALUE,
+            "default_value" => ['no'],
+            'is_multiple' => false,
+            'service_level_visibility' => true,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::POST_ON_ARROVE_PARAM,
+            "applicable_values" => self::POST_ON_ARROVE_PARAM_VALUES,
+            "default_value" => ['no'],
+            'is_multiple' => false,
+            'service_level_visibility' => true,
+            'type' => self::GL_PARAMETERS
+        ]
+    ];
+    const ADVANCE_RV_SERVICE_PARAMETERS = [
+        [
+            "name" => self::BACK_DATE_ALLOW_PARAM,
+            "applicable_values" => self::BACK_DATE_ALLOW_PARAM_VALUES,
+            "default_value" => ['yes'],
+            'is_multiple' => false,
+            'service_level_visibility' => true
+        ],
+        [
+            "name" => self::ON_ACCOUNT_REQUIRED_PARAM,
+            "applicable_values" => self::ON_ACCOUNT_REQUIRED_PARAM_VALUES,
+            "default_value" => ['yes'],
+            'is_multiple' => false,
+            'service_level_visibility' => true
+        ],
+
+        [
+            "name" => self::FUTURE_DATE_ALLOW_PARAM,
+            "applicable_values" => self::FUTURE_DATE_ALLOW_PARAM_VALUES,
+            "default_value" => ['yes'],
+            'is_multiple' => false,
+            'service_level_visibility' => true
+        ],
+        [
+            "name" => self::GL_POSTING_REQUIRED_PARAM,
+            "applicable_values" => self::GL_POSTING_REQUIRED_PARAM_VALUES,
+            "default_value" => ['no'],
+            'is_multiple' => false,
+            'service_level_visibility' => true,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::GL_POSTING_SERIES_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => false,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::CONTRA_POSTING_SERIES_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => false,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::GL_SEPERATE_DISCOUNT_PARAM,
+            "applicable_values" => self::GL_SEPERATE_DISCOUNT_PARAM_VALUE,
+            "default_value" => ['no'],
+            'is_multiple' => false,
+            'service_level_visibility' => true,
+            'type' => self::GL_PARAMETERS
+        ],
+        [
+            "name" => self::POST_ON_ARROVE_PARAM,
+            "applicable_values" => self::POST_ON_ARROVE_PARAM_VALUES,
+            "default_value" => ['no'],
+            'is_multiple' => false,
+            'service_level_visibility' => true,
+            'type' => self::GL_PARAMETERS
+        ]
+    ];
     const RV_SERVICE_PARAMETERS = [
         [
             "name" => self::BACK_DATE_ALLOW_PARAM,
@@ -2871,7 +2999,9 @@ class ServiceParametersHelper
         ConstantHelper::MO_SERVICE_ALIAS => self::MO_SERVICE_PARAMETERS,
         ConstantHelper::PAYMENT_VOUCHER_RECEIPT => self::PV_SERVICE_PARAMETERS,
         ConstantHelper::PAYMENTS_SERVICE_ALIAS => self::PV_SERVICE_PARAMETERS,
+        ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS => self::ADVANCE_PV_SERVICE_PARAMETERS,
         ConstantHelper::RECEIPTS_SERVICE_ALIAS => self::RV_SERVICE_PARAMETERS,
+        ConstantHelper::ADVANCE_RECEIPTS_SERVICE_ALIAS => self::ADVANCE_RV_SERVICE_PARAMETERS,
         ConstantHelper::FIXED_ASSET_DEPRECIATION => self::ASSET_SERVICE_PARAMETERS,
         ConstantHelper::FIXED_ASSET_SPLIT => self::ASSET_POSTING_SERVICE_PARAMETERS,
         ConstantHelper::FIXED_ASSET_MERGER => self::ASSET_POSTING_SERVICE_PARAMETERS,
