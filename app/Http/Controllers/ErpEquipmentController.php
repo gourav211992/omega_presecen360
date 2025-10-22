@@ -623,6 +623,7 @@ class ErpEquipmentController extends Controller
                 ->whereIn('document_status', ['submitted', 'approved', 'approval_not_required', 'closed'])
                 ->orderBy('document_date', 'desc')
                 ->first();
+         
 
             $baseDate = null;
             
@@ -639,7 +640,7 @@ class ErpEquipmentController extends Controller
             }
 
             // Calculate next due date based on frequency
-            if ($baseDate && $maintenanceDetail->frequency) {
+            if ($baseDate && $maintenanceDetail->frequency && $lastWorkOrder!='') {
                 switch ($maintenanceDetail->frequency) {
                     case 'Daily':
                         return $baseDate->copy()->addDay()->format('d-m-Y');
