@@ -469,6 +469,7 @@ function loadModal(type) {
                          data-equipment-id="${eqpt?.equipment?.id ?? eqpt.id}" 
                          data-equipment-name="${eqpt?.equipment?.name ?? ''}" 
                          data-maintenance-type="${eqpt?.maintenance_type?.id ?? ''}"
+                         data-maintenance-detail-id="${eqpt?.maintenance_detail_id ?? eqpt?.equipment?.maintenance_detail_id ?? ''}"
                          data-bom-id="${eqpt?.bom?.id ?? ''}"
                          ${checkedAttribute}>
                   <label class="form-check-label" for="equipment_${eqpt.id}"></label>

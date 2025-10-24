@@ -47,6 +47,7 @@ class PlantMaintWo extends Model
         'reference_type',
         'equipment_id',
         'maintenance_type_id',
+        'maintenance_detail_id',
         'defect_notification_id',
         'updated_by',
         'deleted_by'
