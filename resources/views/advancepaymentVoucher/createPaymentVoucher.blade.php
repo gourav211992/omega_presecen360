@@ -471,6 +471,14 @@
                                                                                 id="party_vouchers{{ $no }}"
                                                                                 class="party_vouchers"
                                                                                 value="{{ json_encode($partyVoucher) }}" />
+                                                                            <input type="hidden" name="customerid[]"
+                                                                                id="customerid{{ $no }}"
+                                                                                class="party_vouchers"
+                                                                            />
+                                                                            <input type="hidden" name="vendorid[]"
+                                                                                id="vendorid{{ $no }}"
+                                                                                class="party_vouchers"
+                                                                            />
                                                                         </td>
 
                                                                         <td class="poprod-decpt">
@@ -506,9 +514,7 @@
                                                                                     class="form-select mw-100 invoiceDrop drop{{ $no }}"
                                                                                     data-id="{{ $no }}"
                                                                                     name="reference[]">
-                                                                                    <option selected>Invoice</option>
-                                                                                    <option>Advance</option>
-                                                                                    <option>On Account</option>
+                                                                                    <option selected value="advance">Advance</option>
                                                                                 </select>
 
                                                                                 <div class="ms-50 flex-shrink-0">
@@ -572,6 +578,14 @@
                                                                         <input type="hidden" name="party_vouchers[]"
                                                                             type="hidden" id="party_vouchers1"
                                                                             class="party_vouchers" />
+                                                                        <input type="hidden" name="customerid[]"
+                                                                                id="customerid1"
+                                                                        
+                                                                        />
+                                                                        <input type="hidden" name="vendorid[]"
+                                                                                id="vendorid1"
+                                                                        
+                                                                        />
 
                                                                     </td>
                                                                     <td class="poprod-decpt"><input type="text"
@@ -598,10 +612,7 @@
                                                                             <select
                                                                                 class="form-select mw-100 invoiceDrop drop1"
                                                                                 data-id="1" name="reference[]">
-                                                                                <option value="">Select</option>
-                                                                                <option>Invoice</option>
-                                                                                <option>Advance</option>
-                                                                                <option>On Account</option>
+                                                                                <option selected value="advance">Advance</option>
                                                                             </select>
                                                                             <div class="ms-50 flex-shrink-0">
                                                                                 <button type="button"
@@ -733,11 +744,9 @@
                                             <th>Date</th>
                                             <th>Series</th>
                                             <th>Document No.</th>
-                                            <th>Location</th>
-                                            <th>Cost Center</th>
-                                            <th class="text-end">Amount</th>
-                                            <th class="text-end">Balance</th>
-                                            <th class="text-end" width="150px">Settle Amt</th>
+                                            <th class="text-end">Advance</th>
+                                            <th class="text-end">Settle</th>
+                                            <th class="text-end" width="150px">To Pay</th>
                                             <th class="text-center">
                                                 <div class="form-check form-check-inline me-0">
                                                     <input class="form-check-input" type="checkbox" name="podetail"
@@ -750,7 +759,7 @@
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <td colspan="8" class="text-end">Total</td>
+                                            <td colspan="6" class="text-end">Total</td>
                                             <td class="fw-bolder text-dark text-end settleTotal">0</td>
                                             <td></td>
                                         </tr>
@@ -814,11 +823,13 @@
                 let balanceText = row.find('.balanceInput').text().replace(/,/g, '');
                 let balance = parseFloat(balanceText);
                 let settleAmount = parseFloat(input.val());
+                let balanceminus = parseFloat(input.data('balanceminus'));
+                let calculatedValueBalance = parseFloat(input.data('calculatedValueBalance'));
 
                 // Remove existing error message
                 input.next('.invalid-feedback').remove();
 
-                if (settleAmount > balance) {
+                if (settleAmount > balanceminus || settleAmount > calculatedValueBalance) {
                     input.addClass('is-invalid');
                     input.after(
                         '<span class="invalid-feedback d-block" style="font-size:12px">Settle amount cannot be greater than balance.</span>'
@@ -924,8 +935,9 @@
 
         function openInvoice(id) {
             $('#excAmount' + id).attr('readonly', true);
-            if ($('#party_id' + id).val() != "") {
-                $('.drop' + id).val('Invoice');
+            if ($('#party_id' + id).val() != "") 
+            {
+                // $('.drop' + id).val('Invoice');
                 const comingParty = $('#party_id' + id).val();
                 if (comingParty != $('#currentParty').val()) {
                     $('#vouchersBody').empty();
@@ -938,7 +950,7 @@
                 getLedgers();
                 $('#invoice').modal('toggle');
             } else {
-                $('.drop' + id).val('');
+                // $('.drop' + id).val('');
                 showToast('error', 'Select ledger to select invoice!!');
             }
         }
@@ -959,7 +971,7 @@
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                url: '{{ route('getLedgerVouchers') }}',
+                url: '{{ route('advancegetLedgerVouchers') }}',
                 type: 'POST',
                 dataType: 'json',
                 data: {
@@ -967,75 +979,41 @@
                     '_token': '{!! csrf_token() !!}',
                     partyCode: $('.partyCode' + $('#currentRow').val()).val(),
                     partyID: $('#party_id' + $('#currentRow').val()).val(),
+                    customer_id: $('#customerid' + $('#currentRow').val()).val(),
+                    vendor_id: $('#vendorid' + $('#currentRow').val()).val(),
                     ledgerGroup: $('#groupSelect' + $('#currentRow').val()).val(),
                     book_code: $('#book_code').val(),
                     document_no: $('#document_no').val(),
                     type: $('#document_type').val()
                 },
                 success: function(response) {
+                    console.log(response);
                     if (response.data.length > 0) {
                         var html = '';
                         const ledgerId = $('#party_id' + $('#currentRow').val()).val();
-                        $.each(response.data, function(index, val) {
-                            console.log(val);
-                            if (!preSelected.includes(val['id'].toString())) {
-                                $.each(val.items || [], function(i, item) {
-
-                                    var amount = 0.00;
-                                    var checked = "";
-                                    var dataAmount = parseFloat(val['balance']).toFixed(2);
-
-                                    if (partyData != "" && partyData != undefined) {
-                                        $.each(JSON.parse(partyData), function(indexP, valP) {
-                                            if (valP['voucher_id'].toString() == val[
-                                                    'id']) {
-                                                amount = (parseFloat(valP['amount']))
-                                                    .toFixed(2);
-                                                checked = "checked";
-                                                dataAmount = (parseFloat(valP[
-                                                    'amount'])).toFixed(2);
-                                            }
-                                        });
-                                    }
-
-                                    const match = rawItemData.find(item =>
-                                        item.voucher_id == val.id &&
-                                        item.ledger_id == ledgerId
-                                    );
-                                    if (match) {
-                                        amount = parseFloat(match.settle_amt).toFixed(2);
-                                        if (parseFloat(amount) > 0) {
-                                            checked = "checked";
-                                            dataAmount = amount;
-                                        }
-                                    }
-
-                                    if (val['balance'] < 1 && checked == "") {
-                                        console.log('hii' + val['id']);
-                                    } else {
-                                        html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
+                        $.each(response.data, function(index, val) 
+                        {
+                            var checked = "";
+                                    var calculatedValue = (val['total_item_value'] * val['percent']) / 100;
+                                    html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
                                         <td>${index + 1}</td>
                                         <td>${val['date']}</td>
                                         <td class="fw-bolder text-dark">${val['series']?.book_code?.toUpperCase() ?? '-'}</td>
-                                        <td>${val['voucher_no'] ?? '-'}</td>
-                                        <td class="">${val['erp_location']?.store_name ?? '-'}</td>
-                                        <td class="">${item.cost_center?.name ?? '-'}</td>
-                                            <td class="text-end">${formatIndianNumber(val['amount'])}</td>
-                                            <td class="balanceInput text-end">${formatIndianNumber(val['balance'])}</td>
-                                            <td class="text-end">
-                                                <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${amount}"/>
-                                            </td>
-                                            <td class="text-center">
-                                                <div class="form-check form-check-inline me-0">
-                                                    <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-amount="${dataAmount}">
-                                                </div>
-                                            </td>
-                                                <input type="hidden" class="ledger-id" value="${item.ledger_id}">
-                                                <input type="hidden" class="item-id" value="${item.id}">
+                                        <td>${val['document_number']}</td>
+                                        <td class="text-end">${formatIndianNumber(val['total_item_value'])}</td>
+                                        <td class="balanceInput text-end">0</td>
+                                        
+                                        <td class="text-end">
+                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${calculatedValue}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - 0}"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="form-check form-check-inline me-0">
+                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-amount="${calculatedValue}">
+                                            </div>
+                                        </td>
+                                        <input type="hidden" class="ledger-id" value="${ledgerId}">
+                                        <input type="hidden" class="item-id" value="${val['id']}">
                                         </tr>`;
-                                    }
-                                });
-                            }
                         });
                         $('#LedgerId').val(response.ledgerId);
                         $('#vouchersBody').append(html);
@@ -1380,7 +1358,7 @@
                             headers: {
                                 "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content"),
                             },
-                            url: "{{ route('getParties') }}",
+                            url: "{{ route('advancegetParties') }}",
                             type: "POST",
                             dataType: "json",
                             data: {
@@ -1435,14 +1413,17 @@
                             return false; // Block selection
                         }
                         $(this).val(ui.item.code);
+                        console.log(ui);
 
                         const id = $(this).attr("data-id");
                         $("#party_id" + id).val(ui.item.value);
                         $("#party_vouchers" + id).val("");
+                        $("#customerid" + id).val(ui.item.customer.id);
+                        $("#vendorid" + id).val(ui.item.vendor.id);
                         $("#ledger_id" + id).val(ui.item.value);
                         $("#excAmount" + id).val("0.00");
                         $("#organization" + id).val(ui.item.organization.name);
-                        $(".drop" + id).val("");
+                        // $(".drop" + id).val("");
                         $(".excAmount" + id).val("0.00");
                         $("#vouchersBody").empty();
                         $("#inlineCheckbox1").attr("checked", false);
@@ -1536,6 +1517,7 @@
             });
 
             $('.add-row').click(function(e) {
+                console.log('click');
                 e.preventDefault();
                 let rowCount = document.querySelectorAll('.mrntableselectexcel tr').length + 1;
                 let newRow = `
@@ -1545,6 +1527,8 @@
                             <input type="text" placeholder="Select" class="form-control mw-100 ledgerselect partyCode${rowCount} mb-25" required data-id="${rowCount}"/>
                             <input type="hidden" name="party_id[]" type="hidden" id="party_id${rowCount}" class="ledgers"/>
                             <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers${rowCount}" class="party_vouchers"/>
+                            <input type="hidden" name="customer_id[]" type="hidden" id="customerid${rowCount}" class="party_customers"/>
+                            <input type="hidden" name="vendor_id[]" type="hidden" id="vendorid${rowCount}" class="party_vendors"/>
                         </td>
                         <td class="poprod-decpt"><input type="text" disabled placeholder="Select" class="form-control mw-100 mb-25 partyName" id="party_name${rowCount}"/></td>
                         <td>
@@ -1565,10 +1549,7 @@
                                 <select
                                     class="form-select mw-100 invoiceDrop drop${rowCount}"
                                     data-id="${rowCount}" name="reference[]">
-                                    <option value="">Select</option>
-                                    <option>Invoice</option>
-                                    <option>Advance</option>
-                                    <option>On Account</option>
+                                    <option value="advance" selected>Advance</option>
                                 </select>
                                 <div class="ms-50 flex-shrink-0">
                                     <button type="button"
@@ -1587,6 +1568,8 @@
                         <input type="hidden" class="ledger-id" id="ledger_id${rowCount}" >
                         <input type="hidden" class="item-id">
                     </tr>`;
+                console.log(`.drop${rowCount}`);
+                $( `.drop${rowCount}`).val('advance').trigger('change');
                 $('.mrntableselectexcel').append(newRow);
 
                 // Initialize reference tracking for the new row

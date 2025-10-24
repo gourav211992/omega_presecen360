@@ -313,7 +313,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('advanceuploadVouchers', [AdvancePaymentVoucherController::class, 'uploadVouchers'])->name('advanceuploadVouchers');
     Route::get('advance-receipt-vouchers/{type}', [AdvancePaymentVoucherController::class, 'index'])->name('advancepaymentVoucher.receipt');
     Route::post('advanceapprovePaymentVoucher', [AdvancePaymentVoucherController::class, 'approvePaymentVoucher'])->name('advanceapprovePaymentVoucher');
-    Route::post('advancegetParties', [AdvancePaymentVoucherController::class, 'getParties'])->name('advancegetParties');
+    Route::post('advancegetParties', [AdvancePaymentVoucherController::class, 'advancegetParties'])->name('advancegetParties');
     Route::get('advancepaymentVouchersAmendment/{id}', [AdvancePaymentVoucherController::class, 'amendment'])->name('advancepaymentVouchers.amendment');
     Route::resource('advance-payments', AdvancePaymentVoucherController::class)->except(['show', 'destroy', 'edit']);
     Route::resource('advance-receipts', AdvancePaymentVoucherController::class)->except(['show', 'destroy', 'edit']);
@@ -326,8 +326,8 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('/advancepayment-receipt/print/{id}/{ledger}/{group}', [AdvancePaymentVoucherController::class, 'getPrint'])->name('advancepaymentVouchers.print');
     Route::post('/advancepayment-receipt/email', [AdvancePaymentVoucherController::class, 'sendMail'])->name('advancepaymentVouchers.email');
     Route::post('/advancevoucher/check-reference', [AdvancePaymentVoucherController::class, 'checkReference'])->name('advancevoucher.checkReference');
-
-
+    Route::post('advancegetLedgerVouchers', [AdvancePaymentVoucherController::class, 'getLedgerVouchers'])->name('advancegetLedgerVouchers');
+    
     Route::post('getLedgerVouchers', [VoucherController::class, 'getLedgerVouchers'])->name('getLedgerVouchers');
     Route::get('/voucher', [VoucherController::class, 'index']);
     Route::post('/vouchers', [VoucherController::class, 'store'])->name('vouchers.store');

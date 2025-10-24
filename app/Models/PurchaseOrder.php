@@ -390,4 +390,13 @@ class PurchaseOrder extends Model
         $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($this->currency_id, $this->document_date);
         return $currencyExchangeData;
     }
+     public function ErpLocation()
+    {
+        return $this->belongsTo(ErpStore::class, 'location', 'store_id');
+    }
+   
+    public function series()
+    {
+        return $this->belongsTo(Book::class, 'book_id');
+    }
 }

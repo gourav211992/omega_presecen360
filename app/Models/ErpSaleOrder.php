@@ -185,4 +185,16 @@ class ErpSaleOrder extends Model
     {
         return $this -> book_code . ' - ' . $this -> document_number;
     }
+    public function ErpLocation()
+    {
+        return $this->belongsTo(ErpStore::class, 'location', 'store_id');
+    }
+    public function organization()
+    {
+        return $this->belongsTo(Organization::class, 'organization_id', 'id');
+    }
+    public function series()
+    {
+        return $this->belongsTo(Book::class, 'book_id');
+    }
 }

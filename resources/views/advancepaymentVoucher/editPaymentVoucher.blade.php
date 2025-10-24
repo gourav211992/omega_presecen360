@@ -591,10 +591,7 @@
                                                                     <td>
                                                                         <div class="position-relative d-flex align-items-center">
                                                                             <select class="form-select mw-100 invoiceDrop drop{{ $no }}" data-id="{{ $no }}" name="reference[]">
-                                                                                {{-- <option value="">Selecvoucht</option> --}}
-                                                                                <option @if($item->reference=="Invoice") selected @endif>Invoice</option>
-                                                                                <option @if($item->reference=="Advance") selected @endif>Advance</option>
-                                                                                <option @if($item->reference=="On Account") selected @endif>On Account</option>
+                                                                                <option selected>Advance</option>
                                                                             </select>
                                                                             <div class="ms-50 flex-shrink-0">
                                                                                 <button type="button" class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}" style="font-size: 10px" onclick="openInvoice({{ $no }},{{$data->id}},{{$item->id}})" @if($item->reference!="Invoice" || !$fyear['authorized']) disabled @endif>Invoice</button>
