@@ -152,16 +152,6 @@
                         @endforeach
                     </select>
                 </div>
-                {{-- <div class="mb-1">
-                    <label class="form-label">Cost Center</label>
-                    <select id="cost_center_id" class="form-select select2"
-                        name="cost_center_id">
-                        <option value="" disabled>Select</option>
-                        @foreach ($cost_centers as $key => $value)
-                        <option value="{{ $value['id'] }}" @if(request('cost_center_id')==$value['id']) selected @endif>{{ $value['name'] }}</option>
-                        @endforeach
-                    </select>
-                </div> --}}
 
                 <div class="mb-1">
                     <label class="form-label">Organization</label>

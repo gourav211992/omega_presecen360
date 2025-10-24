@@ -563,6 +563,16 @@
                                                                             class="ledgers"
                                                                             value="{{ $item->ledger_id??$item->party_id }}" />
                                                                             <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers{{$no}}" class="party_vouchers" value="{{json_encode($item->invoice)}}"/>
+                                                                             <input type="hidden" name="customerid[]"
+                                                                                id="customerid{{ $no }}"
+                                                                                class="party_vouchers"
+                                                                                value="{{$item?->customer?->id}}"
+                                                                            />
+                                                                            <input type="hidden" name="vendorid[]"
+                                                                                id="vendorid{{ $no }}"
+                                                                                class="party_vouchers"
+                                                                                value="{{$item?->vendor?->id}}"
+                                                                            />
 
                                                                     </td>
                                                                     <td class="poprod-decpt"><input type="text"
@@ -591,7 +601,7 @@
                                                                     <td>
                                                                         <div class="position-relative d-flex align-items-center">
                                                                             <select class="form-select mw-100 invoiceDrop drop{{ $no }}" data-id="{{ $no }}" name="reference[]">
-                                                                                <option selected>Advance</option>
+                                                                                <option value="advance" selected>Advance</option>
                                                                             </select>
                                                                             <div class="ms-50 flex-shrink-0">
                                                                                 <button type="button" class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}" style="font-size: 10px" onclick="openInvoice({{ $no }},{{$data->id}},{{$item->id}})" @if($item->reference!="Invoice" || !$fyear['authorized']) disabled @endif>Invoice</button>
@@ -753,7 +763,7 @@
                 aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
-                        <form class="ajax-input-form" method="POST" action="{{ route('approvePaymentVoucher') }}"
+                        <form class="ajax-input-form" method="POST" action="{{ route('advanceapprovePaymentVoucher') }}"
                             data-redirect="{{ $indexUrl }}" enctype='multipart/form-data'>
                             @csrf
                             <input type="hidden" name="action_type" id="action_type">
@@ -842,27 +852,26 @@
                                 <table class="mt-1 table myrequesttablecbox table-striped po-order-detail">
                                     <thead>
                                          <tr>
-                                            <th>#</th>
+                                             <th>#</th>
                                             <th>Date</th>
                                             <th>Series</th>
                                             <th>Document No.</th>
-                                            <th>Location</th>
-                                            <th>Cost Center</th>
-                                            <th class="text-end">Amount</th>
-                                            <th class="text-end">Balance</th>
-                                            <th class="text-end" width="150px">Settle Amt</th>
-                                             <th class="text-center">
-                                                 <div class="form-check form-check-inline me-0">
-                                                    <input class="form-check-input" type="checkbox" name="podetail" id="inlineCheckbox1">
+                                            <th class="text-end">Advance</th>
+                                            <th class="text-end">Settle</th>
+                                            <th class="text-end" width="150px">To Pay</th>
+                                            <th class="text-center">
+                                                <div class="form-check form-check-inline me-0">
+                                                    <input class="form-check-input" type="checkbox" name="podetail"
+                                                        id="inlineCheckbox1">
                                                 </div>
-                                             </th>
+                                            </th>
                                           </tr>
                                         </thead>
                                         <tbody id="vouchersBody">
                                        </tbody>
                                        <tfoot>
                                             <tr>
-                                                <td colspan="8" class="text-end">Total</td>
+                                                <td colspan="6" class="text-end">Total</td>
                                                 <td class="fw-bolder text-dark text-end settleTotal">0</td>
                                                 <td></td>
                                             </tr>
@@ -913,7 +922,7 @@
         function onPostVoucherOpen(type = "not_posted") {
             resetPostVoucher();
 
-            const apiURL = "{{ route('paymentVouchers.getPostingDetails') }}";
+            const apiURL = "{{ route('advancepaymentVouchers.getPostingDetails') }}";
             const remarks = $("#remarks").val();
             $.ajax({
                 url: apiURL + "?book_id=" + "{{ $data->book_id }}" + "&document_id=" + "{{ $data->id }}" +
@@ -982,7 +991,7 @@
             const bookId = "{{ $data->book_id }}";
             const type = "{{ $data->document_type }}"
             const documentId = "{{ $data->id }}";
-            const postingApiUrl = "{{ route('paymentVouchers.post') }}";
+            const postingApiUrl = "{{ route('advancepaymentVouchers.post') }}";
             const remarks = $("#remarks").val();
             console.log(bookId);
             console.log(documentId);
@@ -1106,7 +1115,7 @@ $('.settleInput').each(function () {
             console.log(id);
              $('#excAmount' + id).attr('readonly', true);
             if ($('#party_id'+id).val()!="") {
-                $('.drop' + id).val('Invoice');
+                // $('.drop' + id).val('Invoice');
                 const comingParty = $('#party_id' + id).val();
                 if (comingParty != $('#currentParty').val()) {
                     $('#vouchersBody').empty();
@@ -1120,7 +1129,7 @@ $('.settleInput').each(function () {
                 $('#invoice').modal('show');
 
             } else {
-                $('.drop' + id).val('');
+                // $('.drop' + id).val('');
                 showToast('error','Select ledger to select invoice!!');
             }
         }
@@ -1142,13 +1151,15 @@ $('.settleInput').each(function () {
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                url: '{{ route('getLedgerVouchers') }}',
+                url: '{{ route('advancegetLedgerVouchers') }}',
                 type: 'POST',
                 dataType: 'json',
                 data: {
                     date: $('#fp-range').val(),
                     '_token': '{!! csrf_token() !!}',
                     partyCode: $('.partyCode'+$('#currentRow').val()).val(),
+                    customer_id: $('#customerid' + $('#currentRow').val()).val(),
+                    vendor_id: $('#vendorid' + $('#currentRow').val()).val(),
                     book_code: $('#book_code').val(),
                     partyID: $('#party_id' + $('#currentRow').val()).val(),
                     ledgerGroup: $('#groupSelect' + $('#currentRow').val()).val(),
@@ -1161,72 +1172,33 @@ $('.settleInput').each(function () {
                 success: function(response) {
                     if (response.data.length > 0) {
                         var html = '';
-                        $.each(response.data, function(index, val) {
-                            if (!preSelected.includes(val['id'].toString())) {
-                                $.each(val.items || [], function (i, item) {
-
-                                var amount = 0.00;
-                                var checked = "";
-                                var dataAmount = parseFloat(val['balance']).toFixed(2);
-                                if (partyData != "" && partyData != undefined) {
-                                    $.each(JSON.parse(partyData), function(indexP, valP) {
-                                        if (valP['voucher_id'].toString() == val['id']) {
-                                            amount = (parseFloat(valP['amount'])).toFixed(2);
-                                            checked = "checked";
-                                            dataAmount = (parseFloat(valP['amount'])).toFixed(
-                                            2);
-                                        }
-                                    });
-                                }
-
-                                if (parseFloat(val['balance']).toFixed(2) <=0 && checked == "") {
-                                    console.log('hii' + val['id']);
-                                } else {
-                                    if(parseFloat(val['balance']).toFixed(2).toLocaleString('en-IN')=="0.00" && val['settle'] && details!=null){
-                                    html += `<tr id="${val['id']}" class="voucherRows">
-                                            <td>${index+1}</td>
-                                            <td>${val['date']}</td>
-                                            <td class="fw-bolder text-dark">${val['series']['book_code'].toUpperCase()}</td>
-                                            <td>${val['voucher_no']}</td>
-                                            <td class="">${val['erp_location']?.store_name ?? '-'}</td>
-                                            <td>${item.cost_center?.name ?? '-'}</td>
-                                            <td class="text-end">${formatIndianNumber(val['amount'])}</td>
-                                            <td class="text-end balanceInput">${formatIndianNumber(val['balance'])}</td>
-                                            <td class="text-end">
-                                                <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${val['settle']}"/>
-                                            </td>
-                                            <td class="text-center">
-                                                <div class="form-check form-check-inline me-0">
-                                                    <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} checked name="vouchers" value="${val['id']}" data-amount="${dataAmount}">
-                                                </div>
-                                            </td>
+                        console.log(response.data);
+                        const ledgerId = $('#party_id' + $('#currentRow').val()).val();
+                        $.each(response.data, function(index, val) 
+                        {
+                         console.log(val);
+                         
+                            var checked = "";
+                                    var calculatedValue = (val['total_item_value'] * val['percent']) / 100;
+                                    html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
+                                        <td>${index + 1}</td>
+                                        <td>${val['date']}</td>
+                                        <td class="fw-bolder text-dark">${val['series']?.book_code?.toUpperCase() ?? '-'}</td>
+                                        <td>${val['document_number']}</td>
+                                        <td class="text-end">${formatIndianNumber(val['total_item_value'])}</td>
+                                        <td class="balanceInput text-end">0</td>
+                                        
+                                        <td class="text-end">
+                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${calculatedValue}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - 0}"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="form-check form-check-inline me-0">
+                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-amount="${calculatedValue}">
+                                            </div>
+                                        </td>
+                                        <input type="hidden" class="ledger-id" value="${ledgerId}">
+                                        <input type="hidden" class="item-id" value="${val['id']}">
                                         </tr>`;
-                                    }else{
-                                        html += `<tr id="${val['id']}" class="voucherRows">
-                                            <td>${index+1}</td>
-                                            <td>${val['date']}</td>
-                                            <td class="fw-bolder text-dark">${val['series']['book_code']}</td>
-                                            <td>${val['voucher_no']}</td>
-                                            <td class="">${val['erp_location']?.store_name ?? '-'}</td>
-                                            <td>${item.cost_center?.name ?? '-'}</td>
-                                            <td class="text-end">${formatIndianNumber(val['amount'])}</td>
-                                            <td class="text-end balanceInput">${formatIndianNumber(val['balance'])}</td>
-                                            <td class="text-end">
-                                                <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${amount}"/>
-                                            </td>
-                                            <td class="text-center">
-                                                <div class="form-check form-check-inline me-0">
-                                                    <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-amount="${dataAmount}">
-                                                </div>
-                                            </td>
-                                        </tr>`;
-
-
-                                    }
-                                    
-                                }
-                            });
-                            }
                         });
                         $('#LedgerId').val(response.ledgerId);
                         $('#vouchersBody').append(html);
@@ -1346,7 +1318,7 @@ $('.settleInput').each(function () {
         });
 
         $(document).on('click', '#amendmentSubmit', (e) => {
-            let actionUrl = "{{ route('paymentVouchers.amendment', $data->id) }}";
+            let actionUrl = "{{ route('advancepaymentVouchers.amendment', $data->id) }}";
             fetch(actionUrl).then(response => {
                 return response.json().then(data => {
                     if (data.status == 200) {
@@ -1645,7 +1617,7 @@ function check_amount() {
                             headers: {
                                 "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content"),
                             },
-                            url: "{{ route('getParties') }}",
+                            url: "{{ route('advancegetParties') }}",
                             type: "POST",
                             dataType: "json",
                             data: {
@@ -1703,9 +1675,11 @@ function check_amount() {
                         const id = $(this).attr("data-id");
                         $("#party_id" + id).val(ui.item.value);
                         $("#party_vouchers" + id).val("");
+                        $("#customerid" + id).val(ui.item.customer.id);
+                        $("#vendorid" + id).val(ui.item.vendor.id);
                         $("#excAmount" + id).val("0.00");
                         $("#organization" + id).val(ui.item.organization.name);
-                        $(".drop" + id).val("");
+                        // $(".drop" + id).val("");
                         $(".excAmount" + id).val("0.00");
                         $("#vouchersBody").empty();
                         $("#inlineCheckbox1").attr("checked", false);
@@ -1794,6 +1768,8 @@ function check_amount() {
                             <input type="text" placeholder="Select" class="form-control mw-100 ledgerselect partyCode${rowCount} mb-25" required data-id="${rowCount}"/>
                             <input type="hidden" name="party_id[]" type="hidden" id="party_id${rowCount}" class="ledgers"/>
                             <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers${rowCount}" class="party_vouchers"/>
+                            <input type="hidden" name="customer_id[]" type="hidden" id="customerid${rowCount}" class="party_customers"/>
+                            <input type="hidden" name="vendor_id[]" type="hidden" id="vendorid${rowCount}" class="party_vendors"/>
                         </td>
                         <td class="poprod-decpt"><input type="text" disabled placeholder="Select" class="form-control mw-100 mb-25 partyName" id="party_name${rowCount}"/></td>
                         <td>
@@ -1814,10 +1790,7 @@ function check_amount() {
                                 <select
                                     class="form-select mw-100 invoiceDrop drop${rowCount}"
                                     data-id="${rowCount}" name="reference[]">
-                                    <option value="">Select</option>
-                                    <option>Invoice</option>
-                                    <option>Advance</option>
-                                    <option>On Account</option>
+                                    <option selected>Advance</option>
                                 </select>
                                 <div class="ms-50 flex-shrink-0">
                                     <button type="button"
@@ -2070,7 +2043,7 @@ function check_amount() {
         function onPostVoucherOpen(type = "not_posted") {
             resetPostVoucher();
 
-            const apiURL = "{{ route('paymentVouchers.getPostingDetails') }}";
+            const apiURL = "{{ route('advancepaymentVouchers.getPostingDetails') }}";
             const remarks = $("#remarks").val();
             $.ajax({
                 url: apiURL + "?book_id=" + "{{ $data->book_id }}" + "&document_id=" + "{{ $data->id }}" +
@@ -2149,7 +2122,7 @@ function check_amount() {
             const bookId = "{{ $data->book_id }}";
             const type = "{{ $data->document_type }}"
             const documentId = "{{ $data->id }}";
-            const postingApiUrl = "{{ route('paymentVouchers.post') }}";
+            const postingApiUrl = "{{ route('advancepaymentVouchers.post') }}";
             const remarks = $("#remarks").val();
             console.log(bookId);
             console.log(documentId);
@@ -2207,7 +2180,7 @@ function check_amount() {
         }
 
     $(document).on('click', '#revokeButton', (e) => {
-    let actionUrl = '{{ route("paymentVouchers.revoke.document") }}'+ '?id='+'{{$data->id}}';
+    let actionUrl = '{{ route("advancepaymentVouchers.revoke.document") }}'+ '?id='+'{{$data->id}}';
     $('.preloader').show();
     fetch(actionUrl).then(response => {
         return response.json().then(data => {
@@ -2249,7 +2222,7 @@ function changerate(){
         if (result.isConfirmed) {
             $('.preloader').show();
             // Proceed with AJAX request after confirmation
-            let actionUrl = '{{ route("paymentVouchers.cancel.document") }}' + '?id=' + '{{$data->id}}';
+            let actionUrl = '{{ route("advancepaymentVouchers.cancel.document") }}' + '?id=' + '{{$data->id}}';
 
             fetch(actionUrl)
                 .then(response => response.json())

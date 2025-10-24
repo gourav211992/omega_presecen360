@@ -312,7 +312,7 @@ Route::middleware(['user.auth'])->group(function () {
 
     Route::post('advanceuploadVouchers', [AdvancePaymentVoucherController::class, 'uploadVouchers'])->name('advanceuploadVouchers');
     Route::get('advance-receipt-vouchers/{type}', [AdvancePaymentVoucherController::class, 'index'])->name('advancepaymentVoucher.receipt');
-    Route::post('advanceapprovePaymentVoucher', [AdvancePaymentVoucherController::class, 'approvePaymentVoucher'])->name('advanceapprovePaymentVoucher');
+    Route::post('advanceapprovePaymentVoucher', [AdvancePaymentVoucherController::class, 'advanceapprovePaymentVoucher'])->name('advanceapprovePaymentVoucher');
     Route::post('advancegetParties', [AdvancePaymentVoucherController::class, 'advancegetParties'])->name('advancegetParties');
     Route::get('advancepaymentVouchersAmendment/{id}', [AdvancePaymentVoucherController::class, 'amendment'])->name('advancepaymentVouchers.amendment');
     Route::resource('advance-payments', AdvancePaymentVoucherController::class)->except(['show', 'destroy', 'edit']);

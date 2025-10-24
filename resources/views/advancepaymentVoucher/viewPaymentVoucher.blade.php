@@ -632,16 +632,7 @@
                                                                                 class="form-select mw-100 invoiceDrop drop{{ $no }}"
                                                                                 data-id="{{ $no }}"
                                                                                 name="reference[]">
-                                                                                {{-- <option value="">Selecvoucht</option> --}}
-                                                                                <option
-                                                                                    @if ($item->reference == 'Invoice') selected @endif>
-                                                                                    Invoice</option>
-                                                                                <option
-                                                                                    @if ($item->reference == 'Advance') selected @endif>
-                                                                                    Advance</option>
-                                                                                <option
-                                                                                    @if ($item->reference == 'On Account') selected @endif>
-                                                                                    On Account</option>
+                                                                                <option  value="advance" selected>Advance</option>
                                                                             </select>
                                                                             <div class="ms-50 flex-shrink-0">
                                                                                 <button type="button"
@@ -758,7 +749,7 @@
                 aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
                     <div class="modal-content">
-                        <form class="ajax-input-form" method="POST" action="{{ route('approvePaymentVoucher') }}"
+                        <form class="ajax-input-form" method="POST" action="{{ route('advanceapprovePaymentVoucher') }}"
                             data-redirect="{{ $indexUrl }}" enctype='multipart/form-data'>
                             @csrf
                             <input type="hidden" name="action_type" id="action_type">
@@ -1265,7 +1256,7 @@
             console.log(id);
              $('#excAmount' + id).attr('readonly', true);
             if ($('#party_id' + id).val() != "") {
-                $('.drop' + id).val('Invoice');
+                // $('.drop' + id).val('Invoice');
                 const comingParty = $('#party_id' + id).val();
                 if (comingParty != $('#currentParty').val()) {
                     $('#vouchersBody').empty();
@@ -1280,7 +1271,7 @@
                 if (paymentId != null)
                     $('.header_invoices').hide();
             } else {
-                $('.drop' + id).val('');
+                // $('.drop' + id).val('');
                 alert('Select party to select invoice!!');
             }
         }
@@ -1302,7 +1293,7 @@
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                url: '{{ route('getLedgerVouchers') }}',
+                url: '{{ route('advancegetLedgerVouchers') }}',
                 type: 'POST',
                 dataType: 'json',
                 data: {
@@ -1633,7 +1624,7 @@
                             headers: {
                                 "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content"),
                             },
-                            url: "{{ route('getParties') }}",
+                            url: "{{ route('advancegetParties') }}",
                             type: "POST",
                             dataType: "json",
                             data: {
@@ -1694,7 +1685,7 @@
                         $("#party_vouchers" + id).val("");
                         $("#excAmount" + id).val("0.00");
                         $("#organization" + id).val(ui.item.organization.name);
-                        $(".drop" + id).val("");
+                        // $(".drop" + id).val("");
                         $(".excAmount" + id).val("0.00");
                         $("#vouchersBody").empty();
                         $("#inlineCheckbox1").attr("checked", false);
@@ -1769,10 +1760,7 @@
                                 <select
                                     class="form-select mw-100 invoiceDrop drop${rowCount}"
                                     data-id="${rowCount}" name="reference[]">
-                                    <option value="">Select</option>
-                                    <option>Invoice</option>
-                                    <option>Advance</option>
-                                    <option>On Account</option>
+                                    <option value="advance" selected>Advance</option>
                                 </select>
                                 <div class="ms-50 flex-shrink-0">
                                     <button type="button"

@@ -93,15 +93,17 @@ class AdvancePaymentVoucherController extends Controller
         }
     }
 
-    public function approvePaymentVoucher(Request $request)
+    public function advanceapprovePaymentVoucher(Request $request)
     {
         $request->validate([
             'remarks' => 'nullable|string|max:255',
             'attachment' => 'nullable'
         ]);
+
+        $newactionType = $request->action_type ?? 'processing';
         DB::beginTransaction();
         try {
-            $saleOrder = AdvanceVoucherReference::find($request->id);
+            $saleOrder = AdvancePaymentVoucher::find($request->id);
             $bookId = $saleOrder->book_id;
             $docId = $saleOrder->id;
             $docValue = $saleOrder->amount;
@@ -120,14 +122,16 @@ class AdvancePaymentVoucherController extends Controller
 
             DB::commit();
             return response()->json([
-                'message' => "Document $actionType successfully!",
+                'message' => "Document $newactionType successfully!",
                 'data' => $saleOrder,
             ]);
         } catch (Exception $e) {
             DB::rollBack();
             return response()->json([
-                'message' => "Error occurred while $actionType document.",
+                'message' => "Error occurred while $newactionType document.",
                 'error' => $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
             ], 500);
         }
 
@@ -143,7 +147,6 @@ class AdvancePaymentVoucherController extends Controller
         $group_id[] = $ledger_group->id;
 
         $relation = $r->type == ConstantHelper::ADVANCE_RECEIPTS_SERVICE_ALIAS ? 'customer' : 'vendor';
-
         $data = Ledger::with([
             $relation => function ($query) use ($r) {
                 $query->when($r->type === ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS, function ($q) {
@@ -1628,7 +1631,7 @@ class AdvancePaymentVoucherController extends Controller
                         ->groupBy('id')  // Assuming 'id' is the primary key or unique field for Voucher
                         ->orderBy('document_date', 'asc')
                         ->orderBy('created_at', 'asc');
-
+                    
 
                         if ($request->filled('date')) 
                         {
@@ -1656,274 +1659,28 @@ class AdvancePaymentVoucherController extends Controller
                         }
 
                 
-                        if (!$request->payment_voucher_id) 
-                        {
-                            
-                            $data = $data->with(['series' => function ($s) use ($request, $orgs) {
-                                    $s->select('id', 'book_code');
-                                }])
-                                ->select('id', 'total_item_value', 'book_id', 'document_date as date','document_number','created_at', 'organization_id')
-                                ->get();
-
-                            $paymentTerms = ErpSoPaymentTerm::whereIn('so_header_id', $data->pluck('id'))
-                                ->where('trigger_type', 'advance')
-                                ->get(['so_header_id', 'percent']);
-
-                            $data = $data->filter(function ($item) use ($paymentTerms) {
-                                return $paymentTerms->contains('so_header_id', $item->id);
-                            });
-
-                            foreach ($data as $v) {
-                                $term = $paymentTerms->firstWhere('so_header_id', $v->id);
-                                $v->percent = $term ? $term->percent : 0; // default 0 if not found
-                            }
-
-                            $advanceSum = 0;
                         
-                        } 
-                        else 
-                        {
-                            if ($request->details_id != null && $request->page=="view") 
-                            {
-                                $data = $data->with(['series' => function ($s)  {
-                                    $s->select('id', 'book_code');
-                                }])->select('id', 'amount', 'book_id', 'document_date as date','created_at', 'voucher_name', 'voucher_no', 'location', 'organization_id')
-                                    ->orderBy('id', 'desc')->get()->map(function ($voucher) use ($request, $ledger,$orgs) {
-                                        $voucher->date = date('d/m/Y', strtotime($voucher->date));
-                                        $settle = VoucherReference::where('voucher_id', $voucher->id)
-                                            ->where('payment_voucher_id', (int)$request->payment_voucher_id)
-                                            ->where('voucher_details_id', (int)$request->details_id)
-                                            ->where('party_id', $ledger)->sum('amount');
+                        $data = $data->with(['series' => function ($s) use ($request, $orgs) {
+                                $s->select('id', 'book_code');
+                            }])
+                            ->select('id', 'total_item_value', 'book_id', 'document_date as date','document_number','created_at', 'organization_id')
+                            ->get();
+        
+                        $paymentTerms = ErpSoPaymentTerm::whereIn('so_header_id', $data->pluck('id'))
+                            ->where('trigger_type', 'advance')
+                            ->get(['so_header_id', 'percent']);
 
-                                            $balance = VoucherReference::where('payment_voucher_id','<',(int)$request->payment_voucher_id)
-                                            ->where('voucher_id', $voucher->id)
-                                            ->withWhereHas('voucherPayRec', function ($query) use($request,$orgs) {
-                                                $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS,function ($query){
-                                $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                })->whereIn("organization_id",$orgs);
-                                $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                                })->where('party_id', $ledger)->sum('amount');
-                                                $amount = 0;
-                                                foreach ($voucher->items as $item) {
-                                                    $amount += $request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS ? $item->credit_amt_org : $item->debit_amt_org;
-                                                }
-                                                $voucher->amount = $amount;
+                        $data = $data->filter(function ($item) use ($paymentTerms) {
+                            return $paymentTerms->contains('so_header_id', $item->id);
+                        });
 
-                                                $voucher->settle = $settle;
-                                                $voucher->balance = $voucher->amount -$balance;
-
-                                            return $voucher;
-                                        });
-                                        $advanceSum = PaymentVoucherDetails::where('type', $type)
-                                        ->where('payment_voucher_id','<',(int)$request->payment_voucher_id)
-                                        ->whereIn('reference', ['On Account'])
-                                        ->withWhereHas('voucher', function ($query) use($orgs,$request) {
-                                            $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS,function ($query){
-                                $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                })->whereIn("organization_id",$orgs)
-                                                ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                        })
-                                        ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledger_group) {
-                                            if (is_null($adv->ledger_id)) {
-                                                return $adv->partyName && $adv->partyName->ledger_id == $ledger && $adv->partyName->ledger_group_id == $ledger_group;
-                                            } else {
-                                                return $adv->ledger_id == $ledger && $adv->ledger_group_id == $ledger_group;
-                                            }
-                                        })->sum('orgAmount');
-
-
-                                    foreach ($data as $v) {
-                                        if ($advanceSum > 0 && isset($v->id)) {
-                                            $deductAmount = min($advanceSum, $v->balance);
-                                            $v->balance -= $deductAmount;
-                                            $advanceSum -= $deductAmount;
-
-                                        } else {
-                                            break; // Stop if advance is fully utilized
-                                        }
-                                    }
-                                    $advanceItems = PaymentVoucherDetails::where('type', $type)
-                                    ->where('payment_voucher_id','<',(int)$request->payment_voucher_id)
-                                    ->whereIn('reference', ['Advance'])
-                                    ->withWhereHas('voucher', function ($query) use($request,$orgs) {
-                                        $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS,function ($query){
-                                            $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                        })->whereIn("organization_id",$orgs)
-                                            ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                    })
-                                    ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledger_group) {
-                                        if (is_null($adv->ledger_id)) {
-                                            return $adv->partyName && $adv->partyName->ledger_id == $ledger && $adv->partyName->ledger_group_id == $ledger_group;
-                                        } else {
-                                            return $adv->ledger_id == $ledger && $adv->ledger_group_id == $ledger_group;
-                                        }
-                                    });
-                                    foreach ($advanceItems as $advanceItem) {
-                                        $bucketTotalDeducted = 0;
-                                        $remainingAdvanceAmount = $advanceItem->orgAmount;
-
-                                        // Loop through each customer in the result set
-                                        foreach ($data as $res) {
-                                        $documentDate = $advanceItem->voucher->document_date; // e.g. '2025-04-10'
-                                            $createdAt = $advanceItem->voucher->created_at; // e.g. '2025-04-10 15:30:00'
-
-                                            // Combine the date from `document_date` and time from `created_at`
-                                            $combinedDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $documentDate . ' ' . date('H:i:s', strtotime($createdAt)));
-
-                                            $vendorDateTimestamp = $combinedDateTime ? $combinedDateTime->getTimestamp() : null;
-                                            $resDate = $res->date; // e.g. '10/04/2025'
-                                            $resCreatedAt = $res->created_at; // e.g. '2025-04-10 14:45:00'
-
-                                            // Extract the time from created_at
-                                            $resTime = date('H:i:s', strtotime($resCreatedAt));
-
-                                            // Combine date (converted to Y-m-d) with time
-                                            $parsedDate = \DateTime::createFromFormat('d/m/Y H:i:s', $resDate . ' ' . $resTime);
-
-                                            $resDateTimestamp = $parsedDate ? $parsedDate->getTimestamp() : null;
-
-
-                                            if ($vendorDateTimestamp < $resDateTimestamp) {
-                                                $bucketTotalDeducted = 0; // Track total amount deducted from all aging buckets
-                                                if ($remainingAdvanceAmount > 0) {
-                                                            $deductAmount = min($remainingAdvanceAmount, $res->balance);
-                                                            $res->balance -= $deductAmount; // Reduce the bucket value
-                                                            $remainingAdvanceAmount -= $deductAmount; // Reduce the advance sum
-                                                            $bucketTotalDeducted += $deductAmount; // Track total deducted
-                                                        }
-                                            }
-
-                                        }
-
-
-                                    }
-
-
-                            } 
-                            else 
-                            {
-                                $data = $data->with(['series' => function ($s) {
-                                    $s->select('id', 'book_code');
-                                }])->select('id', 'amount', 'book_id', 'document_date as date','created_at', 'voucher_name', 'voucher_no','location', 'organization_id')
-                                    ->orderBy('id', 'desc')->get()->map(function ($voucher) use ($request, $ledger,$orgs) {
-                                        $voucher->date = date('d/m/Y', strtotime($voucher->date));
-                                        $amount = 0;
-                                            foreach ($voucher->items as $item) {
-                                                $amount += $request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS ? $item->credit_amt_org : $item->debit_amt_org;
-                                            }
-                                            $voucher->amount = $amount;
-                                        $balance = VoucherReference::where('voucher_id', $voucher->id)
-                                            ->withWhereHas('voucherPayRec', function ($query) use ($request,$orgs) {
-                                                $query->where('payment_voucher_id','!=',(int)$request->payment_voucher_id);
-                                                $query->when($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,function ($query){
-                                                $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                                })->whereIn("organization_id",$orgs);
-                                                $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                            })->where('party_id', $ledger)->sum('amount');
-
-                                            $settle = VoucherReference::where('voucher_id', $voucher->id)
-                                            ->where('payment_voucher_id', (int)$request->payment_voucher_id)
-                                            ->where('voucher_details_id', (int)$request->details_id)
-                                            ->where('party_id', $ledger)->sum('amount');
-
-                                        $voucher->balance = $voucher->amount-$balance;
-                                        $voucher->settle = $settle;
-
-
-                                        return $voucher;
-                                    });
-
-
-                                    $advanceSum = PaymentVoucherDetails::where('type', $type)
-                                    ->whereIn('reference', ['On Account'])
-                                    ->withWhereHas('voucher', function ($query) use($request,$orgs) {
-                                    $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS,function ($query){
-                                    $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                    })->whereIn("organization_id",$orgs)
-                                            ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                    })
-                                    ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledger_group) {
-                                        if (is_null($adv->ledger_id)) {
-                                            return $adv->partyName && $adv->partyName->ledger_id == $ledger && $adv->partyName->ledger_group_id == $ledger_group;
-                                        } else {
-                                            return $adv->ledger_id == $ledger && $adv->ledger_group_id == $ledger_group;
-                                        }
-                                    })->sum('orgAmount');
-
-
-
-
-
-
-                                foreach ($data as $v) {
-                                    if ($advanceSum > 0 && isset($v->id)) {
-                                        $deductAmount = min($advanceSum, $v->balance);
-                                        $v->balance -= $deductAmount;
-                                        $advanceSum -= $deductAmount;
-
-                                    } else {
-                                        break; // Stop if advance is fully utilized
-                                    }
-                                }
-                                $advanceItems = PaymentVoucherDetails::where('type', $type)
-                                ->whereIn('reference', ['Advance'])
-                                ->withWhereHas('voucher', function ($query) use($request,$orgs) {
-                                $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS,function ($query){
-                                $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                })->whereIn("organization_id",$orgs)
-                                        ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                })
-                                ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledger_group) {
-                                    if (is_null($adv->ledger_id)) {
-                                        return $adv->partyName && $adv->partyName->ledger_id == $ledger && $adv->partyName->ledger_group_id == $ledger_group;
-                                    } else {
-                                        return $adv->ledger_id == $ledger && $adv->ledger_group_id == $ledger_group;
-                                    }
-                                });
-                                foreach ($advanceItems as $advanceItem) {
-                                    $bucketTotalDeducted = 0;
-                                    $remainingAdvanceAmount = $advanceItem->orgAmount;
-
-                                    // Loop through each customer in the result set
-                                    foreach ($data as $res) {
-                                        $documentDate = $advanceItem->voucher->document_date; // e.g. '2025-04-10'
-                                        $createdAt = $advanceItem->voucher->created_at; // e.g. '2025-04-10 15:30:00'
-
-                                        // Combine the date from `document_date` and time from `created_at`
-                                        $combinedDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $documentDate . ' ' . date('H:i:s', strtotime($createdAt)));
-
-                                        $vendorDateTimestamp = $combinedDateTime ? $combinedDateTime->getTimestamp() : null;
-                                        $resDate = $res->date; // e.g. '10/04/2025'
-                                        $resCreatedAt = $res->created_at; // e.g. '2025-04-10 14:45:00'
-
-                                        // Extract the time from created_at
-                                        $resTime = date('H:i:s', strtotime($resCreatedAt));
-
-                                        // Combine date (converted to Y-m-d) with time
-                                        $parsedDate = \DateTime::createFromFormat('d/m/Y H:i:s', $resDate . ' ' . $resTime);
-
-                                        $resDateTimestamp = $parsedDate ? $parsedDate->getTimestamp() : null;
-
-
-                                        if ($vendorDateTimestamp < $resDateTimestamp) {
-                                            $bucketTotalDeducted = 0; // Track total amount deducted from all aging buckets
-                                            if ($remainingAdvanceAmount > 0) {
-                                                        $deductAmount = min($remainingAdvanceAmount, $res->balance);
-                                                        $res->balance -= $deductAmount; // Reduce the bucket value
-                                                        $remainingAdvanceAmount -= $deductAmount; // Reduce the advance sum
-                                                        $bucketTotalDeducted += $deductAmount; // Track total deducted
-                                                    }
-                                        }
-
-                                    }
-
-
-                                }
-
-
-                            }
-
+                        foreach ($data as $v) {
+                            $term = $paymentTerms->firstWhere('so_header_id', $v->id);
+                            $v->percent = $term ? $term->percent : 0; // default 0 if not found
                         }
+
+                        $advanceSum = 0;
+                        
             }
             else
             {
@@ -1973,8 +1730,7 @@ class AdvancePaymentVoucherController extends Controller
                         }
 
                 
-                        if (!$request->payment_voucher_id) 
-                        {
+                       
                             
                             $data = $data->with(['series' => function ($s) use ($request, $orgs) {
                                     $s->select('id', 'book_code');
@@ -1996,252 +1752,6 @@ class AdvancePaymentVoucherController extends Controller
                             }
 
                             $advanceSum = 0;
-                        
-                        } 
-                        else 
-                        {
-                            if ($request->details_id != null && $request->page=="view") 
-                            {
-                                $data = $data->with(['series' => function ($s)  {
-                                    $s->select('id', 'book_code');
-                                }])->select('id', 'amount', 'book_id', 'document_date as date','created_at', 'voucher_name', 'voucher_no', 'location', 'organization_id')
-                                    ->orderBy('id', 'desc')->get()->map(function ($voucher) use ($request, $ledger,$orgs) {
-                                        $voucher->date = date('d/m/Y', strtotime($voucher->date));
-                                        $settle = VoucherReference::where('voucher_id', $voucher->id)
-                                            ->where('payment_voucher_id', (int)$request->payment_voucher_id)
-                                            ->where('voucher_details_id', (int)$request->details_id)
-                                            ->where('party_id', $ledger)->sum('amount');
-
-                                            $balance = VoucherReference::where('payment_voucher_id','<',(int)$request->payment_voucher_id)
-                                            ->where('voucher_id', $voucher->id)
-                                            ->withWhereHas('voucherPayRec', function ($query) use($request,$orgs) {
-                                                $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS,function ($query){
-                                $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                })->whereIn("organization_id",$orgs);
-                                $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                                })->where('party_id', $ledger)->sum('amount');
-                                                $amount = 0;
-                                                foreach ($voucher->items as $item) {
-                                                    $amount += $request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS ? $item->credit_amt_org : $item->debit_amt_org;
-                                                }
-                                                $voucher->amount = $amount;
-
-                                                $voucher->settle = $settle;
-                                                $voucher->balance = $voucher->amount -$balance;
-
-                                            return $voucher;
-                                        });
-                                        $advanceSum = PaymentVoucherDetails::where('type', $type)
-                                        ->where('payment_voucher_id','<',(int)$request->payment_voucher_id)
-                                        ->whereIn('reference', ['On Account'])
-                                        ->withWhereHas('voucher', function ($query) use($orgs,$request) {
-                                            $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS,function ($query){
-                                $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                })->whereIn("organization_id",$orgs)
-                                                ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                        })
-                                        ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledger_group) {
-                                            if (is_null($adv->ledger_id)) {
-                                                return $adv->partyName && $adv->partyName->ledger_id == $ledger && $adv->partyName->ledger_group_id == $ledger_group;
-                                            } else {
-                                                return $adv->ledger_id == $ledger && $adv->ledger_group_id == $ledger_group;
-                                            }
-                                        })->sum('orgAmount');
-
-
-                                    foreach ($data as $v) {
-                                        if ($advanceSum > 0 && isset($v->id)) {
-                                            $deductAmount = min($advanceSum, $v->balance);
-                                            $v->balance -= $deductAmount;
-                                            $advanceSum -= $deductAmount;
-
-                                        } else {
-                                            break; // Stop if advance is fully utilized
-                                        }
-                                    }
-                                    $advanceItems = PaymentVoucherDetails::where('type', $type)
-                                    ->where('payment_voucher_id','<',(int)$request->payment_voucher_id)
-                                    ->whereIn('reference', ['Advance'])
-                                    ->withWhereHas('voucher', function ($query) use($request,$orgs) {
-                                        $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS,function ($query){
-                                            $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                        })->whereIn("organization_id",$orgs)
-                                            ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                    })
-                                    ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledger_group) {
-                                        if (is_null($adv->ledger_id)) {
-                                            return $adv->partyName && $adv->partyName->ledger_id == $ledger && $adv->partyName->ledger_group_id == $ledger_group;
-                                        } else {
-                                            return $adv->ledger_id == $ledger && $adv->ledger_group_id == $ledger_group;
-                                        }
-                                    });
-                                    foreach ($advanceItems as $advanceItem) {
-                                        $bucketTotalDeducted = 0;
-                                        $remainingAdvanceAmount = $advanceItem->orgAmount;
-
-                                        // Loop through each customer in the result set
-                                        foreach ($data as $res) {
-                                        $documentDate = $advanceItem->voucher->document_date; // e.g. '2025-04-10'
-                                            $createdAt = $advanceItem->voucher->created_at; // e.g. '2025-04-10 15:30:00'
-
-                                            // Combine the date from `document_date` and time from `created_at`
-                                            $combinedDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $documentDate . ' ' . date('H:i:s', strtotime($createdAt)));
-
-                                            $vendorDateTimestamp = $combinedDateTime ? $combinedDateTime->getTimestamp() : null;
-                                            $resDate = $res->date; // e.g. '10/04/2025'
-                                            $resCreatedAt = $res->created_at; // e.g. '2025-04-10 14:45:00'
-
-                                            // Extract the time from created_at
-                                            $resTime = date('H:i:s', strtotime($resCreatedAt));
-
-                                            // Combine date (converted to Y-m-d) with time
-                                            $parsedDate = \DateTime::createFromFormat('d/m/Y H:i:s', $resDate . ' ' . $resTime);
-
-                                            $resDateTimestamp = $parsedDate ? $parsedDate->getTimestamp() : null;
-
-
-                                            if ($vendorDateTimestamp < $resDateTimestamp) {
-                                                $bucketTotalDeducted = 0; // Track total amount deducted from all aging buckets
-                                                if ($remainingAdvanceAmount > 0) {
-                                                            $deductAmount = min($remainingAdvanceAmount, $res->balance);
-                                                            $res->balance -= $deductAmount; // Reduce the bucket value
-                                                            $remainingAdvanceAmount -= $deductAmount; // Reduce the advance sum
-                                                            $bucketTotalDeducted += $deductAmount; // Track total deducted
-                                                        }
-                                            }
-
-                                        }
-
-
-                                    }
-
-
-                            } 
-                            else 
-                            {
-                                $data = $data->with(['series' => function ($s) {
-                                    $s->select('id', 'book_code');
-                                }])->select('id', 'amount', 'book_id', 'document_date as date','created_at', 'voucher_name', 'voucher_no','location', 'organization_id')
-                                    ->orderBy('id', 'desc')->get()->map(function ($voucher) use ($request, $ledger,$orgs) {
-                                        $voucher->date = date('d/m/Y', strtotime($voucher->date));
-                                        $amount = 0;
-                                            foreach ($voucher->items as $item) {
-                                                $amount += $request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS ? $item->credit_amt_org : $item->debit_amt_org;
-                                            }
-                                            $voucher->amount = $amount;
-                                        $balance = VoucherReference::where('voucher_id', $voucher->id)
-                                            ->withWhereHas('voucherPayRec', function ($query) use ($request,$orgs) {
-                                                $query->where('payment_voucher_id','!=',(int)$request->payment_voucher_id);
-                                                $query->when($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,function ($query){
-                                                $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                                })->whereIn("organization_id",$orgs);
-                                                $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                            })->where('party_id', $ledger)->sum('amount');
-
-                                            $settle = VoucherReference::where('voucher_id', $voucher->id)
-                                            ->where('payment_voucher_id', (int)$request->payment_voucher_id)
-                                            ->where('voucher_details_id', (int)$request->details_id)
-                                            ->where('party_id', $ledger)->sum('amount');
-
-                                        $voucher->balance = $voucher->amount-$balance;
-                                        $voucher->settle = $settle;
-
-
-                                        return $voucher;
-                                    });
-
-
-                                    $advanceSum = PaymentVoucherDetails::where('type', $type)
-                                    ->whereIn('reference', ['On Account'])
-                                    ->withWhereHas('voucher', function ($query) use($request,$orgs) {
-                                    $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS,function ($query){
-                                    $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                    })->whereIn("organization_id",$orgs)
-                                            ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                    })
-                                    ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledger_group) {
-                                        if (is_null($adv->ledger_id)) {
-                                            return $adv->partyName && $adv->partyName->ledger_id == $ledger && $adv->partyName->ledger_group_id == $ledger_group;
-                                        } else {
-                                            return $adv->ledger_id == $ledger && $adv->ledger_group_id == $ledger_group;
-                                        }
-                                    })->sum('orgAmount');
-
-
-
-
-
-
-                                foreach ($data as $v) {
-                                    if ($advanceSum > 0 && isset($v->id)) {
-                                        $deductAmount = min($advanceSum, $v->balance);
-                                        $v->balance -= $deductAmount;
-                                        $advanceSum -= $deductAmount;
-
-                                    } else {
-                                        break; // Stop if advance is fully utilized
-                                    }
-                                }
-                                $advanceItems = PaymentVoucherDetails::where('type', $type)
-                                ->whereIn('reference', ['Advance'])
-                                ->withWhereHas('voucher', function ($query) use($request,$orgs) {
-                                $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS,function ($query){
-                                $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
-                                })->whereIn("organization_id",$orgs)
-                                        ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                                })
-                                ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledger_group) {
-                                    if (is_null($adv->ledger_id)) {
-                                        return $adv->partyName && $adv->partyName->ledger_id == $ledger && $adv->partyName->ledger_group_id == $ledger_group;
-                                    } else {
-                                        return $adv->ledger_id == $ledger && $adv->ledger_group_id == $ledger_group;
-                                    }
-                                });
-                                foreach ($advanceItems as $advanceItem) {
-                                    $bucketTotalDeducted = 0;
-                                    $remainingAdvanceAmount = $advanceItem->orgAmount;
-
-                                    // Loop through each customer in the result set
-                                    foreach ($data as $res) {
-                                        $documentDate = $advanceItem->voucher->document_date; // e.g. '2025-04-10'
-                                        $createdAt = $advanceItem->voucher->created_at; // e.g. '2025-04-10 15:30:00'
-
-                                        // Combine the date from `document_date` and time from `created_at`
-                                        $combinedDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $documentDate . ' ' . date('H:i:s', strtotime($createdAt)));
-
-                                        $vendorDateTimestamp = $combinedDateTime ? $combinedDateTime->getTimestamp() : null;
-                                        $resDate = $res->date; // e.g. '10/04/2025'
-                                        $resCreatedAt = $res->created_at; // e.g. '2025-04-10 14:45:00'
-
-                                        // Extract the time from created_at
-                                        $resTime = date('H:i:s', strtotime($resCreatedAt));
-
-                                        // Combine date (converted to Y-m-d) with time
-                                        $parsedDate = \DateTime::createFromFormat('d/m/Y H:i:s', $resDate . ' ' . $resTime);
-
-                                        $resDateTimestamp = $parsedDate ? $parsedDate->getTimestamp() : null;
-
-
-                                        if ($vendorDateTimestamp < $resDateTimestamp) {
-                                            $bucketTotalDeducted = 0; // Track total amount deducted from all aging buckets
-                                            if ($remainingAdvanceAmount > 0) {
-                                                        $deductAmount = min($remainingAdvanceAmount, $res->balance);
-                                                        $res->balance -= $deductAmount; // Reduce the bucket value
-                                                        $remainingAdvanceAmount -= $deductAmount; // Reduce the advance sum
-                                                        $bucketTotalDeducted += $deductAmount; // Track total deducted
-                                                    }
-                                        }
-
-                                    }
-
-
-                                }
-
-
-                            }
-
-                        }
-
             }
                 
             
