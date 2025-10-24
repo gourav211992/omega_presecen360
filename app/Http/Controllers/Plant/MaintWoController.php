@@ -95,7 +95,8 @@ class MaintWoController extends Controller
             'document_number',
             'document_date',
             'document_status',
-            'book_id'
+            'book_id',
+            'maintenance_type_id'
         ])->with(['book:id,book_code']);
 
         // Handle filter parameters
@@ -226,14 +227,13 @@ class MaintWoController extends Controller
                 return $details['equipment_category'] ?? '';
             })
             ->addColumn('equipment_maintenance_type', function ($row) {
-                $details = $row->equipment_details;
-
-                if (is_string($details)) {
-                    $details = json_decode($details, true);
+                
+                // Get maintenance type name from database using maintenance_type_id
+                if (!empty($row->maintenance_type_id)) {
+                    return ErpMaintenanceType::where('id', $row->maintenance_type_id)->value('name') ?? '-';
                 }
-
-                return $details['equipment_maintenance_type_name'] ??
-                       $details['maintenance_type_name'] ?? '';
+                
+              
             })
             ->addColumn('status', function ($row) {
                 $status = $row->document_status;
@@ -688,6 +688,8 @@ class MaintWoController extends Controller
             $equipmentDetails = json_decode($equipmentDetails, true);
         }
 
+        $data['maintenance_detail_id'] = $request->maintenance_detail_id;
+
 
         if (is_array($equipmentDetails)) {
             $data['reference_type']      = $equipmentDetails['reference_type'] ?? null;
@@ -706,6 +708,8 @@ class MaintWoController extends Controller
             $data['spare_parts'] = json_encode($data['spare_parts']);
         }
 
+        // Store equipment_details as JSON
+        $data['equipment_details'] = json_encode($equipmentDetails);
         if (isset($data['equipment_details']) && is_array($data['equipment_details'])) {
             $data['equipment_details'] = json_encode($data['equipment_details']);
         }
@@ -1126,6 +1130,9 @@ class MaintWoController extends Controller
                 $equipmentDetails = json_decode($equipmentDetails, true);
             }
 
+            // Add maintenance_detail_id from request
+            $updateData['maintenance_detail_id'] = $request->maintenance_detail_id;
+
             if (is_array($equipmentDetails)) {
                 $updateData['reference_type']      = $equipmentDetails['reference_type'] ?? null;
                 $updateData['equipment_id']        = $equipmentDetails['equipment_id'] ?? null;
@@ -1482,9 +1489,6 @@ class MaintWoController extends Controller
                 'equipment',
                 'bom.book',
                 'maintenanceType',
-                'checklists',
-                'equipment.book',
-                'equipment.location',
                 'equipment.category',
                 'equipment.spareParts'
             ])
@@ -1516,12 +1520,15 @@ class MaintWoController extends Controller
         
           
             foreach ($equipmentData as $eqpt) {
-                $plantMaintWo = PlantMaintWo::where('equipment_details->equipment_id', $eqpt->erp_equipment_id)
-                    ->where('equipment_details->maintenance_type_id', $eqpt->maintenance_type_id)
-                    ->where('equipment_details->reference_type', 'equipment')
+               
+               
+                $plantMaintWo = PlantMaintWo::where('equipment_id', $eqpt->erp_equipment_id)
+                    ->where('maintenance_type_id', $eqpt->maintenance_type_id)
+                    ->where('reference_type', 'equipment')
+                    ->where('maintenance_detail_id', $eqpt->id)
                     ->orderBy('id', 'DESC')
                     ->first();
-            
+                
                 $dueDate = null;
                 $base = null;
             
@@ -1571,6 +1578,7 @@ class MaintWoController extends Controller
                 
             
                 $maintenance_type_id = $eqpt->maintenance_type_id;
+                $eqpt->maintenance_detail_id = $eqpt->id;
             
                 $maintenanceChecklists = ErpEquipMaintenanceChecklist::where('erp_equip_maintenance_id', $eqpt->id)
                     ->select('checklist_detail', 'name')
@@ -1646,6 +1654,7 @@ class MaintWoController extends Controller
             
                     $equipment = $detail->equipment;
                     $equipment->checklists_data = $checklistsData;
+                    $equipment->maintenance_detail_id = $detail->id;  // Add maintenance detail ID to equipment object
             
                     $equipment->due_date = $detail->due_date
                         ? Carbon::parse($detail->due_date)->format('d-m-Y')
@@ -1655,8 +1664,8 @@ class MaintWoController extends Controller
                     $data[] = [
                         'equipment'            => $equipment->toArray(),
                         'maintenance_type'     => $detail->maintenanceType,
+                        'maintenance_type_id'  => $detail->maintenance_type_id,
                         'bom'                  => $detail->bom,
-                        'maintenance_detail_id'=> $detail->id,
                     ];
                 }
             }
@@ -2030,39 +2039,33 @@ class MaintWoController extends Controller
         }
 
         $data = [];
-        $equipmentGroups = $maintenanceDetails->groupBy('erp_equipment_id');
-
-        foreach ($equipmentGroups as $equipmentId => $details) {
-            $firstDetail = $details->first();
-            if ($firstDetail && $firstDetail->equipment) {
-                $maintenanceTypes = $details->map(function ($detail) {
-                    return [
-                        'id' => $detail->maintenanceType->id,
-                        'name' => $detail->maintenanceType->name,
-                    ];
-                })->unique('id')->values();
-
+        
+        foreach ($maintenanceDetails as $detail) {
+            if ($detail && $detail->equipment) {
                 // Get checklist data from JSON column
-                $checklistsData = $this->getChecklistDataFromJson($firstDetail);
+                $checklistsData = $this->getChecklistDataFromJson($detail);
 
-                $equipment = $firstDetail->equipment;
+                $equipment = $detail->equipment;
                 $equipment->checklists_data = $checklistsData;
+                $equipment->maintenance_detail_id = $detail->id;  // Add maintenance detail ID
 
                 // Calculate next due date based on last submitted work order
                 $nextDueDate = $this->calculateNextMaintenanceDueDate(
-                    $equipmentId, 
-                    $maintenanceTypes->first()['id'], 
-                    $firstDetail->frequency,
-                    $firstDetail->start_date
+                    $detail->erp_equipment_id, 
+                    $detail->maintenance_type_id,
+                    $detail->id,
+                    $detail->frequency,
+                    $detail->start_date
                 );
 
                 $data[] = [
                     'equipment'         => $equipment,
-                    'maintenance_type'  => $maintenanceTypes->first(),
-                    'maintenance_types' => $maintenanceTypes,
-                    'bom'               => $firstDetail->bom,
-                    'start_date'        => $firstDetail->start_date,
-                    'frequency'         => $firstDetail->frequency,
+                    'maintenance_type'  => $detail->maintenanceType,
+                    'maintenance_type_id' => $detail->maintenance_type_id,
+                    'bom'               => $detail->bom,
+                    'maintenance_detail_id' => $detail->id,
+                    'start_date'        => $detail->start_date,
+                    'frequency'         => $detail->frequency,
                     'next_due_date'     => $nextDueDate,
                 ];
             }
@@ -2074,47 +2077,57 @@ class MaintWoController extends Controller
     /**
      * Calculate next maintenance due date based on last submitted work order
      */
-    private function calculateNextMaintenanceDueDate($equipmentId, $maintenanceTypeId, $frequency, $startDate)
+    private function calculateNextMaintenanceDueDate($equipmentId, $maintenanceTypeId, $maintenanceDetailId, $frequency, $startDate)
     {
         try {
-            // Find the last submitted work order for this equipment + maintenance type combination
+            // Find the last submitted work order for this equipment + maintenance type + maintenance detail combination
             $lastWorkOrder = PlantMaintWo::where('equipment_id', $equipmentId)
                 ->where('maintenance_type_id', $maintenanceTypeId)
+                ->where('maintenance_detail_id', $maintenanceDetailId)
                 ->whereIn('document_status', ['submitted', 'approved', 'approval_not_required', 'closed'])
-                ->orderBy('document_date', 'desc')
+                ->orderBy('id', 'desc')
                 ->first();
-
+            
+           
             // If no previous work order found, use the start date from equipment maintenance detail
             if (!$lastWorkOrder) {
                 $baseDate = $startDate ? Carbon::parse($startDate) : Carbon::now();
+                return $nextDueDate = $baseDate->format('d-m-Y');
             } else {
-                // Use the document date of the last work order as base date
-                $baseDate = Carbon::parse($lastWorkOrder->document_date);
+                // Check if equipment_details contains due_date
+                $details = json_decode($lastWorkOrder->equipment_details, true);
+                
+                if (is_array($details) && !empty($details['due_date'])) {
+                    $baseDate = Carbon::parse($details['due_date']);
+                } else {
+                    // If no due_date found in equipment_details, return N/A
+                    return 'N/A';
+                }
             }
 
             // Calculate next due date based on frequency
             $nextDueDate = null;
-            switch (strtolower(trim($frequency))) {
-                case 'daily':
+            switch (trim($frequency)) {
+                case 'Daily':
                     $nextDueDate = $baseDate->copy()->addDay();
                     break;
-                case 'weekly':
+                case 'Weekly':
                     $nextDueDate = $baseDate->copy()->addWeek();
                     break;
-                case 'monthly':
+                case 'Monthly':
                     $nextDueDate = $baseDate->copy()->addMonth();
                     break;
-                case 'quarterly':
+                case 'Quarterly':
                     $nextDueDate = $baseDate->copy()->addMonths(3);
                     break;
-                case 'semi-annually':
-                case 'semi annually':
-                case 'semi annualy':
+                case 'Semi-annually':
+                case 'Semi annually':
+                case 'Semi annualy':
                     $nextDueDate = $baseDate->copy()->addMonths(6);
                     break;
-                case 'annually':
+                case 'Annually':
                 case 'annualy':
-                case 'yearly':
+                case 'Yearly':
                     $nextDueDate = $baseDate->copy()->addYear();
                     break;
                 default:
@@ -2123,7 +2136,7 @@ class MaintWoController extends Controller
                     break;
             }
 
-            return $nextDueDate ? $nextDueDate->format('Y-m-d') : null;
+            return $nextDueDate ? $nextDueDate->format('d-m-Y') : null;
 
         } catch (\Exception $e) {
             \Log::error("Error calculating next maintenance due date: " . $e->getMessage());

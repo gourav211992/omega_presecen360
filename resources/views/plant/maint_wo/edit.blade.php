@@ -125,6 +125,8 @@
         <input type="hidden" name="document_status" id="document_status" value="submitted">
         <input type="hidden" name="spare_parts" id="spare_parts" value="{{ $workOrder->spare_parts ?? '' }}">
         <input type="hidden" name="selected_equipment_id" id="selected_equipment_id" value="{{ $equipmentDetailsArr->equipment_id ?? '' }}">
+        <input type="hidden" name="maintenance_detail_id" id="maintenance_detail_id" value="{{ $workOrder->maintenance_detail_id ?? '' }}">
+        <input type="hidden" name="equipment_due_date" id="equipment_due_date" value="{{ $equipmentDetailsArr->due_date ?? '' }}">
         <input type="hidden" name="equipment_maintenance_type_name" id="equipment_maintenance_type_name" value="{{ $equipmentDetailsArr->equipment_maintenance_type_name ?? $equipmentDetailsArr->maintenance_type_name ?? '' }}">
        
         <input type="hidden" name="equipment_details" id="equipment_details" value="{{ $workOrder->equipment_details ?? '' }}">
@@ -1523,14 +1525,17 @@
 		// Checklist
 		collectChecklistData();
 
-		// Equipment details
+		// Equipment details - matching create blade structure
 		const equipmentDetails = {
 			reference_type: $('#reference_type').val() || '',
-			equipment_category: $('#equipment_category_hidden').val() || $('#equipment_category').val() || '',
-			equipment_name: $('#equipment_name_hidden').val() || $('#equipment_name').val() || '',
 			equipment_id: $('#equipment_id').val() || '',
+			equipment_name: $('#equipment_name_hidden').val() || $('#equipment_name').val() || '',
+			equipment_category: $('#equipment_category_hidden').val() || $('#equipment_category').val() || '',
 			equipment_maintenance_type_id: $('#maintenance_type').val() || '',
 			equipment_maintenance_type_name: $('#equipment_maintenance_type_name').val() || $('#maintenance_type option:selected').text() || '',
+			maintenance_detail_id: $('#maintenance_detail_id').val() || '',
+			due_date: $('#equipment_due_date').val() || '{{ $equipmentDetailsArr->due_date ?? "" }}',
+			defect_notification_id: $('#defect_notification_id_hidden').val() || '',
 			equipment_defect_type: $('#defect_type_hidden').val() || $('#defect_type_select').val() || '',
 			equipment_problem: $('#problem_hidden').val() || $('#problem').val() || '',
 			equipment_priority: $('#priority_field select').val() || '',
@@ -2295,11 +2300,20 @@
 	}
 	
 	function selectDefectNotificationReference() {
+		// Check if reference type is actually changing from equipment to defect_notification
+		const currentReferenceType = $('#reference_type').val();
+		
 		loadModal('defect');
 		$('#reference_type').val('defect_notification');
 		$('#reference_type_error').hide();
 		$('#defect_ref_btn').removeClass('btn-outline-primary').addClass('btn-primary');
 		$('#equipment_ref_btn').removeClass('btn-primary').addClass('btn-outline-primary');
+		
+		// Clear due date and maintenance detail ID only when switching FROM equipment TO defect notification
+		if (currentReferenceType === 'equipment') {
+			$('#equipment_due_date').val('');
+			$('#maintenance_detail_id').val('');
+		}
 		
 		// Clear spare parts when switching to defect notification
 		clearSparePartsTable();
@@ -2346,15 +2360,23 @@ function processEquipmentSelection() {
 	}
 	var eqpt = selectedEquipment.data('eqpt');
 	
+	// Get due date from equipment table (last column)
+	var equipmentDueDate = equipmentRow.find('td').last().text().trim();
+	
 	// Get equipment and BOM IDs for AJAX call
 	const equipmentId = selectedEquipment.val();
 	const bomId = selectedEquipment.data('bom-id');
+	const maintenanceDetailId = selectedEquipment.data('maintenance-detail-id');
 	
 	// Populate equipment fields
 	$('#equipment_name').val(selectedEquipment.data('equipment-name'));
 	$('#equipment_id').val(selectedEquipment.data('equipment-id'));
 	$('#selected_equipment_id').val(selectedEquipment.data('equipment-id')); // Store for maintenance type handler
 	$('#maintenance_type').val(selectedEquipment.data('maintenance-type'));
+	
+	// Store maintenance detail ID and due date
+	$('#maintenance_detail_id').val(maintenanceDetailId);
+	$('#equipment_due_date').val(equipmentDueDate !== 'N/A' ? equipmentDueDate : '');
 	
 	// Keep only basic equipment fields visible and read-only for equipment selection
 	$('.equipment-detail-field').hide();
@@ -2909,7 +2931,6 @@ function processDefectSelection() {
 				response.forEach(function (eqpt, idx) {
 					const isSelected = window.selectedEquipmentState && window.selectedEquipmentState.equipmentId == eqpt.id;
 					const checkedAttribute = isSelected ? 'checked' : '';
-					const dueDate = calculateDueDate(eqpt.start_date, eqpt.frequency);
 
 					let row = `
 						<tr class="trail-bal-tabl-none">
@@ -2923,6 +2944,7 @@ function processDefectSelection() {
 										data-equipment-id="${eqpt?.equipment?.id ?? eqpt.id}" 
 										data-equipment-name="${eqpt?.equipment?.name ?? ''}" 
 										data-maintenance-type="${eqpt?.maintenance_type?.id ?? ''}"
+										data-maintenance-detail-id="${eqpt?.maintenance_detail_id ?? ''}"
 										data-bom-id="${eqpt?.bom?.id ?? ''}"
 										${checkedAttribute}>
 									<label class="form-check-label" for="equipment_${eqpt.id}"></label>
@@ -2933,7 +2955,7 @@ function processDefectSelection() {
 							<td>${eqpt?.bom?.bom_name ?? 'N/A'}</td>
 							<td>${eqpt?.bom?.book?.book_code ?? 'N/A'}</td>
 							<td>${eqpt?.bom?.document_number ?? 'N/A'}</td>
-							<td>${dueDate ?? 'N/A'}</td>
+							<td>${eqpt.next_due_date ?? 'N/A'}</td>
 						</tr>`;
 					$('#eqptTable').append(row);
 				});

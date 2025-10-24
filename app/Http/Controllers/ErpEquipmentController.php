@@ -135,6 +135,8 @@ class ErpEquipmentController extends Controller
 
         $equipment->orderBy('created_at', 'desc');
 
+    
+
         $data = collect();
         foreach ($equipment->get() as $equip) {
             if ($equip->maintenanceDetails && $equip->maintenanceDetails->isNotEmpty()) {
@@ -263,7 +265,17 @@ class ErpEquipmentController extends Controller
      */
     private function getChecklistNames($maintenanceDetail)
     {
+        \Log::info('Getting checklist names', [
+            'maintenance_detail_id' => $maintenanceDetail->id ?? 'null',
+            'has_checklist_data' => !empty($maintenanceDetail->checklist_data),
+            'checklist_data_type' => gettype($maintenanceDetail->checklist_data ?? null),
+            'checklist_data' => $maintenanceDetail->checklist_data ?? null
+        ]);
+        
         if (!$maintenanceDetail || empty($maintenanceDetail->checklist_data)) {
+            \Log::warning('No checklist data found for maintenance detail', [
+                'maintenance_detail_id' => $maintenanceDetail->id ?? 'null'
+            ]);
             return '';
         }
 
@@ -272,9 +284,14 @@ class ErpEquipmentController extends Controller
         // If it's a string, decode it
         if (is_string($checklistData)) {
             $checklistData = json_decode($checklistData, true);
+            \Log::info('Decoded checklist data from string', ['decoded_data' => $checklistData]);
         }
 
         if (!is_array($checklistData)) {
+            \Log::error('Checklist data is not an array', [
+                'data_type' => gettype($checklistData),
+                'data' => $checklistData
+            ]);
             return '';
         }
 
@@ -285,6 +302,11 @@ class ErpEquipmentController extends Controller
             ->unique()
             ->values()
             ->toArray();
+
+        \Log::info('Extracted checklist names', [
+            'names' => $checklistNames,
+            'count' => count($checklistNames)
+        ]);
 
         return implode(', ', $checklistNames);
     }
@@ -589,23 +611,24 @@ class ErpEquipmentController extends Controller
     private function getLastDate($maintenanceDetail)
     {
         try {
-            // Find the last submitted work order for this specific equipment + maintenance type combination
-            $lastWorkOrder = \App\Models\PlantMaintWo::where('equipment_id', $maintenanceDetail->erp_equipment_id)
+            // Find the last submitted work order for this specific equipment + maintenance type + maintenance detail combination
+            $lastWorkOrder = PlantMaintWo::where('equipment_id', $maintenanceDetail->erp_equipment_id)
                 ->where('maintenance_type_id', $maintenanceDetail->maintenance_type_id)
+                ->where('maintenance_detail_id', $maintenanceDetail->id)
                 ->whereIn('document_status', ['submitted', 'approved', 'approval_not_required', 'closed'])
-                ->orderBy('document_date', 'desc')
+                ->orderBy('id', 'desc')
                 ->first();
 
             if ($lastWorkOrder) {
+                // Get due_date from equipment_details JSON
                 $details = json_decode($lastWorkOrder->equipment_details, true);
-                if (is_array($details)) {
-                    if (!empty($details['last_maintenance_date'])) {
-                        return Carbon::parse($details['last_maintenance_date'])->format('d-m-Y');
-                    } elseif (!empty($details['due_date'])) {
-                        return Carbon::parse($details['due_date'])->format('d-m-Y');
-                    }
+                
+                if (is_array($details) && !empty($details['due_date'])) {
+                    return Carbon::parse($details['due_date'])->format('d-m-Y');
                 }
-                return Carbon::parse($lastWorkOrder->document_date)->format('d-m-Y');
+                
+                // Fallback to document date if due_date not found
+                return 'N/A';
             }
             return '';
         } catch (\Exception $e) {
@@ -617,30 +640,28 @@ class ErpEquipmentController extends Controller
     private function getDueDate($maintenanceDetail)
     {
         try {
-            // Find the last submitted work order for this specific equipment + maintenance type combination
+            // Find the last submitted work order for this specific equipment + maintenance type + maintenance detail combination
             $lastWorkOrder = PlantMaintWo::where('equipment_id', $maintenanceDetail->erp_equipment_id)
                 ->where('maintenance_type_id', $maintenanceDetail->maintenance_type_id)
+                ->where('maintenance_detail_id', $maintenanceDetail->id)
                 ->whereIn('document_status', ['submitted', 'approved', 'approval_not_required', 'closed'])
-                ->orderBy('document_date', 'desc')
+                ->orderBy('id', 'desc')
                 ->first();
          
 
             $baseDate = null;
             
             if ($lastWorkOrder) {
-                // Use the document date of the last work order as base date
-                $baseDate = Carbon::parse($lastWorkOrder->document_date);
-            } else {
-                // If no previous work order, use start date from maintenance detail
-                if ($maintenanceDetail->start_date) {
-                    $baseDate = Carbon::parse($maintenanceDetail->start_date);
-                } else {
-                    return '';
+                // Get due_date from equipment_details JSON as base date
+                $details = json_decode($lastWorkOrder->equipment_details, true);
+                
+                if (is_array($details) && !empty($details['due_date'])) {
+                    $baseDate = Carbon::parse($details['due_date']);
                 }
-            }
+            } 
 
             // Calculate next due date based on frequency
-            if ($baseDate && $maintenanceDetail->frequency && $lastWorkOrder!='') {
+            if ($baseDate && $maintenanceDetail->frequency) {
                 switch ($maintenanceDetail->frequency) {
                     case 'Daily':
                         return $baseDate->copy()->addDay()->format('d-m-Y');
@@ -772,291 +793,6 @@ class ErpEquipmentController extends Controller
             ));
         }
     
-    // // /** Update equipment */
-    // public function update(Request $request, $id)
-    // {
-    //     DB::beginTransaction();
-    //     try {
-    //         $user = Helper::getAuthenticatedUser();
-    //         $equipment = ErpEquipment::findOrFail($id);
-    //          if ($request->action_type == "amendment") {
-
-    //             $revisionData = [
-    //                 ['model_type' => 'header', 'model_name' => 'ErpEquipment', 'relation_column' => ''],
-    //                 ['model_type' => 'detail', 'model_name' => 'ErpEquipMaintenanceDetail', 'relation_column' => 'erp_equipment_id'],
-    //                 ['model_type' => 'detail', 'model_name' => 'ErpEquipMaintenanceChecklist', 'relation_column' => 'equipment_id'],
-    //             ];     
-    //             // Create DefectNotificationHistory record before amendment
-    //             $amendmentResult = Helper::documentAmendment($revisionData, $id);
-                
-    //             if (!$amendmentResult) {
-    //                 throw new \Exception('Failed to create DefectNotificationHistory record during amendment');
-    //             }
-            
-    //             Helper::approveDocument(
-    //                 $equipment->book_id,
-    //                 $equipment->id,
-    //                 $equipment->revision_number,
-    //                 $request->amend_remarks,
-    //                 $request->file('amend_attachment'),
-    //                 $equipment->approval_level,
-    //                 'amendment',
-    //                 0,
-    //                 get_class($equipment)
-    //             );
-
-    //         $equipment->revision_number = $equipment->revision_number + 1;
-    //         $equipment->revision_date = now();
-    //         $equipment->save();
-    //         DB::commit();
-    //     }
-        
-    //         $revisionNumber = $equipment->revision_number ?? 0;
-    //         $actionType = 'submit';
-    //         $remarks='';
-    //         $attachments='';
-    //         $currentLevel=$equipment->approval_level;
-    //         $modelName=get_class($equipment);
-    //         $totalValue = $equipment->grand_total_amount ?? 0;
-    //         $approveDocument = Helper::approveDocument($equipment->book_id, $equipment->id, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
-    //         $document_status = $approveDocument['approvalStatus'] ?? $equipment->document_status;
-    //         $equipment->document_status = $document_status;
-    //         $data['document_status'] = $document_status;
-    //         $equipment->save();
-        
-
-            
-            
-
-    //     $updateData = [
-    //         'category_id' => $request->category_id,
-    //         'name' => $request->name,
-    //         'alias' => $request->alias,
-    //         'description' => $request->description,
-    //         'final_remarks' => $request->final_remarks,
-    //         'document_status' => $request->status,
-    //         'status' => $request->has('active_status') ? 1 : 0,
-    //         'model_name' => $request->model_name,
-    //         'manufacturer_name' => $request->manufacturer_name,
-    //         'yom' => $request->yom,
-    //         'commission_date' => $request->commission_date,
-    //         'purchase_cost' => $request->purchase_cost,
-    //     ];
-
-    //         $equipment->update($updateData);
-    //         $finalDocuments = [];
-    //         if ($equipment->upload_document) {
-    //             $existingDocuments = json_decode($equipment->upload_document, true);
-    //             if (!is_array($existingDocuments)) {
-    //                 $existingDocuments = [$equipment->upload_document];
-    //             }
-    //             $finalDocuments = $existingDocuments;
-    //         }
-
-    //         if ($request->has('deleted_files') && !empty($request->deleted_files)) {
-    //             $deletedFiles = json_decode($request->deleted_files, true);
-    //             if (is_array($deletedFiles)) {
-    //                 $finalDocuments = array_diff($finalDocuments, $deletedFiles);
-    //             }
-    //         }
-
-    //         if ($request->hasFile('upload_document')) {
-    //             $newDocumentPaths = [];
-    //             foreach ($request->file('upload_document') as $index => $file) {
-    //                 $fileName = 'equipment_' . time() . '_' . $index . '.' . $file->getClientOriginalExtension();
-    //                 $path = $file->storeAs('equipment_documents', $fileName, 'public');
-    //                 $newDocumentPaths[] = $path;
-    //             }
-    //             $finalDocuments = array_merge($finalDocuments, $newDocumentPaths);
-    //         }
-
-    //         if ($request->has('deleted_files') && !empty($request->deleted_files)) {
-    //             $deletedFiles = json_decode($request->deleted_files, true);
-    //             if (is_array($deletedFiles)) {
-    //                 foreach ($deletedFiles as $fileToDelete) {
-    //                     if (\Storage::disk('public')->exists($fileToDelete)) {
-    //                         \Storage::disk('public')->delete($fileToDelete);
-    //                     }
-    //                 }
-    //             }
-    //         }
-
-    //         $equipment->upload_document = !empty($finalDocuments)
-    //             ? json_encode($finalDocuments)
-    //             : null;
-
-    //         $equipment->save();
-
-    //         // Smart update approach to preserve IDs for revision history
-    //         $existingMaintenanceDetails = $equipment->maintenanceDetails()->get()->keyBy('maintenance_type_id');
-    //         $submittedMaintenanceTypes = [];
-            
-    //         if ($request->has('maintenance') && is_array($request->maintenance)) {
-    //             foreach ($request->maintenance as $mRow) {
-    //                 if (empty($mRow['type']) || empty($mRow['frequency'])) continue;
-                    
-    //                 $submittedMaintenanceTypes[] = $mRow['type'];
-                    
-    //                 // Update existing or create new maintenance detail
-    //                 $maintenance_detail_item = $existingMaintenanceDetails->get($mRow['type']);
-                    
-    //                 if ($maintenance_detail_item) {
-    //                     // Update existing maintenance detail
-    //                     $maintenance_detail_item->update([
-    //                         'frequency' => $mRow['frequency'],
-    //                         'start_date' => $mRow['date'] ?? null,
-    //                         'maintenance_bom_id' => $mRow['bom'] ?? null,
-    //                         'time' => $mRow['time'] ?? null,
-    //                     ]);
-                        
-    //                     // Clear existing checklists for this maintenance detail
-    //                     $maintenance_detail_item->checklists()->delete();
-    //                 } else {
-    //                     // Create new maintenance detail
-    //                     $maintenance_detail_item = ErpEquipMaintenanceDetail::create([
-    //                         'erp_equipment_id' => $equipment->id,
-    //                         'maintenance_type_id' => $mRow['type'],
-    //                         'frequency' => $mRow['frequency'],
-    //                         'start_date' => $mRow['date'] ?? null,
-    //                         'maintenance_bom_id' => $mRow['bom'] ?? null,
-    //                         'time' => $mRow['time'] ?? null,
-    //                     ]);
-    //                 }
-
-    //                 if (!empty($mRow['checklists']) && is_array($mRow['checklists'])) {
-    //                     foreach ($mRow['checklists'] as $check) {
-    //                         if (empty($check['checklist_id']) && empty($check['checklist_detail_id'])) continue;
-    //                         $checklistDetail = InspectionChecklistDetail::find($check['checklist_detail_id']);
-    //                         if (!$checklistDetail) continue;
-    //                         $mainChecklist = InspectionChecklist::find($check['checklist_id']);
-    //                         $mainChecklistName = $mainChecklist ? $mainChecklist->name : 'Unknown Checklist';
-
-    //                         ErpEquipMaintenanceChecklist::create([
-    //                             'erp_equip_maintenance_id' => $maintenance_detail_item->id,
-    //                             'equipment_id' => $equipment->id,
-    //                             'name' => $mainChecklistName,
-    //                             'description' => $checklistDetail->description ?? null,
-    //                             'type' => $checklistDetail->data_type ?? null,
-    //                             'created_by' => $user->auth_user_id,
-    //                             'checklist_detail' => json_encode([
-    //                                 'checklist_id' => $check['checklist_id'],
-    //                                 'checklist_detail_id' => $check['checklist_detail_id'],
-    //                                 'main_checklist_name' => $mainChecklistName,
-    //                                 'name' => $checklistDetail->name,
-    //                                 'description' => $checklistDetail->description,
-    //                                 'data_type' => $checklistDetail->data_type
-    //                             ]),
-    //                         ]);
-    //                     }
-    //                 }
-    //             }
-                
-    //             // Remove maintenance details that were not submitted
-    //             $maintenanceDetailsToRemove = $existingMaintenanceDetails->reject(function ($detail) use ($submittedMaintenanceTypes) {
-    //                 return in_array($detail->maintenance_type_id, $submittedMaintenanceTypes);
-    //             });
-                
-    //             foreach ($maintenanceDetailsToRemove as $detailToRemove) {
-    //                 $detailToRemove->checklists()->delete();
-    //                 $detailToRemove->delete();
-    //             }
-    //         }
-
-    //         // Smart update approach for spare parts to preserve IDs
-    //         $existingSpareParts = $equipment->spareParts()->get();
-    //         $submittedSparePartKeys = [];
-            
-    //         if ($request->has('spareparts') && is_array($request->spareparts)) {
-    //             foreach ($request->spareparts as $index => $sRow) {
-    //                 if (empty($sRow['item_code']) || empty($sRow['item_name'])) continue;
-                    
-    //                 $sparePartKey = $sRow['item_code'] . '_' . $sRow['item_name'];
-    //                 $submittedSparePartKeys[] = $sparePartKey;
-                    
-    //                 // Check if spare part already exists
-    //                 $existingSparePart = $existingSpareParts->where('item_code', $sRow['item_code'])
-    //                                                       ->where('item_name', $sRow['item_name'])
-    //                                                       ->first();
-                    
-    //                 if ($existingSparePart) {
-    //                     // Update existing spare part
-    //                     $existingSparePart->update([
-    //                         'uom' => $sRow['uom'] ?? '',
-    //                         'qty' => $sRow['qty'] ?? 0,
-    //                     ]);
-    //                 } else {
-    //                     // Create new spare part
-    //                     $equipment->spareParts()->create([
-    //                         'item_code' => $sRow['item_code'],
-    //                         'item_name' => $sRow['item_name'],
-    //                         'uom' => $sRow['uom'] ?? '',
-    //                         'qty' => $sRow['qty'] ?? 0,
-    //                         'created_by' => $user->auth_user_id,
-    //                     ]);
-    //                 }
-    //             }
-                
-    //             // Remove spare parts that were not submitted
-    //             $sparePartsToRemove = $existingSpareParts->reject(function ($sparePart) use ($submittedSparePartKeys) {
-    //                 $sparePartKey = $sparePart->item_code . '_' . $sparePart->item_name;
-    //                 return in_array($sparePartKey, $submittedSparePartKeys);
-    //             });
-                
-    //             foreach ($sparePartsToRemove as $sparePartToRemove) {
-    //                 $sparePartToRemove->delete();
-    //             }
-    //         } else {
-    //             // If no spare parts submitted, remove all existing ones
-    //             $equipment->spareParts()->delete();
-    //         }
-            
-    //         // ✅ Handle approval process for submitted documents (same as BOM pattern)
-    //         if ($equipment->document_status == ConstantHelper::SUBMITTED && $request->action_type != "amendment") {
-    //             $bookId = $equipment->book_id;
-    //             $docId = $equipment->id;
-    //             $revisionNumber = $equipment->revision_number ?? 0;
-    //             $remarks = $equipment->final_remarks;
-    //             $attachments = null; // No attachments in regular update
-    //             $currentLevel = $equipment->approval_level ?? 1;
-    //             $actionType = 'submit';
-    //             $modelName = get_class($equipment);
-    //             $totalValue = 0; // Equipment doesn't have monetary value
-                
-    //             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
-    //             $equipment->document_status = $approveDocument['approvalStatus'] ?? $equipment->document_status;
-    //             $equipment->save();
-    //         }
-
-    //         DB::commit();
-
-    //         if ($request->ajax() || $request->action_type == "amendment") {
-    //             return response()->json([
-    //                 'success' => true,
-    //                 'message' => 'Amendment Done Successfully',
-    //                 'data' => $equipment
-    //             ]);
-    //         }
-
-    //         $message = $request->status == 'draft'
-    //             ? 'Equipment updated as draft successfully'
-    //             : 'Equipment updated successfully';
-
-    //         // Follow standard pattern: draft goes to show page, submitted goes to index page
-            
-    //         return redirect()->route('equipment.index')->with('success', $message);
-            
-    //     } catch (Exception $e) {
-    //         DB::rollBack();
-    //         if ($request->ajax() || $request->action_type == "amendment") {
-    //             return response()->json([
-    //                 'success' => false,
-    //                 'message' => $e->getMessage()
-    //             ], 500);
-    //         }
-    //         return back()->withErrors(['error' => $e->getMessage()])->withInput();
-    //     }
-    // }
-
     public function update(Request $request, $id)
     {
         
@@ -1172,15 +908,39 @@ class ErpEquipmentController extends Controller
                         if ($maintenance_detail_item) {
                             // Prepare checklist data for JSON storage
                             $checklistData = [];
+                            \Log::info('Equipment Update - Processing checklists for existing maintenance detail', [
+                                'equipment_id' => $equipment->id,
+                                'maintenance_detail_id' => $maintenance_detail_item->id,
+                                'checklists_received' => $mRow['checklists'] ?? 'none'
+                            ]);
+                            
                             if (!empty($mRow['checklists']) && is_array($mRow['checklists'])) {
-                                foreach ($mRow['checklists'] as $check) {
-                                    if (empty($check['checklist_id']) || empty($check['checklist_detail_id'])) continue;
+                                foreach ($mRow['checklists'] as $checkIndex => $check) {
+                                    \Log::info('Processing checklist item', [
+                                        'index' => $checkIndex,
+                                        'checklist_id' => $check['checklist_id'] ?? 'missing',
+                                        'checklist_detail_id' => $check['checklist_detail_id'] ?? 'missing'
+                                    ]);
+                                    
+                                    if (empty($check['checklist_id']) || empty($check['checklist_detail_id'])) {
+                                        \Log::warning('Skipping checklist item - missing IDs', $check);
+                                        continue;
+                                    }
                                     
                                     $checklistDetail = InspectionChecklistDetail::find($check['checklist_detail_id']);
-                                    if (!$checklistDetail) continue;
+                                    if (!$checklistDetail) {
+                                        \Log::error('Checklist detail not found', ['checklist_detail_id' => $check['checklist_detail_id']]);
+                                        continue;
+                                    }
                                     
                                     $mainChecklist = InspectionChecklist::find($check['checklist_id']);
                                     $mainChecklistName = $mainChecklist ? $mainChecklist->name : 'Unknown Checklist';
+                                    
+                                    \Log::info('Found checklist detail', [
+                                        'detail_id' => $checklistDetail->id,
+                                        'detail_name' => $checklistDetail->name,
+                                        'main_checklist_name' => $mainChecklistName
+                                    ]);
 
                                     $checklistData[] = [
                                         'checklist_id' => $check['checklist_id'],
@@ -1200,6 +960,13 @@ class ErpEquipmentController extends Controller
                                 'maintenance_bom_id' => $mRow['bom'] ?? null,
                                 'time' => $mRow['time'] ?? null,
                                 'checklist_data' => !empty($checklistData) ? $checklistData : null,
+                            ]);
+                            
+                            \Log::info('Updated maintenance detail with checklist data', [
+                                'maintenance_detail_id' => $maintenance_detail_item->id,
+                                'checklist_count' => count($checklistData),
+                                'checklist_data_saved' => !empty($checklistData) ? 'yes' : 'no',
+                                'checklist_data' => $checklistData
                             ]);
                             
                             // Clear existing checklists for this maintenance detail (if any exist)
