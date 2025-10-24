@@ -680,7 +680,7 @@
                                                                                 $data->document_status == 'approval_not_required' ||
                                                                                 $data->document_status == 'posted')
                                                                             <a href="javascript:void(0);"
-                                                                                data-url="{{ route('paymentVouchers.print', [$data->id, $item->ledger_id, $item->ledger_group_id]) }}"
+                                                                                data-url="{{ route('advancepaymentVouchers.print', [$data->id, $item->ledger_id, $item->ledger_group_id]) }}"
                                                                                 class="text-primary print-btn"><i
                                                                                     data-feather="printer"></i></a>
                                                                     </td>
@@ -1038,7 +1038,7 @@
         function onPostVoucherOpen(type = "not_posted") {
             resetPostVoucher();
 
-            const apiURL = "{{ route('paymentVouchers.getPostingDetails') }}";
+            const apiURL = "{{ route('advancepaymentVouchers.getPostingDetails') }}";
             const remarks = $("#remarks").val();
             $.ajax({
                 url: apiURL + "?book_id=" + "{{ $data->book_id }}" + "&document_id=" + "{{ $data->id }}" +
@@ -1168,7 +1168,7 @@
             const bookId = "{{ $data->book_id }}";
             const type = "{{ $data->document_type }}"
             const documentId = "{{ $data->id }}";
-            const postingApiUrl = "{{ route('paymentVouchers.post') }}";
+            const postingApiUrl = "{{ route('advancepaymentVouchers.post') }}";
             const remarks = $("#remarks").val();
             console.log(bookId);
             console.log(documentId);
@@ -1449,7 +1449,7 @@
       
 
         $(document).on('click', '#amendmentSubmit', (e) => {
-            let actionUrl = "{{ route('paymentVouchers.amendment', $data->id) }}";
+            let actionUrl = "{{ route('advancepaymentVouchers.amendment', $data->id) }}";
             fetch(actionUrl).then(response => {
                 return response.json().then(data => {
                     if (data.status == 200) {
@@ -2005,7 +2005,7 @@
         function proceedWithVoucher(type = "not_posted") {
     resetPostVoucher();
 
-    const apiURL = "{{ route('paymentVouchers.getPostingDetails') }}";
+    const apiURL = "{{ route('advancepaymentVouchers.getPostingDetails') }}";
     const remarks = $("#remarks").val();
     let rtype= "get";
     if(type=="posted")
@@ -2189,7 +2189,7 @@
                     const bookId = "{{ $data->book_id }}";
                     const type = "{{ $data->document_type }}"
                     const documentId = "{{ $data->id }}";
-                    const postingApiUrl = "{{ route('paymentVouchers.post') }}";
+                    const postingApiUrl = "{{ route('advancepaymentVouchers.post') }}";
                     const remarks = $("#remarks").val();
                     console.log(bookId);
                     console.log(documentId);
@@ -2265,7 +2265,7 @@
         }
 
         $(document).on('click', '#revokeButton', (e) => {
-            let actionUrl = '{{ route('paymentVouchers.revoke.document') }}' + '?id=' + '{{ $data->id }}';
+            let actionUrl = '{{ route('advancepaymentVouchers.revoke.document') }}' + '?id=' + '{{ $data->id }}';
             fetch(actionUrl).then(response => {
                 return response.json().then(data => {
                     if (data.status == 'error') {
@@ -2304,7 +2304,7 @@
             }).then((result) => {
                 if (result.isConfirmed) {
                     // Proceed with AJAX request after confirmation
-                    let actionUrl = '{{ route('paymentVouchers.cancel.document') }}' + '?id=' +
+                    let actionUrl = '{{ route('advancepaymentVouchers.cancel.document') }}' + '?id=' +
                         '{{ $data->id }}';
 
                     fetch(actionUrl)
@@ -2473,7 +2473,7 @@
                     $('.preloader').show();
                     $('#applyBtn').prop('disabled', true);
                     $.ajax({
-                        url: "{{ route('paymentVouchers.email') }}",
+                        url: "{{ route('advancepaymentVouchers.email') }}",
                         method: 'POST',
                         data: formData,
                         success: function(response) {
