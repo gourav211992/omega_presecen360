@@ -479,6 +479,10 @@
                                                                                 id="vendorid{{ $no }}"
                                                                                 class="party_vouchers"
                                                                             />
+                                                                            <input type="hidden" name="headerid[]"
+                                                                                id="headerid{{ $no }}"
+                                                                                class="party_vouchers"
+                                                                            />
                                                                         </td>
 
                                                                         <td class="poprod-decpt">
@@ -584,6 +588,10 @@
                                                                         />
                                                                         <input type="hidden" name="vendorid[]"
                                                                                 id="vendorid1"
+                                                                        
+                                                                        />
+                                                                        <input type="hidden" name="headerid[]"
+                                                                                id="headerid1"
                                                                         
                                                                         />
 
@@ -711,7 +719,7 @@
                             </div>
                         </div>
 
-                        <div class="col-md-3">
+                        <!-- <div class="col-md-3">
                             <div class="mb-1">
                                 <label class="form-label">Voucher Type <span class="text-danger">*</span></label>
                                 <select class="form-select select2" id="book_code">
@@ -721,7 +729,7 @@
                                     @endforeach
                                 </select>
                             </div>
-                        </div>
+                        </div> -->
 
                         <div class="col-md-3">
                             <div class="mb-1">
@@ -816,7 +824,7 @@
 
         function setAmount() {
             let isValid = true;
-
+            
             $('.settleInput').each(function() {
                 let input = $(this);
                 let row = input.closest('.voucherRows');
@@ -824,12 +832,11 @@
                 let balance = parseFloat(balanceText);
                 let settleAmount = parseFloat(input.val());
                 let balanceminus = parseFloat(input.data('balanceminus'));
-                let calculatedValueBalance = parseFloat(input.data('calculatedValueBalance'));
-
+                let calculatedvaluebalance = parseFloat(input.data('calculatedvaluebalance'));
+                
                 // Remove existing error message
                 input.next('.invalid-feedback').remove();
-
-                if (settleAmount > balanceminus || settleAmount > calculatedValueBalance) {
+                if (settleAmount > balanceminus || settleAmount > calculatedvaluebalance) {
                     input.addClass('is-invalid');
                     input.after(
                         '<span class="invalid-feedback d-block" style="font-size:12px">Settle amount cannot be greater than balance.</span>'
@@ -858,7 +865,16 @@
                 });
                 return this.value;
             }).get();
+            let selectedVoucherId = $('.vouchers:checked').first().data('id'); // get first checked only
+            let currentRow = $('#currentRow').val();
+            let headerSelector = '#headerid' + currentRow;
+
+            // Set hidden input to selected voucher id
+            $('#headerid' + currentRow).val(selectedVoucherId);
+            console.log('Selected voucher ID:', selectedVoucherId);
+            console.log('Value after set:', $('#headerid' + currentRow).val());
             $('#party_vouchers' + $('#currentRow').val()).val(JSON.stringify(selectedVouchers));
+            
 
             resetCalculations();
             $('#invoice').modal('hide');
@@ -928,7 +944,10 @@
                 $('.voucherCheck' + $(this).attr('data-id')).attr('checked', false);
             }
 
-            if (value > max) {
+            let balanceminus = parseFloat($(this).data('balanceminus'));
+            let calculatedvaluebalance = parseFloat($(this).data('calculatedvaluebalance'));
+
+            if (settleAmount > balanceminus || settleAmount > calculatedvaluebalance) {
                 e.target.value = max;
             }
         });
@@ -939,6 +958,7 @@
             {
                 // $('.drop' + id).val('Invoice');
                 const comingParty = $('#party_id' + id).val();
+                $('#vouchersBody').empty();
                 if (comingParty != $('#currentParty').val()) {
                     $('#vouchersBody').empty();
                     $("#inlineCheckbox1").attr('checked', false);
@@ -981,6 +1001,7 @@
                     partyID: $('#party_id' + $('#currentRow').val()).val(),
                     customer_id: $('#customerid' + $('#currentRow').val()).val(),
                     vendor_id: $('#vendorid' + $('#currentRow').val()).val(),
+                    headerid: $('#headerid' + $('#currentRow').val()).val(),
                     ledgerGroup: $('#groupSelect' + $('#currentRow').val()).val(),
                     book_code: $('#book_code').val(),
                     document_no: $('#document_no').val(),
@@ -993,7 +1014,9 @@
                         const ledgerId = $('#party_id' + $('#currentRow').val()).val();
                         $.each(response.data, function(index, val) 
                         {
-                            var checked = "";
+                            if(val.topay > 0)
+                            {
+                                    var checked = "";
                                     var calculatedValue = (val['total_item_value'] * val['percent']) / 100;
                                     html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
                                         <td>${index + 1}</td>
@@ -1001,19 +1024,20 @@
                                         <td class="fw-bolder text-dark">${val['series']?.book_code?.toUpperCase() ?? '-'}</td>
                                         <td>${val['document_number']}</td>
                                         <td class="text-end">${formatIndianNumber(val['total_item_value'])}</td>
-                                        <td class="balanceInput text-end">0</td>
+                                        <td class="balanceInput text-end">${formatIndianNumber(val['settle'])}</td>
                                         
                                         <td class="text-end">
-                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${calculatedValue}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - 0}"/>
+                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${val['total_item_value'] - val['settle'] > calculatedValue ? calculatedValue : val['total_item_value'] - val['settle']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle']}"/>
                                         </td>
                                         <td class="text-center">
                                             <div class="form-check form-check-inline me-0">
-                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-amount="${calculatedValue}">
+                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle']}">
                                             </div>
                                         </td>
                                         <input type="hidden" class="ledger-id" value="${ledgerId}">
                                         <input type="hidden" class="item-id" value="${val['id']}">
                                         </tr>`;
+                            }
                         });
                         $('#LedgerId').val(response.ledgerId);
                         $('#vouchersBody').append(html);
@@ -1224,7 +1248,7 @@
         function selectAllVouchers() {
             $('.vouchers').each(function() {
                 if (this.checked) {
-                    $(".settleAmount" + this.value).val($(this).attr('data-amount'));
+                    $(".settleAmount" + this.value).val($(this).attr('data-balanceminus'));
                 } else {
                     $(".settleAmount" + this.value).val('0.00');
                 }
@@ -1294,7 +1318,7 @@
 
         $(document).on('click', '.vouchers', function() {
             if (this.checked) {
-                $(".settleAmount" + this.value).val($(this).attr('data-amount'));
+                $(".settleAmount" + this.value).val($(this).attr('data-balanceminus'));
             } else {
                 $(".settleAmount" + this.value).val('0.00');
             }
@@ -1314,11 +1338,15 @@
             let balanceText = row.find('.balanceInput').text().replace(/,/g, '');
             let balance = parseFloat(balanceText);
             let settleAmount = parseFloat(input.val());
+            let balanceminus = parseFloat(input.data('balanceminus'));
+            let calculatedvaluebalance = parseFloat(input.data('calculatedvaluebalance'));
+            let id = input.data('id');
 
             // Remove existing error message span if it exists
             input.next('.invalid-feedback').remove();
 
-            if (settleAmount > balance) {
+            console.log(settleAmount);
+            if (settleAmount > balanceminus || settleAmount > calculatedvaluebalance) {
                 input.addClass('is-invalid');
                 input.after(
                     '<span class="invalid-feedback d-block" style="font-size:12px">Settle amount cannot be greater than balance.</span>'
@@ -1420,6 +1448,7 @@
                         $("#party_vouchers" + id).val("");
                         $("#customerid" + id).val(ui.item.customer.id);
                         $("#vendorid" + id).val(ui.item.vendor.id);
+                        $("#headerid" + id).val(ui.item.id);
                         $("#ledger_id" + id).val(ui.item.value);
                         $("#excAmount" + id).val("0.00");
                         $("#organization" + id).val(ui.item.organization.name);
@@ -1529,6 +1558,8 @@
                             <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers${rowCount}" class="party_vouchers"/>
                             <input type="hidden" name="customer_id[]" type="hidden" id="customerid${rowCount}" class="party_customers"/>
                             <input type="hidden" name="vendor_id[]" type="hidden" id="vendorid${rowCount}" class="party_vendors"/>
+                            <input type="hidden" name="headerid[]" type="hidden" id="headerid${rowCount}" class="party_vendors"/>
+
                         </td>
                         <td class="poprod-decpt"><input type="text" disabled placeholder="Select" class="form-control mw-100 mb-25 partyName" id="party_name${rowCount}"/></td>
                         <td>
