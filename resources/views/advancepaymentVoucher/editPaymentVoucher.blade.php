@@ -1890,7 +1890,7 @@ function check_amount() {
 
             $('#status').val(status);
             if ($('#reference_no').hasClass('is-invalid') && $("#Bank").is(":checked")){
-                showToast('error', 'Reference no1. Already exist');
+                showToast('error', 'Reference no. Already exist');
                 return false;
             }
             else
