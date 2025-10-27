@@ -105,62 +105,64 @@
                             <div class="form-group breadcrumb-right">
                                 <a href="{{ $indexUrl }}" class="btn btn-secondary btn-sm"><i
                                         data-feather="arrow-left-circle"></i> Back</a>
-                                @if (isset($fyear) && $fyear['authorized'])
-                                    @if ($buttons['draft'])
-                                        <button type="button" onclick = "submitForm('draft');"
-                                            class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="submit-button"
-                                            name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
-                                    @endif
-                                    @if ($buttons['cancel'])
-                                        <a id = "cancelButton" type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0"><i
-                                                data-feather='x-circle'></i> Cancel</a>
-                                    @endif
+                                 @if(!request()->has('revisionNumber'))
+                                    @if (isset($fyear) && $fyear['authorized'])
+                                        @if ($buttons['draft'])
+                                            <button type="button" onclick = "submitForm('draft');"
+                                                class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="submit-button"
+                                                name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
+                                        @endif
+                                        @if ($buttons['cancel'])
+                                            <a id = "cancelButton" type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0"><i
+                                                    data-feather='x-circle'></i> Cancel</a>
+                                        @endif
 
-                                    @if ($buttons['submit'])
-                                        <button type="button" onclick = "submitForm('submitted');"
-                                            class="btn btn-primary btn-sm" id="submit-button" name="action"
-                                            value="submitted"><i data-feather="check-circle"></i> Submit</button>
-                                    @endif
-                                    @if ($buttons['approve'])
-                                        <button type="button" id="reject-button" data-bs-toggle="modal"
-                                            data-bs-target="#approveModal" onclick = "setReject();"
-                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
-                                                data-feather="x-circle"></i> Reject</button>
-                                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal"
-                                            data-bs-target="#approveModal" onclick = "setApproval();"><i
-                                                data-feather="check-circle"></i> Approve</button>
-                                    @endif
-                                    @if ($buttons['amend'])
-                                        <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
-                                            Amendment</button>
-                                    @endif
+                                        @if ($buttons['submit'])
+                                            <button type="button" onclick = "submitForm('submitted');"
+                                                class="btn btn-primary btn-sm" id="submit-button" name="action"
+                                                value="submitted"><i data-feather="check-circle"></i> Submit</button>
+                                        @endif
+                                        @if ($buttons['approve'])
+                                            <button type="button" id="reject-button" data-bs-toggle="modal"
+                                                data-bs-target="#approveModal" onclick = "setReject();"
+                                                class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
+                                                    data-feather="x-circle"></i> Reject</button>
+                                            <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal"
+                                                data-bs-target="#approveModal" onclick = "setApproval();"><i
+                                                    data-feather="check-circle"></i> Approve</button>
+                                        @endif
+                                        @if ($buttons['amend'])
+                                            <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
+                                                class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
+                                                Amendment</button>
+                                        @endif
 
 
 
-                                    @if ($buttons['revoke'])
-                                        <a id = "revokeButton" type="button"
-                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
-                                            Revoke</a>
+                                        @if ($buttons['revoke'])
+                                            <a id = "revokeButton" type="button"
+                                                class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
+                                                Revoke</a>
+                                        @endif
+                                        @if ($buttons['post'])
+                                            <button onclick = "onPostVoucherOpen();" type = "button"
+                                                class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
+                                                    data-feather="check-circle"></i> Post</button>
+                                        @endif
+                                        @if (
+                                            $data->document_status == 'approved' ||
+                                                $data->document_status == 'approval_not_required' ||
+                                                $data->document_status == 'posted')
+                                            <a data-bs-toggle="modal" data-bs-target="#addcoulmn"
+                                                class="btn btn-primary btn-sm mb-0 waves-effect"><i data-feather="mail"></i>
+                                                Send Mail</a>
+                                        @endif
                                     @endif
-                                    @if ($buttons['post'])
-                                        <button onclick = "onPostVoucherOpen();" type = "button"
-                                            class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
-                                                data-feather="check-circle"></i> Post</button>
+                                    @if ($buttons['voucher'])
+                                        <button type="button" onclick="onPostVoucherOpen('posted');"
+                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
+                                                data-feather="file-text"></i> Voucher</button>
                                     @endif
-                                    @if (
-                                        $data->document_status == 'approved' ||
-                                            $data->document_status == 'approval_not_required' ||
-                                            $data->document_status == 'posted')
-                                        <a data-bs-toggle="modal" data-bs-target="#addcoulmn"
-                                            class="btn btn-primary btn-sm mb-0 waves-effect"><i data-feather="mail"></i>
-                                            Send Mail</a>
-                                    @endif
-                                @endif
-                                @if ($buttons['voucher'])
-                                    <button type="button" onclick="onPostVoucherOpen('posted');"
-                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
-                                            data-feather="file-text"></i> Voucher</button>
                                 @endif
 
 
@@ -1456,7 +1458,6 @@
                             icon: 'error'
                         });
                     }
-                    location.reload();
                 });
             });
             e.preventDefault();

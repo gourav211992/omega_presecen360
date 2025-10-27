@@ -47,6 +47,10 @@ Route::group(['middleware' => ['apiresponse']], function () {
         Route::post('transporter-requests/close','close')->name('close'); // Close a transporter request
         // Route::post('transporter-requests/reopen','reopen')->name('reopen'); // (Optional) Reopen a closed request
     });
+    Route::controller(FixedAssetSalesController::class)->group(function () {
+    Route::post('get-asset-values-through-barcodes', 'getBarAssetValues')
+        ->name('fixed-asset.get-bar-asset-values');
+});
 
     /**
      * Routes protected with SSO Auth Middleware

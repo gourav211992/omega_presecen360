@@ -69,7 +69,7 @@
                                 <a href="{{ $indexUrl }}" class="btn btn-secondary btn-sm"><i
                                         data-feather="arrow-left-circle"></i> Back</a>
                                 @if(isset($fyear) && $fyear['authorized'])
-                                    @if ($buttons['draft'] || (request('amendment')==1 && $buttons['amend']))
+                                    @if ($buttons['draft'] || (request('amendment')==1 && $buttons['amend']) || $data->document_status==ConstantHelper::DRAFT)
                                         <a type="button" onclick = "submitForm('draft');"
                                             class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="draft"
                                             name="action" value="draft"><i data-feather='save'></i> Save as Draft</a>
@@ -78,8 +78,17 @@
                                     <a id = "cancelButton" type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0"><i data-feather='x-circle'></i> Cancel</a>
                                     @endif
 
-                                    @if ($buttons['submit'] || (request('amendment')==1 && $buttons['amend']))
+                                    @if ($buttons['submit'] || (request('amendment')==1 && $buttons['amend']) || $data->document_status=='draft')
                                         <a type="button" onclick = "submitForm('submitted');"
+                                            class="btn btn-primary btn-sm" id="submitted" name="action"
+                                            value="submitted"><i data-feather="check-circle"></i> Submit</a>
+                                    @endif
+                                    @if($data->document_status==ConstantHelper::REJECTED)
+                                          <a type="button" onclick = "submitForm('draft');"
+                                            class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="draft"
+                                            name="action" value="draft"><i data-feather='save'></i> Save as Draft</a>
+
+                                         <a type="button" onclick = "submitForm('submitted');"
                                             class="btn btn-primary btn-sm" id="submitted" name="action"
                                             value="submitted"><i data-feather="check-circle"></i> Submit</a>
                                     @endif
@@ -105,11 +114,7 @@
                                              Post</button>
                                     @endif --}}
                                 @endif
-                                {{-- @if ($buttons['voucher'])
-                                        <button type="button" onclick="onPostVoucherOpen('posted');"
-                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i data-feather="file-text"></i>
-                                             Voucher</button>
-                                    @endif --}}
+                               
 
 
                                 <input id="submitButton" type="submit" value="Submit" class="hidden" />
@@ -501,6 +506,11 @@
 
 
                                             </div>
+
+                                            @include('partials.approval-history', [
+                                                'document_status' => $data->document_status,
+                                                'revision_number' => $data->revision_number,
+                                            ])
 
 
                                         </div>
@@ -1547,6 +1557,11 @@ function check_amount() {
                     $('#voucherForm').find('input, select, textarea').prop('disabled', true);
                     $('#revisionNumber').prop('disabled', false);
             @endif
+
+            @if (request()->has('revisionNumber'))
+                    $('#voucherForm').find('input, select, textarea').prop('disabled', true);
+                    $('#revisionNumber').prop('disabled', false);
+            @endif
             bind();
 
             if (orgCurrency != "") {
@@ -1875,12 +1890,12 @@ function check_amount() {
 
             $('#status').val(status);
             if ($('#reference_no').hasClass('is-invalid') && $("#Bank").is(":checked")){
-                showToast('error', 'Reference no. Already exist');
+                showToast('error', 'Reference no1. Already exist');
                 return false;
             }
             else
             {
-            if ($('#action_type').val() === "amendment")
+            if ($('#action_type').val() === "amendment" && status!='draft')
                 $("#amendmentModal").modal('show');
             else
             $('#submitButton').click();

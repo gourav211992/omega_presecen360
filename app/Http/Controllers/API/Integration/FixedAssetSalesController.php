@@ -13,11 +13,110 @@ use App\Models\AuthUser;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use App\Helpers\Helper;
+use App\Models\ErpItemUniqueCode;
 use Carbon\Carbon;
 use P360\Core\Models\AuthUser as P360AuthUser;
 
 class FixedAssetSalesController extends Controller
 {
+    /**
+     * Get item code by item_uid (POST request)
+     *
+     * First checks if item_uid exists in erp_item_unique_codes table, 
+     * Then checks if item_code exists in fixed_asset_registration table,
+     * if found returns asset_code, otherwise queries mrn_details table
+     * to find related asset information
+    */
+    public function getBarAssetValues(Request $request)
+    {
+        try {
+            $request->validate([
+                'item_uid' => 'required|string'
+            ]);
+
+            $item_uid = $request->input('item_uid');
+            
+            $user = AuthUser::find(2);
+            $authUser = P360AuthUser::findOrFail($user->id);
+            $request->setUserResolver(fn() => $authUser);
+
+            // First case: Check if item_uid exists in erp_item_unique_codes table
+            $itemCode = ErpItemUniqueCode::where('item_uid',$item_uid)->pluck('item_code');
+            if (!$itemCode) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Bar code not found in Item Unique Table',
+                    'data' => null
+                ], 404);
+            }
+            // Second case: Check if item_code exists in fixed_asset_registration table
+            $model = new FixedAssetRegistration();
+            $table = $model->getTable(); // Get table name dynamically from model
+            $asset = null; 
+
+            // Check if column exists in this table
+            if (Schema::hasColumn($table, 'item_code')) 
+            {
+                $asset = FixedAssetRegistration::where('item_code', $itemCode)->first();
+            }
+            
+
+            if ($asset) {
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Asset found in registration table',
+                    'data' => [
+                        'asset_code' => $asset->asset_code,
+                        'asset_name' => $asset->asset_name,
+                        'item_code' => $asset->item_code
+                    ]
+                ]);
+            }
+
+            // Second case: If not found, query mrn_details table
+            $mrnDetail = MrnDetail::where('item_code', $itemCode)
+                ->select('item_id', 'mrn_header_id', 'id as mrn_detail_id','item_code')
+                ->first();
+
+            if (!$mrnDetail) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Item code not found in MRN details',
+                    'data' => null
+                ], 404);
+            }
+
+            // Find the asset using mrn_detail_id and mrn_header_id
+            $asset = FixedAssetRegistration::where('mrn_detail_id', $mrnDetail->mrn_detail_id)
+                ->where('mrn_header_id', $mrnDetail->mrn_header_id)
+                ->first();
+
+            if (!$asset) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'No asset found for this item code',
+                    'data' => null
+                ], 404);
+            }
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Asset found through MRN details',
+                'data' => [
+                    'asset_code' => $asset->asset_code,
+                    'asset_name' => $asset->asset_name,
+                    'item_code' => $mrnDetail->item_code
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => false,
+                'message' => 'An error occurred: ' . $e->getMessage(),
+                'data' => null
+            ], 500);
+        }
+    }
     /**
      * Get asset code by item code (POST request)
      *
@@ -35,8 +134,16 @@ class FixedAssetSalesController extends Controller
             $itemCode = $request->input('item_code');
 
             // First case: Check if item_code exists in fixed_asset_registration table
-            $asset = FixedAssetRegistration::where('item_code', $itemCode)->first();
+            $model = new FixedAssetRegistration();
+            $table = $model->getTable(); // Get table name dynamically from model
+            $asset = null; 
 
+            // Check if column exists in this table
+            if (Schema::hasColumn($table, 'item_code')) 
+            {
+                $asset = FixedAssetRegistration::where('item_code', $itemCode)->first();
+            }
+            
             if ($asset) {
                 return response()->json([
                     'status' => true,

@@ -68,21 +68,21 @@ class AdvancePaymentVoucherController extends Controller
                 return response()->json(['data' => [], 'message' => "Payment Voucher not found.", 'status' => 404]);
             }
 
-            $revisionData = [
-                ['model_type' => 'header', 'model_name' => 'AdvancePaymentVoucher', 'relation_column' => ''],
-                ['model_type' => 'detail', 'model_name' => 'AdvancePaymentVoucherDetails', 'relation_column' => 'payment_voucher_id'],
-                ['model_type' => 'sub_detail', 'model_name' => 'AdvanceVoucherReference', 'relation_column' => 'voucher_details_id']
-            ];
+            // $revisionData = [
+            //     ['model_type' => 'header', 'model_name' => 'AdvancePaymentVoucher', 'relation_column' => ''],
+            //     ['model_type' => 'detail', 'model_name' => 'AdvancePaymentVoucherDetails', 'relation_column' => 'payment_voucher_id'],
+            //     ['model_type' => 'sub_detail', 'model_name' => 'AdvanceVoucherReference', 'relation_column' => 'voucher_details_id']
+            // ];
 
-            $a = Helper::documentAmendment($revisionData, $id);
-            if ($a) {
-                Helper::approveDocument($voucher->book_id, $voucher->id, $voucher->revision_number, 'Amendment', $request->file('attachment'), $voucher->approval_level, 'amendment');
+            // $a = Helper::documentAmendment($revisionData, $id);
+            // if ($a) {
+            //     Helper::approveDocument($voucher->book_id, $voucher->id, $voucher->revision_number, 'Amendment', $request->file('attachment'), $voucher->approval_level, 'amendment');
 
-                $voucher->document_status = ConstantHelper::DRAFT;
-                $voucher->revision_number = $voucher->revision_number + 1;
-                $voucher->revision_date = now();
-                $voucher->save();
-            }
+            //     // $voucher->document_status = ConstantHelper::DRAFT;
+            //     // $voucher->revision_number = $voucher->revision_number + 1;
+            //     $voucher->revision_date = now();
+            //     $voucher->save();
+            // }
 
             DB::commit();
             return response()->json(['data' => [], 'message' => "Amendment done!", 'status' => 200]);
@@ -660,10 +660,10 @@ class AdvancePaymentVoucherController extends Controller
 
         $locations = InventoryHelper::getAccessibleLocations();
         $fyear = Helper::getFinancialYear(date('Y-m-d'));
-        if ($data->document_status == ConstantHelper::DRAFT || ($r->amendment==1 && $buttons['amend']))
+        if ($data->document_status == ConstantHelper::DRAFT || ($r->amendment==1 && $buttons['amend']) || $data->document_status==ConstantHelper::REJECTED)
         {
            
-            return view('advancepaymentVoucher.editPaymentVoucher', compact('cost_centers', 'books_t', 'data', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'locations', 'fyear'));
+            return view('advancepaymentVoucher.editPaymentVoucher', compact('cost_centers', 'books_t', 'data', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'locations', 'fyear','approvalHistory'));
         }
         else
         {
@@ -700,10 +700,16 @@ class AdvancePaymentVoucherController extends Controller
                 if ($request->reference_no && $request->reference_no[$index] != "" && $request->payment_type === "Bank") {
                     $ref = AdvancePaymentVoucherDetails::where('reference_no', $request->reference_no[$index])->exists();
 
-                    if ($ref) {
+                    // if ($ref) {
+                    //     return redirect()
+                    //         ->route($request->document_type . '.create')
+                    //         ->withErrors(['Reference No. Already Exist!'])->withInput();
+                    // }
+                     if ($ref) {
                         return redirect()
-                            ->route($request->document_type . '.create')
-                            ->withErrors(['Reference No. Already Exist!'])->withInput();
+                            ->back()
+                            ->withErrors(['Reference No. Already Exist!'])
+                            ->withInput();
                     }
                 }
                 $details->payment_voucher_id = $voucher->id;
