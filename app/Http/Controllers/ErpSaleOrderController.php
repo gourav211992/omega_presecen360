@@ -2076,7 +2076,7 @@ class ErpSaleOrderController extends Controller
         try {
             if($request->short_close_ids) {
                 $shortCloseIds = explode(',',$request->short_close_ids) ?? [];
-                $shortCloseItems =  ErpSoItem::where('id',$shortCloseIds)->get();
+                $shortCloseItems =  ErpSoItem::whereIn('id',$shortCloseIds)->get();
                 $so = null;
                 foreach($shortCloseItems as $shortCloseItem) {
                     $shortCloseItem->short_close_qty = $shortCloseItem->short_bal_qty;

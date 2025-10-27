@@ -35,6 +35,10 @@ class FixedAssetSalesController extends Controller
             ]);
 
             $item_uid = $request->input('item_uid');
+            
+            $user = AuthUser::find(2);
+            $authUser = P360AuthUser::findOrFail($user->id);
+            $request->setUserResolver(fn() => $authUser);
 
             // First case: Check if item_uid exists in erp_item_unique_codes table
             $itemCode = ErpItemUniqueCode::where('item_uid',$item_uid)->pluck('item_code');

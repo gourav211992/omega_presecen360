@@ -23,7 +23,7 @@ class Consignee
         $results = ErpConsignee::select('id', 'consignee_name')->where('status',ConstantHelper::ACTIVE)
             ->where('is_customer', 1)->when($this->searchTerm, function ($query) use($term) {
                 $query -> where('consignee_code', 'LIKE', '%' . $term . '%')
-                ->orWhere('consingee_name', 'LIKE', '%'. $term . '%');
+                ->orWhere('consignee_name', 'LIKE', '%'. $term . '%');
             }) -> limit($this->resultsLimit) -> get();
         return $results;
     }
