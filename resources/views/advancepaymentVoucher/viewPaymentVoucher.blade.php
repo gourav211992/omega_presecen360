@@ -172,6 +172,7 @@
                         </div>
                     </div>
                 </div>
+               
                 <div class="content-body">
                     <section id="basic-datatable">
                         <div class="row">
@@ -242,7 +243,8 @@
                                                         </select>
                                                     </div>
                                                 </div>
-
+                                                        
+                                              
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
                                                         <label class="form-label">Document No. <span
@@ -365,6 +367,8 @@
                                                     </div>
                                                 </div>
 
+                                                
+
                                                 <div class="row align-items-center mb-1 cashfield"
                                                     @if ($data->payment_type == 'Bank') style="display: none" @endif>
                                                     <div class="col-md-3">
@@ -418,6 +422,8 @@
 
 
                                                     </div>
+
+                                                     
 
 
                                                     <div class="col-md-7" hidden>
@@ -540,6 +546,7 @@
                                                     </div>
                                                 </div>
 
+                                              
 
                                             </div>
                                             {{-- History Code --}}
@@ -548,6 +555,7 @@
                                                 'revision_number' => $data->revision_number,
                                             ])
                                         </div>
+                                          
                                         <div class="row"
                                             @if ($data->document_status == 'cancel') style="display:none;" @endif>
                                             <div class="col-md-12">
@@ -562,7 +570,7 @@
 
                                                     </div>
                                                 </div>
-
+                                               
                                                 <div class="table-responsive pomrnheadtffotsticky">
                                                     <table
                                                         class="table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad">
@@ -602,6 +610,7 @@
                                                                             class="ledgers"
                                                                             value="{{ $item->ledger_id ?? $item->party_id }}" />
                                                                     </td>
+                                                                    
                                                                     <td class="poprod-decpt"><input type="text"
                                                                             disabled placeholder="Select"
                                                                             class="form-control mw-100 mb-25 partyName"
@@ -620,6 +629,8 @@
                                                                         </select>
                                                                     </td>
                                                                     
+                                                                    
+                                                                    
                                                                     <td>
                                                                         <input type="text" disabled
                                                                             placeholder="Select"
@@ -627,6 +638,8 @@
                                                                             id="organization{{ $no }}"
                                                                             value="{{ $item?->organization?->name ?? $item?->party?->organization?->name ?? $item?->ledger?->organization?->name }}" />
                                                                     </td>
+                                                                    
+                                                                    
                                                                     <td>
                                                                         <div
                                                                             class="position-relative d-flex align-items-center">
@@ -691,6 +704,7 @@
                                                         </tfoot>
                                                     </table>
                                                 </div>
+                                                
 
                                                 <div class="row mt-2">
                                                     <div class="col-md-4 mb-1">
@@ -721,6 +735,8 @@
 
                 </div>
             </form>
+              
+            
             <div class="modal fade text-start show" id="postvoucher" tabindex="-1" aria-labelledby="postVoucherModal"
                 aria-modal="true" role="dialog">
                 <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 1000px">
@@ -801,6 +817,7 @@
 
         </div>
     </div>
+    
     <!-- END: Content-->
     <div class="modal fade text-start" id="invoice" tabindex="-1" aria-labelledby="myModalLabel17"
         aria-hidden="true">
@@ -893,7 +910,7 @@
             </div>
         </div>
     </div>
-
+                                                                        
     <input type="hidden" id="currentParty">
     <input type="hidden" id="currentRow">
     <input type="hidden" id="LedgerId">

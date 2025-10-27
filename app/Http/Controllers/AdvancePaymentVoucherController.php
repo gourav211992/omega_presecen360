@@ -583,6 +583,8 @@ class AdvancePaymentVoucherController extends Controller
             $data = AdvancePaymentVoucher::with('details')->find($id);
         }
 
+       
+
 
         $serviceAlias = Helper::getAccessibleServicesFromMenuAlias($parentURL)['services'];
         $books = Helper::getBookSeriesNew(count($serviceAlias) > 0 ? $serviceAlias[0]->alias : '', $parentURL, true)->get();
@@ -660,14 +662,13 @@ class AdvancePaymentVoucherController extends Controller
 
         $locations = InventoryHelper::getAccessibleLocations();
         $fyear = Helper::getFinancialYear(date('Y-m-d'));
+       
         if ($data->document_status == ConstantHelper::DRAFT || ($r->amendment==1 && $buttons['amend']) || $data->document_status==ConstantHelper::REJECTED)
         {
-           
             return view('advancepaymentVoucher.editPaymentVoucher', compact('cost_centers', 'books_t', 'data', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'locations', 'fyear','approvalHistory'));
         }
         else
         {
-         
             return view('advancepaymentVoucher.viewPaymentVoucher', compact('cost_centers', 'data', 'books_t', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'approvalHistory', 'cc_users', 'to_users', 'to_user_mail', 'to_type', 'locations', 'fyear'));
         }
     }

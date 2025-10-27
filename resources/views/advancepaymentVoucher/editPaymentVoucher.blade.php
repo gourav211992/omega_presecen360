@@ -69,7 +69,7 @@
                                 <a href="{{ $indexUrl }}" class="btn btn-secondary btn-sm"><i
                                         data-feather="arrow-left-circle"></i> Back</a>
                                 @if(isset($fyear) && $fyear['authorized'])
-                                    @if ($buttons['draft'] || (request('amendment')==1 && $buttons['amend']) || $data->document_status==ConstantHelper::DRAFT)
+                                    @if ($buttons['draft'] || (request('amendment')==1 && $buttons['amend']) || $data->document_status==ConstantHelper::DRAFT || $data->document_status==ConstantHelper::REJECTED)
                                         <a type="button" onclick = "submitForm('draft');"
                                             class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="draft"
                                             name="action" value="draft"><i data-feather='save'></i> Save as Draft</a>
@@ -78,17 +78,8 @@
                                     <a id = "cancelButton" type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0"><i data-feather='x-circle'></i> Cancel</a>
                                     @endif
 
-                                    @if ($buttons['submit'] || (request('amendment')==1 && $buttons['amend']) || $data->document_status=='draft')
+                                    @if ($buttons['submit'] || (request('amendment')==1 && $buttons['amend']) || $data->document_status=='draft' || $data->document_status==ConstantHelper::REJECTED)
                                         <a type="button" onclick = "submitForm('submitted');"
-                                            class="btn btn-primary btn-sm" id="submitted" name="action"
-                                            value="submitted"><i data-feather="check-circle"></i> Submit</a>
-                                    @endif
-                                    @if($data->document_status==ConstantHelper::REJECTED)
-                                          <a type="button" onclick = "submitForm('draft');"
-                                            class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="draft"
-                                            name="action" value="draft"><i data-feather='save'></i> Save as Draft</a>
-
-                                         <a type="button" onclick = "submitForm('submitted');"
                                             class="btn btn-primary btn-sm" id="submitted" name="action"
                                             value="submitted"><i data-feather="check-circle"></i> Submit</a>
                                     @endif
