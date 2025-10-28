@@ -1408,7 +1408,7 @@
                     select: function(event, ui) {
                         const documentType = $("#document_type").val();
                         const isReceipts = (documentType ===
-                            '{{ ConstantHelper::RECEIPTS_SERVICE_ALIAS }}');
+                            '{{ ConstantHelper::ADVANCE_RECEIPTS_SERVICE_ALIAS }}');
 
                         let relation = null;
                         let relationLabel = '';
