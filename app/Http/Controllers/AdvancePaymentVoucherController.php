@@ -184,7 +184,7 @@ class AdvancePaymentVoucherController extends Controller
                 'value' => $customer->id,
                 'label' => $customer->name,
                 'code' => $customer->code,
-                'customer' => $customer->customer,
+                'customer' => '',
                 'vendor' => $customer->vendor,
                 'organization' => $customer->vendor->organization ?? $customer->organization,
             ])

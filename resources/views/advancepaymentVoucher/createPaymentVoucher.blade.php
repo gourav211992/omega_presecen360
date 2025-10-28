@@ -59,7 +59,7 @@
                         <div class="content-header-left col-md-6 mb-2">
                             <div class="row breadcrumbs-top">
                                 <div class="col-12">
-                                    <h2 class="content-header-title float-start mb-0">New {{ Str::ucfirst($type) }} Voucher
+                                    <h2 class="content-header-title float-start mb-0">{{ Str::ucfirst($type) }} Voucher
                                     </h2>
                                     <div class="breadcrumb-wrapper">
                                         <ol class="breadcrumb">
@@ -1446,8 +1446,8 @@
                         const id = $(this).attr("data-id");
                         $("#party_id" + id).val(ui.item.value);
                         $("#party_vouchers" + id).val("");
-                        $("#customerid" + id).val(ui.item.customer.id);
-                        $("#vendorid" + id).val(ui.item.vendor.id);
+                        $("#customerid" + id).val(ui.item.customer ? ui.item.customer.id : "");
+                        $("#vendorid" + id).val(ui.item.vendor ? ui.item.vendor.id : "");
                         $("#headerid" + id).val(ui.item.id);
                         $("#ledger_id" + id).val(ui.item.value);
                         $("#excAmount" + id).val("0.00");

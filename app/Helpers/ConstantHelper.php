@@ -590,9 +590,9 @@ class ConstantHelper
     const PAYMENT_VOUCHER_RECEIPT = 'receipt-payment-voucher';
     const ADVANCE_PAYMENT_VOUCHER_RECEIPT = 'advance-receipt-payment-voucher';
     const PAYMENTS_SERVICE_ALIAS = 'payments';
-    const ADVANCE_PAYMENTS_SERVICE_ALIAS = 'advance-payments';
+    const ADVANCE_PAYMENTS_SERVICE_ALIAS = 'Advance Pay';
     const RECEIPTS_SERVICE_ALIAS = 'receipts';
-    const ADVANCE_RECEIPTS_SERVICE_ALIAS = 'advance-receipts';
+    const ADVANCE_RECEIPTS_SERVICE_ALIAS = 'Advance REC';
 
     const RC_SERVICE_ALIAS = "rc";
     const PSV_SERVICE_ALIAS = "psv";

@@ -1681,8 +1681,8 @@ function check_amount() {
                         const id = $(this).attr("data-id");
                         $("#party_id" + id).val(ui.item.value);
                         $("#party_vouchers" + id).val("");
-                        $("#customerid" + id).val(ui.item.customer.id);
-                        $("#vendorid" + id).val(ui.item.vendor.id);
+                        $("#customerid" + id).val(ui.item.customer ? ui.item.customer.id : "");
+                        $("#vendorid" + id).val(ui.item.vendor ? ui.item.vendor.id : "");
                         $("#excAmount" + id).val("0.00");
                         $("#organization" + id).val(ui.item.organization.name);
                         // $(".drop" + id).val("");
