@@ -59,13 +59,13 @@
                         <div class="content-header-left col-md-6 mb-2">
                             <div class="row breadcrumbs-top">
                                 <div class="col-12">
-                                    <h2 class="content-header-title float-start mb-0">{{ Str::ucfirst($type) }} Voucher
+                                    <h2 class="content-header-title float-start mb-0">{{ Str::ucfirst($headName) }} Voucher
                                     </h2>
                                     <div class="breadcrumb-wrapper">
                                         <ol class="breadcrumb">
                                             <li class="breadcrumb-item"><a href="{{ route('/') }}">Home</a></li>
                                             <li class="breadcrumb-item"><a
-                                                    href="{{ $redirectUrl }}">{{ Str::ucfirst($type) }}
+                                                    href="{{ $redirectUrl }}">{{ Str::ucfirst($headName) }}
                                                     Vouchers</a></li>
                                             <li class="breadcrumb-item active">Add New</li>
                                         </ol>
@@ -1432,14 +1432,14 @@
                         }
 
                         // Check credit_days
-                        if (!relation.credit_days || relation.credit_days == 0) {
-                            Swal.fire({
-                                icon: 'warning',
-                                title: `${relationLabel} Credit Days Missing`,
-                                text: `This ${relationLabel.toLowerCase()} does not have credit days set.`
-                            });
-                            return false; // Block selection
-                        }
+                        // if (!relation.credit_days || relation.credit_days == 0) {
+                        //     Swal.fire({
+                        //         icon: 'warning',
+                        //         title: `${relationLabel} Credit Days Missing`,
+                        //         text: `This ${relationLabel.toLowerCase()} does not have credit days set.`
+                        //     });
+                        //     return false; // Block selection
+                        // }
                         $(this).val(ui.item.code);
                         console.log(ui);
 

@@ -53,11 +53,11 @@
                     <div class="content-header-left col-md-6 mb-2">
                         <div class="row breadcrumbs-top">
                             <div class="col-12">
-                                <h2 class="content-header-title float-start mb-0">Edit {{ Str::ucfirst($data->document_type) }} Voucher</h2>
+                                <h2 class="content-header-title float-start mb-0">Edit {{ Str::ucfirst($headName) }} Voucher</h2>
                                 <div class="breadcrumb-wrapper">
                                     <ol class="breadcrumb">
                                         <li class="breadcrumb-item"><a href="{{ route('/') }}">Home</a></li>
-                                        <li class="breadcrumb-item"><a href="{{ $indexUrl }}" >{{ Str::ucfirst($data->document_type) }} Vouchers</a></li>
+                                        <li class="breadcrumb-item"><a href="{{ $indexUrl }}" >{{ Str::ucfirst($headName) }} Vouchers</a></li>
                                         <li class="breadcrumb-item active">Edit New</li>
                                     </ol>
                                 </div>
@@ -1668,14 +1668,14 @@ function check_amount() {
                         }
 
                         // Check credit_days
-                        if (!relation.credit_days || relation.credit_days == 0) {
-                            Swal.fire({
-                                icon: 'warning',
-                                title: `${relationLabel} Credit Days Missing`,
-                                text: `This ${relationLabel.toLowerCase()} does not have credit days set.`
-                            });
-                            return false; // Block selection
-                        }
+                        // if (!relation.credit_days || relation.credit_days == 0) {
+                        //     Swal.fire({
+                        //         icon: 'warning',
+                        //         title: `${relationLabel} Credit Days Missing`,
+                        //         text: `This ${relationLabel.toLowerCase()} does not have credit days set.`
+                        //     });
+                        //     return false; // Block selection
+                        // }
                         $(this).val(ui.item.code);
 
                         const id = $(this).attr("data-id");

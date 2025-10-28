@@ -88,12 +88,12 @@
                             <div class="row breadcrumbs-top">
                                 <div class="col-12">
                                     <h2 class="content-header-title float-start mb-0">Edit
-                                        {{ Str::ucfirst($data->document_type) }} Voucher</h2>
+                                        {{ Str::ucfirst($headName) }} Voucher</h2>
                                     <div class="breadcrumb-wrapper">
                                         <ol class="breadcrumb">
                                             <li class="breadcrumb-item"><a href="{{ route('/') }}">Home</a></li>
                                             <li class="breadcrumb-item"><a
-                                                    href="{{ $indexUrl }}">{{ Str::ucfirst($data->document_type) }}
+                                                    href="{{ $indexUrl }}">{{ Str::ucfirst($headName) }}
                                                     Vouchers</a></li>
                                             <li class="breadcrumb-item active">View</li>
                                         </ol>

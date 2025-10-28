@@ -184,7 +184,7 @@ class AdvancePaymentVoucherController extends Controller
                 'value' => $customer->id,
                 'label' => $customer->name,
                 'code' => $customer->code,
-                'customer' => '',
+                'customer' => $customer->customer,
                 'vendor' => $customer->vendor,
                 'organization' => $customer->vendor->organization ?? $customer->organization,
             ])
@@ -213,11 +213,13 @@ class AdvancePaymentVoucherController extends Controller
         $editRouteString = 'advance-payments.edit';
         if ($parentURL === 'advance-payments') {
             $type = ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS;
+            $headName = ConstantHelper::ADVANCE_PAYMENTS_NAME;
             $createRoute = route('advance-payments.create');
             $editRouteString = 'advance-payments.edit';
         }
         if ($parentURL === 'advance-receipts') {
             $type = ConstantHelper::ADVANCE_RECEIPTS_SERVICE_ALIAS;
+            $headName = ConstantHelper::ADVANCE_RECEIPT_NAME;
             $createRoute = route('advance-receipts.create');
             $editRouteString = 'advance-receipts.edit';
         }
@@ -324,7 +326,7 @@ class AdvancePaymentVoucherController extends Controller
         $cost_groups = CostGroup::with('costCenters')->where('status', 'active')->get()->toArray();
         $fyearLocked = $fyear['authorized'];
         $locations = InventoryHelper::getAccessibleLocations();
-        return view('advancepaymentVoucher.paymentVouchers', compact('cost_centers', 'mappings', 'banks', 'ledgers', 'bank_id', 'ledger_id', 'organizationId', 'data', 'book_type', 'date', 'document_no', 'document_type', 'type', 'createRoute', 'editRouteString', 'date', 'date2', 'fyearLocked', 'locations', 'cost_groups'));
+        return view('advancepaymentVoucher.paymentVouchers', compact('cost_centers','headName','mappings', 'banks', 'ledgers', 'bank_id', 'ledger_id', 'organizationId', 'data', 'book_type', 'date', 'document_no', 'document_type', 'type', 'createRoute', 'editRouteString', 'date', 'date2', 'fyearLocked', 'locations', 'cost_groups'));
     }
 
 
@@ -338,11 +340,13 @@ class AdvancePaymentVoucherController extends Controller
         $storeUrl = route('advance-payments.store');
         if ($parentURL === 'advance-payments') {
             $type = ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS;
+            $headName = ConstantHelper::ADVANCE_PAYMENTS_NAME;
             $redirectUrl = route('advance-payments.index');
             $storeUrl = route('advance-payments.store');
         }
         if ($parentURL === 'advance-receipts') {
             $type = ConstantHelper::ADVANCE_RECEIPTS_SERVICE_ALIAS;
+            $headName = ConstantHelper::ADVANCE_RECEIPT_NAME;
             $redirectUrl = route('advance-receipts.index');
             $storeUrl = route('advance-receipts.store');
         }
@@ -388,7 +392,8 @@ class AdvancePaymentVoucherController extends Controller
                 'fyear',
                 'selectedRows',
                 'rawItemData',
-                'fy_months'
+                'fy_months',
+                'headName',
             )
         );
     }
@@ -565,11 +570,13 @@ class AdvancePaymentVoucherController extends Controller
         $indexUrl = route('advance-payments.index');
         $editUrlString = 'advance-payments.edit';
         if ($parentURL === 'advance-payments') {
+            $headName = ConstantHelper::ADVANCE_PAYMENTS_NAME;
             $editUrl = 'advance-payments.update';
             $indexUrl = route('advance-payments.index');
             $editUrlString = 'advance-payments.edit';
         }
         if ($parentURL === 'advance-receipts') {
+            $headName = ConstantHelper::ADVANCE_RECEIPT_NAME;
             $editUrl = 'advance-receipts.update';
             $indexUrl = route('advance-receipts.index');
             $editUrlString = 'advance-receipts.edit';
@@ -665,11 +672,11 @@ class AdvancePaymentVoucherController extends Controller
        
         if ($data->document_status == ConstantHelper::DRAFT || ($r->amendment==1 && $buttons['amend']) || $data->document_status==ConstantHelper::REJECTED)
         {
-            return view('advancepaymentVoucher.editPaymentVoucher', compact('cost_centers', 'books_t', 'data', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'locations', 'fyear','approvalHistory'));
+            return view('advancepaymentVoucher.editPaymentVoucher', compact('cost_centers','headName','books_t', 'data', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'locations', 'fyear','approvalHistory'));
         }
         else
         {
-            return view('advancepaymentVoucher.viewPaymentVoucher', compact('cost_centers', 'data', 'books_t', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'approvalHistory', 'cc_users', 'to_users', 'to_user_mail', 'to_type', 'locations', 'fyear'));
+            return view('advancepaymentVoucher.viewPaymentVoucher', compact('cost_centers','headName','data', 'books_t', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'approvalHistory', 'cc_users', 'to_users', 'to_user_mail', 'to_type', 'locations', 'fyear'));
         }
     }
 

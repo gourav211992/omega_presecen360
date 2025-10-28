@@ -511,7 +511,9 @@ class Helper
             ->first();
         // $data = NumberPattern::where('book_id', $book_id)->orderBy('id', 'DESC')->first();
         $serviceAlias = $data?->book?->org_service?->alias;
+      
         $modelName = isset(ConstantHelper::SERVICE_ALIAS_MODELS[$serviceAlias]) ? ConstantHelper::SERVICE_ALIAS_MODELS[$serviceAlias] : '';
+       
         $financialYear = self::getFinancialYear($document_date);
         $financialQuarter = self::getFinancialYearQuarter($document_date);
         $financialMonth = self::getFinancialMonth($document_date);
@@ -521,6 +523,7 @@ class Helper
         if ($data && $modelName) {
 
             $model = resolve('App\\Models\\' . $modelName);
+          
 
             if ($data->series_numbering === ConstantHelper::DOC_NO_TYPE_AUTO) {
                 $startFrom = $data->starting_no;

@@ -65,6 +65,9 @@ class ConstantHelper
     const PARTIALLY_APPROVED = 'partially_approved';
     // const REVOKE = 'revoke';
 
+    const ADVANCE_PAYMENTS_NAME = 'Advance Pay';
+    const ADVANCE_RECEIPT_NAME = 'Advance REC';
+
     const ASSIGNED = 'assigned';
     const APPROVED = 'approved';
     const REJECTED = 'rejected';
@@ -588,11 +591,12 @@ class ConstantHelper
     const JOURNAL_VOUCHER = 'jv';
     const CONTRA_VOUCHER = 'cv';
     const PAYMENT_VOUCHER_RECEIPT = 'receipt-payment-voucher';
+    
     const ADVANCE_PAYMENT_VOUCHER_RECEIPT = 'advance-receipt-payment-voucher';
     const PAYMENTS_SERVICE_ALIAS = 'payments';
-    const ADVANCE_PAYMENTS_SERVICE_ALIAS = 'Advance Pay';
+    const ADVANCE_PAYMENTS_SERVICE_ALIAS = 'advance-payments';
     const RECEIPTS_SERVICE_ALIAS = 'receipts';
-    const ADVANCE_RECEIPTS_SERVICE_ALIAS = 'Advance REC';
+    const ADVANCE_RECEIPTS_SERVICE_ALIAS = 'advance-receipts';
 
     const RC_SERVICE_ALIAS = "rc";
     const PSV_SERVICE_ALIAS = "psv";
@@ -727,7 +731,9 @@ class ConstantHelper
         self::RECEIPT_VOUCHER => self::RECEIPT_VOUCHER,
         self::ADVANCE_RECEIPT_VOUCHER => self::ADVANCE_RECEIPT_VOUCHER,
         self::PAYMENT_VOUCHER_RECEIPT => self::PAYMENT_VOUCHER_RECEIPT,
+        self::ADVANCE_PAYMENTS_SERVICE_ALIAS => self::ADVANCE_PAYMENTS_SERVICE_ALIAS,
         self::ADVANCE_PAYMENT_VOUCHER_RECEIPT => self::ADVANCE_PAYMENT_VOUCHER_RECEIPT,
+        self::ADVANCE_RECEIPTS_SERVICE_ALIAS => self::ADVANCE_RECEIPTS_SERVICE_ALIAS,
         self::LEASE_INVOICE_SERVICE_ALIAS => self::SALES_VOUCHER,
         self::PAYMENTS_SERVICE_ALIAS => self::PAYMENTS_SERVICE_ALIAS,
         self::RECEIPTS_SERVICE_ALIAS => self::RECEIPTS_SERVICE_ALIAS,
