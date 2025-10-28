@@ -65,8 +65,8 @@ class ConstantHelper
     const PARTIALLY_APPROVED = 'partially_approved';
     // const REVOKE = 'revoke';
 
-    const ADVANCE_PAYMENTS_NAME = 'Advance Pay';
-    const ADVANCE_RECEIPT_NAME = 'Advance REC';
+    const ADVANCE_PAYMENTS_NAME = 'Advance Payment';
+    const ADVANCE_RECEIPT_NAME = 'Advance Receipt';
 
     const ASSIGNED = 'assigned';
     const APPROVED = 'approved';

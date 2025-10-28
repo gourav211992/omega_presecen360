@@ -8,6 +8,8 @@
         @php
             $currentDebit=0;
             $currentCredit=0;
+            $totalitemcurrentCredit=0;
+            $totalitemcurrentDebit=0;
         @endphp
         <tr>
             <td>{{ date('d-m-Y',strtotime($voucher->date)) }}</td>
@@ -20,6 +22,8 @@
                                 $totalCredit=$totalCredit+$item->credit_amt;
                                 $currentDebit=$item->debit_amt;
                                 $currentCredit=$item->credit_amt;
+                                $totalitemcurrentCredit = $totalitemcurrentCredit +$item->credit_amt;
+                                $totalitemcurrentDebit = $totalitemcurrentDebit +$item->debit_amt;
                             @endphp
                         @else
                             @php
@@ -46,8 +50,8 @@
                 </a>
             </td>
             <td>{{ $voucher->voucher_no??"" }}</td>
-            <td>{{ Helper::formatIndianNumber($currentDebit) }}</td>
-            <td>{{ Helper::formatIndianNumber($currentCredit) }}</td>
+            <td>{{ Helper::formatIndianNumber($totalitemcurrentDebit) }}</td>
+            <td>{{ Helper::formatIndianNumber($totalitemcurrentCredit) }}</td>
         </tr>
     @endforeach
 </tbody>
