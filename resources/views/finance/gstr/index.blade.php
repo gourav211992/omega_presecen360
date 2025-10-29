@@ -36,6 +36,10 @@
                                                         data-bs-target="#exportJsonModal">Export to csv</a></li>
                                             </ul>
                                         </div>
+                                        <a href="{{ route('finance.gstr.gstr-3b-pdf') }}{{ Request::getQueryString() ? '?' . Request::getQueryString() : '' }}" 
+                                           class="btn btn-primary btn-sm mb-50 mb-sm-0 me-50" target="_blank">
+                                            <i data-feather="file-text"></i> GSTR-3B PDF
+                                        </a>
                                         <button class="btn btn-primary btn-sm mb-50 mb-sm-0 me-50" data-bs-target="#filter"
                                             data-bs-toggle="modal"><i data-feather="filter"></i> Filter</button>
 

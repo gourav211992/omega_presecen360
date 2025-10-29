@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>GSTR-3B Report</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            margin: 0;
+            padding: 15px;
+            line-height: 1.3;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border: 2px solid #000;
+            padding: 15px;
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        
+        .header h2 {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .header-info {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            text-align: left;
+        }
+        
+        .header-info div {
+            flex: 1;
+        }
+        
+        .info-table {
+            width: 100%;
+            margin-bottom: 15px;
+            border-collapse: collapse;
+        }
+        
+        .info-table td {
+            padding: 8px;
+            border: 1px solid #000;
+            font-weight: bold;
+        }
+        
+        .main-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        
+        .main-table th,
+        .main-table td {
+            padding: 6px 4px;
+            border: 1px solid #000;
+            text-align: center;
+            font-size: 10px;
+        }
+        
+        .main-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+        
+        .text-left {
+            text-align: left !important;
+        }
+        
+        .text-right {
+            text-align: right !important;
+        }
+        
+        .section-title {
+            font-weight: bold;
+            font-size: 12px;
+            margin: 15px 0 8px 0;
+            background-color: #f5f5f5;
+            padding: 5px;
+            border: 1px solid #000;
+        }
+        
+        .page-break {
+            page-break-before: always;
+        }
+        
+        .verification-section {
+            margin-top: 30px;
+            border: 1px solid #000;
+            padding: 15px;
+        }
+        
+        .instructions {
+            margin-top: 20px;
+            font-size: 10px;
+            border: 1px solid #000;
+            padding: 10px;
+        }
+        
+        .row-number {
+            font-weight: bold;
+            width: 30px;
+        }
+        
+        @media print {
+            body {
+                margin: 0;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Form GSTR-3B</h1>
+        <h2>[ See Rule 61(5)]</h2>
+        
+        <div class="header-info">
+            <div>
+                <strong>Year:</strong><br>
+                {{ $financialYear }}
+            </div>
+            <div>
+                <strong>Month:</strong><br>
+                {{ $previousMonth }}
+            </div>
+        </div>
+        
+        <div style="margin-top: 15px;">
+            <p><strong>{{ $organizationName }}</strong></p>
+            <p><strong>GSTIN:</strong> {{ $gstin }}</p>
+        </div>
+    </div>
+
+    <div class="section-title">3.1 Details of Outward Supplies and inward supplies liable to reverse charge</div>
+    
+    <table class="main-table">
+        <thead>
+            <tr>
+                <th rowspan="2" style="width: 30%;">Nature of Supplies</th>
+                <th rowspan="2" style="width: 15%;">Total Taxable Value</th>
+                <th rowspan="2" style="width: 12%;">Integrated Tax</th>
+                <th colspan="2" style="width: 24%;">Central Tax</th>
+                <th rowspan="2" style="width: 12%;">Cess</th>
+            </tr>
+            <tr>
+                <th style="width: 12%;">Tax Amount</th>
+                <th style="width: 12%;">State/UT Tax</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="text-left">(a) Outward taxable supplies (other than zero rated, nil rated and exempted)</td>
+                <td class="text-right">{{ number_format($gstr3bData['taxable_amt'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bData['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bData['cgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bData['sgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bData['cess'] ?? 0, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="text-left">(b) Outward taxable supplies (zero rated)</td>
+                <td class="text-right">{{ number_format($gstr3bZeroRatedData['taxable_amt'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bZeroRatedData['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bZeroRatedData['cgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bZeroRatedData['sgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bZeroRatedData['cess'] ?? 0, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="text-left">(c) Other outward supplies, (Nil rated, exempted)</td>
+                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['taxable_amt'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['cgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['sgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['cess'] ?? 0, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="text-left">(d) Inward supplies (liable to reverse charge)</td>
+                <td class="text-right">7328553.00</td>
+                <td class="text-right">52121.45</td>
+                <td class="text-right">157160.60</td>
+                <td class="text-right">157160.60</td>
+                <td class="text-right">0.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="section-title">3.2 Of the supplies shown in 3.1 (a) above, details of inter-State supplies made to unregistered persons, composition taxable persons and UIN holders</div>
+    
+    <table class="main-table">
+        <thead>
+            <tr>
+                <th style="width: 40%;">Nature of Supplies</th>
+                <th style="width: 30%;">Place of Supply (State/UT)</th>
+                <th style="width: 15%;">Total Taxable Value</th>
+                <th style="width: 15%;">Amount of Integrated Tax</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if(isset($gstr3bInterStateData) && $gstr3bInterStateData->count() > 0)
+                @foreach($gstr3bInterStateData as $stateData)
+                <tr>
+                    <td class="text-left">(a) Supplies made to Unregistered Persons</td>
+                    <td class="text-left">{{ strtoupper($stateData->place_of_supply) }}(STATE)</td>
+                    <td class="text-right">{{ number_format($stateData->taxable_amt ?? 0, 2) }}</td>
+                    <td class="text-right">{{ number_format($stateData->igst ?? 0, 2) }}</td>
+                </tr>
+                @endforeach
+            @else
+                <tr>
+                    <td class="text-left">(a) Supplies made to Unregistered Persons</td>
+                    <td class="text-left">-</td>
+                    <td class="text-right">0.00</td>
+                    <td class="text-right">0.00</td>
+                </tr>
+            @endif
+        </tbody>
+    </table>
+
+    <div class="section-title">4 Eligible ITC</div>
+    
+    <table class="main-table">
+        <thead>
+            <tr>
+                <th style="width: 40%;">Details</th>
+                <th style="width: 15%;">Integrated Tax</th>
+                <th style="width: 15%;">Central Tax</th>
+                <th style="width: 15%;">State/UT Tax</th>
+                <th style="width: 15%;">Cess</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="text-left">(A) ITC Available (whether in full or part)</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+            <tr>
+                <td class="text-left">(1) Import of goods</td>
+                <td class="text-right">467824.72</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="text-left">(2) Import of services</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="text-left">(3) Inward supplies liable to reverse charge (other than 1 & 2 above)</td>
+                <td class="text-right">52121.45</td>
+                <td class="text-right">156225.00</td>
+                <td class="text-right">156225.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="text-left">(4) Inward supplies from ISD</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="text-left">(5) All other ITC</td>
+                <td class="text-right">30982738.21</td>
+                <td class="text-right">2654766.00</td>
+                <td class="text-right">2654766.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="text-left">(B) ITC Reversed</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="text-left">(1) As per rules 42 & 43 of CGST Rules</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="text-left">(2) Others</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="text-left">(C) Net ITC Available (A)-(B)</td>
+                <td class="text-right">31502684.38</td>
+                <td class="text-right">2810991.00</td>
+                <td class="text-right">2810991.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="text-left">(D) Ineligible ITC</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="text-left">(1) As per section 17(5)</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="section-title">5 Values of exempt, nil-rated and non-GST inward supplies</div>
+    
+    <table class="main-table">
+        <thead>
+            <tr>
+                <th class="row-number"></th>
+                <th style="width: 45%;">Nature of Supplies</th>
+                <th style="width: 25%;">Inter-State Supplies</th>
+                <th style="width: 25%;">Intra-State Supplies</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="row-number">1</td>
+                <td class="text-left">From a supplier under composition scheme, Exempt and Nil rated supply</td>
+                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['inter_state'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['intra_state'] ?? 0, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="row-number">2</td>
+                <td class="text-left">Non GST supply</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">153040.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="section-title">6.1 Payment of Tax</div>
+    
+    <table class="main-table">
+        <thead>
+            <tr>
+                <th rowspan="2" style="width: 15%;">Description</th>
+                <th rowspan="2" style="width: 10%;">Tax Payable</th>
+                <th colspan="4" style="width: 40%;">Paid through ITC</th>
+                <th rowspan="2" style="width: 8%;">Tax Paid TDS/TCS</th>
+                <th rowspan="2" style="width: 8%;">Tax/Cess Paid in</th>
+                <th rowspan="2" style="width: 8%;">Interest</th>
+                <th rowspan="2" style="width: 8%;">Late Fee</th>
+            </tr>
+            <tr>
+                <th style="width: 10%;">Integrated Tax</th>
+                <th style="width: 10%;">Central Tax</th>
+                <th style="width: 10%;">State/UT Tax</th>
+                <th style="width: 10%;">Cess</th>
+            </tr>
+            <tr>
+                <th>1</th>
+                <th>2</th>
+                <th>3</th>
+                <th>4</th>
+                <th>5</th>
+                <th>6</th>
+                <th>7</th>
+                <th>8</th>
+                <th>9</th>
+                <th>10</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="text-left">Integrated Tax</td>
+                <td class="text-right">25966875.12</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+            <tr>
+                <td class="text-left">Central Tax</td>
+                <td class="text-right">10943114.16</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+            <tr>
+                <td class="text-left">State/UT Tax</td>
+                <td class="text-right">10943114.16</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+            <tr>
+                <td class="text-left">Cess</td>
+                <td class="text-right">10943114.16</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+            <tr>
+                <td class="text-left">Reverse Charge</td>
+                <td class="text-right">52121.45</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right">52121.45</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+            <tr>
+                <td class="text-left">Integrated Tax</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+            <tr>
+                <td class="text-left">Reverse Charge</td>
+                <td class="text-right">157160.60</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right">157160.60</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+            <tr>
+                <td class="text-left">Central Tax</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+            <tr>
+                <td class="text-left">Reverse Charge</td>
+                <td class="text-right">157160.60</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right">157160.60</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+            <tr>
+                <td class="text-left">State/UT Tax</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+            <tr>
+                <td class="text-left">Reverse Charge Cess</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="section-title">6.2 TDS/TCS Credit</div>
+    
+    <table class="main-table">
+        <thead>
+            <tr>
+                <th class="row-number"></th>
+                <th style="width: 40%;">Details</th>
+                <th style="width: 18%;">Integrated Tax</th>
+                <th style="width: 18%;">Central Tax</th>
+                <th style="width: 18%;">State/UT Tax</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="row-number">1</td>
+                <td class="text-left">TDS</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="row-number">2</td>
+                <td class="text-left">TCS</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="verification-section">
+        <div class="section-title" style="margin: 0 0 15px 0; background: none; border: none; padding: 0;">Verification (By Authorised Signatory)</div>
+        <p style="text-align: justify; line-height: 1.5;">
+            I hereby solemnly affirm and declare that the information given herein above is true and correct to the best of my knowledge and belief and nothing has been concealed there from.
+        </p>
+        <div style="margin-top: 30px;">
+            <div style="float: left; width: 50%;">
+                <p><strong>Place:</strong> _______________</p>
+            </div>
+            <div style="float: right; width: 50%; text-align: right;">
+                <p><strong>Date:</strong> {{ date('d-m-Y') }}</p>
+            </div>
+            <div style="clear: both;"></div>
+            <div style="margin-top: 40px; text-align: right;">
+                <p>_________________________</p>
+                <p><strong>Signature of Authorised Signatory</strong></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <div class="section-title" style="margin: 0 0 10px 0; background: none; border: none; padding: 0;">INSTRUCTIONS:</div>
+        <p><strong>1)</strong> Value of Taxable Supplies = Value of invoices + Value of Debit Notes - Value of Credit Notes + Value of advances received for which invoices have not been issued in the same month - Value of advances adjusted against invoices.</p>
+        <p><strong>2)</strong> Details of advances as well as adjustment of same against invoices to be adjusted and not shown separately.</p>
+        <p><strong>3)</strong> Amendment in any details to be adjusted and not shown separately.</p>
+    </div>
+
+    <div style="margin-top: 30px; text-align: center; font-size: 10px; border-top: 1px solid #000; padding-top: 10px;">
+        <p><strong>Generated on:</strong> {{ date('d-m-Y H:i:s') }}</p>
+        <p>This is a system generated report</p>
+    </div>
+</body>
+</html>

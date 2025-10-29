@@ -18,6 +18,7 @@ use App\Helpers\CommonHelper;
 use App\Helpers\GstrHelper;
 use App\Helpers\Helper;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Barryvdh\DomPDF\Facade\Pdf;
 class GstrController extends Controller
 {
 
@@ -542,5 +543,171 @@ class GstrController extends Controller
             return redirect($fileName);
         }
 
+    }
+
+    private function getGstr3bInterStateData($gstin, $month)
+    {
+        $b2clTypeIds = ErpGstInvoiceType::whereIn("code", ["b2cl"])
+            ->where("status", ConstantHelper::ACTIVE)
+            ->pluck("id")
+            ->toArray();
+
+        $data = GstrCompiledData::whereIn("invoice_type_id", $b2clTypeIds)
+            ->where("erp_gstr_compiled_data.month", $month)
+            ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+            ->where("erp_gstr_compiled_data.igst", ">", 0)
+            ->select(
+                "erp_gstr_compiled_data.place_of_supply",
+                DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
+                DB::raw("SUM(erp_gstr_compiled_data.igst) as igst")
+            )
+            ->whereNotNull("invoice_id")
+            ->whereNotNull("place_of_supply")
+            ->groupBy("place_of_supply")
+            ->get();
+
+        return $data;
+    }
+
+    private function getGstr3bZeroRatedData($gstin, $month)
+    {
+        $data = GstrCompiledData::where("erp_gstr_compiled_data.month", $month)
+            ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+            ->where("erp_gstr_compiled_data.rate", 0)
+            ->select(
+                DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt")
+            )
+            ->whereNotNull("invoice_id")
+            ->first();
+
+        return [
+            "taxable_amt" => $data->taxable_amt ?? 0,
+            "igst" => 0,
+            "cgst" => 0,
+            "sgst" => 0,
+            "cess" => 0
+        ];
+    }
+
+    private function getGstr3bNilRatedExemptedData($gstin, $month)
+    {
+        $data = GstrCompiledData::where("erp_gstr_compiled_data.month", $month)
+            ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+            ->select(
+                DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt")
+            )
+            ->whereNotNull("invoice_id")
+            ->first();
+
+        return [
+            "taxable_amt" => $data->taxable_amt ?? 0,
+            "igst" => 0,
+            "cgst" => 0,
+            "sgst" => 0,
+            "cess" => 0
+        ];
+    }
+
+    private function getGstr3bB2BData($gstin, $month)
+    {
+        $b2bTypeIds = ErpGstInvoiceType::whereIn("code", ["b2b", "b2ba"])
+            ->where("status", ConstantHelper::ACTIVE)
+            ->pluck("id")
+            ->toArray();
+
+        $data = GstrCompiledData::whereIn("invoice_type_id", $b2bTypeIds)
+            ->where("erp_gstr_compiled_data.month", $month)
+            ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+            ->select(
+                DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
+                DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
+                DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
+                DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
+                DB::raw("SUM(erp_gstr_compiled_data.cess) as cess")
+            )
+            ->whereNotNull("invoice_id")
+            ->first();
+
+        return [
+            "taxable_amt" => $data->taxable_amt ?? 0,
+            "igst" => $data->igst ?? 0,
+            "cgst" => $data->cgst ?? 0,
+            "sgst" => $data->sgst ?? 0,
+            "cess" => $data->cess ?? 0
+        ];
+    }
+
+    public function gstr3b(Request $request)
+    {
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $gstin = $organization->gst_number;
+        $organizationName = $organization->name;
+
+        $fyear = Helper::getFinancialYear(date("Y-m-d"));
+        $financialYear = $fyear["range"] ?? "2025-26";
+
+        $currentDate = now();
+        $previousMonthDate = $currentDate->copy()->subMonth();
+        $previousMonthName = $previousMonthDate->format("M");
+        $previousMonthYear = $previousMonthDate->year;
+        $previousMonth = $previousMonthName . "-" . $previousMonthYear;
+        $month = $previousMonthDate->month;
+
+        $gstr3bData = $this->getGstr3bB2BData($gstin, $month);
+        $gstr3bZeroRatedData = $this->getGstr3bZeroRatedData($gstin, $month);
+        $gstr3bNilRatedExemptedData = $this->getGstr3bNilRatedExemptedData($gstin, $month);
+        $gstr3bInterStateData = $this->getGstr3bInterStateData($gstin, $month);
+
+        return view("finance.gstr.gstr3b", compact(
+            "financialYear",
+            "previousMonth",
+            "fyear",
+            "gstin",
+            "organizationName",
+            "gstr3bData",
+            "gstr3bZeroRatedData",
+            "gstr3bNilRatedExemptedData",
+            "gstr3bInterStateData"
+        ));
+    }
+
+    public function gstr3bPdf(Request $request)
+    {
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $gstin = $organization->gst_number;
+        $organizationName = $organization->name;
+
+        $fyear = Helper::getFinancialYear(date("Y-m-d"));
+        $financialYear = $fyear["range"] ?? "2025-26";
+
+        $currentDate = now();
+        $previousMonthDate = $currentDate->copy()->subMonth();
+        $previousMonthName = $previousMonthDate->format("M");
+        $previousMonthYear = $previousMonthDate->year;
+        $previousMonth = $previousMonthName . "-" . $previousMonthYear;
+        $month = $previousMonthDate->month;
+
+        $gstr3bData = $this->getGstr3bB2BData($gstin, $month);
+        $gstr3bZeroRatedData = $this->getGstr3bZeroRatedData($gstin, $month);
+        $gstr3bNilRatedExemptedData = $this->getGstr3bNilRatedExemptedData($gstin, $month);
+        $gstr3bInterStateData = $this->getGstr3bInterStateData($gstin, $month);
+
+        $pdf = Pdf::loadView('finance.gstr.gstr3b-pdf', compact(
+            "financialYear",
+            "previousMonth",
+            "fyear",
+            "gstin",
+            "organizationName",
+            "gstr3bData",
+            "gstr3bZeroRatedData",
+            "gstr3bNilRatedExemptedData",
+            "gstr3bInterStateData"
+        ));
+
+        $pdf->setPaper('A4', 'portrait');
+        
+        $filename = "GSTR3B_" . $gstin . "_" . $previousMonth . ".pdf";
+        
+        return $pdf->download($filename);
     }
 }
