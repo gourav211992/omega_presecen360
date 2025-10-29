@@ -426,12 +426,16 @@
                     if (response.data.length > 0) {
                         let html = '';
                         let rowIndex = 1; 
+                        console.log(preSelected);
                         $.each(response.data, function(index, voucher) {
                             // if (!preSelected.includes(voucher.id.toString())) {
-                            if (!preSelected.includes(voucher.id.toString()) && voucher.balance >= 1) {
+                            console.log(!preSelected.includes(voucher.id.toString()));
+                            if (!preSelected.includes(voucher.id.toString())) {
                                 const items = voucher.items || [];
 
                                 items.forEach(function(item, i) {
+                                if(item.balance >= 1)
+                                {
                                     const uniqueKey = `${voucher.id}_${i}`;
                                     voucherMap[uniqueKey] = {
                                         ...voucher,
@@ -467,6 +471,7 @@
                                     </tr>`;
                                     
                                     rowIndex++;
+                                }
                                 });
                             }
                         });
