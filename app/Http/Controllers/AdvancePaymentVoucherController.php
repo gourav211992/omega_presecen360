@@ -1671,7 +1671,7 @@ class AdvancePaymentVoucherController extends Controller
 
                         if ($request->document_no) 
                         {
-                            $data = $data->where('voucher_no', 'like', "%" . $request->document_no . "%");
+                            $data = $data->where('doc_no', 'like', "%" . $request->document_no . "%");
                         }
 
                 
@@ -1765,12 +1765,22 @@ class AdvancePaymentVoucherController extends Controller
                     ->orderBy('document_date', 'asc')
                     ->orderBy('created_at', 'asc');
 
-                if ($request->filled('date')) {
-                    [$startDate, $endDate] = explode(' to ', $request->date);
-                    $start = Carbon::parse(trim($startDate))->format('Y-m-d');
-                    $end = Carbon::parse(trim($endDate))->format('Y-m-d');
-                    $data->whereBetween('document_date', [$start, $end]);
-                }
+                    if ($request->filled('date')) {
+                        $parts = explode(' to ', $request->date);
+                        $startDate = trim($parts[0] ?? '');
+                        $endDate = trim($parts[1] ?? $parts[0] ?? '');
+                    
+                        if ($startDate) {
+                            $start = Carbon::parse($startDate)->format('Y-m-d');
+                            $end = Carbon::parse($endDate)->format('Y-m-d');
+                    
+                            $data->whereBetween('document_date', [$start, $end]);
+                        } else {
+                            Log::warning('Invalid date format in request', ['date' => $request->date]);
+                        }
+                    }
+                    
+                    
 
                 if ($request->book_code) {
                     $data->whereHas('series', function ($q) use ($request) {
@@ -1781,7 +1791,7 @@ class AdvancePaymentVoucherController extends Controller
                 }
 
                 if ($request->document_no) {
-                    $data->where('voucher_no', 'like', "%" . $request->document_no . "%");
+                    $data->where('doc_no', 'like', "%" . $request->document_no . "%");
                 }
 
                 $data = $data->with(['series' => function ($s) {
