@@ -64,6 +64,7 @@
                             </div>
                         </div>
                     </div>
+
                         <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
                             <div class="form-group breadcrumb-right">
                                 <a href="{{ $indexUrl }}" class="btn btn-secondary btn-sm"><i
@@ -74,15 +75,12 @@
                                             class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="draft"
                                             name="action" value="draft"><i data-feather='save'></i> Save as Draft</a>
                                     @endif
-                                    @if($buttons['cancel'])
-                                    <a id = "cancelButton" type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0"><i data-feather='x-circle'></i> Cancel</a>
-                                    @endif
-
                                     @if ($buttons['submit'] || (request('amendment')==1 && $buttons['amend']) || $data->document_status=='draft' || $data->document_status==ConstantHelper::REJECTED)
                                         <a type="button" onclick = "submitForm('submitted');"
                                             class="btn btn-primary btn-sm" id="submitted" name="action"
                                             value="submitted"><i data-feather="check-circle"></i> Submit</a>
                                     @endif
+                                   
                                     {{-- @if ($buttons['approve'])
                                         <button type="button" id="reject-button" data-bs-toggle="modal"
                                             data-bs-target="#approveModal" onclick = "setReject();"
@@ -104,6 +102,9 @@
                                             class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i data-feather="check-circle"></i>
                                              Post</button>
                                     @endif --}}
+                                    @if($buttons['cancel'])
+                                    <a id = "cancelButton" type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0"><i data-feather='x-circle'></i> Cancel</a>
+                                    @endif
                                 @endif
                                
 
