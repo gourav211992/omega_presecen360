@@ -112,33 +112,28 @@
                                                 class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="submit-button"
                                                 name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
                                         @endif
-                                        @if ($buttons['cancel'])
-                                            <a id = "cancelButton" type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0"><i
-                                                    data-feather='x-circle'></i> Cancel</a>
-                                        @endif
-
                                         @if ($buttons['submit'])
                                             <button type="button" onclick = "submitForm('submitted');"
                                                 class="btn btn-primary btn-sm" id="submit-button" name="action"
                                                 value="submitted"><i data-feather="check-circle"></i> Submit</button>
                                         @endif
+                                       
+
+                                     
                                         @if ($buttons['approve'])
-                                            <button type="button" id="reject-button" data-bs-toggle="modal"
+                                                <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal"
+                                                data-bs-target="#approveModal" onclick = "setApproval();"><i
+                                                    data-feather="check-circle"></i> Approve</button>
+                                                <button type="button" id="reject-button" data-bs-toggle="modal"
                                                 data-bs-target="#approveModal" onclick = "setReject();"
                                                 class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
                                                     data-feather="x-circle"></i> Reject</button>
-                                            <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal"
-                                                data-bs-target="#approveModal" onclick = "setApproval();"><i
-                                                    data-feather="check-circle"></i> Approve</button>
                                         @endif
                                         @if ($buttons['amend'])
                                             <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
                                                 class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
                                                 Amendment</button>
                                         @endif
-
-
-
                                         @if ($buttons['revoke'])
                                             <a id = "revokeButton" type="button"
                                                 class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
@@ -162,6 +157,10 @@
                                         <button type="button" onclick="onPostVoucherOpen('posted');"
                                             class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
                                                 data-feather="file-text"></i> Voucher</button>
+                                    @endif
+                                    @if ($buttons['cancel'])
+                                    <a id="cancelButton" type="button" class="btn btn-outline-secondary btn-sm mb-50 mb-sm-0"><i
+                                                data-feather='x-circle'></i> Cancel</a>
                                     @endif
                                 @endif
 
