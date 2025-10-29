@@ -15,7 +15,7 @@
                     <div class="col-md-12 bg-light border-bottom mb-1 po-reportfileterBox">
                         <div class="row pofilterhead action-button align-items-center">
                             <div class="col-md-4">
-                                <h3>{{ Str::ucfirst($headName) }} Vouchers</h3>
+                                <h3>{{ Str::ucfirst($headName) }}</h3>
                                 <p>{{$date2}}</p>
                             </div>
                             <div class="col-md-8 text-sm-end">
