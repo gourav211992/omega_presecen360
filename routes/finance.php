@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\FurbooksController;
+use App\Http\Controllers\Finance\GstrController;
 use App\Http\Controllers\AdvancePaymentVoucherController;
 
 /*
@@ -67,5 +68,12 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/advancevoucher/check-reference', [AdvancePaymentVoucherController::class, 'checkReference'])->name('advancevoucher.checkReference');
     Route::post('advancegetLedgerVouchers', [AdvancePaymentVoucherController::class, 'getLedgerVouchers'])->name('advancegetLedgerVouchers');
 
+    Route::controller(GstrController::class)->prefix('finance/gstr')->group(function () {
+        Route::get('/gstr-3b', 'gstr3b')->name('finance.gstr.gstr-3b');
+        Route::get('/gstr-3b-pdf', 'gstr3bPdf')->name('finance.gstr.gstr-3b-pdf');
+    });
+
 });
+
+
 

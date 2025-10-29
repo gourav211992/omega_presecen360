@@ -3071,8 +3071,6 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('/json', 'json')->name('finance.gstr.json');
         Route::get('/details/{id}', 'details')->name('finance.gstr.details');
         Route::get('/detail/csv/{id}', 'detailCsv')->name('finance.gstr.detail-csv');
-        Route::get('/gstr-3b', 'gstr3b')->name('finance.gstr.gstr-3b');
-        Route::get('/gstr-3b-pdf', 'gstr3bPdf')->name('finance.gstr.gstr-3b-pdf');
     });
     Route::controller(ErpRgrDefectTypeController::class)->prefix('rgr-defect-types')->group(function () {
         Route::get('/', 'index')->name('rgrd.index');
