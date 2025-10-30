@@ -1296,20 +1296,9 @@ class MaintWoController extends Controller
             $workOrder->supporting_documents = $supportingDocsJson;
             $workOrder->save();
 
-            if ($workOrder->document_status != ConstantHelper::DRAFT) {
-                $doc = Helper::approveDocument(
-                    $workOrder->book_id,
-                    $workOrder->id,
-                    $workOrder->revision_number,
-                    "",
-                    null,
-                    1,
-                    'submit',
-                    0,
-                    get_class($workOrder)
-                );
-
-                $workOrder->document_status = $doc['approvalStatus'] ?? $workOrder->document_status;
+            if ($request->action_type != 'draft') {
+                $doc = Helper::approveDocument($workOrder->book_id, $workOrder->id, $workOrder->revision_number, "", null, 1, 'submit', 0, get_class($workOrder));
+                $workOrder->document_status = $doc['approvalStatus'];
                 $workOrder->save();
             }
 

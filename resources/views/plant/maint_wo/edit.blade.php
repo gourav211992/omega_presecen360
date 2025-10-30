@@ -112,7 +112,7 @@
 
         @endphp
 
-
+		<input type="hidden" class="action_type" name="action_type" value="">
         {{-- Hidden fields --}}
         <input type="hidden" name="book_code" id="book_code_input" value="{{ $workOrder->book_code ?? '' }}">
         <input type="hidden" name="doc_number_type" id="doc_number_type" value="{{ $workOrder->doc_number_type ?? '' }}">
@@ -1228,7 +1228,7 @@
 			<form id="amendment-form" action="{{ route('maint-wo.update', $workOrder->id) }}" method="POST" enctype="multipart/form-data">
 				@csrf
 				@method('PUT')
-				<input type="hidden" name="action_type" value="amendment">
+				<input type="hidden" id="action_type" name="action_type" value="amendment">
 				<input type="hidden" name="book_code" value="{{ $workOrder->book_code }}">
 				<input type="hidden" name="book_id" value="{{ $workOrder->book_id }}">
 				<input type="hidden" name="doc_number_type" value="{{ $workOrder->doc_number_type }}">
@@ -1555,6 +1555,7 @@
 			console.log('🔍 Draft submission - skipping reference validation');
 			$('.preloader').show();
 			document.getElementById('document_status').value = 'draft';
+			document.getElementsByClassName('action_type')[0].value = 'draft';
 			updateJsonData();
 			document.getElementById('maint-wo-form').submit();
 		});
@@ -3013,6 +3014,7 @@ function processDefectSelection() {
 				}
 				
 				if (isAmendmentMode) {
+					document.getElementsByClassName("action_type")[0].value = "amendment";
 					// Show amendment modal for amendment mode
 					$("#amendmentSubmitModal").modal('show');
 				} else {

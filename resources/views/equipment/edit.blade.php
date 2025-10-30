@@ -68,6 +68,7 @@
                     </div>
                 </div>
                 <input type="hidden" name="status" id="status">
+                <input type="hidden" name="document_status" id="document_status">
                 <input type="hidden" name="action_type" id="action_type" value="{{ request('amendment') == 1 ? 'amendment' : 'submit' }}">
                     @if (session('success'))
                         <div class="alert alert-success">
@@ -2314,97 +2315,142 @@
             });
         });
 
-            function submitForm(status) {
-                console.log('submitForm called with status:', status);
+        function submitForm(status) {
+            console.log('submitForm called with status:', status);
 
-                // Check if we're in amendment mode (amendment=1 in URL)
-                const urlParams = new URLSearchParams(window.location.search);
-                const isAmendment = urlParams.get('amendment') === '1';
+            // Check if we're in amendment mode (amendment=1 in URL)
+            const urlParams = new URLSearchParams(window.location.search);
+            const isAmendment = urlParams.get('amendment') === '1';
 
-                if (isAmendment && (status === 'submitted')) {
-                    $('#status').val(status);
-                    $('#action_type').val('amendment'); // Ensure action_type is set to amendment
-                    $('#amendmentconfirm').modal('show');
-                    return;
-                }
-
+            if (isAmendment && (status === 'submitted')) {
                 $('#status').val(status);
-                // Set action_type based on amendment mode
-                if (isAmendment) {
-                    $('#action_type').val('amendment');
-                } else {
-                    $('#action_type').val('submit');
-                }
+                $('#action_type').val('amendment'); // Ensure action_type is set to amendment
+                $('#amendmentconfirm').modal('show');
+                return;
+            }
 
-                let isValid = true;
-                let errorMessage = '';
+            $('#status').val(status);
+            $('#document_status').val(status);
+            // Set action_type based on amendment mode and status
+            if (isAmendment && status === 'submitted') {
+                $('#action_type').val('amendment');
+            } else {
+                $('#action_type').val(status);
+            }
 
-                // Basic Information validation
-                console.log('Validating basic information...');
-                if ($('#organization_id').val() === '') {
-                    console.log('Organization is empty');
+            let isValid = true;
+            let errorMessage = '';
+
+            // Basic Information validation
+            console.log('Validating basic information...');
+            if ($('#organization_id').val() === '') {
+                console.log('Organization is empty');
+                isValid = false;
+                errorMessage += 'Organization is required.<br>';
+            }
+
+            if ($('#location_id').val() === '' && isValid) {
+                console.log('Location is empty');
+                isValid = false;
+                errorMessage += 'Location is required.<br>';
+            }
+
+            if ($('#category_id').val() === '' && isValid) {
+                console.log('Category is empty');
+                isValid = false;
+                errorMessage += 'Category is required.<br>';
+            }
+
+            if ($('input[name="name"]').val() === '' && isValid) {
+                console.log('Name is empty');
+                isValid = false;
+                errorMessage += 'Name is required.<br>';
+            }
+
+            // Validate maintenance rows if any exist
+            console.log('Validating maintenance rows...');
+            let hasCompleteMaintenanceRow = false;
+            let maintenanceRowCount = 0;
+
+            $('#maintenanceRows tr').each(function (index) {
+            const row = $(this);
+            const rowNumber = index + 1;
+            maintenanceRowCount++;
+            console.log(`Validating maintenance row ${rowNumber}`);
+
+            const typeSelect = row.find('select[name^="maintenance"][name$="[type]"]');
+            const frequencySelect = row.find('select[name^="maintenance"][name$="[frequency]"]');
+            const dateInput = row.find('input[name^="maintenance"][name$="[date]"]');
+            const timeInput = row.find('input[name^="maintenance"][name$="[time]"]');
+            const bomSelect = row.find('select[name^="maintenance"][name$="[bom]"]');
+            const checklistHidden = row.find('.selected-checklists');
+
+            console.log(`Row ${rowNumber} field values:`, {
+                type: typeSelect.val(),
+                frequency: frequencySelect.val(),
+                date: dateInput.val(),
+                time: timeInput.val(),
+                bom: bomSelect.val(),
+                checklist: checklistHidden.val()
+            });
+
+            // Check if this row is completely filled
+            const isRowComplete = typeSelect.val() !== '' && frequencySelect.val() !== '' &&
+                                dateInput.val() !== '' && timeInput.val() !== '' &&
+                                bomSelect.val() !== '' && checklistHidden.val() !== '';
+
+            if (isRowComplete) {
+                hasCompleteMaintenanceRow = true;
+                console.log(`Row ${rowNumber} is completely filled`);
+            }
+
+            // For final submission (not draft), ALL rows must be completely filled
+            if (status === 'submitted') {
+                console.log(`Final submission - validating ALL fields in row ${rowNumber}`);
+
+                if (typeSelect.val() === '') {
+                    console.log(`Row ${rowNumber}: Maintenance type is empty`);
                     isValid = false;
-                    errorMessage += 'Organization is required.<br>';
+                    errorMessage += `Maintenance type is required for row ${rowNumber}.<br>`;
                 }
 
-                if ($('#location_id').val() === '' && isValid) {
-                    console.log('Location is empty');
+                if (frequencySelect.val() === '') {
+                    console.log(`Row ${rowNumber}: Frequency is empty`);
                     isValid = false;
-                    errorMessage += 'Location is required.<br>';
+                    errorMessage += `Frequency is required for row ${rowNumber}.<br>`;
                 }
 
-                if ($('#category_id').val() === '' && isValid) {
-                    console.log('Category is empty');
+                if (dateInput.val() === '') {
+                    console.log(`Row ${rowNumber}: Date is empty`);
                     isValid = false;
-                    errorMessage += 'Category is required.<br>';
+                    errorMessage += `Start date is required for row ${rowNumber}.<br>`;
                 }
 
-                if ($('input[name="name"]').val() === '' && isValid) {
-                    console.log('Name is empty');
+                if (timeInput.val() === '') {
+                    console.log(`Row ${rowNumber}: Time is empty`);
                     isValid = false;
-                    errorMessage += 'Name is required.<br>';
+                    errorMessage += `Time is required for row ${rowNumber}.<br>`;
                 }
 
-                // Validate maintenance rows if any exist
-                console.log('Validating maintenance rows...');
-                let hasCompleteMaintenanceRow = false;
-                let maintenanceRowCount = 0;
-
-                $('#maintenanceRows tr').each(function (index) {
-                const row = $(this);
-                const rowNumber = index + 1;
-                maintenanceRowCount++;
-                console.log(`Validating maintenance row ${rowNumber}`);
-
-                const typeSelect = row.find('select[name^="maintenance"][name$="[type]"]');
-                const frequencySelect = row.find('select[name^="maintenance"][name$="[frequency]"]');
-                const dateInput = row.find('input[name^="maintenance"][name$="[date]"]');
-                const timeInput = row.find('input[name^="maintenance"][name$="[time]"]');
-                const bomSelect = row.find('select[name^="maintenance"][name$="[bom]"]');
-                const checklistHidden = row.find('.selected-checklists');
-
-                console.log(`Row ${rowNumber} field values:`, {
-                    type: typeSelect.val(),
-                    frequency: frequencySelect.val(),
-                    date: dateInput.val(),
-                    time: timeInput.val(),
-                    bom: bomSelect.val(),
-                    checklist: checklistHidden.val()
-                });
-
-                // Check if this row is completely filled
-                const isRowComplete = typeSelect.val() !== '' && frequencySelect.val() !== '' &&
-                                    dateInput.val() !== '' && timeInput.val() !== '' &&
-                                    bomSelect.val() !== '' && checklistHidden.val() !== '';
-
-                if (isRowComplete) {
-                    hasCompleteMaintenanceRow = true;
-                    console.log(`Row ${rowNumber} is completely filled`);
+                if (bomSelect.val() === '') {
+                    console.log(`Row ${rowNumber}: BOM is empty`);
+                    isValid = false;
+                    errorMessage += `Maintenance BOM is required for row ${rowNumber}.<br>`;
                 }
 
-                // For final submission (not draft), ALL rows must be completely filled
-                if (status === 'submitted') {
-                    console.log(`Final submission - validating ALL fields in row ${rowNumber}`);
+                if (!checklistHidden.val() || checklistHidden.val() === '') {
+                    console.log(`Row ${rowNumber}: Checklist is empty`);
+                    isValid = false;
+                    errorMessage += `Checklist is required for row ${rowNumber}.<br>`;
+                }
+            } else {
+                // For draft submission, only validate rows that have some data
+                const hasAnyValue = typeSelect.val() !== '' || frequencySelect.val() !== '' ||
+                                    dateInput.val() !== '' || timeInput.val() !== '' ||
+                                    bomSelect.val() !== '' || checklistHidden.val() !== '';
+
+                if (hasAnyValue && isValid) {
+                    console.log(`Draft submission - validating partial row ${rowNumber}`);
 
                     if (typeSelect.val() === '') {
                         console.log(`Row ${rowNumber}: Maintenance type is empty`);
@@ -2441,55 +2487,11 @@
                         isValid = false;
                         errorMessage += `Checklist is required for row ${rowNumber}.<br>`;
                     }
-                } else {
-                    // For draft submission, only validate rows that have some data
-                    const hasAnyValue = typeSelect.val() !== '' || frequencySelect.val() !== '' ||
-                                       dateInput.val() !== '' || timeInput.val() !== '' ||
-                                       bomSelect.val() !== '' || checklistHidden.val() !== '';
-
-                    if (hasAnyValue && isValid) {
-                        console.log(`Draft submission - validating partial row ${rowNumber}`);
-
-                        if (typeSelect.val() === '') {
-                            console.log(`Row ${rowNumber}: Maintenance type is empty`);
-                            isValid = false;
-                            errorMessage += `Maintenance type is required for row ${rowNumber}.<br>`;
-                        }
-
-                        if (frequencySelect.val() === '') {
-                            console.log(`Row ${rowNumber}: Frequency is empty`);
-                            isValid = false;
-                            errorMessage += `Frequency is required for row ${rowNumber}.<br>`;
-                        }
-
-                        if (dateInput.val() === '') {
-                            console.log(`Row ${rowNumber}: Date is empty`);
-                            isValid = false;
-                            errorMessage += `Start date is required for row ${rowNumber}.<br>`;
-                        }
-
-                        if (timeInput.val() === '') {
-                            console.log(`Row ${rowNumber}: Time is empty`);
-                            isValid = false;
-                            errorMessage += `Time is required for row ${rowNumber}.<br>`;
-                        }
-
-                        if (bomSelect.val() === '') {
-                            console.log(`Row ${rowNumber}: BOM is empty`);
-                            isValid = false;
-                            errorMessage += `Maintenance BOM is required for row ${rowNumber}.<br>`;
-                        }
-
-                        if (!checklistHidden.val() || checklistHidden.val() === '') {
-                            console.log(`Row ${rowNumber}: Checklist is empty`);
-                            isValid = false;
-                            errorMessage += `Checklist is required for row ${rowNumber}.<br>`;
-                        }
-                    } else if (!hasAnyValue) {
-                        console.log(`Row ${rowNumber} is completely empty, skipping validation for draft`);
-                    }
+                } else if (!hasAnyValue) {
+                    console.log(`Row ${rowNumber} is completely empty, skipping validation for draft`);
                 }
-            });
+            }
+        });
 
                 // For final submission (not draft), require at least one complete maintenance row
                 if (status === 'submitted' && !hasCompleteMaintenanceRow) {
