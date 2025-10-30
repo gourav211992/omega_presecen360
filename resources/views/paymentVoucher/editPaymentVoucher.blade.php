@@ -1140,12 +1140,13 @@ $('.settleInput').each(function () {
 
             var preData = [];
             const partyData = $('#party_vouchers' + $('#currentRow').val()).val();
-
+            console.log(partyData);
+            $('#vouchersBody').empty();
             $.ajax({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                url: '{{ route('getLedgerVouchers') }}',
+                url: '{{ route('getPaymentLedgerVouchers') }}',
                 type: 'POST',
                 dataType: 'json',
                 data: {
@@ -1166,14 +1167,22 @@ $('.settleInput').each(function () {
                         var html = '';
                         $.each(response.data, function(index, val) {
                             if (!preSelected.includes(val['id'].toString())) {
+                                 var set = false;
                                 $.each(val.items || [], function (i, item) {
 
                                 var amount = 0.00;
+                                var showamount = 0.00;
                                 var checked = "";
                                 var dataAmount = parseFloat(val['balance']).toFixed(2);
+                                var balanceshow = 0.00;
                                 if (partyData != "" && partyData != undefined) {
                                     $.each(JSON.parse(partyData), function(indexP, valP) {
-                                        if (valP['voucher_id'].toString() == val['id']) {
+                                        if (valP['voucher_id'] != null &&
+                                            valP['voucher_item_id'] != null &&
+                                            val['id'] != null &&
+                                            item.id != null && 
+                                            valP['voucher_id'].toString() == val['id'] && item.id == valP['voucher_item_id'].toString()) 
+                                        {
                                             amount = (parseFloat(valP['amount'])).toFixed(2);
                                             checked = "checked";
                                             dataAmount = (parseFloat(valP['amount'])).toFixed(
@@ -1181,6 +1190,35 @@ $('.settleInput').each(function () {
                                         }
                                     });
                                 }
+                                    const documentType = $("#document_type").val();
+                                    const isReceipts = (documentType === '{{ ConstantHelper::RECEIPTS_SERVICE_ALIAS }}');
+                                    if(isReceipts)
+                                    {
+                                        showamount = item.debit_amt_org;
+                                    }
+                                    else
+                                    {
+                                        showamount = item.credit_amt_org;
+                                    }
+                                    console.log(item.itemreference);
+                                    if (item.itemreference && item.itemreference.length > 0) {
+                                        item.itemreference.map((refval) => {
+                                            balanceshow += parseFloat(refval.amount) || 0;
+                                        });
+                                        balanceshow = (parseFloat(showamount) + parseFloat(amount)) - parseFloat(balanceshow);
+                                        set = true;
+                                    } else 
+                                    {
+                                        if(set == true)
+                                        {
+                                            balanceshow = showamount;      
+                                        }
+                                        else
+                                        {
+                                            balanceshow = val['balance'];
+                                        }
+                                        
+                                    }
 
                                 if (parseFloat(val['balance']).toFixed(2) <=0 && checked == "") {
                                     console.log('hii' + val['id']);
@@ -1193,14 +1231,14 @@ $('.settleInput').each(function () {
                                             <td>${val['voucher_no']}</td>
                                             <td class="">${val['erp_location']?.store_name ?? '-'}</td>
                                             <td>${item.cost_center?.name ?? '-'}</td>
-                                            <td class="text-end">${formatIndianNumber(val['amount'])}</td>
-                                            <td class="text-end balanceInput">${formatIndianNumber(val['balance'])}</td>
+                                            <td class="text-end">${formatIndianNumber(showamount)}</td>
+                                            <td class="text-end balanceInput">${formatIndianNumber(balanceshow)}</td>
                                             <td class="text-end">
-                                                <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${val['settle']}"/>
+                                                <input type="number" class="form-control mw-100 settleInput settleAmount${item.id}" data-itemid="${item.id}" data-id="${val['id']}" value="${amount}"/>
                                             </td>
                                             <td class="text-center">
                                                 <div class="form-check form-check-inline me-0">
-                                                    <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} checked name="vouchers" value="${val['id']}" data-amount="${dataAmount}">
+                                                    <input class="form-check-input vouchers voucherCheck${item.id}" data-itemid="${item.id}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${item.id}" data-amount="${balanceshow}">
                                                 </div>
                                             </td>
                                         </tr>`;
@@ -1212,14 +1250,14 @@ $('.settleInput').each(function () {
                                             <td>${val['voucher_no']}</td>
                                             <td class="">${val['erp_location']?.store_name ?? '-'}</td>
                                             <td>${item.cost_center?.name ?? '-'}</td>
-                                            <td class="text-end">${formatIndianNumber(val['amount'])}</td>
-                                            <td class="text-end balanceInput">${formatIndianNumber(val['balance'])}</td>
+                                            <td class="text-end">${formatIndianNumber(showamount)}</td>
+                                            <td class="text-end balanceInput">${formatIndianNumber(balanceshow)}</td>
                                             <td class="text-end">
-                                                <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${amount}"/>
+                                                <input type="number" class="form-control mw-100 settleInput settleAmount${item.id}" data-itemid="${item.id}" data-id="${val['id']}" value="${amount}"/>
                                             </td>
                                             <td class="text-center">
                                                 <div class="form-check form-check-inline me-0">
-                                                    <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-amount="${dataAmount}">
+                                                    <input class="form-check-input vouchers voucherCheck${item.id}" data-itemid="${item.id}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${item.id}" data-amount="${balanceshow}">
                                                 </div>
                                             </td>
                                         </tr>`;

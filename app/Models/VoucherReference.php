@@ -15,6 +15,7 @@ class VoucherReference extends Model
         'voucher_details_id',
         'party_id',
         'voucher_id',
+        'voucher_item_id',
         'amount'
     ];
 

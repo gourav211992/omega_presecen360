@@ -73,6 +73,8 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('/gstr-3b-pdf', 'gstr3bPdf')->name('finance.gstr.gstr-3b-pdf');
     });
 
+    Route::post('getPaymentLedgerVouchers', [VoucherController::class, 'getPaymentLedgerVouchers'])->name('getPaymentLedgerVouchers');
+
 });
 
 

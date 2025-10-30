@@ -51,6 +51,9 @@ class ItemDetail extends Model
     public function reference(){
         return $this->hasMany(VoucherReference::class,'voucher_id','voucher_id');
     }
+    public function itemreference(){
+        return $this->hasMany(VoucherReference::class,'voucher_item_id','id');
+    }
 
 
 

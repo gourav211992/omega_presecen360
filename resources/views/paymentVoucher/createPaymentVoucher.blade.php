@@ -841,8 +841,9 @@
             var selectedVouchers = [];
             const preSelected = $('.vouchers:checked').map(function() {
                 selectedVouchers.push({
+                    "item_id": $(this).data('itemid'),
                     "party_id": $('#LedgerId').val(),
-                    "voucher_id": this.value,
+                    "voucher_id": $(this).data('id'),
                     "amount": $('.settleAmount' + this.value).val()
                 });
                 return this.value;
@@ -912,9 +913,9 @@
 
 
             if (value > 0) {
-                $('.voucherCheck' + $(this).attr('data-id')).attr('checked', true);
+                $('.voucherCheck' + $(this).attr('data-itemid')).attr('checked', true);
             } else {
-                $('.voucherCheck' + $(this).attr('data-id')).attr('checked', false);
+                $('.voucherCheck' + $(this).attr('data-itemid')).attr('checked', false);
             }
 
             if (value > max) {
@@ -955,11 +956,12 @@
 
             var preData = [];
             const partyData = $('#party_vouchers' + $('#currentRow').val()).val();
+             $('#vouchersBody').empty();
             $.ajax({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                url: '{{ route('getLedgerVouchers') }}',
+                url: '{{ route('getPaymentLedgerVouchers') }}',
                 type: 'POST',
                 dataType: 'json',
                 data: {
@@ -977,13 +979,15 @@
                         var html = '';
                         const ledgerId = $('#party_id' + $('#currentRow').val()).val();
                         $.each(response.data, function(index, val) {
-                            console.log(val);
                             if (!preSelected.includes(val['id'].toString())) {
+                                 var set = false;
                                 $.each(val.items || [], function(i, item) {
 
                                     var amount = 0.00;
+                                    var showamount = 0.00;
                                     var checked = "";
                                     var dataAmount = parseFloat(val['balance']).toFixed(2);
+                                    var balanceshow = 0.00;
 
                                     if (partyData != "" && partyData != undefined) {
                                         $.each(JSON.parse(partyData), function(indexP, valP) {
@@ -1002,7 +1006,8 @@
                                         item.voucher_id == val.id &&
                                         item.ledger_id == ledgerId
                                     );
-                                    if (match) {
+                                    if (match) 
+                                    {
                                         amount = parseFloat(match.settle_amt).toFixed(2);
                                         if (parseFloat(amount) > 0) {
                                             checked = "checked";
@@ -1010,9 +1015,41 @@
                                         }
                                     }
 
+                                    const documentType = $("#document_type").val();
+                                    const isReceipts = (documentType === '{{ ConstantHelper::RECEIPTS_SERVICE_ALIAS }}');
+                                    if(isReceipts)
+                                    {
+                                        showamount = item.debit_amt_org;
+                                    }
+                                    else
+                                    {
+                                        showamount = item.credit_amt_org;
+                                    }
+                                    console.log(item.itemreference);
+                                   if (item.itemreference && item.itemreference.length > 0) {
+                                        item.itemreference.map((refval) => {
+                                            balanceshow += parseFloat(refval.amount) || 0;
+                                        });
+                                        balanceshow = showamount - balanceshow;
+                                        set = true;
+                                    } else 
+                                    {
+                                        if(set == true)
+                                        {
+                                            balanceshow = showamount;      
+                                        }
+                                        else
+                                        {
+                                            balanceshow = val['balance'];
+                                        }
+                                        
+                                    }
+
                                     if (val['balance'] < 1 && checked == "") {
                                         console.log('hii' + val['id']);
                                     } else {
+                                    if(balanceshow > 0)
+                                    {
                                         html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
                                         <td>${index + 1}</td>
                                         <td>${val['date']}</td>
@@ -1020,19 +1057,20 @@
                                         <td>${val['voucher_no'] ?? '-'}</td>
                                         <td class="">${val['erp_location']?.store_name ?? '-'}</td>
                                         <td class="">${item.cost_center?.name ?? '-'}</td>
-                                            <td class="text-end">${formatIndianNumber(val['amount'])}</td>
-                                            <td class="balanceInput text-end">${formatIndianNumber(val['balance'])}</td>
+                                            <td class="text-end">${formatIndianNumber(showamount)}</td>
+                                            <td class="balanceInput text-end">${formatIndianNumber(balanceshow)}</td>
                                             <td class="text-end">
-                                                <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${amount}"/>
+                                                <input type="number" class="form-control mw-100 settleInput settleAmount${item.id}" data-itemid="${item.id}" data-id="${val['id']}" value="${amount}"/>
                                             </td>
                                             <td class="text-center">
                                                 <div class="form-check form-check-inline me-0">
-                                                    <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-amount="${dataAmount}">
+                                                    <input class="form-check-input vouchers voucherCheck${item.id}" data-itemid="${item.id}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${item.id}" data-amount="${balanceshow}">
                                                 </div>
                                             </td>
                                                 <input type="hidden" class="ledger-id" value="${item.ledger_id}">
                                                 <input type="hidden" class="item-id" value="${item.id}">
                                         </tr>`;
+                                    }
                                     }
                                 });
                             }
@@ -1326,9 +1364,9 @@
         $(document).on('keyup keydown', '.settleInput', function() {
             let value = parseInt($(this).val());
             if (value > 0) {
-                $('.voucherCheck' + $(this).attr('data-id')).prop('checked', true);
+                $('.voucherCheck' + $(this).attr('data-itemid')).prop('checked', true);
             } else {
-                $('.voucherCheck' + $(this).attr('data-id')).prop('checked', false);
+                $('.voucherCheck' + $(this).attr('data-itemid')).prop('checked', false);
             }
             //adjustInvoice(this);
             let input = $(this);

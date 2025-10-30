@@ -571,8 +571,8 @@ class PaymentVoucherController extends Controller
                 if ($request->reference[$index] == "Invoice") {
                     foreach (json_decode($request->party_vouchers[$index]) as $reference) {
                         Log::error('Reference amount : ' . ($reference->amount ?? 0));
-            Log::error('Reference voucher_id : ' . ($reference->voucher_id ?? 'N/A'));
-            Log::error('Reference document_type : ' . ($request->document_type ?? 'N/A'));
+                        Log::error('Reference voucher_id : ' . ($reference->voucher_id ?? 'N/A'));
+                        Log::error('Reference document_type : ' . ($request->document_type ?? 'N/A'));
 
                         $blnc = self::getVoucherBalance($reference->amount, $reference->voucher_id, $request->document_type, $details->ledger_id, $details->ledger_group_id);
                         if ($blnc < 0) {
@@ -585,6 +585,7 @@ class PaymentVoucherController extends Controller
                             $insertRef->voucher_details_id = $details->id;
                             $insertRef->party_id = $reference->party_id;
                             $insertRef->voucher_id = $reference->voucher_id;
+                            $insertRef->voucher_item_id = $reference->item_id;
                             $insertRef->amount = $reference->amount;
                             $insertRef->save();
 
