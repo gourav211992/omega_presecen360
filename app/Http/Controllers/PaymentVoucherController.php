@@ -585,7 +585,7 @@ class PaymentVoucherController extends Controller
                             $insertRef->voucher_details_id = $details->id;
                             $insertRef->party_id = $reference->party_id;
                             $insertRef->voucher_id = $reference->voucher_id;
-                            $insertRef->voucher_item_id = $reference->item_id;
+                            $insertRef->voucher_item_id = $reference->voucher_item_id;
                             $insertRef->amount = $reference->amount;
                             $insertRef->save();
 
@@ -736,12 +736,11 @@ class PaymentVoucherController extends Controller
         // dd($buttons);
         if ($data->document_status == ConstantHelper::DRAFT || ($r->amendment==1 && $buttons['amend']))
         {
-           
             return view('paymentVoucher.editPaymentVoucher', compact('cost_centers', 'books_t', 'data', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'locations', 'fyear'));
         }
         else
         {
-         
+                       
             return view('paymentVoucher.viewPaymentVoucher', compact('cost_centers', 'data', 'books_t', 'books', 'buttons', 'history', 'banks', 'ledgers', 'currencies', 'orgCurrency', 'revision_number', 'currNumber', 'editUrl', 'indexUrl', 'editUrlString', 'approvalHistory', 'cc_users', 'to_users', 'to_user_mail', 'to_type', 'locations', 'fyear'));
         }
     }
@@ -821,6 +820,7 @@ class PaymentVoucherController extends Controller
                                 'payment_voucher_id' => $voucher->id,
                                 'voucher_details_id' => $details->id,
                                 'party_id' => $reference['party_id'],
+                                'voucher_item_id' => $reference['voucher_item_id'],
                                 'voucher_id' => $reference['voucher_id'],
                                 'amount' => $reference['amount'],
                                 'created_at' => now(),

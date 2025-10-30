@@ -1297,12 +1297,14 @@
 
             var preData = [];
             const partyData = $('#party_vouchers' + $('#currentRow').val()).val();
+            const payment_voucher_id = '{{ $data->id }}';
+              $('#vouchersBody').empty();
 
             $.ajax({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                url: '{{ route('getLedgerVouchers') }}',
+                url: '{{ route('getPaymentLedgerVouchers') }}',
                 type: 'POST',
                 dataType: 'json',
                 data: {
@@ -1324,24 +1326,86 @@
                         $.each(response.data, function(index, val) {
                             console.log(val)
                             if (!preSelected.includes(val['id'].toString())) {
+                                var set = false;
                                 $.each(val.items || [], function(i, item) {
 
                                     var amount = 0.00;
                                     var checked = "";
+                                    var itemset = false;
+                                    var totalsettleshow = 0.00;
                                     var dataAmount = parseFloat(val['balance']).toFixed(2);
-                                    if (partyData != "" && partyData != undefined) {
-                                        $.each(JSON.parse(partyData), function(indexP, valP) {
-                                            if (valP['voucher_id'].toString() == val[
-                                                    'id']) {
-                                                amount = (parseFloat(valP['amount']))
-                                                    .toFixed(2);
-                                                checked = "checked";
-                                                dataAmount = (parseFloat(valP[
-                                                    'amount'])).toFixed(
-                                                    2);
+                                   if (partyData != "" && partyData != undefined) {
+                                    $.each(JSON.parse(partyData), function(indexP, valP) {
+                                        if (valP['voucher_id'] != null &&
+                                            valP['voucher_item_id'] != null &&
+                                            val['id'] != null &&
+                                            item.id != null && 
+                                            valP['voucher_id'].toString() == val['id'] && item.id == valP['voucher_item_id'].toString()) 
+                                        {
+                                            amount = (parseFloat(valP['amount'])).toFixed(2);
+                                            checked = "checked";
+                                            dataAmount = (parseFloat(valP['amount'])).toFixed(
+                                            2);
+                                        }
+                                    });
+                                }
+                                    const documentType = $("#document_type").val();
+                                    const isReceipts = (documentType === '{{ ConstantHelper::RECEIPTS_SERVICE_ALIAS }}');
+                                    if(isReceipts)
+                                    {
+                                        showamount = item.debit_amt_org;
+                                    }
+                                    else
+                                    {
+                                        showamount = item.credit_amt_org;
+                                    }
+
+                                    if (item.itemreference && item.itemreference.length > 0) 
+                                    {   
+
+                                        item.itemreference.map((refval) => {
+                                            if(refval.payment_voucher_id == payment_voucher_id)
+                                            {
+                                                
+                                                balanceshow += parseFloat(refval.amount) || 0;
+                                                totalsettleshow += parseFloat(refval.amount) || 0;
+                                                balanceshow = (parseFloat(showamount)) - parseFloat(balanceshow);
+                                                set = true;
+                                                itemset = true;
+                                                console.log(item.id);
+                                                console.log(showamount);
+                                                console.log(balanceshow);
+                                                console.log((parseFloat(showamount)) - parseFloat(balanceshow));
                                             }
                                         });
+                                        if(!itemset)
+                                        {
+                                            balanceshow = showamount; 
+                                        }
+
+                                    } 
+                                    else 
+                                    {
+                                        if(set == true)
+                                        {
+                                            balanceshow = showamount;      
+                                        }
+                                        else
+                                        {
+                                            if(val['balance'] > showamount)
+                                            {
+                                                 balanceshow = showamount;
+                                            }
+                                            else
+                                            {
+                                                 balanceshow = val['balance'];
+                                            }
+                                           
+                                        }
+                                        
                                     }
+
+                                    console.log((parseFloat(showamount)) - parseFloat(balanceshow));
 
                                     if (val['balance'] < 1 && checked == "") {
                                         console.log('hii' + val['id']);
@@ -1354,14 +1418,14 @@
                                             <td>${val['voucher_no']}</td>
                                             <td class="">${val['erp_location']?.store_name ?? '-'}</td>
                                             <td>${item.cost_center?.name ?? '-'}</td>
-                                            <td class="text-end">${formatIndianNumber(val['amount'])}</td>
-                                            <td class="text-end">${formatIndianNumber(val['balance'])}</td>
+                                            <td class="text-end">${formatIndianNumber(showamount)}</td>
+                                            <td class="text-end">${formatIndianNumber((parseFloat(showamount)) - parseFloat(totalsettleshow))}</td>
                                             <td class="text-end">
-                                                <input type="text" class="form-control mw-100 settleInput settleAmount${val['id']}" readonly data-id="${val['id']}" value="${formatIndianNumber(val['settle'])}"/>
+                                                <input type="text" class="form-control mw-100 settleInput settleAmount${item.id}" data-itemid="${item.id}" data-id="${val['id']}" value="${totalsettleshow}" readonly/>
                                             </td>
                                             <td class="text-center">
                                                 <div class="form-check form-check-inline me-0">
-                                                    <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" disabled type="checkbox" ${checked} checked name="vouchers" value="${val['id']}" data-amount="${dataAmount}">
+                                                    <input class="form-check-input vouchers voucherCheck${item.id}" ${itemset ? 'checked' : ''} data-itemid="${item.id}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${item.id}" data-amount="${balanceshow}" disabled>
                                                 </div>
                                             </td>
                                         </tr>`;

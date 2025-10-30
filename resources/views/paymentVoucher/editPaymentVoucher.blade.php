@@ -1077,8 +1077,9 @@ $('.settleInput').each(function () {
             var selectedVouchers = [];
             const preSelected = $('.vouchers:checked').map(function() {
                 selectedVouchers.push({
+                    "voucher_item_id": $(this).data('itemid'),
                     "party_id": $('#LedgerId').val(),
-                    "voucher_id": this.value,
+                    "voucher_id": $(this).data('id'),
                     "amount": $('.settleAmount' + this.value).val()
                 });
                 return this.value;
@@ -1140,6 +1141,7 @@ $('.settleInput').each(function () {
 
             var preData = [];
             const partyData = $('#party_vouchers' + $('#currentRow').val()).val();
+            const payment_voucher_id = '{{ $data->id }}';
             console.log(partyData);
             $('#vouchersBody').empty();
             $.ajax({
@@ -1175,6 +1177,8 @@ $('.settleInput').each(function () {
                                 var checked = "";
                                 var dataAmount = parseFloat(val['balance']).toFixed(2);
                                 var balanceshow = 0.00;
+                                var totalsettleshow = 0.00;
+                                var itemset = false;
                                 if (partyData != "" && partyData != undefined) {
                                     $.each(JSON.parse(partyData), function(indexP, valP) {
                                         if (valP['voucher_id'] != null &&
@@ -1201,13 +1205,29 @@ $('.settleInput').each(function () {
                                         showamount = item.credit_amt_org;
                                     }
                                     console.log(item.itemreference);
-                                    if (item.itemreference && item.itemreference.length > 0) {
+                                    if (item.itemreference && item.itemreference.length > 0) 
+                                    {   
+
                                         item.itemreference.map((refval) => {
-                                            balanceshow += parseFloat(refval.amount) || 0;
+                                            if(refval.payment_voucher_id == payment_voucher_id)
+                                            {
+                                                
+                                                balanceshow += parseFloat(refval.amount) || 0;
+                                                totalsettleshow += parseFloat(refval.amount) || 0;
+                                                balanceshow = (parseFloat(showamount)) - parseFloat(balanceshow);
+                                                set = true;
+                                                itemset = true;
+                                                console.log(item.id);
+                                            }
                                         });
-                                        balanceshow = (parseFloat(showamount) + parseFloat(amount)) - parseFloat(balanceshow);
-                                        set = true;
-                                    } else 
+                                        if(!itemset)
+                                        {
+                                            console.log(item.id);
+                                            balanceshow = showamount; 
+                                        }
+
+                                    } 
+                                    else 
                                     {
                                         if(set == true)
                                         {
@@ -1215,10 +1235,21 @@ $('.settleInput').each(function () {
                                         }
                                         else
                                         {
-                                            balanceshow = val['balance'];
+                                            if(val['balance'] > showamount)
+                                            {
+                                                 balanceshow = showamount;
+                                            }
+                                            else
+                                            {
+                                                 balanceshow = val['balance'];
+                                            }
+                                           
                                         }
                                         
                                     }
+
+                                    console.log(balanceshow);
+
 
                                 if (parseFloat(val['balance']).toFixed(2) <=0 && checked == "") {
                                     console.log('hii' + val['id']);
@@ -1234,7 +1265,7 @@ $('.settleInput').each(function () {
                                             <td class="text-end">${formatIndianNumber(showamount)}</td>
                                             <td class="text-end balanceInput">${formatIndianNumber(balanceshow)}</td>
                                             <td class="text-end">
-                                                <input type="number" class="form-control mw-100 settleInput settleAmount${item.id}" data-itemid="${item.id}" data-id="${val['id']}" value="${amount}"/>
+                                                <input type="number" class="form-control mw-100 settleInput settleAmount${item.id}" data-itemid="${item.id}" data-id="${val['id']}" value="${totalsettleshow}"/>
                                             </td>
                                             <td class="text-center">
                                                 <div class="form-check form-check-inline me-0">

@@ -841,7 +841,7 @@
             var selectedVouchers = [];
             const preSelected = $('.vouchers:checked').map(function() {
                 selectedVouchers.push({
-                    "item_id": $(this).data('itemid'),
+                    "voucher_item_id": $(this).data('itemid'),
                     "party_id": $('#LedgerId').val(),
                     "voucher_id": $(this).data('id'),
                     "amount": $('.settleAmount' + this.value).val()
@@ -1040,7 +1040,15 @@
                                         }
                                         else
                                         {
-                                            balanceshow = val['balance'];
+                                            if(val['balance'] > showamount)
+                                            {
+                                                 balanceshow = showamount;
+                                            }
+                                            else
+                                            {
+                                                 balanceshow = val['balance'];
+                                            }
+                                           
                                         }
                                         
                                     }
