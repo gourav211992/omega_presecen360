@@ -795,7 +795,6 @@ class ErpEquipmentController extends Controller
     
     public function update(Request $request, $id)
     {
-        
         DB::beginTransaction();
         try {
             $user = Helper::getAuthenticatedUser();
@@ -822,10 +821,7 @@ class ErpEquipmentController extends Controller
                 // Update revision number and save
                 $equipment->revision_number = $equipment->revision_number + 1;
                 $equipment->revision_date = now();
-                $equipment->save();
-                
-                DB::commit();
-                
+                $equipment->save();  
             }
 
            
@@ -847,6 +843,13 @@ class ErpEquipmentController extends Controller
             ];
 
             $equipment->update($updateData);
+
+            if ($request->action_type != 'draft') {
+                $doc = Helper::approveDocument($equipment->book_id, $equipment->id, $equipment->revision_number, "", null, 1, 'submit', 0, get_class($equipment));
+                $equipment->document_status = $doc['approvalStatus'];
+                $equipment->save();
+            }
+            
             $finalDocuments = [];
             if ($equipment->upload_document) {
                 $existingDocuments = json_decode($equipment->upload_document, true);
@@ -1080,10 +1083,10 @@ class ErpEquipmentController extends Controller
 
             DB::commit();
 
-            if ($request->ajax() || $request->action_type == "amendment") {
+            if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Amendment Done Successfully',
+                    'message' => $request->status == 'draft' ? 'Equipment updated as draft successfully' : 'Equipment updated successfully',
                     'data' => $equipment
                 ]);
             }
@@ -1138,7 +1141,6 @@ class ErpEquipmentController extends Controller
                     0,
                     get_class($doc)
                 );
-    
                 $document_status = $approveDocument['approvalStatus'] ?? null;
                 $doc->document_status = $document_status;
                 $doc->status = in_array($document_status, [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED]) ? 1 : 0;

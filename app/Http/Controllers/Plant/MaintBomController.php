@@ -526,7 +526,7 @@ class MaintBomController extends Controller
      */
     public function update(MaintBOMRequest $request, $id)
     {
-       
+      
         // Validation via FormRequest
         $validator = $request->validated();
 
@@ -649,20 +649,18 @@ class MaintBomController extends Controller
                 $bom->revision_number = $revisionNumber;
                 $bom->save();
             } 
-              if($request->action_type == 'submit'){
-                $revisionNumber = $bom->revision_number ?? 0;
-                $actionType = 'submit';
-                $totalValue = $bom->grand_total_amount ?? 0;
-                $approveDocument = Helper::approveDocument($bom->book_id, $bom->id, $revisionNumber, $amendRemarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
-                $document_status = $approveDocument['approvalStatus'] ?? $bom->document_status;
-                $bom->document_status = $document_status;
-                $data['document_status'] = $document_status;
+
+            $bom->update($data);
+            
+            if ($request->action_type != 'draft') {
+                $doc = Helper::approveDocument($bom->book_id, $bom->id, $bom->revision_number, "", null, 1, 'submit', 0, get_class($bom));
+                $bom->document_status = $doc['approvalStatus'];
                 $bom->save();
             }
          
             DB::commit();
 
-            $bom->update($data);
+            
           
             
             

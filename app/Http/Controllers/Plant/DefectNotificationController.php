@@ -786,7 +786,7 @@ class DefectNotificationController extends Controller
      */
     public function update(Request $request, string $id)
     {
-       
+        
         $defectNotification = DefectNotification::findOrFail($id);
         $rules = [
             'document_date' => 'required|date',
@@ -848,6 +848,7 @@ class DefectNotificationController extends Controller
                     0,
                     get_class($defectNotification)
                 );
+                
                
 
                 $defectNotification->revision_number = $defectNotification->revision_number + 1;
@@ -855,20 +856,13 @@ class DefectNotificationController extends Controller
                 $defectNotification->save();
                 DB::commit();
             }
-                if($request->action_type == 'submit'){
-                $revisionNumber = $defectNotification->revision_number ?? 0;
-                $actionType = 'submit';
-                $remarks='';
-                $attachments='';
-                $currentLevel=$defectNotification->approval_level;
-                $modelName=get_class($defectNotification);
-                $totalValue = $defectNotification->grand_total_amount ?? 0;
-                $approveDocument = Helper::approveDocument($defectNotification->book_id, $defectNotification->id, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
-                $document_status = $approveDocument['approvalStatus'] ?? $defectNotification->document_status;
-                $defectNotification->document_status = $document_status;
-                $data['document_status'] = $document_status;
+                
+            if ($request->action_type != 'draft') {
+                $doc = Helper::approveDocument($defectNotification->book_id, $defectNotification->id, $defectNotification->revision_number, "", null, 1, 'submit', 0, get_class($defectNotification));
+                $defectNotification->document_status = $doc['approvalStatus'];
                 $defectNotification->save();
-                }
+            }
+                
           
         
             // Handle file attachments
