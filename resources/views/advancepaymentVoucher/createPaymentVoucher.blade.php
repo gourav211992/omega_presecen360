@@ -1018,8 +1018,8 @@
                                     var calculatedValue = (val['total_item_value'] * val['percent']) / 100;
                                     html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
                                         <td>${index + 1}</td>
-                                        <td>${val['date']}</td>
-                                        <td class="fw-bolder text-dark">${val['series']?.book_code?.toUpperCase() ?? '-'}</td>
+                                        <td>${new Date(val['date']).toLocaleDateString('en-GB')}</td>
+                                        <td class="fw-bolder text-dark">${val['book_code']?.toUpperCase() ?? '-'}</td>
                                         <td>${val['document_number']}</td>
                                         <td class="text-end">${formatIndianNumber(val['total_item_value'])}</td>
                                         <td class="balanceInput text-end">${formatIndianNumber(val['settle'])}</td>

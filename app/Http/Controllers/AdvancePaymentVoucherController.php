@@ -1946,30 +1946,30 @@ class AdvancePaymentVoucherController extends Controller
                     ->orderBy('created_at', 'asc');
                     
 
-                        if ($request->filled('date')) 
-                        {
-                            [$startDate, $endDate] = explode(' to ', $request->date);
+                        // if ($request->filled('date')) 
+                        // {
+                        //     [$startDate, $endDate] = explode(' to ', $request->date);
 
-                            $start = Carbon::parse(trim($startDate))->format('Y-m-d');
-                            $end = Carbon::parse(trim($endDate))->format('Y-m-d');
+                        //     $start = Carbon::parse(trim($startDate))->format('Y-m-d');
+                        //     $end = Carbon::parse(trim($endDate))->format('Y-m-d');
 
-                            $data->whereBetween('document_date', [$start, $end]);
-                        }
+                        //     $data->whereBetween('document_date', [$start, $end]);
+                        // }
 
 
-                        if ($request->book_code) 
-                        {
-                            $data = $data->whereHas('series', function ($q) use ($request) {
-                                $q->whereHas('org_service', function ($subQuery) use ($request) {
-                                    $subQuery->where('alias', $request->book_code);
-                                });
-                            });
-                        }
+                        // if ($request->book_code) 
+                        // {
+                        //     $data = $data->whereHas('series', function ($q) use ($request) {
+                        //         $q->whereHas('org_service', function ($subQuery) use ($request) {
+                        //             $subQuery->where('alias', $request->book_code);
+                        //         });
+                        //     });
+                        // }
 
-                        if ($request->document_no) 
-                        {
-                            $data = $data->where('doc_no', 'like', "%" . $request->document_no . "%");
-                        }      
+                        // if ($request->document_no) 
+                        // {
+                        //     $data = $data->where('doc_no', 'like', "%" . $request->document_no . "%");
+                        // }      
                         
                         $data = $data->get();
 
@@ -1982,9 +1982,22 @@ class AdvancePaymentVoucherController extends Controller
                         $details = collect();
 
                         if ($saleIds->isNotEmpty()) {
-                            $saleDetails = ErpSaleInvoice::whereIn('id', $saleIds)
-                                ->select('id', 'total_item_value', 'book_id', 'document_date as date', 'document_number', 'created_at', 'organization_id')
-                                ->get();
+                           $saleQuery = ErpSaleInvoice::whereIn('id', $saleIds)
+                                ->select('id', 'total_item_value', 'book_id', 'book_code', 'document_date as date', 'document_number', 'created_at', 'organization_id');
+
+                            // ---- Apply filters ----
+                            if ($request->filled('document_no')) {
+                                $saleQuery->where('document_number', 'like', '%' . $request->document_no . '%');
+                            }
+
+                            if ($request->filled('date')) {
+                                [$startDate, $endDate] = explode(' to ', $request->date);
+                                $start = Carbon::parse(trim($startDate))->format('Y-m-d');
+                                $end = Carbon::parse(trim($endDate))->format('Y-m-d');
+                                $saleQuery->whereBetween('document_date', [$start, $end]);
+                            }
+
+                            $saleDetails = $saleQuery->get();
                             
                             $salepaymentTerms = ErpInvoicePaymentTerm::whereIn('invoice_header_id', $saleIds)
                                 ->whereRaw('LOWER(trigger_type) = ?', ['advance'])
@@ -2103,30 +2116,30 @@ class AdvancePaymentVoucherController extends Controller
                 ->groupBy('id')
                 ->orderBy('document_date', 'asc')
                 ->orderBy('created_at', 'asc');
-                    if ($request->filled('date')) 
-                    {
-                        [$startDate, $endDate] = explode(' to ', $request->date);
+                    // if ($request->filled('date')) 
+                    // {
+                    //     [$startDate, $endDate] = explode(' to ', $request->date);
 
-                        $start = Carbon::parse(trim($startDate))->format('Y-m-d');
-                        $end = Carbon::parse(trim($endDate))->format('Y-m-d');
+                    //     $start = Carbon::parse(trim($startDate))->format('Y-m-d');
+                    //     $end = Carbon::parse(trim($endDate))->format('Y-m-d');
 
-                        $data->whereBetween('document_date', [$start, $end]);
-                    }
+                    //     $data->whereBetween('document_date', [$start, $end]);
+                    // }
 
 
-                    if ($request->book_code) 
-                    {
-                        $data = $data->whereHas('series', function ($q) use ($request) {
-                            $q->whereHas('org_service', function ($subQuery) use ($request) {
-                                $subQuery->where('alias', $request->book_code);
-                            });
-                        });
-                    }
+                    // if ($request->book_code) 
+                    // {
+                    //     $data = $data->whereHas('series', function ($q) use ($request) {
+                    //         $q->whereHas('org_service', function ($subQuery) use ($request) {
+                    //             $subQuery->where('alias', $request->book_code);
+                    //         });
+                    //     });
+                    // }
 
-                    if ($request->document_no) 
-                    {
-                        $data = $data->where('doc_no', 'like', "%" . $request->document_no . "%");
-                    }                
+                    // if ($request->document_no) 
+                    // {
+                    //     $data = $data->where('doc_no', 'like', "%" . $request->document_no . "%");
+                    // }                
                     
                     $data = $data->get();
                         
@@ -2147,9 +2160,22 @@ class AdvancePaymentVoucherController extends Controller
                 $details = collect();
 
                 if ($mrnIds->isNotEmpty()) {
-                    $mrnDetails = MrnHeader::whereIn('id', $mrnIds)
-                        ->select('id', 'total_item_amount as total_item_value', 'book_id', 'document_date as date', 'document_number', 'created_at', 'organization_id')
-                        ->get();
+                    $mrnQuery = MrnHeader::whereIn('id', $mrnIds)
+                            ->select('id', 'total_item_amount as total_item_value', 'book_id', 'book_code', 'document_date as date', 'document_number', 'created_at', 'organization_id');
+
+                        // ---- Apply filters ----
+                        if ($request->filled('document_no')) {
+                            $mrnQuery->where('document_number', 'like', '%' . $request->document_no . '%');
+                        }
+
+                        if ($request->filled('date')) {
+                            [$startDate, $endDate] = explode(' to ', $request->date);
+                            $start = Carbon::parse(trim($startDate))->format('Y-m-d');
+                            $end = Carbon::parse(trim($endDate))->format('Y-m-d');
+                            $mrnQuery->whereBetween('document_date', [$start, $end]);
+                        }
+
+                    $mrnDetails = $mrnQuery->get();
 
                     $paymentTerms = MrnPaymentTerm::whereIn('mrn_header_id', $mrnIds)
                         ->whereRaw('LOWER(trigger_type) = ?', ['advance'])
@@ -2170,9 +2196,22 @@ class AdvancePaymentVoucherController extends Controller
                 }
 
                 if ($pbIds->isNotEmpty()) {
-                    $pbDetails = PbHeader::whereIn('id', $pbIds)
-                        ->select('id', 'total_item_amount as total_item_value', 'book_id', 'document_date as date', 'document_number', 'created_at', 'organization_id')
-                        ->get();
+                    $pbQuery = PbHeader::whereIn('id', $pbIds)
+                        ->select('id', 'total_item_amount as total_item_value', 'book_id', 'book_code', 'document_date as date', 'document_number', 'created_at', 'organization_id');
+
+                    // ---- Apply filters ----
+                    if ($request->filled('document_no')) {
+                        $pbQuery->where('document_number', 'like', '%' . $request->document_no . '%');
+                    }
+
+                    if ($request->filled('date')) {
+                        [$startDate, $endDate] = explode(' to ', $request->date);
+                        $start = Carbon::parse(trim($startDate))->format('Y-m-d');
+                        $end = Carbon::parse(trim($endDate))->format('Y-m-d');
+                        $pbQuery->whereBetween('document_date', [$start, $end]);
+                    }
+
+                    $pbDetails = $pbQuery->get();
                    
 
                     $pbTerms = PBPaymentTerm::whereIn('pb_header_id', $pbIds)
