@@ -564,7 +564,12 @@
                                                                             id="party_id{{ $no }}"
                                                                             class="ledgers"
                                                                             value="{{ $item->ledger_id??$item->party_id }}" />
-                                                                            <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers{{$no}}" class="party_vouchers" value="{{json_encode($item->invoice)}}"/>
+                                                                            @php
+    // remove ledger and wrap in array
+    $cleanItem = collect($item)->except('ledger')->toArray();
+    $wrappedItem = [$cleanItem];
+@endphp
+                                                                            <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers{{$no}}" class="party_vouchers"  value='@json($wrappedItem)'/>
                                                                              <input type="hidden" name="customerid[]"
                                                                                 id="customerid{{ $no }}"
                                                                                 class="party_vouchers"
@@ -606,7 +611,7 @@
                                                                                 <option value="advance" selected>Advance</option>
                                                                             </select>
                                                                             <div class="ms-50 flex-shrink-0">
-                                                                                <button type="button" class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}" style="font-size: 10px" onclick="openInvoice({{ $no }},{{$data->id}},{{$item->id}})" @if($item->reference!="Invoice" || !$fyear['authorized']) disabled @endif>Invoice</button>
+                                                                                <button type="button" class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}" style="font-size: 10px" onclick="openInvoice({{ $no }},{{$data->id}},{{$item->id}})" @if(!$fyear['authorized']) disabled @endif>Invoice</button>
                                                                             </div>
                                                                         </div>
                                                                     </td>
@@ -1060,11 +1065,13 @@ $('.settleInput').each(function () {
         let balanceText = row.find('.balanceInput').text().replace(/,/g, '');
         let balance = parseFloat(balanceText);
         let settleAmount = parseFloat(input.val());
+        let balanceminus = parseFloat(input.data('balanceminus'));
+        let calculatedvaluebalance = parseFloat(input.data('calculatedvaluebalance'));
 
         // Remove existing error message
         input.next('.invalid-feedback').remove();
 
-        if (settleAmount > balance) {
+        if (settleAmount > balanceminus || settleAmount > calculatedvaluebalance) {
             input.addClass('is-invalid');
             input.after('<span class="invalid-feedback d-block" style="font-size:12px">Settle amount cannot be greater than balance.</span>');
             isValid = false;
@@ -1087,7 +1094,10 @@ $('.settleInput').each(function () {
                 selectedVouchers.push({
                     "party_id": $('#LedgerId').val(),
                     "voucher_id": this.value,
-                    "amount": $('.settleAmount' + this.value).val()
+                    "amount": $('.settleAmount' + this.value).val(),
+                    "header_amounts":$('.settleAmount' + this.value).val(),
+                    "header_id": $(this).data('header_id'),
+                    "header_name": $(this).data('header_name'),
                 });
                 return this.value;
             }).get();
@@ -1179,6 +1189,7 @@ $('.settleInput').each(function () {
                         $.each(response.data, function(index, val) 
                         {
                          console.log(val);
+                         val['settle'] = parseFloat(val['settle']);
                          
                             var checked = "";
                                     var calculatedValue = (val['total_item_value'] * val['percent']) / 100;
@@ -1188,14 +1199,14 @@ $('.settleInput').each(function () {
                                         <td class="fw-bolder text-dark">${val['series']?.book_code?.toUpperCase() ?? '-'}</td>
                                         <td>${val['document_number']}</td>
                                         <td class="text-end">${formatIndianNumber(val['total_item_value'])}</td>
-                                        <td class="balanceInput text-end">0</td>
+                                        <td class="balanceInput text-end">${formatIndianNumber(val['settle'])}</td>
                                         
                                         <td class="text-end">
-                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${calculatedValue}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - 0}"/>
+                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${val['total_item_value'] - val['settle'] > calculatedValue ? calculatedValue.toFixed(2) : (val['total_item_value'] - val['settle']).toFixed(2)}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle']}"/>
                                         </td>
                                         <td class="text-center">
                                             <div class="form-check form-check-inline me-0">
-                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-amount="${calculatedValue}">
+                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-header_name="${val['header_name']}" data-id="${val['id']}" data-header_id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle'] > calculatedValue ? calculatedValue.toFixed(2) : (val['total_item_value'] - val['settle']).toFixed(2)}">
                                             </div>
                                         </td>
                                         <input type="hidden" class="ledger-id" value="${ledgerId}">
@@ -1399,7 +1410,7 @@ function check_amount() {
         function selectAllVouchers() {
             $('.vouchers').each(function() {
                 if (this.checked) {
-                    $(".settleAmount" + this.value).val($(this).attr('data-amount'));
+                    $(".settleAmount" + this.value).val($(this).attr('data-balanceminus'));
                 } else {
                     $(".settleAmount" + this.value).val('0.00');
                 }
@@ -1468,7 +1479,7 @@ function check_amount() {
 
         $(document).on('click', '.vouchers', function() {
             if (this.checked) {
-                $(".settleAmount" + this.value).val($(this).attr('data-amount'));
+                $(".settleAmount" + this.value).val($(this).attr('data-balanceminus'));
             } else {
                 $(".settleAmount" + this.value).val('0.00');
             }
@@ -1489,11 +1500,15 @@ function check_amount() {
             let balanceText = row.find('.balanceInput').text().replace(/,/g, '');
             let balance = parseFloat(balanceText);
             let settleAmount = parseFloat(input.val());
+            let balanceminus = parseFloat(input.data('balanceminus'));
+            let calculatedvaluebalance = parseFloat(input.data('calculatedvaluebalance'));
+            let id = input.data('id');
 
             // Remove existing error message span if it exists
             input.next('.invalid-feedback').remove();
 
-            if (settleAmount > balance) {
+            console.log(settleAmount);
+            if (settleAmount > balanceminus || settleAmount > calculatedvaluebalance) {
                 input.addClass('is-invalid');
                 input.after('<span class="invalid-feedback d-block" style="font-size:12px">Settle amount cannot be greater than balance.</span>');
             } else {

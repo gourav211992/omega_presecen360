@@ -861,18 +861,16 @@
                 selectedVouchers.push({
                     "party_id": $('#LedgerId').val(),
                     "voucher_id": this.value,
-                    "amount": $('.settleAmount' + this.value).val()
+                    "amount": $('.settleAmount' + this.value).val(),
+                    "header_amounts":$('.settleAmount' + this.value).val(),
+                    "header_id": $(this).data('header_id'),
+                    "header_name": $(this).data('header_name'),
                 });
                 return this.value;
             }).get();
-            let selectedVoucherId = $('.vouchers:checked').first().data('id'); // get first checked only
             let currentRow = $('#currentRow').val();
             let headerSelector = '#headerid' + currentRow;
 
-            // Set hidden input to selected voucher id
-            $('#headerid' + currentRow).val(selectedVoucherId);
-            console.log('Selected voucher ID:', selectedVoucherId);
-            console.log('Value after set:', $('#headerid' + currentRow).val());
             $('#party_vouchers' + $('#currentRow').val()).val(JSON.stringify(selectedVouchers));
             
 
@@ -947,7 +945,7 @@
             let balanceminus = parseFloat($(this).data('balanceminus'));
             let calculatedvaluebalance = parseFloat($(this).data('calculatedvaluebalance'));
 
-            if (settleAmount > balanceminus || settleAmount > calculatedvaluebalance) {
+            if (value > balanceminus || value > calculatedvaluebalance) {
                 e.target.value = max;
             }
         });
@@ -1027,11 +1025,11 @@
                                         <td class="balanceInput text-end">${formatIndianNumber(val['settle'])}</td>
                                         
                                         <td class="text-end">
-                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${val['total_item_value'] - val['settle'] > calculatedValue ? calculatedValue : val['total_item_value'] - val['settle']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle']}"/>
+                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${val['total_item_value'] - val['settle'] > calculatedValue ? calculatedValue.toFixed(2) : (val['total_item_value'] - val['settle']).toFixed(2)}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle']}"/>
                                         </td>
                                         <td class="text-center">
                                             <div class="form-check form-check-inline me-0">
-                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle']}">
+                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-header_name="${val['header_name']}" data-id="${val['id']}" data-header_id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle'] > calculatedValue ? calculatedValue.toFixed(2) : (val['total_item_value'] - val['settle']).toFixed(2)}">
                                             </div>
                                         </td>
                                         <input type="hidden" class="ledger-id" value="${ledgerId}">

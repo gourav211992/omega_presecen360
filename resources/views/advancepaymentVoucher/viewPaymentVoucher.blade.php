@@ -653,7 +653,7 @@
                                                                                     class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}"
                                                                                     style="font-size: 10px"
                                                                                     onclick="openInvoice({{ $no }},{{ $data->id }},{{ $item->id }})"
-                                                                                    @if ($item->reference != 'Invoice') disabled @endif>Invoice</button>
+                                                                                    >Invoice</button>
                                                                             </div>
                                                                         </div>
                                                                     </td>
@@ -868,29 +868,27 @@
                             <div class="table-responsive">
                                 <table class="mt-1 table myrequesttablecbox table-striped po-order-detail">
                                     <thead>
-                                        <tr>
-                                            <th>#</th>
+                                         <tr>
+                                             <th>#</th>
                                             <th>Date</th>
                                             <th>Series</th>
                                             <th>Document No.</th>
-                                            <th>Location</th>
-                                            <th>Cost Center</th>
-                                            <th class="text-end">Amount</th>
-                                            <th class="text-end">Balance</th>
-                                            <th class="text-end" width="150px">Settle Amt</th>
+                                            <th class="text-end">Advance</th>
+                                            <th class="text-end">Settle</th>
+                                            <th class="text-end" width="150px">To Pay</th>
                                             <th class="text-center">
                                                 <div class="form-check form-check-inline me-0">
                                                     <input class="form-check-input" type="checkbox" name="podetail"
-                                                        disabled id="inlineCheckbox1">
+                                                        id="inlineCheckbox1">
                                                 </div>
                                             </th>
-                                        </tr>
+                                          </tr>
                                     </thead>
                                     <tbody id="vouchersBody">
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <td colspan="8" class="text-end">Total</td>
+                                            <td colspan="6" class="text-end">Total</td>
                                             <td class="fw-bolder text-dark text-end settleTotal">0</td>
                                             <td></td>
                                         </tr>
@@ -1330,54 +1328,31 @@
                 success: function(response) {
                     if (response.data.length > 0) {
                         var html = '';
-                        $.each(response.data, function(index, val) {
-                            console.log(val)
-                            if (!preSelected.includes(val['id'].toString())) {
-                                $.each(val.items || [], function(i, item) {
-
-                                    var amount = 0.00;
-                                    var checked = "";
-                                    var dataAmount = parseFloat(val['balance']).toFixed(2);
-                                    if (partyData != "" && partyData != undefined) {
-                                        $.each(JSON.parse(partyData), function(indexP, valP) {
-                                            if (valP['voucher_id'].toString() == val[
-                                                    'id']) {
-                                                amount = (parseFloat(valP['amount']))
-                                                    .toFixed(2);
-                                                checked = "checked";
-                                                dataAmount = (parseFloat(valP[
-                                                    'amount'])).toFixed(
-                                                    2);
-                                            }
-                                        });
-                                    }
-
-                                    if (val['balance'] < 1 && checked == "") {
-                                        console.log('hii' + val['id']);
-                                    } else {
-                                        if (val['settle']) {
-                                            html += `<tr id="${val['id']}" class="voucherRows">
-                                            <td>${index+1}</td>
-                                            <td>${val['date']}</td>
-                                            <td class="fw-bolder text-dark">${val['series']['book_code'].toUpperCase()}</td>
-                                            <td>${val['voucher_no']}</td>
-                                            <td class="">${val['erp_location']?.store_name ?? '-'}</td>
-                                            <td>${item.cost_center?.name ?? '-'}</td>
-                                            <td class="text-end">${formatIndianNumber(val['amount'])}</td>
-                                            <td class="text-end">${formatIndianNumber(val['balance'])}</td>
-                                            <td class="text-end">
-                                                <input type="text" class="form-control mw-100 settleInput settleAmount${val['id']}" readonly data-id="${val['id']}" value="${formatIndianNumber(val['settle'])}"/>
-                                            </td>
-                                            <td class="text-center">
-                                                <div class="form-check form-check-inline me-0">
-                                                    <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" disabled type="checkbox" ${checked} checked name="vouchers" value="${val['id']}" data-amount="${dataAmount}">
-                                                </div>
-                                            </td>
+                        console.log(response.data);
+                        $.each(response.data, function(index, val) 
+                        {
+                         console.log(val);
+                         val['settle'] = parseFloat(val['settle']);
+                         
+                            var checked = "";
+                                    var calculatedValue = (val['total_item_value'] * val['percent']) / 100;
+                                    html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
+                                        <td>${index + 1}</td>
+                                        <td>${val['date']}</td>
+                                        <td class="fw-bolder text-dark">${val['series']?.book_code?.toUpperCase() ?? '-'}</td>
+                                        <td>${val['document_number']}</td>
+                                        <td class="text-end">${formatIndianNumber(val['total_item_value'])}</td>
+                                        <td class="balanceInput text-end">${formatIndianNumber(val['settle'])}</td>
+                                        
+                                        <td class="text-end">
+                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${(val['settle']).toFixed(2)}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle']}" readonly/>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="form-check form-check-inline me-0">
+                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-header_name="${val['header_name']}" data-id="${val['id']}" data-header_id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle'] > calculatedValue ? calculatedValue.toFixed(2) : (val['total_item_value'] - val['settle']).toFixed(2)}" readonly disabled>
+                                            </div>
+                                        </td>
                                         </tr>`;
-                                        }
-                                    }
-                                });
-                            }
                         });
                         $('#LedgerId').val(response.ledgerId);
                         $('#vouchersBody').append(html);
