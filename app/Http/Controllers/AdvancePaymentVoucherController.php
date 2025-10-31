@@ -2121,7 +2121,7 @@ class AdvancePaymentVoucherController extends Controller
                             ->where(function ($q) {
                                 $q->whereRaw('LOWER(reference) = ?', ['advance']);
                             })
-                            ->when($request->page == 'view', function ($query) use ($request) {
+                            ->when(in_array($request->page, ['view', 'edit']), function ($query) use ($request) {
                                 $query->where('payment_voucher_id', $request->payment_voucher_id);
                             })
                             ->withWhereHas('voucher', function ($query) use ($request, $orgs) {
@@ -2175,6 +2175,11 @@ class AdvancePaymentVoucherController extends Controller
                         if($page == 'view')
                         {
                             $detail->topay =  $totalSettled;
+                        }
+                        else if($page == 'edit')
+                        {
+                            $detail->alreadytopay =  $totalSettled;
+                            $detail->topay = $detail->total_item_value - $totalSettled;
                         }
                         else
                         {
