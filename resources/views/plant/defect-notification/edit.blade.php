@@ -89,8 +89,8 @@
                                 <i data-feather="check-circle"></i> Submit
                             </button>
                         @endif
-
-                        @if ($defectNotification->document_status=='rejected')
+                      
+                        @if ($defectNotification->document_status=='rejected' && $defectNotification->created_by == App\Helpers\Helper::getAuthenticatedUser()->auth_user_id)
                             <button class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" type="button" id="save-draft-btn">
                                 <i data-feather="save"></i> Save as Draft
                             </button>

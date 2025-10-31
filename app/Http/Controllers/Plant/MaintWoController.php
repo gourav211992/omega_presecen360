@@ -1402,17 +1402,7 @@ class MaintWoController extends Controller
         }
 
         try {
-            $usedEquipmentIds = PlantMaintWo::pluck('equipment_details')
-            ->map(function ($details) {
-                $decoded = json_decode($details, true);
-                return $decoded['equipment_id'] ?? null;
-            })
-            ->filter() 
-            ->toArray();
-
-       
-
-
+          
         if ($type == 'defect') {
             $query = DefectNotification::with([
                 'book',
@@ -1420,6 +1410,7 @@ class MaintWoController extends Controller
                 'location',
                 'category',
                 'defectType',
+                'createdByUser',
             ])->where('document_status', '!=', 'draft')
               ->whereNotExists(function ($subQuery) {
                   $subQuery->select(DB::raw(1))
@@ -1429,15 +1420,7 @@ class MaintWoController extends Controller
               })
               ->orderBy('created_at', 'desc');
 
-            $totalDefects = DefectNotification::where('document_status', '!=', 'draft')
-                ->whereNotExists(function ($subQuery) {
-                    $subQuery->select(DB::raw(1))
-                             ->from('erp_plant_maint_wo')
-                             ->whereColumn('erp_plant_maint_wo.defect_notification_id', 'erp_defect_notifications.id')
-                             ->whereNull('erp_plant_maint_wo.deleted_at');
-                })
-                ->count();
-           
+ 
 
             if ($r->book_code && is_array($r->book_code) && !empty($r->book_code)) {
                 $query->whereHas('book', function ($q) use ($r) {
@@ -1450,11 +1433,8 @@ class MaintWoController extends Controller
                 });
             } 
             $results = $query->get();
-           
 
-           
-           
-
+          
             $data = $results->map(function ($defectNotification) {
                 $maintenanceTypes = [];
                 if ($defectNotification->equipment && $defectNotification->equipment->maintenanceDetails) {
@@ -1471,6 +1451,8 @@ class MaintWoController extends Controller
                 $defectNotification->maintenance_types = $maintenanceTypes;
                 $defectNotification->checklists_by_maintenance_type = $checklistsByMaintenanceType;
 
+               
+
                 return $defectNotification;
             });
         } elseif ($type == 'eqpt') {
@@ -1483,6 +1465,7 @@ class MaintWoController extends Controller
             ])
             ->whereHas('bom')
             ->whereHas('equipment', function ($q) use ($r) {
+                $q->where('location_id', $r->location_id);
                 $q->whereNotIn('document_status', ['draft', 'rejected']);
                 
                 // Only apply book_code filter if it's provided and not empty
@@ -1504,13 +1487,8 @@ class MaintWoController extends Controller
                 $qm->where('status', 'Active');
             });
         
-        $equipmentData = $query->get();
-     
-        
-          
+        $equipmentData = $query->get();  
             foreach ($equipmentData as $eqpt) {
-               
-               
                 $plantMaintWo = PlantMaintWo::where('equipment_id', $eqpt->erp_equipment_id)
                     ->where('maintenance_type_id', $eqpt->maintenance_type_id)
                     ->where('reference_type', 'equipment')
@@ -1564,6 +1542,7 @@ class MaintWoController extends Controller
             
                 // ✅ Always return formatted IST date
                 $eqpt->due_date = $dueDate ? $dueDate->format('d-m-Y') : null;
+                $eqpt->frequency = $eqpt->frequency ?? '';
                 
             
                 $maintenance_type_id = $eqpt->maintenance_type_id;
@@ -1637,6 +1616,7 @@ class MaintWoController extends Controller
             $data = [];
             
             foreach ($equipmentData as $detail) {
+               
                 if ($detail->equipment) {
                     // Get checklist data from JSON column
                     $checklistsData = $this->getChecklistDataFromJson($detail);
@@ -1644,7 +1624,7 @@ class MaintWoController extends Controller
                     $equipment = $detail->equipment;
                     $equipment->checklists_data = $checklistsData;
                     $equipment->maintenance_detail_id = $detail->id;  // Add maintenance detail ID to equipment object
-            
+                    $equipment->frequency = $detail->frequency;
                     $equipment->due_date = $detail->due_date
                         ? Carbon::parse($detail->due_date)->format('d-m-Y')
                         : null;
@@ -2260,6 +2240,7 @@ class MaintWoController extends Controller
             'location',
             'category',
             'defectType',
+            'createdByUser',
         ])->where('document_status', '!=', 'draft')
           ->whereNotExists(function ($subQuery) {
               $subQuery->select(DB::raw(1))
@@ -2316,6 +2297,7 @@ class MaintWoController extends Controller
             return $defectNotification;
         });
 
+       
         return response()->json($data);
     }
 

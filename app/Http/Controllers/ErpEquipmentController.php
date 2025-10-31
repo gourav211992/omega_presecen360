@@ -207,7 +207,7 @@ class ErpEquipmentController extends Controller
                     if ($row['status'] == 1) {
                         $btn = '<span class="badge rounded-pill badge-light-success badgeborder-radius">Active</span>';
                     } else {
-                        $btn = '<span class="badge rounded-pill badge-light-danger badgeborder-radius">InActive</span>';
+                        $btn = '<span class="badge rounded-pill badge-light-danger badgeborder-radius">Inactive</span>';
                     }
                 }
 
