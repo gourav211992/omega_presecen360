@@ -975,6 +975,7 @@
                             <th>BOM</th>
                             <th>Series</th>
                             <th>Doc No</th>
+							<th>Frequency</th>
                             <th>Due Date</th>
                           </tr>
                         </thead>
@@ -2655,7 +2656,7 @@ function processDefectSelection() {
 										data-defect-type="${defect.defect_type?.name ?? 'N/A'}"
 										data-priority="${defect.priority ?? ''}"
 										data-problem="${defect.problem ?? ''}"
-										data-reported-by="${defect.creator?.name ?? 'N/A'}">
+										data-reported-by="${defect.created_by_user?.name ?? ''}">
 									<label class="form-check-label" for="defect_row_${defect.id}"></label>
 								</div>
 							</td>
@@ -2666,7 +2667,7 @@ function processDefectSelection() {
 							<td>${defect.defect_type?.name ?? 'N/A'}</td>
 							<td>${defect.priority ?? ''}</td>
 							<td>${defect.problem ?? ''}</td>
-							<td>${defect.creator?.name ?? 'N/A'}</td>
+							<td>${defect.created_by_user?.name ?? ''}</td>
 						</tr>`;
 					});
 					$('#defectlog .po-order-detail tbody').html(tbody);
@@ -2956,6 +2957,7 @@ function processDefectSelection() {
 							<td>${eqpt?.bom?.bom_name ?? 'N/A'}</td>
 							<td>${eqpt?.bom?.book?.book_code ?? 'N/A'}</td>
 							<td>${eqpt?.bom?.document_number ?? 'N/A'}</td>
+							<td>${eqpt.frequency ?? 'N/A'}</td>
 							<td>${eqpt.next_due_date ?? 'N/A'}</td>
 						</tr>`;
 					$('#eqptTable').append(row);

@@ -46,7 +46,7 @@
 									<table id="maint-bom-table" class="datatables-basic table myrequesttablecbox"> 
                                         <thead>
                                              <tr>
-												<th>#</th>
+												<th>S.No</th>
 												<th>Date</th>
 												<th>Series</th>
 												<th>Doc No.</th>

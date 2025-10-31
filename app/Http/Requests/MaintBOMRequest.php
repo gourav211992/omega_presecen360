@@ -59,6 +59,20 @@ class MaintBOMRequest extends FormRequest
             }
         }
 
+        /**
+         * ✅ BOM Name Uniqueness Validation (for both draft and submit)
+         */
+        if ($this->filled('bom_name')) {
+            $bomId = $this->route('id');
+            if ($bomId) {
+                // For edit case - exclude current record
+                $rules['bom_name'] = 'required|string|max:255|unique:erp_plant_maint_bom,bom_name,' . $bomId;
+            } else {
+                // For create case - check uniqueness
+                $rules['bom_name'] = 'required|string|max:255|unique:erp_plant_maint_bom,bom_name';
+            }
+        }
+
         return $rules;
     }
 
@@ -92,6 +106,7 @@ class MaintBOMRequest extends FormRequest
             'document_date.date' => 'The Document Date must be a valid date.',
             'bom_name.required' => 'The BOM Name field is required.',
             'bom_name.max' => 'The BOM Name may not be greater than 255 characters.',
+            'bom_name.unique' => 'The BOM Name has already been taken. Please use a different BOM name.',
         ];
     }
 }

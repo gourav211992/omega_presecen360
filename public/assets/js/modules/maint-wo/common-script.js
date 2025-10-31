@@ -409,14 +409,14 @@ function onDocDateChange() {
 }
 
 // === Modal Data Loader (defect/equipment) ===
-function loadModal(type) {
+function loadModal(type, locationId) {
   $('.defect-type-field').show();
   $("#defectTable").empty();
   $("#eqptTable").empty();
   $.ajax({
     url: ApiURL,
     type: "GET",
-    data: { type: type, book_code: selectedSeries },
+    data: { type: type, book_code: selectedSeries, location_id: locationId },
     dataType: "json",
     success: function (response) {
       if (!Array.isArray(response) || response.length === 0) return;
@@ -436,7 +436,7 @@ function loadModal(type) {
                          data-defect-type="${defect.defect_type?.name ?? 'N/A'}"
                          data-priority="${defect.priority ?? ''}"
                          data-problem="${defect.problem ?? ''}"
-                         data-reported-by="${defect.creator?.name ?? 'N/A'}">
+                         data-reported-by="${defect.created_by_user?.name ?? ''}">
                   <label class="form-check-label" for="defect_row_${defect.id}"></label>
                 </div>
               </td>
@@ -447,7 +447,7 @@ function loadModal(type) {
               <td>${defect.defect_type?.name ?? 'N/A'}</td>
               <td>${defect.priority ?? ''}</td>
               <td>${defect.problem ?? ''}</td>
-              <td>${defect.creator?.name ?? 'N/A'}</td>
+              <td>${defect.created_by_user?.name ?? ''}</td>
             </tr>`;
           $("#defectTable").append(row);
         });
@@ -480,6 +480,7 @@ function loadModal(type) {
               <td>${eqpt?.bom?.bom_name ?? 'N/A'}</td>
               <td>${eqpt?.bom?.book?.book_code ?? 'N/A'}</td>
               <td>${eqpt?.bom?.document_number ?? 'N/A'}</td>
+              <td>${eqpt?.equipment?.frequency ?? 'N/A'}</td>
               <td>${eqpt?.equipment?.due_date ?? 'N/A'}</td>
             </tr>`;
           $("#eqptTable").append(row);
@@ -952,6 +953,8 @@ function showErrorMessage(message) {
   if (typeof Swal !== 'undefined') Swal.fire({ title: 'Error!', text: message, icon: 'error' }); else alert(message);
 }
 
+
+
 // === Equipment Modal Select & Checklist Hook ===
 $(document).on('change', '.equipment-radio', function () {
   const equipmentId = $(this).data('equipment-id');
@@ -969,12 +972,13 @@ $(document).on('change', '.equipment-radio', function () {
   $('#equipment_category').prop('readonly', true);
   $('#equipment_name').prop('readonly', true);
   $('#maintenance_type').prop('disabled', true);
+ 
   
   // Call populate-modal endpoint to get fresh data (same as normal process)
   $.ajax({
     url: ApiURL,
     type: "GET",
-    data: { type: 'eqpt', book_code: selectedSeries },
+    data: { type: 'eqpt', book_code: selectedSeries,location_id: $('#location_id').val()},
     dataType: "json",
     success: function (response) {
       

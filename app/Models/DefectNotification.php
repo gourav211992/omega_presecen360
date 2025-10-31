@@ -142,4 +142,9 @@ class DefectNotification extends Model
         
         return $original;
     }
+
+    public function createdByUser()
+    {
+        return $this->belongsTo(AuthUser::class, 'created_by')->select(['id', 'name']);
+    }
 }

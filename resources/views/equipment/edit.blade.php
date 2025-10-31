@@ -3458,6 +3458,13 @@
             portion.find('.checklist-item-checkbox').prop('checked', isChecked);
         });
 
+        // Handle select-all checkbox for view modal
+        $(document).on('change', '.select-all', function() {
+            const table = $(this).closest('table');
+            const isChecked = $(this).is(':checked');
+            table.find('tbody input[type="checkbox"]').prop('checked', isChecked);
+        });
+
         // Handle submit button (updated for show blade approach)
         $('#submitChecklistBtn').on('click', function() {
             const selectedChecklists = [];
