@@ -1935,7 +1935,7 @@ class AdvancePaymentVoucherController extends Controller
                     }])
                     ->with('organization')
                     ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED)
-                    ->whereIn('reference_service', ['sale invoice'])
+                    ->whereIn('reference_service', [ConstantHelper::SI_SERVICE_ALIAS])
                     ->whereNotNull('reference_doc_id')
                     ->withWhereHas('items', function ($i) use ($ledger, $request, $ledger_group) {
                         $i->where('ledger_id', $ledger)
@@ -1974,7 +1974,7 @@ class AdvancePaymentVoucherController extends Controller
                         $data = $data->get();
 
                         // --- Extract IDs ---
-                        $saleIds = $data->where('reference_service', 'sale invoice')
+                        $saleIds = $data->where('reference_service', ConstantHelper::SI_SERVICE_ALIAS)
                                     ->pluck('reference_doc_id')
                                     ->filter()
                                     ->unique();
@@ -2010,7 +2010,7 @@ class AdvancePaymentVoucherController extends Controller
                                 })
                                 ->map(function ($item) use ($salepaymentTerms) {
                                     $item->percent = $salepaymentTerms[$item->id]->pluck('percent')->implode(', ');
-                                    $item->header_name = 'sale invoice';
+                                    $item->header_name = ConstantHelper::SI_SERVICE_ALIAS;
                                     return $item;
                                 });
 
@@ -2107,7 +2107,7 @@ class AdvancePaymentVoucherController extends Controller
                 }])
                 ->with('organization')
                 ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_APPROVED)
-                ->whereIn('reference_service', ['mrn', 'purchase bill'])
+                ->whereIn('reference_service', [ConstantHelper::MRN_SERVICE_ALIAS, ConstantHelper::PB_SERVICE_ALIAS])
                 ->whereNotNull('reference_doc_id')
                 ->withWhereHas('items', function ($i) use ($ledger, $request, $ledger_group) {
                     $i->where('ledger_id', $ledger)
@@ -2142,20 +2142,18 @@ class AdvancePaymentVoucherController extends Controller
                     // }                
                     
                     $data = $data->get();
-                        
-
+                    
 
                 // --- Extract IDs ---
-                $mrnIds = $data->where('reference_service', 'mrn')
+                $mrnIds = $data->where('reference_service', ConstantHelper::MRN_SERVICE_ALIAS)
                             ->pluck('reference_doc_id')
                             ->filter()
                             ->unique();
 
-                $pbIds = $data->where('reference_service', 'purchase bill')
+                $pbIds = $data->where('reference_service', ConstantHelper::PB_SERVICE_ALIAS)
                             ->pluck('reference_doc_id')
                             ->filter()
                             ->unique();
-
 
                 $details = collect();
 
@@ -2188,7 +2186,7 @@ class AdvancePaymentVoucherController extends Controller
                         })
                         ->map(function ($item) use ($paymentTerms) {
                             $item->percent = $paymentTerms[$item->id]->pluck('percent')->implode(', ');
-                            $item->header_name = 'mrn';
+                            $item->header_name = ConstantHelper::MRN_SERVICE_ALIAS;
                             return $item;
                         });
 
@@ -2224,7 +2222,7 @@ class AdvancePaymentVoucherController extends Controller
                         return $pbTerms->has($item->id);
                     })->map(function ($item) use ($pbTerms) {
                         $item->percent = $pbTerms[$item->id]->pluck('percent')->implode(', ');
-                        $item->header_name = 'pb';
+                        $item->header_name = ConstantHelper::PB_SERVICE_ALIAS;
                         return $item;
                     });
 
