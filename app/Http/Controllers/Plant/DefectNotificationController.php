@@ -858,7 +858,8 @@ class DefectNotificationController extends Controller
             }
                 
             if ($request->action_type != 'draft') {
-                $doc = Helper::approveDocument($defectNotification->book_id, $defectNotification->id, $defectNotification->revision_number, "", null, 1, 'submit', 0, get_class($defectNotification));
+                $defectNotification = DefectNotification::findOrFail($id);
+                $doc = Helper::approveDocument($defectNotification->book_id, $defectNotification->id, $defectNotification->revision_number, "", null, $defectNotification->approval_level, 'submit', 0, get_class($defectNotification));
                 $defectNotification->document_status = $doc['approvalStatus'];
                 $defectNotification->save();
             }

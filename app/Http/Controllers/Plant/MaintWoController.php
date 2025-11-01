@@ -1297,7 +1297,7 @@ class MaintWoController extends Controller
             $workOrder->save();
 
             if ($request->action_type != 'draft') {
-                $doc = Helper::approveDocument($workOrder->book_id, $workOrder->id, $workOrder->revision_number, "", null, 1, 'submit', 0, get_class($workOrder));
+                $doc = Helper::approveDocument($workOrder->book_id, $workOrder->id, $workOrder->revision_number, "", null, $workOrder->approval_level, 'submit', 0, get_class($workOrder));
                 $workOrder->document_status = $doc['approvalStatus'];
                 $workOrder->save();
             }

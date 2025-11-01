@@ -653,7 +653,7 @@ class MaintBomController extends Controller
             $bom->update($data);
             
             if ($request->action_type != 'draft') {
-                $doc = Helper::approveDocument($bom->book_id, $bom->id, $bom->revision_number, "", null, 1, 'submit', 0, get_class($bom));
+                $doc = Helper::approveDocument($bom->book_id, $bom->id, $bom->revision_number, "", null, $bom->approval_level, 'submit', 0, get_class($bom));
                 $bom->document_status = $doc['approvalStatus'];
                 $bom->save();
             }
