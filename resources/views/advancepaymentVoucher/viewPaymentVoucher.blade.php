@@ -608,6 +608,20 @@
                                                                             id="party_id{{ $no }}"
                                                                             class="ledgers"
                                                                             value="{{ $item->ledger_id ?? $item->party_id }}" />
+                                                                             @php
+                                                                                // remove ledger and wrap in array
+                                                                                $cleanItem = collect($item)->except('ledger')->toArray();
+                                                                                $wrappedItem = [$cleanItem];
+                                                                            @endphp
+                                                                            <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers{{$no}}" class="party_vouchers"  value='@json($wrappedItem)'/>
+                                                                             <input type="hidden" name="customerid[]"
+                                                                                id="customerid{{ $no }}"
+                                                                                value="{{$item?->customer?->id}}"
+                                                                            />
+                                                                            <input type="hidden" name="vendorid[]"
+                                                                                id="vendorid{{ $no }}"
+                                                                                value="{{$item?->vendor?->id}}"
+                                                                            />
                                                                     </td>
                                                                     
                                                                     <td class="poprod-decpt"><input type="text"
@@ -1316,6 +1330,8 @@
                     date: $('#voucherDate').val(),
                     '_token': '{!! csrf_token() !!}',
                     partyCode: $('.partyCode' + $('#currentRow').val()).val(),
+                    customer_id: $('#customerid' + $('#currentRow').val()).val(),
+                    vendor_id: $('#vendorid' + $('#currentRow').val()).val(),
                     book_code: $('#book_code').val(),
                     partyID: $('#party_id' + $('#currentRow').val()).val(),
                     ledgerGroup: $('#groupSelect' + $('#currentRow').val()).val(),
@@ -1732,6 +1748,8 @@
                             <input type="text" placeholder="Select" class="form-control mw-100 ledgerselect partyCode${rowCount} mb-25" required data-id="${rowCount}"/>
                             <input type="hidden" name="party_id[]" type="hidden" id="party_id${rowCount}" class="ledgers"/>
                             <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers${rowCount}" class="party_vouchers"/>
+                            <input type="hidden" name="customer_id[]" type="hidden" id="customerid${rowCount}" class="party_customers"/>
+                            <input type="hidden" name="vendor_id[]" type="hidden" id="vendorid${rowCount}" class="party_vendors"/>
                         </td>
                         <td class="poprod-decpt"><input type="text" disabled placeholder="Select" class="form-control mw-100 mb-25 partyName" id="party_name${rowCount}"/></td>
                         <td>

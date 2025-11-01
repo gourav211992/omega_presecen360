@@ -863,8 +863,9 @@
                                             <th>Date</th>
                                             <th>Series</th>
                                             <th>Document No.</th>
+                                            <th class="text-end">Amount</th>
                                             <th class="text-end">Advance</th>
-                                            <th class="text-end">Settle</th>
+                                            <!-- <th class="text-end">Settle</th> -->
                                             <th class="text-end" width="150px">To Pay</th>
                                             <th class="text-center">
                                                 <div class="form-check form-check-inline me-0">
@@ -1199,14 +1200,14 @@ $('.settleInput').each(function () {
                                         <td class="fw-bolder text-dark">${val['book_code']?.toUpperCase() ?? '-'}</td>
                                         <td>${val['document_number']}</td>
                                         <td class="text-end">${formatIndianNumber(val['total_item_value'])}</td>
-                                        <td class="balanceInput text-end">${formatIndianNumber(val['settle'])}</td>
+                                        <td class="balanceInput text-end">${formatIndianNumber(calculatedValue)}</td>
                                         
                                         <td class="text-end">
-                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${(val['alreadytopay']).toFixed(2)}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle']}"/>
+                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${(val['alreadytopay']).toFixed(2)}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${calculatedValue}" readonly/>
                                         </td>
                                         <td class="text-center">
                                             <div class="form-check form-check-inline me-0">
-                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-header_name="${val['header_name']}" ${val['alreadytopay'] > 0 ? 'checked' : ''}   data-id="${val['id']}" data-header_id="${val['id']}" type="checkbox" name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle'] > calculatedValue ? calculatedValue.toFixed(2) : (val['total_item_value'] - val['settle']).toFixed(2)}">
+                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-header_name="${val['header_name']}" ${val['alreadytopay'] > 0 ? 'checked' : ''}   data-id="${val['id']}" data-header_id="${val['id']}" type="checkbox" name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${calculatedValue.toFixed(2)}">
                                             </div>
                                         </td>
                                         <input type="hidden" class="ledger-id" value="${ledgerId}">

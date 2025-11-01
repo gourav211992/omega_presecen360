@@ -1621,7 +1621,7 @@ class AdvancePaymentVoucherController extends Controller
         return response()->json(['exists' => $exists]);
     }
 
-    public static function oldgetLedgerVouchers(Request $request)
+    public static function getLedgerVouchers(Request $request)
     {
        
         $type = $request->type == ConstantHelper::ADVANCE_RECEIPTS_SERVICE_ALIAS ? 'customer' : 'vendor';
@@ -1699,23 +1699,132 @@ class AdvancePaymentVoucherController extends Controller
                         $data = $data->with(['series' => function ($s) use ($request, $orgs) {
                                 $s->select('id', 'book_code');
                             }])
-                            ->select('id', 'total_item_value', 'book_id', 'document_date as date','document_number','created_at', 'organization_id')
+                            ->select('id', 'total_item_value', 'book_id','book_code','document_date as date','document_number','created_at', 'organization_id')
                             ->get();
                         
                         // ✅ Get PO payment terms (only advance type)
-                        $paymentTerms = ErpSoPaymentTerm::whereIn('so_header_id', $data->pluck('id'))
-                            ->whereRaw('LOWER(trigger_type) = ?', ['advance'])
-                            ->get(['so_header_id', 'percent']);
+                        // $paymentTerms = ErpSoPaymentTerm::whereIn('so_header_id', $data->pluck('id'))
+                        //     ->whereRaw('LOWER(trigger_type) = ?', ['advance'])
+                        //     ->get(['so_header_id', 'percent']);
 
+                        // $groupedTerms = $paymentTerms->groupBy('so_header_id');
+
+                        // $data = $data->filter(function ($item) use ($groupedTerms) {
+                        //     return $groupedTerms->has($item->id);
+                        // });
+                       
+                        $paymentTerms = ErpSoPaymentTerm::whereIn('so_header_id', $data->pluck('id'))
+                        ->whereRaw('LOWER(trigger_type) = ?', ['advance'])
+                        ->get(['so_header_id', 'percent']);
+                        
+                        // Group by PO header ID
                         $groupedTerms = $paymentTerms->groupBy('so_header_id');
 
+                        // Filter data and attach percent + header_name
                         $data = $data->filter(function ($item) use ($groupedTerms) {
                             return $groupedTerms->has($item->id);
+                        })->map(function ($item) use ($groupedTerms) {
+                            // Get the percent value (if multiple, take first or sum as needed)
+                            $percent = $groupedTerms[$item->id]->first()->percent ?? null;
+
+                            // Add extra fields
+                            $item->percent = $percent;
+                            $item->header_name = 'so';
+                            
+                            return $item;
                         });
+                       
+                        // $advanceItems = AdvancePaymentVoucherDetails::where('type', $type)
+                        //     ->where(function ($q) {
+                        //         $q->whereRaw('LOWER(reference) = ?', ['advance']);
+                        //     })
+                        //     ->withWhereHas('voucher', function ($query) use ($request, $orgs) {
+                        //         $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS, function ($query) {
+                        //             $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
+                        //                 ->withoutGlobalScope('defaultLocation');
+                        //         })
+                        //         ->whereIn('organization_id', $orgs)
+                        //         ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
+                        //     })
+                        //     ->with('partyName')
+                        //     ->get()
+                        //     ->filter(function ($adv) use ($ledger, $ledger_group) {
+                        //         if (is_null($adv->ledger_id)) {
+                        //             return $adv->partyName
+                        //                 && $adv->partyName->ledger_id == $ledger
+                        //                 && $adv->partyName->ledger_group_id == $ledger_group;
+                        //         } else {
+                        //             return $adv->ledger_id == $ledger
+                        //                 && $adv->ledger_group_id == $ledger_group;
+                        //         }
+                        //     });
+
+                        // // ✅ Group by header_id → key = header_id, value = sum(current_amount)
+                        // $advanceSummary = $advanceItems
+                        //     ->groupBy('header_id')
+                        //     ->mapWithKeys(function ($items, $headerId) {
+                        //         return [$headerId => $items->sum('currentAmount')];
+                        //     })
+                        //     ->filter(function ($value, $headerId) {
+                        //         return !empty($headerId); // keep only non-empty header_id
+                        //     });
+                        
+                        //     // ✅ Attach computed values to each PO
+                        //     foreach ($data as $v) {
+                        //         $terms = $groupedTerms->get($v->id);
+                        //         $v->percent = $terms ? $terms->avg('percent') : 0;
+
+                        //         // prevent "undefined index" if header_id doesn't exist in $advanceSummary
+                        //         $advanceAmount = $advanceSummary[$v->id] ?? 0;
+
+                        //         $v->settle = $advanceAmount;
+                        //         $v->topay = $v->total_item_value - $advanceAmount;
+                        //     }
+                        if(!empty($request->payment_voucher_id))
+                        {
+                            if ($request->page == 'view') 
+                            {
+                                // ✅ View mode: only include current voucher records
+                                $existingHeaderIds = AdvancePaymentVoucherDetails::where('payment_voucher_id', $request->payment_voucher_id)
+                                    ->where('header_name', 'so')
+                                    ->pluck('header_id')
+                                    ->filter()
+                                    ->flatMap(function ($ids) {
+                                        return collect(explode(',', $ids))->map(fn($id) => trim($id));
+                                    })
+                                    ->unique()
+                                    ->toArray();
+
+                                // Keep only data matching current voucher IDs
+                                $data = collect($data)->filter(function ($item) use ($existingHeaderIds) {
+                                    return in_array($item['id'], $existingHeaderIds);
+                                })->values();
+
+                            } else {
+                                $existingHeaderIds = AdvancePaymentVoucherDetails::where('payment_voucher_id','!=', $request->payment_voucher_id)
+                                    ->where('header_name', 'so')
+                                    ->pluck('header_id')
+                                    ->filter()
+                                    ->flatMap(function ($ids) {
+                                        // Split comma-separated IDs and trim spaces
+                                        return collect(explode(',', $ids))->map(fn($id) => trim($id));
+                                    })
+                                    ->unique()
+                                    ->toArray();
+
+                                // Step 2: Filter your $data to remove already existing IDs
+                                $data = collect($data)->filter(function ($item) use ($existingHeaderIds) {
+                                    return !in_array($item['id'], $existingHeaderIds);
+                                })->values();
+                            }
+                        }
 
                         $advanceItems = AdvancePaymentVoucherDetails::where('type', $type)
                             ->where(function ($q) {
                                 $q->whereRaw('LOWER(reference) = ?', ['advance']);
+                            })
+                            ->when(in_array($request->page, ['view', 'edit']), function ($query) use ($request) {
+                                $query->where('payment_voucher_id', $request->payment_voucher_id);
                             })
                             ->withWhereHas('voucher', function ($query) use ($request, $orgs) {
                                 $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS, function ($query) {
@@ -1738,27 +1847,49 @@ class AdvancePaymentVoucherController extends Controller
                                 }
                             });
 
-                        // ✅ Group by header_id → key = header_id, value = sum(current_amount)
-                        $advanceSummary = $advanceItems
-                            ->groupBy('header_id')
-                            ->mapWithKeys(function ($items, $headerId) {
-                                return [$headerId => $items->sum('currentAmount')];
-                            })
-                            ->filter(function ($value, $headerId) {
-                                return !empty($headerId); // keep only non-empty header_id
-                            });
-                        
-                            // ✅ Attach computed values to each PO
-                            foreach ($data as $v) {
-                                $terms = $groupedTerms->get($v->id);
-                                $v->percent = $terms ? $terms->avg('percent') : 0;
+                    $page = $request->page;
+                    $settledDetails = $data->map(function ($data) use ($advanceItems,$page) {
+                        $totalSettled = 0;
 
-                                // prevent "undefined index" if header_id doesn't exist in $advanceSummary
-                                $advanceAmount = $advanceSummary[$v->id] ?? 0;
+                        // Loop through each advance record
+                        foreach ($advanceItems as $adv) {
+                            // Split the comma-separated strings
+                            $headerIds = explode(',', $adv->header_id);
+                            $headerNames = explode(',', $adv->header_name);
+                            $headerAmounts = explode(',', $adv->header_amounts);
 
-                                $v->settle = $advanceAmount;
-                                $v->topay = $v->total_item_value - $advanceAmount;
+                            // Go through each header in the advance
+                            foreach ($headerIds as $index => $headerId) {
+                                $headerId = trim($headerId);
+                                $headerName = isset($headerNames[$index]) ? trim($headerNames[$index]) : null;
+                                $headerAmount = isset($headerAmounts[$index]) ? (float) trim($headerAmounts[$index]) : 0.0;
+
+                                // Match both ID and name
+                                if ($headerId == $data->id && strtolower($headerName) == strtolower($data->header_name)) {
+                                    $totalSettled += $headerAmount;
+                                }
                             }
+                        }
+
+                        // Add the settled amount field
+                        $data->settle = $totalSettled;
+                        
+                        if($page == 'view')
+                        {
+                            $data->topay =  $totalSettled;
+                        }
+                        else if($page == 'edit')
+                        {
+                            $data->alreadytopay =  $totalSettled;
+                            $data->topay = $data->total_item_value - $totalSettled;
+                        }
+                        else
+                        {
+                             $data->topay = $data->total_item_value - $totalSettled;
+                        }
+                       
+                        return $data;
+                    });
                         
             }
             else
@@ -1817,68 +1948,201 @@ class AdvancePaymentVoucherController extends Controller
                 $data = $data->with(['series' => function ($s) {
                         $s->select('id', 'book_code');
                     }])
-                    ->select('id', 'total_item_value', 'book_id', 'document_date as date', 'document_number', 'created_at', 'organization_id')
+                    ->select('id', 'total_item_value', 'book_id', 'book_code','document_date as date', 'document_number', 'created_at', 'organization_id')
                     ->get();
 
 
+                // // ✅ Get PO payment terms (only advance type)
+                // $paymentTerms = ErpPoPaymentTerm::whereIn('po_header_id', $data->pluck('id'))
+                //     ->whereRaw('LOWER(trigger_type) = ?', ['advance'])
+                //     ->get(['po_header_id', 'percent']);
+
+                // $groupedTerms = $paymentTerms->groupBy('po_header_id');
+
+                // $data = $data->filter(function ($item) use ($groupedTerms) {
+                //     return $groupedTerms->has($item->id);
+                // });
+                
                 // ✅ Get PO payment terms (only advance type)
                 $paymentTerms = ErpPoPaymentTerm::whereIn('po_header_id', $data->pluck('id'))
                     ->whereRaw('LOWER(trigger_type) = ?', ['advance'])
                     ->get(['po_header_id', 'percent']);
 
+                // Group by PO header ID
                 $groupedTerms = $paymentTerms->groupBy('po_header_id');
 
+                // Filter data and attach percent + header_name
                 $data = $data->filter(function ($item) use ($groupedTerms) {
                     return $groupedTerms->has($item->id);
+                })->map(function ($item) use ($groupedTerms) {
+                    // Get the percent value (if multiple, take first or sum as needed)
+                    $percent = $groupedTerms[$item->id]->first()->percent ?? null;
+
+                    // Add extra fields
+                    $item->percent = $percent;
+                    $item->header_name = 'po';
+                    
+                    return $item;
                 });
 
-                $advanceItems = AdvancePaymentVoucherDetails::where('type', $type)
-                    ->where(function ($q) {
-                        $q->whereRaw('LOWER(reference) = ?', ['advance']);
-                    })
-                    ->withWhereHas('voucher', function ($query) use ($request, $orgs) {
-                        $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS, function ($query) {
-                            $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
-                                ->withoutGlobalScope('defaultLocation');
-                        })
-                        ->whereIn('organization_id', $orgs)
-                        ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                    })
-                    ->with('partyName')
-                    ->get()
-                    ->filter(function ($adv) use ($ledger, $ledger_group) {
-                        if (is_null($adv->ledger_id)) {
-                            return $adv->partyName
-                                && $adv->partyName->ledger_id == $ledger
-                                && $adv->partyName->ledger_group_id == $ledger_group;
-                        } else {
-                            return $adv->ledger_id == $ledger
-                                && $adv->ledger_group_id == $ledger_group;
+                        if(!empty($request->payment_voucher_id))
+                        {
+                            if ($request->page == 'view') 
+                            {
+                                // ✅ View mode: only include current voucher records
+                                $existingHeaderIds = AdvancePaymentVoucherDetails::where('payment_voucher_id', $request->payment_voucher_id)
+                                    ->where('header_name', 'po')
+                                    ->pluck('header_id')
+                                    ->filter()
+                                    ->flatMap(function ($ids) {
+                                        return collect(explode(',', $ids))->map(fn($id) => trim($id));
+                                    })
+                                    ->unique()
+                                    ->toArray();
+
+                                // Keep only data matching current voucher IDs
+                                $data = collect($data)->filter(function ($item) use ($existingHeaderIds) {
+                                    return in_array($item['id'], $existingHeaderIds);
+                                })->values();
+
+                            } else {
+                                $existingHeaderIds = AdvancePaymentVoucherDetails::where('payment_voucher_id','!=', $request->payment_voucher_id)
+                                    ->where('header_name', 'po')
+                                    ->pluck('header_id')
+                                    ->filter()
+                                    ->flatMap(function ($ids) {
+                                        // Split comma-separated IDs and trim spaces
+                                        return collect(explode(',', $ids))->map(fn($id) => trim($id));
+                                    })
+                                    ->unique()
+                                    ->toArray();
+
+                                // Step 2: Filter your $data to remove already existing IDs
+                                $data = collect($data)->filter(function ($item) use ($existingHeaderIds) {
+                                    return !in_array($item['id'], $existingHeaderIds);
+                                })->values();
+                            }
                         }
+
+
+            //     $advanceItems = AdvancePaymentVoucherDetails::where('type', $type)
+            //         ->where(function ($q) {
+            //             $q->whereRaw('LOWER(reference) = ?', ['advance']);
+            //         })
+            //         ->withWhereHas('voucher', function ($query) use ($request, $orgs) {
+            //             $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS, function ($query) {
+            //                 $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
+            //                     ->withoutGlobalScope('defaultLocation');
+            //             })
+            //             ->whereIn('organization_id', $orgs)
+            //             ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
+            //         })
+            //         ->with('partyName')
+            //         ->get()
+            //         ->filter(function ($adv) use ($ledger, $ledger_group) {
+            //             if (is_null($adv->ledger_id)) {
+            //                 return $adv->partyName
+            //                     && $adv->partyName->ledger_id == $ledger
+            //                     && $adv->partyName->ledger_group_id == $ledger_group;
+            //             } else {
+            //                 return $adv->ledger_id == $ledger
+            //                     && $adv->ledger_group_id == $ledger_group;
+            //             }
+            //         });
+
+            //     // ✅ Group by header_id → key = header_id, value = sum(current_amount)
+            //    $advanceSummary = $advanceItems
+            //     ->groupBy('header_id')
+            //     ->mapWithKeys(function ($items, $headerId) {
+            //         return [$headerId => $items->sum('currentAmount')];
+            //     })
+            //     ->filter(function ($value, $headerId) {
+            //         return !empty($headerId); // keep only non-empty header_id
+            //     });
+
+
+            //     // ✅ Attach computed values to each PO
+            //     foreach ($data as $v) {
+            //         $terms = $groupedTerms->get($v->id);
+            //         $v->percent = $terms ? $terms->avg('percent') : 0;
+
+            //         // prevent "undefined index" if header_id doesn't exist in $advanceSummary
+            //         $advanceAmount = $advanceSummary[$v->id] ?? 0;
+
+            //         $v->settle = $advanceAmount;
+            //         $v->topay = $v->total_item_value - $advanceAmount;
+            //     }
+                    $advanceItems = AdvancePaymentVoucherDetails::where('type', $type)
+                            ->where(function ($q) {
+                                $q->whereRaw('LOWER(reference) = ?', ['advance']);
+                            })
+                            ->when(in_array($request->page, ['view', 'edit']), function ($query) use ($request) {
+                                $query->where('payment_voucher_id', $request->payment_voucher_id);
+                            })
+                            ->withWhereHas('voucher', function ($query) use ($request, $orgs) {
+                                $query->when($request->type == ConstantHelper::ADVANCE_PAYMENTS_SERVICE_ALIAS, function ($query) {
+                                    $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
+                                        ->withoutGlobalScope('defaultLocation');
+                                })
+                                ->whereIn('organization_id', $orgs)
+                                ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
+                            })
+                            ->with('partyName')
+                            ->get()
+                            ->filter(function ($adv) use ($ledger, $ledger_group) {
+                                if (is_null($adv->ledger_id)) {
+                                    return $adv->partyName
+                                        && $adv->partyName->ledger_id == $ledger
+                                        && $adv->partyName->ledger_group_id == $ledger_group;
+                                } else {
+                                    return $adv->ledger_id == $ledger
+                                        && $adv->ledger_group_id == $ledger_group;
+                                }
+                            });
+
+                    $page = $request->page;
+                    $settledDetails = $data->map(function ($data) use ($advanceItems,$page) {
+                        $totalSettled = 0;
+
+                        // Loop through each advance record
+                        foreach ($advanceItems as $adv) {
+                            // Split the comma-separated strings
+                            $headerIds = explode(',', $adv->header_id);
+                            $headerNames = explode(',', $adv->header_name);
+                            $headerAmounts = explode(',', $adv->header_amounts);
+
+                            // Go through each header in the advance
+                            foreach ($headerIds as $index => $headerId) {
+                                $headerId = trim($headerId);
+                                $headerName = isset($headerNames[$index]) ? trim($headerNames[$index]) : null;
+                                $headerAmount = isset($headerAmounts[$index]) ? (float) trim($headerAmounts[$index]) : 0.0;
+
+                                // Match both ID and name
+                                if ($headerId == $data->id && strtolower($headerName) == strtolower($data->header_name)) {
+                                    $totalSettled += $headerAmount;
+                                }
+                            }
+                        }
+
+                        // Add the settled amount field
+                        $data->settle = $totalSettled;
+                        
+                        if($page == 'view')
+                        {
+                            $data->topay =  $totalSettled;
+                        }
+                        else if($page == 'edit')
+                        {
+                            $data->alreadytopay =  $totalSettled;
+                            $data->topay = $data->total_item_value - $totalSettled;
+                        }
+                        else
+                        {
+                             $data->topay = $data->total_item_value - $totalSettled;
+                        }
+                       
+                        return $data;
                     });
-
-                // ✅ Group by header_id → key = header_id, value = sum(current_amount)
-               $advanceSummary = $advanceItems
-                ->groupBy('header_id')
-                ->mapWithKeys(function ($items, $headerId) {
-                    return [$headerId => $items->sum('currentAmount')];
-                })
-                ->filter(function ($value, $headerId) {
-                    return !empty($headerId); // keep only non-empty header_id
-                });
-
-
-                // ✅ Attach computed values to each PO
-                foreach ($data as $v) {
-                    $terms = $groupedTerms->get($v->id);
-                    $v->percent = $terms ? $terms->avg('percent') : 0;
-
-                    // prevent "undefined index" if header_id doesn't exist in $advanceSummary
-                    $advanceAmount = $advanceSummary[$v->id] ?? 0;
-
-                    $v->settle = $advanceAmount;
-                    $v->topay = $v->total_item_value - $advanceAmount;
-                }
 
                             
             }
@@ -1890,7 +2154,7 @@ class AdvancePaymentVoucherController extends Controller
         }
     }
 
-     public static function getLedgerVouchers(Request $request)
+     public static function newgetLedgerVouchers(Request $request)
     {
        
         $type = $request->type == ConstantHelper::ADVANCE_RECEIPTS_SERVICE_ALIAS ? 'customer' : 'vendor';
