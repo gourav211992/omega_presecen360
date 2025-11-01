@@ -198,7 +198,7 @@ class ErpEquipmentController extends Controller
                     if ($row['status'] == 1 && in_array($row['document_status'], [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])) {
                         $btn = '<span class="badge rounded-pill badge-light-success badgeborder-radius">Active</span>';
                     } else if($row['status'] == 0 && in_array($row['document_status'], [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])) {
-                        $btn = '<span class="badge rounded-pill badge-light-danger badgeborder-radius">InActive</span>';
+                        $btn = '<span class="badge rounded-pill badge-light-danger badgeborder-radius">Inactive</span>';
                     } else {
                         $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$status ?? "draft"];
                         $btn = '<span class="badge rounded-pill ' . $statusClass . ' badgeborder-radius">' . ucfirst($row['document_status']) . '</span>';
@@ -210,6 +210,7 @@ class ErpEquipmentController extends Controller
                         $btn = '<span class="badge rounded-pill badge-light-danger badgeborder-radius">Inactive</span>';
                     }
                 }
+
 
 
                 return $btn;
@@ -817,8 +818,19 @@ class ErpEquipmentController extends Controller
                 ];
                 
                 $amendmentResult = Helper::documentAmendment($revisionData, $id);
-                
-                // Update revision number and save
+
+                Helper::approveDocument(
+                    $equipment->book_id,
+                    $equipment->id,
+                    $equipment->revision_number,
+                    $request->amend_remarks,
+                    $request->file('amend_attachment'),
+                    $equipment->approval_level,
+                    'amendment',
+                    0,
+                    get_class($equipment)
+                );
+
                 $equipment->revision_number = $equipment->revision_number + 1;
                 $equipment->revision_date = now();
                 $equipment->save();  

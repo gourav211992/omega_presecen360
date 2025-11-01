@@ -2924,6 +2924,7 @@ function processDefectSelection() {
 			equipment_id: equipmentId,
 			maintenance_type_id: maintenanceTypeId,
 			bom_id: bomId,
+			location_id: $('#location_id').val(),
 			_token: $('meta[name="csrf-token"]').attr('content')
 		},
 		success: function(response) {
