@@ -3049,7 +3049,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('defect-notification/cancel', [DefectNotificationController::class, 'cancel'])->name('defect-notification.cancel.document');
 
     Route::get('defect-notification/revoke', [DefectNotificationController::class, 'revoke'])->name('defect-notification.revoke.document');
-    Route::resource('plant/defect-noti', DefectNotificationController::class)
+    Route::resource('plant/defect-notification', DefectNotificationController::class)
         ->names([
             'index' => 'defect-notification.index',
             'create' => 'defect-notification.create',

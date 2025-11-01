@@ -40,7 +40,7 @@
 									<table id="defect-notifications-table" class="datatables-basic table myrequesttablecbox "> 
                                         <thead>
                                              <tr>
-                                                <th height="18">#</th>
+                                                <th height="18">S.No</th>
 												<th>Date</th>
 												<th>Series</th>
 												<th>Doc No.</th>

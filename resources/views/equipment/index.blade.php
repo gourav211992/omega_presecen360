@@ -39,7 +39,7 @@
                                 <table id="equipmentsTable" class="datatables-basic table myrequesttablecbox tableistlastcolumnfixed newerptabledesignlisthome"> 
                                     <thead>
                                         <tr>
-                                            <th>#</th>
+                                            <th>S.No</th>
                                             <th>Date</th>
                                             <th>Equipment</th>
                                             <th>Organization</th>

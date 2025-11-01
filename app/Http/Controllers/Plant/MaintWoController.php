@@ -1982,6 +1982,7 @@ class MaintWoController extends Controller
         $equipmentId = $request->input('equipment_id');
         $maintenanceTypeId = $request->input('maintenance_type_id');
         $bomId = $request->input('bom_id');
+        $locationId = $request->input('location_id');
 
         $equipment = ErpEquipment::find($equipmentId);
         if (!$equipment) {
@@ -2002,13 +2003,20 @@ class MaintWoController extends Controller
             $query->where('maintenance_bom_id', $bomId);
         }
 
+        // ✅ Apply location filter on equipment
+        if ($locationId) {
+            $query->whereHas('equipment', function ($q) use ($locationId) {
+                $q->where('location_id', $locationId);
+            });
+        }
+
         $maintenanceDetails = $query->get();
         if ($maintenanceDetails->isEmpty()) {
             return response()->json([]);
         }
 
         $data = [];
-        
+
         foreach ($maintenanceDetails as $detail) {
             if ($detail && $detail->equipment) {
                 // Get checklist data from JSON column
@@ -2016,11 +2024,11 @@ class MaintWoController extends Controller
 
                 $equipment = $detail->equipment;
                 $equipment->checklists_data = $checklistsData;
-                $equipment->maintenance_detail_id = $detail->id;  // Add maintenance detail ID
+                $equipment->maintenance_detail_id = $detail->id;
 
-                // Calculate next due date based on last submitted work order
+                // Calculate next due date
                 $nextDueDate = $this->calculateNextMaintenanceDueDate(
-                    $detail->erp_equipment_id, 
+                    $detail->erp_equipment_id,
                     $detail->maintenance_type_id,
                     $detail->id,
                     $detail->frequency,
@@ -2028,20 +2036,21 @@ class MaintWoController extends Controller
                 );
 
                 $data[] = [
-                    'equipment'         => $equipment,
-                    'maintenance_type'  => $detail->maintenanceType,
-                    'maintenance_type_id' => $detail->maintenance_type_id,
-                    'bom'               => $detail->bom,
+                    'equipment'             => $equipment,
+                    'maintenance_type'      => $detail->maintenanceType,
+                    'maintenance_type_id'   => $detail->maintenance_type_id,
+                    'bom'                   => $detail->bom,
                     'maintenance_detail_id' => $detail->id,
-                    'start_date'        => $detail->start_date,
-                    'frequency'         => $detail->frequency,
-                    'next_due_date'     => $nextDueDate,
+                    'start_date'            => $detail->start_date,
+                    'frequency'             => $detail->frequency,
+                    'next_due_date'         => $nextDueDate,
                 ];
             }
         }
 
         return response()->json($data);
     }
+
 
     /**
      * Calculate next maintenance due date based on last submitted work order

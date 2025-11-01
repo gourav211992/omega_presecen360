@@ -45,7 +45,7 @@
                               <table id="maint-wo-table" class="datatables-basic table myrequesttablecbox" style="width: 100% !important;"> 
                                  <thead>
                                     <tr>
-                                       <th>#</th>
+                                       <th>S.No</th>
                                        <th>Date</th>
                                        <th>Series</th>
                                        <th>Doc No.</th>
