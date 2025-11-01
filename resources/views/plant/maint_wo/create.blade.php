@@ -648,6 +648,7 @@
                             <th>BOM</th>
                             <th>Series</th>
                             <th>Doc No</th>
+							<th>Frequency</th>
 							<th>Due Date</th>
                           </tr>
                         </thead>
@@ -1880,8 +1881,8 @@
 
 		// Simple functions for equipment selection
 		function selectEquipmentReference() {
-
-			loadModal('eqpt');
+			let locationId = $('#location_id').val();
+			loadModal('eqpt',locationId);
 			$('#reference_type').val('equipment');
 			$('#reference_type_error').hide();
 			$('#equipment_ref_btn').removeClass('btn-outline-primary').addClass('btn-primary');
@@ -1906,8 +1907,8 @@
 		function selectDefectNotificationReference() {
 			// Check if reference type is actually changing from equipment to defect_notification
 			const currentReferenceType = $('#reference_type').val();
-
-			loadModal('defect');
+			let locationId = $('#location_id').val();
+			loadModal('defect',locationId);
 			$('#reference_type').val('defect_notification');
 			$('#reference_type_error').hide();
 			$('#defect_ref_btn').removeClass('btn-outline-primary').addClass('btn-primary');
@@ -2303,7 +2304,7 @@
 												data-defect-type="${defect.defect_type?.name ?? 'N/A'}"
 												data-priority="${defect.priority ?? ''}"
 												data-problem="${defect.problem ?? ''}"
-												data-reported-by="${defect.creator?.name ?? 'N/A'}">
+												data-reported-by="${defect.created_by_user?.name ?? ''}">
 											<label class="form-check-label" for="defect_row_${defect.id}"></label>
 										</div>
 									</td>
@@ -2314,7 +2315,7 @@
 									<td>${defect.defect_type?.name ?? 'N/A'}</td>
 									<td>${defect.priority ?? ''}</td>
 									<td>${defect.problem ?? ''}</td>
-									<td>${defect.creator?.name ?? 'N/A'}</td>
+									<td>${defect.created_by_user?.name ?? ''}</td>
 								</tr>`;
 							});
 							$('#defectlog .po-order-detail tbody').html(tbody);
@@ -2347,9 +2348,9 @@
 			$('select[name="defect_type_id"]').val('');
 			$('select[name="defect_priority"]').val('');
 			$('select[name="series"]').val('');
-			
+			let locationId = $('#location_id').val();
 			// Clear the modal table body to show original data
-			loadModal('defect');
+			loadModal('defect',locationId);
 		});
 
 		// Equipment Search Button Handler
@@ -2414,6 +2415,7 @@
 									<td>${eqpt?.bom?.bom_name ?? 'N/A'}</td>
 									<td>${eqpt?.bom?.book?.book_code ?? 'N/A'}</td>
 									<td>${eqpt?.bom?.document_number ?? 'N/A'}</td>
+									<td>${eqpt?.frequency ?? 'N/A'}</td>
 									<td>${dueDate ?? 'N/A'}</td>
 								</tr>`;
 							$('#eqptTable').append(row);

@@ -27,10 +27,10 @@
                             </div>
                         </div>
                         <div class="content-header-right text-end col-md-6 col-6 mb-2 mb-sm-0">
-                           <a href="{{ route('maintenance-inspection-checklists.index') }}" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
+                           <a href="@if ($currentUrlSegment === 'maintenance-inspection-checklists'){{ route('maintenance-inspection-checklists.index') }} @else {{ route('inspection-checklists.index') }} @endif" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
                             <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
-                                    data-url="{{ route('inspection-checklists.destroy', $inspectionChecklist->id) }}" 
-                                    data-redirect="{{ route('inspection-checklists.index') }}"
+                                    data-url="@if ($currentUrlSegment === 'maintenance-inspection-checklists'){{ route('maintenance-inspection-checklists.destroy', $inspectionChecklist->id) }} @else {{ route('inspection-checklists.destroy', $inspectionChecklist->id) }} @endif" 
+                                    data-redirect="@if ($currentUrlSegment === 'maintenance-inspection-checklists'){{ route('maintenance-inspection-checklists.index') }} @else {{ route('inspection-checklists.index') }} @endif"
                                     data-message="Are you sure you want to delete this item?">
                                 <i data-feather="trash-2" class="me-50"></i> Delete
                             </button>

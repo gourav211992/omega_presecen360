@@ -2324,6 +2324,7 @@
 
             if (isAmendment && (status === 'submitted')) {
                 $('#status').val(status);
+                $('#document_status').val(status); // Fix: Set document_status in amendment mode too
                 $('#action_type').val('amendment'); // Ensure action_type is set to amendment
                 $('#amendmentconfirm').modal('show');
                 return;

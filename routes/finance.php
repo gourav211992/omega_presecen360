@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\FurbooksController;
 use App\Http\Controllers\Finance\GstrController;
+use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\InspectionChecklistController;
 use App\Http\Controllers\AdvancePaymentVoucherController;
 
 /*
@@ -71,6 +73,14 @@ Route::middleware(['user.auth'])->group(function () {
     Route::controller(GstrController::class)->prefix('finance/gstr')->group(function () {
         Route::get('/gstr-3b', 'gstr3b')->name('finance.gstr.gstr-3b');
         Route::get('/gstr-3b-pdf', 'gstr3bPdf')->name('finance.gstr.gstr-3b-pdf');
+    });
+
+    Route::prefix('maintenance-inspection-checklists')->controller(InspectionChecklistController::class)->group(function () {
+        Route::delete('/{id}', 'destroy')->name('maintenance-inspection-checklists.destroy');
+    });
+
+    Route::prefix('equipment-categories')->controller(CategoryController::class)->group(function () {
+        Route::delete('/{id}', 'destroy')->name('equipment-categories.destroy');
     });
 
 });

@@ -29,10 +29,10 @@
                     </div>
                     <div class="content-header-right text-end col-md-6 col-6 mb-2 mb-sm-0">
                         <div class="form-group breadcrumb-right">
-                        <a href="{{ route('equipment-categories.index') }}" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
+                        <a href="{{ $currentUrlSegment === 'equipment-categories' ? route('equipment-categories.index') : route('categories.index') }}" class="btn btn-secondary btn-sm"><i data-feather="arrow-left-circle"></i> Back</a>
                             <button type="button" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
-                                    data-url="{{ route('categories.destroy', $category->id) }}" 
-                                    data-redirect="{{ route('categories.index') }}"
+                                    data-url="{{ $currentUrlSegment === 'equipment-categories' ? route('equipment-categories.destroy', $category->id) : route('categories.destroy', $category->id) }}" 
+                                    data-redirect="{{ $currentUrlSegment === 'equipment-categories' ? route('equipment-categories.index') : route('categories.index') }}"
                                     data-message="Are you sure you want to delete this item?">
                                 <i data-feather="trash-2" class="me-50"></i> Delete
                             </button>
@@ -283,6 +283,7 @@
                 return false;
             }
         });
+
 
         // Also restrict paste to only allowed characters
         $('input[name="name"]').on('paste', function(e) {
