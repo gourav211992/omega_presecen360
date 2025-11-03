@@ -13,7 +13,9 @@ class ExpenseTed extends Model
 
     protected $fillable = [
         'expense_header_id', 
-        'expense_detail_id', 
+        'expense_detail_id',
+        'po_id',
+        'jo_id', 
         'ted_id',
         'ted_type', 
         'ted_name',

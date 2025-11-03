@@ -500,21 +500,25 @@
                 var $listSection = $valueContainer.find('.list-value-section');
                 var $otherSection = $valueContainer.find('.other-value-section');
                 var $otherInput = $otherSection.find('.other-value-input');
-                
+                var $listInput = $listSection.find('.list-value-input'); 
+                var rowIndex = $currentRow.index();
+
                 if (selectedType === 'list') {
                     $listSection.show();
                     $otherSection.hide();
-                    $otherInput.val('');
+                    $otherInput.val('').prop('disabled', true).removeAttr('name');
+                    $listInput.prop('disabled', false).attr('name', 'checklist_details[' + rowIndex + '][value]');
                 } else if (selectedType) {
                     $listSection.hide();
                     $otherSection.show();
-                    $otherInput.show();
+                    $otherInput.prop('disabled', false).attr('name', 'checklist_details[' + rowIndex + '][value]').show();
+                    $listInput.val('').prop('disabled', true).removeAttr('name');
                     $listSection.find('.badge-container').empty();
-                    $listSection.find('.list-value-input').val('');
                 } else {
                     $listSection.hide();
                     $otherSection.hide();
-                    $otherInput.val('');
+                    $otherInput.val('').prop('disabled', true).removeAttr('name');
+                    $listInput.val('').prop('disabled', true).removeAttr('name');
                 }
             });
         }

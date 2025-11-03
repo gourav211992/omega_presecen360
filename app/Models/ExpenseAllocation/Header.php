@@ -136,7 +136,7 @@ class Header extends Model
 
     public function source()
     {
-        return $this->hasOne(HeaderHistory::class, 'header_id');
+        return $this->hasOne(HeaderHistory::class, 'source_id');
     }
 
     public function group()
@@ -152,6 +152,11 @@ class Header extends Model
     public function organization()
     {
         return $this->belongsTo(Organization::class, 'organization_id');
+    }
+
+    public function currency()
+    {
+        return $this->belongsTo(Currency::class);
     }
 
     public function erpStore()

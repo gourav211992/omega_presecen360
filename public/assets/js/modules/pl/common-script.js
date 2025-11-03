@@ -1108,6 +1108,7 @@ function implementBookParameters(paramData)
                     var selectedElement = document.getElementById('trip_header_section');
                     if (selectedElement) {
                         selectedElement.classList.remove('d-none');
+                        initializeTripAutocomplete("trip_header_input");
                     }
                     if(typeof getTripData === "function")
                     {
@@ -2178,6 +2179,9 @@ function onChangeCustomer(selectElementId, reset = false)
         //Get Addresses (Billing + Shipping)
         changeDropdownOptions(document.getElementById('customer_id_input'), ['billing_address_dropdown','shipping_address_dropdown'], ['billing_addresses', 'shipping_addresses'], '/customer/addresses/', 'vendor_dependent');
     }
+    if (typeof getCustomerSubStore === 'function') {
+        getCustomerSubStore();
+    }
     
 }
 
@@ -2187,7 +2191,7 @@ function onChangeConsignee(selectElementId, reset = false)
     if (reset && !selectedOption.value) {
         document.getElementById('consignee_id_input').value = "";
         //Get Addresses Shipping
-        changeDropdownOptions(document.getElementById('consignee_id_input'), ['shipping_address_dropdown'], ['shipping_addresses'], consigneeAddressRoute + "/", 'consignee_dependent');
+        changeDropdownOptions(document.getElementById('customer_id_input'), ['shipping_address_dropdown'], ['shipping_addresses'], '/customer/addresses/', 'consignee_dependent');
     }
     if (!reset && selectedOption.value) {
         changeDropdownOptions(document.getElementById('consignee_id_input'), ['shipping_address_dropdown'], ['shipping_addresses'], consigneeAddressRoute + "/", 'consignee_dependent');
@@ -3079,7 +3083,7 @@ function getTripData()
                     dataRecords.forEach((tripData) => {
                         const vehicleNumber = tripData.vehicle_number ?? 'No Vehicle';
                         const tripDisplay = `${tripData.book_code}-${tripData.document_number} (${vehicleNumber})`;
-                        const isSelected = order.trip_id == tripData.id ? 'selected' : '';
+                        const isSelected = (order?.trip_id && order.trip_id === tripData.id) ? 'selected' : '';
 
                         tripOptions += `<option value="${tripData.id}" ${isSelected}>${tripDisplay}</option>`;
                     });
@@ -3149,7 +3153,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     window.open(this.dataset.url, "_blank");
                 } else if (typeof generatePdf !== "undefined" && typeof order !== "undefined" && typeof csrfToken !== "undefined") {
                     // Loop over selected copies to trigger separate PDFs
-                    selectedCopies.forEach(copy => {
+                    // selectedCopies.forEach(copy => {
                         $.ajax({
                             url: generatePdf,
                             method: "POST",
@@ -3158,7 +3162,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                 id: order.id,
                                 pattern: key,
                                 type: type,
-                                label: copy,  // send one copy at a time
+                                label: selectedCopies,  // send one copy at a time
                                 _token: csrfToken
                             },
                             success: function (data) {
@@ -3170,7 +3174,7 @@ document.addEventListener("DOMContentLoaded", function () {
                                 alert('Failed: ' + xhr.responseText);
                             }
                         });
-                    });
+                    // });
                 }
 
                 // Close menu after click
@@ -3179,4 +3183,3 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 });
-

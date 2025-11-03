@@ -14,8 +14,11 @@ use App\Models\JobOrder\JoProduct;
 
 use App\Helpers\Helper;
 use App\Helpers\ConstantHelper;
+use App\Helpers\GeneralHelper;
 use App\Models\ErpInvoiceItem;
 use App\Models\Scopes\DefaultGroupCompanyOrgScope;
+use App\Services\Common\DocumentLockService;
+
 
 class BackUpdateService
 {
@@ -24,11 +27,12 @@ class BackUpdateService
     //  * @param Request $request
     //  * @return array
     //  */
-    public function updateQuantity($component, $order_qty)
+    public function updateQuantity($component, $order_qty, $organization)
     {
         if (isset($component['po_detail_id']) && $component['po_detail_id']) {
             if (isset($component['gate_entry_detail_id']) && $component['gate_entry_detail_id']) {
                 $geDetail = GateEntryDetail::find($component['gate_entry_detail_id']);
+                $lockGeRow = self::lockReferenceDetail($geDetail, 'gate-entry', $organization);
                 if ($geDetail) {
                     $orderQty = floatval($order_qty);
                     $componentQty = floatval($component['order_qty']);
@@ -37,12 +41,15 @@ class BackUpdateService
                     $geDetail->save();
 
                     $asnDetail = VendorAsnItem::find($geDetail->vendor_asn_item_id);
+                    $lockGeRow = self::lockReferenceDetail($asnDetail, 'supplier-invoice', $organization);
+
                     if ($asnDetail) {
                         $asnDetail->ge_qty += (float) $qtyDifference;
                         $asnDetail->save();
                     }
 
                     $poDetail = PoItem::find($geDetail->purchase_order_item_id);
+                    $lockGeRow = self::lockReferenceDetail($poDetail, 'purchase-order', $organization);
                     if ($poDetail) {
                         $poDetail->ge_qty += (float) $qtyDifference;
                         $poDetail->save();
@@ -52,6 +59,7 @@ class BackUpdateService
 
             if (isset($component['vendor_asn_dtl_id']) && $component['vendor_asn_dtl_id']) {
                 $asnDetail = VendorAsnItem::find($component['vendor_asn_dtl_id']);
+                $lockGeRow = self::lockReferenceDetail($asnDetail, 'supplier-invoice', $organization);
                 if ($asnDetail) {
                     $orderQty = floatval($order_qty);
                     $componentQty = floatval($component['order_qty']);
@@ -62,6 +70,7 @@ class BackUpdateService
             }
 
             $poItem = PoItem::find($component['po_detail_id']);
+            $lockGeRow = self::lockReferenceDetail($poItem, 'purchase-order', $organization);
             if ($poItem) {
                 $orderQty = floatval($order_qty);
                 $componentQty = floatval($component['order_qty']);
@@ -72,6 +81,7 @@ class BackUpdateService
         } else if (isset($component['jo_detail_id']) && $component['jo_detail_id']) {
             if (isset($component['gate_entry_detail_id']) && $component['gate_entry_detail_id']) {
                 $geDetail = GateEntryDetail::find($component['gate_entry_detail_id']);
+                $lockGeRow = self::lockReferenceDetail($geDetail, 'gate-entry', $organization);
                 if ($geDetail) {
                     $orderQty = floatval($order_qty);
                     $componentQty = floatval($component['order_qty']);
@@ -80,12 +90,14 @@ class BackUpdateService
                     $geDetail->save();
 
                     $asnDetail = VendorAsnItem::find($geDetail->vendor_asn_item_id);
+                    $lockGeRow = self::lockReferenceDetail($asnDetail, 'supplier-invoice', $organization);
                     if ($asnDetail) {
                         $asnDetail->ge_qty += (float) $qtyDifference;
                         $asnDetail->save();
                     }
 
                     $joDetail = JoProduct::find($geDetail->purchase_order_item_id);
+                    $lockGeRow = self::lockReferenceDetail($asnDetail, 'job-order', $organization);
                     if ($joDetail) {
                         $joDetail->ge_qty += (float) $qtyDifference;
                         $joDetail->save();
@@ -95,6 +107,7 @@ class BackUpdateService
 
             if (isset($component['vendor_asn_dtl_id']) && $component['vendor_asn_dtl_id']) {
                 $asnDetail = VendorAsnItem::find($component['vendor_asn_dtl_id']);
+                $lockGeRow = self::lockReferenceDetail($asnDetail, 'supplier-invoice', $organization);
                 if ($asnDetail) {
                     $orderQty = floatval($order_qty);
                     $componentQty = floatval($component['order_qty']);
@@ -105,6 +118,7 @@ class BackUpdateService
             }
 
             $joItem = JoProduct::find($component['jo_detail_id']);
+            $lockGeRow = self::lockReferenceDetail($joItem, 'job-order', $organization);
             if ($joItem) {
                 $orderQty = floatval($order_qty);
                 $componentQty = floatval($component['order_qty']);
@@ -115,6 +129,7 @@ class BackUpdateService
         } else if (isset($component['invoice_itm_id']) && $component['invoice_itm_id']) {
             $dnoteItem = ErpInvoiceItem::where('id', @$component['invoice_itm_id'])
                 ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->first();
+            $lockGeRow = self::lockReferenceDetail($dnoteItem, 'd-note', $organization);
             $dnoteQty = floatval($dnoteItem->dnote_qty);
             if (isset($component['gate_entry_detail_id']) && $component['gate_entry_detail_id']) {
                 $geDetail = GateEntryDetail::find($component['gate_entry_detail_id']);
@@ -179,6 +194,34 @@ class BackUpdateService
         return self::successResponse("Quantity Back Updated", [
             'order_qty' => $order_qty
         ]);
+    }
+
+    # Lock Reference Detail
+    private static function lockReferenceDetail($refDetail, $type, $organization)
+    {
+        $lockService = new DocumentLockService();
+
+        $lockKey = $lockService->generateItemLockKey($organization->id, $refDetail->id, $type);
+        if (!$lockKey) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Invalid Argument passed in Lock Key Generator.',
+                'line' => '',
+                'error' => '',
+            ], 500);
+        }
+
+        $itemCode = $refDetail?->item?->item_name;
+        $lockResult = $lockService->lockDocumentNumber($lockKey, $itemCode, $type);
+        if (!$lockResult['success']) {
+            DB::rollBack();
+            return response()->json([
+                'message' => $lockResult['message'],
+                'error' => 'lockResult',
+            ], $lockResult['status']);
+        }
+        return true;
+        // return self::validateComponentQuantities($component, $inputQty) === true ? true : self::validateComponentQuantities($component, $inputQty);
     }
 
     private static function errorResponse($message, $inputQty)

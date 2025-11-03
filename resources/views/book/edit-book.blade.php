@@ -379,8 +379,11 @@
                                                                     <tbody id="workflow-body">
                                                                         @forelse ($book->levels as $levelIndex => $workflowGroup)
                                                                             @php
-                                                                                $level = $levelIndex + 1;
+                                                                                $level = $workflowGroup -> level;
+                                                                                $levelIdx = $workflowGroup -> level - 1;
                                                                             @endphp
+                                                                            @if (isset($book->levels[$levelIndex - 1]) && $book->levels[$levelIndex - 1]->level == $book->levels[$levelIndex]->level)
+                                                                            @else
                                                                             <tr class="approvlevelflow level-row"
                                                                                 data-level="{{ $level }}">
                                                                                 <td class="levelNumber">{{ $level }}</td>
@@ -405,18 +408,19 @@
                                                                                     </td>
                                                                                 @endif
                                                                             </tr>
+                                                                            @endif
                                                                             <tr class="{{ $level }}">
                                                                                 <td>&nbsp;<input class="d-none"
                                                                                         type="text"
                                                                                         value="{{ $level }}"
-                                                                                        name="level[]"></td>
+                                                                                        name="level[{{$levelIdx}}]"></td>
                                                                                 <td>
                                                                                     <select
                                                                                         disabled
                                                                                         class="form-select mw-100 select2 levelCompanySelect"
                                                                                         data-id="{{ $level }}"
                                                                                         id = "approval_company_select_{{$levelIndex}}"
-                                                                                        name="level_company_id[]" >
+                                                                                        name="level_company_id[{{ $levelIdx }}][{{ $levelIndex }}]" >
                                                                                         <option disabled value="">
                                                                                             Select Company</option>
                                                                                         @foreach ($companies as $company)
@@ -432,7 +436,7 @@
                                                                                     <select
                                                                                         disabled
                                                                                         class="form-select mw-100 select2 level_organizations"
-                                                                                        name="level_organization_id[]"
+                                                                                        name="level_organization_id[{{ $levelIdx }}][{{ $levelIndex }}]"
                                                                                         user-select-id = "0_{{$level}}"
                                                                                         id="level_organization_id{{ $level }}"
                                                                                         >
@@ -461,7 +465,7 @@
                                                                                         class="form-select mw-100 select2 userSelect approvalUserSelect"
                                                                                         data-id="{{ $level }}"
                                                                                         id = "user_select_0_{{$level}}"
-                                                                                        name="user[{{ $loop->index }}][]"
+                                                                                        name="user[{{ $levelIdx }}][{{ $levelIndex }}][]"
                                                                                          multiple>
                                                                                         <option disabled value="">
                                                                                             Select
@@ -482,30 +486,21 @@
                                                                                     <input type="text"
                                                                                         {{$workflowGroup -> allow_change ? '' : 'disabled'}}
                                                                                         value="{{ $workflowGroup->min_value }}"
-                                                                                        name="min_value[]"
+                                                                                        name="min_value[{{ $levelIdx }}][{{ $levelIndex }}]"
                                                                                         data-id="{{ $level }}"
                                                                                         {{ $serviceType === 'master' ? 'readonly' : '' }}
                                                                                         class="form-control mw-100 min-value">
                                                                                 </td>
-                                                                                <!-- <td>
-                                                                                    <input type="text"
-                                                                                        value="{{ $workflowGroup->max_value }}"
-                                                                                        name="max_value[]" required
-                                                                                        data-id="{{ $level }}"
-                                                                                        class="form-control mw-100 max-value">
-                                                                                </td> -->
+
                                                                                 <td>
                                                                                     <div class="customernewsection-form">
                                                                                         <div class="demo-inline-spacing">
-                                                                                            <!-- <input type="hidden"
-                                                                                                name="rights[]"
-                                                                                                class="rights-value"
-                                                                                                value="{{ $workflowGroup->rights }}"> -->
+
                                                                                             <div
                                                                                                 class="form-check form-check-primary mt-0 me-1">
                                                                                                 <input type="radio"
                                                                                                     id="anyone-{{ $workflowGroup->id }}"
-                                                                                                    name="rights[{{ $level - 1 }}]"
+                                                                                                    name="rights[{{ $levelIdx }}][{{ $levelIndex }}]"
                                                                                                     class="form-check-input"
                                                                                                     value="anyone"
                                                                                                     {{ $workflowGroup->rights == 'anyone' ? 'checked' : '' }}>
@@ -518,7 +513,7 @@
                                                                                                 class="form-check form-check-primary mt-0 me-0">
                                                                                                 <input type="radio"
                                                                                                     id="all-{{ $workflowGroup->id }}"
-                                                                                                    name="rights[{{ $level - 1 }}]"
+                                                                                                    name="rights[{{ $levelIdx }}][{{ $levelIndex }}]"
                                                                                                     class="form-check-input"
                                                                                                     value="all"
                                                                                                     {{ $workflowGroup->rights == 'all' ? 'checked' : '' }}>
@@ -555,13 +550,13 @@
                                                                         <tr>
                                                                             <td>&nbsp; <input class="d-none"
                                                                                     type="text" value="1"
-                                                                                    name="level[]"></td>
+                                                                                    name="level[0]"></td>
                                                                             <td>
                                                                                 <select
                                                                                     class="form-select mw-100 select2 levelCompanySelect"
                                                                                     data-id="1"
                                                                                     id = "approval_company_select_1"
-                                                                                    name="level_company_id[]">
+                                                                                    name="level_company_id[0][0]">
                                                                                     <option disabled selected
                                                                                         value="">Select Company
                                                                                     </option>
@@ -577,7 +572,7 @@
                                                                                 <select
 
                                                                                     class="form-select mw-100 select2 level_organizations"
-                                                                                    name="level_organization_id[]"
+                                                                                    name="level_organization_id[0][0]"
                                                                                     id="level_organization_id1"
                                                                                     user-select-id = "0_1"
                                                                                     >
@@ -586,7 +581,7 @@
                                                                             <td>
                                                                                 <select
                                                                                     class="form-select mw-100 select2 userSelect approvalUserSelect"
-                                                                                    data-id="1" name="user[0][]"
+                                                                                    data-id="1" name="user[0][0][]"
                                                                                     id = "user_select_0_1"
                                                                                     multiple>
                                                                                     <option disabled value="">Select
@@ -601,7 +596,7 @@
                                                                             </td>
                                                                             <td>
                                                                                 <input type="text" value="0"
-                                                                                    name="min_value[]" data-id="1"
+                                                                                    name="min_value[0][0]" data-id="1"
                                                                                     {{ $serviceType === 'master' ? 'readonly' : '' }}
                                                                                     class="form-control mw-100 min-value">
                                                                             </td>
@@ -614,15 +609,12 @@
                                                                                 <div class="customernewsection-form">
                                                                                     <div class="demo-inline-spacing">
                                                                                         <!-- Ensure the 'name' attribute is consistent for radio buttons in the same group -->
-                                                                                        <!-- <input type="hidden"
-                                                                                            name="rights[]"
-                                                                                            class="rights-value"
-                                                                                            value="all"> -->
+                                                                                      
                                                                                         <div
                                                                                             class="form-check form-check-primary mt-0 me-1">
                                                                                             <input type="radio"
                                                                                                 id="anyone-1"
-                                                                                                name="rights[0]"
+                                                                                                name="rights[0][0]"
                                                                                                 class="form-check-input"
                                                                                                 value="anyone">
                                                                                             <label
@@ -634,7 +626,7 @@
                                                                                             class="form-check form-check-primary mt-0 me-0">
                                                                                             <input type="radio"
                                                                                                 id="all-1"
-                                                                                                name="rights[0]"
+                                                                                                name="rights[0][0]"
                                                                                                 class="form-check-input"
                                                                                                 value="all" checked>
                                                                                             <label
@@ -1354,7 +1346,7 @@
                         <tr class="${levelCounter}">
                             <td>&nbsp; <input class="d-none" type="text" value="${levelCounter}" name="level[]"></td>
                             <td>
-                                <select class="form-select mw-100 select2 levelCompanySelect" id = "company_select_${levelCounter}" data-id="${levelCounter}" name="level_company_id[${levelCounter - 1}]" >
+                                <select class="form-select mw-100 select2 levelCompanySelect" id = "company_select_${levelCounter}" data-id="${levelCounter}" name="level_company_id[][]" >
                                     <option disabled selected value="">Select Company</option>
                                     @foreach ($companies as $company)
                                         <option value="{{ $company->id }}">{{ $company->name }}</option>
@@ -1362,12 +1354,12 @@
                                 </select>
                             </td>
                             <td>
-                                <select class="form-select mw-100 select2 level_organizations" user-select-id = "${levelCounter - 1}_0" name="level_organization_id[${levelCounter - 1}]" id="level_organization_id${levelCounter}" >
+                                <select class="form-select mw-100 select2 level_organizations" user-select-id = "${levelCounter - 1}_0" name="level_organization_id[][]" id="level_organization_id${levelCounter}" >
                                 </select>
                             </td>
                                 <td>
                                     <select class="form-select mw-100 select2 userSelect"
-                                        data-id="${levelCounter}" name="user[${levelCounter - 1}][]" id = "user_select_${levelCounter - 1}_0"  multiple>
+                                        data-id="${levelCounter}" name="user[${levelCounter - 1}][0][]" id = "user_select_${levelCounter - 1}_0"  multiple>
                                         <option disabled  value="">Select Approver
                                         </option>
                                         @foreach ($people as $user)
@@ -1376,17 +1368,17 @@
                                     </select>
                             </td>
                             <td>
-                                <input type="text" value="0" name="min_value[]" {{ $serviceType === 'master' ? 'readonly' : '' }} data-id="${levelCounter}" class="form-control mw-100 min-value">
+                                <input type="text" value="0" name="min_value[][]" {{ $serviceType === 'master' ? 'readonly' : '' }} data-id="${levelCounter}" class="form-control mw-100 min-value">
                             </td>
                             <td class = "center-align-content">
                                 <div class="customernewsection-form">
                                     <div class="demo-inline-spacing">
                                         <div class="form-check form-check-primary mt-0 me-1">
-                                            <input type="radio" id="anyone-${levelCounter}" name="rights[${levelCounter - 1}]" class="form-check-input" value="anyone">
+                                            <input type="radio" id="anyone-${levelCounter}" name="rights[${levelCounter - 1}][]" class="form-check-input" value="anyone">
                                             <label class="form-check-label fw-bolder" for="anyone-${levelCounter}">Any One</label>
                                         </div>
                                         <div class="form-check form-check-primary mt-0 me-0">
-                                            <input type="radio" id="all-${levelCounter}" name="rights[${levelCounter - 1}]" class="form-check-input" value="all" checked>
+                                            <input type="radio" id="all-${levelCounter}" name="rights[${levelCounter - 1}][]" class="form-check-input" value="all" checked>
                                             <label class="form-check-label fw-bolder" for="all-${levelCounter}">All</label>
                                         </div>
                                     </div>
@@ -1424,16 +1416,16 @@
 
                 let newRow = `
                     <tr>
-                        <td>&nbsp; <input class="d-none" type="text" value="${level}" name="level[]"></td>
+                        <td>&nbsp;</td>
                         <td>
                             <select class="form-select mw-100 select2 levelCompanySelect" id="company_select_${level}_${rowCount}"
-                                data-id="${level}" name="level_company_id[]">
+                                data-id="${level}" name="level_company_id[${level-1}][${rowCount}]">
                                 ${companyOptions}
                             </select>
                         </td>
                         <td>
                             <select class="form-select mw-100 select2 level_organizations" user-select-id="${rowCount}_${level}"
-                                name="level_organization_id[]" id="level_organization_id${level}_${rowCount}">
+                                name="level_organization_id[${level-1}][${rowCount}]" id="level_organization_id${level}_${rowCount}">
                             </select>
                         </td>
                         <td>
@@ -1443,7 +1435,7 @@
                             </select>
                         </td>
                         <td>
-                            <input type="text" value="0" name="min_value[]" data-id="${level}" class="form-control mw-100 min-value">
+                            <input type="text" value="0" name="min_value[${level-1}][${rowCount}]" data-id="${level}" class="form-control mw-100 min-value">
                         </td>
                         <td class="center-align-content">
                             <div class="customernewsection-form">

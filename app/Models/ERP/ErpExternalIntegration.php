@@ -32,6 +32,8 @@ class ErpExternalIntegration extends Model
         'trip_book_id',
         'so_book_id',
         'dnote_book_id',
+        'dn_cum_invoice_book_id',
+        'pickup_schedule_book_id',
         'store_id',
         'customer_id',
         'status',
@@ -88,6 +90,16 @@ class ErpExternalIntegration extends Model
     public function stockStoreMapping()
     {
         return $this->hasMany(ErpStockStoreMapping::class, 'store_id','store_id')->orderBy('stock_type');
+    }
+
+    public function dnoteCumInvoiceBook()
+    {
+        return $this->belongsTo(Book::class, 'dn_cum_invoice_book_id');
+    }
+
+    public function pickupScheduleBook()
+    {
+        return $this->belongsTo(Book::class, 'pickup_schedule_book_id');
     }
 }
 

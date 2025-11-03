@@ -1,4 +1,5 @@
-<tr id="row_{{ $rowCount }}" data-index="{{ $rowCount }}">
+<tr id="row_{{ $rowCount }}" data-index="{{ $rowCount }}"
+    class="row_{{ $rowCount }} po_row_{{ $rowCount }} po-row expense-row">
     <td class="customernewsection-form">
         <div class="form-check form-check-primary custom-checkbox">
             <input type="checkbox" class="form-check-input" id="Email_{{ $rowCount }}" value="{{ $rowCount }}"
@@ -22,6 +23,18 @@
             class="form-control mw-100 mb-25" readonly />
     </td>
     <td>
+        <select class="form-select mw-100" name="components[po][{{ $rowCount }}][uom_id]">
+        </select>
+    </td>
+    <td>
+        <input type="hidden" name="components[po][{{ $rowCount }}][currency_id]" value="{{ $currency?->id }}">
+        <input type="hidden" name="components[po][{{ $rowCount }}][org_currency_id]"
+            value="{{ $currency?->id }}">
+        <input type="hidden" name="components[po][{{ $rowCount }}][exchange_rate]" value="1">
+        <input type="text" class="form-control mw-100 currency_code" value="{{ $currency?->short_name ?? '' }}"
+            name="components[po][{{ $rowCount }}][currency_code]" readonly />
+    </td>
+    <td>
         <input type="number" class="form-control mw-100 po_qty text-end checkNegativeVal expense-qty"
             name="components[po][{{ $rowCount }}][po_qty]" value="1" step="any" />
     </td>
@@ -31,7 +44,12 @@
     </td>
     <td>
         <input type="text" id="po_value_{{ $rowCount }}" name="components[po][{{ $rowCount }}][po_value]"
-            readonly class="form-control mw-100 text-end po_value expense-amount" step="any" />
+            class="form-control mw-100 text-end po_value expense-amount" step="any" />
+    </td>
+    <td>
+        <input type="number" id="old_amt_po_{{ $rowCount }}"
+            name="components[po][{{ $rowCount }}][old_amt_po]" readonly class="form-control mw-100 text-end"
+            step="any" />
     </td>
     <td>
         <select class="form-select mw-100 alloc-type" name="components[po][{{ $rowCount }}][dist_type]">

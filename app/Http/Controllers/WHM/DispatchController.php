@@ -54,7 +54,7 @@ class DispatchController extends Controller
                     })
                     ->whereIn('status',[CommonHelper::PENDING,CommonHelper::IN_PROGRESS, CommonHelper::DEVIATION])
                     ->orderBy('id','desc')
-                    ->paginate(CommonHelper::PAGE_LENGTH_10);
+                    ->paginate(CommonHelper::PAGE_LENGTH_50);
         $jobResources = DispatchResource::collection($jobs->getCollection());
 
         return [

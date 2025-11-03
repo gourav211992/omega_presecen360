@@ -94,6 +94,7 @@ use App\Services\Inspection\CheckAndUpdateService;
 
 use App\Exports\PurchaseReturnExport;
 use App\Lib\Services\WHM\PutawayJob;
+use App\Services\Common\DocumentLockService;
 
 class InspectionController extends Controller
 {
@@ -125,6 +126,7 @@ class InspectionController extends Controller
                 // ->withDefaultGroupCompanyOrg()
                 ->withDraftListingLogic()
                 ->bookViewAccess($parentUrl)
+                ->selfCreatedDocuments($user)
                 ->latest();
             return DataTables::of($records)
                 ->addIndexColumn()
@@ -174,7 +176,7 @@ class InspectionController extends Controller
                 ->addColumn('total_items', function ($row) {
                     return $row->items ? count($row->items) : 0;
                 })
-                ->addColumn('created_by', function ($row){
+                ->addColumn('created_by', function ($row) {
                     return $row->createdBy?->name;
                 })
                 ->rawColumns(['document_status'])
@@ -223,7 +225,7 @@ class InspectionController extends Controller
     }
 
     # Purchase Bill store
-    public function store(InspectionRequest $request)
+    public function store(InspectionRequest $request, DocumentLockService $lockService)
     {
         $user = Helper::getAuthenticatedUser();
         DB::beginTransaction();
@@ -684,6 +686,25 @@ class InspectionController extends Controller
                 }
             }
 
+            $lockKey = \App\Helpers\GeneralHelper::generateLockKey($organization->id, $request->book_id, $document_number);
+            if (!$lockKey) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Invalid Argument passed in Lock Key Generator.',
+                    'line' => '',
+                    'error' => '',
+                ], 500);
+            }
+
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+            if (!$lockResult['success']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -742,6 +763,7 @@ class InspectionController extends Controller
         $inspection = InspectionHeader::with(['vendor', 'currency', 'items', 'book', 'source'])
             ->findOrFail($id);
         $totalItemValue = $inspection->items()->sum('basic_value');
+        $itemIds = $inspection->items() ? $inspection->items()->pluck('id')->toArray() : [];
         $vendors = Vendor::where('status', ConstantHelper::ACTIVE)->get();
         $revision_number = $inspection->revision_number;
         $userType = Helper::userCheck();
@@ -795,6 +817,7 @@ class InspectionController extends Controller
             'users' => $users,
             'books' => $books,
             'mrn' => $inspection,
+            'itemIds' => $itemIds,
             'buttons' => $buttons,
             'vendors' => $vendors,
             'eInvoice' => $eInvoice,
@@ -1871,26 +1894,26 @@ class InspectionController extends Controller
                 }
             }
 
-            $randNo = rand(10000, 99999);
+            // $randNo = rand(10000, 99999);
 
-            $revisionNumber = "Inspection" . $randNo;
-            $inspectionHeader->revision_number += 1;
-            // $inspectionHeader->document_status = "draft";
+            // $revisionNumber = "Inspection" . $randNo;
+            // $inspectionHeader->revision_number += 1;
+            // // $inspectionHeader->document_status = "draft";
+            // // $inspectionHeader->save();
+
+            // /*Create document submit log*/
+            // if ($inspectionHeader->document_status == ConstantHelper::SUBMITTED) {
+            //     $bookId = $inspectionHeader->series_id;
+            //     $docId = $inspectionHeader->id;
+            //     $remarks = $inspectionHeader->remarks;
+            //     $attachments = $request->file('attachment');
+            //     $currentLevel = $inspectionHeader->approval_level ?? 1;
+            //     $revisionNumber = $inspectionHeader->revision_number ?? 0;
+            //     $actionType = 'submit'; // Approve // reject // submit
+            //     $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
+            //     $inspectionHeader->document_status = $approveDocument['approvalStatus'];
+            // }
             // $inspectionHeader->save();
-
-            /*Create document submit log*/
-            if ($inspectionHeader->document_status == ConstantHelper::SUBMITTED) {
-                $bookId = $inspectionHeader->series_id;
-                $docId = $inspectionHeader->id;
-                $remarks = $inspectionHeader->remarks;
-                $attachments = $request->file('attachment');
-                $currentLevel = $inspectionHeader->approval_level ?? 1;
-                $revisionNumber = $inspectionHeader->revision_number ?? 0;
-                $actionType = 'submit'; // Approve // reject // submit
-                $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
-                $inspectionHeader->document_status = $approveDocument['approvalStatus'];
-            }
-            $inspectionHeader->save();
 
             DB::commit();
             return response()->json([
@@ -2487,6 +2510,7 @@ class InspectionController extends Controller
             ->bookViewAccess($pathUrl)
             ->withDefaultGroupCompanyOrg()
             ->withDraftListingLogic()
+            ->selfCreatedDocuments($user)
             ->orderByDesc('id');
 
         // Vendor Filter
@@ -2685,5 +2709,130 @@ class InspectionController extends Controller
         ], 422);
     }
 
+    // Cancel Document
+    public function cancel(Request $request)
+    {
+        $user = $request->user();
+        $referenceService = ConstantHelper::INSPECTION_SERVICE_ALIAS;
+        // Validate incoming AJAX JSON
+        $documentId = (int) $request->input('id'); // from AJAX
+        $actionType = $request->input('action_type', 'cancel');
+        $cancelType = $request->input('cancel_type', 'normal') ?? 'normal'; // normal|voucher
+        $cancelRemarks = $request->input('cancel_remarks', '');
+        $deletedMrnItemIds = json_decode($request->input('deletedMrnItemIds', []), true) ?? [];
+        \DB::beginTransaction();
+        try {
+            /** @var InspectionHeader|null $header */
+            $header = InspectionHeader::find($documentId);
+
+            if (!$header) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Document not found.'
+                ]);
+            }
+
+            // Submit Amendment (if your method returns ['status'=>'success|error','message'=>...])
+            if (method_exists($this, 'amendmentSubmit')) {
+                $amendment = $this->amendmentSubmit($request, $header->id);
+                if (is_array($amendment) && ($amendment['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $amendment['message'] ?? 'Amendment submission failed.'
+                    ]);
+                }
+            }
+
+            // Optional: delete related records as per your existing flow
+            $keys = ['deletedMrnItemIds'];
+            $deletedData = [];
+            foreach ($keys as $key) {
+                $deletedData[$key] = json_decode($request->input($key, '[]'), true);
+            }
+
+            if (class_exists(DeleteService::class)) {
+                $deleteService = new DeleteService();
+                $deleteResponse = $deleteService->deleteByRequest($deletedData, $header);
+                if (($deleteResponse['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $deleteResponse['message'] ?? 'Delete failed.'
+                    ]);
+                }
+            }
+
+            // Only support cancel action for now
+            if ($actionType !== 'cancel') {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Only cancel action is supported.'
+                ]);
+            }
+
+            // Log and update header
+            $bookId = $header->book_id;
+            $docId = $header->document_id ?? $header->id;
+            $revision = (int) $header->revision_number + 1;
+            $currentLevel = (int) $header->approval_level;
+
+            // Document log (if you rely on it)
+            if (class_exists(Helper::class) && method_exists(Helper::class, 'approveDocument')) {
+                Helper::approveDocument(
+                    $bookId,
+                    $docId,
+                    $revision,
+                    $cancelRemarks,
+                    $request->input('cancel_attachments', []),
+                    $currentLevel,
+                    $actionType,
+                    $header->total_amount,
+                    InspectionHeader::class
+                );
+            }
+            // Persist cancellation
+            $header->revision_number = $revision;
+            $header->approval_level = 1;
+            $header->revision_date = now();
+            $header->document_status = ConstantHelper::CANCELLED;
+            $header->final_remark = $cancelRemarks;
+
+            // Zero-out financials as per your original code
+            $header->total_discount = 0.00;
+            $header->taxable_amount = 0.00;
+            $header->total_taxes = 0.00;
+            $header->total_after_tax_amount = 0.00;
+            $header->expense_amount = 0.00;
+            $header->total_amount = 0.00;
+            $header->total_item_amount = 0.00;
+            $header->reference_type = null;
+
+            $header->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Document cancelled successfully.',
+                'data' => [
+                    'status' => true,
+                    'id' => $header->id,
+                    'document_status' => $header->document_status,
+                    'revision_number' => $header->revision_number,
+                    'cancellation_type' => $cancelType,
+                ],
+            ], 200);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'An error occurred while processing your request.',
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
 
 }

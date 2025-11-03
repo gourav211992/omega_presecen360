@@ -1,53 +1,32 @@
 @extends('layouts.app')
-@section('styles')
-    <style>
-        #psModal .table-responsive {
-            overflow-y: auto;
-            max-height: 300px;
-            /* Set the height of the scrollable body */
-            position: relative;
-        }
-
-        #psModal .ps-order-detail {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        #psModal .ps-order-detail thead {
-            position: sticky;
-            top: 0;
-            /* Stick the header to the top of the table container */
-            background-color: white;
-            /* Optional: Make sure header has a background */
-            z-index: 1;
-            /* Ensure the header stays above the body content */
-        }
-
-        #psModal .ps-order-detail th {
-            background-color: #f8f9fa;
-            /* Optional: Background for the header */
-            text-align: left;
-            padding: 8px;
-        }
-
-        #psModal .ps-order-detail td {
-            padding: 8px;
-        }
-    </style>
-@endsection
 @section('content')
-    <form class="ajax-input-form" data-module="scrap" method="POST" action="{{ route('scrap.store') }}"
-        data-redirect="{{ route('scrap.index') }}" enctype="multipart/form-data">
-        @csrf
-        <input type="hidden" name="show_attribute" value="0" id="show_attribute">
-        <input type="hidden" name="pslip_id" id="pslip_id">
-        <input type="hidden" name="ps_item_ids" id="ps_item_ids">
+    <form class="ajax-input-form scrap_module_form" id="scrap_module_form" data-module="scrap" method="POST" action="{{ isset($scrap->id) ? route('scrap.update', $scrap->id) : route('scrap.store') }}" data-redirect="{{ route('scrap.index') }}" enctype="multipart/form-data">
+        @php
+            if (isset($scrap->reference_type) && $scrap->reference_type) {
+                $scrap->applyReference($scrap->reference_type);
+            }
+            $createEdit = isset($buttons) ? (bool) (($buttons['draft'] ?? false) && ($buttons['submit'] ?? false)) : true;
+            $createEditReadonly = 'readonly';
+            $createEditDisabled = 'disabled';
+        @endphp
+        <input type="hidden" name="id" value="{{ $scrap->id ?? '' }}">
+        <input type="hidden" name="pslip_ids" id="pslip_ids" value="{{ $scrap->pslip_ids ?? '' }}">
+        <input type="hidden" name="ps_item_ids" id="ps_item_ids" value="{{ $scrap->pslip_item_ids ?? '' }}">
+        <input type="hidden" name="ps_pull_item_ids" id="ps_pull_item_ids" value="">
 
-        <input type="hidden" name="pull_item_type" id="pull_item_type">
-        <input type="hidden" name="ro_id" id="ro_id">
-        <input type="hidden" name="ro_item_ids" id="ro_item_ids">
+        <input type="hidden" name="ro_ids" id="ro_ids" value="{{ $scrap->ro_ids ?? '' }}">
+        <input type="hidden" name="ro_item_ids" id="ro_item_ids" value="{{ $scrap->ro_item_ids ?? '' }}">
+        <input type="hidden" name="ro_item_pull_ids" id="ro_item_pull_ids" value="">
 
-        <input type="hidden" name="item_ids" id="item_ids">
+        <input type="hidden" name="item_ids" id="item_ids" value="{{ $scrap->item_ids ?? '' }}">
+        <input type="hidden" name="reference_type" id="reference_type" value="{{ $scrap->reference_type ?? '' }}">
+        <input type="hidden" name="document_status" id="document_status" value="{{ $scrap->document_status ?? 'draft' }}">
+
+        <input type="hidden" name="deleted_ro_item_ids" id="deleted_ro_item_ids" value="">
+        <input type="hidden" name="deleted_ps_item_ids" id="deleted_ps_item_ids" value="">
+        <input type="hidden" name="deleted_attachment_ids" id="deleted_attachment_ids" value="">
+        <input type="hidden" name="deleted_scrap_item_ids" id="deleted_scrap_item_ids" value="">
+
         <div class="app-content content">
             <div class="content-overlay"></div>
             <div class="header-navbar-shadow"></div>
@@ -62,22 +41,16 @@
                                         <ol class="breadcrumb">
                                             <li class="breadcrumb-item"><a href="index.html">Home</a>
                                             </li>
-                                            <li class="breadcrumb-item active">Add New</li>
+                                            <li class="breadcrumb-item active">
+                                                {{ isset($scrap) ? (isset($view) ? '' : 'Edit') : 'Create' }} Scrap </li>
                                         </ol>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
-                            <div class="form-group breadcrumb-right">
-                                <input type="hidden" name="document_status" id="document_status">
-                                <button type="button" onClick="javascript: history.go(-1)"
-                                    class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i>
-                                    Back</button>
-                                <button type="submit" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button"
-                                    name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
-                                <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
-                                    value="submitted"><i data-feather="check-circle"></i> Submit</button>
+                            <div class="form-group breadcrumb-right" id = "buttonsDiv">
+                                <button type="button" onClick="javascript: history.go(-1)" class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i> Back</button>
                             </div>
                         </div>
                     </div>
@@ -89,25 +62,28 @@
                                 <div class="card" id="basic_section">
                                     <div class="card-body customernewsection-form">
                                         <div class="row">
-                                            <div class="col-md-12">
-                                                <div
-                                                    class="newheader border-bottom mb-2 pb-25 d-flex flex-wrap justify-content-between">
+                                            <div class="col-md-6">
+                                                <div class="newheader border-bottom mb-2 pb-25 d-flex flex-wrap justify-content-between">
                                                     <div>
                                                         <h4 class="card-title text-theme">Basic Information</h4>
                                                         <p class="card-text">Fill the details</p>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="col-md-8">
+                                            <div class="col-md-6 text-sm-end">
+                                                <span class="badge rounded-pill badge-light-secondary forminnerstatus">
+                                                    Status : <span class="{{ $docStatusClass }}">{{ $scrap->display_status ?? 'draft' }}</span>
+                                                </span>
+                                            </div>
+                                            <div class="col-md-8 basic-information">
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">Series <span
-                                                                class="text-danger">*</span></label>
+                                                        <label class="form-label">Series <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select class="form-select" id="book_id" name="book_id">
+                                                        <select class="form-select" {{ $createEditDisabled }} id="book_id" name="book_id">
                                                             @foreach ($books as $book)
-                                                                <option value="{{ $book->id }}">
+                                                                <option value="{{ $book->id }}" {{ isset($scrap->book_id) && $scrap->book_id == $book->id ? 'selected' : '' }}>
                                                                     {{ ucfirst($book->book_code) }}</option>
                                                             @endforeach
                                                         </select>
@@ -116,47 +92,32 @@
                                                 </div>
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">Scrap No <span
-                                                                class="text-danger">*</span></label>
+                                                        <label class="form-label">Scrap No <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="text" name="document_number" class="form-control"
-                                                            id="document_number">
+                                                        <input type="text" name="document_number" class="form-control" id="document_number" {{ $createEditReadonly }} value="{{ isset($scrap->id) ? $scrap->document_number : '' }}">
                                                     </div>
                                                 </div>
-                                                <div class="row align-items-center mb-1">
-                                                    <div class="col-md-3">
-                                                        <label class="form-label">Scrap Date <span
-                                                                class="text-danger">*</span></label>
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                        <input type="date" class="form-control"
-                                                            value="{{ date('Y-m-d') }}" name="document_date"
-                                                            min = "{{ $current_financial_year['start_date'] }}"
-                                                            max = "{{ $current_financial_year['end_date'] }}">
-                                                    </div>
-                                                </div>
-                                                {{-- <div class="row align-items-center mb-1">
-                                                    <div class="col-md-3">
-                                                        <label class="form-label">Reference No </label>
-                                                    </div>
-                                                    <div class="col-md-5">
-                                                        <input type="text" name="reference_number" class="form-control">
-                                                    </div>
-                                                </div> --}}
-
 
                                                 <div class="row align-items-center mb-1">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">Location <span
-                                                                class="text-danger">*</span></label>
+                                                        <label class="form-label">Scrap Date <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select class="form-select select2" name="store_id"
-                                                            id="store_id" onchange="getSubStores(this.value)">
+                                                        <input type="date" class="form-control" {{ $createEditReadonly }} value="{{ isset($scrap->id) ? $scrap->document_date : \Carbon\Carbon::now()->format('Y-m-d') }}" name="document_date" min="{{ $current_financial_year['start_date'] }}"
+                                                               max="{{ $current_financial_year['end_date'] }}">
+                                                    </div>
+                                                </div>
+
+                                                <div class="row align-items-center mb-1">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">Location <spanp class="text-danger">
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <select class="form-select select2" {{ $createEditDisabled }} name="store_id" id="store_id" onchange="getSubStores(this.value)">
                                                             <option value="">Select Location</option>
                                                             @foreach ($locations as $location)
-                                                                <option value="{{ $location->id }}">
+                                                                <option value="{{ $location->id }}" {{ isset($scrap->store_id) && $scrap->store_id == $location->id ? 'selected' : '' }}>
                                                                     {{ $location->store_name }}
                                                                 </option>
                                                             @endforeach
@@ -164,27 +125,44 @@
                                                     </div>
                                                 </div>
 
-                                                <div class="row align-items-center mb-1 sub-store-row d-none">
+                                                <div class="row align-items-center mb-1 sub-store-row {{ isset($scrap->id) ? '' : 'd-none' }}">
                                                     <div class="col-md-3">
-                                                        <label class="form-label">Sub Store <span
-                                                                class="text-danger">*</span></label>
+                                                        <label class="form-label">Sub Store <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select class="form-select select2 sub_store" id="sub_store_id"
-                                                            name="sub_store_id"></select>
+                                                        <select class="form-select select2 sub_store" {{ $createEditDisabled }} id="sub_store_id" name="sub_store_id"></select>
                                                     </div>
                                                 </div>
-                                                <div class="row align-items-center mb-1 d-none" id="reference_from">
+                                                <div class="row align-items-center mb-1 {{ isset($scrap->id) ? '' : 'd-none' }}" id="reference_type_div">
                                                     <div class="col-md-3">
                                                         <label class="form-label">Reference from</label>
                                                     </div>
-                                                    <div class="col-md-5 action-button">
-                                                        <button type="button"
-                                                            class="btn btn-outline-primary btn-sm mb-0 psSelect"><i
-                                                                data-feather="plus-square"></i> Production Slip</button>
+                                                    <div class="col-md-5 action-button" id="reference_from">
+                                                        @php
+                                                            $isDraft = $scrap->document_status === 'draft';
+                                                            $isPslip = $scrap->reference_type === 'pslip';
+                                                            $isRepairOrder = $scrap->reference_type === 'repairOrder';
+                                                        @endphp
+                                                        @if ($isPslip)
+                                                            <button {{ $createEditDisabled }} type="button" class="btn btn-outline-primary btn-sm mb-0 psSelect" @disabled(!$createEdit)>
+                                                                <i data-feather="plus-square"></i> Production Slip
+                                                            </button>
+                                                        @elseif ($isRepairOrder)
+                                                            <button {{ $createEditDisabled }} type="button" class="btn btn-outline-primary btn-sm mb-0 roSelect" @disabled(!$createEdit)>
+                                                                <i data-feather="plus-square"></i> Repair Order
+                                                            </button>
+                                                        @elseif ($isDraft)
+                                                            <button type="button" class="btn btn-outline-primary btn-sm mb-0 psSelect" disabled>
+                                                                <i data-feather="plus-square"></i> Production Slip
+                                                            </button>
+                                                            <button type="button" class="btn btn-outline-primary btn-sm mb-0 roSelect" disabled>
+                                                                <i data-feather="plus-square"></i> Repair Order
+                                                            </button>
+                                                        @endif
                                                     </div>
                                                 </div>
                                             </div>
+                                            @include('partials.approval-history', ['document_status' => $scrap->document_status, 'revision_number' => $revision_number])
                                         </div>
                                     </div>
                                 </div>
@@ -204,52 +182,55 @@
                                         <div class="step-custhomapp bg-light">
                                             <ul class="nav nav-tabs my-25 custapploannav" role="tablist">
                                                 <li class="nav-item">
-                                                    <a class="nav-link active" data-bs-toggle="tab"
-                                                        href="#scavengingItems">
+                                                    <a class="nav-link active" data-bs-toggle="tab" href="#scavengingItems">
                                                         Scrap Items
                                                     </a>
                                                 </li>
-                                                {{-- <li class="nav-item">
-                                                    <a class="nav-link" data-bs-toggle="tab" href="#repairOrderTab">
-                                                        Repair Orders
-                                                    </a>
-                                                </li> --}}
-                                                <li class="nav-item">
-                                                    <a class="nav-link" data-bs-toggle="tab" href="#productionSlip">
-                                                        Production Slips
-                                                    </a>
-                                                </li>
+                                                @if ($scrap->reference_type == 'pslip')
+                                                    @if (isset($scrap->pslip_ids) && $scrap->pslip_ids)
+                                                        <li class="nav-item">
+                                                            <a class="nav-link" data-bs-toggle="tab" href="#productionSlip">
+                                                                Production Slips
+                                                            </a>
+                                                        </li>
+                                                    @endif
+                                                @endif
+                                                @if ($scrap->reference_type == 'repairOrder')
+                                                    @if (isset($scrap->ro_ids) && $scrap->ro_ids)
+                                                        <li class="nav-item">
+                                                            <a class="nav-link" data-bs-toggle="tab" href="#repairOrder">
+                                                                Repair Orders
+                                                            </a>
+                                                        </li>
+                                                    @endif
+                                                @endif
                                             </ul>
                                         </div>
 
                                         <div class="tab-content pb-1">
                                             <div class="tab-pane active" id="scavengingItems">
                                                 <div class="text-end mb-50">
-                                                    <a href="javascript:;" id="deleteBtn"
-                                                        class="btn btn-sm btn-outline-danger me-50">
-                                                        <i data-feather="x-circle"></i> Delete</a>
-                                                    <a href="javascript:;" id="addNewItemBtn"
-                                                        class="btn btn-sm btn-outline-primary">
-                                                        <i data-feather="plus"></i> Add Item</a>
+                                                    @if ($createEdit)
+                                                        <a href="javascript:;" id="deleteBtn" class="btn btn-sm btn-outline-danger me-50">
+                                                            <i data-feather="x-circle"></i>
+                                                            Delete
+                                                        </a>
+                                                        <a href="javascript:;" id="addNewItemBtn" class="btn btn-sm btn-outline-primary">
+                                                            <i data-feather="plus"></i>
+                                                            Add Item
+                                                        </a>
+                                                    @endif
                                                 </div>
                                                 <div class="row">
                                                     <div class="col-md-12">
                                                         <div class="table-responsive pomrnheadtffotsticky">
-                                                            <table id="scavengingItemsTable"
-                                                                class="ItemsTable table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad"
-                                                                data-json-key="components_json"
-                                                                data-row-selector="tr[id^='row_']">
+                                                            <table id="scavengingItemsTable" class="ItemsTable table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad" data-json-key="components_json" data-row-selector="tr[id^='row_']">
                                                                 <thead id="scavengingItemsThead">
                                                                     <tr>
-                                                                        <th width="62"
-                                                                            class="customernewsection-form">
-                                                                            <div
-                                                                                class="form-check form-check-primary custom-checkbox">
-                                                                                <input type="checkbox"
-                                                                                    class="form-check-input"
-                                                                                    id="Email" />
-                                                                                <label class="form-check-label"
-                                                                                    for="Email"></label>
+                                                                        <th width="62" class="customernewsection-form">
+                                                                            <div class="form-check form-check-primary custom-checkbox">
+                                                                                <input type="checkbox" class="form-check-input" id="Email"{{ $createEditDisabled }} />
+                                                                                <label class="form-check-label" for="Email"></label>
                                                                             </div>
                                                                         </th>
                                                                         <th width="285">Item Code</th>
@@ -257,33 +238,46 @@
                                                                         <th>Attributes</th>
                                                                         <th>UOM</th>
                                                                         <th>Qty</th>
+                                                                        {{-- <th>Rate</th>
+                                                                        <th>Total Cost</th> --}}
                                                                         <th>Cost Center</th>
                                                                         <th>Remark</th>
                                                                     </tr>
                                                                 </thead>
-                                                                <tbody class="mrntableselectexcel"
-                                                                    id="scavengingItemsTbody">
+                                                                <tbody class="mrntableselectexcel" id="scavengingItemsTbody">
+                                                                    @if ($scrap->items)
+                                                                        @foreach ($scrap->items as $key => $item)
+                                                                            @include('remanufacturing.scrap.partials.item-row', [
+                                                                                'rowCount' => $key,
+                                                                                'item' => $item,
+                                                                                'createEdit' => $createEdit,
+                                                                                'createEditReadonly' => $createEditReadonly,
+                                                                                'createEditDisabled' => $createEditDisabled,
+                                                                            ])
+                                                                        @endforeach
+                                                                    @endif
                                                                 </tbody>
-                                                                <tfoot id="scavengingItemsTfoot">
+                                                                <tfoot>
                                                                     <tr valign="top">
-                                                                        <td colspan="8" rowspan="10">
+                                                                        <td colspan="13" rowspan="10">
                                                                             <table class="table border">
-                                                                                <tr>
-                                                                                    <td class="p-0">
-                                                                                        <h6
-                                                                                            class="text-dark mb-0 bg-light-primary py-1 px-50">
-                                                                                            <strong>Item Details</strong>
-                                                                                        </h6>
-                                                                                    </td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                </tr>
+                                                                                <tbody id="scavengingItemsTable_Display">
+                                                                                    <tr>
+                                                                                        <td class="p-0">
+                                                                                            <h6 class="text-dark mb-0 bg-light-primary py-1 px-50">
+                                                                                                <strong>Item Details</strong>
+                                                                                            </h6>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                    </tr>
+                                                                                    <tr>
+                                                                                    </tr>
+                                                                                </tbody>
                                                                             </table>
                                                                         </td>
                                                                     </tr>
@@ -295,12 +289,20 @@
                                             </div>
 
                                             <div class="tab-pane" id="productionSlip">
+                                                <div class="text-end mb-50">
+                                                    <a href="javascript:;" id="deleteBtnPullItem" class="btn btn-sm btn-outline-danger me-50">
+                                                        <i data-feather="x-circle"></i> Delete</a>
+                                                </div>
                                                 <div class="table-responsive pomrnheadtffotsticky">
-                                                    <table id="productionSlipsTable"
-                                                        class="ItemsTable table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad">
+                                                    <table id="productionSlipsTable" class="ItemsTable table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad">
                                                         <thead>
                                                             <tr>
-                                                                <th>#</th>
+                                                                <th width="62" class="customernewsection-form">
+                                                                    <div class="form-check form-check-primary custom-checkbox">
+                                                                        <input type="checkbox" class="form-check-input" id="Email" />
+                                                                        <label class="form-check-label" for="Email"></label>
+                                                                    </div>
+                                                                </th>
                                                                 <th>Slip Date</th>
                                                                 <th>Slip No.</th>
                                                                 <th>Item Code</th>
@@ -308,13 +310,57 @@
                                                                 <th>Attributes</th>
                                                                 <th>UOM</th>
                                                                 <th>Qty</th>
-                                                                <th id="uidTh">UID</th>
+                                                                {{-- <th id="uidTh">UID</th> --}}
                                                                 <th>Remark</th>
                                                             </tr>
                                                         </thead>
+                                                        @php
+                                                            $reference_type = $scrap->reference_type ?? null;
+                                                            $roItems = $reference_type == 'repairOrder' && isset($scrap->roItems) ? $scrap->roItems : [];
+                                                            $pslipItems = $reference_type == 'pslip' && isset($scrap->pslipMappings) ? $scrap->pslipMappings : [];
+                                                        @endphp
                                                         <tbody class="mrntableselectexcel">
+                                                            @if ($reference_type == 'pslip' && !empty($pslipItems))
+                                                                @foreach ($pslipItems as $key => $mapping)
+                                                                    @php
+                                                                        $psItem = $mapping->pslipItem;
+                                                                    @endphp
+                                                                    @if ($psItem)
+                                                                        @include('remanufacturing.scrap.partials.pull-items', ['rowCount' => $key, 'item' => $psItem, 'type' => 'pslip'])
+                                                                    @endif
+                                                                @endforeach
+                                                            @endif
+
+                                                            @if ($reference_type == 'repairOrder' && !empty($roItems))
+                                                                @foreach ($roItems as $key => $item)
+                                                                    @include('remanufacturing.scrap.partials.ro-items', ['rowCount' => $key, 'item' => $item])
+                                                                @endforeach
+                                                            @endif
                                                         </tbody>
-                                                        <tfoot id="productionSlipsTfoot">
+                                                        <tfoot>
+                                                            <tr valign="top">
+                                                                <td colspan="13" rowspan="10">
+                                                                    <table class="table border">
+                                                                        <tbody id="productionSlipsTable_Display">
+                                                                            <tr>
+                                                                                <td class="p-0">
+                                                                                    <h6 class="text-dark mb-0 bg-light-primary py-1 px-50">
+                                                                                        <strong>Item Details</strong>
+                                                                                    </h6>
+                                                                                </td>
+                                                                            </tr>
+                                                                            <tr>
+                                                                            </tr>
+                                                                            <tr>
+                                                                            </tr>
+                                                                            <tr>
+                                                                            </tr>
+                                                                            <tr>
+                                                                            </tr>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </td>
+                                                            </tr>
                                                         </tfoot>
                                                     </table>
                                                 </div>
@@ -326,7 +372,7 @@
                                                 <div class="col-md-4">
                                                     <div class="mb-1">
                                                         <label class="form-label">Upload Document</label>
-                                                        <input type="file" class="form-control" name="attachment" id="document-upload" />
+                                                        <input type="file" class="form-control" name="attachment" {{ $createEditDisabled }} id="document-upload" />
                                                     </div>
                                                 </div>
                                             </div>
@@ -334,7 +380,7 @@
                                             <div class="col-md-12">
                                                 <div class="mb-1">
                                                     <label class="form-label">Final Remarks</label>
-                                                    <textarea type="text" rows="4" class="form-control" name="document_remarks" id="document_remarks" placeholder="Enter Remarks here..."></textarea>
+                                                    <textarea type="text" rows="4" class="form-control" name="document_remarks" {{ $createEditReadonly }} id="document_remarks" value="{{ $scrap->remarks ?? '' }}" placeholder="Enter Remarks here..."></textarea>
                                                 </div>
                                             </div>
                                         </div>
@@ -373,9 +419,8 @@
                     </div>
                 </div>
                 <div class="modal-footer justify-content-center">
-                    <button type="button" data-bs-dismiss="modal" class="btn btn-outline-secondary me-1">Cancel</button>
-                    <button type="button" {{-- data-bs-dismiss="modal" --}}
-                        class="btn btn-primary submitAttributeBtn">Select</button>
+                    <button type="button" data-bs-dismiss="modal" class="btn btn-outline-secondary cancelAttributeBtn me-1">Cancel</button>
+                    <button type="button" {{-- data-bs-dismiss="modal" --}} class="btn btn-primary submitAttributeBtn">Select</button>
                 </div>
             </div>
         </div>
@@ -406,11 +451,6 @@
             </div>
         </div>
     </div>
-
-    {{-- Referencing From Item Modals --}}
-    {{-- PI Items --}}
-    @include('remanufacturing.scrap.partials.ps-modal')
-    {{-- PI Items --}}
 @endsection
 @section('scripts')
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
@@ -418,189 +458,43 @@
     <script type="text/javascript" src="{{ asset('assets/js/modules/scrap.js') }}"></script>
     <script type="text/javascript" src="{{ asset('app-assets/js/file-uploader.js') }}"></script>
     <script>
+        let psTable;
+        const scrap = @json($scrap ?? []);
         const type = '{{ request()->route('type') }}';
         const getPsRoute = '{{ route('scrap.get.ps') }}';
         const scrapIndexRoute = '{{ route('scrap.index') }}';
         const scrapItemRowRoute = '{{ route('scrap.item.row') }}';
         const scrapItemAttrRoute = '{{ route('scrap.item.attr') }}';
+        const getDocNumberByBookIdUrl = '{{ route('book.doc_no') }}';
         const scrapItemDetailsRoute = '{{ route('scrap.get.itemdetail') }}';
-        const getDocNumberByBookIdUrl = '{{ route('book.get.doc_no_and_parameters') }}';
+        const revokeDocumentUrl = '{{ route('scrap.revoke.document') }}' + '?id=' + '{{ $scrap->id ?? '' }}';
+        const PRODUCTION_SLIP_SERVICE_ALIAS = "{{ \App\Helpers\ConstantHelper::PRODUCTION_SLIP_SERVICE_ALIAS }}";
     </script>
     <script>
-        setTimeout(() => {
-            $("#book_id").trigger('change');
-        }, 0);
+        @if (isset($scrap))
+            getSubStores(scrap.store_id, scrap.sub_store_id);
+        @endif
 
-        $(window).on("load", function() {
-            if (feather) {
-                feather.replace({
-                    width: 14,
-                    height: 14,
-                });
+        $(document).on("change", "#sub_store_id", function(e) {
+            const value = $(this).val();
+            console.log("Selected:", value);
+
+            if (!value || value === "0") {
+                $("#reference_type_div").addClass("d-none");
+            } else {
+                $("#reference_type_div").removeClass("d-none");
             }
-        });
-
-        $(function() {
-            $(".ledgerselecct")
-                .autocomplete({
-                    source: [
-                        "Indian Oil Corporation Ltd.",
-                        "Airports Authority of India",
-                        "Bharat Heavy Electricals Ltd.",
-                        "Bharat Petroleum Corpn. Ltd.",
-                        "NTPC Ltd.",
-                        "Gail (India) Ltd.",
-                        "Hindustan Petroleum Corpn. Ltd.",
-                        "Steel Authority of India Ltd.",
-                        "Indian Railway Stations Devpt. Corporation Ltd.",
-                        "Oil & Natural Gas Corporation Ltd.",
-                        "Oil & Natural Gas Corporation Ltd.",
-                        "Hindustan Aeronautics Ltd.",
-                    ],
-                    minLength: 0,
-                })
-                .focus(function() {
-                    if (this.value == "") {
-                        $(this).autocomplete("search");
-                    }
-                });
-        });
-
-        $(".mrntableselectexcel tr").click(function() {
-            $(this).addClass("trselected").siblings().removeClass("trselected");
-            value = $(this).find("td:first").html();
-        });
-    </script>
-    <script>
-        $(document).on('change', '#sub_store_id', (e) => {
-            let value = $(e.target).val();
-            if (value === '' || value === null || value === '0') {
-                $("#reference_from").addClass("d-none");
-                return false;
-            }
-            $("#reference_from").removeClass("d-none");
         });
 
         $(document).on('change', '#book_id', (e) => {
             let bookId = e.target.value;
             if (bookId) {
-                getDocNumberByBookId(bookId);
+                getDocNumberByBookId(bookId, scrap?.document_number ?? '');
             } else {
-                $("#document_number").val('');
                 $("#book_id").val('');
+                $("#document_number").val('');
                 $("#document_number").attr('readonly', false);
             }
-        });
-
-        let psTable;
-        $(document).on('click', '.psSelect', (e) => {
-            $("#psModal").modal('show');
-            const tableSelector = '#psModal .ps-order-detail';
-            if ($.fn.DataTable.isDataTable(tableSelector)) {
-                psTable = $(tableSelector).DataTable();
-                psTable.ajax.reload();
-            } else {
-                getProductionSlips();
-            }
-        });
-
-        $(document).on("click", ".psProcess", function(e) {
-            e.preventDefault();
-            e.stopImmediatePropagation();
-
-            $("#psModal th .form-check-input").prop("checked", false);
-
-            let ids = getSelectedItemIDs();
-
-            if (!ids.length) {
-                setHiddenInput("ps_item_ids", "");
-                setHiddenInput("item_ids", "");
-                setHiddenInput("pull_item_type", "");
-
-                $("#psModal").modal("hide");
-                Swal.fire({
-                    title: "Error!",
-                    text: "Please select at least one SO item.",
-                    icon: "error",
-                });
-
-                return false;
-            }
-
-            setHiddenInput("ps_item_ids", ids);
-
-            let itemIds = [];
-            let selectedItems = [];
-
-            $("#psModal .ps_item_checkbox:checked").each(function() {
-                const itemId = Number($(this).data("item-id"));
-                itemIds.push(itemId);
-                selectedItems.push({
-                    item_id: itemId
-                });
-            });
-
-            setHiddenInput("item_ids", itemIds);
-            setHiddenInput("pull_item_type", 'pslip');
-
-            const storeId = $("#store_id").val() || "";
-            const subStoreId = $("#sub_store_id").val() || "";
-            const currentRowCount = $("#productionSlipsTable .mrntableselectexcel tr").length;
-            const selectedItemsParam = encodeURIComponent(JSON.stringify(selectedItems));
-
-            const actionUrl = `{{ route('scrap.process.item') }}?` +
-                `type=pslip&ids=${encodeURIComponent(JSON.stringify(ids))}` +
-                `&selected_items=${selectedItemsParam}` +
-                `&store_id=${storeId}&sub_store_id=${subStoreId}&current_row_count=${currentRowCount}`;
-
-            fetch(actionUrl)
-                .then((response) => response.json())
-                .then((data) => {
-                    if (data.status === 200) {
-                        $("#uidTh").hide();
-                        $("#psModal").modal("hide");
-                        $("#productionSlipsTable .mrntableselectexcel")
-                            .empty()
-                            .append(data.data.pos);
-
-                        setTimeout(() => {
-                            $("#productionSlipsTable .mrntableselectexcel tr").each(
-                                function(index) {
-                                    let currentIndex = index + 1;
-                                    setAttributesUIHelper(currentIndex, "#productionSlipsTable");
-                                }
-                            );
-                        }, 100);
-
-                        $('a[href="#productionSlip"]').tab("show");
-                        const $lastRow = $("#productionSlipsTable .mrntableselectexcel tr").last();
-                        if ($lastRow.length) {
-                            $lastRow.attr("tabindex", "-1").focus();
-                        }
-
-                    } else {
-                        setHiddenInput("ps_item_ids", "");
-                        setHiddenInput("item_ids", "");
-                        setHiddenInput("pull_item_type", "");
-
-                        Swal.fire({
-                            title: "Error!",
-                            text: data.message,
-                            icon: "error",
-                        });
-                    }
-                })
-                .catch((e) => {
-                    setHiddenInput("ps_item_ids", "");
-                    setHiddenInput("item_ids", "");
-                    setHiddenInput("pull_item_type", "");
-
-                    Swal.fire({
-                        title: "Error!",
-                        text: "Something went wrong while processing the request.",
-                        icon: "error",
-                    });
-                });
         });
 
         $(document).on('click', '#backBtn', (e) => {
@@ -610,37 +504,100 @@
             }, 0);
         });
 
-        /* Common Item Detail Fetcher */
-        $(document).on('input change focus', 'table[class$="ItemsTable"] tr input', (e) => {
-            let currentTr = e.target.closest('tr');
-            let $row = $(currentTr);
-            let tab = $row.closest(".tab-pane").attr(
-                "id"); // find which tab (scavenging, repairOrder, productionSlip)
-            let itemId = $row.find("[name*='[item_id]']").val();
-            let remark = $row.find("[name*='remark']").val() || '';
-            let uomId = $row.find("[name*='[uom_id]']").val() || '';
-            let qty = $row.find("[name*='[qty]']").val() || '';
+        $(document).on("click", ".psSelect", function() {
+            const selector = "#psModal .ps-order-detail";
+            $("#psModal").modal("show");
 
-            if (!itemId) return;
+            if ($.fn.DataTable.isDataTable(selector)) {
+                psTable = psTable || $(selector).DataTable();
+                psTable.ajax.reload(null, false);
+            } else {
+                getPslipItems();
+            }
 
-            let selectedAttr = [];
-            $row.find("[name*='attr_name']").each(function() {
-                if ($(this).val()) selectedAttr.push($(this).val());
-            });
-
-            let type = '{{ request()->route('type') }}';
-            let actionUrl = '{{ route('scrap.get.itemdetail', ['type' => ':type']) }}'.replace(':type', type) +
-                `?tab=${tab}&item_id=${itemId}` +
-                `&selectedAttr=${encodeURIComponent(JSON.stringify(selectedAttr))}` +
-                `&remark=${remark}&uom_id=${uomId}&qty=${qty}`;
-
-            fetch(actionUrl).then(response => {
-                return response.json().then(data => {
-                    if (data.status == 200) {
-                        $(`#${tab} #${tab}sTfoot`).html(data.data.html);
-                    }
+            $(".select2").each(function() {
+                const $el = $(this);
+                if ($el.data("select2")) $el.select2("destroy");
+                $el.select2({
+                    dropdownParent: $("#psModal")
                 });
             });
+        });
+
+        $(document).on("click", ".psProcess", function(e) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            $("#psModal th .form-check-input").prop("checked", false);
+
+            const ids = getSelectedItemIDs();
+
+            if (!ids.length) {
+                updateHiddenInput("ps_item_ids", []);
+                updateHiddenInput("ps_pull_item_ids", []);
+                updateHiddenInput("item_ids", []);
+                $("#psModal").modal("hide");
+                Swal.fire("Error!", "Please select at least one SO item.", "error");
+                return false;
+            }
+
+            updateHiddenInput("ps_item_ids", ids, true);
+            updateHiddenInput("ps_pull_item_ids", ids, true);
+
+            const itemIds = [];
+            const selectedItems = [];
+            $("#psModal .ps_item_checkbox:checked").each(function() {
+                const itemId = Number($(this).data("item-id"));
+                itemIds.push(itemId);
+                selectedItems.push({
+                    item_id: itemId
+                });
+            });
+
+            updateHiddenInput("item_ids", itemIds, true);
+            $('#reference_type').val("pslip");
+
+            const params = {
+                type: "pslip",
+                ids: JSON.stringify(ids),
+                selected_items: JSON.stringify(selectedItems),
+                store_id: $("#store_id").val() || "",
+                sub_store_id: $("#sub_store_id").val() || "",
+                current_row_count: $("#productionSlipsTable .mrntableselectexcel tr").length,
+            };
+
+            const query = new URLSearchParams(params).toString();
+            const actionUrl = `{{ route('scrap.process.item') }}?${query}`;
+
+            fetch(actionUrl)
+                .then((r) => r.json())
+                .then((data) => {
+                    if (data.status === 200) {
+                        $("#uidTh").hide();
+                        $(".psLink").removeClass("d-none");
+                        $("#psModal").modal("hide");
+                        $("#productionSlipsTable .mrntableselectexcel").append(data.data.pos);
+                        reInitAttributes("#productionSlipsTable > tbody");
+
+                        $('a[href="#productionSlip"]').tab("show");
+
+                        $("#productionSlipsTable .mrntableselectexcel tr").last().attr("tabindex", "-1").focus();
+                    } else {
+                        clearPsInputs();
+                        Swal.fire("Error!", data.message, "error");
+                    }
+                })
+                .catch(() => {
+                    clearPsInputs();
+                    Swal.fire("Error!", "Something went wrong while processing the request.", "error");
+                });
+        });
+
+        $("#psModal").on("shown.bs.modal", () => {
+            $.fn.dataTable.tables({
+                visible: true,
+                api: true
+            }).columns.adjust();
         });
 
         $(document).on('click', '.clearPiFilter', (e) => {
@@ -655,46 +612,43 @@
             $("#book_id_qt_val").val('');
             $("#document_no_input_qt").val('');
             $("#document_id_qt_val").val('');
-            getProductionSlips();
+            getPslipItems();
         });
 
-        /*searchPiBtn*/
-        $(document).on('click', '.searchPiBtn', (e) => {
-            getProductionSlips();
+        $(document).on("click", ".clearPiFilter", () => {
+            $("#item_name_search, #item_name_input_qt, #item_id_qt_val, #department_po, #department_id_po, #customer_code_input_qt, #customer_id_qt_val, #book_code_input_qt, #book_id_qt_val, #document_no_input_qt, #document_id_qt_val").val("");
+            getPslipItems();
         });
 
-        $(document).on('keyup', '#item_name_search', (e) => {
-            getProductionSlips();
+        $(document).on("keyup", "#item_name_search", getPslipItems);
+
+        $(document).on("change", "#psModal .ps-order-detail > thead .form-check-input", function() {
+            $("#psModal .ps-order-detail > tbody .form-check-input").prop("checked", this.checked);
         });
 
-        $(document).on('change', '#attributeCheck', (e) => {
-            if (e.target.checked) {
-                $("#show_attribute").val(1);
-            } else {
-                $("#show_attribute").val(0);
-            }
-            getProductionSlips();
+        $(document).on("change", "#psModal .ps-order-detail > tbody .form-check-input", () => {
+            const allChecked = !$("#psModal .ps-order-detail > tbody .form-check-input:not(:checked)").length;
+            $("#psModal .ps-order-detail > thead .form-check-input").prop("checked", allChecked);
         });
 
-        /*Checkbox for pi item list*/
-        $(document).on('change', '#psModal .ps-order-detail > thead .form-check-input', (e) => {
-            if (e.target.checked) {
-                $("#psModal .ps-order-detail > tbody .form-check-input").each(function() {
-                    $(this).prop('checked', true);
-                });
-            } else {
-                $("#psModal .ps-order-detail > tbody .form-check-input").each(function() {
-                    $(this).prop('checked', false);
-                });
-            }
-        });
+        initializeAutocomplete2(".comp_item_code");
+        initializeAutocompleteQt(
+            ".comp_item_code_cost_centers",
+            "cost_center_id",
+            "cost_center",
+            "name",
+            "code"
+        );
 
-        $(document).on('change', '#psModal .ps-order-detail > tbody .form-check-input', (e) => {
-            if (!$("#psModal .ps-order-detail > tbody .form-check-input:not(:checked)").length) {
-                $('#psModal .ps-order-detail > thead .form-check-input').prop('checked', true);
-            } else {
-                $('#psModal .ps-order-detail > thead .form-check-input').prop('checked', false);
-            }
-        });
+        reInitAttributes("#scavengingItemsTable > tbody");
+        reInitAttributes("#productionSlipsTable > tbody");
+
+        function logger() {
+            console.log("ps_item_ids ==========>>   ", $("#ps_item_ids").val());
+            console.log("ps_pull_item_ids ==========>>   ", $("#ps_pull_item_ids").val());
+            console.log("deleted_ps_item_ids ==========>>   ", $("#deleted_ps_item_ids").val());
+            console.log('item attr', $(`[name^="components[${0}][attr_group_id]"][name$="[attr_name]"]`).val());
+
+        }
     </script>
 @endsection

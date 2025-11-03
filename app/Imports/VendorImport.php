@@ -417,7 +417,7 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                 ];
                 
                 $rules = [
-                   'organization_type_id' => 'nullable|exists:erp_organization_types,id',
+                   'organization_type_id' => 'required|exists:mysql_master.erp_organization_types,id',
                    'vendor_code' => [
                         'required_if:vendor_code_type,Manual', 
                         'max:255',
@@ -466,9 +466,9 @@ class VendorImport implements ToCollection, WithHeadingRow, WithChunkReading
                                 $query->whereNull('deleted_at');
                             }),
                         ],
-                    'country_id' => 'nullable|exists:countries,id',
-                    'state_id' => 'nullable|exists:states,id',
-                    'city_id' => 'nullable|exists:cities,id',
+                    'country_id' => 'nullable|exists:mysql_master.countries,id',
+                    'state_id' => 'nullable|exists:mysql_master.states,id',
+                    'city_id' => 'nullable|exists:mysql_master.cities,id',
                     'pin_code' => 'nullable|regex:/^\d{6}$/',
                     'address' => 'nullable|string',
                     'vendor_type' => 'required|string',

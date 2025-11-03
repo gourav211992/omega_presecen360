@@ -4,6 +4,7 @@ namespace App\Http\Requests\Integration;
 
 use App\Models\ErpItemAttribute;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreFurlencoSaleOrderRequest extends FormRequest
 {
@@ -14,16 +15,17 @@ class StoreFurlencoSaleOrderRequest extends FormRequest
 
             /*
             |--------------------------------------------------------------------------
-            | General Sale Order
+            | Trip-Level Fields
             |--------------------------------------------------------------------------
             */
-            'document_number' => [
+            'trip_number' => [
                 'required',
                 'string',
-                'max:100'
+                'max:100',
+                Rule::unique('erp_trip_plan_headers', 'document_number'),
             ],
 
-            'document_date' => [
+            'trip_date' => [
                 'required',
                 'date',
                 'after_or_equal:today', // must not be in the past
@@ -34,6 +36,7 @@ class StoreFurlencoSaleOrderRequest extends FormRequest
                 'integer',
                 'exists:erp_stores,id', // store must exist
             ],
+            
             'organization_id' => [
                 'required',
                 'integer',
@@ -42,144 +45,70 @@ class StoreFurlencoSaleOrderRequest extends FormRequest
 
             /*
             |--------------------------------------------------------------------------
-            | Delivery SKUs
+            | Orders Array
             |--------------------------------------------------------------------------
             */
-            'delivery_skus' => [
+            'orders' => [
                 'required',
                 'array',
-                'min:1', // at least 1 SKU required
+                'min:1', // at least 1 order required
             ],
 
-            'delivery_skus.*.sale_type' => [
-                'required',
-                'string',
-                'in:sale,rental', // only "sale" or "rental" allowed
-            ],
-
-            'delivery_skus.*.item_code' => [
+            'orders.*.ref_order_number' => [
                 'required',
                 'string',
                 'max:100',
-                'exists:erp_items,item_code', // must exist in ERP items
+                'distinct'
             ],
 
-            'delivery_skus.*.item_name' => [
-                'required',
-                'string',
-                'max:255',
-            ],
-
-            'delivery_skus.*.item_id' => [
-                'required',
-                'integer',
-                'exists:erp_items,id'
-            ],
-            'delivery_skus.*.item_qty' => [
-                'required',
-                'numeric',
-                'min:0.01', // must be greater than zero
-            ],
-
-            'delivery_skus.*.item_rate' => [
-                'required',
-                'numeric',
-                'min:0', // free items allowed, no negatives
-            ],
-
-            'delivery_skus.*.consignee_id' => [
+            'orders.*.consignee_id' => [
                 'required',
                 'integer',
                 'exists:erp_consignees,id', // consignee must exist in ERP
             ],
 
-            /*
-            |--------------------------------------------------------------------------
-            | Item Attributes
-            |--------------------------------------------------------------------------
-            */
-            'delivery_skus.*.item_attributes' => [
-                'nullable',
-                'array',
-            ],
-
-            'delivery_skus.*.item_attributes.*.id' => [
-                'required_with:delivery_skus.*.item_attributes',
-                'distinct',
-                'integer',
-                'exists:erp_item_attributes,id',
-            ],
-
-            'delivery_skus.*.item_attributes.*.attribute_name_id' => [
-                'required_with:delivery_skus.*.item_attributes',
-                'distinct',
-                'integer',
-                'exists:erp_item_attributes,attribute_group_id',
-            ],
-
-            'delivery_skus.*.item_attributes.*.attribute_value_id' => [
-                'required_with:delivery_skus.*.item_attributes',
-                'distinct',
-                'integer',
-                // custom validation: ensure value exists in JSON column
-                function ($attribute, $value, $fail) {
-                    $exists = ErpItemAttribute::whereRaw(
-                        'JSON_CONTAINS(attribute_id, ?)',
-                        [json_encode((string) $value)]
-                    )->exists();
-
-                    if (! $exists) {
-                        $fail("The selected {$attribute} is invalid.");
-                    }
-                },
-            ],
-
-            'delivery_skus.*.item_attributes.*.attribute_name' => [
-                'required_with:delivery_skus.*.item_attributes',
-                'distinct',
-                'string',
-            ],
-
-            'delivery_skus.*.item_attributes.*.attribute_value' => [
-                'required_with:delivery_skus.*.item_attributes',
-                'string',
+            'orders.*.sale_type' => [
+                'required', 
+                'string', 
+                'in:sale,rental'
             ],
 
             /*
             |--------------------------------------------------------------------------
-            | Consignee Address
+            | Shipping Address
             |--------------------------------------------------------------------------
             */
-            'delivery_skus.*.consignee_address' => [
+
+            'orders.*.shipping_address' => [
                 'required',
                 'array',
             ],
 
-            'delivery_skus.*.consignee_address.country_id' => [
+            'orders.*.shipping_address.country_id' => [
                 'required',
                 'integer',
                 'exists:mysql_master.countries,id',
             ],
 
-            'delivery_skus.*.consignee_address.state_id' => [
+            'orders.*.shipping_address.state_id' => [
                 'required',
                 'integer',
                 'exists:mysql_master.states,id',
             ],
 
-            'delivery_skus.*.consignee_address.city_id' => [
+            'orders.*.shipping_address.city_id' => [
                 'required',
                 'integer',
                 'exists:mysql_master.cities,id',
             ],
 
-            'delivery_skus.*.consignee_address.pincode' => [
+            'orders.*.shipping_address.pincode' => [
                 'required',
                 'string',
                 'max:6',
             ],
 
-            'delivery_skus.*.consignee_address.address' => [
+            'orders.*.shipping_address.address' => [
                 'required',
                 'string',
                 'max:250',
@@ -187,18 +116,208 @@ class StoreFurlencoSaleOrderRequest extends FormRequest
 
             /*
             |--------------------------------------------------------------------------
-            | Transport Details
+            | Order Items
             |--------------------------------------------------------------------------
             */
-            'transport_detail' => ['sometimes', 'array'],
-            'transport_detail.transport_mode' => [
-                'required_with:transport_detail', 'in:Road,Rail,Air,Ship'
+            'orders.*.order_items' => [
+                'required',
+                'array',
+                'min:1', // at least 1 SKU required
+                function ($attribute, $value, $fail) {
+                    $itemIds = [];
+                    foreach ($value as $item) {
+                        if (!isset($item['item_id'])) continue;
+                        if (in_array($item['item_id'], $itemIds)) {
+                            $fail("Duplicate item_id '{$item['item_id']}' found in $attribute.");
+                            break;
+                        }
+                        $itemIds[] = $item['item_id'];
+                    }
+                },
             ],
-            'transport_detail.vehicle_number' => [
-                'required_with:transport_detail', 'string', 'regex:/^[A-Z]{2}[0-9]{2}[A-Z]{1,2}[0-9]{4}$/'
+
+            'orders.*.order_items.*.item_id' => [
+                'required',
+                'integer',
+                'exists:erp_items,id'
             ],
-            'transport_detail.transporter_name' => [
-                'required_with:transport_detail', 'string', 'max:199'
+
+            'orders.*.order_items.*.item_code' => [
+                'required',
+                'string',
+                'max:100',
+                'exists:erp_items,item_code', // must exist in ERP items
+            ],
+
+            'orders.*.order_items.*.item_name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            
+            'orders.*.order_items.*.item_qty' => [
+                'required',
+                'numeric',
+                'min:0.01', // must be greater than zero
+            ],
+
+            'orders.*.order_items.*.item_rate' => [
+                'required',
+                'numeric',
+                'min:0', // free items allowed, no negatives
+            ],
+
+            /*
+            |--------------------------------------------------------------------------
+            | Item Attributes
+            |--------------------------------------------------------------------------
+            */
+            'orders.*.order_items.*.item_attributes' => [
+                'nullable',
+                'array',
+                function ($attribute, $value, $fail) {
+                    $ids = [];
+                    $attributeNameIds = [];
+                    $attributeValueIds = [];
+                    $attributeNames = [];
+                    $attributeValues = [];
+                    foreach ($value as $index => $attr) {
+                        // Skip if keys don't exist (if required, you can also fail here)
+                        if (!isset($attr['id'], $attr['attribute_name_id'], $attr['attribute_value_id'], $attr['attribute_value'], $attr['attribute_name'])) {
+                            continue;
+                        }
+
+                        // Check duplicate id
+                        if (in_array($attr['id'], $ids)) {
+                            $fail("Duplicate id '{$attr['id']}' found in {$attribute}.");
+                            break;
+                        }
+                        $ids[] = $attr['id'];
+                        
+                        // Check duplicate attribute_name_id
+                        if (in_array($attr['attribute_name_id'], $attributeNameIds)) {
+                            $fail("Duplicate attribute_name_id '{$attr['attribute_name_id']}' found in {$attribute}.");
+                            break;
+                        }
+                        $attributeNameIds[] = $attr['attribute_name_id'];
+
+                        // Check duplicate attribute_value_id
+                        if (in_array($attr['attribute_value_id'], $attributeValueIds)) {
+                            $fail("Duplicate attribute_value_id '{$attr['attribute_value_id']}' found in {$attribute}.");
+                            break;
+                        }
+                        $attributeValueIds[] = $attr['attribute_value_id'];
+
+                        // Check duplicate attribute_value (string)
+                        if (in_array($attr['attribute_value'], $attributeValues)) {
+                            $fail("Duplicate attribute_value '{$attr['attribute_value']}' found in {$attribute}.");
+                            break;
+                        }
+                        $attributeValues[] = $attr['attribute_value'];
+
+                        // Check duplicate attribute_name (string)
+                        if (in_array($attr['attribute_name'], $attributeNames)) {
+                            $fail("Duplicate attribute_name '{$attr['attribute_name']}' found in {$attribute}.");
+                            break;
+                        }
+                        $attributeNames[] = $attr['attribute_name'];
+                    }
+                },
+            ],
+
+            'orders.*.order_items.*.item_attributes.*.id' => [
+                'required_with:orders.*.order_items.*.item_attributes',
+                'integer',
+                // custom validation: ensure value exists in JSON column
+                function ($attribute, $value, $fail) {
+                    preg_match('/orders\.(\d+)\.order_items\.(\d+)\.item_attributes\.(\d+)\.id/', $attribute, $matches);
+                    if (!$matches) {
+                        return;
+                    }
+                    $orderIndex = $matches[1];
+                    $itemIndex = $matches[2];
+
+                    // Get the item_id for this item attribute
+                    $data = request()->all();
+                    $itemId = data_get($data, "orders.$orderIndex.order_items.$itemIndex.item_id");
+
+                    $exists = ErpItemAttribute::where('item_id', $itemId)
+                        ->where('id',$value)
+                        ->whereNull('deleted_at')
+                        ->exists();
+
+                    if (! $exists) {
+                        $fail("The selected {$attribute} is invalid.");
+                    }
+                },
+            ],
+
+            'orders.*.order_items.*.item_attributes.*.attribute_name_id' => [
+                'required_with:orders.*.order_items.*.item_attributes',
+                'integer',
+                // custom validation: ensure value exists in JSON column
+                function ($attribute, $value, $fail) {
+                    preg_match('/orders\.(\d+)\.order_items\.(\d+)\.item_attributes\.(\d+)\.attribute_name_id/', $attribute, $matches);
+                    if (!$matches) {
+                        return;
+                    }
+                    $orderIndex = $matches[1];
+                    $itemIndex = $matches[2];
+
+                    // Get the item_id for this item attribute
+                    $data = request()->all();
+                    $itemId = data_get($data, "orders.$orderIndex.order_items.$itemIndex.item_id");
+
+                    $exists = ErpItemAttribute::where('item_id', $itemId)
+                        ->where('attribute_group_id',$value)
+                        ->whereNull('deleted_at')
+                        ->exists();
+
+                    if (! $exists) {
+                        $fail("The selected {$attribute} is invalid.");
+                    }
+                },
+            ],
+
+            'orders.*.order_items.*.item_attributes.*.attribute_value_id' => [
+                'required_with:orders.*.order_items.*.item_attributes',
+                'integer',
+                // custom validation: ensure value exists in JSON column
+                function ($attribute, $value, $fail) {
+                    preg_match('/orders\.(\d+)\.order_items\.(\d+)\.item_attributes\.(\d+)\.attribute_value_id/', $attribute, $matches);
+                    if (!$matches) {
+                        return;
+                    }
+                    $orderIndex = $matches[1];
+                    $itemIndex = $matches[2];
+
+                    // Get the item_id for this item attribute
+                    $data = request()->all();
+                    $itemId = data_get($data, "orders.$orderIndex.order_items.$itemIndex.item_id");
+
+
+                    $exists = ErpItemAttribute::where('item_id', $itemId)
+                        ->whereRaw(
+                            'JSON_CONTAINS(attribute_id, ?)',
+                            [json_encode((string) $value)]
+                        )
+                        ->whereNull('deleted_at')
+                        ->exists();
+
+                    if (! $exists) {
+                        $fail("The selected {$attribute} is invalid.");
+                    }
+                },
+            ],
+
+            'orders.*.order_items.*.item_attributes.*.attribute_name' => [
+                'required_with:orders.*.order_items.*.item_attributes',
+                'string',
+            ],
+
+            'orders.*.order_items.*.item_attributes.*.attribute_value' => [
+                'required_with:orders.*.order_items.*.item_attributes',
+                'string',
             ],
 
         ];
@@ -207,48 +326,47 @@ class StoreFurlencoSaleOrderRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'date.after_or_equal'   => 'Order date cannot be in the past.',
-            'delivery_skus.*.sale_type.in' => 'Sale type must be either sale or rental.',
-            'delivery_skus.*.item_code.exists' => 'Invalid Item Code provided.',
-            'delivery_skus.*.consignee_id.exists' => 'Invalid consignee provided.',
-            'delivery_skus.*.consignee_address.country_id.exists' => 'Invalid Country selected.',
-            'delivery_skus.*.consignee_address.state_id.exists'   => 'Invalid State selected.',
-            'delivery_skus.*.consignee_address.city_id.exists'    => 'Invalid City selected.',
+            'trip_date.after_or_equal' => 'Trip date cannot be in the past.',
+            'orders.*.sale_type.in' => 'Sale type must be either sale or rental.',
+            'orders.*.order_items.*.item_code.exists' => 'Invalid Item Code provided.',
+            'orders.*.consignee_id.exists' => 'Invalid consignee provided.',
+            'orders.*.shipping_address.country_id.exists' => 'Invalid Country selected.',
+            'orders.*.shipping_address.state_id.exists' => 'Invalid State selected.',
+            'orders.*.shipping_address.city_id.exists' => 'Invalid City selected.',
         ];
     }
 
     public function attributes(): array
     {
         return [
-            'document_number'       => 'Trip/Document Number',
-            'document_date'         => 'Trip/Order Date',
-            'store_id'              => 'Location/Store',
-            'organization_id'       => 'Warehouse/Organization',
+            'trip_number' => 'Trip Number',
+            'trip_date' => 'Trip Date',
+            'store_id' => 'Store',
+            'organization_id' => 'Organization',
 
-            'delivery_skus'  => 'Delivery SKUs',
-            'delivery_skus.*.sale_type'     => 'Sale Type',
-            'delivery_skus.*.item_code'     => 'Item Code',
-            'delivery_skus.*.item_name'     => 'Item Name',
-            'delivery_skus.*.item_qty'      => 'Item Quantity',
-            'delivery_skus.*.item_rate'     => 'Item Rate',
-            'delivery_skus.*.consignee_id'  => 'Consignee',
+            'orders' => 'Orders',
+            'orders.*.ref_order_number' => 'Reference Order Number',
+            'orders.*.consignee_id' => 'Consignee',
+            'orders.*.sale_type' => 'Sale Type',
 
-            'delivery_skus.*.item_attributes.*.id'  => 'Attribute ID',
-            'delivery_skus.*.item_attributes.*.attribute_name_id'  => 'Attribute Name ID',
-            'delivery_skus.*.item_attributes.*.attribute_value_id' => 'Attribute Value ID',
-            'delivery_skus.*.item_attributes.*.attribute_name'     => 'Attribute Name',
-            'delivery_skus.*.item_attributes.*.attribute_value'    => 'Attribute Value',
+            'orders.*.shipping_address.country_id' => 'Country',
+            'orders.*.shipping_address.state_id' => 'State',
+            'orders.*.shipping_address.city_id' => 'City',
+            'orders.*.shipping_address.pincode' => 'Pincode',
+            'orders.*.shipping_address.address' => 'Shipping Address',
 
-            'delivery_skus.*.consignee_address.country_id' => 'Country',
-            'delivery_skus.*.consignee_address.state_id'   => 'State',
-            'delivery_skus.*.consignee_address.city_id'    => 'City',
-            'delivery_skus.*.consignee_address.pincode'    => 'Pincode',
-            'delivery_skus.*.consignee_address.address'    => 'Consignee Address',
+            'orders.*.order_items' => 'Order Items',
+            'orders.*.order_items.*.item_id' => 'Item ID',
+            'orders.*.order_items.*.item_code' => 'Item Code',
+            'orders.*.order_items.*.item_name' => 'Item Name',
+            'orders.*.order_items.*.item_qty' => 'Item Quantity',
+            'orders.*.order_items.*.item_rate' => 'Item Rate',
 
-            'transport_detail'                   => 'transport detail',
-            'transport_detail.transport_mode'    => 'transport mode',
-            'transport_detail.vehicle_number'    => 'vehicle number',
-            'transport_detail.transporter_name'  => 'transporter name',
+            'orders.*.order_items.*.item_attributes.*.id' => 'Attribute ID',
+            'orders.*.order_items.*.item_attributes.*.attribute_name_id' => 'Attribute Name ID',
+            'orders.*.order_items.*.item_attributes.*.attribute_value_id' => 'Attribute Value ID',
+            'orders.*.order_items.*.item_attributes.*.attribute_name' => 'Attribute Name',
+            'orders.*.order_items.*.item_attributes.*.attribute_value' => 'Attribute Value',
         ];
     }
 }

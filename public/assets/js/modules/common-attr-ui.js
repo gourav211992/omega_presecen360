@@ -9,7 +9,6 @@ function setAttributesUIHelper(paramIndex = null, selectorPrifix = "") {
     let itemIdDoc = container.querySelector(
         "#itemAttribute_" + currentItemIndex
     );
-    console.log("container", container, itemIdDoc);
 
     if (!itemIdDoc) {
         return;

@@ -48,6 +48,7 @@ use App\Models\PincodeMaster;
 use App\Models\ItemDetail;
 use App\Imports\VendorImport;
 use App\Services\ItemImportExportService;
+use App\Helpers\Common\OrganizationHelper;
 use App\Exports\VendorsExport;
 use App\Exports\FailedVendorsExport;
 use Maatwebsite\Excel\Facades\Excel;
@@ -243,7 +244,7 @@ class VendorController extends Controller
             $books = Helper::getBookSeries($serviceAlias)->get();
             $parentUrl = ConstantHelper::VENDOR_SERVICE_ALIAS;
             $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl);
-            $organization = Organization::select('id', 'name', 'currency_id') ->where('id', $user->organization_id) ->first();
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             $groupId = $organization->group_id;
             $groupOrganizations = Organization::select('id', 'name')
             ->where('status', 'active')
@@ -627,9 +628,7 @@ class VendorController extends Controller
             }
             $parentUrl = ConstantHelper::VENDOR_SERVICE_ALIAS;
             $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl);
-            $organization = Organization::select('id', 'name', 'currency_id')
-            ->where('id', $user->organization_id)
-            ->first();
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             $groupId = $organization->group_id;
             $groupOrganizations = Organization::select('id', 'name')
             ->where('status', 'active')
@@ -1210,7 +1209,7 @@ class VendorController extends Controller
         public function exportSuccessfulVendors()
         {
             $user = Helper::getAuthenticatedUser();
-            $uploadVendors = UploadVendorMaster::where('status', 'Success')->where('user_id', $user->id)->get();
+            $uploadVendors = UploadVendorMaster::where('status', 'Success')->where('user_id', $user->auth_user_id)->get();
             $vendors = Vendor::with(['category', 'subcategory', 'currency', 'paymentTerms', 'erpOrganizationType', 'addresses', 'compliances', 'ledgerGroup', 'ledger'])
                 ->whereIn('company_name', $uploadVendors->pluck('company_name'))
                 ->get();
@@ -1221,7 +1220,7 @@ class VendorController extends Controller
         public function exportFailedVendors()
         {
             $user = Helper::getAuthenticatedUser();
-            $failedVendors = UploadVendorMaster::where('status', 'Failed')->where('user_id', $user->id)->get();
+            $failedVendors = UploadVendorMaster::where('status', 'Failed')->where('user_id', $user->auth_user_id)->get();
             return Excel::download(new FailedVendorsExport($failedVendors), "failed-vendors.xlsx");
         }
         public function checkGst()

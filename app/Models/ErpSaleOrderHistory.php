@@ -49,6 +49,10 @@ class ErpSaleOrderHistory extends Model
     {
         return $this -> hasOne(ErpCustomer::class, 'id', 'customer_id');
     }
+    public function customerSubStore()
+    {
+        return $this -> hasOne(CustomerLocation::class, 'customer_sub_store_id');
+    }
 
     public function currency()
     {

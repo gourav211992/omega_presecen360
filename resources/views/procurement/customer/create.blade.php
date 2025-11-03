@@ -241,6 +241,9 @@
                                                     <li class="nav-item">
 														<a class="nav-link" data-bs-toggle="tab" href="#Items">Items</a>
 													</li>
+                                                    <li class="nav-item">
+														<a class="nav-link" data-bs-toggle="tab" href="#customerPortal">Customer Portal</a>
+													</li>
 
 												</ul>
 
@@ -789,7 +792,7 @@
                                                                         <div class="col-md-6">
                                                                             <div class="form-check form-check-primary mt-25 custom-checkbox">
                                                                                 <input type="checkbox" class="form-check-input" name="compliance[msme_registered]" id="msmeRegisteredIndia">
-                                                                                <label class="form-check-label" for="msmeRegisteredIndia">This vendor is MSME registered</label>
+                                                                                <label class="form-check-label" for="msmeRegisteredIndia">This customer is MSME registered</label>
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -920,7 +923,55 @@
                                                             </table>
                                                         </div>
                                                         </div>
-                                                      <!-- Item End -->
+                                                    <!-- Item End -->
+
+                                                    {{-- Customer Portal --}}
+                                                    <div class="tab-pane" id="customerPortal">
+                                                        <div class="row align-items-center mb-1">
+                                                            <div class="col-md-2"> 
+                                                                <label for="user" class="form-label">Stores</label>  
+                                                            </div>  
+                                                        </div>
+
+                                                        <div class="row align-items-center mb-1">
+                                                            <div class="table-responsive"> 
+                                                                <table class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail border"> 
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>S.NO</th>
+                                                                            <th>Organization<span class="text-danger">*</span></th>
+                                                                            <th>Location<span class="text-danger">*</span></th>
+                                                                            <th>Store<span class="text-danger">*</span></th>
+                                                                            <th>Action</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody id="customer-stores-table-body">
+                                                                        <tr class="stores-row" data-index="0">
+                                                                            <td class="index">1</td>
+                                                                            <td>
+                                                                                <input type="text" class="form-control mw-100 customer-store-org-input" name="customer_store[0][organization]" placeholder="Search Organization">
+                                                                                <input type="hidden" name="customer_store[0][organization_id]" class="customer-store-org-id">
+                                                                            </td>
+                                                                            <td>
+                                                                                <input type="text" class="form-control mw-100 customer-store-location-input" name="customer_store[0][location]" placeholder="Search Location">
+                                                                                <input type="hidden" name="customer_store[0][location_id]" class="customer-store-location-id">
+                                                                            </td>
+                                                                            <td>
+                                                                                <input type="text" class="form-control mw-100 customer-store-input" name="customer_store[0][store]" placeholder="Search Store">
+                                                                                <input type="hidden" name="customer_store[0][store_id]" class="customer-location-store-id">
+                                                                            </td>
+                                                                            <td>
+                                                                                <a href="#" class="text-primary add-customer-store"><i data-feather="plus-square" class="me-50"></i></a>
+                                                                                <a href="#" class="text-danger delete-customer-store"><i data-feather="trash-2" class="me-50"></i></a>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div> 
+                                                        </div>
+                                                    </div>
+                                                    <!-- End Customer Portal -->
+
 												</div> 
 											 
 											</div>
@@ -1377,9 +1428,121 @@
             }).focus(function() {
                 $(this).autocomplete("search", "");
             });
+            // Customer Org Autocomplete
+            $row.find('.customer-store-org-input').autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: '/search',
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {
+                            q: request.term,
+                            type: 'stock_orgs'
+                        },
+                        success: function(data) {
+                            response($.map(data, function(item) {
+                                return {
+                                    id: item.id,
+                                    label: item['name'],
+                                };
+                            }));
+                        },
+                        error: function(xhr) {
+                            console.error('Error fetching Organization data:', xhr.responseText);
+                        }
+                    });
+                },
+                minLength: 0,
+                select: function(event, ui) {
+                    $(this).val(ui.item.label);  
+                    $(this).closest('tr').find('input[name*="[organization_id]"]').val(ui.item.id);  
+                    return false;
+                }
+            }).focus(function() {
+                $(this).autocomplete("search", "");
+            });
+
+            $row.find('.customer-store-location-input').autocomplete({
+                source: function(request, response) {
+                    const orgId = $(this.element).closest('tr').find('.customer-store-org-id').val();
+                    $.ajax({
+                        url: '/search',
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {
+                            q: request.term,
+                            type: 'customer_locations',
+                            organization_id : orgId
+                        },
+                        success: function(data) {
+                            response($.map(data, function(item) {
+                                return {
+                                    id: item.id,
+                                    label: item['store_name'],
+                                };
+                            }));
+                        },
+                        error: function(xhr) {
+                            console.error('Error fetching Organization data:', xhr.responseText);
+                        }
+                    });
+                },
+                minLength: 0,
+                select: function(event, ui) {
+                    $(this).val(ui.item.label);  
+                    $(this).closest('tr').find('input[name*="[location_id]"]').val(ui.item.id);  
+                    return false;
+                }
+            }).focus(function() {
+                $(this).autocomplete("search", "");
+            });
+
+            $row.find('.customer-store-input').autocomplete({
+                source: function(request, response) {
+                    const orgId = $(this.element).closest('tr').find('.customer-store-org-id').val();
+                    const locationId = $(this.element).closest('tr').find('.customer-store-location-id').val();
+                    $.ajax({
+                        url: '/search',
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {
+                            q: request.term,
+                            type: 'customer_sub_stores',
+                            organization_id : orgId,
+                            location_id : locationId,
+                            store_types : ['Customer']
+                        },
+                        success: function(data) {
+                            response($.map(data, function(item) {
+                                return {
+                                    id: item.id,
+                                    label: item['name'],
+                                };
+                            }));
+                        },
+                        error: function(xhr) {
+                            console.error('Error fetching Organization data:', xhr.responseText);
+                        }
+                    });
+                },
+                minLength: 0,
+                select: function(event, ui) {
+                    $(this).val(ui.item.label);  
+                    $(this).closest('tr').find('input[name*="[store_id]"]').val(ui.item.id);  
+                    return false;
+                }
+            }).focus(function() {
+                $(this).autocomplete("search", "");
+            });
         }
 
         $('#address-table-body .address-row').each(function() {
+            initializeAutocomplete($(this));
+        });
+
+        
+        //Vendor Stores Initialization
+        $('#customer-stores-table-body .stores-row').each(function() {
             initializeAutocomplete($(this));
         });
 
@@ -1417,11 +1580,31 @@
             applyCapsLock();
         });
 
+        $(document).on('click', '.add-customer-store', function(e) {
+            e.preventDefault();
+            const $lastRow = $('#customer-stores-table-body .stores-row').last();
+            const index = $lastRow.data('index') + 1;
+            const $newRow = $lastRow.clone().attr('data-index', index);
+            $newRow.find('input').val('');
+            $('#customer-stores-table-body').append($newRow);
+            initializeAutocomplete($newRow);
+            updateRowIndexesForCustomerStores();
+        });
+
+
         $(document).on('click', '.delete-address', function(e) {
             e.preventDefault();
             if ($('#address-table-body .address-row').length > 1) {
                 $(this).closest('.address-row').remove();
                 updateRowIndexes();
+            }
+        });
+
+        $(document).on('click', '.delete-customer-store', function(e) {
+            e.preventDefault();
+            if ($('#customer-stores-table-body .stores-row').length > 1) {
+                $(this).closest('.stores-row').remove();
+                updateRowIndexesForCustomerStores();
             }
         });
 
@@ -1442,6 +1625,23 @@
             });
         }
 
+        function updateRowIndexesForCustomerStores() {
+            var $rows = $('#customer-stores-table-body tr'); 
+            $('#customer-stores-table-body .stores-row').each(function(index) {
+                $(this).find('.index').text(index + 1);
+                $(this).find('input, select').each(function() {
+                    $(this).attr('name', $(this).attr('name').replace(/\[\d+\]/, `[${index}]`));
+                });
+                if ($rows.length === 1) {
+                    $(this).find('.delete-customer-store').hide(); 
+                    $(this).find('.add-customer-store').show(); 
+                } else {
+                    $(this).find('.delete-customer-store').show(); 
+                    $(this).find('.add-customer-store').toggle(index === 0); 
+                }  
+            });
+        }
+
         function handleRadioSelection() {
             $('#address-table-body').on('change', 'input[type="radio"][name*="[is_billing]"]', function() {
                 $('#address-table-body input[type="radio"][name*="[is_billing]"]').not(this).prop('checked', false);
@@ -1455,6 +1655,7 @@
         }
 
         updateRowIndexes();
+        updateRowIndexesForCustomerStores();
         handleRadioSelection();
         applyCapsLock();
     });

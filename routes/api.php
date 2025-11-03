@@ -87,7 +87,9 @@ Route::group(['middleware' => ['apiresponse']], function () {
 
             Route::get('stock-report', 'stockReport')->name('integration.stock-report'); // Get Stock Report
             Route::get('get-barcode-detail', 'getBarcodeDetail')->name('integration.get-barcode-detail'); // Get Barcode Detail
+            Route::get('get-sale-order', 'getSaleOrder')->name('integration.get-sale-order'); // Get Sale Order Detail
 
+            Route::post('/update/transport-detail', 'updateTransportDetail')->name('integration.update-transport-detail'); // Update Transport Detail
             Route::post('/create/delivery-note', 'createDeliveryNote');
         });
         /**

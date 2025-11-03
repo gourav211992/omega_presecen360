@@ -27,6 +27,7 @@ use App\Models\ErpSoItemBom;
 use App\Models\Organization;
 use App\Services\BomService;
 use Illuminate\Http\Request;
+use App\Models\PwoBomMapping;
 use App\Models\AttributeGroup;
 use App\Models\PurchaseIndent;
 use App\Services\PI\PiService;
@@ -35,9 +36,12 @@ use App\Models\PiItemAttribute;
 use App\Models\PiSoMappingItem;
 use App\Helpers\InventoryHelper;
 use App\Http\Requests\PiRequest;
+use App\Models\PiPwoMappingItem;
 use Yajra\DataTables\DataTables;
 use App\Http\Controllers\Controller;
+use App\Models\ErpProductionWorkOrder;
 use App\Helpers\ServiceParametersHelper;
+use App\Services\Common\DocumentLockService;
 
 class PiController extends Controller
 {
@@ -251,7 +255,7 @@ class PiController extends Controller
 
 
     # Purchase Indent store
-    public function store(PiRequest $request)
+    public function store(PiRequest $request, DocumentLockService $lockService)
     {
         DB::beginTransaction();
         try {
@@ -346,11 +350,41 @@ class PiController extends Controller
                             $piDetail->vendor_name = $vendor?->company_name ?? null;
                         }
                     }
+
                     $piDetail->so_id = $component['so_id'] ?? null;
+                    $piDetail->pwo_id = $component['pwo_id'] ?? null;
+
                     $piDetail->save();
                     $piDetail->refresh();
+
                     /*Pi_So_Mapping Update*/
-                    if (@$component['so_pi_mapping_item_id']) {
+                    if (isset($component['pwo_mapping_id']) && $component['pwo_mapping_id']) {
+                        $pwoMapping = PwoBomMapping::where('id', $component['pwo_mapping_id'])
+                            ->when(isset($component['pwo_id']) && $component['pwo_id'], function ($query) use ($component) {
+                                $query->where('pwo_id', $component['pwo_id']);
+                            })->first();
+
+                        if (!$pwoMapping) {
+                            DB::rollBack();
+                            return response()->json([
+                                'message' => 'Invalid PWO BOM Mapping selected.',
+                                'error' => "",
+                            ], 422);
+                        }
+
+                        PiPwoMappingItem::updateOrCreate([
+                            'pi_id' => $pi->id,
+                            'pwo_id' => $pwoMapping->pwo_id,
+                            'so_id' => $pwoMapping->so_id,
+                            'bom_id' => $pwoMapping->bom_id,
+                            'bom_detail_id' => $pwoMapping->bom_detail_id,
+                            'pwo_bom_mapping_id' => $pwoMapping->id,
+                            'pi_item_id' => $piDetail->id,
+                        ], [
+                            'qty' => $component['indent_qty'] ?? 0,
+                            'uom_id' => $component['uom_id'] ?? null,
+                        ]);
+                    } else if (@$component['so_pi_mapping_item_id']) {
                         if (intval($component['so_pi_mapping_item_id']) == $piDetail->item_id) {
 
                             $showAttribute = intval($request->show_attribute) ?? 0;
@@ -463,6 +497,26 @@ class PiController extends Controller
                 $redirectUrl = route('pi.generate-pdf', $pi->id);
             }
 
+
+            $lockKey = \App\Helpers\GeneralHelper::generateLockKey($organization->id, $request->book_id, $document_number);
+            if (!$lockKey) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Invalid Argument passed in Lock Key Generator.',
+                    'line' => '',
+                    'error' => '',
+                ], 500);
+            }
+
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+            if (!$lockResult['success']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -470,11 +524,11 @@ class PiController extends Controller
                 'data' => $pi,
                 'redirect_url' => $redirectUrl
             ]);
-        } catch (Exception $e) {
+        } catch (Exception $ex) {
             DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while creating the record.',
-                'error' => $e,
+                'error' => $ex->getMessage() . ' at ' . $ex->getLine() . ' in ' . $ex->getFile(),
             ], 500);
         }
     }
@@ -494,7 +548,14 @@ class PiController extends Controller
                     ['model_type' => 'detail', 'model_name' => 'PiItem', 'relation_column' => 'pi_id'],
                     ['model_type' => 'sub_detail', 'model_name' => 'PiItemAttribute', 'relation_column' => 'pi_item_id']
                 ];
-                $a = Helper::documentAmendment($revisionData, $id);
+
+                if (!Helper::documentAmendment($revisionData, $id)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Error occurred while sending amendment request for approval.',
+                        'error' => '',
+                    ], 500);
+                }
             }
             $keys = ['deletedPiItemIds', 'deletedAttachmentIds'];
             $deletedData = [];
@@ -576,9 +637,11 @@ class PiController extends Controller
                     }
 
                     $piDetail->so_id = $component['so_id'] ?? null;
-                    $piDetail->save();
+                    $piDetail->pwo_id = $component['pwo_id'] ?? null;
 
+                    $piDetail->save();
                     $piDetail->refresh();
+
                     /*Pi_So_Mapping Update*/
                     if ($updatedQty < 0) {
                         $poSiMappingItems = PiSoMappingItem::where('pi_item_id', $piDetail->id)
@@ -683,6 +746,34 @@ class PiController extends Controller
                         }
                     }
 
+                    /*Pi_So_Mapping Update*/
+                    if (isset($component['pwo_mapping_id']) && $component['pwo_mapping_id'] && $piDetail->pwo_id) {
+                        $pwoMapping = PwoBomMapping::where('id', $component['pwo_mapping_id'])
+                            ->where('pwo_id', $piDetail->pwo_id)
+                            ->first();
+
+                        if (!$pwoMapping) {
+                            DB::rollBack();
+                            return response()->json([
+                                'message' => 'PWO BOM Mapping is missing.',
+                                'error' => "",
+                            ], 422);
+                        }
+
+                        PiPwoMappingItem::updateOrCreate([
+                            'pi_id' => $pi->id,
+                            'pwo_id' => $pwoMapping->pwo_id,
+                            'so_id' => $pwoMapping->so_id,
+                            'bom_id' => $pwoMapping->bom_id,
+                            'bom_detail_id' => $pwoMapping->bom_detail_id,
+                            'pwo_bom_mapping_id' => $pwoMapping->id,
+                            'pi_item_id' => $piDetail->id,
+                        ], [
+                            'qty' => $component['indent_qty'] ?? 0,
+                            'uom_id' => $component['uom_id'] ?? null,
+                        ]);
+                    }
+
                     if ($isNewItem) {
                         PiItemAttribute::where('pi_item_id', $piDetail->id)->delete();
                     }
@@ -707,7 +798,7 @@ class PiController extends Controller
             }
             /*Pi Attachment*/
             if ($request->hasFile('attachment')) {
-                $mediaFiles = $pi->uploadDocuments($request->file('attachment'), 'pi', false);
+                $pi->uploadDocuments($request->file('attachment'), 'pi', false);
             }
             $pi->save();
 
@@ -746,6 +837,7 @@ class PiController extends Controller
                     $pi->document_status = $request->document_status ?? ConstantHelper::DRAFT;
                 }
             }
+
             $pi->save();
             $redirectUrl = '';
             if ($pi->document_status == ConstantHelper::APPROVED) {
@@ -757,11 +849,11 @@ class PiController extends Controller
                 'data' => $pi,
                 'redirect_url' => $redirectUrl
             ]);
-        } catch (Exception $e) {
+        } catch (Exception $ex) {
             DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while creating the record.',
-                'error' => $e->getMessage(),
+                'error' => $ex->getMessage() . ' at ' . $ex->getLine() . ' in ' . $ex->getFile(),
             ], 500);
         }
     }
@@ -866,11 +958,11 @@ class PiController extends Controller
                 'data' => $pi,
                 'redirect_url' => $redirectUrl
             ]);
-        } catch (Exception $e) {
+        } catch (Exception $ex) {
             DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while creating the record.',
-                'error' => $e->getMessage(),
+                'error' => $ex->getMessage() . ' at ' . $ex->getLine() . ' in ' . $ex->getFile(),
             ], 500);
         }
     }
@@ -968,7 +1060,9 @@ class PiController extends Controller
             $isEdit = $buttons['amend'] && intval(request('amendment') ?? 0) ? true : false;
         }
         $locations = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCKK);
-        $saleOrders = ErpSaleOrder::whereIn('id', $pi->so_id ?? [])
+        $saleOrders = ErpSaleOrder::select('id', 'book_code', 'document_number')->whereIn('id', $pi->so_id ?? [])
+            ->get();
+        $workOrders = ErpProductionWorkOrder::select('id', 'book_code', 'document_number')->whereIn('id', $pi->pwo_id ?? [])
             ->get();
 
         $parameters = [];
@@ -990,6 +1084,7 @@ class PiController extends Controller
             'selecteduserId' => $selecteduserId,
             'locations' => $locations,
             'saleOrders' => $saleOrders,
+            'workOrders' => $workOrders,
             'current_financial_year' => $selectedfyYear,
             'soTrackingRequired' => $soTrackingRequired
         ]);
@@ -1150,10 +1245,10 @@ class PiController extends Controller
                 }
             }
 
-            PiSoMapping::whereIn('so_item_id', $soItemIdArr)
-                ->where('created_by', $user->auth_user_id)
-                ->whereNotNull('child_bom_id')
-                ->delete();
+            // PiSoMapping::whereIn('so_item_id', $soItemIdArr)
+            //     ->where('created_by', $user->auth_user_id)
+            //     ->whereNotNull('child_bom_id')
+            //     ->delete();
 
             $soTracking = strtolower($request->so_tracking_required ?? 'no');
 
@@ -1194,9 +1289,9 @@ class PiController extends Controller
             }
 
             DB::commit();
-        } catch (\Throwable $e) {
+        } catch (\Throwable $ex) {
             DB::rollBack();
-            return response()->json(['data' => ['pos' => ''], 'status' => 422, 'message' => $e->getMessage()]);
+            return response()->json(['data' => ['pos' => ''], 'status' => 422, 'message' => $ex->getMessage() . ' at ' . $ex->getLine() . ' in ' . $ex->getFile()]);
         }
 
         return response()->json(['data' => ['pos' => $html, 'procurement_type' => $procurementType], 'status' => 200, 'message' => "fetched!"]);
@@ -1296,6 +1391,36 @@ class PiController extends Controller
         ]);
     }
 
+    public function cancel(Request $request, $pi)
+    {
+        $pi = PurchaseIndent::find($pi);
+        if (!$pi) {
+            return response()->json(['status' => false, 'message' => 'Document not found.'], 404);
+        }
+
+        \DB::beginTransaction();
+        try {
+
+            $piDeleteService = app(\App\Services\PI\PiDeleteService::class);
+            $response = $piDeleteService->cancelPiHeader($pi, $request->remark);
+
+            if ($response['status'] === 'error') {
+                \DB::rollBack();
+                return response()->json(['status' => false, 'message' => $response['message']], 422);
+            }
+
+            \DB::commit();
+            return response()->json(['status' => true, 'message' => 'Document cancelled successfully.'], 200);
+        } catch (\Exception $ex) {
+            \DB::rollBack();
+
+            return response()->json([
+                'message' => $ex->getMessage(),
+                'line' => $ex->getLine(),
+                'error' => $ex->getMessage() . ' at ' . $ex->getLine() . ' in ' . $ex->getFile(),
+            ], 500);
+        }
+    }
 
     public function revokeDocument(Request $request)
     {
@@ -1765,12 +1890,12 @@ class PiController extends Controller
 
             \DB::commit();
             return response()->json(['status' => true, 'message' => 'Document deleted successfully.'], 200);
-        } catch (\Exception $e) {
+        } catch (\Exception $ex) {
             \DB::rollBack();
 
             return response()->json([
                 'status'  => false,
-                'message' => 'Error deleting Indent: ' . $e->getMessage(),
+                'message' => 'Error deleting Indent: ' . $ex->getMessage() . ' at ' . $ex->getLine() . ' in ' . $ex->getFile(),
             ], 500);
         }
     }

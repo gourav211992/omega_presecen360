@@ -15,6 +15,8 @@ use App\Models\NumberPattern;
 use App\Models\ItemAttribute;
 use Illuminate\Validation\Rule;
 use App\Traits\ProcessesComponentJson;
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 
 class MaterialReceiptRequest extends FormRequest
@@ -211,6 +213,35 @@ class MaterialReceiptRequest extends FormRequest
         ];
     }
 
+    protected function failedValidation(Validator $validator)
+    {
+        $errors = $validator->errors();
+
+        // Fields that belong to the “General Information” block
+        $general = [
+            'consignment_no',
+            'supplier_invoice_no',
+            'supplier_invoice_date',
+            'transporter_name',
+            'manual_entry_no',
+            'vehicle_no',
+        ];
+
+        // If ANY of the above has a validation error, show one consolidated message
+        $hasGeneralErrors = collect($general)->some(fn($f) => $errors->has($f));
+
+        $payload = [
+            // one-line message for your Swal
+            'message' => $hasGeneralErrors
+                ? 'Please fill general information fields'
+                : $errors->first(),                   // fallback: first specific message
+            // full error map (useful if you want to highlight fields)
+            'errors' => $errors->messages(),
+        ];
+
+        throw new HttpResponseException(response()->json($payload, 422));
+    }
+
     /**
      * Configure the validator instance.
      *
@@ -362,57 +393,6 @@ class MaterialReceiptRequest extends FormRequest
 
         return true;
     }
+
 }
-
-
-
-// $items = [];
-
-// foreach ($components as $key => $component) {
-//     $itemValue = floatval($component['item_total_cost']);
-//     if ($itemValue < 0) {
-//         $validator->errors()->add("components.$key.item_name", "Item total can't be negative.");
-//     }
-
-//     $itemId = $component['item_id'] ?? null;
-//     $uomId = $component['uom_id'] ?? null;
-//     $soId = $component['so_id'] ?? null;
-
-//     $poId = $referenceType === 'po' ? ($component['purchase_order_id'] ?? null) : null;
-//     $joId = $referenceType === 'jo' ? ($component['job_order_id'] ?? null) : null;
-
-//     // Normalize and sort attributes
-//     $attributes = collect($component['attr_group_id'] ?? [])
-//         ->map(fn($attr) => [
-//             'attr_id'    => (int) key($attr),
-//             'attr_value' => $attr['attr_name'] ?? null,
-//         ])
-//         ->filter(fn($attr) => $attr['attr_id'] && $attr['attr_value'])
-//         ->values()
-//         ->all();
-
-//     // Canonical sorting of attributes for duplicate match
-//     usort($attributes, fn($a, $b) => $a['attr_id'] <=> $b['attr_id']);
-
-//     $currentItem = compact('itemId', 'uomId', 'soId', 'poId', 'joId', 'attributes');
-
-//     foreach ($items as $existingItem) {
-//         $isDuplicate =
-//             $existingItem['itemId'] === $currentItem['itemId'] &&
-//             $existingItem['uomId'] === $currentItem['uomId'] &&
-//             $existingItem['soId'] === $currentItem['soId'] &&
-//             $existingItem['attributes'] === $currentItem['attributes'] &&
-//             (
-//                 ($referenceType === 'po' && $existingItem['poId'] === $currentItem['poId']) ||
-//                 ($referenceType === 'jo' && $existingItem['joId'] === $currentItem['joId'])
-//             );
-
-//         if ($isDuplicate) {
-//             $validator->errors()->add("components.$key.item_id", "Duplicate item!");
-//             return;
-//         }
-//     }
-
-//     $items[] = $currentItem;
-// }
 

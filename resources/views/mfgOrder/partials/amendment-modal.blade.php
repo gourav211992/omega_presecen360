@@ -13,8 +13,8 @@
             <div class="row mt-1">
                <div class="col-md-12">
                   <div class="mb-2">
-                     <label class="form-label">Remarks {{-- <span class="text-danger">*</span> --}}</label>
-                     <textarea maxlength="250" name="amend_remarks" class="form-control"></textarea>
+                     <label class="form-label">Remarks <span class="text-danger">*</span></label>
+                     <textarea maxlength="250" name="amend_remarks" class="form-control" required></textarea>
                      <span id="amendRemarkError"  class="ajax-validation-error-span form-label text-danger d-none" style="font-size:12px" role="alert">*Required</span>
                   </div>
                   <div class="mb-2">

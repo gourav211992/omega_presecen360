@@ -1819,10 +1819,10 @@ function getTdsTax() {
     oldTaxValue = Number(oldTaxValue.toFixed(2));
     let total_taxable_value = $("#f_taxable_value").text();
 
-    let nonTdsAccessableAmt = 0;
-    if (mrnData && mrnData.header_tax && mrnData.header_tax.assesment_amount) {
-        TdsAccessableAmt = Number(mrnData.header_tax.assesment_amount);
-        nonTdsAccessableAmt = oldTaxValue - Number(TdsAccessableAmt.toFixed(2));
+    let nonTdsAccessableAmt = $("#old_tds_value").val() ?? 0;
+    if (oldTaxValue  > 0) {
+        nonTdsAccessableAmt = oldTaxValue - nonTdsAccessableAmt;
+        nonTdsAccessableAmt = Number(nonTdsAccessableAmt.toFixed(2));
     }
 
     const billToCountryId = $("#hidden_country_id").val();

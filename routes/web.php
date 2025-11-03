@@ -2,15 +2,14 @@
 
 use App\Helpers\Helper;
 use App\Helpers\ConstantHelper;
-use App\Http\Controllers\ErpRgrDefectTypeController;
-use App\Http\Controllers\ErpTripPlanController;
-use App\Http\Controllers\PurchaseOrderImportController;
 use App\Models\DefectNotification;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\HsnController;
 use App\Http\Controllers\MrnController;
 use App\Http\Controllers\PWOController;
+use App\Http\Controllers\RcaController;
+use App\Http\Controllers\RgrController;
 use App\Http\Controllers\TaxController;
 use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\AuthController;
@@ -27,7 +26,6 @@ use App\Http\Controllers\ErpPqController;
 use App\Http\Controllers\ErpRCController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\StoreController;
-use App\Http\Controllers\ErpRgrStoreMappingController;
 use Illuminate\Support\Facades\Broadcast;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\ErpBinController;
@@ -47,12 +45,12 @@ use App\Http\Controllers\VoucherController;
 use App\Http\Controllers\BookTypeController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
-use App\Http\Controllers\ConsigneeController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\ErpShelfController;
 use App\Http\Controllers\ErpStoreController;
 use App\Http\Controllers\SubStoreController;
 use App\Http\Controllers\AttributeController;
+use App\Http\Controllers\ConsigneeController;
 use App\Http\Controllers\ErpDriverController;
 use App\Http\Controllers\GateEntryController;
 use App\Http\Controllers\GrAccountController;
@@ -68,9 +66,11 @@ use App\Http\Controllers\WipAccountController;
 use App\Http\Controllers\CogsAccountController;
 use App\Http\Controllers\DPRTemplateController;
 use App\Http\Controllers\EinvoicePdfController;
+use App\Http\Controllers\ErpTripPlanController;
 use App\Http\Controllers\JobOrder\JoController;
 use App\Http\Controllers\PackingListController;
 use App\Http\Controllers\PaymentTermController;
+use App\Http\Controllers\RepairOrderController;
 use App\Http\Controllers\AutocompleteController;
 use App\Http\Controllers\BalanceSheetController;
 use App\Http\Controllers\DynamicFieldController;
@@ -81,6 +81,7 @@ use App\Http\Controllers\ExchangeRateController;
 use App\Http\Controllers\FileTrackingController;
 use App\Http\Controllers\Finance\GstrController;
 use App\Http\Controllers\Ledger\GroupController;
+use App\Http\Controllers\PrintBarcodeController;
 use App\Http\Controllers\PurchaseBillController;
 use App\Http\Controllers\SalesAccountController;
 use App\Http\Controllers\StationGroupController;
@@ -90,6 +91,7 @@ use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\DefectTrackerController;
 use App\Http\Controllers\DocumentDriveController;
 use App\Http\Controllers\ErpDefectTypeController;
+use App\Http\Controllers\ErpItemBundleController;
 use App\Http\Controllers\ErpSaleReturnController;
 use App\Http\Controllers\ExpenseAdviseController;
 use App\Http\Controllers\ExpenseMasterController;
@@ -126,6 +128,7 @@ use App\Http\Controllers\ProductionRouteController;
 use App\Http\Controllers\SaleOrderImportController;
 use App\Http\Controllers\DocumentApprovalController;
 use App\Http\Controllers\ErpMaterialIssueController;
+use App\Http\Controllers\ErpRgrDefectTypeController;
 use App\Http\Controllers\FixedAsset\SetupController;
 use App\Http\Controllers\FixedAsset\SplitController;
 use App\Http\Controllers\Land\Lease\LeaseController;
@@ -134,6 +137,7 @@ use App\Http\Controllers\WarehouseMappingController;
 use App\Http\Controllers\ErpFreightChargesController;
 use App\Http\Controllers\ErpMaterialReturnController;
 use App\Http\Controllers\ErpProductionSlipController;
+use App\Http\Controllers\ExpenseAllocationController;
 use App\Http\Controllers\FixedAsset\MergerController;
 use App\Http\Controllers\FixedAsset\RevImpController;
 use App\Http\Controllers\HomeLoan\HomeLoanController;
@@ -143,28 +147,32 @@ use App\Http\Controllers\TermsAndConditionController;
 use App\Http\Controllers\BillOfMaterial\BomController;
 use App\Http\Controllers\ErpMaintenanceTypeController;
 use App\Http\Controllers\ErpMultiPointFixedController;
+use App\Http\Controllers\ErpRgrStoreMappingController;
 use App\Http\Controllers\TransporterInvoiceController;
 use App\Http\Controllers\WarehouseStructureController;
 use App\Http\Controllers\ComplaintManagementController;
 use App\Http\Controllers\InspectionChecklistController;
 use App\Http\Controllers\OrganizationServiceController;
-use App\Http\Controllers\ErpTransaction\IndexController;
+use App\Http\Controllers\PurchaseOrderImportController;
 use App\Http\Controllers\CostCenter\CostGroupController;
 use App\Http\Controllers\ErpMultiPointPricingController;
+use App\Http\Controllers\ErpTransaction\IndexController;
 use App\Http\Controllers\FixedAsset\InsuranceController;
 use App\Http\Controllers\PhysicalStockAccountController;
 use App\Http\Controllers\PriceVarianceAccountController;
 use App\Http\Controllers\ProductSpecificationController;
+use App\Http\Controllers\PurchaseIndent\PiPWOController;
 use App\Http\Controllers\WarehouseItemMappingController;
+use App\Http\Controllers\AdvancePaymentVoucherController;
 use App\Http\Controllers\CostCenter\CostCenterController;
 use App\Http\Controllers\ErpTransporterRequestController;
 use App\Http\Controllers\LoanProgress\ApprovalController;
 use App\Http\Controllers\ManufacturingOrder\MoController;
 use App\Http\Controllers\PurchaseReturnAccountController;
 use App\Http\Controllers\WarehouseMultiMappingController;
+use App\Http\Controllers\ErpExternalIntegrationController;
 use App\Http\Controllers\FixedAsset\MaintenanceController;
 use App\Http\Controllers\LoanProgress\AppraisalController;
-use App\Http\Controllers\ErpExternalIntegrationController;
 use App\Http\Controllers\FixedAsset\DepreciationController;
 use App\Http\Controllers\FixedAsset\RegistrationController;
 use App\Http\Controllers\LoanProgress\AssessmentController;
@@ -193,10 +201,6 @@ use App\Http\Controllers\LoanManagement\LoanFinancialSetupController;
 use App\Http\Controllers\PurchaseOrder\PurchaseOrderReportController;
 use App\Http\Controllers\LoanManagement\LoanRepaymentReportController;
 use App\Http\Controllers\LoanManagement\LoanDisbursementReportController;
-use App\Http\Controllers\ErpItemBundleController;
-use App\Http\Controllers\RgrController;
-use App\Http\Controllers\PrintBarcodeController;
-use App\Http\Controllers\ExpenseAllocationController;
 
 
 
@@ -308,7 +312,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('/payment-receipt/print/{id}/{ledger}/{group}', [PaymentVoucherController::class, 'getPrint'])->name('paymentVouchers.print');
     Route::post('/payment-receipt/email', [PaymentVoucherController::class, 'sendMail'])->name('paymentVouchers.email');
     Route::post('/voucher/check-reference', [PaymentVoucherController::class, 'checkReference'])->name('voucher.checkReference');
-    
+
     Route::post('getLedgerVouchers', [VoucherController::class, 'getLedgerVouchers'])->name('getLedgerVouchers');
     Route::get('/voucher', [VoucherController::class, 'index']);
     Route::post('/vouchers', [VoucherController::class, 'store'])->name('vouchers.store');
@@ -345,7 +349,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/group/check-prefix', [GroupController::class, 'checkPrefix'])->name('groups-check-prefix');
     Route::resource('ledgers', LedgerController::class)->except(['show']);
     Route::get('/ledgers/{ledgerId}/groups', [LedgerController::class, 'getLedgerGroups'])->name('ledgers.groups');
-
+    ;
     Route::get('/search/ledger', [LedgerController::class, 'getLedger'])->name('ledger.search');
     Route::get('/ledger/import', [LedgerController::class, 'showImportForm'])->name('ledger.show.import');
     Route::post('/ledger/import', [LedgerController::class, 'import'])->name('ledger.import');
@@ -552,7 +556,8 @@ Route::middleware(['user.auth'])->group(function () {
             Route::delete('component-delete', 'componentDelete')->name('comp.delete');
             Route::get('/{id}/pdf', 'generatePdf')->name('generate-pdf');
             Route::get('amendment-submit/{id}', 'amendmentSubmit')->name('amendment.submit');
-            Route::delete('/{id}/{isAmedment}', 'destroy')->name('destroy');
+            // Route::delete('/{id}/{isAmedment}', 'destroy')->name('destroy');
+            Route::get('/cancel/{id}', 'cancel')->name('cancel');
 
             Route::get('/vendors', 'searchVendors')->name('vendors.search');
             Route::get('get-purchase-indent', 'getPi')->name('get.pi');
@@ -671,7 +676,8 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('get-item-attribute', 'getItemAttribute')->name('item.attr');
             Route::get('/get-itemdetail', 'getItemDetail')->name('get.itemdetail');
             Route::get('/{id}/pdf', 'generatePdf')->name('generate-pdf');
-            Route::delete('/{id}/{isAmedment}', 'destroy')->name('destroy');
+            // Route::delete('/{id}/{isAmedment}', 'destroy')->name('destroy');
+            Route::get('/cancel/{id}', 'cancel')->name('cancel');
 
             Route::get('get-so', 'getSo')->name('get.so');
             Route::get('analyze-so-item', 'analyzeSoItem')->name('analyze.so-item');
@@ -682,6 +688,15 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('check-po-consumed-qty', 'checkPoUtilizedItem')->name('check-po-consumed-qty');
             Route::get('report', 'piReport')->name('report');
             Route::get('amend', 'piAmend')->name('amend');
+        });
+
+    Route::prefix('purchase-indent')
+        ->name('pi.')
+        ->controller(PiPWOController::class)
+        ->group(function () {
+            Route::get('get-pwo', 'getPwo')->name('get.pwo');
+            Route::get('process-pwo-item', 'processPwoItem')->name('process.pwo-item');
+            Route::post('process-pwo-item-submit', 'processPwoItemSubmit')->name('process.pwo-item.submit');
         });
 
     Route::prefix('scrap')
@@ -696,7 +711,8 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('/{id}/pdf', 'generatePdf')->name('generate-pdf')->middleware('check.service.access');
             Route::get('/get-itemdetail', 'getItemDetail')->name('get.itemdetail');
             Route::post('/update-approve/{id}', 'updateApprove')->name('update.approve');
-            Route::delete('/{id}/{isAmedment}', 'destroy')->name('destroy');
+            // Route::delete('/{id}/{isAmedment}', 'destroy')->name('destroy');
+            Route::get('/cancel/{id}', 'cancel')->name('cancel');
 
             Route::get('get-item-attribute', 'getItemAttribute')->name('item.attr');
             Route::get('revoke-document', 'revokeDocument')->name('revoke.document');
@@ -704,6 +720,8 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('get-ps', 'getps')->name('get.ps');
             Route::get('process-item', 'processItem')->name('process.item');
             Route::post('process-pi-item-submit', 'processPiItemSubmit')->name('process.pi-item.submit');
+            Route::get('report', 'report')->name('report');
+            // Route::get('amend', 'piAmend')->name('amend');
         });
 
 
@@ -827,6 +845,24 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('get-pickup-item', 'getPickupScheduleItems')->name('rgr.get.pickup.item');
         Route::post('process-rgr-item', 'processPickupItem')->name('rgr.process.pickup-schdule-list');
         Route::get('revoke-document', 'revokeDocument')->name('rgr.revoke');
+    });
+
+
+    Route::prefix('repair-order')->controller(RepairOrderController::class)->group(function () {
+        Route::get('/', 'index')->name('repair-order.index');
+        Route::get('/{id}/edit', 'edit')->name('repair-order.edit');
+        Route::put('/{id}', 'update')->name('repair-order.update');
+        Route::delete('/{id}', 'destroy')->name('repair-order.destroy');
+        Route::get('revoke-document', 'revokeDocument')->name('repair-order.revoke');
+    });
+
+    Route::prefix('rca')->controller(RcaController::class)->group(function () {
+        Route::get('/', 'index')->name('rca.index');
+        Route::get('/{id}/edit', 'edit')->name('rca.edit');
+        Route::put('/{id}', 'update')->name('rca.update');
+        Route::delete('/{id}', 'destroy')->name('rca.destroy');
+        Route::get('revoke-document', 'revokeDocument')->name('rca.revoke');
+        Route::post('/update-remark', 'updateRemark')->name('rca.item.updateRemark');
     });
 
     Route::prefix('erp-document')->controller(DocumentController::class)->group(function () {
@@ -1453,12 +1489,6 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('download-sample', 'downloadSample')->name('download.sample');
         });
 
-    Route::get('/test-zip', function () {
-        return class_exists('ZipArchive') ? '✅ ZipArchive is enabled' : '❌ ZipArchive NOT found';
-    });
-    Route::get('/test-zip', function () {
-        return class_exists('ZipArchive') ? '✅ ZipArchive is enabled' : '❌ ZipArchive NOT found';
-    });
     # All type documents approval
     Route::prefix('document-approval')
         ->name('document.approval.')
@@ -1489,6 +1519,8 @@ Route::middleware(['user.auth'])->group(function () {
             Route::post('vendor', 'vendor')->name('vendor');
             Route::post('customer', 'customer')->name('customer');
             Route::post('rgr', 'rgr')->name('rgr');
+            Route::post('repair-order', 'repairOrder')->name('repairOrder');
+            Route::post('rca', 'rca')->name('rca');
             Route::post('lorryReceipt', 'lorryReceipt')->name('lorryReceipt');
         });
 
@@ -1548,6 +1580,8 @@ Route::middleware(['user.auth'])->group(function () {
             Route::post('/get-selected-item-amount', 'getSelectedItemAmount')->name('get-selected-item-amount');
             Route::post('/validate-asn', 'processAsn')->name('validate-asn');
             Route::get('/inter-company-cost-centers', 'getInterCompanyCostCenters')->name('inter-company-cost-centers');
+            Route::post('/cancel', 'cancel')->name('cancel');
+            Route::get('/posting-history/get', 'getPostingHistoryDetails')->name('posting.get-history');
 
             /*Remove data*/
             Route::delete('remove-dis-item-level', 'removeDisItemLevel')->name('remove.item.dis');
@@ -1599,6 +1633,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('/order/report', 'gateEntryReport')->name('order.report');
             Route::post('/get-selected-item-amount', 'getSelectedItemAmount')->name('get-selected-item-amount');
             Route::post('/validate-asn', 'processAsn')->name('validate-asn');
+            Route::post('/cancel', 'cancel')->name('cancel');
 
             /*Remove data*/
             Route::delete('remove-dis-item-level', 'removeDisItemLevel')->name('remove.item.dis');
@@ -1691,6 +1726,8 @@ Route::middleware(['user.auth'])->group(function () {
             Route::post('/add-scheduler', 'addScheduler')->name('add.scheduler');
             Route::get('/order/report', 'expenseAdviseReport')->name('order.report');
             Route::get('/validate-quantity', 'validateQuantity')->name('get.validate-quantity');
+            Route::post('/cancel', 'cancel')->name('cancel');
+            Route::get('/posting-history/get', 'getPostingHistoryDetails')->name('posting.get-history');
 
             /*Remove data*/
             Route::delete('remove-dis-item-level', 'removeDisItemLevel')->name('remove.item.dis');
@@ -1750,6 +1787,8 @@ Route::middleware(['user.auth'])->group(function () {
             Route::post('/add-scheduler', 'addScheduler')->name('add.scheduler');
             Route::get('/order/report', 'purchaseBillReport')->name('order.report');
             Route::get('/validate-quantity', 'validateQuantity')->name('get.validate-quantity');
+            Route::post('/cancel', 'cancel')->name('cancel');
+            Route::get('/posting-history/get', 'getPostingHistoryDetails')->name('posting.get-history');
 
             /*Remove data*/
             Route::delete('remove-dis-item-level', 'removeDisItemLevel')->name('remove.item.dis');
@@ -1795,7 +1834,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('/get-itemdetail', 'getItemDetail')->name('get.itemdetail');
             Route::get('/validate-quantity', 'validateQuantity')->name('get.validate-quantity');
             Route::get('/{id}/logs', 'logs')->name('logs');
-            Route::get('/{id}/pdf', 'generatePdf')->name('generate-pdf');
+            Route::get('/generate-pdf/{id}/{pattern}', 'generatePdf')->name('generate-pdf');
             Route::delete('component-delete', 'componentDelete')->name('comp.delete');
             Route::get('amendment-submit/{id}', 'amendmentSubmit')->name('amendment.submit');
             Route::get('get-mrn', 'getMrn')->name('get.mrn');
@@ -1810,6 +1849,8 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('/report/filter', 'getReportFilter')->name('report.filter');
             Route::post('/add-scheduler', 'addScheduler')->name('add.scheduler');
             Route::get('/order/report', 'purchaseReturnReport')->name('order.report');
+            Route::post('/cancel', 'cancel')->name('cancel');
+            Route::get('/posting-history/get', 'getPostingHistoryDetails')->name('posting.get-history');
 
             /*Remove data*/
             Route::delete('remove-dis-item-level', 'removeDisItemLevel')->name('remove.item.dis');
@@ -1858,6 +1899,7 @@ Route::middleware(['user.auth'])->group(function () {
             Route::get('/report/filter', 'getReportFilter')->name('report.filter');
             Route::post('/add-scheduler', 'addScheduler')->name('add.scheduler');
             Route::get('/order/report', 'purchaseReturnReport')->name('order.report');
+            Route::post('/cancel', 'cancel')->name('cancel');
 
             /*Remove data*/
             Route::delete('remove-dis-item-level', 'removeDisItemLevel')->name('remove.item.dis');
@@ -2985,13 +3027,11 @@ Route::middleware(['user.auth'])->group(function () {
     Route::get('plant/maint_bom/revoke/document', [MaintBomController::class, 'revokeDocument'])->name('plant.maint_bom.revoke.document');
 
     Route::post('plant/maint-wo/validate', [MaintWoController::class, 'validateWorkOrder'])->name('maint-wo.validate');
-     Route::post('plant/maint-bom/{id}/amendment', [MaintBomController::class, 'amendment'])
-    ->name('maint-bom.amendment');
+    Route::post('plant/maint-bom/{id}/amendment', [MaintBomController::class, 'amendment'])->name('maint-bom.amendment');
     Route::get('plant/maint-bom/search-items', [MaintBomController::class, 'searchItems'])->name('maint-bom.search-items');
     Route::get('plant/maint-bom/get-series', [MaintBomController::class, 'getSeries'])->name('maint-bom.get-series');
     Route::get('plant/maint-bom/get-bom-names', [MaintBomController::class, 'getBomNames'])->name('maint-bom.get-bom-names');
     Route::post('plant/maint-bom/check-document-number', [MaintBomController::class, 'checkDocumentNumber'])->name('maint-bom.check-document-number');
-
 
     Route::resource('plant/maint-bom', MaintBomController::class)->names([
         'index' => 'maint-bom.index',
@@ -3070,7 +3110,7 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('/', 'index')->name('finance.gstr.index');
         Route::get('/json', 'json')->name('finance.gstr.json');
         Route::get('/details/{id}', 'details')->name('finance.gstr.details');
-        Route::get('/detail/csv/{id}', 'detailCsv')->name('finance.gstr.detail-csv');
+        Route::get('/detail/csv/{id}', 'exportExcelSheet')->name('finance.gstr.detail-csv');
     });
     Route::controller(ErpRgrDefectTypeController::class)->prefix('rgr-defect-types')->group(function () {
         Route::get('/', 'index')->name('rgrd.index');
@@ -3346,6 +3386,8 @@ Route::middleware(['user.auth'])->group(function () {
         Route::get('edit/{id}','edit')->name('external-integration.edit');
         Route::get('customer/search','getCashCustomer')->name('external-integration.customer');
         Route::delete('destroy/{id}','destroy')->name('external-integration.destroy');
+        Route::get('get-stock-store-mapping','fetchStockStoreMapping')->name('external-integration.stock-store-mapping');
+        Route::delete('remove-stock-store-mapping/{id}','removeStockStoreMapping')->name('external-integration.remove-stock-store-mapping');
 
     });
 

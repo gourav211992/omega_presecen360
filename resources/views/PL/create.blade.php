@@ -62,7 +62,7 @@
                         <tr>
                             <th>
                                 <div class="form-check form-check-primary custom-checkbox">
-                                    <input type="checkbox" class="form-check-input" id="select_all_orders">
+                                    <input type="checkbox" class="form-check-input" id="select_all_orders"  oninput = "checkOrRecheckAllItems(this);">
                                     <label class="form-check-label" for="select_all_orders"></label>
                                 </div>
                             </th>

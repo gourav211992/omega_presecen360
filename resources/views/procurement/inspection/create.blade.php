@@ -218,6 +218,7 @@
                                                             class="form-select rejected_sub_store rejected_sub_store_id"
                                                             id="rejected_sub_store_id" name="rejected_sub_store_id">
                                                         </select>
+                                                        <input type="hidden" name="rejected_sub_store_id" id="rejected_sub_store_id">
                                                     </div>
                                                 </div>
                                                 <!-- <div class="row align-items-center mb-1">

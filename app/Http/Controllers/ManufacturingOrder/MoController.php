@@ -46,6 +46,7 @@ use App\Models\PwoBomMapping;
 use App\Services\MoDeleteService;
 use Yajra\DataTables\DataTables;
 use Illuminate\Support\Facades\DB;
+use App\Services\Common\DocumentLockService;
 use Barryvdh\DomPDF\Facade\Pdf; 
 use Exception;
 class MoController extends Controller
@@ -206,7 +207,7 @@ class MoController extends Controller
     }
 
     #Bill of material store
-    public function store(MoRequest $request)
+    public function store(MoRequest $request, DocumentLockService $lockService)
     {
         DB::beginTransaction();
         try {
@@ -535,7 +536,23 @@ class MoController extends Controller
                 }
                 $mo->save();
             }
+            // Define a unique lock key for this document number
+            $lockKey = "org_{$organization->id}_book_{$request->book_id}_doc_{$document_number}";
 
+            // Run insertion safely under lock
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+
+            // Check if the lock was successful
+            if (!$lockResult['success']) {
+                // If the lock wasn't successful, roll back the transaction
+                DB::rollBack();
+                
+                // Return the response with the error message and status from the lock service
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
+            }
             DB::commit();
             return response()->json([
                 'message' => 'Record created successfully',
@@ -681,6 +698,7 @@ class MoController extends Controller
         $selectedAttr = json_decode($request->selectedAttr,200) ?? [];
         $storeId = $request->store_id;
         $subStoreId = $request->sub_store_id;
+        $mQty = $request->mQty;
         $item = Item::find($request->item_id ?? null);
         $specifications = $item->specifications()->whereNotNull('value')->get();
         $remark = $request->remark ?? null;
@@ -703,7 +721,7 @@ class MoController extends Controller
         return response()->json([
             'data' => [
                 'html' => $html,
-                'mo_product_component_html' => view('mfgOrder.partials.mo-product-components', compact('item', 'bomDetails', 'storeId', 'subStoreId'))->render(),
+                'mo_product_component_html' => view('mfgOrder.partials.mo-product-components', compact('item', 'bomDetails', 'storeId', 'subStoreId','mQty'))->render(),
             ],
             'status' => 200,
             'message' => 'fetched.'

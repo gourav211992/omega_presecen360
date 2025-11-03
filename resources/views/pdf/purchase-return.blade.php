@@ -5,7 +5,6 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Purchase Return</title>
     <style>
         .status {
             font-weight: 900;
@@ -27,249 +26,191 @@
 
 <body>
     <div style="width:700px; font-size: 11px; font-family:Arial;">
-        <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 0;">
             <tr>
-                <td style="vertical-align: top;">
+                <td style="text-align: left; width: 33%;">
                     @if (isset($orgLogo) && $orgLogo)
                         <img src="{!! $orgLogo !!}" alt="" height="50px" />
                     @else
                         <img src="{{ $imagePath }}" height="50px" alt="">
                     @endif
                 </td>
-                <td style="text-align: center; vertical-align: bottom; font-weight: bold; font-size: 18px;"
-                    width="33%">
-                    {{ $heading }}
-                    <br>
-                    {{ Str::ucfirst(@$organization->name) }}
+                <td style="width: 34%; text-align: center; font-size: 24px; font-weight: 100; padding: 0;">
+                    Purchase Return
                 </td>
-                <td style="text-align: right; font-weight: bold; font-size: 14px; vertical-align: top;" width="33%">
-                    <!-- Original for Receipient -->
+                <td style="width: 33%; text-align: right; font-size: 20px; font-weight: 100; padding: 0;">
+                    <!-- {{ @$organization->name }} -->
                 </td>
             </tr>
         </table>
         <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
             <tr>
-                <td style="border: 1px solid #000; padding: 3px; width: 30%; vertical-align: top;">
+                <td style="border: 1px solid #000; padding: 3px; width: 40%; vertical-align: top;">
                     <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
                         <tr>
                             <td colspan="3" style="font-weight: 900; font-size: 13px; padding-bottom: 3px;">
-                                SELLER:
+                                Buyer Name & Address:
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding-top: 10px;" colspan="3">
-                                <span style="font-weight: 900; vertical-align: top; padding-top:10px">
-                                    {{ Str::ucfirst(@$organization->name) }}
+                            <td colspan="2" style="padding-top: 3px;">
+                                <span style="font-weight: 700; font-size: 13px;">
+                                    <b>{{ Str::ucfirst(@$organization->name) }}</b>
                                 </span>
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding-top: 10px;">ADDRESS:</td>
-                            <td style="padding-top: 10px;" colspan="2">
+                            <td style="padding-top: 10px;">
                                 {{ @$organizationAddress->line_1 }}, {{ @$organizationAddress->line_2 }},
                                 {{ @$organizationAddress->line_3 }}
                             </td>
                         </tr>
                         <tr>
-                            <td>CITY:</td>
-                            <td colspan="2">
-                                {{ @$organizationAddress?->city?->name }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">STATE:</td>
                             <td style="padding-top: 3px;">
-                                {{ @$organizationAddress?->state?->name }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">
-                                STATE CODE:
-                            </td>
-                            <td style="padding-top: 3px; font-weight: 700;">
-                                {{ @$organizationAddress?->state?->state_code }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">COUNTRY:</td>
-                            <td colspan="2" style="padding-top: 3px;">
+                                {{ @$organizationAddress?->city?->name }}, {{ @$organizationAddress?->state?->name }},
                                 {{ @$organizationAddress?->country?->name }}
                             </td>
+                            @if (@$organizationAddress->pincode)
+                                <td style="padding-top: 3px; width:60%">
+                                    Pin Code: {{ @$organizationAddress->pincode }}
+                                </td>
+                            @endif
                         </tr>
                         <tr>
-                            <td style="padding-top: 3px;">PINCODE:</td>
-                            <td colspan="2" style="padding-top: 3px;">
-                                {{ @$organizationAddress->pincode }}
+                            <td style="padding-top: 3px; width:80%">GSTIN NO: {{ @$organization->gst_number }}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding-top: 3px;">PHONE:</td>
-                            <td style="padding-top: 3px;" colspan="2">
-                                {{ @$organization->phone }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">EMAIL:</td>
-                            <td style="padding-top: 3px;" colspan="2">
-                                {{ @$organization->email }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px; padding-bottom: 10px;">GSTIN NO</td>
-                            <td colspan="2" style="padding-top: 3px; font-weight: 700; padding-bottom: 10px">
-                                {{ @$organization->gst_number }}
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <td colspan="3"
-                                style="font-weight: 900; font-size: 13px; padding-bottom: 3px; padding-top: 10px; border-top: #000 thin solid">
-                                PICK UP:
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 10px;" colspan="3">
-                                <span style="font-weight: 900; vertical-align: top; padding-top:10px">
-                                    {{ @$pb->erpStore?->store_name }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 10px;">ADDRESS:</td>
-                            <td style="padding-top: 10px;" colspan="2">
-                                {{ @$pb?->location_address_details->address }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>CITY:</td>
-                            <td colspan="2">
-                                {{ @$pb?->location_address_details?->city?->name }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">STATE:</td>
-                            <td style="padding-top: 3px;">
-                                {{ @$pb?->location_address_details?->state?->name }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">
-                                STATE CODE:
-                            </td>
-                            <td style="padding-top: 3px; font-weight: 700;">
-                                {{ @$pb?->location_address_details?->state?->state_code }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">COUNTRY:</td>
-                            <td colspan="2" style="padding-top: 3px;">
-                                {{ @$pb?->location_address_details?->country?->name }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">PINCODE:</td>
-                            <td colspan="2" style="padding-top: 3px;">
-                                {{ @$pb?->location_address_details->pincode }}
+                            <td style="padding-top: 3px; width:60%">
+                                @if (@$organization->phone)
+                                    Phone: {{ @$organization->phone }},
+                                @endif
+                                @if (@$organization->email)
+                                    Email: {{ @$organization->email }}
+                                @endif
                             </td>
                         </tr>
                     </table>
                 </td>
-
-                <td style="border: 1px solid #000; padding: 3px; border-left: none; vertical-align: top; width: 35%;">
-                    <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
-
-                    </table>
-                    @if ($qrCodeBase64)
-                        <img src="{{ $qrCodeBase64 }}" style = "margin-top:10px" width="100%" alt="QR Code">
-                    @endif
-                </td>
-                <td style="border: 1px solid #000; padding: 3px;  vertical-align: top;">
+                <td rowspan="2"
+                    style="border: 1px solid #000; padding: 3px; border-left: none; vertical-align: top; width: 40%;">
                     <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
                         <tr>
-                            <td colspan="3" style="font-weight: 900; font-size: 13px; padding-bottom: 3px;">
-                                BILL TO:
+                            <td colspan="2"
+                                style="font-weight: 900; font-size: 13px; padding-bottom: 3px; vertical-align: top;">
+                                Seller's Name & Address:
                             </td>
                         </tr>
                         <tr>
-                            <td colspan="2" style="font-weight: 900; vertical-align: top; padding-top:10px">
-                                {{ Str::ucfirst(@$pb?->vendor?->company_name) }}
+                            <td colspan="3" style="font-weight: 700; font-size: 13px; padding-top: 3px;">
+                                <b>{{ Str::ucfirst(@$pb?->vendor?->company_name) }}</b>
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding-top: 10px;">ADDRESS:</td>
-                            <td style="padding-top: 10px;" colspan="2">
+                            <td style="padding-top: 15px;">Address: </td>
+                            <td style="padding-top: 15px;">
                                 {{ @$billingAddress->address }}
                             </td>
                         </tr>
                         <tr>
-                            <td>CITY:</td>
-                            <td colspan="2">
+                            <td style="padding-top: 3px;">City :</td>
+                            <td style="padding-top: 3px;">
                                 {{ @$billingAddress?->city?->name }}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding-top: 3px;">STATE:</td>
+                            <td style="padding-top: 3px;">State:</td>
                             <td style="padding-top: 3px;">
                                 {{ @$billingAddress?->state?->name }}
                             </td>
                         </tr>
                         <tr>
+                            <td style="padding-top: 3px;">Country:</td>
                             <td style="padding-top: 3px;">
-                                STATE CODE:
-                            </td>
-                            <td style="padding-top: 3px; font-weight: 700;">
-                                {{ @$billingAddress?->state?->state_code }}
-                            </td>
-                        </tr>
-                        <tr>
-                            <td style="padding-top: 3px;">COUNTRY:</td>
-                            <td colspan="2" style="padding-top: 3px;">
                                 {{ @$billingAddress?->country?->name }}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding-top: 3px;">PINCODE:</td>
-                            <td colspan="2" style="padding-top: 3px;">
+                            <td style="padding-top: 3px;">Pin Code : </td>
+                            <td style="padding-top: 3px;">
                                 {{ @$billingAddress->pincode }}
                             </td>
                         </tr>
                         <tr>
                             <td style="padding-top: 3px;">PHONE:</td>
-                            <td style="padding-top: 3px;" colspan="2">
-                                {{ @$pb->vendor?->phone ?? @$pb->vendor?->mobile }}
+                            <td style="padding-top: 3px;">
+                                {{ @$billingAddress->phone }}
                             </td>
                         </tr>
                         <tr>
-                            <td style="padding-top: 3px;">EMAIL:</td>
-                            <td style="padding-top: 3px;" colspan="2">
+                            <td style="padding-top: 3px;">EMAIL ID:</td>
+                            <td style="padding-top: 3px;">
                                 {{ @$pb->vendor?->email }}
                             </td>
                         </tr>
+                    </table>
+                </td>
+                <td style="border: 1px solid #000; padding: 3px; border-left: none; vertical-align: top; width: 35%;">
+                    <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
                         <tr>
-                            <td style="padding-top: 3px; padding-bottom:10px;">GSTIN NO</td>
-                            <td colspan="2" style="padding-top: 3px; font-weight: 700; padding-bottom:10px;">
-                                {{ @$pb->vendor?->compliances?->gstin_no }}
-                            </td>
-                        </tr>
-
-                        <tr>
-                            <td colspan="3"
-                                style="font-weight: 900; font-size: 13px; padding-bottom: 3px; padding-top: 10px; border-top: #000 thin solid">
-                                Invoice Data:
+                            <td><b>Series:</b></td>
+                            <td>{{ @$pb->book_code }}
                             </td>
                         </tr>
                         <tr>
-                            <td><b>Invoice No.:</b></td>
-                            <td>{{ @$pb->book_code . '-' . @$pb->document_number }}
+                            <td><b>Document No:</b></td>
+                            <td>{{ @$pb->document_number }}
                             </td>
                         </tr>
                         <tr>
-                            <td><b>Invoice Date:</b></td>
+                            <td><b>Document Date:</b></td>
                             @if ($pb->document_date)
                                 <td>{{ date('d-M-y', strtotime($pb->document_date)) }}
                                 </td>
                             @endif
                         </tr>
+                        <tr>
+                            <td><b>Reference:</b></td>
+                            @if ($pb->reference_type)
+                                <td>
+                                    {{ Str::upper($pb->reference_type) }}
+                                </td>
+                            @endif
+                        </tr>
+
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid #000; padding: 3px; width: 40%; vertical-align: top;">
+                    <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
+                        <tr>
+                            <td colspan="3" style="font-weight: 900; font-size: 13px; padding-bottom: 3px;">
+                                Shipping Address:
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding-top: 3px;">
+                                {{ @$pb?->location_address_details->address }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding-top: 3px;">
+                                {{ @$pb?->location_address_details?->city?->name }},
+                                {{ @$pb?->location_address_details?->state?->name }},
+                                {{ @$pb?->location_address_details?->country?->name }}
+                            </td>
+                            @if (@$shippingAddress?->pincode)
+                                <td style="padding-top: 3px; width:40%">
+                                    Pin Code: {{ @$pb?->location_address_details->pincode }}
+                                </td>
+                            @endif
+                        </tr>
+                    </table>
+                </td>
+                <td
+                    style="border: 1px solid #000; padding: 3px; border-left: none; vertical-align: top; width: 35%; border-top: none;">
+                    <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
                         <tr>
                             <td>
                                 <b style="font-weight: 900;">Status :</b>
@@ -299,62 +240,36 @@
                             </td>
                         </tr>
                         <tr>
-                            <td>
-                                <b>
-                                    {{ @$pb->document_status != App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED ? @$pb->display_status : 'Approved' }}
-                                    by:
-                                </b>
-                            </td>
-                            <td>
-                                {{ $approvedBy }}
+                            <td><b>{{ @$pb->document_status != App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED ? @$pb->display_status : 'Approved' }}
+                                    by:</b></td>
+                            <td>{{ $approvedBy }}
                             </td>
                         </tr>
-                        @if (isset($eInvoice))
-                            <tr>
-                                @if ($pb->transporter_name)
-                                    <td style = "padding-bottom:3px;"><b>Transporter Name:</b></td>
-                                    <td style = "padding-bottom:3px;">
-                                        {{ $pb->transporter_name }}
-                                    </td>
-                                @endif
-                            </tr>
-                            <tr>
-                                @if ($pb->transportation_mode)
-                                    <td style = "padding-bottom:3px;"><b>Transport Mode:</b></td>
-                                    <td style = "padding-bottom:3px;">
-                                        {{ $pb->transportation_mode }}
-                                    </td>
-                                @endif
-                            </tr>
-                            <tr>
-                                @if ($pb->vehicle_no)
-                                    <td style = "padding-bottom:3px;"><b>Vehicle No:</b></td>
-                                    <td style = "padding-bottom:3px;">
-                                        {{ $pb->vehicle_no }}
-                                    </td>
-                                @endif
-                            </tr>
-                            <tr>
-                                @if ($eInvoice->ewb_no)
-                                    <td style = "padding-bottom:3px;"><b>EWB Number:</b></td>
-                                    <td style = "padding-bottom:3px;">
-                                        {{ $eInvoice->ewb_no }}
-                                    </td>
-                                @endif
-                            </tr>
-                        @endif
+                        <tr>
+                            <td><b>Location:</b></td>
+                            @if ($pb->store?->store_name)
+                                <td>{{ $pb->store?->store_name }}
+                                </td>
+                            @endif
+                        </tr>
                     </table>
                 </td>
             </tr>
-            @if (isset($eInvoice) && $eInvoice->irn_number)
-                <tr>
-                    <td colspan="3"
-                        style="border: 1px solid #000; padding: 10px 3px; vertical-align: top; border-top: none; text-align: center;">
-                        IRN : {{ $eInvoice->irn_number }}
-                    </td>
-                </tr>
-            @endif
         </table>
+
+        @if (isset($dyanmicFields) && count($dynamicFields))
+            <table style = "border-left: 1px solid #000; border-right:1px solid #000; width:100%;">
+                <tr>
+                    @foreach ($dynamicFields as $dynamicField)
+                        @if ($dynamicField->value)
+                            <td style="padding: 5px"><b>{{ $dynamicField->name }}</b>: {{ $dynamicField->value }}
+                            </td>
+                        @endif
+                    @endforeach
+                </tr>
+            </table>
+        @endif
+
 
         <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
             <tr>

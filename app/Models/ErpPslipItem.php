@@ -61,7 +61,7 @@ class ErpPslipItem extends Model
     ];
 
     protected $hidden = ['deleted_at'];
-    protected $with = ['mo_product.mo','bundles'];
+    protected $with = ['mo_product.mo','bundles','item.category'];
     protected $casts = [
         'machine_id' => 'array'
     ];

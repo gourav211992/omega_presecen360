@@ -60,15 +60,15 @@ use Illuminate\Support\Facades\Storage;
 class MasterIndiaHelper
 {
     public function __construct()
-	{
-		// $logFactory = new LoggerFactory();
-		// $this->log = $logFactory->setPath('logs/services')->createLogger('gov-e-invoice');
-	}
+    {
+        // $logFactory = new LoggerFactory();
+        // $this->log = $logFactory->setPath('logs/services')->createLogger('gov-e-invoice');
+    }
 
     const B2B_INVOICE_TYPE = "B2B";
     const B2C_INVOICE_TYPE = "B2CL";
     const EXPORT_INVOICE_TYPE = "Export";
-        const EXPORT_INVOICE_WO_PAY_TYPE = "EXPWOP";
+    const EXPORT_INVOICE_WO_PAY_TYPE = "EXPWOP";
     const EXPORT_INVOICE_W_PAY_TYPE = "EXPWP";
     const CREDIT_NOTE_INVOICE_TYPE = "CDNR";
     const CREDIT_NOTE_INVOICE_UNREG_TYPE = "CDNUR";
@@ -76,7 +76,7 @@ class MasterIndiaHelper
     const EWAY_BILL_MIN_AMOUNT_LIMIT = 50000;
     const DISTANCE_LIMIT = 4000;
 
-        public static function getGstInvoiceType($partyId, $partyCountryId, $sellerCountryId, string $partyType = 'customer', $header = null): string|null
+    public static function getGstInvoiceType($partyId, $partyCountryId, $sellerCountryId, string $partyType = 'customer', $header = null): string|null
     {
         //Retrieve party first
         $party = null;
@@ -100,7 +100,7 @@ class MasterIndiaHelper
             }
         } else {
             if ($partyCountryId !== $sellerCountryId) {
-                if ($header ?-> total_tax_value > 0) {
+                if ($header?->total_tax_value > 0) {
                     return self::EXPORT_INVOICE_W_PAY_TYPE;
                 } else {
                     return self::EXPORT_INVOICE_WO_PAY_TYPE;
@@ -134,7 +134,7 @@ class MasterIndiaHelper
             }
         } else {
             if ($partyCountryId !== $sellerCountryId) {
-                if ($header ?-> total_tax_value > 0) {
+                if ($header?->total_tax_value > 0) {
                     return self::CREDIT_NOTE_INVOICE_UNREG_TYPE;
                 } else {
                     return self::CREDIT_NOTE_INVOICE_UNREG_TYPE;
@@ -147,9 +147,11 @@ class MasterIndiaHelper
 
     public static function getEInvoicePendingDocumentStatus(Model $documentHeader, string|null $gstInvoiceType)
     {
-        if ($gstInvoiceType === self::B2B_INVOICE_TYPE || $gstInvoiceType === self::EXPORT_INVOICE_W_PAY_TYPE 
+        if (
+            $gstInvoiceType === self::B2B_INVOICE_TYPE || $gstInvoiceType === self::EXPORT_INVOICE_W_PAY_TYPE
             || $gstInvoiceType === self::EXPORT_INVOICE_WO_PAY_TYPE || $gstInvoiceType === self::CREDIT_NOTE_INVOICE_TYPE
-            || $gstInvoiceType === self::CREDIT_NOTE_INVOICE_UNREG_TYPE) {
+            || $gstInvoiceType === self::CREDIT_NOTE_INVOICE_UNREG_TYPE
+        ) {
             if (isset($documentHeader->irnDetail) && $documentHeader->irnDetail) {
                 return ConstantHelper::GENERATED;
             } else {
@@ -163,18 +165,18 @@ class MasterIndiaHelper
     public static function generateInvoice($documentHeader, $documentDetails, $user, $generateEwb = true)
     {
         $organization = Organization::find($user->organization_id);
-        $requestUid = 'GOV-EINVOICE-'.date('dmy').time();
+        $requestUid = 'GOV-EINVOICE-' . date('dmy') . time();
         $masterIndiaService = new MasterIndiaService($requestUid);
-        $configurations = ErpEInvoiceConfiguration::where('group_id', $organization ?-> group_id)
-            -> where('gst_number', $organization ?-> gst_number) -> first();
+        $configurations = ErpEInvoiceConfiguration::where('group_id', $organization?->group_id)
+            ->where('gst_number', $organization?->gst_number)->first();
 
-        $authToken = $configurations ?-> client_access_token ?? null;
+        $authToken = $configurations?->client_access_token ?? null;
         $appEnv = config('app.env');
         if (strtolower($appEnv) !== 'production') {
             $authToken = $masterIndiaService->getAuthTokenEInvoice();
         }
         $authCredentials = [
-            'gstin'        => $organization->gst_number ?? env('EINVOICE_GSTIN', ''),
+            'gstin' => $organization->gst_number ?? env('EINVOICE_GSTIN', ''),
         ];
         $postData = self::prepareRequestPayload($documentHeader, $documentDetails, $authToken, $authCredentials, $user, $generateEwb);
         $response = $masterIndiaService->generateInvoice($postData);
@@ -220,135 +222,128 @@ class MasterIndiaHelper
     //     }
     // }
 
-    public static function cancelEInvoice($cancelData, $document) {
+    public static function cancelEInvoice($cancelDataParam, $document) {
         $user = Helper::getAuthenticatedUser();
-        $organization = Organization::find($user -> organization_id);
-        $configurations = ErpEInvoiceConfiguration::where('group_id', $organization ?-> group_id)
-            -> where('gst_number', $organization ?-> gst_number) -> first();
-            $requestUid = 'GOV-EINVOICE-'.date('dmy').time();
+        $organization = Organization::find($user->organization_id);
+        $configurations = ErpEInvoiceConfiguration::where('group_id', $organization?->group_id)
+            ->where('gst_number', $organization?->gst_number)->first();
+        $requestUid = 'GOV-EINVOICE-' . date('dmy') . time();
         $masterIndiaService = new MasterIndiaService($requestUid);
-        $authToken = $configurations ?-> client_access_token ?? null;
+        $authToken = $configurations?->client_access_token ?? null;
         $appEnv = config('app.env');
         if (strtolower($appEnv) !== 'production') {
             $authToken = $masterIndiaService->getAuthTokenEInvoice();
         }
         $cancelData = [
             "access_token" => $authToken,
-            "user_gstin" => $cancelData['user_gstin'],
-            "irn" => $cancelData['irn'],
-            "cancel_reason" => $cancelData['cancel_reason'],
-            "cancel_remarks" => $cancelData['cancel_remarks'],
+            "user_gstin" => $cancelDataParam['user_gstin'],
+            "irn" => $cancelDataParam['irn'],
+            "cancel_reason" => $cancelDataParam['cancel_reason'],
+            "cancel_remarks" => $cancelDataParam['cancel_remarks'],
         ];
         $requestUid = 'GOV-EINVOICE-' . now()->format('dmyHis');
         $masterIndiaService = new MasterIndiaService($requestUid);
         try {
             $response = $masterIndiaService->cancelInvoice($cancelData);
-            if(isset($response['results']['status']) && $response['results']['status'] != 'Success'){
+            if (isset($response['results']['status']) && $response['results']['status'] != 'Success') {
                 return [
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => !empty($response['results']['message'])
                         ? $response['results']['message']
                         : ($response['results']['errorMessage'] ?? 'Unknown error'),
                 ];
-            }
-            else {
+            } else {
                 $irnCancelDate = Arr::get($response, 'results.message.CancelDate');
                 $errorMessage = Arr::get($response, 'results.errorMessage');
                 if ($irnCancelDate) {
-                    $irnDetail = $document -> irnDetail;
+                    $irnDetail = $document->irnDetail;
                     if ($irnDetail) {
                         $irnDetail -> cancel_date = $irnCancelDate;
-                        $irnDetail -> cancel_reason = $cancelData['cancel_reason'];
-                        $irnDetail -> cancel_remarks = $cancelData['cancel_remarks'];
+                        $irnDetail -> cancel_reason = $cancelDataParam['cancel_reason'];
+                        $irnDetail -> cancel_remarks = $cancelDataParam['cancel_remarks'];
                         $irnDetail -> save();
                     } 
                     return [
-                        'status'  => 'success',
+                        'status' => 'success',
                         'message' => 'IRN cancelled successfully',
                     ];
                 } else {
                     return [
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => $errorMessage ?? "Cannot access Master India Service. Please check the credentials you're using and try again",
                     ];
                 }
-                
+
             }
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return [
+                'status'  => 'error',
+                'message' => $e->getMessage(),
+            ];
         }
     }
 
-    public static function cancelEWayBill($cancelData, $document)
+    public static function cancelEWayBill($cancelDataParam, $document)
     {
         $user = Helper::getAuthenticatedUser();
-        $organization = Organization::find($user -> organization_id);
-        $configurations = ErpEInvoiceConfiguration::where('group_id', $organization ?-> group_id)
-            -> where('gst_number', $organization ?-> gst_number) -> first();
-            $requestUid = 'GOV-EINVOICE-'.date('dmy').time();
+        $organization = Organization::find($user->organization_id);
+        $configurations = ErpEInvoiceConfiguration::where('group_id', $organization?->group_id)
+            ->where('gst_number', $organization?->gst_number)->first();
+        $requestUid = 'GOV-EINVOICE-' . date('dmy') . time();
         $masterIndiaService = new MasterIndiaService($requestUid);
-        $authToken = $configurations ?-> client_access_token ?? null;
+        $authToken = $configurations?->client_access_token ?? null;
         $appEnv = config('app.env');
         if (strtolower($appEnv) !== 'production') {
             $authToken = $masterIndiaService->getAuthTokenEInvoice();
         }
         $cancelData = [
             "access_token" => $authToken,
-            "userGstin" => $cancelData['user_gstin'],
-            "eway_bill_number" => $cancelData['eway_bill_number'],
-            "reason_of_cancel" => $cancelData['cancel_reason'],
-            "cancel_remark" => $cancelData['cancel_remarks'],
+            "userGstin" => $cancelDataParam['user_gstin'],
+            "eway_bill_number" => $cancelDataParam['eway_bill_number'],
+            "reason_of_cancel" => $cancelDataParam['cancel_reason'],
+            "cancel_remark" => $cancelDataParam['cancel_remarks'],
             'data_source' => 'erp'
         ];
         $requestUid = 'GOV-EINVOICE-' . now()->format('dmyHis');
         $masterIndiaService = new MasterIndiaService($requestUid);
         try {
             $response = $masterIndiaService->cancelEwayBill($cancelData);
-            if(isset($response['results']['status']) && $response['results']['status'] != 'Success'){
+            if (isset($response['results']['status']) && $response['results']['status'] != 'Success') {
                 return [
-                    'status'  => 'error',
+                    'status' => 'error',
                     'message' => !empty($response['results']['message'])
                         ? $response['results']['message']
                         : ($response['results']['errorMessage'] ?? 'Unknown error'),
                 ];
-            }
-            else{
+            } else {
                 $ewbCancelDate = Arr::get($response, 'results.message.cancelDate');
                 $errorMessage = is_string(Arr::get($response, 'results.message')) ? Arr::get($response, 'results.message') : null;
                 if ($ewbCancelDate) {
-                    $irnDetail = $document -> irnDetail;
+                    $irnDetail = $document->irnDetail;
                     if ($irnDetail) {
                         $irnDetail -> ewb_cancel_date = $ewbCancelDate;
-                        $irnDetail -> ewb_cancel_reason = $cancelData['cancel_reason'];
-                        $irnDetail -> ewb_cancel_remarks = $cancelData['cancel_remarks'];
+                        $irnDetail -> ewb_cancel_reason = $cancelDataParam['cancel_reason'];
+                        $irnDetail -> ewb_cancel_remarks = $cancelDataParam['cancel_remarks'];
                         $irnDetail -> save();
                     } 
                     return [
-                        'status'  => 'success',
+                        'status' => 'success',
                         'message' => 'E-Way Bill cancelled successfully',
                     ];
                 } else {
                     return [
-                        'status'  => 'error',
+                        'status' => 'error',
                         'message' => $errorMessage ?? "Cannot access Master India Service. Please check the credentials you're using and try again",
                     ];
                 }
-                
+
             }
         } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
+            return [
+                'status'  => 'error',
+                'message' => $e->getMessage(),
+            ];
         }
-    }
-
-    public static function getDocType($header)
-    {
-        if ($header instanceof \App\Models\ErpSaleInvoice) {
-           return 'INV';
-        } else if ($header instanceof \App\Models\ErpSaleReturn) {
-           return 'CRN';
-        } if ($header instanceof PRHeader) {
-           return 'DBN';
-        } 
     }
 
     public static function formatGstinResponse($input_response)
@@ -366,23 +361,23 @@ class MasterIndiaHelper
             }
 
             $formatted = [
-                'Gstin'      => $info['gstin'] ?? '',
-                'TradeName'  => $info['tradeNam'] ?? '',
-                'LegalName'  => $info['lgnm'] ?? '',
-                'AddrBnm'    => $addr['bnm'] ?? '',
-                'AddrBno'    => $addr['bno'] ?? '',
-                'AddrFlno'   => $addr['flno'] ?? '',
-                'AddrSt'     => $addr['st'] ?? '',
-                'AddrLoc'    => $addr['loc'] ?? '',
-                'StateCode'  => $stateCode,
-                'AddrPncd'   => $addr['pncd'] ?? '',
-                'TxpType'    => $info['dty'] ?? '',
+                'Gstin' => $info['gstin'] ?? '',
+                'TradeName' => $info['tradeNam'] ?? '',
+                'LegalName' => $info['lgnm'] ?? '',
+                'AddrBnm' => $addr['bnm'] ?? '',
+                'AddrBno' => $addr['bno'] ?? '',
+                'AddrFlno' => $addr['flno'] ?? '',
+                'AddrSt' => $addr['st'] ?? '',
+                'AddrLoc' => $addr['loc'] ?? '',
+                'StateCode' => $stateCode,
+                'AddrPncd' => $addr['pncd'] ?? '',
+                'TxpType' => $info['dty'] ?? '',
                 'Status' => (isset($info['sts']) && $info['sts'] === 'Active') ? 'ACT' : ($info['sts'] ?? ''),
-                'BlkStatus'  => 'U',
+                'BlkStatus' => 'U',
                 'DtReg' => isset($info['rgdt']) && !empty($info['rgdt'])
                     ? \DateTime::createFromFormat('d/m/Y', str_replace('\\/', '/', $info['rgdt']))->format('Y-m-d')
                     : '',
-                'DtDReg'     => null,
+                'DtDReg' => null,
             ];
             $final_response = [
                 'Status' => 1,
@@ -397,25 +392,26 @@ class MasterIndiaHelper
         }
     }
 
-    public static function validateGstinName(Request $request){
-        try{
+    public static function validateGstinName(Request $request)
+    {
+        try {
             $gstin = $request->gstin;
             $authCredentials = self::getAuthCredentials();
             $requestUid = '1';
-            $masterIndiaService = new MasterIndiaService($authCredentials,$requestUid);
+            $masterIndiaService = new MasterIndiaService($authCredentials, $requestUid);
 
             $authToken = $masterIndiaService->getAuthToken();
             $baseUrl = config('app.masterindia.base_url');
             $gstinUrl = $baseUrl . 'commonapis/searchgstin?gstin=' . urlencode($gstin);
             $clientId = config('app.masterindia.gstin_client_id');
             $requestHeader = array(
-                'client_id:'.$clientId,
-                'Authorization:Bearer '.$authToken,
+                'client_id:' . $clientId,
+                'Authorization:Bearer ' . $authToken,
                 'Content-Type: application/json'
             );
             $curl = curl_init();
 
-            curl_setopt($curl, CURLOPT_URL,$gstinUrl);
+            curl_setopt($curl, CURLOPT_URL, $gstinUrl);
             curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "GET");
             curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
             curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
@@ -442,18 +438,20 @@ class MasterIndiaHelper
 
     public function getIrnDetails(Request $request)
     {
-        $validator = Validator::make($request->all(),[
+        $validator = Validator::make($request->all(), [
             'irn' => [
                 'required'
             ]
         ]);
 
-        if($validator->fails()){
+        if ($validator->fails()) {
             $response = [
                 'Status' => 0,
                 'ErrorDetails' => [
-                    ["ErrorCode" => 500,
-                    'ErrorMessage' => $validator->errors()->first()]
+                    [
+                        "ErrorCode" => 500,
+                        'ErrorMessage' => $validator->errors()->first()
+                    ]
                 ],
                 'Data' => null,
                 'InfoDtls' => null,
@@ -463,7 +461,7 @@ class MasterIndiaHelper
 
         $authCredentials = self::getAuthCredentials();
         $requestUid = '1';
-        $eInvoiceService = new EInvoiceService($authCredentials,$requestUid);
+        $eInvoiceService = new EInvoiceService($authCredentials, $requestUid);
         try {
             $response = $eInvoiceService->getInvoiceByIRN($request->irn);
             return response()->json($response);
@@ -474,18 +472,20 @@ class MasterIndiaHelper
 
     public function getGstDetails(Request $request)
     {
-        $validator = Validator::make($request->all(),[
+        $validator = Validator::make($request->all(), [
             'gstin' => [
                 'required'
             ]
         ]);
 
-        if($validator->fails()){
+        if ($validator->fails()) {
             $response = [
                 'Status' => 0,
                 'ErrorDetails' => [
-                    ["ErrorCode" => 500,
-                    'ErrorMessage' => $validator->errors()->first()]
+                    [
+                        "ErrorCode" => 500,
+                        'ErrorMessage' => $validator->errors()->first()
+                    ]
                 ],
                 'Data' => null,
                 'InfoDtls' => null,
@@ -495,7 +495,7 @@ class MasterIndiaHelper
 
         $authCredentials = self::getAuthCredentials();
         $requestUid = '1';
-        $eInvoiceService = new EInvoiceService($authCredentials,$requestUid);
+        $eInvoiceService = new EInvoiceService($authCredentials, $requestUid);
         try {
             $response = $eInvoiceService->getGSTINDetails($request->gstin);
             return response()->json($response);
@@ -506,18 +506,20 @@ class MasterIndiaHelper
 
     public function syncGstDetails(Request $request)
     {
-        $validator = Validator::make($request->all(),[
+        $validator = Validator::make($request->all(), [
             'gstin' => [
                 'required'
             ]
         ]);
 
-        if($validator->fails()){
+        if ($validator->fails()) {
             $response = [
                 'Status' => 0,
                 'ErrorDetails' => [
-                    ["ErrorCode" => 500,
-                    'ErrorMessage' => $validator->errors()->first()]
+                    [
+                        "ErrorCode" => 500,
+                        'ErrorMessage' => $validator->errors()->first()
+                    ]
                 ],
                 'Data' => null,
                 'InfoDtls' => null,
@@ -527,7 +529,7 @@ class MasterIndiaHelper
 
         $authCredentials = self::getAuthCredentials();
         $requestUid = '1';
-        $eInvoiceService = new EInvoiceService($authCredentials,$requestUid);
+        $eInvoiceService = new EInvoiceService($authCredentials, $requestUid);
         try {
             $response = $eInvoiceService->syncGSTIN($request->gstin);
             return response()->json($response);
@@ -538,7 +540,7 @@ class MasterIndiaHelper
 
     public function irnByDocDetails(Request $request)
     {
-        $validator = Validator::make($request->all(),[
+        $validator = Validator::make($request->all(), [
             'doctype' => [
                 'required'
             ],
@@ -550,12 +552,14 @@ class MasterIndiaHelper
             ],
         ]);
 
-        if($validator->fails()){
+        if ($validator->fails()) {
             $response = [
                 'Status' => 0,
                 'ErrorDetails' => [
-                    ["ErrorCode" => 500,
-                    'ErrorMessage' => $validator->errors()->first()]
+                    [
+                        "ErrorCode" => 500,
+                        'ErrorMessage' => $validator->errors()->first()
+                    ]
                 ],
                 'Data' => null,
                 'InfoDtls' => null,
@@ -565,9 +569,9 @@ class MasterIndiaHelper
 
         $authCredentials = self::getAuthCredentials();
         $requestUid = '1';
-        $eInvoiceService = new EInvoiceService($authCredentials,$requestUid);
+        $eInvoiceService = new EInvoiceService($authCredentials, $requestUid);
         try {
-            $response = $eInvoiceService->getIRNByDocDetails($request->doctype,$request->docnum,$request->docdate);
+            $response = $eInvoiceService->getIRNByDocDetails($request->doctype, $request->docnum, $request->docdate);
             return response()->json($response);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -576,18 +580,20 @@ class MasterIndiaHelper
 
     public function rejectedIrn(Request $request)
     {
-        $validator = Validator::make($request->all(),[
+        $validator = Validator::make($request->all(), [
             'date' => [
                 'required'
             ]
         ]);
 
-        if($validator->fails()){
+        if ($validator->fails()) {
             $response = [
                 'Status' => 0,
                 'ErrorDetails' => [
-                    ["ErrorCode" => 500,
-                    'ErrorMessage' => $validator->errors()->first()]
+                    [
+                        "ErrorCode" => 500,
+                        'ErrorMessage' => $validator->errors()->first()
+                    ]
                 ],
                 'Data' => null,
                 'InfoDtls' => null,
@@ -597,7 +603,7 @@ class MasterIndiaHelper
 
         $authCredentials = self::getAuthCredentials();
         $requestUid = '1';
-        $eInvoiceService = new EInvoiceService($authCredentials,$requestUid);
+        $eInvoiceService = new EInvoiceService($authCredentials, $requestUid);
         try {
             $response = $eInvoiceService->getRejectedIRNsDetails($request->date);
             return response()->json($response);
@@ -613,21 +619,21 @@ class MasterIndiaHelper
         $organization = Organization::find($user->organization_id);
         // Get configuration values in a key-value pair
         $configurations = Configuration::where('type', 'organization')
-        ->where('type_id', $user->organization_id)
-        ->whereIn('config_key', [
-            ConstantHelper::CLIENT_ID,
-            ConstantHelper::CLIENT_SECRET,
-            ConstantHelper::CLIENT_USERNAME,
-            ConstantHelper::CLIENT_PASSWORD
-        ])
-        ->pluck('config_value', 'config_key');
+            ->where('type_id', $user->organization_id)
+            ->whereIn('config_key', [
+                ConstantHelper::CLIENT_ID,
+                ConstantHelper::CLIENT_SECRET,
+                ConstantHelper::CLIENT_USERNAME,
+                ConstantHelper::CLIENT_PASSWORD
+            ])
+            ->pluck('config_value', 'config_key');
 
         $authCredentials = [
-            'client_id'    => $configurations['e_invoice_client_id'] ?? config('app.masterindia.client_id'),
+            'client_id' => $configurations['e_invoice_client_id'] ?? config('app.masterindia.client_id'),
             'client_secret' => $configurations['e_invoice_client_secret'] ?? config('app.masterindia.client_secret'),
-            'user_name'    => $configurations['e_invoice_client_username'] ?? config('app.masterindia.user_name'),
-            'password'     => $configurations['e_invoice_client_password'] ?? config('app.masterindia.password'),
-            'gstin'        => $organization->gst_number ?? env('EINVOICE_GSTIN', ''),
+            'user_name' => $configurations['e_invoice_client_username'] ?? config('app.masterindia.user_name'),
+            'password' => $configurations['e_invoice_client_password'] ?? config('app.masterindia.password'),
+            'gstin' => $organization->gst_number ?? env('EINVOICE_GSTIN', ''),
         ];
 
         return $authCredentials;
@@ -648,11 +654,11 @@ class MasterIndiaHelper
         $totalCGSTValue = 0.00;
         $totalSGSTValue = 0.00;
         $totalIGSTValue = 0.00;
-        $documentNumber = $documentHeader->book_code .'-'. $documentHeader->document_number;
+        $documentNumber = $documentHeader->book_code . '-' . $documentHeader->document_number;
         if (strlen($documentNumber) >= 16) {
             $documentNumber = $documentHeader->document_number;
         }
-        $bookPattern = $documentHeader -> doc_number_type;
+        $bookPattern = $documentHeader->doc_number_type;
         if ($bookPattern === 'Manually') {
             $documentNumber = $documentHeader->document_number;
         }
@@ -670,11 +676,13 @@ class MasterIndiaHelper
         $sellerStateCode = self::getStateCode($organizationAddress->state_id);
         $buyerStateCode = self::getStateCode($sellerBillingAddress->state_id);
 
-        $requestUid = 'GOV-EINVOICE-'.date('dmy').time();
+        $requestUid = 'GOV-EINVOICE-' . date('dmy') . time();
         $eInvoiceService = new MasterIndiaService($requestUid);
         $fromPincode = $organizationAddress->pincode;
         $toPincode = $sellerBillingAddress->pincode;
-        $distance = 0;
+        $distance = $eInvoiceService->getDistance($fromPincode, $toPincode, $authToken);
+
+        $sameGSTIN = $organization?->gst_number == $documentHeader?->vendor?->compliances?->gstin_no ?? $organization?->gst_number;
 
         $tranDetails = (object) [
             "supply_type" => $documentHeader->gst_invoice_type,
@@ -684,7 +692,7 @@ class MasterIndiaHelper
         ];
 
         $docDetails = (object) [
-            "document_type" => self::getDocType($documentHeader),
+            "document_type" => self::getDocType($documentHeader, $sameGSTIN),
             "document_number" => $documentNumber,
             "document_date" => date('d/m/Y', strtotime($documentHeader->document_date)),
         ];
@@ -744,15 +752,15 @@ class MasterIndiaHelper
 
         $headerTotalValue = 0;
         $headerTotalAmount = 0;
-        foreach($documentDetails as $key => $val){
+        foreach ($documentDetails as $key => $val) {
             $uom = Unit::find($val?->uom_id);
             $orderQty = (isset($val?->accepted_qty) && ($val?->accepted_qty)) ? ($val?->accepted_qty) : ($val?->order_qty);
             $itemDiscount = (isset($val?->discount_amount) && ($val?->discount_amount)) ? ($val?->discount_amount) : ($val?->item_discount_amount);
             $headerDiscount = (isset($val?->header_discount_amount) && ($val?->header_discount_amount)) ? ($val?->header_discount_amount) : ($val?->header_discount_amount);
-            $totalAmt = ($orderQty*$val?->rate) - ($itemDiscount + $headerDiscount);
+            $totalAmt = ($orderQty * $val?->rate) - ($itemDiscount + $headerDiscount);
             $totalItemValue = $totalAmt + ($val->cgst_value['value'] + $val->sgst_value['value'] + $val->igst_value['value']);
             $headerTotalValue += $totalItemValue;
-            $totalItemAmount = round($orderQty*$val?->rate, 2);
+            $totalItemAmount = round($orderQty * $val?->rate, 2);
             $headerTotalAmount += $totalAmt;
 
             if (count($val->taxes)) {
@@ -768,10 +776,10 @@ class MasterIndiaHelper
                 }
             }
             $gstRate = 0;
-            if ((float)$val->igst_value['rate']) {
+            if ((float) $val->igst_value['rate']) {
                 $gstRate = $val->igst_value['rate'];
             } else {
-                $gstRate = (float)$val->cgst_value['rate'] + (float)$val->sgst_value['rate'];
+                $gstRate = (float) $val->cgst_value['rate'] + (float) $val->sgst_value['rate'];
 
             }
             $totalCGSTValue += $val->cgst_value['value'];
@@ -781,42 +789,42 @@ class MasterIndiaHelper
             $isService = $val?->item?->type === ConstantHelper::SERVICE ? 'Y' : 'N';
             $itemList[] = (object) [
                 "item_serial_number" => (string) $key,
-				"product_description" => $val?->item?->item_name,
-				"is_service" => $isService,
-				"hsn_code" => $val?->hsn_code,
-				"bar_code" => null,
-				"quantity" => round($orderQty,2),
-				"free_quantity" => round($orderQty,2),
-				"unit" => (string) $uom?->name,
-				"unit_price" => round($val?->rate,2),
-				"total_amount" => $totalItemAmount,
-				"pre_tax_value" => round($val?->tax_value,2),
-				"discount" => round($itemDiscount + $headerDiscount,2),
-				"other_charge" => 0,
-				"assessable_value" => round($totalAmt, 2),
-				"gst_rate" => $gstRate,
-				"igst_amount" => $val->igst_value['value'],
-				"cgst_amount" => $val->cgst_value['value'],
-				"sgst_amount" => $val->sgst_value['value'],
+                "product_description" => $val?->item?->item_name,
+                "is_service" => $isService,
+                "hsn_code" => $val?->hsn_code,
+                "bar_code" => null,
+                "quantity" => round($orderQty, 2),
+                "free_quantity" => round($orderQty, 2),
+                "unit" => (string) $uom?->name,
+                "unit_price" => round($val?->rate, 2),
+                "total_amount" => $totalItemAmount,
+                "pre_tax_value" => round($val?->tax_value, 2),
+                "discount" => round($itemDiscount + $headerDiscount, 2),
+                "other_charge" => 0,
+                "assessable_value" => round($totalAmt, 2),
+                "gst_rate" => $gstRate,
+                "igst_amount" => $val->igst_value['value'],
+                "cgst_amount" => $val->cgst_value['value'],
+                "sgst_amount" => $val->sgst_value['value'],
                 "igst_rate" => $val->igst_value['rate'],
-				"cgst_rate" => $val->cgst_value['rate'],
-				"sgst_rate" => $val->sgst_value['rate'],
-				"cess_rate" => 0,
-				"cess_amount" => 0,
-				"cess_nonadvol_amount" => 0,
-				"state_cess_rate" => 0,
-				"state_cess_amount" => 0,
-				"state_cess_nonadvol_amount" => 0,
-				"total_item_value" => round($totalItemValue, 2),
-				"country_origin" => null,
-				"order_line_reference" => null,
-				"product_serial_number" => "",
-				"batch_details" => array(
-					"name" => $documentHeader->book_code.'-'.$documentHeader->document_number,
-					"expiry_date" => '',
-					"warranty_date" => ''
-				),
-				"attribute_details" => []
+                "cgst_rate" => $val->cgst_value['rate'],
+                "sgst_rate" => $val->sgst_value['rate'],
+                "cess_rate" => 0,
+                "cess_amount" => 0,
+                "cess_nonadvol_amount" => 0,
+                "state_cess_rate" => 0,
+                "state_cess_amount" => 0,
+                "state_cess_nonadvol_amount" => 0,
+                "total_item_value" => round($totalItemValue, 2),
+                "country_origin" => null,
+                "order_line_reference" => null,
+                "product_serial_number" => "",
+                "batch_details" => array(
+                    "name" => $documentHeader->book_code . '-' . $documentHeader->document_number,
+                    "expiry_date" => '',
+                    "warranty_date" => ''
+                ),
+                "attribute_details" => []
             ];
         }
         $headerTotalValue += round($documentHeader->expense_amount, 2);
@@ -828,7 +836,7 @@ class MasterIndiaHelper
             "total_cess_value" => 0,
             "total_discount" => 0,
             "total_other_charge" => round($documentHeader->expense_amount, 2),
-            "total_invoice_value" => round($headerTotalValue,2),
+            "total_invoice_value" => round($headerTotalValue, 2),
             "total_cess_value_of_state" => 0,
             "round_off_amount" => 0,
             "total_invoice_value_additional_currency" => 0
@@ -854,7 +862,7 @@ class MasterIndiaHelper
             "contract_details" => [],
         ];
 
-        $addlDocDtls =  [];
+        $addlDocDtls = [];
 
         $expDtls = (object) [
             "ship_bill_number" => null,
@@ -866,13 +874,13 @@ class MasterIndiaHelper
             "export_duty" => null
         ];
 
-        if ($tranDetails -> supply_type === self::EXPORT_INVOICE_W_PAY_TYPE || $tranDetails -> supply_type === self::EXPORT_INVOICE_WO_PAY_TYPE) {
-            $buyerDetails -> country_code = $sellerBillingAddress?->country?->code;
-            $buyerDetails -> gstin = "URP";
-            $buyerDetails -> place_of_supply = 96;
-            $shipDetails -> state_code = $sellerStateCode->state_code;
-            $expDtls -> country_code = $sellerBillingAddress?->country?->code;
-            $expDtls -> refund_claim = $tranDetails -> supply_type === self::EXPORT_INVOICE_W_PAY_TYPE ? "Y" : "N";
+        if ($tranDetails->supply_type === self::EXPORT_INVOICE_W_PAY_TYPE || $tranDetails->supply_type === self::EXPORT_INVOICE_WO_PAY_TYPE) {
+            $buyerDetails->country_code = $sellerBillingAddress?->country?->code;
+            $buyerDetails->gstin = "URP";
+            $buyerDetails->place_of_supply = 96;
+            $shipDetails->state_code = $sellerStateCode->state_code;
+            $expDtls->country_code = $sellerBillingAddress?->country?->code;
+            $expDtls->refund_claim = $tranDetails->supply_type === self::EXPORT_INVOICE_W_PAY_TYPE ? "Y" : "N";
         }
 
         $timezone = UtlilityHelper::getAuthUserTimezone($user);
@@ -892,16 +900,16 @@ class MasterIndiaHelper
 
         $result = [
             'tranDetails' => $tranDetails,
-            'docDetails'  =>  $docDetails,
-            'sellerDetails'  =>  $sellerDetails,
-            'buyerDetails'  =>  $buyerDetails,
-            'dispatchDetails'  =>  $dispatchDetails,
-            'shipDetails'  =>  $shipDetails,
-            'itemList'  =>  $itemList,
-            'valDtls'  =>  $valDtls,
+            'docDetails' => $docDetails,
+            'sellerDetails' => $sellerDetails,
+            'buyerDetails' => $buyerDetails,
+            'dispatchDetails' => $dispatchDetails,
+            'shipDetails' => $shipDetails,
+            'itemList' => $itemList,
+            'valDtls' => $valDtls,
             'payDtls' => $payDtls,
-            'addlDocDtls'  =>  $addlDocDtls,
-            'expDtls'  =>  $expDtls,
+            'addlDocDtls' => $addlDocDtls,
+            'expDtls' => $expDtls,
             'ewbDtls' => $ewbDtls,
             'refDtls' => $refDtls
         ];
@@ -912,7 +920,7 @@ class MasterIndiaHelper
     public static function generateQRCodeBase64($signedQRCode)
     {
         $qrCode = QrCode::create($signedQRCode)
-        ->setMargin(0);
+            ->setMargin(0);
         $writer = new PngWriter();
         $result = $writer->write($qrCode);
 
@@ -981,32 +989,35 @@ class MasterIndiaHelper
         ]);
     }
 
-    public static function getGstDetail($gstNumber){
+    public static function getGstDetail($gstNumber)
+    {
         $authCredentials = self::getAuthCredentials();
-        $requestUid = 'GOV-EINVOICE-'.date('dmy').time();
-        $eInvoiceService = new EInvoiceService($authCredentials,$requestUid);
+        $requestUid = 'GOV-EINVOICE-' . date('dmy') . time();
+        $eInvoiceService = new EInvoiceService($authCredentials, $requestUid);
         $response = $eInvoiceService->getGSTINDetails($gstNumber);
         return $response;
     }
 
-    private static function getStateCode($stateId){
+    private static function getStateCode($stateId)
+    {
         $stateCode = State::find($stateId);
         return $stateCode ? $stateCode : null;
     }
 
-    private  static function generateIrn($docId, $document, $documentType, $user, $generateEwb = true) {
+    private static function generateIrn($docId, $document, $documentType, $user, $generateEwb = true)
+    {
         $condition = self::checkIfGstInShouldGenerate($document, $documentType);
-        if($condition){
+        if ($condition) {
             $documentHeader = $document;
-            $documentDetails = $document -> items;
+            $documentDetails = $document->items;
             $generateInvoice = MasterIndiaHelper::generateInvoice($documentHeader, $documentDetails, $user, $generateEwb);
             if ((isset($generateInvoice['results']) && isset(['results']['message']) && isset(['results']['message']['alert'])) && !empty($generateInvoice['results']['message']['alert'])) {
                 return [
-                        'results' => [
-                                    'status' => 'Error',
-                                    'message' => $generateInvoice['results']['message']['alert']
-                                ]
-                        ];
+                    'results' => [
+                        'status' => 'Error',
+                        'message' => $generateInvoice['results']['message']['alert']
+                    ]
+                ];
             }
             if (isset($generateInvoice['results']) && isset($generateInvoice['results']['errorMessage']) && !empty($generateInvoice['results']['errorMessage'])) {
                 return [
@@ -1032,32 +1043,49 @@ class MasterIndiaHelper
                     ]
                 ];
             }
-            $documentHeader->irnDetail()->create([
-                'ack_no' => $generateInvoice['results']['message']['AckNo'],
-                'ack_date' => $generateInvoice['results']['message']['AckDt'],
-                'irn_number' => $generateInvoice['results']['message']['Irn'],
-                'signed_invoice' => $generateInvoice['results']['message']['SignedInvoice'],
-                'signed_qr_code' => $generateInvoice['results']['message']['SignedQRCode'],
-                'ewb_no' => $generateInvoice['results']['message']['EwbNo'],
-                'ewb_date' => $generateInvoice['results']['message']['EwbDt'],
-                'ewb_valid_till' => $generateInvoice['results']['message']['EwbValidTill'],
-                'ewb_url' => Arr::get($generateInvoice, 'results.message.EwaybillPdf'),
-                'status' => $generateInvoice['results']['message']['Status'],
-                'remarks' => $generateInvoice['results']['message']['Remarks'],
-                'type' => 'IRN'
-            ]);
+            $irnDetail = $documentHeader->irnDetail;
+            if ($irnDetail) {
+                $actualData = [
+                    'ack_no' => $generateInvoice['results']['message']['AckNo'],
+                    'ack_date' => $generateInvoice['results']['message']['AckDt'],
+                    'irn_number' => $generateInvoice['results']['message']['Irn'],
+                    'signed_invoice' => $generateInvoice['results']['message']['SignedInvoice'],
+                    'signed_qr_code' => $generateInvoice['results']['message']['SignedQRCode'],
+                    'status' => $generateInvoice['results']['message']['Status'],
+                    'remarks' => $generateInvoice['results']['message']['Remarks'],
+                    'type' => 'IRN'
+                ];
+                $irnDetail->update($actualData);
+            } else {
+                $actualData = [
+                    'ack_no' => $generateInvoice['results']['message']['AckNo'],
+                    'ack_date' => $generateInvoice['results']['message']['AckDt'],
+                    'irn_number' => $generateInvoice['results']['message']['Irn'],
+                    'signed_invoice' => $generateInvoice['results']['message']['SignedInvoice'],
+                    'signed_qr_code' => $generateInvoice['results']['message']['SignedQRCode'],
+                    'ewb_no' => $generateInvoice['results']['message']['EwbNo'],
+                    'ewb_date' => $generateInvoice['results']['message']['EwbDt'],
+                    'ewb_valid_till' => $generateInvoice['results']['message']['EwbValidTill'],
+                    'ewb_url' => Arr::get($generateInvoice, 'results.message.EwaybillPdf'),
+                    'status' => $generateInvoice['results']['message']['Status'],
+                    'remarks' => $generateInvoice['results']['message']['Remarks'],
+                    'type' => 'IRN'
+                ];
+                $documentHeader->irnDetail()->create($actualData);
+            }
             self::generateEinvoiceHistoryLog($documentHeader->irnDetail());
             return $generateInvoice;
         }
     }
 
     // On Submit check gst number
-    private  static function validateGstIn($docId, $document, $documentType) {
+    private static function validateGstIn($docId, $document, $documentType)
+    {
         $user = Helper::getAuthenticatedUser();
         $condition = self::checkIfGstInShouldGenerate($document, $documentType);
-        if($condition){
+        if ($condition) {
             $documentHeader = $document;
-            $documentDetails = $document ?-> items ?? [];
+            $documentDetails = $document?->items ?? [];
             $eInvoice = $document?->irnDetail()->first();
 
             $organization = Organization::where('id', $user->organization_id)->first();
@@ -1077,17 +1105,18 @@ class MasterIndiaHelper
 
 
     // Common check gst number
-    public  static function validateGstNumber($gstNumber) {
+    public static function validateGstNumber($gstNumber)
+    {
         $user = Helper::getAuthenticatedUser();
 
         $checkGstIn = EInvoiceHelper::getGstDetail($gstNumber);
-        if(!(is_string($checkGstIn))){
-            if(!$checkGstIn['Status']){
+        if (!(is_string($checkGstIn))) {
+            if (!$checkGstIn['Status']) {
                 $errorMsg = "";
-                if($checkGstIn['ErrorDetails'][0]['ErrorMessage'] == "Requested data is not available"){
-                    $errorMsg = "Error: ". @$checkGstIn['ErrorDetails'][0]['ErrorCode'].' - Invalid GST Number';
-                } else{
-                    $errorMsg = "Error: ". @$checkGstIn['ErrorDetails'][0]['ErrorCode'].' -'.$checkGstIn['ErrorDetails'][0]['ErrorMessage'];
+                if ($checkGstIn['ErrorDetails'][0]['ErrorMessage'] == "Requested data is not available") {
+                    $errorMsg = "Error: " . @$checkGstIn['ErrorDetails'][0]['ErrorCode'] . ' - Invalid GST Number';
+                } else {
+                    $errorMsg = "Error: " . @$checkGstIn['ErrorDetails'][0]['ErrorCode'] . ' -' . $checkGstIn['ErrorDetails'][0]['ErrorMessage'];
                 }
                 return [
                     'checkGstIn' => $checkGstIn,
@@ -1096,7 +1125,7 @@ class MasterIndiaHelper
                     'Status' => 0
                 ];
             }
-        }else {
+        } else {
             return [
                 'checkGstIn' => $checkGstIn,
                 'successMsg' => '',
@@ -1108,10 +1137,12 @@ class MasterIndiaHelper
 
     public static function checkIfGstInShouldGenerate(Model $document, $documentType = null)
     {
-        $serviceAlias = $document ?-> book ?-> service ?-> alias;
-        if ($serviceAlias === ConstantHelper::PURCHASE_RETURN_SERVICE_ALIAS || $serviceAlias === ConstantHelper::SR_SERVICE_ALIAS ||
-        ($serviceAlias === ConstantHelper::SI_SERVICE_ALIAS) || ($serviceAlias === ConstantHelper::SERVICE_INV_SERVICE_ALIAS) ||
-        ($serviceAlias === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS)) {
+        $serviceAlias = $document?->book?->service?->alias;
+        if (
+            $serviceAlias === ConstantHelper::PURCHASE_RETURN_SERVICE_ALIAS || $serviceAlias === ConstantHelper::SR_SERVICE_ALIAS ||
+            ($serviceAlias === ConstantHelper::SI_SERVICE_ALIAS) || ($serviceAlias === ConstantHelper::SERVICE_INV_SERVICE_ALIAS) ||
+            ($serviceAlias === ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS)
+        ) {
             return true;
         } else {
             return false;
@@ -1123,13 +1154,13 @@ class MasterIndiaHelper
         $value = self::checkIfGstInShouldGenerate($document, null);
         if ($value) {
             // Generate Invoice
-            $generateInvoice = self::generateIrn($document -> id, $document, null, $user, $generateEwb);
-            if(isset($generateInvoice['results']) && $generateInvoice['results']['status'] == "Error"){
+            $generateInvoice = self::generateIrn($document->id, $document, null, $user, $generateEwb);
+            if (isset($generateInvoice['results']) && $generateInvoice['results']['status'] == "Error") {
                 return [
                     'status' => 'error',
-                    'message' => "Error: ". @$generateInvoice['results']['message'],
+                    'message' => "Error: " . @$generateInvoice['results']['message'],
                 ];
-            } else{
+            } else {
                 return $generateInvoice;
             }
         }
@@ -1137,14 +1168,15 @@ class MasterIndiaHelper
     }
 
     // Generate Eway Bill
-    public static function generateEwayBillData($document, $user) {
-        $organization = Organization::find($user -> organization_id);
-        $configurations = ErpEInvoiceConfiguration::where('group_id', $organization ?-> group_id)
-            -> where('gst_number', $organization ?-> gst_number) -> first();
-        $authToken = $configurations ?-> client_access_token ?? null;
+    public static function generateEwayBillData($document, $user)
+    {
+        $organization = Organization::find($user->organization_id);
+        $configurations = ErpEInvoiceConfiguration::where('group_id', $organization?->group_id)
+            ->where('gst_number', $organization?->gst_number)->first();
+        $authToken = $configurations?->client_access_token ?? null;
         $appEnv = config('app.env');
         if (strtolower($appEnv) != 'production') {
-            $authToken = (new MasterIndiaService('GOV-EINVOICE-'.date('dmy').time())) -> getAuthTokenEInvoice();
+            $authToken = (new MasterIndiaService('GOV-EINVOICE-' . date('dmy') . time()))->getAuthTokenEInvoice();
         }
         $documentHeader = $document;
         $requestData = self::generateHeader($documentHeader, $authToken, $user);
@@ -1153,116 +1185,119 @@ class MasterIndiaHelper
     }
 
     public static function generateHeader($documentHeader, $authToken, $user)
-	{
-        $documentDetails = $documentHeader -> items;
+    {
+        $documentDetails = $documentHeader->items;
         $data = self::getInvoiceDetail($documentHeader, $documentDetails, $user, $authToken);
         $itemData = [];
         foreach ($data['itemList'] as $key2 => $item) {
             $itemData = self::generateItems($item);
         }
-        $requestUid = 'GOV-EINVOICE-'.date('dmy').time();
+        $requestUid = 'GOV-EINVOICE-' . date('dmy') . time();
         $eInvoiceService = new MasterIndiaService($requestUid);
         $fromPincode = $data['sellerDetails']->pincode;
         $toPincode = $data['buyerDetails']->pincode;
-        $distance = 0;
+        $distance = $eInvoiceService->getDistance($fromPincode, $toPincode, $authToken);
+        $subSupplyType = "Supply";
+        if ($data['sellerDetails']->gstin == $data['buyerDetails']->gstin) {
+            $subSupplyType = "Supply of own goods";
+        }
 		return [
             'itemList' => $itemData,
-			'access_token' => $authToken,
-			'userGstin' => $data['sellerDetails']->gstin,
-			'supply_type' => "outward",
-			'sub_supply_type' => 'Supply',
-			'sub_supply_description' => '',
-			'document_type' => $data['docDetails']->document_type,
-			'document_number' => $data['docDetails']->document_number,
-			'document_date' => $data['docDetails']->document_date,
+            'access_token' => $authToken,
+            'userGstin' => $data['sellerDetails']->gstin,
+            'supply_type' => "outward",
+            'sub_supply_type' => $subSupplyType,
+            'sub_supply_description' => '',
+            'document_type' => $data['docDetails']->document_type,
+            'document_number' => $data['docDetails']->document_number,
+            'document_date' => $data['docDetails']->document_date,
 
-			'gstin_of_consignor' => $data['sellerDetails']->gstin,
-			'legal_name_of_consignor' => $data['sellerDetails']->legal_name,
-			'address1_of_consignor' => $data['sellerDetails']->address1,
-			'address2_of_consignor' => $data['sellerDetails']->address2,
-			'place_of_consignor' => $data['sellerDetails']->location,
-			'pincode_of_consignor' => $data['sellerDetails']->pincode,
-			'state_of_consignor' => $data['sellerDetails']->state_code,
-			'actual_from_state_name' => $data['sellerDetails']->state_code,
-
-
-			'gstin_of_consignee' => $data['buyerDetails']->gstin,
-			'legal_name_of_consignee' => $data['buyerDetails']->legal_name,
-			'address1_of_consignee' => $data['buyerDetails']->address1,
-			'address2_of_consignee' => $data['buyerDetails']->address2,
-			'place_of_consignee' => $data['buyerDetails']->location,
-			'pincode_of_consignee' => $data['buyerDetails']->pincode,
-			'state_of_supply' => $data['buyerDetails']->place_of_supply,
-			'actual_to_state_name' => $data['buyerDetails']->state_code,
-
-			'transaction_type' => '',
-			'other_value' => $data['valDtls']->total_other_charge,
-			'total_invoice_value' => $data['valDtls']->total_invoice_value,
-			'taxable_amount' => $data['valDtls']->total_assessable_value,
-			'cgst_amount' => $data['valDtls']->total_cgst_value,
-			'sgst_amount' => $data['valDtls']->total_sgst_value,
-			'igst_amount' => $data['valDtls']->total_igst_value,
-			'cess_amount' => $data['valDtls']->total_cess_value,
-			'cess_nonadvol_value' => '',
+            'gstin_of_consignor' => $data['sellerDetails']->gstin,
+            'legal_name_of_consignor' => $data['sellerDetails']->legal_name,
+            'address1_of_consignor' => $data['sellerDetails']->address1,
+            'address2_of_consignor' => $data['sellerDetails']->address2,
+            'place_of_consignor' => $data['sellerDetails']->location,
+            'pincode_of_consignor' => $data['sellerDetails']->pincode,
+            'state_of_consignor' => $data['sellerDetails']->state_code,
+            'actual_from_state_name' => $data['sellerDetails']->state_code,
 
 
-			'transporter_id' => $data['ewbDtls']->transporter_id,
-			'transporter_name' => $data['ewbDtls']->transporter_name,
-			'transporter_document_number' => $data['ewbDtls']->transporter_document_number,
-			'transporter_document_date' => $data['ewbDtls']->transporter_document_date,
-			'transportation_mode' => $data['ewbDtls']->transportation_mode,
+            'gstin_of_consignee' => $data['buyerDetails']->gstin,
+            'legal_name_of_consignee' => $data['buyerDetails']->legal_name,
+            'address1_of_consignee' => $data['buyerDetails']->address1,
+            'address2_of_consignee' => $data['buyerDetails']->address2,
+            'place_of_consignee' => $data['buyerDetails']->location,
+            'pincode_of_consignee' => $data['buyerDetails']->pincode,
+            'state_of_supply' => $data['buyerDetails']->place_of_supply,
+            'actual_to_state_name' => $data['buyerDetails']->state_code,
+
+            'transaction_type' => '',
+            'other_value' => $data['valDtls']->total_other_charge,
+            'total_invoice_value' => $data['valDtls']->total_invoice_value,
+            'taxable_amount' => $data['valDtls']->total_assessable_value,
+            'cgst_amount' => $data['valDtls']->total_cgst_value,
+            'sgst_amount' => $data['valDtls']->total_sgst_value,
+            'igst_amount' => $data['valDtls']->total_igst_value,
+            'cess_amount' => $data['valDtls']->total_cess_value,
+            'cess_nonadvol_value' => '',
+
+
+            'transporter_id' => $data['ewbDtls']->transporter_id,
+            'transporter_name' => $data['ewbDtls']->transporter_name,
+            'transporter_document_number' => $data['ewbDtls']->transporter_document_number,
+            'transporter_document_date' => $data['ewbDtls']->transporter_document_date,
+            'transportation_mode' => $data['ewbDtls']->transportation_mode,
             'transportation_distance' => isset($distance['distance']) ? min($distance['distance'], self::DISTANCE_LIMIT) : 0,
-			'vehicle_number' => $data['ewbDtls']->vehicle_number,
-			'vehicle_type' => $data['ewbDtls']->vehicle_type,
-			'generate_status' => 1,
-			'data_source' => '',
-			'user_ref' => '',
-			'location_code' => '',
-			'eway_bill_status' => '',
-			'auto_print' => '',
-			'email' => '',
-		];
-	}
+            'vehicle_number' => $data['ewbDtls']->vehicle_number,
+            'vehicle_type' => $data['ewbDtls']->vehicle_type,
+            'generate_status' => 1,
+            'data_source' => '',
+            'user_ref' => '',
+            'location_code' => '',
+            'eway_bill_status' => '',
+            'auto_print' => '',
+            'email' => '',
+        ];
+    }
 
-	public static function generateItems($item)
-	{
-		return [
-			'product_name' => "",
-			'product_description' => $item->product_description,
-			'hsn_code' => $item->hsn_code,
-			'quantity' => $item->quantity,
-			'unit_of_product' => $item->unit,
-			'cgst_rate' => $item->cgst_rate,
-			'sgst_rate' => $item->sgst_rate,
-			'igst_rate' => $item->igst_rate,
-			'cess_rate' => $item->cess_rate,
-			'cessNonAdvol' => "",
-			'taxable_amount' => $item->total_item_value
-		];
-	}
+    public static function generateItems($item)
+    {
+        return [
+            'product_name' => "",
+            'product_description' => $item->product_description,
+            'hsn_code' => $item->hsn_code,
+            'quantity' => $item->quantity,
+            'unit_of_product' => $item->unit,
+            'cgst_rate' => $item->cgst_rate,
+            'sgst_rate' => $item->sgst_rate,
+            'igst_rate' => $item->igst_rate,
+            'cess_rate' => $item->cess_rate,
+            'cessNonAdvol' => "",
+            'taxable_amount' => $item->total_item_value
+        ];
+    }
 
 
     public static function generateEwayBill($documentHeader, $user)
     {
         $postData = self::generateEwayBillData($documentHeader, $user);
         $authCredentials = self::getAuthCredentials();
-        $requestUid = 'GOV-EINVOICE-'.date('dmy').time();
+        $requestUid = 'GOV-EINVOICE-' . date('dmy') . time();
         $eInvoiceService = new MasterIndiaService($requestUid);
         $response = $eInvoiceService->generateEwaybillByIRN($postData);
-        if(isset($response['status']) && $response['status'] != 'Success'){
+        if (isset($response['status']) && $response['status'] != 'Success') {
             return [
                 'status' => 'error',
-                'message' => "Error: ". @$response['ErrorMessage'],
+                'message' => "Error: " . @$response['ErrorMessage'],
             ];
         } else if (isset($response['results']) && isset($response['results']['message']) && ($response['results']['code'] != 200)) {
-                return [
-                    'results' => [
-                        'status' => 'error',
-                        'message' => $response['results']['message']
-                    ]
-                ];
-            }
-        else{
+            return [
+                'results' => [
+                    'status' => 'error',
+                    'message' => $response['results']['message']
+                ]
+            ];
+        } else {
             return $response;
         }
     }
@@ -1292,14 +1327,18 @@ class MasterIndiaHelper
         return $data;
     }
 
-    public static function getDocType($header)
+    public static function getDocType($header, $sameGSTIN = false)
     {
         if ($header instanceof \App\Models\ErpSaleInvoice || $header instanceof \App\Models\ErpMaterialIssueHeader) {
-           return 'INV';
+            if ($sameGSTIN) {
+                return "CHL";
+            }
+            return 'INV';
         } else if ($header instanceof \App\Models\ErpSaleReturn) {
-           return 'CRN';
-        } if ($header instanceof \App\Models\PRHeader) {
-           return 'DBN';
-        } 
+            return 'CRN';
+        }
+        if ($header instanceof \App\Models\PRHeader) {
+            return 'DBN';
+        }
     }
 }

@@ -44,11 +44,11 @@
                                 <label class="form-label">Value <span class="text-danger">*</span></label>
                                 <input step="any" type="number" id="new_exp_value" class="form-control mw-100" />
                             </td>
-                            <td>
+                            {{-- <td>
                                 <a href="javascript:;" id="add_new_head_exp" class="text-primary can_hide">
                                     <i data-feather="plus-square"></i>
                                 </a>
-                            </td>
+                            </td> --}}
                         </tr>
                     </thead>
                     <tbody>

@@ -34,6 +34,7 @@ use App\Models\UploadCustomerMaster;
 use App\Models\ItemDetail;
 use App\Imports\CustomerImport;
 use App\Services\ItemImportExportService;
+use App\Helpers\Common\OrganizationHelper;
 use App\Exports\CustomersExport;
 use App\Exports\FailedCustomersExport;
 use App\Models\User;
@@ -246,7 +247,7 @@ class CustomerController extends Controller
         $parentUrl = ConstantHelper::CUSTOMER_SERVICE_ALIAS;
         $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         $user = Helper::getAuthenticatedUser();
-        $organization = Organization::select('id', 'name', 'currency_id')->where('id', $user->organization_id)->first();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $groupId = $organization->group_id;
         $groupOrganizations = Organization::select('id', 'name')->where('status', 'active')
         ->where('group_id', $groupId)
@@ -484,6 +485,20 @@ class CustomerController extends Controller
                 }
             }
 
+            // Sync Customer Locations
+            $storeIds = isset($request->customer_store) && is_array($request->customer_store) ? $request->customer_store : [];
+
+            $locationSyncStatus = $customer->syncLocations($storeIds);
+
+            if (!$locationSyncStatus['status']) {
+                DB::rollBack();
+                return response()->json([
+                    'status'  => false,
+                    'message' => $locationSyncStatus['message'],
+                    'error'   => '',
+                ], 422);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -567,13 +582,15 @@ class CustomerController extends Controller
         $parentUrl = ConstantHelper::CUSTOMER_SERVICE_ALIAS;
         $services= Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         $user = Helper::getAuthenticatedUser();
-        $organization = Organization::select('id', 'name', 'currency_id') ->where('id', $user->organization_id) ->first();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $groupId = $organization->group_id;
         $groupOrganizations = Organization::select('id', 'name')
         ->where('status', 'active')
         ->where('group_id', $groupId)
         ->where('id', '!=', $organization->id)
         ->get();
+        $selectedStoreIds = $customer ?-> locations() -> pluck('store_id') -> toArray();
+        $stores = $customer -> locations;
         $customerCodeTypeOriginal = $customer->customer_code_type ?? 'Manual';
         $customerCodeType = $customerCodeTypeOriginal;
         $book = $services['current_book'] ?? null;
@@ -623,7 +640,9 @@ class CustomerController extends Controller
             'buttons' => $buttons,
             'approvalHistory' => $approvalHistory,
             'docStatusClass' => $docStatusClass,
-            'isLedgerEditable'=>$isLedgerEditable
+            'isLedgerEditable'=>$isLedgerEditable,
+            'customerStores' => $stores,
+            'selectedStoreIds' => $selectedStoreIds,
         ]);
     }
 
@@ -715,6 +734,7 @@ class CustomerController extends Controller
             $revisionData = [
                 ['model_type' => 'header', 'model_name' => 'Customer', 'relation_column' => ''],
                 ['model_type' => 'detail', 'model_name' => 'CustomerItem', 'relation_column' => 'customer_id'],
+                ['model_type' => 'detail', 'model_name' => 'CustomerLocation', 'relation_column' => 'customer_id'],
             ];
 
             Helper::documentAmendment($revisionData, $customer->id);
@@ -945,6 +965,20 @@ class CustomerController extends Controller
             $customer->approvedItems()->delete();
         }
 
+        // Sync Customer Locations
+        $storeIds = isset($request->customer_store) && is_array($request->customer_store) ? $request->customer_store : [];
+
+        $locationSyncStatus = $customer->syncLocations($storeIds);
+
+        if (!$locationSyncStatus['status']) {
+            DB::rollBack();
+            return response()->json([
+                'status'  => false,
+                'message' => $locationSyncStatus['message'],
+                'error'   => '',
+            ], 422);
+        }
+
         DB::commit();
 
         return response()->json([
@@ -1098,7 +1132,7 @@ class CustomerController extends Controller
     public function exportSuccessfulCustomers()
     {
         $user = Helper::getAuthenticatedUser();
-        $uploadCustomers = UploadCustomerMaster::where('status', 'Success')->where('user_id', $user->id)->get();
+        $uploadCustomers = UploadCustomerMaster::where('status', 'Success')->where('user_id', $user->auth_user_id)->get();
         $customers = Customer::with(['category', 'subcategory', 'currency', 'paymentTerms'])
             ->whereIn('company_name', $uploadCustomers->pluck('company_name'))
             ->get();
@@ -1109,7 +1143,7 @@ class CustomerController extends Controller
     public function exportFailedCustomers()
     {
         $user = Helper::getAuthenticatedUser();
-        $failedCustomers = UploadCustomerMaster::where('status', 'Failed')->where('user_id', $user->id)->get();
+        $failedCustomers = UploadCustomerMaster::where('status', 'Failed')->where('user_id', $user->auth_user_id)->get();
         return Excel::download(new FailedCustomersExport($failedCustomers), "failed-customers.xlsx");
     }
 

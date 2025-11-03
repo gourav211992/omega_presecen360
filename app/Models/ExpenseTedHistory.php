@@ -17,6 +17,8 @@ class ExpenseTedHistory extends Model
         'detail_id', 
         'detail_history_id', 
         'expense_ted_id',
+        'po_id',
+        'jo_id',
         'ted_id', 
         'ted_type', 
         'ted_level', 

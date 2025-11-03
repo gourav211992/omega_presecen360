@@ -2,10 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\FileUploadTrait;
 
 class ErpRepMedia extends Model
 {
+    use HasFactory,FileUploadTrait;
+    
     protected $table = 'erp_rep_media';
 
     protected $fillable = [

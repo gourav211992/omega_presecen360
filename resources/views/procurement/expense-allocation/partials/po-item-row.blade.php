@@ -57,18 +57,13 @@
         <td>
             <input type="hidden" name="components[po][{{ $rowCount }}][currency_id]"
                 value="{{ $item?->po?->currency_id }}">
-            <input type="text" class="form-control mw-100 currency_code"
-                value="{{ $item?->po?->currency?->short_name ?? '' }}"
-                name="components[po][{{ $rowCount }}][currency_code]" readonly />
-        </td>
-        <td>
             <input type="hidden" name="components[po][{{ $rowCount }}][org_currency_id]"
                 value="{{ $currency?->id }}">
             <input type="hidden" name="components[po][{{ $rowCount }}][exchange_rate]"
-                value="{{ $exchangeRate }}">    
-            <input type="text" class="form-control mw-100 org_currency_code"
-                value="{{ $currency?->short_name ?? '' }}"
-                name="components[po][{{ $rowCount }}][org_currency_code]" readonly />
+                value="{{ $exchangeRate }}">
+            <input type="text" class="form-control mw-100 currency_code"
+                value="{{ $item?->po?->currency?->short_name ?? '' }}"
+                name="components[po][{{ $rowCount }}][currency_code]" readonly />
         </td>
         <td>
             <input type="number" class="form-control mw-100 po_qty text-end checkNegativeVal expense-qty"
@@ -80,14 +75,14 @@
                 readonly class="form-control po_rate mw-100 text-end" step="any" />
         </td>
         <td>
-            <input type="number" id="old_amt_po_{{ $rowCount }}"
-                name="components[po][{{ $rowCount }}][old_amt_po]" value="{{ $poValue }}" readonly
-                class="form-control mw-100 text-end" step="any" />
-        </td>
-        <td>
             <input type="number" id="po_value_{{ $rowCount }}"
                 name="components[po][{{ $rowCount }}][po_value]" value="{{ $totalValue }}" readonly
                 class="form-control mw-100 text-end po_value expense-amount" step="any" />
+        </td>
+        <td>
+            <input type="number" id="old_amt_po_{{ $rowCount }}"
+                name="components[po][{{ $rowCount }}][old_amt_po]" value="{{ $poValue }}" readonly
+                class="form-control mw-100 text-end" step="any" />
         </td>
         <td>
             <select class="form-select mw-100 alloc-type" name="components[po][{{ $rowCount }}][dist_type]">

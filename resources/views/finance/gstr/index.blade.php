@@ -32,8 +32,7 @@
                                                         href="{{ url('finance/gstr/json') }}{{ Request::getQueryString() ? '?' . Request::getQueryString() : '' }}">Export
                                                         to
                                                         json</a></li>
-                                                <li><a class="dropdown-item" href="#" data-bs-toggle="modal"
-                                                        data-bs-target="#exportJsonModal">Export to csv</a></li>
+                                                        <li><a class="dropdown-item export-csv" href="#">Export to Excel</a></li>
                                             </ul>
                                         </div>
                                         <a href="{{ route('finance.gstr.gstr-3b-pdf') }}{{ Request::getQueryString() ? '?' . Request::getQueryString() : '' }}" 
@@ -315,19 +314,13 @@
         }
     </script>
     <script>
-        document.getElementById('exportCsvForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-
-            const type = document.getElementById('csvType').value;
-            const query = this.dataset.query;
-
-            if (type) {
-                let url = `{{ url('finance/gstr/detail/csv') }}/${type}`;
-                if (query) {
-                    url += `?${query}`;
-                }
-                window.location.href = url;
-            }
-        });
+        document.addEventListener('DOMContentLoaded', function() {
+    // Attach event listener to the Export to CSV link
+        document.querySelector('.export-csv').addEventListener('click', function(e) {
+        e.preventDefault();
+        let url = `{{ url('finance/gstr/detail/csv') }}/all`;
+        window.location.href = url;
+    });
+});
     </script>
 @endsection

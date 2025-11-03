@@ -240,9 +240,10 @@ class InventoryHelperV2
     // Update document status while update mrn
     private static function updateStockCost($stockLedger)
     {
+        $totalCost = ($stockLedger->total_cost ?? 0.00) + ($stockLedger->expense_amount ?? 0.00);
         // Convert base cost to different currency levels
         $orgCostPerUnit = $stockLedger->cost_per_unit * $stockLedger->org_currency_exg_rate;
-        $orgTotalCost = $stockLedger->total_cost * $stockLedger->org_currency_exg_rate;
+        $orgTotalCost = $totalCost * $stockLedger->org_currency_exg_rate;
 
         $compCostPerUnit = $orgCostPerUnit * $stockLedger->comp_currency_exg_rate;
         $compTotalCost = $orgTotalCost * $stockLedger->comp_currency_exg_rate;
@@ -697,6 +698,7 @@ class InventoryHelperV2
                     ->where('document_detail_id', $detail->grn_detail_id)
                     ->where('item_id', $detail->item_id)
                     ->where('store_id', $expense->store_id)
+                    ->whereNull('utilized_id')
                     ->where('transaction_type', 'receipt')
                     ->orderBy('original_receipt_date', 'ASC')
                     ->orderBy('document_date', 'ASC')
@@ -707,16 +709,16 @@ class InventoryHelperV2
                     $stockLedger->expense_amount = $additionalCost;
                     $stockLedger->save();
 
-                    // if ($additionalCost > 0) {
-                    //     $newTotalCost = (float) $stockLedger->total_cost + $additionalCost;
-                    //     $newCostPerUnit = $stockLedger->receipt_qty > 0
-                    //         ? round($newTotalCost / $stockLedger->receipt_qty, 6)
-                    //         : 0.0;
-                    //     $stockLedger->total_cost = round($newTotalCost, 2);
-                    //     $stockLedger->cost_per_unit = $newCostPerUnit;
-                    //     self::updateStockCost($stockLedger);
-                    //     $stockLedger->save();
-                    // }
+                    if ($additionalCost > 0) {
+                        $newTotalCost = (float) $stockLedger->total_cost + $additionalCost;
+                        $newCostPerUnit = $stockLedger->receipt_qty > 0
+                            ? round($newTotalCost / $stockLedger->receipt_qty, 6)
+                            : 0.0;
+                        // $stockLedger->total_cost = round($newTotalCost, 2);
+                        $stockLedger->cost_per_unit = $newCostPerUnit;
+                        self::updateStockCost($stockLedger);
+                        $stockLedger->save();
+                    }
                 }
             }
             // You would typically interact with your models to save the expense data
@@ -724,6 +726,61 @@ class InventoryHelperV2
         } catch (\Exception $e) {
             return self::errorResponse("Error in saveMrnExpenses: " . $e->getMessage());
         }
+    }
+
+    // Check/Update Stock For MRN Delete
+    public static function checkMrnExpenseForDelete($documentDetail, $isDelete)
+    {
+        if (!$documentDetail['document_detail_id']) {
+            return self::errorResponse(
+                "Document detail can not be null."
+            );
+        }
+        if (!$documentDetail['item_id']) {
+            return self::errorResponse(
+                "Item can not be null."
+            );
+        }
+        if (!$documentDetail['store_id']) {
+            return self::errorResponse(
+                "Location can not be null."
+            );
+        }
+        $documentDetail['is_delete'] = 1;
+        $stockLedger = StockLedger::withDefaultGroupCompanyOrg()
+            ->where('document_header_id', $documentDetail['document_header_id'])
+            ->where('document_detail_id', $documentDetail['document_detail_id'])
+            ->where('item_id', $documentDetail['item_id'])
+            ->where('store_id', $documentDetail['store_id'])
+            ->whereNull('utilized_id')
+            ->whereNotNull('expense_amount')
+            ->where('transaction_type', 'receipt')
+            ->orderBy('original_receipt_date', 'ASC')
+            ->orderBy('document_date', 'ASC')
+            ->orderBy('id', 'ASC')
+            ->get();
+
+        if ($stockLedger->isEmpty()) {
+            return self::errorResponse(
+                "You cannot delete this {$documentDetail['document_type']} because expense not found."
+            );
+        }
+        foreach ($stockLedger as $stock) {
+            $stock->expense_amount = 0.00;
+            $stock->save();
+            $newTotalCost = (float) $stock->total_cost - (float) $stock->expense_amount;
+            $newCostPerUnit = $stock->receipt_qty > 0
+                ? round($newTotalCost / $stock->receipt_qty, 6)
+                : 0.0;
+            // $stock->total_cost = round($newTotalCost, 2);
+            $stock->cost_per_unit = $newCostPerUnit;
+            self::updateStockCost($stock);
+            $stock->save();
+        }
+        return self::successResponse("Stock expense deleted successfully", [
+            'stockLedger' => $documentDetail,
+            'isDelete' => $isDelete ? 1 : 0,
+        ]);
     }
 
     public static function getDnoteStockCostRateForReturn(int $detailId)

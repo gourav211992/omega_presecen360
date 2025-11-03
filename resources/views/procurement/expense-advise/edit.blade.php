@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('content')
-    <form id="expenseEditForm" data-module="exp" class="ajax-input-form" method="POST" action="{{ route('expense-adv.update', $mrn->id) }}"
-        data-redirect="/expense-advice" enctype="multipart/form-data">
+    <form id="expenseEditForm" data-module="exp" class="ajax-input-form" method="POST"
+        action="{{ route('expense-adv.update', $mrn->id) }}" data-redirect="/expense-advice" enctype="multipart/form-data">
         @csrf
         <input type="hidden" name="tax_required" id="tax_required" value="">
         <div class="app-content content ">
@@ -32,88 +32,124 @@
                                     class="btn btn-secondary btn-sm mb-50 mb-sm-0">
                                     <i data-feather="arrow-left-circle"></i> Back
                                 </button>
-                                 @if(!intval(request('amendment') ?? 0) && $mrn->document_status != \App\Helpers\ConstantHelper::DRAFT && $mrn->document_status != \App\Helpers\ConstantHelper::SUBMITTED && $mrn->document_status != \App\Helpers\ConstantHelper::PARTIALLY_APPROVED)
-                                    <a href="{{ route('expense-adv.generate-pdf', $mrn->id) }}" target="_blank"
-                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer">
-                                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                                            <path
-                                                d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2">
-                                            </path>
-                                            <rect x="6" y="14" width="12" height="8"></rect>
-                                        </svg>
-                                        Print
-                                    </a>
-                                    @if ($buttons['post'])
-                                        <button id="postButton" onclick="onPostVoucherOpen();" type="button"
-                                            class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                @if ($mrn->document_status && $mrn->document_status != 'cancelled')
+                                    @if (
+                                        !intval(request('amendment') ?? 0) &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::DRAFT &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::SUBMITTED &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::PARTIALLY_APPROVED)
+                                        <a href="{{ route('expense-adv.generate-pdf', $mrn->id) }}" target="_blank"
+                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="feather feather-printer">
+                                                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                                <path
+                                                    d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2">
+                                                </path>
+                                                <rect x="6" y="14" width="12" height="8"></rect>
+                                            </svg>
+                                            Print
+                                        </a>
+                                        @if ($buttons['post'])
+                                            <button id="postButton" onclick="onPostVoucherOpen();" type="button"
+                                                class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                                    xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    class="feather feather-check-circle">
+                                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                                </svg> Post</button>
+                                        @endif
+                                    @endif
+                                    @if ($buttons['draft'])
+                                        <button type="submit"
+                                            class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button"
+                                            name="action" value="draft">
+                                            <i data-feather='save'></i> Save as Draft
+                                        </button>
+                                    @endif
+                                    @if ($buttons['submit'])
+                                        <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
+                                            value="submitted">
+                                            <i data-feather="check-circle"></i> Submit
+                                        </button>
+                                    @endif
+                                    @if ($mrn->document_status == 'draft' || $mrn->document_status == 'rejected')
+                                        @if ($buttons['cancel'])
+                                            @php $cancelButtonSet = true; @endphp
+                                            <button type="button" onclick="cancelDocument('');"
+                                                class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                                <i data-feather='delete'></i>
+                                                Cancel
+                                            </button>
+                                        @endif
+                                    @endif
+                                    @if ($buttons['voucher'])
+                                        <button type="button" onclick="onPostVoucherOpen('posted');"
+                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
                                                 xmlns="http://www.w3.org/2000/svg" width="14" height="14"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
-                                                class="feather feather-check-circle">
-                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                            </svg> Post</button>
+                                                class="feather feather-file-text">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                                <polyline points="14 2 14 8 20 8"></polyline>
+                                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                                <line x1="16" y1="17" x2="8" y2="17">
+                                                </line>
+                                                <polyline points="10 9 9 9 8 9"></polyline>
+                                            </svg> Voucher</button>
                                     @endif
-                                @endif
-                                @if ($buttons['draft'])
-                                    <button type="submit"
-                                        class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button" name="action"
-                                        value="draft">
-                                        <i data-feather='save'></i> Save as Draft
-                                    </button>
-                                @endif
-                                @if ($buttons['submit'])
-                                    <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
-                                        value="submitted">
-                                        <i data-feather="check-circle"></i> Submit
-                                    </button>
-                                @endif
-                                @if ($buttons['voucher'])
-                                    <button type="button" onclick="onPostVoucherOpen('posted');"
-                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
-                                            xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round"
-                                            class="feather feather-file-text">
-                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                            <polyline points="14 2 14 8 20 8"></polyline>
-                                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                                            <polyline points="10 9 9 9 8 9"></polyline>
-                                        </svg> Voucher</button>
-                                @endif
-                                @if ($buttons['approve'])
-                                    <button type="button" class="btn btn-primary btn-sm" id="approved-button"
-                                        name="action" value="approved"><i data-feather="check-circle"></i>
-                                        Approve</button>
-                                    <button type="button" id="reject-button"
-                                        class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
-                                            xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round"
-                                            class="feather feather-x-circle">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <line x1="15" y1="9" x2="9" y2="15"></line>
-                                            <line x1="9" y1="9" x2="15" y2="15"></line>
-                                        </svg> Reject</button>
-                                @endif
-                                @if ($buttons['amend'] && intval(request('amendment') ?? 0))
-                                    <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i
-                                            data-feather="check-circle"></i> Submit</button>
-                                @else
-                                    @if ($buttons['amend'])
-                                        <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
-                                            Amendment</button>
+                                    @if ($buttons['cancel'] && !isset($cancelButtonSet) && (isset($cancelAmendButtonSet) && $cancelAmendButtonSet))
+                                        <button type="button" onclick="cancelDocument('');"
+                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                            <i data-feather='delete'></i>
+                                            Cancel
+                                        </button>
                                     @endif
-                                @endif
-                                @if ($buttons['revoke'])
-                                    <button id = "revokeButton" type="button"
-                                        class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
-                                        Revoke</button>
+                                    @if ($buttons['approve'])
+                                        <button type="button" class="btn btn-primary btn-sm" id="approved-button"
+                                            name="action" value="approved"><i data-feather="check-circle"></i>
+                                            Approve</button>
+                                        <button type="button" id="reject-button"
+                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                                xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                class="feather feather-x-circle">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <line x1="15" y1="9" x2="9" y2="15">
+                                                </line>
+                                                <line x1="9" y1="9" x2="15" y2="15">
+                                                </line>
+                                            </svg> Reject</button>
+                                    @endif
+                                    @if ($buttons['amend'] && intval(request('amendment') ?? 0))
+                                        <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i
+                                                data-feather="check-circle"></i> Submit</button>
+                                    @else
+                                        @if ($buttons['amend'])
+                                            <button type="button" data-bs-toggle="modal"
+                                                data-bs-target="#amendmentconfirm"
+                                                class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
+                                                Amendment</button>
+                                        @endif
+                                        @if ($buttons['cancel'] && !isset($cancelButtonSet) && !isset($cancelAmendButtonSet))
+                                            @php $cancelAmendButtonSet = true; @endphp
+                                            <button type="button" onclick="cancelDocument('');"
+                                                class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                                <i data-feather='delete'></i>
+                                                Cancel
+                                            </button>
+                                        @endif
+                                    @endif
+                                    @if ($buttons['revoke'])
+                                        <button id = "revokeButton" type="button"
+                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
+                                            Revoke</button>
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -204,11 +240,13 @@
                                                             </label>
                                                         </div>
                                                         <div class="col-md-5 action-button">
-                                                            <button type="button" class="btn btn-outline-primary btn-sm mb-0 poSelect">
+                                                            <button type="button"
+                                                                class="btn btn-outline-primary btn-sm mb-0 poSelect">
                                                                 <i data-feather="plus-square"></i>
                                                                 Outstanding PO
                                                             </button>
-                                                            <button type="button" class="btn btn-outline-primary btn-sm mb-0 joSelect">
+                                                            <button type="button"
+                                                                class="btn btn-outline-primary btn-sm mb-0 joSelect">
                                                                 <i data-feather="plus-square"></i>
                                                                 Outstanding JO
                                                             </button>
@@ -236,10 +274,10 @@
                                                 </div>
                                             </div>
                                             {{-- Approval History Section --}}
-                                                @include('partials.approval-history', [
-                                                    'document_status' => $mrn->document_status,
-                                                    'revision_number' => $revision_number,
-                                                ])
+                                            @include('partials.approval-history', [
+                                                'document_status' => $mrn->document_status,
+                                                'revision_number' => $revision_number,
+                                            ])
                                         </div>
                                     </div>
                                     <div class="row">
@@ -331,12 +369,12 @@
                                                                             </a>
                                                                         </label>
                                                                         <div class="mrnaddedd-prim billing_detail">
-                                                                        @if($mrn->latestBillingAddress())
-                                                                            {{$mrn->latestBillingAddress()->display_address}}
-                                                                        @else
-                                                                            {{$mrn->bill_address?->display_address}}
-                                                                        @endif
-                                                                    </div>
+                                                                            @if ($mrn->latestBillingAddress())
+                                                                                {{ $mrn->latestBillingAddress()->display_address }}
+                                                                            @else
+                                                                                {{ $mrn->bill_address?->display_address }}
+                                                                            @endif
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -357,7 +395,7 @@
                                                                             </a>
                                                                         </label>
                                                                         <div class="mrnaddedd-prim org_address">
-                                                                        {{ $deliveryAddress }}</div>
+                                                                            {{ $deliveryAddress }}</div>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -393,6 +431,7 @@
                                                             <div class="mb-1">
                                                                 <label class="form-label">
                                                                     Supplier Invoice No.
+                                                                    <span class="text-danger">*</span>
                                                                 </label>
                                                                 <input type="text" name="supplier_invoice_no"
                                                                     value="{{ @$mrn->supplier_invoice_no }}"
@@ -404,12 +443,19 @@
                                                             <div class="mb-1">
                                                                 <label class="form-label">
                                                                     Supplier Invoice Date
-                                                                    <!-- <span class="text-danger">*</span> -->
+                                                                    <span class="text-danger">*</span>
                                                                 </label>
-                                                                <input type="date" name="supplier_invoice_date"
-                                                                    value="{{ date('Y-m-d', strtotime($mrn->supplier_invoice_date)) }}"
-                                                                    class="form-control gate-entry" id="datepicker3"
-                                                                    placeholder="Enter Supplier Invoice Date">
+                                                                @if ($mrn->supplier_invoice_date)
+                                                                    <input type="date" name="supplier_invoice_date"
+                                                                        value="{{ date('Y-m-d', strtotime($mrn->supplier_invoice_date)) }}"
+                                                                        class="form-control gate-entry" id="datepicker3"
+                                                                        placeholder="Enter Supplier Invoice Date">
+                                                                @else
+                                                                <input type="text" name="supplier_invoice_date"
+                                                                    value=""
+                                                                    class="form-control"
+                                                                    placeholder="">
+                                                                @endif
                                                             </div>
                                                         </div>
                                                     </div>
@@ -489,7 +535,8 @@
                                                                     <td class="text-end" id="TotalEachRowAmount">
                                                                         {{ @$mrn->items->sum('net_value') }}
                                                                     </td>
-                                                                    <td class="text-end" id="TotalVarianceAmount">0.00</td>
+                                                                    <td class="text-end" id="TotalVarianceAmount">0.00
+                                                                    </td>
                                                                 </tr>
                                                                 <tr valign="top">
                                                                     <td colspan="7" rowspan="12">
@@ -523,19 +570,21 @@
                                                                                     <h6
                                                                                         class="text-dark mb-0 bg-light-primary py-1 px-50 d-flex justify-content-between">
                                                                                         <strong>Expense Summary</strong>
-                                                                                        <div class="addmendisexpbtn">
-                                                                                            <button type="button"
-                                                                                                class="btn p-25 btn-sm btn-outline-secondary summaryTaxBtn">{{-- <i data-feather="plus"></i> --}}
-                                                                                                Tax</button>
-                                                                                            <button type="button"
-                                                                                                class="btn p-25 btn-sm btn-outline-secondary summaryDisBtn"><i
-                                                                                                    data-feather="plus"></i>
-                                                                                                Discount</button>
-                                                                                            <button type="button"
-                                                                                                class="btn p-25 btn-sm btn-outline-secondary summaryExpBtn"><i
-                                                                                                    data-feather="plus"></i>
-                                                                                                Expenses</button>
-                                                                                        </div>
+                                                                                        @if ($mrn->document_status != 'cancelled')
+                                                                                            <div class="addmendisexpbtn">
+                                                                                                <button type="button"
+                                                                                                    class="btn p-25 btn-sm btn-outline-secondary summaryTaxBtn">{{-- <i data-feather="plus"></i> --}}
+                                                                                                    Tax</button>
+                                                                                                <button type="button"
+                                                                                                    class="btn p-25 btn-sm btn-outline-secondary summaryDisBtn"><i
+                                                                                                        data-feather="plus"></i>
+                                                                                                    Discount</button>
+                                                                                                <button type="button"
+                                                                                                    class="btn p-25 btn-sm btn-outline-secondary summaryExpBtn"><i
+                                                                                                        data-feather="plus"></i>
+                                                                                                    Expenses</button>
+                                                                                            </div>
+                                                                                        @endif
                                                                                     </h6>
                                                                                 </td>
                                                                             </tr>
@@ -668,6 +717,7 @@
             </div>
         </div>
         @include('procurement.expense-advise.partials.amendement-modal', ['id' => $mrn->id])
+        @include('procurement.expense-advise.partials.cancel-modal', ['id' => $mrn->id])
     </form>
 
     {{-- Attribute popup --}}
@@ -891,8 +941,8 @@
     {{-- Add Outstanding PO modal --}}
     @include('procurement.expense-advise.partials.outstanding-po-modal')
 
-    {{-- Add Outstanding JO modal--}}
-        @include('procurement.expense-advise.partials.outstanding-jo-modal')
+    {{-- Add Outstanding JO modal --}}
+    @include('procurement.expense-advise.partials.outstanding-jo-modal')
 
     {{-- Amendment Modal --}}
     <div class="modal fade text-start alertbackdropdisabled" id="amendmentconfirm" tabindex="-1"
@@ -909,6 +959,26 @@
                         this action cannot be undone.</p>
                     <button type="button" class="btn btn-secondary me-25" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" id="amendmentSubmit" class="btn btn-primary">Confirm</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Cancel Modal --}}
+    <div class="modal fade text-start alertbackdropdisabled" id="cancelconfirm" tabindex="-1"
+        aria-labelledby="myModalLabel1" aria-hidden="true" data-bs-backdrop="false">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header p-0 bg-transparent">
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body alertmsg text-center warning">
+                    <i data-feather='alert-circle'></i>
+                    <h2>Are you sure?</h2>
+                    <p>Are you sure you want to <strong>Cancel</strong> this <strong>Expense</strong>? After Cancel
+                        this action cannot be undone.</p>
+                    <button type="button" class="btn btn-secondary me-25" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="cancelSubmit" class="btn btn-primary">Confirm</button>
                 </div>
             </div>
         </div>
@@ -982,10 +1052,10 @@
 @section('scripts')
     <script type="text/javascript">
         var actionUrlTax = '{{ route('expense-adv.tax.calculation') }}';
-        var qtyChangeUrl = '{{ route("expense-adv.get.validate-quantity") }}';
+        var qtyChangeUrl = '{{ route('expense-adv.get.validate-quantity') }}';
         let taxCalUrl = '{{ route('tax.group.calculate') }}';
     </script>
-    <script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
+    <script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-attr-ui.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/expense-advise.js') }}"></script>
     <script type="text/javascript" src="{{ asset('app-assets/js/file-uploader.js') }}"></script>
@@ -996,20 +1066,17 @@
             currentProcessType = @json($mrn->reference_type);
 
             $("#reference_type_input").val(currentProcessType);
-            if(currentProcessType === null)
-            {
+            if (currentProcessType === null) {
                 $(".poSelect").show();
                 $(".joSelect").show();
                 $("#addNewItemBtn").show();
-            }
-            else{
+            } else {
                 if (currentProcessType === 'po') {
                     $(".poSelect").show();
                     $(".joSelect").hide();
                     $("#addNewItemBtn").hide();
 
-                }
-                else if (currentProcessType === 'jo') {
+                } else if (currentProcessType === 'jo') {
                     $(".joSelect").show();
                     $(".poSelect").hide();
                     $("#addNewItemBtn").hide();
@@ -1022,7 +1089,9 @@
             const ids = @json($detailsIds);
 
             if (['po', 'jo'].includes(currentProcessType)) {
-                localStorage.setItem(`selected${currentProcessType.charAt(0).toUpperCase() + currentProcessType.slice(1)}Ids`, JSON.stringify(ids));
+                localStorage.setItem(
+                    `selected${currentProcessType.charAt(0).toUpperCase() + currentProcessType.slice(1)}Ids`, JSON
+                    .stringify(ids));
             }
         };
         const selectedCostCenterId = "{{ $mrn->cost_center_id ?? '' }}";
@@ -1040,7 +1109,8 @@
         @else
             @if ($mrn->document_status != 'draft' && $mrn->document_status != 'rejected')
                 $(':input').prop('readonly', true);
-                $('textarea[name="amend_remark"], input[type="file"][name="amend_attachment[]"]').prop('readonly', false)
+                $('textarea[name="amend_remark"], textarea[name="cancel_remarks"], input[type="file"][name="amend_attachment[]"]')
+                    .prop('readonly', false)
                     .prop('disabled', false);
                 $('select').not('.amendmentselect select').prop('disabled', true);
                 $("#deleteBtn").remove();
@@ -1055,7 +1125,7 @@
                 $(document).on('show.bs.modal', function(e) {
                     if (e.target.id != 'approveModal') {
                         if (e.target.id != 'shortCloseModal') {
-                            $(e.target).find('.modal-footer').remove();
+                            $(e.target).find('.modal-footer').not('.cancel-modal-footer').remove();
                         }
                         $('select').not('.amendmentselect select').prop('disabled', true);
                     }
@@ -1581,7 +1651,7 @@
             };
 
             let selectedAttr = [];
-            $(currentTr).find("[name*='[attr_name]']").each(function () {
+            $(currentTr).find("[name*='[attr_name]']").each(function() {
                 const val = $(this).val();
                 if (val) selectedAttr.push(val);
             });
@@ -1981,6 +2051,88 @@
             }
         });
 
+        /* Open Cancel popup */
+        function cancelDocument(type = 'normal') {
+            const $modal = $('#cancelModal');
+            // write the hidden field (overwrite, not append)
+            $('#cancellation_value').val(type).trigger('change');
+
+            // show the modal (BS5-safe)
+            if (window.bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance($modal[0]).show();
+            } else {
+                $modal.modal('show');
+            }
+        }
+
+        /* cancel btn submit */
+        $(document).on('click', '.cancelBtnSubmit', function(e) {
+            e.preventDefault();
+
+            const $modal = $('#cancelModal');
+
+            const remark = $modal.find('[name="cancel_remarks"]').val()?.trim();
+            const type = $('#cancellation_value').val(); // read by id
+            const docId = $('input[name="id"]').val() || ''; // or set explicitly
+            var arr = @json($expenseItemIds);
+            console.log(arr);
+
+            let itemIds = JSON.stringify(arr || []); // or set explicitly
+            // validation
+            if (!remark) {
+                // NOTE: your markup uses id="amendRemarkError"
+                $('#amendRemarkError').removeClass('d-none');
+                return;
+            } else {
+                $('#amendRemarkError').addClass('d-none');
+            }
+
+            // hide modal
+            if (window.bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
+            } else {
+                $modal.modal('hide');
+            }
+
+            const apiURL = "{{ route('expense-adv.cancel') }}";
+
+            $.ajax({
+                url: apiURL,
+                type: "POST",
+                dataType: "json",
+                contentType: "application/json",
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
+                },
+                data: JSON.stringify({
+                    id: docId,
+                    cancel_remarks: remark,
+                    cancel_type: type,
+                    deletedMrnItemIds: itemIds // <-- comes from #cancellation_value
+                }),
+                success: function(data) {
+                    const ok = data?.data?.status ?? data?.status ?? false;
+                    const msg = data?.data?.message ?? data?.message ?? 'Done.';
+                    Swal.fire({
+                            title: ok ? 'Success!' : 'Error!',
+                            text: msg,
+                            icon: ok ? 'success' : 'error'
+                        })
+                        .then(() => {
+                            if (ok) location.reload();
+                        });
+                },
+                error: function() {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'Some internal error occurred',
+                        icon: 'error'
+                    });
+                }
+            });
+        });
+
+
         // GL Posting
         function resetPostVoucher() {
             document.getElementById('voucher_doc_no').value = '';
@@ -2287,7 +2439,7 @@
             $("#reference_type_input").val('po');
             tableRowCount = $('.mrntableselectexcel tr').length;
             $("#poModal").modal('show');
-            currentProcessType='po';
+            currentProcessType = 'po';
             openPurchaseRequest();
             const tableSelector = '#poModal .po-order-detail';
             if ($(tableSelector).length) {
@@ -2300,23 +2452,22 @@
             }
         });
 
-        function getSelectedPoTypes()
-        {
+        function getSelectedPoTypes() {
             let moduleTypes = [];
             $('.po_item_checkbox:checked').each(function() {
-                moduleTypes.push($(this).attr('data-module')); // Corrected: Get attribute value instead of setting it
+                moduleTypes.push($(this).attr(
+                    'data-module')); // Corrected: Get attribute value instead of setting it
             });
             return moduleTypes;
         }
 
-        function openPurchaseRequest()
-        {
-            initializeAutocompleteQt("vendor_code_input_qt", "vendor_id_qt_val", "vendor_list", "vendor_code", "company_name");
+        function openPurchaseRequest() {
+            initializeAutocompleteQt("vendor_code_input_qt", "vendor_id_qt_val", "vendor_list", "vendor_code",
+                "company_name");
             initializeAutocompleteQt("document_no_input_qt", "document_id_qt_val", "po_document_qt", "document_number", "");
         }
 
-        function initializeAutocompleteQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "")
-        {
+        function initializeAutocompleteQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "") {
             let modalType = '#poModal';
 
             $("#" + selector).autocomplete({
@@ -2328,9 +2479,9 @@
                         data: {
                             q: request.term,
                             type: typeVal,
-                            vendor_id : $("#vendor_id_qt_val").val(),
-                            header_book_id : $("#book_id").val(),
-                            store_id : $("#store_id_po").val() || '',
+                            vendor_id: $("#vendor_id_qt_val").val(),
+                            header_book_id: $("#book_id").val(),
+                            store_id: $("#store_id_po").val() || '',
                         },
                         success: function(data) {
                             response($.map(data, function(item) {
@@ -2359,7 +2510,7 @@
                         }
                     });
                 },
-                appendTo : modalType,
+                appendTo: modalType,
                 minLength: 0,
                 select: function(event, ui) {
                     var $input = $(this);
@@ -2406,40 +2557,38 @@
                 item_search = '',
                 selected_po_ids = '';
 
-            if(currentProcessType === 'po')
-            {
+            if (currentProcessType === 'po') {
                 let selectedPoIds = localStorage.getItem('selectedPoIds') ?? '[]';
                 selectedPoIds = JSON.parse(selectedPoIds);
                 selectedPoIds = encodeURIComponent(JSON.stringify(selectedPoIds));
                 document_date = $("[name ='document_date']").val() || '',
-                header_book_id = $("#book_id").val() || '',
-                series_id = $("#book_id_qt_val").val() || '',
-                document_number = $("#document_id_qt_val").val() || '',
-                asn_number = $("#asn_id_qt_val").val() || '',
-                item_id = $("#item_id_qt_val").val() || '',
-                vendor_id = $("#vendor_id_qt_val").val(),
-                store_id = $(".header_store_id").val() || '',
-                so_id = $("#po_so_qt_val").val() || '',
-                item_search = $("#item_name_search").length ? $("#item_name_search").val() : '',
-                selected_po_ids = selectedPoIds
+                    header_book_id = $("#book_id").val() || '',
+                    series_id = $("#book_id_qt_val").val() || '',
+                    document_number = $("#document_id_qt_val").val() || '',
+                    asn_number = $("#asn_id_qt_val").val() || '',
+                    item_id = $("#item_id_qt_val").val() || '',
+                    vendor_id = $("#vendor_id_qt_val").val(),
+                    store_id = $(".header_store_id").val() || '',
+                    so_id = $("#po_so_qt_val").val() || '',
+                    item_search = $("#item_name_search").length ? $("#item_name_search").val() : '',
+                    selected_po_ids = selectedPoIds
                 selected_po_ids = encodeURIComponent(selectedPoIds)
             }
-            if(currentProcessType === 'jo')
-            {
+            if (currentProcessType === 'jo') {
                 let selectedJoIds = localStorage.getItem('selectedJoIds') ?? '[]';
                 selectedJoIds = JSON.parse(selectedJoIds);
                 selectedJoIds = encodeURIComponent(JSON.stringify(selectedJoIds));
                 document_date = $("[name ='document_date']").val() || '',
-                header_book_id = $("#book_id").val() || '',
-                series_id = $("#book_id_qt_val").val() || '',
-                document_number = $("#document_id_qt_val").val() || '',
-                asn_number = $("#asn_id_qt_val").val() || '',
-                item_id = $("#item_id_qt_val").val() || '',
-                vendor_id = $("#vendor_id_qt_val").val(),
-                store_id = $(".header_store_id").val() || '',
-                so_id = $("#po_so_qt_val").val() || '',
-                item_search = $("#item_name_search").length ? $("#item_name_search").val() : '',
-                selected_jo_ids = selectedJoIds
+                    header_book_id = $("#book_id").val() || '',
+                    series_id = $("#book_id_qt_val").val() || '',
+                    document_number = $("#document_id_qt_val").val() || '',
+                    asn_number = $("#asn_id_qt_val").val() || '',
+                    item_id = $("#item_id_qt_val").val() || '',
+                    vendor_id = $("#vendor_id_qt_val").val(),
+                    store_id = $(".header_store_id").val() || '',
+                    so_id = $("#po_so_qt_val").val() || '',
+                    item_search = $("#item_name_search").length ? $("#item_name_search").val() : '',
+                    selected_jo_ids = selectedJoIds
                 selected_po_ids = encodeURIComponent(selectedJoIds)
             }
             return {
@@ -2460,40 +2609,120 @@
             };
         }
 
-        function getPurchaseOrders()
-        {
-            const ajaxUrl = '{{ route("expense-adv.get.po", ["type" => "edit"]) }}';
+        function getPurchaseOrders() {
+            const ajaxUrl = '{{ route('expense-adv.get.po', ['type' => 'edit']) }}';
             var columns = [];
-            columns = [
-                { data: 'id',visible: false, orderable: true, searchable: false},
-                { data: 'select_checkbox', name: 'select_checkbox', orderable: false, searchable: false},
-                { data: 'vendor', name: 'vendor', render: renderData, orderable: false, searchable: false},
-                { data: 'po_doc', name: 'po_doc', render: renderData, orderable: false, searchable: false },
-                { data: 'po_date', name: 'po_date', render: renderData, orderable: false, searchable: false },
-                { data: 'item_code', name: 'item_code', render: renderData, orderable: false, searchable: false },
-                { data: 'item_name', name: 'item_name', render: renderData, orderable: false, searchable: false },
-                { data: 'attributes', name: 'attributes', render: renderData, orderable: false, searchable: false },
-                { data: 'order_qty', name: 'order_qty', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+            columns = [{
+                    data: 'id',
+                    visible: false,
+                    orderable: true,
+                    searchable: false
+                },
+                {
+                    data: 'select_checkbox',
+                    name: 'select_checkbox',
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'vendor',
+                    name: 'vendor',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'po_doc',
+                    name: 'po_doc',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'po_date',
+                    name: 'po_date',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'item_code',
+                    name: 'item_code',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'item_name',
+                    name: 'item_name',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'attributes',
+                    name: 'attributes',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'order_qty',
+                    name: 'order_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
-                { data: 'inv_order_qty', name: 'inv_order_qty', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+                {
+                    data: 'inv_order_qty',
+                    name: 'inv_order_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
-                { data: 'expense_advise_qty', name: 'expense_advise_qty', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+                {
+                    data: 'expense_advise_qty',
+                    name: 'expense_advise_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
-                { data: 'balance_qty', name: 'balance_qty', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+                {
+                    data: 'balance_qty',
+                    name: 'balance_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
-                { data: 'rate', name: 'rate', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+                {
+                    data: 'rate',
+                    name: 'rate',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
-                { data: 'total_amount', name: 'total_amount', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+                {
+                    data: 'total_amount',
+                    name: 'total_amount',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
@@ -2724,8 +2953,7 @@
             }
         });
 
-        function getSelectedJoTypes()
-        {
+        function getSelectedJoTypes() {
             let moduleTypes = [];
             $('.jo_item_checkbox:checked').each(function() {
                 moduleTypes.push($(this).attr('data-module'));
@@ -2733,14 +2961,14 @@
             return moduleTypes;
         }
 
-        function openJobRequest()
-        {
-            initializeAutocompleteJoQt("jo_vendor_code_input_qt", "jo_vendor_id_qt_val", "vendor_list", "vendor_code", "company_name");
-            initializeAutocompleteJoQt("jo_document_no_input_qt", "jo_document_id_qt_val", "jo_document_qt", "document_number", "");
+        function openJobRequest() {
+            initializeAutocompleteJoQt("jo_vendor_code_input_qt", "jo_vendor_id_qt_val", "vendor_list", "vendor_code",
+                "company_name");
+            initializeAutocompleteJoQt("jo_document_no_input_qt", "jo_document_id_qt_val", "jo_document_qt",
+                "document_number", "");
         }
 
-        function initializeAutocompleteJoQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "")
-        {
+        function initializeAutocompleteJoQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "") {
             let modalType = '#joModal';
             $("#" + selector).autocomplete({
                 source: function(request, response) {
@@ -2751,9 +2979,9 @@
                         data: {
                             q: request.term,
                             type: typeVal,
-                            vendor_id : $("#vendor_id_qt_val").val(),
-                            header_book_id : $("#book_id").val(),
-                            store_id : $("#store_id_po").val() || '',
+                            vendor_id: $("#vendor_id_qt_val").val(),
+                            header_book_id: $("#book_id").val(),
+                            store_id: $("#store_id_po").val() || '',
                         },
                         success: function(data) {
                             response($.map(data, function(item) {
@@ -2782,7 +3010,7 @@
                         }
                     });
                 },
-                appendTo : modalType,
+                appendTo: modalType,
                 minLength: 0,
                 select: function(event, ui) {
                     var $input = $(this);
@@ -2816,40 +3044,120 @@
             return data ? data : '';
         }
 
-        function getJobOrders()
-        {
-            const ajaxUrl = '{{ route("expense-adv.get.jo", ["type" => "edit"]) }}';
+        function getJobOrders() {
+            const ajaxUrl = '{{ route('expense-adv.get.jo', ['type' => 'edit']) }}';
             var columns = [];
-            columns = [
-                { data: 'id',visible: false, orderable: true, searchable: false},
-                { data: 'select_checkbox', name: 'select_checkbox', orderable: false, searchable: false},
-                { data: 'vendor', name: 'vendor', render: renderData, orderable: false, searchable: false},
-                { data: 'jo_doc', name: 'jo_doc', render: renderData, orderable: false, searchable: false },
-                { data: 'jo_date', name: 'jo_date', render: renderData, orderable: false, searchable: false },
-                { data: 'item_code', name: 'item_code', render: renderData, orderable: false, searchable: false },
-                { data: 'item_name', name: 'item_name', render: renderData, orderable: false, searchable: false },
-                { data: 'attributes', name: 'attributes', render: renderData, orderable: false, searchable: false },
-                { data: 'order_qty', name: 'order_qty', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+            columns = [{
+                    data: 'id',
+                    visible: false,
+                    orderable: true,
+                    searchable: false
+                },
+                {
+                    data: 'select_checkbox',
+                    name: 'select_checkbox',
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'vendor',
+                    name: 'vendor',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'jo_doc',
+                    name: 'jo_doc',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'jo_date',
+                    name: 'jo_date',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'item_code',
+                    name: 'item_code',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'item_name',
+                    name: 'item_name',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'attributes',
+                    name: 'attributes',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false
+                },
+                {
+                    data: 'order_qty',
+                    name: 'order_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
-                { data: 'inv_order_qty', name: 'inv_order_qty', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+                {
+                    data: 'inv_order_qty',
+                    name: 'inv_order_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
-                { data: 'expense_advise_qty', name: 'expense_advise_qty', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+                {
+                    data: 'expense_advise_qty',
+                    name: 'expense_advise_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
-                { data: 'balance_qty', name: 'balance_qty', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+                {
+                    data: 'balance_qty',
+                    name: 'balance_qty',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
-                { data: 'rate', name: 'rate', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+                {
+                    data: 'rate',
+                    name: 'rate',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
-                { data: 'total_amount', name: 'total_amount', render: renderData, orderable: false, searchable: false, createdCell: function(td, cellData, rowData, row, col) {
+                {
+                    data: 'total_amount',
+                    name: 'total_amount',
+                    render: renderData,
+                    orderable: false,
+                    searchable: false,
+                    createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
                 },
@@ -2865,20 +3173,19 @@
         });
 
         /*Checkbox for po/jo item list*/
-        $(document).on('change','.jo-order-detail > thead .form-check-input',(e) => {
+        $(document).on('change', '.jo-order-detail > thead .form-check-input', (e) => {
             if (e.target.checked) {
-                $(".jo-order-detail > tbody .form-check-input").each(function(){
-                    $(this).prop('checked',true);
+                $(".jo-order-detail > tbody .form-check-input").each(function() {
+                    $(this).prop('checked', true);
                 });
             } else {
-                $(".jo-order-detail > tbody .form-check-input").each(function(){
-                    $(this).prop('checked',false);
+                $(".jo-order-detail > tbody .form-check-input").each(function() {
+                    $(this).prop('checked', false);
                 });
             }
         });
 
-        function getSelectedJoIDS()
-        {
+        function getSelectedJoIDS() {
             let ids = [];
             let asnIds = [];
             let asnItemIds = [];
@@ -2931,9 +3238,10 @@
                     minLength: 0,
                     source: function(request, response) {
                         let selectedAllItemIds = [];
-                        $("#itemTable tbody [id*='row_']").each(function(index,item) {
-                            if(Number($(item).find('[name*="[item_id]"]').val())) {
-                                selectedAllItemIds.push(Number($(item).find('[name*="[item_id]"]').val()));
+                        $("#itemTable tbody [id*='row_']").each(function(index, item) {
+                            if (Number($(item).find('[name*="[item_id]"]').val())) {
+                                selectedAllItemIds.push(Number($(item).find(
+                                    '[name*="[item_id]"]').val()));
                             }
                         });
                         $.ajax({
@@ -2942,8 +3250,8 @@
                             dataType: 'json',
                             data: {
                                 q: request.term,
-                                type:'service_item_list',
-                                selectedAllItemIds : JSON.stringify(selectedAllItemIds)
+                                type: 'service_item_list',
+                                selectedAllItemIds: JSON.stringify(selectedAllItemIds)
                             },
                             success: function(data) {
                                 response($.map(data, function(item) {
@@ -2952,18 +3260,19 @@
                                         label: `${item.item_name} (${item.item_code})`,
                                         code: item.item_code || '',
                                         item_id: item.id,
-                                        item_name:item.item_name,
-                                        uom_name:item.uom?.name,
-                                        uom_id:item.uom_id,
-                                        hsn_id:item.hsn?.id,
-                                        hsn_code:item.hsn?.code,
-                                        alternate_u_o_ms:item.alternate_u_o_ms,
-                                        is_attr:item.item_attributes_count,
+                                        item_name: item.item_name,
+                                        uom_name: item.uom?.name,
+                                        uom_id: item.uom_id,
+                                        hsn_id: item.hsn?.id,
+                                        hsn_code: item.hsn?.code,
+                                        alternate_u_o_ms: item.alternate_u_o_ms,
+                                        is_attr: item.item_attributes_count,
                                     };
                                 }));
                             },
                             error: function(xhr) {
-                                console.error('Error fetching customer data:', xhr.responseText);
+                                console.error('Error fetching customer data:', xhr
+                                    .responseText);
                             }
                         });
                     },
@@ -2988,19 +3297,21 @@
                         $input.closest('tr').find("td[id*='itemAttribute_']").html(defautAttrBtn);
                         $input.val(itemCode);
                         let uomOption = `<option value=${uomId}>${uomName}</option>`;
-                        if(ui.item?.alternate_u_o_ms) {
-                            for(let alterItem of ui.item.alternate_u_o_ms) {
-                            uomOption += `<option value="${alterItem.uom_id}" ${alterItem.is_purchasing ? 'selected' : ''}>${alterItem.uom?.name}</option>`;
+                        if (ui.item?.alternate_u_o_ms) {
+                            for (let alterItem of ui.item.alternate_u_o_ms) {
+                                uomOption +=
+                                    `<option value="${alterItem.uom_id}" ${alterItem.is_purchasing ? 'selected' : ''}>${alterItem.uom?.name}</option>`;
                             }
                         }
                         $input.closest('tr').find('[name*=uom_id]').append(uomOption);
                         $input.closest('tr').find("input[name*='attr_group_id']").remove();
                         setTimeout(() => {
-                            if(ui.item.is_attr) {
+                            if (ui.item.is_attr) {
                                 $input.closest('tr').find('.attributeBtn').trigger('click');
                             } else {
                                 $input.closest('tr').find('.attributeBtn').trigger('click');
-                                $input.closest('tr').find('[name*="[accepted_qty]"]').val('').focus();
+                                $input.closest('tr').find('[name*="[accepted_qty]"]').val('')
+                                    .focus();
                             }
                         }, 100);
                         getItemDetail($input.closest('tr'), currentProcessType);
@@ -3010,7 +3321,7 @@
                     change: function(event, ui) {
                         if (!ui.item) {
                             $(this).val("");
-                                // $('#itemId').val('');
+                            // $('#itemId').val('');
                             $(this).attr('data-name', '');
                             $(this).attr('data-code', '');
                         }
@@ -3025,7 +3336,7 @@
             let currencyId = $("select[name='currency_id']").val();
             let transactionDate = $("input[name='document_date']").val() || '';
             let groupItems = [];
-            $('tr[data-group-item]').each(function () {
+            $('tr[data-group-item]').each(function() {
                 let groupItemData = $(this).data('group-item');
                 groupItems.push(groupItemData);
             });
@@ -3045,9 +3356,9 @@
         function asnProcess(asnData, moduleProcess) {
             const current_row_count = $("tbody tr[id*='row_']").length;
             const processType = asnData.type;
-            let selectedIds = processType === 'jo'
-                ?  localStorage.getItem('selectedJoIds') ?? []
-                : localStorage.getItem('selectedPoIds') ?? [];
+            let selectedIds = processType === 'jo' ?
+                localStorage.getItem('selectedJoIds') ?? [] :
+                localStorage.getItem('selectedPoIds') ?? [];
 
             const ids = JSON.stringify(asnData.ids);
             const moduleTypes = JSON.stringify(asnData.module_type);
@@ -3057,20 +3368,20 @@
             const transactionDate = $("[name='document_date']").val();
             const type = $("meta[name='route-type']").attr("content"); // blade->meta
 
-            const baseRoute = processType === 'jo'
-                ? '{{ route("expense-adv.process.jo-item") }}'
-                : '{{ route("expense-adv.process.po-item") }}';
+            const baseRoute = processType === 'jo' ?
+                '{{ route('expense-adv.process.jo-item') }}' :
+                '{{ route('expense-adv.process.po-item') }}';
 
             const actionUrl = baseRoute
-                .replace(':type', type)
-                + '?ids=' + encodeURIComponent(ids)
-                + '&moduleTypes=' + moduleTypes
-                + '&tableRowCount=' + tableRowCount
-                + '&currency_id=' + encodeURIComponent(currencyId)
-                + '&d_date=' + encodeURIComponent(transactionDate)
-                + '&selected_po_ids=' + encodeURIComponent(selectedIds)
-                + '&type=' + 'create'
-                + '&current_row_count=' + current_row_count;
+                .replace(':type', type) +
+                '?ids=' + encodeURIComponent(ids) +
+                '&moduleTypes=' + moduleTypes +
+                '&tableRowCount=' + tableRowCount +
+                '&currency_id=' + encodeURIComponent(currencyId) +
+                '&d_date=' + encodeURIComponent(transactionDate) +
+                '&selected_po_ids=' + encodeURIComponent(selectedIds) +
+                '&type=' + 'create' +
+                '&current_row_count=' + current_row_count;
 
             fetch(actionUrl)
                 .then(res => res.json())
@@ -3110,16 +3421,25 @@
                         case 'po-process':
                             $(".poSelect").removeClass('d-none');
                             $(".joSelect").addClass('d-none');
+                            $(".summaryDisBtn").addClass('d-none');
+                            $("#add_new_item_dis").addClass('d-none');
+                            $("#add_new_head_exp").addClass('d-none');
                             $("#reference_type_input").val('po');
                             break;
                         case 'jo-process':
                             $(".joSelect").removeClass('d-none');
                             $(".poSelect").addClass('d-none');
+                            $(".summaryDisBtn").addClass('d-none');
+                            $("#add_new_item_dis").addClass('d-none');
+                            $("#add_new_head_exp").addClass('d-none');
                             $("#reference_type_input").val('jo');
                             break;
                         default:
                             $(".poSelect").addClass('d-none');
                             $(".joSelect").addClass('d-none');
+                            $(".summaryDisBtn").removeClass('d-none');
+                            $("#add_new_item_dis").removeClass('d-none');
+                            $("#add_new_head_exp").removeClass('d-none');
                             $("#reference_type_input").val('');
                             break;
                     }
@@ -3130,51 +3450,18 @@
                     $(".editAddressBtn").addClass('d-none');
 
                     // Supplier details
-                    $("[name='supplier_invoice_no'], [name='supplier_invoice_date'], [name='consignment_no'], [name='eway_bill_no'], [name='transporter_name'], [name='vehicle_no']").val('');
+                    $("[name='supplier_invoice_no'], [name='supplier_invoice_date'], [name='consignment_no'], [name='eway_bill_no'], [name='transporter_name'], [name='vehicle_no']")
+                        .val('');
 
                     // Expenses
                     const $expBody = $("#summaryExpTable tbody");
                     $expBody.find('.display_summary_exp_row').remove();
 
-                    if(finalDiscounts.length) {
+                    if (finalExpenses.length) {
                         let rows = '';
-                        finalDiscounts.forEach(function(item,index) {
+                        finalExpenses.forEach(function(item, index) {
                             index = index + 1;
-
-                            rows+= `<tr class="display_summary_discount_row">
-                                    <td>${index}</td>
-                                    <td>${item.ted_name}
-                                        <input type="hidden" value="${item.ted_id}" name="disc_summary[${index}][ted_d_id]">
-                                        <input type="hidden" value="" name="disc_summary[${index}][d_id]">
-                                        <input type="hidden" value="${item.ted_name}" name="disc_summary[${index}][d_name]">
-                                    </td>
-                                    <td class="text-end">${typeof item.ted_perc === "number" ? '0' : item.ted_perc}
-                                        <input type="hidden" value="${typeof item.ted_perc === "number" ? '0' : item.ted_perc}" name="disc_summary[${index}][d_perc]">
-                                        <input type="hidden" value="${item.ted_perc}" name="disc_summary[${index}][hidden_d_perc]">
-                                    </td>
-                                    <td class="text-end">
-                                    <input type="hidden" value="" name="disc_summary[${index}][d_amnt]">
-                                    </td>
-                                    <td>
-                                        <a href="javascript:;" class="text-danger deleteSummaryDiscountRow">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-trash-2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                                        </a>
-                                    </td>
-                                </tr>`
-                        });
-
-                        $("#summaryDiscountTable tbody").find('.display_summary_discount_row').remove();
-                        $("#summaryDiscountTable tbody").find('#disSummaryFooter').before(rows);
-                        $("#f_header_discount_hidden").removeClass('d-none');
-                    } else {
-                        $("#f_header_discount_hidden").addClass('d-none');
-                    }
-
-                    if(finalExpenses.length) {
-                        let rows = '';
-                        finalExpenses.forEach(function(item,index) {
-                            index = index + 1;
-                            rows+=`<tr class="display_summary_exp_row">
+                            rows += `<tr class="display_summary_exp_row">
                                     <td>${index}</td>
                                     <td class="text-right">
                                         ${item.ted_name}
@@ -3226,7 +3513,7 @@
                         $("#new_exp_perc").val("").prop("readonly", false);
                         $("#new_exp_value").val("").prop("readonly", false);
                         let total_head_exp = 0;
-                        $("[name*='[total]']").each(function (index, item) {
+                        $("[name*='[total]']").each(function(index, item) {
                             total_head_exp += Number($(item).val());
                         });
 
@@ -3241,20 +3528,21 @@
                         });
                     }, 3000);
                 })
-                // .catch(() => {
-                //     Swal.fire({
-                //         title: 'Error!',
-                //         text: 'An unexpected error occurred while processing ASN.',
-                //         icon: 'error'
-                //     });
-                // });
+            // .catch(() => {
+            //     Swal.fire({
+            //         title: 'Error!',
+            //         text: 'An unexpected error occurred while processing ASN.',
+            //         icon: 'error'
+            //     });
+            // });
         }
 
         function handleAsnError(message = 'Invalid data') {
             $(".editAddressBtn").removeClass('d-none');
             $("#vendor_name").val('').prop('readonly', false);
             $("#vendor_id, #vendor_code, #hidden_state_id, #hidden_country_id").val('');
-            $("select[name='currency_id'], select[name='payment_term_id']").prop('readonly', false).html('<option value="">Select</option>');
+            $("select[name='currency_id'], select[name='payment_term_id']").prop('readonly', false).html(
+                '<option value="">Select</option>');
             $(".shipping_detail, .billing_detail").text('-');
             $("#reference_from").removeClass('d-none');
             $('.asn_process').prop('disabled', false);

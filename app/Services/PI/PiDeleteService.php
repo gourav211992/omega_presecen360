@@ -3,6 +3,7 @@
 namespace App\Services\pi;
 
 use App\Models\PiItem;
+use App\Helpers\Helper;
 use App\Models\PiPoMapping;
 use App\Models\PiSoMapping;
 use App\Helpers\ConstantHelper;
@@ -46,6 +47,65 @@ class PiDeleteService
             return SELF::errorResponse("Error deleting PI header: " . $e->getMessage());
         }
         return SELF::successResponse("PI header and dependencies deleted successfully.");
+    }
+
+    /**
+     * Cancel entire purchase indent header with dependencies
+     */
+    public function cancelPiHeader($pi, $remark = '')
+    {
+        if (empty($pi)) {
+            return SELF::errorResponse("No PI header found to delete.");
+        }
+
+        try {
+
+            $revisionData = [
+                ['model_type' => 'header', 'model_name' => 'PurchaseIndent', 'relation_column' => ''],
+                ['model_type' => 'detail', 'model_name' => 'PiItem', 'relation_column' => 'pi_id'],
+                ['model_type' => 'sub_detail', 'model_name' => 'PiItemAttribute', 'relation_column' => 'pi_item_id']
+            ];
+
+            if (!Helper::documentAmendment($revisionData, $pi->id)) {
+                DB::rollBack();
+                return SELF::errorResponse("Error occured during document revision.");
+            }
+
+            foreach ($pi->pi_items as $item) {
+                $check = SELF::preValidatePiItemDependencies($item);
+                if ($check !== true) {
+                    return SELF::successResponse($check['message']);
+                }
+            }
+
+            foreach ($pi->pi_items as $item) {
+                SELF::deleteSinglePiItem($item);
+            }
+
+            $pi->dynamic_fields()->delete();
+            $pi->media()->each(fn($m) => Storage::delete($m->file_name));
+            $pi->media()->delete();
+            $pi->clearExistingDocuments('pi');
+
+            $bookId = $pi->book_id;
+            $docId = $pi->document_id ?? $pi->id;
+            $revision = (int) $pi->revision_number + 1;
+            $currentLevel = (int) $pi->approval_level;
+
+            if (class_exists(Helper::class) && method_exists(Helper::class, 'approveDocument')) {
+                Helper::approveDocument($bookId, $docId, $revision, $remark, [], $currentLevel, 'cancel', $pi->total_amount, get_class($pi));
+            }
+
+            $pi->revision_number = $revision;
+            $pi->revision_date = now();
+            $pi->remarks = $remark;
+            $pi->document_status = ConstantHelper::CANCELLED;
+            $pi->save();
+
+            return SELF::successResponse("Scrap header and all dependencies deleted successfully.");
+        } catch (\Exception $e) {
+            return SELF::errorResponse("Error deleting scrap header: " . $e->getMessage()  . " \n Trace:" . $e->getTraceAsString());
+        }
     }
 
     /**
@@ -137,6 +197,7 @@ class PiDeleteService
             });
         }
 
+        $piItem->piPwoMapping()->delete();
         $piItem->attributes()->delete();
         $piItem->delete();
     }

@@ -181,9 +181,9 @@ class UpdateService
 
                 // upsert by incoming exp_po_details.id in "detail_id"
                 /** @var PoDetail $poDetail */
-                if (!empty($row['detail_id'])) {
+                if (!empty($row['po_dtl_id'])) {
                     $poDetail = PoDetail::where('header_id', $expense->id)
-                        ->where('id', (int) $row['detail_id'])
+                        ->where('id', (int) $row['po_dtl_id'])
                         ->first();
                     if (!$poDetail)
                         $poDetail = new PoDetail;
@@ -257,9 +257,9 @@ class UpdateService
                 $item = $cacheItems[$row['item_id']];
 
                 /** @var GrnDetail $grnDetail */
-                if (!empty($row['detail_id'])) {
+                if (!empty($row['grn_dtl_id'])) {
                     $grnDetail = GrnDetail::where('header_id', $expense->id)
-                        ->where('id', (int) $row['detail_id'])
+                        ->where('id', (int) $row['grn_dtl_id'])
                         ->first();
                     if (!$grnDetail)
                         $grnDetail = new GrnDetail;

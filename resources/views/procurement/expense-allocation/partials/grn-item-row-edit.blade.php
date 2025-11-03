@@ -7,7 +7,8 @@
     <tr id="row_{{ $rowCount }}" data-index="{{ $rowCount }}" data-id="{{ $rowCount }}"
         class="row_{{ $rowCount }} grn_row_{{ $rowCount }} grn-row grn-tab {{ $rowCount < 2 ? 'trselected' : '' }}">
         <input type="hidden" name="components[grn][{{ $rowCount }}][header_id]" value="{{ $item->header_id }}">
-        <input type="hidden" name="components[grn][{{ $rowCount }}][detail_id]" value="{{ $item->id }}">
+        <input type="hidden" name="components[grn][{{ $rowCount }}][grn_dtl_id]" value="{{ $item->id }}"
+            id="grn_exp_alc_id" class="grn_exp_alc_id">
         <input type="hidden" name="components[grn][{{ $rowCount }}][grn_header_id]"
             value="{{ $item->grn_header_id }}">
         <input type="hidden" name="components[grn][{{ $rowCount }}][grn_detail_id]"
@@ -62,7 +63,7 @@
                 @foreach ($item->item->itemAttributes as $itemAttribute)
                     @if (count($selectedAttr))
                         @foreach ($itemAttribute->attributes() as $value)
-                            @if (in_array($value->id, $selectedAttr))
+                            @if (in_array((int) $value->id, $selectedAttr))
                                 <input type="hidden"
                                     name="components[grn][{{ $rowCount }}][attr_group_id][{{ $itemAttribute->attribute_group_id }}][attr_name]"
                                     value="{{ $value->id }}">
@@ -95,15 +96,10 @@
         <td>
             <input type="hidden" name="components[grn][{{ $rowCount }}][currency_id]"
                 value="{{ $item?->currency_id }}">
-            <input type="text" class="form-control mw-100 currency_code" value="{{ $item?->currency_code ?? '' }}"
-                name="components[grn][{{ $rowCount }}][currency_code]" readonly />
-        </td>
-        <td>
             <input type="hidden" name="components[grn][{{ $rowCount }}][org_currency_id]"
                 value="{{ $item?->org_currency_id }}">
-            <input type="text" class="form-control mw-100 org_currency_code"
-                value="{{ $item?->org_currency_code ?? '' }}"
-                name="components[grn][{{ $rowCount }}][org_currency_code]" readonly />
+            <input type="text" class="form-control mw-100 currency_code" value="{{ $item?->currency_code ?? '' }}"
+                name="components[grn][{{ $rowCount }}][currency_code]" readonly />
         </td>
         <td>
             <input type="number" class="form-control mw-100 accepted_qty text-end checkNegativeVal grn-qty"
@@ -111,14 +107,14 @@
                 step="any" />
         </td>
         <td>
-            <input type="number" id="old_grn_value_{{ $rowCount }}"
-                name="components[grn][{{ $rowCount }}][old_grn_value]" value="{{ $item->grn_value }}" readonly
-                class="form-control mw-100 text-end grn_item_value old-grn-value" step="any" />
-        </td>
-        <td>
             <input type="number" id="grn_value_{{ $rowCount }}"
                 name="components[grn][{{ $rowCount }}][grn_value]" value="{{ $item->value }}" readonly
                 class="form-control mw-100 text-end item_value grn-value" step="any" />
+        </td>
+        <td>
+            <input type="number" id="old_grn_value_{{ $rowCount }}"
+                name="components[grn][{{ $rowCount }}][old_grn_value]" value="{{ $item->grn_value }}" readonly
+                class="form-control mw-100 text-end grn_item_value old-grn-value" step="any" />
         </td>
         <td>
             <input type="number" id="grn_weight_{{ $rowCount }}"

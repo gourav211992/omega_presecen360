@@ -22,6 +22,8 @@ class ErpScrap extends Model
 {
     use HasFactory, DefaultGroupCompanyOrg, FileUploadTrait, DateFormatTrait, UserStampTrait, DynamicFieldsTrait, SoftDeletes;
 
+    protected $table = 'erp_scraps';
+
     protected $fillable = [
         'organization_id',
         'group_id',
@@ -58,38 +60,22 @@ class ErpScrap extends Model
         'created_by',
         'updated_by',
         'deleted_by',
+
+        'org_currency_id',
+        'org_currency_code',
+        'org_currency_exg_rate',
+        'comp_currency_id',
+        'comp_currency_code',
+        'comp_currency_exg_rate',
+        'group_currency_id',
+        'group_currency_code',
+        'group_currency_exg_rate',
     ];
 
     public $referencingRelationships = [
         "store" => "store_id",
         "subStore" => "sub_store_id",
     ];
-
-    public static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($model) {
-            $user = Helper::getAuthenticatedUser();
-            if ($user) {
-                $model->created_by = $user->auth_user_id;
-            }
-        });
-
-        static::updating(function ($model) {
-            $user = Helper::getAuthenticatedUser();
-            if ($user) {
-                $model->updated_by = $user->auth_user_id;
-            }
-        });
-
-        static::deleting(function ($model) {
-            $user = Helper::getAuthenticatedUser();
-            if ($user) {
-                $model->deleted_by = $user->auth_user_id;
-            }
-        });
-    }
 
     /* -------------------------
      | Accessors
@@ -121,6 +107,12 @@ class ErpScrap extends Model
     /* -------------------------
      | Relationships
      |-------------------------- */
+
+    public function source()
+    {
+        return $this->hasOne(ErpScrapHistory::class, 'source_id');
+    }
+
     public function items()
     {
         return $this->hasMany(ErpScrapItem::class, 'erp_scrap_id');
@@ -141,9 +133,27 @@ class ErpScrap extends Model
         return $this->belongsTo(ErpSubStore::class, 'sub_store_id');
     }
 
+    // public function pslipItems()
+    // {
+    //     return $this->hasMany(ErpPslipItem::class, 'erp_scrap_id');
+    // }
+
+    public function pslipMappings()
+    {
+        return $this->hasMany(ErpScrapPslipItemMapping::class, 'erp_scrap_id')->with('pslipItem');
+    }
+
+    // New relation via mapping table
     public function pslipItems()
     {
-        return $this->hasMany(ErpPslipItem::class, 'erp_scrap_id');
+        return $this->belongsToMany(
+            ErpPslipItem::class,
+            'erp_scrap_pslip_item_mappings',
+            'erp_scrap_id',
+            'erp_pslip_item_id',
+            'id',
+            'id'
+        );
     }
 
     public function roItems()

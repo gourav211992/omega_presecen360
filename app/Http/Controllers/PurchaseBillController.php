@@ -1,13 +1,13 @@
 <?php
 namespace App\Http\Controllers;
 
-use App\Exports\PurchaseBillExport;
 use DB;
 use PDF;
 use Auth;
 use View;
 use Session;
 use Yajra\DataTables\DataTables;
+use App\Exports\PurchaseBillExport;
 
 use Illuminate\Http\Request;
 use App\Http\Requests\PbRequest;
@@ -55,10 +55,12 @@ use App\Helpers\BookHelper;
 use App\Helpers\NumberHelper;
 use App\Helpers\ConstantHelper;
 use App\Helpers\CurrencyHelper;
-use App\Helpers\DynamicFieldHelper;
 use App\Helpers\InventoryHelper;
+use App\Helpers\DynamicFieldHelper;
+use App\Helpers\Common\OrganizationHelper;
 use App\Helpers\FinancialPostingHelper;
 use App\Helpers\ServiceParametersHelper;
+
 use App\Jobs\SendEmailJob;
 use App\Models\AuthUser;
 use App\Models\Category;
@@ -69,9 +71,12 @@ use App\Models\ErpPbPaymentTerm;
 use App\Models\ErpVendor;
 use App\Models\PaymentTermDetail;
 use App\Models\PRHeader;
+use App\Models\Voucher;
+use App\Services\Common\DocumentLockService;
 use App\Services\PBCheckAndUpdateService;
 use App\Services\PBDeleteService;
 use App\Services\PbService;
+use App\Services\VoucherService;
 use Carbon\Carbon;
 use DateTime;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -97,8 +102,8 @@ class PurchaseBillController extends Controller
         $orderType = ConstantHelper::PB_SERVICE_ALIAS;
         request()->merge(['type' => $orderType]);
         if (request()->ajax()) {
-            $user = Helper::getAuthenticatedUser();
-            $organization = Organization::where('id', $user->organization_id)->first();
+            $user = request()->user();
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             $records = PbHeader::with(
                 [
                     'items',
@@ -109,7 +114,8 @@ class PurchaseBillController extends Controller
                 ]
             )
                 ->withDraftListingLogic()
-                // ->bookViewAccess($parentUrl)
+                ->bookViewAccess($parentUrl)
+                ->selfCreatedDocuments($user)
                 ->latest();
             return DataTables::of($records)
                 ->addIndexColumn()
@@ -174,7 +180,7 @@ class PurchaseBillController extends Controller
                 ->addColumn('total_amount', function ($row) {
                     return number_format($row->total_amount, 2);
                 })
-                ->addColumn('created_by', function ($row){
+                ->addColumn('created_by', function ($row) {
                     return $row->createdBy?->name;
                 })
                 ->rawColumns(['document_status'])
@@ -190,7 +196,7 @@ class PurchaseBillController extends Controller
      */
     public function create(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
@@ -217,9 +223,9 @@ class PurchaseBillController extends Controller
     }
 
     # Purchase Bill store
-    public function store(PbRequest $request)
+    public function store(PbRequest $request, DocumentLockService $lockService)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         DB::beginTransaction();
         try {
@@ -229,8 +235,8 @@ class PurchaseBillController extends Controller
                 $parameters = json_decode(json_encode($response['data']['parameters']), true);
             }
 
-            $user = Helper::getAuthenticatedUser();
-            $organization = Organization::where('id', $user->organization_id)->first();
+            $user = request()->user();
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             $organizationId = $organization?->id ?? null;
             $groupId = $organization?->group_id ?? null;
             $companyId = $organization?->company_id ?? null;
@@ -359,8 +365,8 @@ class PurchaseBillController extends Controller
                 ]);
                 $shippingAddress->save();
             }
-            $tdsAssessableAmt = $pb -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
-            $oldNonTdsAccesableAmt = ($pb -> total_item_amount - $pb -> total_discount) - $tdsAssessableAmt;
+            $tdsAssessableAmt = $pb->header_tax()->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first()?->assesment_amount ?? 0;
+            $oldNonTdsAccesableAmt = ($pb->total_item_amount - $pb->total_discount) - $tdsAssessableAmt;
             # Store location address
             if ($pb?->erpStore) {
                 $storeAddress = $pb?->erpStore->address;
@@ -412,17 +418,6 @@ class PurchaseBillController extends Controller
                         $mrn_detail_id = $mrnDetail->id ?? null;
                         $mrnHeaderId = $component['mrn_header_id'];
                         if ($mrnDetail) {
-                            $inputQty = ($component['order_qty'] ?? $component['accepted_qty']);
-                            $balanceQty = ($mrnDetail->order_qty - ($poDetail->purchase_bill_qty ?? 0.00));
-                            if ($balanceQty < $inputQty) {
-                                \DB::rollBack();
-                                return response()->json([
-                                    'message' => 'Input qty can not be greater than balance qty.'
-                                ], 422);
-                            }
-
-                            $mrnDetail->purchase_bill_qty += floatval($component['accepted_qty']);
-                            $mrnDetail->save();
                             $so_id = $mrnDetail->so_id;
                         } else {
                             DB::rollBack();
@@ -627,6 +622,29 @@ class PurchaseBillController extends Controller
                             }
                         }
                     }
+
+                    $grnDetail = MrnDetail::find($component['mrn_detail_id']);
+                    $lockGeRow = self::lockReferenceDetail($grnDetail, 'grn', $organization);
+
+                    if ($grnDetail) {
+                        $inputQty = ($component['order_qty'] ?? $component['accepted_qty']);
+                        $balanceQty = ($grnDetail->order_qty - ($poDetail->purchase_bill_qty ?? 0.00));
+                        if ($balanceQty < $inputQty) {
+                            \DB::rollBack();
+                            return response()->json([
+                                'message' => 'Input qty can not be greater than balance qty.'
+                            ], 422);
+                        }
+
+                        $grnDetail->purchase_bill_qty += floatval($component['accepted_qty']);
+                        $grnDetail->save();
+                        $so_id = $grnDetail->so_id;
+                    } else {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => 'MRN Not Found'
+                        ], 422);
+                    }
                 }
 
                 /*Header level save discount*/
@@ -674,22 +692,32 @@ class PurchaseBillController extends Controller
                 }
 
                 // TDS Header Level Tax
-                $locationAddress = $pb -> store_address;
-                $billingAddress = $pb -> bill_address_details;
-                $vendor = Vendor::find($request -> vendor_id);
+                $locationAddress = $pb->store_address;
+                $billingAddress = $pb->bill_address_details;
+                $vendor = Vendor::find($request->vendor_id);
                 $totalTaxableValue = ($itemTotalValue - ($itemTotalHeaderDiscount + $itemTotalDiscount));
-                $tdsApplicability = TaxHelper::calculateHeaderTax($vendor, $locationAddress -> country_id, $billingAddress -> country_id, $user, 'purchase',
-                    ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $pb->document_date, $oldNonTdsAccesableAmt, $totalTaxableValue);
-                    if ($tdsApplicability['status'] == 'error') {
+                $tdsApplicability = TaxHelper::calculateHeaderTax(
+                    $vendor,
+                    $locationAddress->country_id,
+                    $billingAddress->country_id,
+                    $user,
+                    'purchase',
+                    ConstantHelper::TDS,
+                    ConstantHelper::TDS_SECTION_194Q,
+                    $pb->document_date,
+                    $oldNonTdsAccesableAmt,
+                    $totalTaxableValue
+                );
+                if ($tdsApplicability['status'] == 'error') {
                     DB::rollBack();
-                    return response() -> json([
+                    return response()->json([
                         'status' => 'error',
                         'message' => $tdsApplicability['message']
                     ], 422);
                 }
                 if ($tdsApplicability['data'] && isset($tdsApplicability['data']['id'])) {
                     $headerTdsRowData = [
-                        'header_id' => $pb -> id,
+                        'header_id' => $pb->id,
                         'detail_id' => null,
                         'ted_type' => 'Tax',
                         'ted_level' => 'H',
@@ -701,15 +729,15 @@ class PurchaseBillController extends Controller
                         'ted_amount' => $tdsApplicability['data']['tax_amount'],
                         'applicable_type' => $tdsApplicability['data']['applicability_type'],
                     ];
-                    if (isset($request -> pb_tds_id)) {
-                        $tdsTaxTed = PbTed::updateOrCreate(['id' => $request -> pb_tds_id], $headerTdsRowData);
+                    if (isset($request->pb_tds_id)) {
+                        $tdsTaxTed = PbTed::updateOrCreate(['id' => $request->pb_tds_id], $headerTdsRowData);
                     } else {
                         $tdsTaxTed = PbTed::create($headerTdsRowData);
                     }
-                    $totalTax -= $tdsTaxTed -> ted_amount;
+                    $totalTax -= $tdsTaxTed->ted_amount;
                 } else {
-                    PbTed::where('header_id', $pb -> id) -> where('ted_type', 'Tax')
-                        -> where('ted_level', 'H') -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> delete();
+                    PbTed::where('header_id', $pb->id)->where('ted_type', 'Tax')
+                        ->where('ted_level', 'H')->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->delete();
                 }
 
                 /*Update total in main header Pb*/
@@ -755,11 +783,10 @@ class PurchaseBillController extends Controller
             $pb->group_currency_code = $currencyExchangeData['data']['group_currency_code'];
             $pb->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
             $pb->save();
-            $pb -> refresh();
-            $currentTdsAssessableAmt = $pb -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
-            $currentNonTdsAssessableAmt = ($pb -> total_item_amount - $pb -> total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
+            $pb->refresh();
+            $currentTdsAssessableAmt = $pb->header_tax()->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first()?->assesment_amount ?? 0;
+            $currentNonTdsAssessableAmt = ($pb->total_item_amount - $pb->total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
             TaxHelper::buildTaxThresholdUtilization($pb, 'purchase', ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $currentNonTdsAssessableAmt);
-
 
             /*Create document submit log*/
             if ($request->document_status == ConstantHelper::SUBMITTED) {
@@ -780,7 +807,6 @@ class PurchaseBillController extends Controller
                         'message' => $approveDocument['message'],
                     ], 422);
                 }
-
             }
 
             $pb = PbHeader::find($pb->id);
@@ -808,7 +834,7 @@ class PurchaseBillController extends Controller
                             return response()->json([
                                 'status' => 'error',
                                 'message' => 'Unable to Post PB Document because reference MRN not posted.'
-                            ],422);
+                            ], 422);
                         }
                     }
                 }
@@ -831,6 +857,25 @@ class PurchaseBillController extends Controller
                 ], 422);
             }
 
+            $lockKey = \App\Helpers\GeneralHelper::generateLockKey($organization->id, $request->book_id, $document_number);
+            if (!$lockKey) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Invalid Argument passed in Lock Key Generator.',
+                    'line' => '',
+                    'error' => '',
+                ], 500);
+            }
+
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+            if (!$lockResult['success']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -849,7 +894,7 @@ class PurchaseBillController extends Controller
 
     public function show(string $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $pb = PbHeader::with(['vendor', 'currency', 'items', 'book', 'header_tax'])
             ->findOrFail($id);
@@ -881,7 +926,7 @@ class PurchaseBillController extends Controller
         }
         $serviceAlias = ConstantHelper::PB_SERVICE_ALIAS;
         $books = Helper::getBookSeriesNew($serviceAlias, $parentUrl)->get();
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $users = AuthUser::where('organization_id', Helper::getAuthenticatedUser()->organization_id)
             ->where('status', ConstantHelper::ACTIVE)
             ->get();
@@ -898,6 +943,7 @@ class PurchaseBillController extends Controller
             ->all();
 
         $totalItemValue = $pb->items()->sum('basic_value');
+        $itemIds = $pb->items() ? $pb->items()->pluck('id')->toArray() : [];
         $vendors = Vendor::where('status', ConstantHelper::ACTIVE)->get();
         $revision_number = $pb->revision_number;
         $userType = Helper::userCheck();
@@ -938,6 +984,7 @@ class PurchaseBillController extends Controller
             'user' => $user,
             'users' => $users,
             'books' => $books,
+            'itemIds' => $itemIds,
             'buttons' => $buttons,
             'vendors' => $vendors,
             'costCenters' => $costCenters,
@@ -956,9 +1003,9 @@ class PurchaseBillController extends Controller
     # Pb Update
     public function update(EditPbRequest $request, $id)
     {
+        $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $pb = PbHeader::find($id);
-        $user = Helper::getAuthenticatedUser();
-        $organization = Organization::where('id', $user->organization_id)->first();
         $organizationId = $organization?->id ?? null;
         $groupId = $organization?->group_id ?? null;
         $companyId = $organization?->company_id ?? null;
@@ -1060,8 +1107,8 @@ class PurchaseBillController extends Controller
                 $shippingAddress->save();
             }
 
-            $tdsAssessableAmt = $pb -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
-            $oldNonTdsAccesableAmt = ($pb -> total_item_amount - $pb -> total_discount) - $tdsAssessableAmt;
+            $tdsAssessableAmt = $pb->header_tax()->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first()?->assesment_amount ?? 0;
+            $oldNonTdsAccesableAmt = ($pb->total_item_amount - $pb->total_discount) - $tdsAssessableAmt;
 
             # Store location address
             if ($pb?->erpStore) {
@@ -1130,23 +1177,7 @@ class PurchaseBillController extends Controller
                     }
 
                     if (isset($component['mrn_detail_id']) && $component['mrn_detail_id']) {
-                        $mrnDetail = MrnDetail::find($component['mrn_detail_id'] ?? @$pbDetail->mrn_detail_id);
                         $mrn_detail_id = $mrnDetail->id ?? null;
-
-                        if (isset($mrnDetail) && $mrnDetail) {
-                            if (isset($mrnDetail->id) && $mrnDetail->id) {
-                                $orderQty = floatval(@$pbDetail->accepted_qty) ?? 0.00;
-                                $componentQty = floatval($component['accepted_qty'] ?? $component['order_qty']);
-                                $qtyDifference = $componentQty - $orderQty;
-                                if ($qtyDifference) {
-                                    $mrnDetail->purchase_bill_qty += $qtyDifference;
-                                }
-                            } else {
-                                // $poItem->order_qty += $component['qty'];
-                            }
-                            $mrnDetail->save();
-                        }
-                    } else {
                     }
                     $inventory_uom_id = null;
                     $inventory_uom_code = null;
@@ -1340,6 +1371,24 @@ class PurchaseBillController extends Controller
                             $ted->save();
                         }
                     }
+
+                    if (isset($component['mrn_detail_id']) && $component['mrn_detail_id']) {
+                        $grnDetail = MrnDetail::find($component['mrn_detail_id'] ?? @$pbDetail->mrn_detail_id);
+                        $lockGeRow = self::lockReferenceDetail($grnDetail, 'grn', $organization);
+                        if (isset($grnDetail) && $grnDetail) {
+                            if (isset($grnDetail->id) && $grnDetail->id) {
+                                $orderQty = floatval(@$pbDetail->accepted_qty) ?? 0.00;
+                                $componentQty = floatval($component['accepted_qty'] ?? $component['order_qty']);
+                                $qtyDifference = $componentQty - $orderQty;
+                                if ($qtyDifference) {
+                                    $grnDetail->purchase_bill_qty += $qtyDifference;
+                                }
+                            } else {
+                                // $poItem->order_qty += $component['qty'];
+                            }
+                            $grnDetail->save();
+                        }
+                    }
                 }
 
                 /*Header level save discount*/
@@ -1492,8 +1541,8 @@ class PurchaseBillController extends Controller
             $pb->save();
 
             $pb->refresh();
-            $currentTdsAssessableAmt = $pb -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
-            $currentNonTdsAssessableAmt = ($pb -> total_item_amount - $pb -> total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
+            $currentTdsAssessableAmt = $pb->header_tax()->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first()?->assesment_amount ?? 0;
+            $currentNonTdsAssessableAmt = ($pb->total_item_amount - $pb->total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
             TaxHelper::buildTaxThresholdUtilization($pb, 'purchase', ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $currentNonTdsAssessableAmt);
 
             /*Create document submit log*/
@@ -1559,7 +1608,7 @@ class PurchaseBillController extends Controller
                             return response()->json([
                                 'status' => 'error',
                                 'message' => 'Unable to Post PB Document because reference MRN not posted.'
-                            ],422);
+                            ], 422);
                         }
                     }
                 }
@@ -1600,7 +1649,7 @@ class PurchaseBillController extends Controller
 
     public function addItemRow(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $item = json_decode($request->item, true) ?? [];
 
         $componentItem = json_decode($request->component_item, true) ?? [];
@@ -1620,8 +1669,8 @@ class PurchaseBillController extends Controller
     // PO Item Rows
     public function mrnItemRows(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $item_ids = explode(',', $request->item_ids);
         $items = MrnDetail::whereIn('id', $item_ids)
             ->get();
@@ -1727,9 +1776,9 @@ class PurchaseBillController extends Controller
     # get tax calcualte
     public function taxCalculation(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $location = ErpStore::find($request->location_id ?? null);
-        $organization = $user->organization;
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $firstAddress = $location?->address ?? null;
         if (!$firstAddress) {
             $firstAddress = $organization?->addresses->first();
@@ -1775,7 +1824,7 @@ class PurchaseBillController extends Controller
     // Get Address
     public function getAddress(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $vendorId = $request?->id ?? null;
         $type = $request?->type ?? null;
         $typeId = $request?->typeId ?? null;
@@ -1837,7 +1886,7 @@ class PurchaseBillController extends Controller
         $store = ErpStore::find($storeId);
         $locationAddress = $store?->address;
 
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $organizationAddress = Address::with(['city', 'state', 'country'])
             ->where('addressable_id', $user->organization_id)
             ->where('addressable_type', Organization::class)
@@ -1859,74 +1908,6 @@ class PurchaseBillController extends Controller
                 'delivery_address' => $locationAddress,
             ]
         );
-    }
-
-    public function getAddress1(Request $request)
-    {
-        $vendor = Vendor::withDefaultGroupCompanyOrg()
-            ->with(['currency:id,name', 'paymentTerms:id,name'])->find($request->id);
-        $currency = $vendor->currency;
-        $paymentTerm = $vendor->paymentTerms;
-        $shipping = $vendor->addresses()->where(function ($query) {
-            $query->where('type', 'shipping')->orWhere('type', 'both');
-        })->latest()->first();
-        $billing = $vendor->addresses()->where(function ($query) {
-            $query->where('type', 'billing')->orWhere('type', 'both');
-        })->latest()->first();
-
-        $vendorId = $vendor->id;
-        $documentDate = $request->document_date;
-        $billingAddresses = ErpAddress::where('addressable_id', $vendorId)->where('addressable_type', Vendor::class)->whereIn('type', ['billing', 'both'])->get();
-        $shippingAddresses = ErpAddress::where('addressable_id', $vendorId)->where('addressable_type', Vendor::class)->whereIn('type', ['shipping', 'both'])->get();
-        foreach ($billingAddresses as $billingAddress) {
-            $billingAddress->value = $billingAddress->id;
-            $billingAddress->label = $billingAddress->display_address;
-        }
-        foreach ($shippingAddresses as $shippingAddress) {
-            $shippingAddress->value = $shippingAddress->id;
-            $shippingAddress->label = $shippingAddress->display_address;
-        }
-        if (count($shippingAddresses) == 0) {
-            return response()->json([
-                'data' => array(
-                    'error_message' => 'Shipping Address not found for ' . $vendor?->company_name
-                )
-            ]);
-        }
-        if (count($billingAddresses) == 0) {
-            return response()->json([
-                'data' => array(
-                    'error_message' => 'Billing Address not found for ' . $vendor?->company_name
-                )
-            ]);
-        }
-        if (!isset($vendor->currency_id)) {
-            return response()->json([
-                'data' => array(
-                    'error_message' => 'Currency not found for ' . $vendor?->company_name
-                )
-            ]);
-        }
-        if (!isset($vendor->payment_terms_id)) {
-            return response()->json([
-                'data' => array(
-                    'error_message' => 'Payment Terms not found for ' . $vendor?->company_name
-                )
-            ]);
-        }
-        $currencyData = CurrencyHelper::getCurrencyExchangeRates($vendor->currency_id ?? 0, $documentDate ?? '');
-        $storeId = $request->store_id ?? null;
-        $store = ErpStore::find($storeId);
-        $deliveryAddress = $store?->address?->display_address;
-
-        $user = Helper::getAuthenticatedUser();
-        $organization = Organization::where('id', $user->organization_id)->first();
-        $organizationAddress = Address::with(['city', 'state', 'country'])
-            ->where('addressable_id', $user->organization_id)
-            ->where('addressable_type', Organization::class)
-            ->first();
-        $orgAddress = $organizationAddress?->display_address;
-        return response()->json(['data' => ['org_address' => $orgAddress, 'delivery_address' => $deliveryAddress, 'vendor' => $vendor, 'shipping' => $shipping, 'billing' => $billing, 'paymentTerm' => $paymentTerm, 'currency' => $currency, 'currency_exchange' => $currencyData], 'status' => 200, 'message' => 'fetched']);
     }
 
     # Get edit address modal
@@ -2076,8 +2057,8 @@ class PurchaseBillController extends Controller
     public function getMrnItemsByVendorId(Request $request)
     {
         try {
-            $user = Helper::getAuthenticatedUser();
-            $organization = $user->organization;
+            $user = request()->user();
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             $vendor = Vendor::with(['currency:id,name', 'paymentTerms:id,name'])
                 // ->where('organization_id', $organization->id)
                 ->find($request->vendor_id);
@@ -2115,8 +2096,8 @@ class PurchaseBillController extends Controller
     public function getMrnItemsByMrnId(Request $request)
     {
         try {
-            $user = Helper::getAuthenticatedUser();
-            $organization = $user->organization;
+            $user = request()->user();
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             $items = MrnDetail::with([
                 'header',
                 'item',
@@ -2251,9 +2232,8 @@ class PurchaseBillController extends Controller
     // genrate pdf
     public function generatePdf(Request $request, $id)
     {
-        $user = Helper::getAuthenticatedUser();
-
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $organizationAddress = Address::with(['city', 'state', 'country'])
             ->where('addressable_id', $user->organization_id)
             ->where('addressable_type', Organization::class)
@@ -2335,7 +2315,7 @@ class PurchaseBillController extends Controller
         $vendorShippingCountryId = @$pb->shippingAddress->country_id;
         $vendorShippingStateId = @$pb->shippingAddress->state_id;
 
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $organization = $user->organization;
         $firstAddress = $organization->addresses->first();
         $companyCountryId = $firstAddress->country_id;
@@ -2633,27 +2613,6 @@ class PurchaseBillController extends Controller
                 }
             }
 
-            $randNo = rand(10000, 99999);
-
-            $revisionNumber = "PB" . $randNo;
-            $pbHeader->revision_number += 1;
-            // $pbHeader->document_status = "draft";
-            // $pbHeader->save();
-
-            /*Create document submit log*/
-            if ($pbHeader->document_status) {
-                $bookId = $pbHeader->series_id;
-                $docId = $pbHeader->id;
-                $remarks = $pbHeader->remarks;
-                $attachments = $request->file('attachment');
-                $currentLevel = $pbHeader->approval_level ?? 1;
-                $revisionNumber = $pbHeader->revision_number ?? 0;
-                $actionType = 'submit'; // Approve // reject // submit
-                $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
-                $pbHeader->document_status = $approveDocument['approvalStatus'];
-            }
-            $pbHeader->save();
-
             DB::commit();
             return response()->json([
                 'message' => 'Amendement done successfully!',
@@ -2880,7 +2839,7 @@ class PurchaseBillController extends Controller
     # Process Mrn Item
     public function processMrnItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $ids = json_decode($request->ids, true) ?? [];
         $vendor = null;
         $tableRowCount = $request->tableRowCount ?: 0;
@@ -2965,10 +2924,30 @@ class PurchaseBillController extends Controller
         );
     }
 
+    // Get Posting Details
     public function getPostingDetails(Request $request)
     {
         try {
             $data = FinancialPostingHelper::financeVoucherPosting($request->book_id ?? 0, $request->document_id ?? 0, "get");
+            return response()->json([
+                'status' => 'success',
+                'data' => $data
+            ]);
+        } catch (Exception $ex) {
+            return response()->json([
+                'status' => 'exception',
+                'message' => 'Some internal error occured',
+                'error' => $ex->getMessage()
+            ]);
+        }
+    }
+
+    // Get Posting History Details
+    public function getPostingHistoryDetails(Request $request)
+    {
+        try {
+            $history = PbHeaderHistory::find($request->document_id);
+            $data = VoucherService::financeVoucherPostingHistory($request->book_id ?? 0, $history->header_id ?? 0, $request->type ?? 'get');
             return response()->json([
                 'status' => 'success',
                 'data' => $data
@@ -3070,7 +3049,7 @@ class PurchaseBillController extends Controller
     // Purchase Bill Report
     public function Report()
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', null)->get();
         $sub_categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', '!=', null)->get();
         $items = Item::withDefaultGroupCompanyOrg()->get();
@@ -3097,7 +3076,7 @@ class PurchaseBillController extends Controller
 
     public function getReportFilter(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $period = $request->query('period');
         $startDate = $request->query('startDate');
         $endDate = $request->query('endDate');
@@ -3389,13 +3368,14 @@ class PurchaseBillController extends Controller
 
     public function purchaseBillReport(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $pathUrl = route('purchase-bill.index');
         $orderType = ConstantHelper::PB_SERVICE_ALIAS;
         $purchaseBills = PbHeader::withDefaultGroupCompanyOrg()
             // ->where('document_type', $orderType)
             // ->bookViewAccess($pathUrl)
             ->withDraftListingLogic()
+            ->selfCreatedDocuments($user)
             ->orderByDesc('id');
 
         // Vendor Filter
@@ -3631,6 +3611,185 @@ class PurchaseBillController extends Controller
             $pbPaymentTerm->due_date = $paymentTermDetail->trigger_type == ConstantHelper::POST_DELIVERY ? $creditDueDate : $dueDate;
             $pbPaymentTerm->save();
         }
+    }
+
+    // Cancel Document
+    public function cancel(Request $request)
+    {
+        $user = $request->user();
+        $referenceService = ConstantHelper::PB_SERVICE_ALIAS;
+        // Validate incoming AJAX JSON
+        $documentId = (int) $request->input('id'); // from AJAX
+        $actionType = $request->input('action_type', 'cancel');
+        $cancelType = $request->input('cancel_type', 'normal') ?? 'normal'; // normal|voucher
+        $cancelRemarks = $request->input('cancel_remarks', '');
+        $deletedMrnItemIds = json_decode($request->input('deletedMrnItemIds', []), true) ?? [];
+        \DB::beginTransaction();
+        try {
+            /** @var PBHeader|null $header */
+            $header = PbHeader::find($documentId);
+
+            if (!$header) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Document not found.'
+                ]);
+            }
+
+            // Submit Amendment (if your method returns ['status'=>'success|error','message'=>...])
+            if (method_exists($this, 'amendmentSubmit')) {
+                $amendment = $this->amendmentSubmit($request, $header->id);
+                if (is_array($amendment) && ($amendment['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $amendment['message'] ?? 'Amendment submission failed.'
+                    ]);
+                }
+            }
+
+            // Delete Voucher Details and create history if needed
+            if (class_exists(VoucherService::class)) {
+                $voucher = Voucher::with(['items'])
+                    ->where('reference_service', $referenceService)
+                    ->where('reference_doc_id', $documentId)
+                    ->first();
+                if ($voucher) {
+                    $payload = [
+                        'voucher_id' => $voucher->id,
+                        'reference_service' => $referenceService,
+                        'reference_doc_id' => $documentId,
+                        'cancel_remarks' => $cancelRemarks,
+                        'cancel_attachments' => $request->input('cancel_attachments', []),
+                    ];
+                    $voucherService = new VoucherService();
+                    $voucherResponse = $voucherService->cancelVoucher($user, $voucher, $payload);
+                    if (($voucherResponse['status'] ?? 'success') === 'error') {
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => false,
+                            'message' => $voucherResponse['message'] ?? 'Delete failed.'
+                        ]);
+                    }
+                }
+            }
+
+            // Optional: delete related records as per your existing flow
+            $keys = ['deletedMrnItemIds'];
+            $deletedData = [];
+            foreach ($keys as $key) {
+                $deletedData[$key] = json_decode($request->input($key, '[]'), true);
+            }
+
+            if (class_exists(PBDeleteService::class)) {
+                $deleteService = new PBDeleteService();
+                $deleteResponse = $deleteService->deleteByRequest($deletedData, $header);
+                if (($deleteResponse['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $deleteResponse['message'] ?? 'Delete failed.'
+                    ]);
+                }
+            }
+
+            // Only support cancel action for now
+            if ($actionType !== 'cancel') {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Only cancel action is supported.'
+                ]);
+            }
+
+            // Log and update header
+            $bookId = $header->book_id;
+            $docId = $header->document_id ?? $header->id;
+            $revision = (int) $header->revision_number + 1;
+            $currentLevel = (int) $header->approval_level;
+
+            // Document log (if you rely on it)
+            if (class_exists(Helper::class) && method_exists(Helper::class, 'approveDocument')) {
+                Helper::approveDocument(
+                    $bookId,
+                    $docId,
+                    $revision,
+                    $cancelRemarks,
+                    $request->input('cancel_attachments', []),
+                    $currentLevel,
+                    $actionType,
+                    $header->total_amount,
+                    PBHeader::class
+                );
+            }
+            // Persist cancellation
+            $header->revision_number = $revision;
+            $header->approval_level = 1;
+            $header->revision_date = now();
+            $header->document_status = ConstantHelper::CANCELLED;
+            $header->final_remark = $cancelRemarks;
+
+            // Zero-out financials as per your original code
+            $header->total_discount = 0.00;
+            $header->taxable_amount = 0.00;
+            $header->total_taxes = 0.00;
+            $header->total_after_tax_amount = 0.00;
+            $header->expense_amount = 0.00;
+            $header->total_amount = 0.00;
+            $header->total_item_amount = 0.00;
+            $header->reference_type = null;
+
+            $header->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Document cancelled successfully.',
+                'data' => [
+                    'status' => true,
+                    'id' => $header->id,
+                    'document_status' => $header->document_status,
+                    'revision_number' => $header->revision_number,
+                    'cancellation_type' => $cancelType,
+                ],
+            ], 200);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'An error occurred while processing your request.',
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    # Lock Reference Detail
+    private static function lockReferenceDetail($refDetail, $type, $organization)
+    {
+        $lockService = new DocumentLockService();
+
+        $lockKey = $lockService->generateItemLockKey($organization->id, $refDetail->id, $type);
+        if (!$lockKey) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Invalid Argument passed in Lock Key Generator.',
+                'line' => '',
+                'error' => '',
+            ], 500);
+        }
+
+        $itemCode = $refDetail?->item?->item_name;
+        $lockResult = $lockService->lockRemainingItemQty($lockKey, $itemCode, $type);
+        if (!$lockResult['success']) {
+            DB::rollBack();
+            return response()->json([
+                'message' => $lockResult['message'],
+                'error' => 'lockResult',
+            ], $lockResult['status']);
+        }
+        return true;
     }
 
 }

@@ -681,6 +681,7 @@ setTimeout(() => {
    $(document).on('show.bs.modal', function (e) {
        if(e.target.id != 'approveModal') {
            $(e.target).find('.modal-footer').remove();
+           $(e.target).find('input').addClass('disabled-input');
            $('select').not('.amendmentselect select').prop('disabled', true);
        }
        if(e.target.id == 'approveModal') {

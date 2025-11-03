@@ -124,9 +124,9 @@ class HeaderHistory extends Model
         return $this->belongsTo(Organization::class, 'organization_id');
     }
 
-    public function header()
+    public function source()
     {
-        return $this->belongsTo(Header::class, 'header_id');
+        return $this->belongsTo(Header::class, 'source_id');
     }
 
     public function getDisplayStatusAttribute()
@@ -152,12 +152,12 @@ class HeaderHistory extends Model
 
     public function poDetails()
     {
-        return $this->hasMany(PoDetail::class, 'header_id');
+        return $this->hasMany(PoDetailHistory::class, 'header_id');
     }
 
     public function grnDetails()
     {
-        return $this->hasMany(GrnDetail::class, 'header_id');
+        return $this->hasMany(GrnDetailHistory::class, 'header_id');
     }
 
     public function attachment(): void
@@ -187,11 +187,16 @@ class HeaderHistory extends Model
 
     public function media()
     {
-        return $this->morphMany(ExpMedia::class, 'model');
+        return $this->morphMany(MediaHistory::class, 'model');
     }
 
     public function costCenters()
     {
         return $this->belongsTo(CostCenter::class, 'cost_center_id');
+    }
+
+    public function dynamic_fields()
+    {
+        return $this->hasMany(DynamicFieldHistory::class, 'header_id');
     }
 }

@@ -580,7 +580,7 @@ class AccountHelper
         
     }
 
-    public static function getWipLedgerGroupAndLedgerId($organizationId = null,$bookId = null)
+    public static function getWipLedgerGroupAndLedgerId($organizationId = null,$bookId = null,$itemId = null, $type = null)
     {
         $query = WipAccount::query(); 
 
@@ -607,12 +607,42 @@ class AccountHelper
             return ['message' => 'Organization ID is required to filter WIP accounts.'];
         }
 
+        if (!empty($type)) {
+            $query->where('type', $type);
+        }
+
         if ($bookId) {
             $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(book_id, '$[*]')) LIKE ?", ['%' . $bookId . '%']);
             $bookQuery = clone $query;
             $wipAccounts = $bookQuery->get();
             if ($wipAccounts->isEmpty()) {
                 $query->orWhereNull('book_id');
+            }
+        }
+        
+         if ($itemId) {
+         
+            $item = Item::find($itemId);
+            if (!$item) {
+                return ['message' => 'Record not found for the given item IDs.'];
+            }
+
+    
+            if ($item->subcategory_id) {
+                $query->where('sub_category_id', $item->subcategory_id);
+                $subCategoryQuery = clone $query;
+                $wipAccounts = $subCategoryQuery->get();
+                if ($wipAccounts->isEmpty()) {
+                    $query->orWhereNull('sub_category_id');
+                }
+            }
+            
+    
+            $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(item_id, '$[*]')) LIKE ?", ['%' . $itemId . '%']);
+            $itemQuery = clone $query;
+            $wipAccounts = $itemQuery->get(); 
+            if ($wipAccounts->isEmpty()) {
+                $query->orWhereNull('item_id');
             }
         }
 

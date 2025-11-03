@@ -58,13 +58,14 @@ class MrnCheckAndUpdateService
                     'order_qty' => $mrnOrderQty
                 ]);
             }
-
-            $checkStock = self::checkConfirmedStock($mrnDetail, $inputQty);
-            if ($checkStock['status'] === 'error') {
-                return self::errorResponse($checkStock['message'], [
-                    'order_qty' => $mrnOrderQty
-                ]);
-            }
+            // if ((float) $mrnDetail->order_qty != (float) $inputQty) {
+            //     $checkStock = self::checkConfirmedStock($mrnDetail, $inputQty);
+            //     if ($checkStock['status'] === 'error') {
+            //         return self::errorResponse($checkStock['message'], [
+            //             'order_qty' => $mrnOrderQty
+            //         ]);
+            //     }
+            // }
 
             $poDetail = match ($type) {
                 ConstantHelper::JO_SERVICE_ALIAS => JoProduct::find($inputData['jo_detail_id']),
@@ -74,12 +75,9 @@ class MrnCheckAndUpdateService
             };
 
             if ($poDetail) {
-                if(($type == ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS) || ($type == ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS))
-                {
+                if (($type == ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS) || ($type == ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS)) {
                     $poOrderQty = $poDetail->order_qty;
-                }
-                else
-                {
+                } else {
                     $poOrderQty = $poDetail->order_qty;
                 }
                 $availableQty = floatval($poOrderQty - $poDetail->grn_qty);
@@ -144,12 +142,9 @@ class MrnCheckAndUpdateService
 
             // Step 5: Tolerance check (if tolerance configured)
             if ($poDetail) {
-                if(($type == ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS) || ($type == ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS))
-                {
+                if (($type == ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS) || ($type == ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS)) {
                     $poOrderQty = $poDetail->order_qty;
-                }
-                else
-                {
+                } else {
                     $poOrderQty = $poDetail->order_qty;
                 }
                 $grnQty = floatval($poDetail->grn_qty ?? 0);

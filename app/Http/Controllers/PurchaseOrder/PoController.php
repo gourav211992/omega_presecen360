@@ -54,6 +54,7 @@ use App\Http\Requests\PoBulkRequest;
 use App\Services\PO\PoDeleteService;
 use Illuminate\Support\Facades\Storage;
 use App\Helpers\ServiceParametersHelper;
+use App\Services\Common\DocumentLockService;
 
 class PoController extends Controller
 {
@@ -489,7 +490,7 @@ class PoController extends Controller
     }
 
     # Purchase Order store
-    public function store(PoRequest $request)
+    public function store(PoRequest $request, DocumentLockService $lockService)
     {
         DB::beginTransaction();
         try {
@@ -1072,6 +1073,25 @@ class PoController extends Controller
             // Save Po Payment Terms
             self::savePoPaymentTerm($request->payment_term_id, $po->id, $request->credit_days);
 
+            $lockKey = \App\Helpers\GeneralHelper::generateLockKey($organization->id, $request->book_id, $document_number);
+            if (!$lockKey) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Invalid Argument passed in Lock Key Generator.',
+                    'line' => '',
+                    'error' => '',
+                ], 500);
+            }
+
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+            if (!$lockResult['success']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
+            }
+
             DB::commit();
             return response()->json([
                 'message' => 'Record created successfully',
@@ -1129,7 +1149,14 @@ class PoController extends Controller
                     ['model_type' => 'sub_detail', 'model_name' => 'PoItemDelivery', 'relation_column' => 'po_item_id'],
                     ['model_type' => 'sub_detail', 'model_name' => 'PurchaseOrderTed', 'relation_column' => 'po_item_id']
                 ];
-                $a = Helper::documentAmendment($revisionData, $id);
+
+                if (!Helper::documentAmendment($revisionData, $id)) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => 'Error occurred while sending amendment request for approval.',
+                        'error' => '',
+                    ], 500);
+                }
             }
 
             $keys = ['deletedItemDiscTedIds', 'deletedHeaderDiscTedIds', 'deletedHeaderExpTedIds', 'deletedPiItemIds', 'deletedDelivery', 'deletedAttachmentIds'];
@@ -2134,8 +2161,8 @@ class PoController extends Controller
                 'documentDate' => request()->get('document_date'),
             ])->resolveView()->render())
             ->addColumn('so_no', fn($row) => $row?->so?->full_document_number ?? '')
-            ->addColumn('location', fn($row) => $row?->pi?->sub_store_id ? $row?->pi?->sub_store?->name : $row?->pi?->requester?->name)
-            ->addColumn('requester', fn($row) => $row?->po?->department?->name ?? '')
+            ->addColumn('location', fn($row) =>  $row?->pi?->store?->store_name ? $row?->pi?->store?->store_name : '')
+            ->addColumn('requester', fn($row) => $row?->pi?->requester?->name ?? '')
             ->addColumn('remarks', fn($row) => $row?->remarks ?? '')
             ->rawColumns([
                 'book_name',
@@ -2171,7 +2198,7 @@ class PoController extends Controller
         $piItems = null;
         $applicableBookIds = ServiceParametersHelper::getBookCodesForReferenceFromParam($headerBookId);
         $selected_pi_ids = json_decode(urldecode($request->selected_pi_ids), true) ?? [];
-        $selectColumn = ['id', 'pi_id', 'so_id', 'item_id', 'item_code', 'item_name', 'uom_id', 'uom_code', 'vendor_id', 'indent_qty', 'order_qty', 'adjusted_qty', 'required_qty', 'remarks'];
+        $selectColumn = ['id', 'pi_id', 'so_id',  'item_id', 'item_code', 'item_name', 'uom_id', 'uom_code', 'vendor_id', 'indent_qty', 'order_qty', 'adjusted_qty', 'required_qty', 'remarks'];
         $piItems = PiItem::select($selectColumn)
             ->where(function ($query) use ($seriesId, $applicableBookIds, $vendorId, $departmentId, $selected_pi_ids, $itemSearch, $storeId, $subStoreId, $soId, $indentId, $requesterId, $poType) {
                 if (count($selected_pi_ids)) {
@@ -3281,6 +3308,37 @@ class PoController extends Controller
             $poPaymentTerm->percent = $paymentTermDetail->percent;
             $poPaymentTerm->trigger_type = $paymentTermDetail->trigger_type;
             $poPaymentTerm->save();
+        }
+    }
+
+    public function cancel(Request $request, $type, $po)
+    {
+        $po = PurchaseOrder::find($po);
+        if (!$po) {
+            return response()->json(['status' => false, 'message' => 'Document not found.'], 404);
+        }
+
+        \DB::beginTransaction();
+        try {
+
+            $poDeleteService = app(\App\Services\PO\PoDeleteService::class);
+            $response = $poDeleteService->cancelPoHeader($po, $request->remark);
+
+            if ($response['status'] === 'error') {
+                \DB::rollBack();
+                return response()->json(['status' => false, 'message' => $response['message']], 422);
+            }
+
+            \DB::commit();
+            return response()->json(['status' => true, 'message' => 'Document cancelled successfully.'], 200);
+        } catch (\Exception $ex) {
+            \DB::rollBack();
+
+            return response()->json([
+                'message' => $ex->getMessage(),
+                'line' => $ex->getLine(),
+                'error' => $ex->getMessage() . ' at ' . $ex->getLine() . ' in ' . $ex->getFile(),
+            ], 500);
         }
     }
 

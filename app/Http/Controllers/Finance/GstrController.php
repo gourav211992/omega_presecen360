@@ -18,6 +18,10 @@ use App\Helpers\CommonHelper;
 use App\Helpers\GstrHelper;
 use App\Helpers\Helper;
 use Illuminate\Pagination\LengthAwarePaginator;
+use App\Exports\finance\GstrExportService as XlsxExportService;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+
 use Barryvdh\DomPDF\Facade\Pdf;
 class GstrController extends Controller
 {
@@ -361,9 +365,23 @@ class GstrController extends Controller
                 $typeIds = ErpGstInvoiceType::whereIn('code', CommonHelper::HSN_B2B_INVOICE_TYPES)
                         ->where('status',ConstantHelper::ACTIVE)
                         ->pluck('id');
-                $query->whereIn('invoice_type_id', $typeIds)
+                $query->select(
+                            "erp_gstr_compiled_data.hsn_code",
+                            "erp_gstr_compiled_data.description",
+                            "erp_gstr_compiled_data.uqc",
+                            "erp_gstr_compiled_data.qty",
+                            DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
+                            DB::raw("erp_gstr_compiled_data.rate as rate"),
+                            DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
+                            DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
+                            DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
+                            DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
+                            DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                        )
+                        ->whereIn('invoice_type_id', $typeIds)
                         ->whereNotNull('hsn_code')
                         ->whereNotNull('uqc')
+                        ->whereNotNull('rate')
                         ->groupBy('hsn_code','uqc', 'rate');
                 break;
 
@@ -371,10 +389,24 @@ class GstrController extends Controller
                 $typeIds = ErpGstInvoiceType::whereIn('code', CommonHelper::HSN_B2C_INVOICE_TYPES)
                         ->where('status',ConstantHelper::ACTIVE)
                         ->pluck('id');
-                $query->whereIn('invoice_type_id', $typeIds)
+                $query->select(
+                            "erp_gstr_compiled_data.hsn_code",
+                            "erp_gstr_compiled_data.description",
+                            "erp_gstr_compiled_data.uqc",
+                            "erp_gstr_compiled_data.qty",
+                            DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
+                            DB::raw("erp_gstr_compiled_data.rate as rate"),
+                            DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
+                            DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
+                            DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
+                            DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
+                            DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                        )
+                        ->whereIn('invoice_type_id', $typeIds)
                         ->whereNotNull('hsn_code')
                         ->whereNotNull('uqc')
-                        ->groupBy('hsn_code','uqc');
+                        ->whereNotNull('rate')
+                        ->groupBy('hsn_code','uqc', 'rate');
                 break;
 
             case CommonHelper::DOC:
@@ -387,7 +419,26 @@ class GstrController extends Controller
                 break;
 
             case CommonHelper::B2B:
-                $query->where('invoice_type_id', $id)
+                $query->select(
+                        "erp_gstr_compiled_data.party_gstin",
+                        "erp_gstr_compiled_data.party_name",
+                        "erp_gstr_compiled_data.invoice_no",
+                        "erp_gstr_compiled_data.invoice_date",
+                        "erp_gstr_compiled_data.pos",
+                        "erp_gstr_compiled_data.place_of_supply",
+                        "erp_gstr_compiled_data.reverse_charge",
+                        "erp_gstr_compiled_data.applicable_tax_rate",
+                        "erp_gstr_compiled_data.invoice_type",
+                        "erp_gstr_compiled_data.e_commerce_gstin",
+                        DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
+                        DB::raw("erp_gstr_compiled_data.rate as rate"),
+                        DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
+                        DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
+                        DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
+                        DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
+                        DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                    )
+                    ->where('invoice_type_id', $id)
                     ->whereNotNull('invoice_id')
                     ->whereNotNull('invoice_no')
                     ->whereNotNull('rate')
@@ -545,6 +596,80 @@ class GstrController extends Controller
 
     }
 
+    public function exportExcelSheet(Request $request)
+    {
+        try {
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
+            $gstin = $organization->gst_number;
+
+            // Ensure directory exists
+            $directoryPath = public_path('storage/temp/finance/gstr1');
+            if (!file_exists($directoryPath)) {
+                mkdir($directoryPath, 0775, true);
+                chmod($directoryPath, 0775);
+            }
+
+            $service = new XlsxExportService();
+            $fileName = $gstin . '_gstr1.xlsx';
+
+            $result = $service->exportAll($fileName, $request, $gstin);
+
+            if (empty($result['status']) || !$result['status']) {
+                return back()->with('error', $result['message'] ?? 'Export failed.');
+            }
+
+            $excelPublicPath = public_path('storage/' . ltrim($result['file'] ?? '', '/'));
+
+            if (!file_exists($excelPublicPath)) {
+                return back()->with('error', 'Generated Excel file not found.');
+            }
+
+            $staticPath = public_path('GSTR/GSTR1_HELP_INSTRUCTION.xlsx');
+
+            if (file_exists($staticPath)) {
+                try {
+
+                    $generatedWorkbook = IOFactory::load($excelPublicPath);
+                    $staticWorkbook = IOFactory::load($staticPath);
+
+                    // get first sheet from static workbook
+                    $helpSheet = $staticWorkbook->getSheet(0);
+                    if ($helpSheet) {
+                        $baseTitle = 'Help Instructions';
+                        $existingTitles = $generatedWorkbook->getSheetNames();
+                        $finalTitle = $baseTitle;
+                        $i = 1;
+                        while (in_array($finalTitle, $existingTitles)) {
+                            $finalTitle = $baseTitle . '_' . $i++;
+                        }
+
+                        $newSheet = $generatedWorkbook->addExternalSheet($helpSheet);
+                        $newSheet->setTitle($finalTitle);
+
+                        $mergedFileName = basename($excelPublicPath, '.xlsx') . '_report.xlsx';
+                        $mergedPath = dirname($excelPublicPath) . '/' . $mergedFileName;
+
+                        $writer = new Xlsx($generatedWorkbook);
+                        $writer->save($mergedPath);
+
+                        if (file_exists($mergedPath)) {
+                            $excelPublicPath = $mergedPath;
+                        }
+                    } 
+                } catch (\Throwable $e) {
+                     return back()->with('error',  $e->getMessage());
+                }
+            } else {
+                return back()->with('error',  'Static Help Excel not found at: ' . $staticPath);
+            }
+
+            return response()->download($excelPublicPath)->deleteFileAfterSend(true);
+
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Something went wrong during Excel export.');
+        }
+    }
+    
     private function getGstr3bInterStateData($gstin, $month)
     {
         $b2clTypeIds = ErpGstInvoiceType::whereIn("code", ["b2cl"])

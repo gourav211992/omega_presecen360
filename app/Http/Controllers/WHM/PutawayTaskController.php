@@ -292,7 +292,7 @@ class PutawayTaskController extends Controller
         })
         ->where('job_type', CommonHelper::PUTAWAY)
         ->select('uid','job_id','morphable_id as putaway_item_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_uid','item_name','item_code','item_attributes','status','vendor_id','batch_number','manufacturing_year','expiry_date','serial_no','packet_no','total_packets')
-        ->paginate(CommonHelper::PAGE_LENGTH_10);
+        ->paginate(CommonHelper::PAGE_LENGTH_50);
 
         return [
             'message' => 'Records fetched successfully',

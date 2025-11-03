@@ -64,6 +64,9 @@ class ErpTripPlanHeader extends Model
         'created_by',
         'updated_by',
         'deleted_by',
+        'data_source_type',
+        'champ_name',
+        'driver_name',
     ];
 
     public function media()

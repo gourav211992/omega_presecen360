@@ -22,7 +22,7 @@ class ExpenseAdviseRequest extends FormRequest
     use ProcessesComponentJson;
     /**
      * Determine if the user is authorized to make this request.
-    */
+     */
     // public function authorize(): bool
     // {
     //     return false;
@@ -32,7 +32,7 @@ class ExpenseAdviseRequest extends FormRequest
      * Get the validation rules that apply to the request.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-    */
+     */
 
     protected function prepareForValidation(): void
     {
@@ -54,8 +54,8 @@ class ExpenseAdviseRequest extends FormRequest
             'vendor_id' => 'required',
             'currency_id' => 'required',
             'payment_term_id' => 'required',
-            'supplier_invoice_no' => 'nullable|max:50',
-            'supplier_invoice_date' => 'nullable|date',
+            'supplier_invoice_no' => 'required|max:50',
+            'supplier_invoice_date' => 'required|date',
             'remarks' => 'nullable|max:500',
         ];
 
@@ -83,7 +83,7 @@ class ExpenseAdviseRequest extends FormRequest
                 $isPast = false;
             }
         }
-        if($isFeature && $isPast) {
+        if ($isFeature && $isPast) {
             $rules['document_date'] = "required|date";
         }
 
@@ -91,13 +91,13 @@ class ExpenseAdviseRequest extends FormRequest
         if ($this->filled('book_id')) {
             $user = Helper::getAuthenticatedUser();
             $numPattern = NumberPattern::where('organization_id', $user->organization_id)
-                        ->where('book_id', $this->book_id)
-                        ->orderBy('id', 'DESC')
-                        ->first();
+                ->where('book_id', $this->book_id)
+                ->orderBy('id', 'DESC')
+                ->first();
 
             // Update document_number rule based on the condition
             if ($numPattern && $numPattern->series_numbering == 'Manually') {
-                if($mrnId) {
+                if ($mrnId) {
                     $rules['document_number'] = 'required|unique:erp_expense_headers,document_number,' . $mrnId;
                 } else {
                     $rules['document_number'] = 'required|unique:erp_expense_headers,document_number';
@@ -154,10 +154,10 @@ class ExpenseAdviseRequest extends FormRequest
 
     /**
      * Configure the validator instance.
-    *
-    * @param \Illuminate\Validation\Validator $validator
-    * @return void
-    */
+     *
+     * @param \Illuminate\Validation\Validator $validator
+     * @return void
+     */
     protected function withValidator($validator)
     {
         $validator->after(function ($validator) {
@@ -165,7 +165,7 @@ class ExpenseAdviseRequest extends FormRequest
             $items = [];
             foreach ($components as $key => $component) {
                 $itemValue = floatval($component['item_total_cost']);
-                if($itemValue < 0) {
+                if ($itemValue < 0) {
                     $validator->errors()->add("components.$key.item_name", "Item total can't be negative.");
                 }
                 $itemId = $component['item_id'] ?? null;
@@ -175,24 +175,24 @@ class ExpenseAdviseRequest extends FormRequest
                 if ($itemId) {
                     $expenseItem = ExpenseDetail::find($expenseItemId);
                     $selectedAttributes = [];
-                    if(isset($component['attr_group_id']) && count($component['attr_group_id'])) {
-                        foreach($component['attr_group_id'] as $k => $attr_group) {
-                            $ia = ItemAttribute::where('item_id',$itemId)
-                                            ->where('attribute_group_id',$k)
-                                            ->first();
+                    if (isset($component['attr_group_id']) && count($component['attr_group_id'])) {
+                        foreach ($component['attr_group_id'] as $k => $attr_group) {
+                            $ia = ItemAttribute::where('item_id', $itemId)
+                                ->where('attribute_group_id', $k)
+                                ->first();
                             $selectedAttributes[] = ['attribute_id' => $ia->id, 'attribute_value' => intval($attr_group['attr_name'])];
                         }
                     }
 
-                    $balanceQty = PoItem::where('id',$expenseItem->purchase_order_item_id ?? 0)
-                        ->where('item_id',$itemId)
-                        ->where('uom_id',operator: $uomId)
-                        ->where(function($piItemQuery) use($selectedAttributes) {
-                            if(count($selectedAttributes)) {
-                                $piItemQuery->whereHas('attributes',function($piAttributeQuery) use($selectedAttributes) {
-                                    foreach($selectedAttributes as $piAttribute) {
-                                        $piAttributeQuery->where('item_attribute_id',$piAttribute['attribute_id'])
-                                        ->where('attribute_value',$piAttribute['attribute_value']);
+                    $balanceQty = PoItem::where('id', $expenseItem->purchase_order_item_id ?? 0)
+                        ->where('item_id', $itemId)
+                        ->where('uom_id', operator: $uomId)
+                        ->where(function ($piItemQuery) use ($selectedAttributes) {
+                            if (count($selectedAttributes)) {
+                                $piItemQuery->whereHas('attributes', function ($piAttributeQuery) use ($selectedAttributes) {
+                                    foreach ($selectedAttributes as $piAttribute) {
+                                        $piAttributeQuery->where('item_attribute_id', $piAttribute['attribute_id'])
+                                            ->where('attribute_value', $piAttribute['attribute_value']);
                                     }
                                 });
                             }
@@ -200,13 +200,13 @@ class ExpenseAdviseRequest extends FormRequest
                         ->selectRaw('SUM(order_qty - expense_advise_qty) as balance_qty')
                         ->value('balance_qty') ?? 0;
 
-                    if($expenseItem) {
+                    if ($expenseItem) {
                         $inputQty = (floatval($component['accepted_qty']) - $expenseItem->accepted_qty) ?? 0;
                     } else {
                         $inputQty = floatval($component['accepted_qty']) ?? 0;
                     }
-                    if($expenseItem && $expenseItem->purchase_order_item_id){
-                        if($inputQty > $balanceQty) {
+                    if ($expenseItem && $expenseItem->purchase_order_item_id) {
+                        if ($inputQty > $balanceQty) {
                             $validator->errors()->add("components.$key.accepted_qty", "PB is more than MRN qty.");
                         }
                     }

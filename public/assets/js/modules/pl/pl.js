@@ -16,29 +16,29 @@ function storeIdOnchange(element)
     $('#document_date_filter').val('');
     $('#customer_code_input_qt').val('');
     $('#trip_header_input').val('');
-    apiUrl = "/pick-list/so/get/items";
-    tableBody.html('<tr><td colspan="17" class="text-center">Loading...</td></tr>');
-    let showAllItemsCheck = document.getElementById('out_of_stock_check');
-    if (showAllItemsCheck) {
-        showAllItemsCheck = showAllItemsCheck.checked;
-    }
-    $.ajax({
-        url: apiUrl,
-        type: 'GET',
-        data: { store_id: selectedValue, sub_store_id: $("#main_sub_store_id_input").val(), header_book_id : $("#series_id_input").val(), show_all : showAllItemsCheck },
-        success: function (response) {
-            populateOrderTable(response.data);
-        },
-        error: function (xhr, status, error) {
-            console.error('Error fetching orders:', error);
-            Swal.fire({
-                title: 'Error!',
-                text: 'Failed to fetch orders. Please try again.',
-                icon: 'error',
-            });
-            tableBody.html('<tr><td colspan="17" class="text-center">Failed to load data.</td></tr>');
-        }
-    });
+    // apiUrl = "/pick-list/so/get/items";
+    // tableBody.html('<tr><td colspan="17" class="text-center">Loading...</td></tr>');
+    // let showAllItemsCheck = document.getElementById('out_of_stock_check');
+    // if (showAllItemsCheck) {
+    //     showAllItemsCheck = showAllItemsCheck.checked;
+    // }
+    // $.ajax({
+    //     url: apiUrl,
+    //     type: 'GET',
+    //     data: { store_id: selectedValue, sub_store_id: $("#main_sub_store_id_input").val(), header_book_id : $("#series_id_input").val(), show_all : showAllItemsCheck },
+    //     success: function (response) {
+    //         populateOrderTable(response.data);
+    //     },
+    //     error: function (xhr, status, error) {
+    //         console.error('Error fetching orders:', error);
+    //         Swal.fire({
+    //             title: 'Error!',
+    //             text: 'Failed to fetch orders. Please try again.',
+    //             icon: 'error',
+    //         });
+    //         tableBody.html('<tr><td colspan="17" class="text-center">Failed to load data.</td></tr>');
+    //     }
+    // });
 }
 
 if(order && order.document_status=="draft" && order.store_id)
@@ -82,7 +82,7 @@ function populateOrderTable(orders) {
                             <div class="form-check form-check-primary custom-checkbox">
                                 <input type="checkbox"
                                     name="selected_deliveries[]"
-                                    class="form-check-input"
+                                    class="form-check-input item_row_checks"
                                     id="order_checkbox_${index}_${subIndex}"
                                     value="${norder.id}"
                                     ${tripDetail 
@@ -370,32 +370,32 @@ function locationChange(element)
     $('#so_document_no_input_qt').val('');
     $('#document_date_filter').val('');
     $('#customer_code_input_qt').val('');
-    tableBody.html('<tr><td colspan="17" class="text-center">Loading...</td></tr>');
-    let showAllItemsCheck = document.getElementById('out_of_stock_check');
-    if (showAllItemsCheck) {
-        showAllItemsCheck = showAllItemsCheck.checked;
-    }
+    // tableBody.html('<tr><td colspan="17" class="text-center">Loading...</td></tr>');
+    // let showAllItemsCheck = document.getElementById('out_of_stock_check');
+    // if (showAllItemsCheck) {
+    //     showAllItemsCheck = showAllItemsCheck.checked;
+    // }
 
-    $.ajax({
-        url: "/pick-list/so/get/items",
-        type: 'GET',
-        data: { store_id: $("#store_id_input").val() , sub_store_id: selectedValue, header_book_id : $("#series_id_input").val(), show_all : showAllItemsCheck },
-        success: function (response) {
-            populateOrderTable(response.data);
-        },
-        error: function (xhr, status, error) {
-            console.error('Error fetching orders:', error);
-            Swal.fire({
-                title: 'Error!',
-                text: 'Failed to fetch orders. Please try again.',
-                icon: 'error',
-            });
-            tableBody.html('<tr><td colspan="17" class="text-center">Failed to load data.</td></tr>');
-        }
-    });
+    // $.ajax({
+    //     url: "/pick-list/so/get/items",
+    //     type: 'GET',
+    //     data: { store_id: $("#store_id_input").val() , sub_store_id: selectedValue, header_book_id : $("#series_id_input").val(), show_all : showAllItemsCheck },
+    //     success: function (response) {
+    //         populateOrderTable(response.data);
+    //     },
+    //     error: function (xhr, status, error) {
+    //         console.error('Error fetching orders:', error);
+    //         Swal.fire({
+    //             title: 'Error!',
+    //             text: 'Failed to fetch orders. Please try again.',
+    //             icon: 'error',
+    //         });
+    //         tableBody.html('<tr><td colspan="17" class="text-center">Failed to load data.</td></tr>');
+    //     }
+    // });
 }
 
-    function loadOrders()
+function loadOrders()
 {
     let element = document.getElementById('main_sub_store_id_input');
     let selectedValue = element.value;
@@ -409,10 +409,15 @@ function locationChange(element)
     if (showAllItemsCheck) {
         showAllItemsCheck = showAllItemsCheck.checked;
     }
+    if($("#trip_header_input").val() == "")
+    {
+        tableBody.html('<tr><td colspan="17" class="text-center">Select Trip Id First.</td></tr>');
+        return null;
+    }
     $.ajax({
         url: "/pick-list/so/get/items",
         type: 'GET',
-        data: { store_id: $("#store_id_input").val() , sub_store_id: selectedValue, header_book_id : $("#series_id_input").val(), trip_id : $("#trip_header_input").val() ,show_all : showAllItemsCheck },
+        data: { store_id: $("#store_id_input").val() , sub_store_id: selectedValue, header_book_id : $("#series_id_input").val(), trip_id : $("#trip_header_id_input").val() ,show_all : showAllItemsCheck },
         success: function (response) {
             populateOrderTable(response.data);
         },
@@ -428,14 +433,66 @@ function locationChange(element)
     });
 }
 
+function initializeTripAutocomplete(selector, index) {
+            $("#" + selector).autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: '/search',
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {
+                            q: request.term,
+                            type:'trip_number',
+                            store_id : $("#store_id_input").val(),
+                            header_book_id : $("#series_id_input").val(),
+                        },
+                        success: function(data) {
+                            response($.map(data, function(item) {
+                                return {
+                                    id: item.id,
+                                    label: `${item.book_code} - ${item.document_number} ${item.vehicle_number ? '(' + item.vehicle_number + ')' : ''}`,
+                                };
+                            }));
+                        },
+                        error: function(xhr) {
+                            console.error('Error fetching customer data:', xhr.responseText);
+                        }
+                    });
+                },
+                minLength: 0,
+                select: function(event, ui) {
+                    console.log('Selected trip:', ui);
+                    console.log('element', this);
+                    var $input = $(this);
+                    $input.val(ui.item.label);
+                    $('#trip_header_id_input').val(ui.item.id);
+                    loadOrders();
+                    return false;
+                },
+                change: function(event, ui) {
+                    if (!ui.item) {
+                        $(this).val("");
+                        // $('#itemId').val('');
+                        $(this).attr('data-name', '');
+                        $(this).attr('data-code', '');
+                    }
+                }
+            }).focus(function() {
+                if (this.value === "") {
+                    $(this).autocomplete("search", "");
+                }
+            });
+    }
 
-// var sub_store_element = document.getElementById('sub_store_id_input');
-// if (sub_store_element) {
-//     console.log('sub_store_element', sub_store_element);
-//     $("#store_id_input").on('change', function() {
-//         const storeId = $(this).val();
-//         $("#item_header").html('');
-//         const sub_store_id  = order ? order.sub_store_id : null;
+
+    function checkOrRecheckAllItems(element) {
+        const allRowsCheck = document.getElementsByClassName('item_row_checks');
+        const checkedStatus = element.checked;
+        for (let index = 0; index < allRowsCheck.length; index++) {
+            // Use jQuery to trigger click on the checkbox element
+            $(allRowsCheck[index]).trigger('click');
+        }
+    }
 //         $('#sub_store_id_input').empty();
 //         if (storeId) {
 //             $.ajax({

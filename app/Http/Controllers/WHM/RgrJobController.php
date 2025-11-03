@@ -24,6 +24,8 @@ use App\Models\ErpRgrDefectTypeDetail;
 use App\Helpers\ConstantHelper;
 use App\Helpers\RGR\Constants as RGRConstants;
 use App\Helpers\ReManufacturing\RepairOrder\Helper as RepHelper;
+use App\Helpers\ReManufacturing\RCA\Helper as RCAHelper;
+use App\Helpers\ReManufacturing\RCA\MultiItemHelper as MultiRCAHelper;
 use App\Helpers\ServiceParametersHelper;
 use Illuminate\Validation\ValidationException;
 use App\Lib\Services\WHM\WhmJob;
@@ -31,6 +33,7 @@ use App\Helpers\Helper;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 
 class RgrJobController extends Controller
 {
@@ -108,7 +111,6 @@ class RgrJobController extends Controller
             throw new ApiGenericException($e->getMessage());
         }
     }
-
 
    public function getRgrDetails($job_id)
     {
@@ -465,8 +467,10 @@ class RgrJobController extends Controller
         try {
 
             $requestData = $request->input('request');
+
             if (is_string($requestData)) {
                 $requestData = json_decode($requestData, true);
+              
                 if ($requestData === null) {
                     throw ValidationException::withMessages(['request' => ['Invalid JSON format']]);
                 }
@@ -524,7 +528,7 @@ class RgrJobController extends Controller
 
           $validated = $validator->validated();
 
-        if ($request->hasFile('files')) {
+         if ($request->hasFile('files')) {
             $files = $request->file('files');
 
             if (!is_array($files)) {
@@ -554,7 +558,6 @@ class RgrJobController extends Controller
             if (!empty($requestData['segregation_id'])) {
                 $segregation = ErpRgrItemSegregation::find($requestData['segregation_id']);
                 $uniqueItem = ErpItemUniqueCode::find($segregation->job_item_id);
-
             }
 
             elseif (!empty($requestData['unique_item_id'])) {
@@ -568,6 +571,10 @@ class RgrJobController extends Controller
                 $job = ErpWhmJob::find($uniqueItem->job_id);
                 if (!$job) {
                     throw ValidationException::withMessages(['job' => ['Job not found for this unique item.']]);
+                }
+                 // ---------- New: Check if job is closed ----------
+                if ($job->status === 'closed') {
+                    throw ValidationException::withMessages(['job' => ['Job for this item is already closed.']]);
                 }
                 $segregation = ErpRgrItemSegregation::where('job_item_id', $uniqueItem->id)->first();
             }
@@ -633,7 +640,7 @@ class RgrJobController extends Controller
             $newItemAttributesArray = !empty($requestData['new_item_attributes']) && $newItem
                 ? RepHelper::validateItemAttributes($requestData['new_item_attributes'], $newItem->id, false)
                 : null;
-
+             
             $newItemAttributes = !empty($newItemAttributesArray) 
                 ? json_encode($newItemAttributesArray, JSON_THROW_ON_ERROR) 
                 : null;
@@ -646,6 +653,7 @@ class RgrJobController extends Controller
                     'item_id' => $uniqueItem->item_id,
                     'label_status' => $requestData['label_status'] ?? 0,
                     'delivery_cancel' => $requestData['delivery_cancel'] ?? 0,
+                    'replacement_item' => $requestData['replacement_item'] ?? 0,
                     'packing_status' => $requestData['packing_status'] ?? 0,
                     'defect_severity' => $requestData['defect_severity'] ?? 'Minor',
                     'defect_type' => $requestData['defect_type'] ?? 'component_missing',
@@ -664,6 +672,7 @@ class RgrJobController extends Controller
                 $segregation->update([
                     'label_status' => $requestData['label_status'] ?? $segregation->label_status,
                     'delivery_cancel' => $requestData['delivery_cancel'] ?? $segregation->delivery_cancel,
+                    'replacement_item' => $requestData['replacement_item'] ?? $segregation->replacement_item, 
                     'packing_status' => $requestData['packing_status'] ?? $segregation->packing_status,
                     'defect_severity' => $requestData['defect_severity'] ?? $segregation->defect_severity,
                     'defect_type' => $requestData['defect_type'] ?? $segregation->defect_type,
@@ -780,51 +789,60 @@ class RgrJobController extends Controller
         }
     }
 
-
-    public function getJobItemStatus($jobId)
+   public function getJobItemStatus($jobId)
     {
         try {
             $job = ErpWhmJob::with('itemUniqueCodes')->find($jobId);
-
             if (!$job) {
-                return response()->json([
-                    'message' => 'Job not found',
-                    'data' => []
-                ], 404);
+                return response()->json(['message' => 'Job not found', 'data' => []], 404);
             }
-
-            $items = $job->itemUniqueCodes;
 
             $statusCounts = [
-                'Total Packets'   => $items->count(),
-                'Ok to Receive'   => $items->where('status', 'ok_to_receive')->count(),
-                'Package Missing' => $items->where('status', 'package_missing')->count(),
-                'Wrong Product'   => $items->where('status', 'wrong_product')->count(),
-                'Missing Item'    => $items->where('status', 'missing_item')->count(),
-                'Extra Item'      => $items->where('status', 'extra_item')->count(),
-                'Transit Damage'  => $items->where('status', 'transit_damage')->count(),
+                'Total Packets'    => $job->itemUniqueCodes->count(),
+                'Ok to Receive'    => 0,
+                'Package Missing'  => 0,
+                'Wrong Product'    => 0,
+                'Delivery Cancel'  => 0,
+                'Replacement Item' => 0,
+                'Extra Item'       => 0,
+                'Missing Item'     => 0,
+                'Transit Damage'   => 0,
             ];
 
+            foreach ($job->itemUniqueCodes as $item) {
+                $seg = ErpRgrItemSegregation::where('job_item_id', $item->id)->first();
+                if (!$seg) {
+                    $statusCounts['Missing Item']++;
+                    continue;
+                }
 
-
-            $data = [];
-            foreach ($statusCounts as $label => $count) {
-                $data[] = [
-                    'label' => $label,
-                    'value' => $count
+                $flags = [
+                    'Package Missing'  => !((bool)$seg->packing_status),
+                    'Delivery Cancel'  => (bool)$seg->delivery_cancel,
+                    'Replacement Item' => (bool)$seg->replacement_item,
+                    'Transit Damage'   => $seg->damage_nature == ConstantHelper::DAMAGE_NATURE_TRANSIT_HANDLE_DAMAGE,
+                    'Wrong Product'    => isset($seg->new_item_id),
+                    'Extra Item'       => $seg->rgr_item_id ? false : true,
                 ];
+
+                $statusCounts['Ok to Receive'] += array_sum(array_map('intval', [
+                    $flags['Package Missing'],
+                    $flags['Delivery Cancel'],
+                    $flags['Replacement Item'],
+                    $flags['Transit Damage'],
+                ]));
+
+                foreach ($flags as $key => $val) {
+                    if ($val) $statusCounts[$key]++;
+                }
             }
 
-            return response()->json([
-                'message' => 'Data retrieved successfully.',
-                'data' => $data
-            ], 200);
+            $data = array_map(fn($k, $v) => ['label' => $k, 'value' => $v], array_keys($statusCounts), $statusCounts);
+
+            return response()->json(['message' => 'Data retrieved successfully.', 'data' => $data], 200);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Something went wrong',
-                'error' => $e->getMessage()
-            ], 500);
+            return response()->json(['message' => 'Something went wrong', 'error' => $e->getMessage()], 500);
         }
     }
 
@@ -838,7 +856,7 @@ class RgrJobController extends Controller
 
             $authUser = Helper::getAuthenticatedUser();
             $job = ErpWhmJob::where('morphable_type', ErpRgr::class)->with('itemUniqueCodes')->find($request -> job_id);
-
+   
             if (!$job) {
                 return response()->json([
                     'message' => 'Job not found',
@@ -853,23 +871,121 @@ class RgrJobController extends Controller
                 ], 400);
             }
 
-            $items = $job->itemUniqueCodes;
+        $items = $job->itemUniqueCodes;
 
-            foreach ($items as $item) {
-                $segregation = ErpRgrItemSegregation::where('job_item_id', $item -> id) -> first();
-                if ($segregation) {
-                    $isOkToReceive = in_array(RGRConstants::RGR_SEGREGATION_OK_TO_RECIEVE, $segregation -> segregation_status);
-                    if ($isOkToReceive) {
-                        $status = RepHelper::generateRepFromRgrItem($item, ServiceParametersHelper::OK_TO_RECIEVE_BOOK_PARAM, $authUser, true);
-                        if ($status['status'] == 'error') {
-                            DB::rollBack();
-                            throw ValidationException::withMessages(['job_id' => [$status['message']]]);
-                        }
-                    }
+          $itemsForRca = collect();
+
+            $missingItems = $items->filter(function($item) {
+                return !ErpRgrItemSegregation::where('job_item_id', $item->id)->exists();
+            });
+
+            $extraItems = $items->filter(function($item) {
+                return ErpRgrItemSegregation::where('job_item_id', $item->id)->exists() && is_null($item->morphable_id);
+            });
+
+            $itemsForRca = $missingItems->merge($extraItems);
+
+            if ($itemsForRca->isNotEmpty()) {
+                $status = MultiRCAHelper::generateRcaFromRgrItems(
+                    $itemsForRca,
+                    ServiceParametersHelper::RCA_MISSING_EXTRA_ITEMS_PARAM,
+                    $authUser,
+                    true
+                );
+
+                if ($status['status'] === 'error') {
+                    DB::rollBack();
+                    throw ValidationException::withMessages(['job_id' => [$status['message']]]);
                 }
             }
+
+           foreach ($items as $item) {
+                $segregation = ErpRgrItemSegregation::where('job_item_id', $item->id)->first();
+                if (!$segregation) continue;
+
+                $statuses = $segregation->segregation_status ?? [];
+
+                // Pack Missing
+                if ( in_array(RGRConstants::RGR_SEGREGATION_PACK_MISSING, $statuses)){
+                    $status = RCAHelper::generateRcaFromRgrItem($item, RGRConstants::RGR_SEGREGATION_PACK_MISSING,ServiceParametersHelper::RCA_PACKAGE_MISSING_PARAM, $authUser, true);
+                    if ($status['status'] === 'error') {
+                        DB::rollBack();
+                        throw ValidationException::withMessages(['job_id' => [$status['message']]]);
+                    }
+                    $status = RepHelper::generateRepFromRgrItem($item, ServiceParametersHelper::OK_TO_RECIEVE_BOOK_PARAM, $authUser, true);
+                    if ($status['status'] === 'error') {
+                        DB::rollBack();
+                        throw ValidationException::withMessages(['job_id' => [$status['message']]]);
+                    }
+                }
+
+                // Wrong Product
+
+                if (in_array(RGRConstants::RGR_SEGREGATION_WRONG_PRODUCT, $statuses)){
+                    $status = RCAHelper::generateRcaFromRgrItem($item, RGRConstants::RGR_SEGREGATION_WRONG_PRODUCT,ServiceParametersHelper::RCA_WRONG_PRODUCT_PARAM, $authUser, true);
+                    if ($status['status'] === 'error') {
+                        DB::rollBack();
+                        throw ValidationException::withMessages(['job_id' => [$status['message']]]);
+                    }
+                }
+
+                // Delivery Cancel
+
+                if (in_array(RGRConstants::RGR_SEGREGATION_DELIVERY_CANCEL, $statuses)) {
+                    $status = RCAHelper::generateRcaFromRgrItem($item, RGRConstants::RGR_SEGREGATION_DELIVERY_CANCEL,ServiceParametersHelper::RCA_DELIVERY_CANCEL_PARAM, $authUser, true);
+                    if ($status['status'] === 'error') {
+                        DB::rollBack();
+                        throw ValidationException::withMessages(['job_id' => [$status['message']]]);
+                    }
+                    $status = RepHelper::generateRepFromRgrItem($item, ServiceParametersHelper::OK_TO_RECIEVE_BOOK_PARAM, $authUser, true);
+                    if ($status['status'] === 'error') {
+                        DB::rollBack();
+                        throw ValidationException::withMessages(['job_id' => [$status['message']]]);
+                    }
+                }
+
+                // Replacement Item
+                if (in_array(RGRConstants::RGR_SEGREGATION_REPLACEMENT_ITEM, $statuses)) {
+                    $status = RCAHelper::generateRcaFromRgrItem( $item, RGRConstants::RGR_SEGREGATION_REPLACEMENT_ITEM, ServiceParametersHelper::RCA_REPLACEMENT_ITEM_PARAM,true);
+                    if ($status['status'] === 'error') {
+                        DB::rollBack();
+                        throw ValidationException::withMessages(['job_id' => [$status['message']]]);
+                    }
+                    $status = RepHelper::generateRepFromRgrItem($item, ServiceParametersHelper::OK_TO_RECIEVE_BOOK_PARAM, $authUser, true);
+                    if ($status['status'] === 'error') {
+                        DB::rollBack();
+                        throw ValidationException::withMessages(['job_id' => [$status['message']]]);
+                    }
+                }
+
+                // Transit Damage
+                if (in_array(RGRConstants::RGR_SEGREGATION_TRANSIT_DAMAGE, $statuses)) {
+                    $status = RCAHelper::generateRcaFromRgrItem($item, RGRConstants::RGR_SEGREGATION_TRANSIT_DAMAGE,ServiceParametersHelper::RCA_TRANSIT_DAMAGE_PARAM,$authUser, true);
+                    if ($status['status'] === 'error') {
+                        DB::rollBack();
+                        throw ValidationException::withMessages(['job_id' => [$status['message']]]);
+                    }
+                    $status = RepHelper::generateRepFromRgrItem($item, ServiceParametersHelper::OK_TO_RECIEVE_BOOK_PARAM, $authUser, true);
+                    if ($status['status'] === 'error') {
+                        DB::rollBack();
+                        throw ValidationException::withMessages(['job_id' => [$status['message']]]);
+                    }
+                }
+
+               if (count(array_intersect(RGRConstants::RGR_STATUSES, $statuses)) == 0){
+                   $status = RepHelper::generateRepFromRgrItem($item, ServiceParametersHelper::OK_TO_RECIEVE_BOOK_PARAM, $authUser, true);
+                    if ($status['status'] === 'error') {
+                        DB::rollBack();
+                        throw ValidationException::withMessages(['job_id' => [$status['message']]]);
+                    }
+               }
+                
+            }
+
             $job->status='closed';
+            $job->job_closed_at = now(); 
             $job->save();
+
             DB::commit();
             return response()->json([
                 'message' => 'Job closed successfully.',
@@ -881,6 +997,7 @@ class RgrJobController extends Controller
             throw new ApiGenericException($e -> getMessage());
         }
     }
+
     
    public function getSegregationByUniqueItemId($uniqueItemId)
     {
@@ -950,7 +1067,7 @@ class RgrJobController extends Controller
                 'label_status'        => $segregation->label_status == 1 ? true : false,
                 'delivery_cancel'     => $segregation->delivery_cancel == 1 ? true : false,
                 'packing_status'      => $segregation->packing_status == 1 ? true : false,
-                'replacement_item'    =>$replacement_item, 
+                'replacement_item'    => $replacement_item, 
                 'defect_severity'     => $segregation->defect_severity,
                 'defect_type'         => $segregation->defect_type,
                 'damage_nature'       => $segregation->damage_nature,

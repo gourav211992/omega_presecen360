@@ -161,6 +161,11 @@ class ExpenseHeader extends Model
         return $this->belongsTo(PurchaseOrder::class, 'purchase_order_id');
     }
 
+    public function jo()
+    {
+        return $this->belongsTo(PurchaseOrder::class, 'job_order_id');
+    }
+
     public function so()
     {
         return $this->belongsTo(ErpSaleOrder::class, 'sale_order_id');

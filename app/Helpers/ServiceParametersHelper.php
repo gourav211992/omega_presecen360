@@ -17,6 +17,8 @@ use App\Helpers\RGR\Constants as RGRConstants;
 use App\Helpers\Inventory\MaterialIssue\Constants as MIConstants;
 use App\Helpers\ASN\Constants as ASNConstants;
 use App\Helpers\Sales\SaleOrderConstants;
+use App\Helpers\ReManufacturing\RepairOrder\Constants as REPConstants;
+use App\Helpers\ReManufacturing\RCA\Constants as RCAConstants;
 
 /**
  * Helper Class containing all logics related to Parameters Functionality in the project.
@@ -90,6 +92,8 @@ class ServiceParametersHelper
     const SO_CUSTOMER_PO_REQUIRED_PARAM_VALUES = ['Yes', 'No'];
     const SO_CUSTOMER_DISPLAY_BOM_PARAM = 'display_bom';
     const SO_CUSTOMER_DISPLAY_BOM_PARAM_VALUES = ['Yes', 'No'];
+    const SO_SALE_TYPE_ALLOWED_PARAM = 'so_sale_type_allowed';
+    const SO_SALE_TYPE_ALLOWED_PARAM_VALUES = ['Sale', 'Rent', 'Both'];
     const ITEM_SERVICE_PARAMETERS = [
         [
             "name" => self::ITEM_CODE_TYPE_PARAM,
@@ -156,6 +160,14 @@ class ServiceParametersHelper
     const SO_TRACKING_REQUIRED_VALUES = ['yes', 'no'];
     //Repair Order (RMFG)
     const OK_TO_RECIEVE_BOOK_PARAM = "ok_to_recieve_series";
+    //RCA
+    const RCA_TRANSIT_DAMAGE_PARAM = "rca_transit_damage_series";
+    const RCA_PACKAGE_MISSING_PARAM = "rca_package_missing_series";
+    const RCA_WRONG_PRODUCT_PARAM = "rca_wrong_product_series";
+    const RCA_DELIVERY_CANCEL_PARAM = "rca_delivery_cancel_series";
+    const RCA_MISSING_EXTRA_ITEMS_PARAM = "rca_missing_extra_items_series";
+    const RCA_REPLACEMENT_PARAM = "rca_replacement_series"; 
+    
     /**
      * Constant Array for all Service Parameters
      */
@@ -195,11 +207,17 @@ class ServiceParametersHelper
         self::PROCUREMENT_TYPE_PARAM => 'Procurement Type',
         self::BOM_BATCH_INHERIT_REQUIRED => 'Batch Inheritance Required',
         self::PO_PROCUREMENT_TYPE => 'Procurement Type',
-        self::OK_TO_RECIEVE_BOOK_PARAM => 'Ok To Receive Series',
-        self::ITEM_CODE_TYPE_OVERRIDE_PARAM  => 'Override Auto-Generated Code',
+        self::OK_TO_RECIEVE_BOOK_PARAM => 'Repair Order Series',
+        self::RCA_TRANSIT_DAMAGE_PARAM => 'RCA Transit Damage Series',
+        self::RCA_PACKAGE_MISSING_PARAM => 'RCA Package Missing Series',
+        self::RCA_WRONG_PRODUCT_PARAM => 'RCA Wrong Product Series',
+        self::RCA_DELIVERY_CANCEL_PARAM => 'RCA Delivery Cancel Series',
+        self::RCA_MISSING_EXTRA_ITEMS_PARAM => 'RCA Missing & Extra Items Series',
+        self::RCA_REPLACEMENT_PARAM => 'RCA Replacement Series', 
         self::SO_GATE_ENTRY_REQUIRED_PARAM => 'Inter Company DN Gate Entry Required?',
         self::SO_CUSTOMER_PO_REQUIRED_PARAM => 'Customer PO No. Required?',
         self::SO_CUSTOMER_DISPLAY_BOM_PARAM => 'Display BOM?',
+        self::SO_SALE_TYPE_ALLOWED_PARAM => 'Sale Type Allowed?',
     ];
 
     // Service Parameters Mapping
@@ -241,56 +259,17 @@ class ServiceParametersHelper
         self::BOM_BATCH_INHERIT_REQUIRED => self::BOM_BATCH_INHERIT_REQUIRED_VALUES,
         self::INSPECTION_REQUIRED_PARAM => self::INSPECTION_REQUIRED_PARAM_VALUES,
         self::OK_TO_RECIEVE_BOOK_PARAM => [],
-        self::ITEM_CODE_TYPE_OVERRIDE_PARAM=>self::ITEM_CODE_TYPE_OVERRIDE_PARAM_VALUES,
+        self::RCA_TRANSIT_DAMAGE_PARAM => [],
+        self::RCA_PACKAGE_MISSING_PARAM => [],
+        self::RCA_WRONG_PRODUCT_PARAM => [],
+        self::RCA_DELIVERY_CANCEL_PARAM => [],
+        self::RCA_MISSING_EXTRA_ITEMS_PARAM => [],
+        self::RCA_REPLACEMENT_PARAM => [], 
         self::SO_GATE_ENTRY_REQUIRED_PARAM => self::SO_GATE_ENTRY_REQUIRED_PARAM_VALUES,
         self::SO_CUSTOMER_PO_REQUIRED_PARAM => self::SO_CUSTOMER_PO_REQUIRED_PARAM_VALUES,
         self::SO_CUSTOMER_DISPLAY_BOM_PARAM => self::SO_CUSTOMER_DISPLAY_BOM_PARAM_VALUES,
+        self::SO_SALE_TYPE_ALLOWED_PARAM => self::SO_SALE_TYPE_ALLOWED_PARAM_VALUES,
     ];
-    const SO_SERVICE_PARAMETERS = [
-        [
-            "name" => self::REFERENCE_FROM_SERVICE_PARAM, //Name of the parameter
-            "applicable_values" => ["0", ConstantHelper::SQ_SERVICE_ALIAS, ConstantHelper::PO_SERVICE_ALIAS, ConstantHelper::JO_SERVICE_ALIAS], //All possible values
-            "default_value" => ["0", ConstantHelper::SQ_SERVICE_ALIAS, ConstantHelper::PO_SERVICE_ALIAS, ConstantHelper::JO_SERVICE_ALIAS], //Default selected value(s)
-            'is_multiple' => true, // Whether or not to allow multiple selection
-            'service_level_visibility' => true, // Whether or not to show this parameter in UI
-        ],
-        [
-            "name" => self::REFERENCE_FROM_SERIES_PARAM,
-            "applicable_values" => [],
-            "default_value" => [],
-            'is_multiple' => true,
-            'service_level_visibility' => false
-        ],
-        [
-            "name" => self::BACK_DATE_ALLOW_PARAM,
-            "applicable_values" => self::BACK_DATE_ALLOW_PARAM_VALUES,
-            "default_value" => ['yes'],
-            'is_multiple' => false,
-            'service_level_visibility' => true
-        ],
-        [
-            "name" => self::FUTURE_DATE_ALLOW_PARAM,
-            "applicable_values" => self::FUTURE_DATE_ALLOW_PARAM_VALUES,
-            "default_value" => ['yes'],
-            'is_multiple' => false,
-            'service_level_visibility' => true
-        ],
-        [
-            "name" => self::GOODS_SERVICES_PARAM,
-            "applicable_values" => self::GOODS_SERVICES_PARAM_VALUES,
-            "default_value" => ['Goods'],
-            'is_multiple' => false,
-            'service_level_visibility' => true
-        ],
-        // [
-        //     "name" => self::TAX_REQUIRED_PARAM,
-        //     "applicable_values" => self::TAX_REQUIRED_PARAM_VALUES,
-        //     "default_value" => ['yes'],
-        //     'is_multiple' => false,
-        //     'service_level_visibility' => true
-        // ]
-    ];
-
 
     const TI_SERVICE_PARAMETERS = [
         [
@@ -721,7 +700,7 @@ class ServiceParametersHelper
     const SR_SERVICE_PARAMETERS = [
         [
             "name" => self::REFERENCE_FROM_SERVICE_PARAM, //Name of the parameter
-            "applicable_values" => [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS,ConstantHelper::SI_SERVICE_ALIAS,ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS], //All possible values
+            "applicable_values" => [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS, ConstantHelper::SI_SERVICE_ALIAS, ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS], //All possible values
             "default_value" => [ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS], //Default selected value(s)
             'is_multiple' => true, // Whether or not to allow multiple selection
             'service_level_visibility' => true, // Whether or not to show this parameter in UI
@@ -1415,8 +1394,8 @@ class ServiceParametersHelper
     const PI_SERVICE_PARAMETERS = [
         [
             "name" => self::REFERENCE_FROM_SERVICE_PARAM, //Name of the parameter
-            "applicable_values" => ["0", ConstantHelper::SO_SERVICE_ALIAS], //All possible values
-            "default_value" => ["0", ConstantHelper::SO_SERVICE_ALIAS], //Default selected value(s)
+            "applicable_values" => ["0", ConstantHelper::SO_SERVICE_ALIAS, ConstantHelper::PWO_SERVICE_ALIAS], //All possible values
+            "default_value" => ["0", ConstantHelper::SO_SERVICE_ALIAS, ConstantHelper::PWO_SERVICE_ALIAS], //Default selected value(s)
             'is_multiple' => true, // Whether or not to allow multiple selection
             'service_level_visibility' => true, // Whether or not to show this parameter in UI
         ],
@@ -2613,14 +2592,14 @@ class ServiceParametersHelper
             'service_level_visibility' => true,
             'type' => self::GL_PARAMETERS
         ],
-        [
-            "name" => self::GL_SEPERATE_DISCOUNT_PARAM,
-            "applicable_values" => self::GL_SEPERATE_DISCOUNT_PARAM_VALUE,
-            "default_value" => ['no'],
-            'is_multiple' => false,
-            'service_level_visibility' => true,
-            'type' => self::GL_PARAMETERS
-        ],
+        // [
+        //     "name" => self::GL_SEPERATE_DISCOUNT_PARAM,
+        //     "applicable_values" => self::GL_SEPERATE_DISCOUNT_PARAM_VALUE,
+        //     "default_value" => ['no'],
+        //     'is_multiple' => false,
+        //     'service_level_visibility' => true,
+        //     'type' => self::GL_PARAMETERS
+        // ],
     ];
 
     const MATERIAL_ISSUE_SERVICE_PARAMETERS = [
@@ -3050,6 +3029,8 @@ class ServiceParametersHelper
         PackingListConstants::SERVICE_ALIAS => PackingListConstants::PARAMETERS,
         ASNConstants::SERVICE_ALIAS => ASNConstants::PARAMETERS,
         RGRConstants::SERVICE_ALIAS => RGRConstants::PARAMETERS,
+        REPConstants::SERVICE_ALIAS => REPConstants::PARAMETERS,
+        RCAConstants::SERVICE_ALIAS => RCAConstants::PARAMETERS,
     ];
     /* Parameter Types*/
     const COMMON_PARAMETERS = 'co';

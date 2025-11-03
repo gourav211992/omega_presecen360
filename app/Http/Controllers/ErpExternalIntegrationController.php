@@ -18,20 +18,20 @@ use App\Helpers\Configuration\Helper as ConfigurationHelper;
 use App\Models\Customer;
 use App\Models\ErpSubStore;
 use Exception;
-use Illuminate\Support\Facades\DB; 
+use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
 
 class ErpExternalIntegrationController extends Controller
 {
-    
+
      public function index(Request $request)
-    {    
+    {
         $user = Helper::getAuthenticatedUser();
 
         $erpExternalIntegrations = ErpExternalIntegration::with('customer', 'soBook', 'tripBook', 'dnote', 'organization', 'store')
             ->whereCompanyId($user->company_id)
             ->whereGroupId($user->group_id);
-       
+
        if ($request->ajax()) {
         return DataTables::of($erpExternalIntegrations)
             ->addIndexColumn()
@@ -126,7 +126,7 @@ class ErpExternalIntegrationController extends Controller
         $allOrganizations = Organization::where('group_id' ,$groupId)
             ->where('company_id' ,$user->company_id)->where('status', 'active')
             ->get();
-        
+
 
         $dn_parentUrl = 'delivery-note';
         $dn_servicesAliasParam = ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS;
@@ -135,15 +135,21 @@ class ErpExternalIntegrationController extends Controller
         $Sale_parentUrl = 'sales-order';
         $Sale_servicesAliasParam = ConstantHelper::SO_SERVICE_ALIAS;
         $sobook = ConfigurationHelper::getBookSeriesByType($Sale_servicesAliasParam, $Sale_parentUrl, false,'Auto')->get();
-        
+
         $trip_parentUrl = 'trip-plan';
         $trip_servicesAliasParam = ConstantHelper::TRIP_SERVICE_ALIAS;
         $tripbook = ConfigurationHelper::getBookSeriesByType($trip_servicesAliasParam, $trip_parentUrl, false,'Manually')->get();
         
-      
+        $dnoteCumInvUrl = 'delivery-note-cum-invoice';
+        $dnoteCumInvServicesAlias = ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS;
+        $dnoteCumInvBook = ConfigurationHelper::getBookSeriesByType($dnoteCumInvServicesAlias, $dnoteCumInvUrl, false,'Auto')->get();
+
+        $pickupScheduleUrl = 'pickup-dropoff-schedule';
+        $pickupScheduleServicesAlias = ConstantHelper::PDS_SERVICE_ALIAS;
+        $pickupScheduleBook = ConfigurationHelper::getBookSeriesByType($pickupScheduleServicesAlias, $pickupScheduleUrl, false,'Auto')->get();
 
         $status = ConstantHelper::STATUS;
-        return view('erp-external.create', compact('status','tripbook','sobook','dnbook','allOrganizations'));
+        return view('erp-external.create', compact('status','tripbook','sobook','dnbook','allOrganizations','dnoteCumInvBook','pickupScheduleBook'));
     }
 
     public function store(ErpExternalIntegrationRequest $request)
@@ -166,6 +172,33 @@ class ErpExternalIntegrationController extends Controller
                 ], 422);
             }
 
+            // 🔍 Validate: at least one primary per stock_type
+            if (isset($request->data) && count($request->data)) {
+                $groupedByStockType = collect($request->data)->groupBy('stock_type');
+
+                foreach ($groupedByStockType as $stockType => $items) {
+                    if(!$stockType) continue;
+
+                    $newPrimaryExists = collect($items)->contains(function ($item) {
+                        return isset($item['is_primary']) && $item['is_primary'] == 1;
+                    });
+
+                    $existingPrimary = ErpStockStoreMapping::where('organization_id', $request->organization_id)
+                        ->where('store_id', $request->store_id)
+                        ->where('stock_type', $stockType)
+                        ->where('is_primary', 1)
+                        ->exists();
+
+                    if (!$existingPrimary && !$newPrimaryExists) {
+                        return response()->json([
+                            'status' => false,
+                            'message' => "Please select at least one primary checkbox for Stock Type: {$stockType}",
+                        ], 422);
+                    }
+                }
+            }
+
+
             // Save main external integration
            ErpExternalIntegration::create([
                 'group_id'        => $user->group_id,
@@ -174,6 +207,8 @@ class ErpExternalIntegrationController extends Controller
                 'trip_book_id'    => $request->trip_book_id,
                 'so_book_id'      => $request->so_book_id,
                 'dnote_book_id'   => $request->dnote_book_id,
+                'dn_cum_invoice_book_id'   => $request->dn_cum_invoice_book_id,
+                'pickup_schedule_book_id'   => $request->pickup_schedule_book_id,
                 'store_id'        => $request->store_id,
                 'customer_id'     => $request->customer_id,
                 'status'          => $request->status,
@@ -203,6 +238,16 @@ class ErpExternalIntegrationController extends Controller
                         ], 422);
     
                     }
+
+                    $isPrimary = isset($data['is_primary']) && $data['is_primary'] == 1 ? 1 : 0;
+                    if ($isPrimary) {
+                        // Reset existing primary for this store
+                        ErpStockStoreMapping::where('organization_id', $request->organization_id)
+                            ->where('store_id', $request->store_id)
+                            ->where('is_primary', 1)
+                            ->update(['is_primary' => 0]);
+                    }
+
     
                     ErpStockStoreMapping::create([
                         'stock_type'      => $data['stock_type'],
@@ -236,7 +281,7 @@ class ErpExternalIntegrationController extends Controller
     public function edit($id)
     {
         $user = Helper::getAuthenticatedUser();
-      
+
         $allOrganizations = Organization::where('group_id',$user->group_id)->where('company_id',$user->company_id)
                 ->where('status', 'active')
                 ->get();
@@ -251,19 +296,26 @@ class ErpExternalIntegrationController extends Controller
         $dnParentUrl = 'delivery-note';
         $dn_servicesAliasParam = SaleModuleHelper::SALES_INVOICE_DN_TYPE;
         $dnbook = ConfigurationHelper::getBookSeriesByType($dn_servicesAliasParam, $dnParentUrl, true,'Auto')->get();
-        
+
         $saleParentUrl = 'sales-order';
         $Sale_servicesAliasParam = ConstantHelper::SO_SERVICE_ALIAS;
         $sobook = ConfigurationHelper::getBookSeriesByType($Sale_servicesAliasParam, $saleParentUrl, true,'Auto')->get();
-        
+
         $tripParentUrl = 'trip-plan';
         $trip_servicesAliasParam = ConstantHelper::TRIP_SERVICE_ALIAS;
         $tripbook = ConfigurationHelper::getBookSeriesByType($trip_servicesAliasParam, $tripParentUrl, true,'Manually')->get();
-        
+
+        $dnoteCumInvUrl = 'delivery-note-cum-invoice';
+        $dnoteCumInvServicesAlias = ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS;
+        $dnoteCumInvBook = ConfigurationHelper::getBookSeriesByType($dnoteCumInvServicesAlias, $dnoteCumInvUrl, false,'Auto')->get();
+
+        $pickupScheduleUrl = 'pickup-dropoff-schedule';
+        $pickupScheduleServicesAlias = ConstantHelper::PDS_SERVICE_ALIAS;
+        $pickupScheduleBook = ConfigurationHelper::getBookSeriesByType($pickupScheduleServicesAlias, $pickupScheduleUrl, false,'Auto')->get();
 
         $status = ConstantHelper::STATUS;
         
-        return view('erp-external.edit', compact('status','external','sobook','tripbook','dnbook','allOrganizations'));
+        return view('erp-external.edit', compact('status','external','sobook','tripbook','dnbook','allOrganizations','dnoteCumInvBook','pickupScheduleBook'));
     }
 
     public function update(ErpExternalIntegrationRequest $request, $id)
@@ -285,11 +337,13 @@ class ErpExternalIntegrationController extends Controller
                     'message' => 'This Location already exists for the selected organization.',
                 ], 422);
             }
-            
+
             $external->update([
                 'trip_book_id'  => $request->trip_book_id,
                 'so_book_id'    => $request->so_book_id,
                 'dnote_book_id' => $request->dnote_book_id,
+                'dn_cum_invoice_book_id'   => $request->dn_cum_invoice_book_id,
+                'pickup_schedule_book_id'   => $request->pickup_schedule_book_id,
                 'customer_id'   => $request->customer_id,
                 'status'        => $request->status,
             ]);
@@ -323,7 +377,7 @@ class ErpExternalIntegrationController extends Controller
                             'message' => ($subStore?->name ?? 'This') . " sub-location is duplicate for this Location.",
                         ], 422);
                     }
-                
+
                     ErpStockStoreMapping::create([
                         'stock_type'      => $data['stock_type'],
                         'group_id'        => $user->group_id,
@@ -335,7 +389,7 @@ class ErpExternalIntegrationController extends Controller
                     ]);
 
                     $existingSubStores[] = $subStoreId;
-                    
+
                 }
             }
 
@@ -387,21 +441,21 @@ class ErpExternalIntegrationController extends Controller
     public function getStore(Request $request){
         $get =ErpStore::where('organization_id',$request->org_id)->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->get();
         return $get;
-    }  
-    
+    }
+
     public function getSubStore(Request $request){
         $storeId = $request->store_id;
 
         $subStoreIds = ErpSubStoreParent::where('store_id', $storeId)->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
                 ->get()->pluck('sub_store_id')
-                ->toArray(); 
+                ->toArray();
 
         $subStores = ErpSubStore::select('id', 'name', 'code', 'station_wise_consumption', 'is_warehouse_required')
                     ->whereIn('id', $subStoreIds)
                     ->whereIn('type', [ConstantHelper::STOCKK])
                     ->where('status', ConstantHelper::ACTIVE)
                     ->get();
-                        
+
         return $subStores;
     }
     public function getCashCustomer(Request $request){
@@ -409,6 +463,45 @@ class ErpExternalIntegrationController extends Controller
         $fallbackQuery = Customer::where('status', ConstantHelper::ACTIVE)->where('customer_type','Cash')->where('group_id',$org->group_id)->where('company_id',$org->company_id)
             ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
         $results = $fallbackQuery->limit(10)->get(['id', 'company_name', 'customer_code']);
-        return response()->json($results);      
+        return response()->json($results);
+    }
+
+    public function fetchStockStoreMapping(Request $request){
+        
+        $organizationId = $request->input('organization_id');
+        $storeId = $request->input('store_id');
+
+        // Assuming you have a StockStoreMapping model
+        $mappings = ErpStockStoreMapping::with('subStore')
+            ->where('organization_id', $organizationId)
+            ->where('store_id', $storeId)
+            ->get();
+
+        if ($mappings->isEmpty()) {
+            return response()->json(['success' => false]);
+        }
+
+        return [
+            'data' => view('erp-external.render-stock-store-mapping', ['data' => $mappings])->render(),
+            'message' => 'HTML render',
+        ];
+    }
+
+    public function removeStockStoreMapping($id)
+    {
+        $mapping = ErpStockStoreMapping::find($id);
+
+        if (!$mapping) {
+            return response()->json([
+                'message' => 'Stock-store mapping not found.'
+            ], 404);
+        }
+
+        $mapping->delete();
+
+        return response()->json([
+            'message' => 'Stock-store mapping deleted successfully.'
+        ]);
+        
     }
 }

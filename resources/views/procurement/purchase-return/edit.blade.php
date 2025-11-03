@@ -40,77 +40,100 @@
                                     class="btn btn-secondary btn-sm mb-50 mb-sm-0">
                                     <i data-feather="arrow-left-circle"></i> Back
                                 </button>
-                                @if ($eInvoice)
-                                    {{-- @if (!$eInvoice->ewb_no && $mrn->total_amount > 50000)
-                                        <a type="button" class="btn btn-primary btn-sm" id="eWayBillBtn" href="#">
-                                            <i data-feather="check-circle"></i> Generate Eway Bill
-                                        </a>
-                                    @endif --}}
-                                    @if ($eInvoice && $eInvoice->irn_number && $eInvoice->status == 'ACT')
-                                        <a type="button" class="btn btn-primary btn-sm btn-danger" id="cancelEinvoice"
-                                            href="#">
-                                            <i data-feather="x-circle"></i> Cancel Envoice
-                                        </a>
+                                @if ($mrn->document_status && $mrn->document_status != 'cancelled')
+                                    @if ($eInvoice)
+                                        @if (!$eInvoice->ewb_no)
+                                            <a type="button" class="btn btn-primary btn-sm" id="eWayBillBtn" href="#">
+                                                <i data-feather="check-circle"></i> Eway Bill
+                                            </a>
+                                        @endif
+                                         @if ($eInvoice && $eInvoice->ewb_no && $eInvoice->status == 'ACT')
+                                            <button type="button" onclick="cancelDocument('ewaybill');"
+                                                class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelEwayBillBtn" id="cancelEwayBillBtn">
+                                                <i data-feather='delete'></i>
+                                                Cancel Eway Bill
+                                            </button>
+                                        @endif
+                                        {{-- @if ($eInvoice && $eInvoice->irn_number && $eInvoice->status == 'ACT')
+                                            <a type="button" class="btn btn-primary btn-sm btn-danger" id="cancelEinvoice"
+                                                href="#">
+                                                <i data-feather="x-circle"></i> Cancel Envoice
+                                            </a>
+                                        @endif --}}
                                     @endif
-                                @endif
-                                @if ($buttons['draft'])
-                                    <button type="submit"
-                                        class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button" name="action"
-                                        value="draft">
-                                        <i data-feather='save'></i> Save as Draft
-                                    </button>
-                                @endif
-                                @if ($buttons['submit'])
-                                    <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
-                                        value="submitted">
-                                        <i data-feather="check-circle"></i> Submit
-                                    </button>
-                                @endif
-                                @if ($buttons['approve'])
-                                    <button type="button" class="btn btn-primary btn-sm" id="approved-button"
-                                        name="action" value="approved"><i data-feather="check-circle"></i> Approve</button>
-                                    <button type="button" id="reject-button"
-                                        class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
-                                            xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <line x1="15" y1="9" x2="9" y2="15"></line>
-                                            <line x1="9" y1="9" x2="15" y2="15"></line>
-                                        </svg> Reject</button>
-                                @endif
-
-                                @if ($buttons['post'])
-                                    {{-- @if ($eInvoice && !$eInvoice['ewb_no'])
-                                        <a type="button" class="btn btn-primary btn-sm" id="eWayBillBtn" href="#">
-                                            <i data-feather="check-circle"></i> Direct Eway Bill
-                                        </a>
-                                    @endif --}}
-                                    @if (
-                                        !intval(request('amendment') ?? 0) &&
-                                            $mrn->document_status != \App\Helpers\ConstantHelper::DRAFT &&
-                                            $mrn->document_status != \App\Helpers\ConstantHelper::SUBMITTED &&
-                                            $mrn->document_status != \App\Helpers\ConstantHelper::PARTIALLY_APPROVED)
-                                        <button id="postButton" onclick="onPostVoucherOpen();" type="button"
-                                            class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                    @if ($buttons['draft'])
+                                        <button type="submit"
+                                            class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button"
+                                            name="action" value="draft">
+                                            <i data-feather='save'></i> Save as Draft
+                                        </button>
+                                    @endif
+                                    @if ($buttons['submit'])
+                                        <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
+                                            value="submitted">
+                                            <i data-feather="check-circle"></i> Submit
+                                        </button>
+                                    @endif
+                                    @if ($mrn->document_status == 'draft' || $mrn->document_status == 'rejected')
+                                        @if ($buttons['cancel'])
+                                            @php $cancelButtonSet = true; @endphp
+                                            <button type="button" onclick="cancelDocument('');"
+                                                class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                                <i data-feather='delete'></i>
+                                                Cancel
+                                            </button>
+                                        @endif
+                                    @endif
+                                    @if ($buttons['approve'])
+                                        <button type="button" class="btn btn-primary btn-sm" id="approved-button"
+                                            name="action" value="approved"><i data-feather="check-circle"></i>
+                                            Approve</button>
+                                        <button type="button" id="reject-button"
+                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
                                                 xmlns="http://www.w3.org/2000/svg" width="14" height="14"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
-                                                class="feather feather-check-circle">
-                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                            </svg> Post</button>
-                                        @if (!$eInvoice || ($eInvoice->irn_number && $eInvoice->status == 'cancelled'))
-                                            <a type="button" class="btn btn-primary btn-sm" id="eEnvoiceBtn"
-                                                href="#">
-                                                <i data-feather="check-circle"></i> Generate Envoice
+                                                class="feather feather-x-circle">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <line x1="15" y1="9" x2="9" y2="15"></line>
+                                                <line x1="9" y1="9" x2="15" y2="15"></line>
+                                            </svg> Reject</button>
+                                    @endif
+
+                                    @if ($buttons['post'])
+                                        @if (!$eInvoice)
+                                            <a type="button" class="btn btn-primary btn-sm" id="eWayBillBtn" href="#">
+                                                <i data-feather="check-circle"></i> Eway Bill
                                             </a>
                                         @endif
-                                        <a href="{{ route('purchase-return.generate-pdf', $mrn->id) }}" target="_blank"
-                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
+                                        @if (
+                                            !intval(request('amendment') ?? 0) &&
+                                                $mrn->document_status != \App\Helpers\ConstantHelper::DRAFT &&
+                                                $mrn->document_status != \App\Helpers\ConstantHelper::SUBMITTED &&
+                                                $mrn->document_status != \App\Helpers\ConstantHelper::PARTIALLY_APPROVED)
+                                            <button id="postButton" onclick="onPostVoucherOpen();" type="button"
+                                                class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                                    xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    class="feather feather-check-circle">
+                                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                                </svg> Post</button>
+                                            @if (!$eInvoice || ($eInvoice->irn_number && $eInvoice->status == 'cancelled'))
+                                                <a type="button" class="btn btn-primary btn-sm" id="eEnvoiceBtn"
+                                                    href="#">
+                                                    <i data-feather="check-circle"></i> Generate Envoice
+                                                </a>
+                                            @endif
+                                        @endif
+                                        <button
+                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light dropdown-toggle"
+                                            type="button" id="dropdownMenuButton" data-bs-toggle="dropdown"
+                                            aria-expanded="false">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                                stroke-linecap="round" stroke-linejoin="round"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                                                 class="feather feather-printer">
                                                 <polyline points="6 9 6 2 18 2 18 9"></polyline>
                                                 <path
@@ -118,8 +141,32 @@
                                                 </path>
                                                 <rect x="6" y="14" width="12" height="8"></rect>
                                             </svg>
-                                            Print
-                                        </a>
+                                            Print <i class="fa-regular fa-circle-down"></i>
+                                        </button>
+                                        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                            @php
+                                                $options = [
+                                                    'Purchase Return' => 'Purchase Return',
+                                                    'Debit Note' => 'Debit Note',
+                                                ];
+
+                                                // Conditionally add 'E Way Bill' if $eInvoice->ewb_url exists
+                                                if (isset($eInvoice) && $eInvoice->ewb_url) {
+                                                    $options['E Way Bill'] = 'E Way Bill';
+                                                }
+                                            @endphp
+
+                                            @foreach ($options as $key => $label)
+                                                <li>
+                                                    <a class="dropdown-item"
+                                                    href="{{ $key == 'E Way Bill' ? $eInvoice->ewb_url : route('purchase-return.generate-pdf', ['id' => $mrn->id ?? 0, 'pattern' => $key ?? 'Purchase Return']) }}"
+                                                    target="_blank">
+                                                        {{ $label }}
+                                                    </a>
+                                                </li>
+                                            @endforeach
+
+                                        </ul>
                                     @endif
                                 @endif
                                 @if ($buttons['voucher'])
@@ -134,9 +181,19 @@
                                             <line x1="16" y1="13" x2="8" y2="13"></line>
                                             <line x1="16" y1="17" x2="8" y2="17"></line>
                                             <polyline points="10 9 9 9 8 9"></polyline>
-                                        </svg> Voucher</button>
-                                    <a href="{{ route('purchase-return.generate-pdf', $mrn->id) }}" target="_blank"
-                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
+                                        </svg> Voucher
+                                    </button>
+                                    @if ($buttons['cancel'] && !isset($cancelButtonSet) && (isset($cancelAmendButtonSet) && $cancelAmendButtonSet))
+                                        <button type="button" onclick="cancelDocument('');"
+                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                            <i data-feather='delete'></i>
+                                            Cancel
+                                        </button>
+                                    @endif
+                                    <button
+                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light dropdown-toggle"
+                                        type="button" id="dropdownMenuButton" data-bs-toggle="dropdown"
+                                        aria-expanded="false">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
                                             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                             stroke-linecap="round" stroke-linejoin="round"
@@ -147,8 +204,23 @@
                                             </path>
                                             <rect x="6" y="14" width="12" height="8"></rect>
                                         </svg>
-                                        Print
-                                    </a>
+                                        Print <i class="fa-regular fa-circle-down"></i>
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                        @php
+                                            $options = [
+                                                'Purchase Return' => 'Purchase Return',
+                                                'Debit Note' => 'Debit Note',
+                                            ];
+                                        @endphp
+                                        @foreach ($options as $key => $label)
+                                            <li>
+                                                <a class="dropdown-item"
+                                                    href="{{ route('purchase-return.generate-pdf', ['id' => $mrn->id ?? 0, 'pattern' => $key ?? 'Purchase Return']) }}"
+                                                    target="_blank">{{ $label }}</a>
+                                            </li>
+                                        @endforeach
+                                    </ul>
                                     <button type = "button" onclick = "sendMailTo();"
                                         class="btn btn-primary btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
                                             data-feather="mail"></i> E-Mail</button>
@@ -162,11 +234,14 @@
                                             class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
                                             Amendment</button>
                                     @endif
-                                @endif
-                                @if ($buttons['revoke'])
-                                    <button id = "revokeButton" type="button"
-                                        class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
-                                        Revoke</button>
+                                    @if ($buttons['cancel'] && !isset($cancelButtonSet) && !isset($cancelAmendButtonSet))
+                                        @php $cancelAmendButtonSet = true; @endphp
+                                        <button type="button" onclick="cancelDocument('');"
+                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                            <i data-feather='delete'></i>
+                                            Cancel
+                                        </button>
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -226,8 +301,9 @@
                                                                 class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="date" name="document_date" readonly
-                                                            class="form-control" value="{{ $mrn->document_date }}">
+                                                        <input id="document_date" type="date" name="document_date"
+                                                            readonly class="form-control"
+                                                            value="{{ $mrn->document_date }}">
                                                     </div>
                                                 </div>
                                                 <div class="row align-items-center mb-1">
@@ -586,9 +662,10 @@
                                                     <a href="javascript:;" id="deleteBtn"
                                                         class="btn btn-sm btn-outline-danger me-50">
                                                         <i data-feather="x-circle"></i> Delete</a>
-                                                    <a href="javascript:;" id="addNewItemBtn"
+                                                    <!-- After discussion with Inder Sir direct purchase return create case removed -->
+                                                    {{-- <a href="javascript:;" id="addNewItemBtn"
                                                         class="btn btn-sm btn-outline-primary">
-                                                        <i data-feather="plus"></i> Add New Item</a>
+                                                        <i data-feather="plus"></i> Add New Item</a> --}}
                                                 </div>
                                             </div>
                                         </div>
@@ -721,6 +798,8 @@
                                                                                 amount="">
                                                                                 <!-- {{ number_format(@$mrn->taxable_amount, 2) }} -->
                                                                             </td>
+                                                                            <input id = "tax_amount_header" type="hidden"
+                                                                                name="taxes_amount_header" />
                                                                         </tr>
                                                                         <tr>
                                                                             <td><strong>Tax</strong></td>
@@ -877,6 +956,7 @@
             </div>
         </div>
         @include('procurement.purchase-return.partials.amendement-modal', ['id' => $mrn->id])
+        @include('procurement.purchase-return.partials.cancel-modal', ['id' => $mrn->id])
     </form>
 
     {{-- Attribute popup --}}
@@ -943,11 +1023,11 @@
                                     <input step="any" type="number" id="new_item_dis_value"
                                         class="form-control mw-100" />
                                 </td>
-                                <td>
+                                {{-- <td>
                                     <a href="javascript:;" id="add_new_item_dis" class="text-primary can_hide">
                                         <i data-feather="plus-square"></i>
                                     </a>
-                                </td>
+                                </td> --}}
                             </tr>
                         </thead>
                     </table>
@@ -1093,6 +1173,9 @@
     <!-- Approve/Reject Modal -->
     {{-- @include('procurement.purchase-return.partials.cancel-einvoice-modal', ['id' => $mrn->id, 'irnData' => $eInvoice]) --}}
 
+    <!--- Cancel Eway Bill Modal  -->
+    @include('procurement.purchase-return.partials.cancel-eway-modal', ['id' => $mrn->id])
+
     {{-- Taxes --}}
     @include('procurement.purchase-return.partials.tax-detail-modal')
 
@@ -1187,6 +1270,8 @@
         var actionUrlTax = '{{ route('purchase-return.tax.calculation') }}';
         var qtyChangeUrl = '{{ route('purchase-return.get.validate-quantity') }}';
         let taxCalUrl = '{{ route('tax.group.calculate') }}';
+        let calRetTaxTdsUrl = '{{ route('return.tds.calculate') }}';
+        let calTaxTdsUrl = '{{ route('tax.calculate.tds') }}';
     </script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-attr-ui.js') }}"></script>
@@ -1194,6 +1279,7 @@
     <script type="text/javascript" src="{{ asset('app-assets/js/file-uploader.js') }}"></script>
     <script>
         let tableRowCount = $('.mrntableselectexcel tr').length;
+        prData = @json($mrn);
         let currentProcessType = @json($mrn->reference_type);
         window.onload = () => {
             let mrnHeaderId = @json($mrn->mrn_header_id);
@@ -1203,11 +1289,11 @@
             $("#reference_type_input").val(currentProcessType);
             if (currentProcessType === null) {
                 $(".mrnSelect").hide();
-                $("#addNewItemBtn").show();
+                // $("#addNewItemBtn").show();
             } else {
                 if (currentProcessType === 'mrn') {
                     $(".mrnSelect").show();
-                    $("#addNewItemBtn").hide();
+                    // $("#addNewItemBtn").hide();
 
                 }
             }
@@ -1259,27 +1345,31 @@
                     $(':input').prop('readonly', true);
                     $('select').not('.amendmentselect select').prop('disabled', true);
                 @endif
-                $('textarea[name="amend_remark"], input[type="file"][name="amend_attachment[]"]').prop('readonly', false)
+                $('textarea[name="amend_remark"], textarea[name="cancel_remarks"], input[type="file"][name="amend_attachment[]"]')
+                    .prop('readonly', false)
                     .prop('disabled', false);
                 $("#deleteBtn").remove();
-                $("#addNewItemBtn").remove();
+                // $("#addNewItemBtn").remove();
                 $(".editAddressBtn").remove();
-                $("#add_new_item_dis").remove();
+                // $("#add_new_item_dis").remove();
                 $(".deleteItemDiscountRow").remove();
-                $("#add_new_head_dis").remove();
+                // $("#add_new_head_dis").remove();
                 $(".deleteSummaryDiscountRow").remove();
-                $("#add_new_head_exp").remove();
+                // $("#add_new_head_exp").remove();
                 $(".deleteExpRow").remove();
                 $(document).on('show.bs.modal', function(e) {
                     if (e.target.id != 'approveModal') {
                         if (e.target.id != 'shortCloseModal') {
-                            $(e.target).find('.modal-footer').remove();
+                            $(e.target).find('.modal-footer').not('.cancel-modal-footer').remove();
                         }
                         $('select').not('.amendmentselect select').prop('disabled', true);
                     }
                     if (e.target.id == 'approveModal') {
                         $(e.target).find(':input').prop('readonly', false);
                         $(e.target).find('select').prop('readonly', false);
+                    }
+                    if (e.target.id == 'cancelEWayBillModal') {
+                        $('#reasonSelect').prop('disabled', false);
                     }
                     $('.add-contactpeontxt').remove();
                     let text = $(e.target).find('thead tr:first th:last').text();
@@ -1384,11 +1474,11 @@
                 } else {
                     $("#reference_from").addClass('d-none');
                 }
-                if (reference_from_service.includes('d')) {
-                    $("#addNewItemBtn").removeClass('d-none');
-                } else {
-                    $("#addNewItemBtn").addClass('d-none');
-                }
+                // if (reference_from_service.includes('d')) {
+                //     $("#addNewItemBtn").removeClass('d-none');
+                // } else {
+                //     $("#addNewItemBtn").addClass('d-none');
+                // }
             } else {
                 Swal.fire({
                     title: 'Error!',
@@ -2063,7 +2153,7 @@
             setTableCalculation();
             if (!$("#itemTable [id*=row_]").length) {
                 $(".mrnSelect").show();
-                $("#addNewItemBtn").show();
+                // $("#addNewItemBtn").show();
                 $("#reference_type_input").val('');
                 $("th .form-check-input").prop('checked', false);
                 $('#vendor_name').prop('readonly', false);
@@ -2247,6 +2337,89 @@
                 e.preventDefault();
                 $("#pbEditForm").submit();
             }
+        });
+
+        /* Open Cancel popup */
+        function cancelDocument(type = 'normal') {
+            let $modal = $('#cancelModal');
+            if (type = 'ewaybill'){
+                $modal = $('#cancelEWayBillModal');
+            }
+            // write the hidden field (overwrite, not append)
+            $('#cancellation_value').val(type).trigger('change');
+
+            // show the modal (BS5-safe)
+            if (window.bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance($modal[0]).show();
+            } else {
+                $modal.modal('show');
+            }
+        }
+
+        /* cancel btn submit */
+        $(document).on('click', '.cancelBtnSubmit', function(e) {
+            e.preventDefault();
+
+            const $modal = $('#cancelModal');
+
+            const remark = $modal.find('[name="cancel_remarks"]').val()?.trim();
+            const type = $('#cancellation_value').val(); // read by id
+            const docId = $('input[name="id"]').val() || ''; // or set explicitly
+            var arr = @json($itemIds);
+
+            let itemIds = JSON.stringify(arr || []); // or set explicitly
+            // validation
+            if (!remark) {
+                // NOTE: your markup uses id="amendRemarkError"
+                $('#amendRemarkError').removeClass('d-none');
+                return;
+            } else {
+                $('#amendRemarkError').addClass('d-none');
+            }
+
+            // hide modal
+            if (window.bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
+            } else {
+                $modal.modal('hide');
+            }
+
+            const apiURL = "{{ route('purchase-return.cancel') }}";
+
+            $.ajax({
+                url: apiURL,
+                type: "POST",
+                dataType: "json",
+                contentType: "application/json",
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
+                },
+                data: JSON.stringify({
+                    id: docId,
+                    cancel_remarks: remark,
+                    cancel_type: type,
+                    deletedMrnItemIds: itemIds // <-- comes from #cancellation_value
+                }),
+                success: function(data) {
+                    const ok = data?.data?.status ?? data?.status ?? false;
+                    const msg = data?.data?.message ?? data?.message ?? 'Done.';
+                    Swal.fire({
+                            title: ok ? 'Success!' : 'Error!',
+                            text: msg,
+                            icon: ok ? 'success' : 'error'
+                        })
+                        .then(() => {
+                            if (ok) location.reload();
+                        });
+                },
+                error: function() {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'Some internal error occurred',
+                        icon: 'error'
+                    });
+                }
+            });
         });
 
         // GL Posting
@@ -2537,6 +2710,55 @@
             let eInvoiceId = '{{ $eInvoice ? $eInvoice->id : null }}'
             let data = {
                 eInvoice_id: eInvoiceId
+            };
+
+            fetch(actionUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => {
+                    return response.json().then(data => {
+                        if (data.status == 'error') {
+                            Swal.fire({
+                                title: 'Error!',
+                                text: data.message,
+                                icon: 'error',
+                            });
+                            return false;
+                        } else {
+                            Swal.fire({
+                                title: 'Success!',
+                                text: data.message,
+                                icon: 'success',
+                            });
+                            location.reload();
+                        }
+                    });
+                })
+                .catch(error => {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'Something went wrong. Please try again.',
+                        icon: 'error',
+                    });
+                    console.error('Error:', error);
+                });
+        });
+
+        $(document).on('click', '#ewaybillCancelBtnSubmit', (e) => {
+            let actionUrl = '{{ route('purchase-return.cancel-ewaybill') }}';
+            let eInvoiceId = '{{ $eInvoice ? $eInvoice->id : null }}'
+            let cancelRemark = $(e.target).closest('form').find('[name="cancel_remarks"]').val()?.trim();
+            let reasonId = $(e.target).closest('form').find('#reasonSelect').val();
+
+            let data = {
+                id: eInvoiceId,
+                cancel_reason: reasonId,
+                cancel_remarks: cancelRemark,
             };
 
             fetch(actionUrl, {
@@ -2966,7 +3188,7 @@
 
             let moduleTypes = getSelectedMrnTypes();
             $("[name='mrn_item_ids']").val(ids);
-            $("#addNewItemBtn").hide();
+            // $("#addNewItemBtn").hide();
             if (referenceNo) {
                 $("#referenceNoDiv").show();
                 $("#reference_number_input").val(referenceNo);

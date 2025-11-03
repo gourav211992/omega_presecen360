@@ -23,9 +23,9 @@
                 <!-- Organization Logo (Left) -->
                 <td style="vertical-align: top;">
                     @if (isset($orgLogo) && $orgLogo)
-                        <img src="{!! $orgLogo !!}" alt="" height="50px" />
+                        <img src="{!! $orgLogo !!}" alt="" width="200px" />
                     @else
-                        <img src="{{ $imagePath }}" height="50px" alt="">
+                        <img src="{{ $imagePath }}" width="200px" alt="">
                     @endif
                 </td>
 
@@ -285,7 +285,17 @@
                 </td>
             </tr>
         </table>
-
+        @if (isset($dynamicFields) && count($dynamicFields))
+            <table style = "border-left: 1px solid #000; border-right:1px solid #000; width:100%;">
+                <tr>
+                    @foreach ($dynamicFields as $dynamicField)
+                        @if (isset($dynamicField['value']))
+                            <td style="padding: 5px"><b>{{$dynamicField['name']}}</b>: {{$dynamicField['value']}} </td>
+                        @endif
+                    @endforeach
+                </tr>
+            </table>
+        @endif
         <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
             <tr>
                 <td

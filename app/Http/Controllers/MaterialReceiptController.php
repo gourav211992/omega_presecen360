@@ -89,6 +89,7 @@ use App\Helpers\InventoryHelper;
 use App\Helpers\StoragePointHelper;
 use App\Helpers\FinancialPostingHelper;
 use App\Helpers\ServiceParametersHelper;
+use App\Helpers\Common\OrganizationHelper;
 
 use App\Services\MrnService;
 use App\Services\MrnDeleteService;
@@ -109,6 +110,7 @@ use App\Services\ItemImportExportService;
 use App\Exports\FailedTransactionItemsExport;
 use App\Helpers\CommonHelper;
 use App\Helpers\Configuration\Constants;
+use App\Helpers\GeneralHelper;
 use App\Lib\Services\WHM\PutawayJob;
 use App\Models\Configuration;
 use App\Models\CostCenter;
@@ -129,6 +131,9 @@ use App\Models\PaymentTermDetail;
 use App\Models\VendorLocation;
 use App\Models\PurchaseOrderTed;
 use App\Models\Scopes\DefaultGroupCompanyOrgScope;
+use App\Models\Voucher;
+use App\Services\Common\DocumentLockService;
+use App\Services\VoucherService;
 use P360\ClientConfig\Services\ClientConfigService;
 
 class MaterialReceiptController extends Controller
@@ -159,7 +164,7 @@ class MaterialReceiptController extends Controller
         $orderType = ConstantHelper::MRN_SERVICE_ALIAS;
         request()->merge(['type' => $orderType]);
         if (request()->ajax()) {
-            $user = Helper::getAuthenticatedUser();
+            $user = request()->user();
             $records = MrnHeader::with(
                 [
                     'items',
@@ -176,7 +181,8 @@ class MaterialReceiptController extends Controller
             )
                 // ->withDefaultGroupCompanyOrg()
                 ->withDraftListingLogic()
-                // ->bookViewAccess($parentUrl)
+                ->bookViewAccess($parentUrl)
+                ->selfCreatedDocuments($user)
                 // ->where('company_id', $organization->company_id)
                 ->latest();
             return DataTables::of($records)
@@ -215,7 +221,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-
+    
                         return $joReferences ?: 'N/A';
                     } elseif ($row->reference_type === 'po') {
                         // Multiple POs from related items
@@ -228,7 +234,7 @@ class MaterialReceiptController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-
+    
                         return $joReferences ?: 'N/A';
                     } else {
                         return '';
@@ -279,7 +285,7 @@ class MaterialReceiptController extends Controller
                 ->addColumn('total_amount', function ($row) {
                     return number_format($row->total_amount, 2);
                 })
-                ->addColumn('created_by', function ($row){
+                ->addColumn('created_by', function ($row) {
                     return $row->createdBy?->name;
                 })
                 ->rawColumns(['document_status'])
@@ -295,7 +301,7 @@ class MaterialReceiptController extends Controller
      */
     public function create(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         //Get the menu
         $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
@@ -317,10 +323,16 @@ class MaterialReceiptController extends Controller
     }
 
     # MRN store
-    public function store(MaterialReceiptRequest $request)
+    public function store(MaterialReceiptRequest $request, DocumentLockService $lockService)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $groupAlias = $user?->auth_user?->group_alias ?? '';
+        if (!$request->consignment_no || !$request->supplier_invoice_no || !$request->supplier_invoice_date || !$request->transporter_name || !$request->manual_entry_no || !$request->vehicle_no) {
+            return response()->json([
+                'message' => "Please fill general information fields",
+                'error' => "",
+            ], 422);
+        }
         $isAttachementRequired = in_array($groupAlias, Constants::GROUP_ATTACHMENT_MANDATORY);
 
         if ($isAttachementRequired && !($request->file('attachment'))) {
@@ -344,7 +356,7 @@ class MaterialReceiptController extends Controller
             }
 
             $inspectionReqired = ($parameters['inspection_required'][0] === 'no') ? 0 : 1;
-            $organization = Organization::where('id', $user->organization_id)->first();
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             $organizationId = $organization?->id ?? null;
             $purchaseOrderId = null;
             $groupId = $organization?->group_id ?? null;
@@ -477,8 +489,8 @@ class MaterialReceiptController extends Controller
                 ]);
                 $shippingAddress->save();
             }
-            $tdsAssessableAmt = $mrn -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
-            $oldNonTdsAccesableAmt = ($mrn -> total_item_amount - $mrn -> total_discount) - $tdsAssessableAmt;
+            $tdsAssessableAmt = $mrn->header_tax()->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first()?->assesment_amount ?? 0;
+            $oldNonTdsAccesableAmt = ($mrn->total_item_amount - $mrn->total_discount) - $tdsAssessableAmt;
             # Store location address
             if ($mrn?->erpStore) {
                 $storeAddress = $mrn?->erpStore->address;
@@ -541,7 +553,6 @@ class MaterialReceiptController extends Controller
                             return $assetValidation; // ❗ Stop further processing
                         }
                     }
-
                     $inputQty = 0.00;
                     $so_id = null;
                     $refType = $request->input('reference_type');
@@ -554,33 +565,6 @@ class MaterialReceiptController extends Controller
                     if (!$item) {
                         \DB::rollBack();
                         return response()->json(['message' => 'Item not found.'], 422);
-                    }
-
-                    switch ($refType) {
-                        case ConstantHelper::JO_SERVICE_ALIAS:
-                            $result = self::processJobOrderComponent($component, $item, $orderQty);
-                            break;
-
-                        case ConstantHelper::SO_SERVICE_ALIAS:
-                            $result = self::processSaleOrderComponent($component, $item, $orderQty);
-                            break;
-
-                        case ConstantHelper::PO_SERVICE_ALIAS:
-                            $result = self::processPurchaseOrderComponent($component, $item, $orderQty);
-                            break;
-
-                        case ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS:
-                        case ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS:
-                            $result = self::processDnoteComponent($component, $item, $orderQty);
-                            break;
-
-                        default:
-                            $result = self::processDirectComponent($component, $item, $orderQty);
-                            break;
-                    }
-
-                    if ($result !== true) {
-                        return $result; // return response from updatePoQty or entry logic
                     }
 
                     $inventory_uom_id = null;
@@ -692,7 +676,7 @@ class MaterialReceiptController extends Controller
                         $partyCountryId = isset($billingAddress) ? $billingAddress->country_id : null;
                         $partyStateId = isset($billingAddress) ? $billingAddress->state_id : null;
                         if ($request->get('reference_type') !== ConstantHelper::SO_SERVICE_ALIAS) {
-                            $hsnId = $mrnItem['hsn_id'];
+                            $hsnId = (int) $mrnItem['hsn_id'];
                             if ($request->get('reference_type') === ConstantHelper::JO_SERVICE_ALIAS) {
                                 $serviceItemId = JoProduct::where('id', $mrnItem['job_order_item_id'])->value('service_item_id');
                                 if ($serviceItemId) {
@@ -920,6 +904,36 @@ class MaterialReceiptController extends Controller
                             return response()->json(['message' => 'Invalid JSON for batch details.'], 422);
                         }
                     }
+
+                    // Back Update Functionality
+                    $backUpdateQty = floatval($component['order_qty']) ?? 0.00;
+                    switch ($refType) {
+                        case ConstantHelper::JO_SERVICE_ALIAS:
+                            $result = self::processJobOrderComponent($component, $item, $backUpdateQty, $organization);
+                            break;
+
+                        case ConstantHelper::SO_SERVICE_ALIAS:
+                            $result = self::processSaleOrderComponent($component, $item, $backUpdateQty, $organization);
+                            break;
+
+                        case ConstantHelper::PO_SERVICE_ALIAS:
+                            $result = self::processPurchaseOrderComponent($component, $item, $backUpdateQty, $organization);
+                            break;
+
+                        case ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS:
+                        case ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS:
+                            $result = self::processDnoteComponent($component, $item, $backUpdateQty, $organization);
+                            break;
+
+                        default:
+                            $result = self::processDirectComponent($component, $item, $backUpdateQty, $organization);
+                            break;
+                    }
+
+                    if ($result !== true) {
+                        return $result; // return response from updatePoQty or entry logic
+                    }
+
                 }
                 /*Header level save discount*/
                 if (isset($request->all()['disc_summary'])) {
@@ -968,22 +982,32 @@ class MaterialReceiptController extends Controller
                 }
 
                 // TDS Header Level Tax
-                $locationAddress = $mrn -> store_address;
-                $billingAddress = $mrn -> bill_address_details;
-                $vendor = Vendor::find($request -> vendor_id);
+                $locationAddress = $mrn->store_address;
+                $billingAddress = $mrn->bill_address_details;
+                $vendor = Vendor::find($request->vendor_id);
                 $totalTaxableValue = ($itemTotalValue - ($itemTotalHeaderDiscount + $itemTotalDiscount));
-                $tdsApplicability = TaxHelper::calculateHeaderTax($vendor, $locationAddress -> country_id, $billingAddress -> country_id, $user, 'purchase',
-                    ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $mrn->document_date, $oldNonTdsAccesableAmt, $totalTaxableValue);
-                    if ($tdsApplicability['status'] == 'error') {
+                $tdsApplicability = TaxHelper::calculateHeaderTax(
+                    $vendor,
+                    $locationAddress->country_id,
+                    $billingAddress->country_id,
+                    $user,
+                    'purchase',
+                    ConstantHelper::TDS,
+                    ConstantHelper::TDS_SECTION_194Q,
+                    $mrn->document_date,
+                    $oldNonTdsAccesableAmt,
+                    $totalTaxableValue
+                );
+                if ($tdsApplicability['status'] == 'error') {
                     DB::rollBack();
-                    return response() -> json([
+                    return response()->json([
                         'status' => 'error',
                         'message' => $tdsApplicability['message']
                     ], 422);
                 }
                 if ($tdsApplicability['data'] && isset($tdsApplicability['data']['id'])) {
                     $headerTdsRowData = [
-                        'mrn_header_id' => $mrn -> id,
+                        'mrn_header_id' => $mrn->id,
                         'mrn_detail_id' => null,
                         'ted_type' => 'Tax',
                         'ted_level' => 'H',
@@ -995,15 +1019,15 @@ class MaterialReceiptController extends Controller
                         'ted_amount' => $tdsApplicability['data']['tax_amount'],
                         'applicable_type' => $tdsApplicability['data']['applicability_type'],
                     ];
-                    if (isset($request -> mrn_tds_id)) {
-                        $tdsTaxTed = MrnExtraAmount::updateOrCreate(['id' => $request -> mrn_tds_id], $headerTdsRowData);
+                    if (isset($request->mrn_tds_id)) {
+                        $tdsTaxTed = MrnExtraAmount::updateOrCreate(['id' => $request->mrn_tds_id], $headerTdsRowData);
                     } else {
                         $tdsTaxTed = MrnExtraAmount::create($headerTdsRowData);
                     }
-                    $totalTax -= $tdsTaxTed -> ted_amount;
+                    $totalTax -= $tdsTaxTed->ted_amount;
                 } else {
-                    MrnExtraAmount::where('mrn_header_id', $mrn -> id) -> where('ted_type', 'Tax')
-                        -> where('ted_level', 'H') -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> delete();
+                    MrnExtraAmount::where('mrn_header_id', $mrn->id)->where('ted_type', 'Tax')
+                        ->where('ted_level', 'H')->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->delete();
                 }
 
                 /*Update total in main header MRN*/
@@ -1050,9 +1074,9 @@ class MaterialReceiptController extends Controller
             $mrn->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
             $mrn->save();
 
-            $mrn -> refresh();
-            $currentTdsAssessableAmt = $mrn -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
-            $currentNonTdsAssessableAmt = ($mrn -> total_item_amount - $mrn -> total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
+            $mrn->refresh();
+            $currentTdsAssessableAmt = $mrn->header_tax()->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first()?->assesment_amount ?? 0;
+            $currentNonTdsAssessableAmt = ($mrn->total_item_amount - $mrn->total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
             TaxHelper::buildTaxThresholdUtilization($mrn, 'purchase', ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $currentNonTdsAssessableAmt);
 
             /*Create document submit log*/
@@ -1165,6 +1189,25 @@ class MaterialReceiptController extends Controller
             //     }
             // }
 
+            $lockKey = $lockService->generateLockKey($organization->id, $request->book_id, $document_number);
+            if (!$lockKey) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Invalid Argument passed in Lock Key Generator.',
+                    'line' => '',
+                    'error' => '',
+                ], 500);
+            }
+
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+            if (!$lockResult['success']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -1183,7 +1226,7 @@ class MaterialReceiptController extends Controller
 
     public function show(string $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $mrn = MrnHeader::with([
             'vendor',
@@ -1230,7 +1273,7 @@ class MaterialReceiptController extends Controller
         }
         $serviceAlias = ConstantHelper::MRN_SERVICE_ALIAS;
         $books = Helper::getBookSeriesNew($serviceAlias, $parentUrl)->get();
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $mrn = MrnHeader::with([
             'vendor',
             'currency',
@@ -1338,6 +1381,7 @@ class MaterialReceiptController extends Controller
 
         $itemUniqueCodes = $mrn->itemUniqueCodes();
         $totalItemValue = $mrn->items()->sum('basic_value');
+        $itemIds = $mrn->items() ? $mrn->items()->pluck('id')->toArray() : [];
         $vendors = Vendor::where('status', ConstantHelper::ACTIVE)->get();
         $revision_number = $mrn->revision_number;
         $userType = Helper::userCheck();
@@ -1382,6 +1426,7 @@ class MaterialReceiptController extends Controller
             'books' => $books,
             'buttons' => $buttons,
             'vendors' => $vendors,
+            'itemIds' => $itemIds,
             'locations' => $locations,
             'serviceAlias' => $serviceAlias,
             'itemUniqueCodes' => $itemUniqueCodes,
@@ -1409,8 +1454,13 @@ class MaterialReceiptController extends Controller
     public function update(EditMaterialReceiptRequest $request, $id)
     {
         $mrn = MrnHeader::find($id);
-        $user = Helper::getAuthenticatedUser();
-
+        $user = request()->user();
+        if (!$request->consignment_no || !$request->supplier_invoice_no || !$request->supplier_invoice_date || !$request->transporter_name || !$request->manual_entry_no || !$request->vehicle_no) {
+            return response()->json([
+                'message' => "Please fill general information fields",
+                'error' => "",
+            ], 422);
+        }
         $groupAlias = $user?->auth_user?->group_alias ?? '';
         $isAttachementRequired = in_array($groupAlias, Constants::GROUP_ATTACHMENT_MANDATORY);
 
@@ -1421,7 +1471,7 @@ class MaterialReceiptController extends Controller
             ], 422);
         }
 
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $organizationId = $organization?->id ?? null;
         $groupId = $organization?->group_id ?? null;
         $companyId = $organization?->company_id ?? null;
@@ -1544,8 +1594,8 @@ class MaterialReceiptController extends Controller
                 ]);
                 $shippingAddress->save();
             }
-            $tdsAssessableAmt = $mrn -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
-            $oldNonTdsAccesableAmt = ($mrn -> total_item_amount - $mrn -> total_discount) - $tdsAssessableAmt;
+            $tdsAssessableAmt = $mrn->header_tax()->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first()?->assesment_amount ?? 0;
+            $oldNonTdsAccesableAmt = ($mrn->total_item_amount - $mrn->total_discount) - $tdsAssessableAmt;
 
             # Store location address
             if ($mrn?->erpStore) {
@@ -1633,17 +1683,6 @@ class MaterialReceiptController extends Controller
                         \DB::rollBack();
                         return response()->json([
                             'message' => $validateQty['message']
-                        ], 422);
-                    }
-
-                    // ✅ Back Update Qty Capture response
-                    $backUpdateService = new BackUpdateService();
-                    $backUpdateResponse = $backUpdateService->updateQuantity($component, $order_qty);
-                    if ($backUpdateResponse['status'] === 'error') {
-                        \DB::rollBack();
-                        return response()->json([
-                            'message' => $backUpdateResponse['message'],
-                            'error' => 'ERR04'
                         ], 422);
                     }
 
@@ -2015,6 +2054,17 @@ class MaterialReceiptController extends Controller
                     //         \Log::warning("Invalid JSON for storage_points_data: " . print_r($component['storage_packets'], true));
                     //     }
                     // }
+
+                    // ✅ Back Update Qty Capture response
+                    $backUpdateService = new BackUpdateService();
+                    $backUpdateResponse = $backUpdateService->updateQuantity($component, $order_qty, $organization);
+                    if ($backUpdateResponse['status'] === 'error') {
+                        \DB::rollBack();
+                        return response()->json([
+                            'message' => $backUpdateResponse['message'],
+                            'error' => 'ERR04'
+                        ], 422);
+                    }
                 }
 
                 /*Header level save discount*/
@@ -2067,22 +2117,32 @@ class MaterialReceiptController extends Controller
                 }
 
                 // TDS Header Level Tax
-                $locationAddress = $mrn -> store_address;
-                $billingAddress = $mrn -> bill_address_details;
-                $vendor = Vendor::find($request -> vendor_id);
+                $locationAddress = $mrn->store_address;
+                $billingAddress = $mrn->bill_address_details;
+                $vendor = Vendor::find($request->vendor_id);
                 $totalTaxableValue = ($itemTotalValue - ($itemTotalHeaderDiscount + $itemTotalDiscount));
-                $tdsApplicability = TaxHelper::calculateHeaderTax($vendor, $locationAddress -> country_id, $billingAddress -> country_id, $user, 'purchase',
-                    ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $mrn->document_date, $oldNonTdsAccesableAmt, $totalTaxableValue);
-                    if ($tdsApplicability['status'] == 'error') {
+                $tdsApplicability = TaxHelper::calculateHeaderTax(
+                    $vendor,
+                    $locationAddress->country_id,
+                    $billingAddress->country_id,
+                    $user,
+                    'purchase',
+                    ConstantHelper::TDS,
+                    ConstantHelper::TDS_SECTION_194Q,
+                    $mrn->document_date,
+                    $oldNonTdsAccesableAmt,
+                    $totalTaxableValue
+                );
+                if ($tdsApplicability['status'] == 'error') {
                     DB::rollBack();
-                    return response() -> json([
+                    return response()->json([
                         'status' => 'error',
                         'message' => $tdsApplicability['message']
                     ], 422);
                 }
                 if ($tdsApplicability['data'] && isset($tdsApplicability['data']['id'])) {
                     $headerTdsRowData = [
-                        'mrn_header_id' => $mrn -> id,
+                        'mrn_header_id' => $mrn->id,
                         'mrn_detail_id' => null,
                         'ted_type' => 'Tax',
                         'ted_level' => 'H',
@@ -2094,15 +2154,15 @@ class MaterialReceiptController extends Controller
                         'ted_amount' => $tdsApplicability['data']['tax_amount'],
                         'applicable_type' => $tdsApplicability['data']['applicability_type'],
                     ];
-                    if (isset($request -> mrn_tds_id)) {
-                        $tdsTaxTed = MrnExtraAmount::updateOrCreate(['id' => $request -> mrn_tds_id], $headerTdsRowData);
+                    if (isset($request->mrn_tds_id)) {
+                        $tdsTaxTed = MrnExtraAmount::updateOrCreate(['id' => $request->mrn_tds_id], $headerTdsRowData);
                     } else {
                         $tdsTaxTed = MrnExtraAmount::create($headerTdsRowData);
                     }
-                    $totalTax -= $tdsTaxTed -> ted_amount;
+                    $totalTax -= $tdsTaxTed->ted_amount;
                 } else {
-                    MrnExtraAmount::where('mrn_header_id', $mrn -> id) -> where('ted_type', 'Tax')
-                        -> where('ted_level', 'H') -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> delete();
+                    MrnExtraAmount::where('mrn_header_id', $mrn->id)->where('ted_type', 'Tax')
+                        ->where('ted_level', 'H')->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->delete();
                 }
 
                 /*Update total in main header MRN*/
@@ -2124,22 +2184,32 @@ class MaterialReceiptController extends Controller
                 $mrn->save();
 
                 // TDS Header Level Tax
-                $locationAddress = $mrn -> store_address;
-                $billingAddress = $mrn -> bill_address_details;
-                $vendor = Vendor::find($request -> vendor_id);
+                $locationAddress = $mrn->store_address;
+                $billingAddress = $mrn->bill_address_details;
+                $vendor = Vendor::find($request->vendor_id);
                 $totalTaxableValue = ($itemTotalValue - ($itemTotalHeaderDiscount + $itemTotalDiscount));
-                $tdsApplicability = TaxHelper::calculateHeaderTax($vendor, $locationAddress -> country_id, $billingAddress -> country_id, $user, 'purchase',
-                    ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $mrn->document_date, $oldNonTdsAccesableAmt, $totalTaxableValue);
-                    if ($tdsApplicability['status'] == 'error') {
+                $tdsApplicability = TaxHelper::calculateHeaderTax(
+                    $vendor,
+                    $locationAddress->country_id,
+                    $billingAddress->country_id,
+                    $user,
+                    'purchase',
+                    ConstantHelper::TDS,
+                    ConstantHelper::TDS_SECTION_194Q,
+                    $mrn->document_date,
+                    $oldNonTdsAccesableAmt,
+                    $totalTaxableValue
+                );
+                if ($tdsApplicability['status'] == 'error') {
                     DB::rollBack();
-                    return response() -> json([
+                    return response()->json([
                         'status' => 'error',
                         'message' => $tdsApplicability['message']
                     ], 422);
                 }
                 if ($tdsApplicability['data'] && isset($tdsApplicability['data']['id'])) {
                     $headerTdsRowData = [
-                        'mrn_header_id' => $mrn -> id,
+                        'mrn_header_id' => $mrn->id,
                         'mrn_detail_id' => null,
                         'ted_type' => 'Tax',
                         'ted_level' => 'H',
@@ -2151,15 +2221,15 @@ class MaterialReceiptController extends Controller
                         'ted_amount' => $tdsApplicability['data']['tax_amount'],
                         'applicable_type' => $tdsApplicability['data']['applicability_type'],
                     ];
-                    if (isset($request -> mrn_tds_id)) {
-                        $tdsTaxTed = MrnExtraAmount::updateOrCreate(['id' => $request -> mrn_tds_id], $headerTdsRowData);
+                    if (isset($request->mrn_tds_id)) {
+                        $tdsTaxTed = MrnExtraAmount::updateOrCreate(['id' => $request->mrn_tds_id], $headerTdsRowData);
                     } else {
                         $tdsTaxTed = MrnExtraAmount::create($headerTdsRowData);
                     }
-                    $totalTax -= $tdsTaxTed -> ted_amount;
+                    $totalTax -= $tdsTaxTed->ted_amount;
                 } else {
-                    MrnExtraAmount::where('mrn_header_id', $mrn -> id) -> where('ted_type', 'Tax')
-                        -> where('ted_level', 'H') -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> delete();
+                    MrnExtraAmount::where('mrn_header_id', $mrn->id)->where('ted_type', 'Tax')
+                        ->where('ted_level', 'H')->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->delete();
                 }
             } else {
 
@@ -2197,8 +2267,8 @@ class MaterialReceiptController extends Controller
             $mrn->save();
 
             $mrn->refresh();
-            $currentTdsAssessableAmt = $mrn -> header_tax() -> where('ted_name', ConstantHelper::TDS_SECTION_194Q) -> first() ?-> assesment_amount ?? 0;
-            $currentNonTdsAssessableAmt = ($mrn -> total_item_amount - $mrn -> total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
+            $currentTdsAssessableAmt = $mrn->header_tax()->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first()?->assesment_amount ?? 0;
+            $currentNonTdsAssessableAmt = ($mrn->total_item_amount - $mrn->total_discount) - $currentTdsAssessableAmt - $oldNonTdsAccesableAmt;
             TaxHelper::buildTaxThresholdUtilization($mrn, 'purchase', ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $currentNonTdsAssessableAmt);
 
 
@@ -2355,7 +2425,7 @@ class MaterialReceiptController extends Controller
     // Add Item Row
     public function addItemRow(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $item = json_decode($request->item, true) ?? [];
         $componentItem = json_decode($request->component_item, true) ?? [];
         /*Check last tr in table mandatory*/
@@ -2441,10 +2511,9 @@ class MaterialReceiptController extends Controller
     # get tax calcualte
     public function taxCalculation(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $location = ErpStore::find($request->location_id ?? null);
-
-        $organization = $user->organization;
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $firstAddress = $location?->address ?? null;
         if (!$firstAddress) {
             $firstAddress = $organization?->addresses->first();
@@ -2490,7 +2559,7 @@ class MaterialReceiptController extends Controller
     // Get Address
     public function getAddress(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $vendorId = $request?->id ?? null;
         $type = $request?->type ?? null;
         $typeId = $request?->typeId ?? null;
@@ -2557,7 +2626,7 @@ class MaterialReceiptController extends Controller
         $store = ErpStore::find($storeId);
         $locationAddress = $store?->address;
 
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $organizationAddress = Address::with(['city', 'state', 'country'])
             ->where('addressable_id', $user->organization_id)
             ->where('addressable_type', Organization::class)
@@ -2586,7 +2655,7 @@ class MaterialReceiptController extends Controller
      */
     public function getStoreRacks(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $storeBins = array();
         $storeRacks = array();
         $storeCode = ErpStore::find($request->store_code_id);
@@ -2610,7 +2679,7 @@ class MaterialReceiptController extends Controller
 
     public function getStoreShelfs(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $storeShelfs = array();
         $rackCode = ErpRack::find($request->rack_code_id);
         if ($rackCode) {
@@ -2628,7 +2697,7 @@ class MaterialReceiptController extends Controller
 
     public function getStoreBins(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $storeBins = array();
         $shelfCode = ErpShelf::find($request->shelf_code_id);
         if ($shelfCode) {
@@ -2863,7 +2932,7 @@ class MaterialReceiptController extends Controller
 
     public function logs(Request $request, string $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $revisionNo = $request->revision_number ?? 0;
         $mrnHeader = MrnHeader::with(['vendor', 'currency', 'items', 'book'])
@@ -2919,10 +2988,9 @@ class MaterialReceiptController extends Controller
     // genrate pdf
     public function generatePdf(Request $request, $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
-        $organization = Organization::where('id', $user->organization_id)->first();
-
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $organizationAddress = Address::with(['city', 'state', 'country'])
             ->where('addressable_id', $user->organization_id)
             ->where('addressable_type', Organization::class)
@@ -3177,27 +3245,27 @@ class MaterialReceiptController extends Controller
                 }
             }
 
-            $randNo = rand(10000, 99999);
+            // $randNo = rand(10000, 99999);
 
-            $revisionNumber = "MRN" . $randNo;
-            $mrnHeader->revision_number += 1;
-            // $mrnHeader->status = "draft";
-            // $mrnHeader->document_status = "draft";
+            // $revisionNumber = "MRN" . $randNo;
+            // $mrnHeader->revision_number += 1;
+            // // $mrnHeader->status = "draft";
+            // // $mrnHeader->document_status = "draft";
+            // // $mrnHeader->save();
+
+            // /*Create document submit log*/
+            // if ($mrnHeader->document_status) {
+            //     $bookId = $mrnHeader->series_id;
+            //     $docId = $mrnHeader->id;
+            //     $remarks = $mrnHeader->remarks;
+            //     $attachments = $request->file('attachment');
+            //     $currentLevel = $mrnHeader->approval_level ?? 1;
+            //     $revisionNumber = $mrnHeader->revision_number ?? 0;
+            //     $actionType = 'submit'; // Approve // reject // submit
+            //     // $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
+            //     // $mrnHeader->document_status = $approveDocument['approvalStatus'];
+            // }
             // $mrnHeader->save();
-
-            /*Create document submit log*/
-            if ($mrnHeader->document_status) {
-                $bookId = $mrnHeader->series_id;
-                $docId = $mrnHeader->id;
-                $remarks = $mrnHeader->remarks;
-                $attachments = $request->file('attachment');
-                $currentLevel = $mrnHeader->approval_level ?? 1;
-                $revisionNumber = $mrnHeader->revision_number ?? 0;
-                $actionType = 'submit'; // Approve // reject // submit
-                // $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
-                // $mrnHeader->document_status = $approveDocument['approvalStatus'];
-            }
-            $mrnHeader->save();
 
             DB::commit();
             return response()->json([
@@ -3565,7 +3633,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-
+    
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     });
@@ -3638,7 +3706,7 @@ class MaterialReceiptController extends Controller
     // Process PO Item
     public function processPoItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $type = 'po';
         $ids = json_decode($request->ids, true) ?? [];
         $asnIds = json_decode($request->asnIds, true) ?? [];
@@ -4131,7 +4199,7 @@ class MaterialReceiptController extends Controller
                         }
                         // Case 1: gate entry has a job with status = 'closed'
                         // $query->whereHas('closedJob');
-
+    
                         // // Case 2: gate entry has NO job at all
                         // $query->orWhereDoesntHave('job');
                     })
@@ -4204,7 +4272,7 @@ class MaterialReceiptController extends Controller
     // Process JO Item
     public function processJoItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $type = 'jo';
         $ids = json_decode($request->ids, true) ?? [];
@@ -4444,7 +4512,7 @@ class MaterialReceiptController extends Controller
                     ? ($request->selected_so_ids[0] ?? 'null')
                     : 'null';
                 // $disabled = ($dataExistingPo !== 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-
+    
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input so_item_checkbox' type='checkbox' name='so_item_check' value='{$row->id}' data-module='{$this->moduleType}' data-current-so='{$dataCurrentSo}' data-existing-so='{$dataExistingSo}'>
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -4636,7 +4704,7 @@ class MaterialReceiptController extends Controller
     # Submit PI Item list
     public function processSoItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $view = '';
         $soItems = [];
@@ -5086,7 +5154,7 @@ class MaterialReceiptController extends Controller
     // Process Dnote Item
     public function processDnoteItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $type = 'dnote';
         $ids = json_decode($request->ids, true) ?? [];
         $geIds = json_decode($request->geIds, true) ?? [];
@@ -5246,16 +5314,36 @@ class MaterialReceiptController extends Controller
     // Maintain Stock Ledger
     private static function maintainStockLedger($mrn)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $detailIds = $mrn->batches->pluck('detail_id')->toArray();
         $data = InventoryHelper::settlementOfInventoryAndStock($mrn->id, $detailIds, ConstantHelper::MRN_SERVICE_ALIAS, $mrn->document_status);
         return $data;
     }
 
+    // Get Posting Details
     public function getPostingDetails(Request $request)
     {
         try {
             $data = FinancialPostingHelper::financeVoucherPosting($request->book_id ?? 0, $request->document_id ?? 0, $request->type ?? 'get');
+            return response()->json([
+                'status' => 'success',
+                'data' => $data
+            ]);
+        } catch (Exception $ex) {
+            return response()->json([
+                'status' => 'exception',
+                'message' => 'Some internal error occured',
+                'error' => $ex->getMessage()
+            ]);
+        }
+    }
+
+    // Get Posting History Details
+    public function getPostingHistoryDetails(Request $request)
+    {
+        try {
+            $history = MrnHeaderHistory::find($request->document_id);
+            $data = VoucherService::financeVoucherPostingHistory($request->book_id ?? 0, $history->mrn_header_id ?? 0, $request->type ?? 'get');
             return response()->json([
                 'status' => 'success',
                 'data' => $data
@@ -5349,7 +5437,7 @@ class MaterialReceiptController extends Controller
     public function itemsImport(Request $request)
     {
         try {
-            $user = Helper::getAuthenticatedUser();
+            $user = request()->user();
             $request->validate([
                 'file' => 'required|mimes:xlsx,xls|max:30720',
             ]);
@@ -5411,7 +5499,7 @@ class MaterialReceiptController extends Controller
 
     public function exportSuccessfulItems()
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $uploadItems = TransactionUploadItem::where('status', 'Success')
             ->where('created_by', $user->id)
             ->where('is_sync', 0)
@@ -5421,7 +5509,7 @@ class MaterialReceiptController extends Controller
 
     public function exportFailedItems()
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $failedItems = TransactionUploadItem::where('created_by', $user->id)
             ->where('is_sync', 0)
             ->get();
@@ -5431,7 +5519,7 @@ class MaterialReceiptController extends Controller
     # Process Import Items
     public function processImportItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $uploadedItems = TransactionUploadItem::where('status', 'Success')
             ->where('is_sync', 0)
@@ -5466,7 +5554,7 @@ class MaterialReceiptController extends Controller
     # Process Import Items
     public function updateImportItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $uploadedItems = TransactionUploadItem::where('status', 'Success')
             ->where('is_sync', 0)
@@ -5482,7 +5570,7 @@ class MaterialReceiptController extends Controller
     // Mrn Report
     public function Report()
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', null)->get();
         $sub_categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', '!=', null)->get();
         $items = Item::withDefaultGroupCompanyOrg()->get();
@@ -5520,7 +5608,7 @@ class MaterialReceiptController extends Controller
 
     public function getReportFilter(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $period = $request->query('period');
         $startDate = $request->query('startDate');
         $endDate = $request->query('endDate');
@@ -5646,7 +5734,7 @@ class MaterialReceiptController extends Controller
     public function addScheduler(Request $request)
     {
         try {
-            $user = Helper::getAuthenticatedUser();
+            $user = request()->user();
             $headers = $request->input('displayedHeaders');
             $data = $request->input('displayedData');
             $itemName = '';
@@ -5850,18 +5938,18 @@ class MaterialReceiptController extends Controller
             'status' => 'success',
             'message' => 'Email request sent succesfully',
         ]);
-
     }
 
     public function materialReceiptReport(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $pathUrl = route('material-receipt.index');
         $orderType = ConstantHelper::MRN_SERVICE_ALIAS;  // Adjust based on actual constant for MRN service type
         $materialReceipts = MrnHeader::withDefaultGroupCompanyOrg()
             // ->where('document_type', $orderType)
             // ->bookViewAccess($pathUrl)
             ->withDraftListingLogic()
+            ->selfCreatedDocuments($user)
             ->orderByDesc('id');
 
         // Vendor Filter
@@ -6045,7 +6133,7 @@ class MaterialReceiptController extends Controller
     # Check Warehouse Setup
     public function checkWarehouseSetup(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $whStructure = WhStructure::withDefaultGroupCompanyOrg()
             ->where('store_id', $request->store_id)
@@ -6079,7 +6167,7 @@ class MaterialReceiptController extends Controller
     # Check Warehouse Item Uom Info
     public function warehouseItemUomInfo(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $item = Item::find($request->item_id);
         if (!$item) {
@@ -6118,7 +6206,7 @@ class MaterialReceiptController extends Controller
     # MRN Get Labels
     public function printLabels($id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         if (!$servicesBooks) {
@@ -6442,8 +6530,9 @@ class MaterialReceiptController extends Controller
     // -------------------------------
     // Common Gate Entry Check
     // -------------------------------
-    private static function processWithGateEntry($ge, $model, $item, $inputQty, $type)
+    private static function processWithGateEntry($ge, $model, $item, $inputQty, $type, $organization)
     {
+        $lockGeRow = self::lockReferenceDetail($ge, $type, $organization);
         $remaining = (float) $ge->accepted_qty - (float) $ge->mrn_qty;
         $qtyDifference = (float) $inputQty - (float) $ge->accepted_qty;
         if ($inputQty > $remaining) {
@@ -6537,12 +6626,13 @@ class MaterialReceiptController extends Controller
         }
 
         // Update PO/JO quantities etc.
-        return self::updatePoQty($item, $model, $inputQty, $type);
+        return self::updatePoQty($item, $model, $inputQty, $type, $organization);
     }
 
     # Common ASN Check
-    private static function processWithASN($asn, $model, $item, $inputQty, $type)
+    private static function processWithASN($asn, $model, $item, $inputQty, $type, $organization)
     {
+        $lockGeRow = self::lockReferenceDetail($asn, $type, $organization);
         $remaining = (float) $asn->supplied_qty - (float) $asn->grn_qty;
         if ($inputQty > $remaining) {
             \DB::rollBack();
@@ -6552,11 +6642,11 @@ class MaterialReceiptController extends Controller
         $asn->grn_qty += $inputQty;
         $asn->save();
 
-        return self::updatePoQty($item, $model, $inputQty, $type);
+        return self::updatePoQty($item, $model, $inputQty, $type, $organization);
     }
 
     # Process Job Order Component
-    private static function processJobOrderComponent($component, $item, $inputQty)
+    private static function processJobOrderComponent($component, $item, $inputQty, $organization)
     {
         // if (($validation = self::validateComponentQuantities($component, $inputQty)) !== true) {
         //     return $validation;
@@ -6567,22 +6657,22 @@ class MaterialReceiptController extends Controller
         if (!empty($component['gate_entry_detail_id'])) {
             $ge = GateEntryDetail::find($component['gate_entry_detail_id']);
             return $ge && $jo
-                ? self::processWithGateEntry($ge, $jo, $item, $inputQty, 'gate-entry')
+                ? self::processWithGateEntry($ge, $jo, $item, $inputQty, 'gate-entry', $organization)
                 : self::notFoundResponse('Gate Entry or Job Order');
         }
 
         if (!empty($component['vendor_asn_dtl_id'])) {
             $asn = VendorAsnItem::find($component['vendor_asn_dtl_id']);
             return $asn && $jo
-                ? self::processWithASN($asn, $jo, $item, $inputQty, 'supplier-invoice')
+                ? self::processWithASN($asn, $jo, $item, $inputQty, 'supplier-invoice', $organization)
                 : self::notFoundResponse('ASN or Job Order');
         }
 
-        return $jo ? self::updatePoQty($item, $jo, $inputQty, 'job-order') : self::notFoundResponse('Job Order');
+        return $jo ? self::updatePoQty($item, $jo, $inputQty, 'job-order', $organization) : self::notFoundResponse('Job Order');
     }
 
     # Process Sale Order Component
-    private static function processSaleOrderComponent($component, $item, $inputQty)
+    private static function processSaleOrderComponent($component, $item, $inputQty, $organization)
     {
         // if (($validation = self::validateComponentQuantities($component, $inputQty)) !== true) {
         //     return $validation;
@@ -6593,15 +6683,15 @@ class MaterialReceiptController extends Controller
         if (!empty($component['gate_entry_detail_id'])) {
             $ge = GateEntryDetail::find($component['gate_entry_detail_id']);
             return $ge && $so
-                ? self::processWithGateEntry($ge, $so, $item, $inputQty, 'sale-order')
+                ? self::processWithGateEntry($ge, $so, $item, $inputQty, 'sale-order', $organization)
                 : self::notFoundResponse('Gate Entry or Sale Order');
         }
 
-        return $so ? self::updatePoQty($item, $so, $inputQty, 'sale-order') : self::notFoundResponse('Sale Order');
+        return $so ? self::updatePoQty($item, $so, $inputQty, 'sale-order', $organization) : self::notFoundResponse('Sale Order');
     }
 
     # Process Purchase Order Component
-    private static function processPurchaseOrderComponent($component, $item, $inputQty)
+    private static function processPurchaseOrderComponent($component, $item, $inputQty, $organization)
     {
         // if (($validation = self::validateComponentQuantities($component, $inputQty)) !== true) {
         //     return $validation;
@@ -6612,31 +6702,31 @@ class MaterialReceiptController extends Controller
         if (!empty($component['gate_entry_detail_id'])) {
             $ge = GateEntryDetail::find($component['gate_entry_detail_id']);
             return $ge && $po
-                ? self::processWithGateEntry($ge, $po, $item, $inputQty, 'gate-entry')
+                ? self::processWithGateEntry($ge, $po, $item, $inputQty, 'gate-entry', $organization)
                 : self::notFoundResponse('Gate Entry or PO');
         }
 
         if (!empty($component['vendor_asn_dtl_id'])) {
             $asn = VendorAsnItem::find($component['vendor_asn_dtl_id']);
             return $asn && $po
-                ? self::processWithASN($asn, $po, $item, $inputQty, 'supplier-invoice')
+                ? self::processWithASN($asn, $po, $item, $inputQty, 'supplier-invoice', $organization)
                 : self::notFoundResponse('ASN or PO');
         }
 
-        return $po ? self::updatePoQty($item, $po, $inputQty, 'purchase-order') : self::notFoundResponse('PO Item');
+        return $po ? self::updatePoQty($item, $po, $inputQty, 'purchase-order', $organization) : self::notFoundResponse('PO Item');
     }
 
-    private static function processDnoteComponent($component, $item, $inputQty)
+    private static function processDnoteComponent($component, $item, $inputQty, $organization)
     {
         $dnote = ErpInvoiceItem::where('id', $component['invoice_itm_id'])
             ->with(['saleOrderItem', 'geItems', 'saleOrderItem.poItems', 'saleOrderItem.joItems'])
             ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
             ->first();
-        return $dnote ? self::updateDnoteQty($component, $item, $dnote, $inputQty, 'd-note') : self::notFoundResponse('DNote Item');
+        return $dnote ? self::updateDnoteQty($component, $item, $dnote, $inputQty, 'd-note', $organization) : self::notFoundResponse('DNote Item');
     }
 
     # Process Direct Entry Component
-    private static function processDirectComponent($component, $item, $inputQty)
+    private static function processDirectComponent($component, $item, $inputQty, $organization)
     {
         return true;
         // return self::validateComponentQuantities($component, $inputQty) === true ? true : self::validateComponentQuantities($component, $inputQty);
@@ -6644,8 +6734,9 @@ class MaterialReceiptController extends Controller
 
 
     // Update Purchase Order Quantity
-    private static function updatePoQty($item, $poDetail, $inputQty, $type)
+    private static function updatePoQty($item, $poDetail, $inputQty, $type, $organization)
     {
+        $lockGeRow = self::lockReferenceDetail($poDetail, $type, $organization);
         $orderQty = floatval($poDetail->order_qty);
         $grnQty = floatval($poDetail->grn_qty ?? 0);
         $totalQty = $grnQty + $inputQty;
@@ -6675,8 +6766,9 @@ class MaterialReceiptController extends Controller
         return true;
     }
 
-    private static function updateDnoteQty($component, $item, $poDetail, $inputQty, $type)
+    private static function updateDnoteQty($component, $item, $poDetail, $inputQty, $type, $organization)
     {
+        $lockGeRow = self::lockReferenceDetail($poDetail, $type, $organization);
         $orderQty = floatval($poDetail->dnote_qty);
 
         $poDetail->grn_qty += floatval($inputQty);
@@ -6743,82 +6835,32 @@ class MaterialReceiptController extends Controller
         return true;
     }
 
-    // -------------------------------
-    // Common Gate Entry Check
-    // -------------------------------
-    private static function updateGateEntryDetail($ge, $component, $orderQty, $isExistMrn, $type = NULL)
+    # Lock Reference Detail
+    private static function lockReferenceDetail($refDetail, $type, $organization)
     {
-        $inputQty = (float) $component['order_qty'] ?? 0;
-        $remaining = (float) $ge->accepted_qty - (float) $ge->mrn_qty;
-        if ($isExistMrn) {
-            $mrnDetail = MrnDetail::find($component['mrn_detail_id']);
-            $poDetail = PoItem::find($mrnDetail->po_item_id);
-            if (!$poDetail) {
-                \DB::rollBack();
-                return self::notFoundResponse('PO Item not found.');
-            }
-            $orderQty = $mrnDetail->order_qty ?? 0;
-            $difference = $inputQty - $orderQty;
-            if ($difference > $remaining) {
-                $poRemaining = $poDetail->order_qty - $poDetail->grn_qty;
-                if ($difference > $poRemaining) {
-                    \DB::rollBack();
-                    return self::exceedsQtyResponse();
-                } else {
-                    $ge->mrn_qty += $difference;
-                    $ge->save();
+        $lockService = new DocumentLockService();
 
-                    $asnDetail = VendorAsnItem::find($mrnDetail->vendoe_asn_item_id);
-                    if ($asnDetail) {
-                        $asnDetail->grn_qty += $difference;
-                        $asnDetail->save();
-                    }
-
-                    $poDetail->grn_qty += $difference;
-                    $poDetail->save();
-                }
-            } else {
-                $ge->mrn_qty += $difference;
-                $ge->save();
-
-                $asnDetail = VendorAsnItem::find($mrnDetail->vendoe_asn_item_id);
-                if ($asnDetail) {
-                    $asnDetail->grn_qty += $difference;
-                    $asnDetail->save();
-                }
-
-                $poDetail->grn_qty += $difference;
-                $poDetail->save();
-            }
-        } else {
-            if ($inputQty > $remaining) {
-                // Your original overwrite behavior when exceeding remaining
-                $ge->mrn_qty = $inputQty;
-                $ge->accepted_qty = $inputQty;
-                $ge->save();
-                $invUomQty = ItemHelper::convertToAltUom($ge->item_id, $ge->uom_id, $ge->accepted_qty ?? 0);
-                $ge->inventory_uom_qty = $invUomQty;
-                $ge->save();
-
-                // Rrecalc after quantity increase
-                $calculateService = new TransactionCalculationService();
-                $data = $calculateService->updateGECalculation($ge);
-                if ($data['status'] === 'error') {
-                    \DB::rollBack();
-                    return self::notFoundResponse($data['message']);
-                }
-            } else {
-                $orderQty = floatval($orderQty);
-                $qtyDifference = $inputQty - $orderQty;
-                if ($qtyDifference) {
-                    $ge->mrn_qty += $qtyDifference;
-                    $ge->save();
-                }
-            }
+        $lockKey = $lockService->generateItemLockKey($organization->id, $refDetail->id, $type);
+        if (!$lockKey) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Invalid Argument passed in Lock Key Generator.',
+                'line' => '',
+                'error' => '',
+            ], 500);
         }
 
-        // Update PO/JO quantities etc.
-        return self::updatePoQty($item, $model, $inputQty, $type);
+        $itemCode = $refDetail?->item?->item_name;
+        $lockResult = $lockService->lockRemainingItemQty($lockKey, $itemCode, $type);
+        if (!$lockResult['success']) {
+            DB::rollBack();
+            return response()->json([
+                'message' => $lockResult['message'],
+                'error' => 'lockResult',
+            ], $lockResult['status']);
+        }
+        return true;
+        // return self::validateComponentQuantities($component, $inputQty) === true ? true : self::validateComponentQuantities($component, $inputQty);
     }
 
     # Helper Functions for Responses
@@ -7050,6 +7092,158 @@ class MaterialReceiptController extends Controller
                 })->where('status', ConstantHelper::ACTIVE);
             })->get();
         return $costCenters;
+    }
+
+    // Cancel Document
+    public function cancel(Request $request)
+    {
+        $user = $request->user();
+        $referenceService = ConstantHelper::MRN_SERVICE_ALIAS;
+        // Validate incoming AJAX JSON
+        $documentId = (int) $request->input('id'); // from AJAX
+        $actionType = $request->input('action_type', 'cancel');
+        $cancelType = $request->input('cancel_type', 'normal') ?? 'normal'; // normal|voucher
+        $cancelRemarks = $request->input('cancel_remarks', '');
+        $deletedMrnItemIds = json_decode($request->input('deletedMrnItemIds', []), true) ?? [];
+        \DB::beginTransaction();
+        try {
+            /** @var MrnHeader|null $header */
+            $header = MrnHeader::find($documentId);
+
+            if (!$header) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Document not found.'
+                ]);
+            }
+
+            // Submit Amendment (if your method returns ['status'=>'success|error','message'=>...])
+            if (method_exists($this, 'amendmentSubmit')) {
+                $amendment = $this->amendmentSubmit($request, $header->id);
+                if (is_array($amendment) && ($amendment['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $amendment['message'] ?? 'Amendment submission failed.',
+                    ]);
+                }
+            }
+
+            // Delete Voucher Details and create history if needed
+            if (class_exists(VoucherService::class)) {
+                $voucher = Voucher::with(['items'])
+                    ->where('reference_service', $referenceService)
+                    ->where('reference_doc_id', $documentId)
+                    ->first();
+                if ($voucher) {
+                    $payload = [
+                        'voucher_id' => $voucher->id,
+                        'reference_service' => $referenceService,
+                        'reference_doc_id' => $documentId,
+                        'cancel_remarks' => $cancelRemarks,
+                        'cancel_attachments' => $request->input('cancel_attachments', []),
+                    ];
+                    $voucherService = new VoucherService();
+                    $voucherResponse = $voucherService->cancelVoucher($user, $voucher, $payload);
+                    if (($voucherResponse['status'] ?? 'success') === 'error') {
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => false,
+                            'message' => $voucherResponse['message'] ?? 'Delete failed.',
+                        ]);
+                    }
+                }
+            }
+
+            // Optional: delete related records as per your existing flow
+            $keys = ['deletedMrnItemIds'];
+            $deletedData = [];
+            foreach ($keys as $key) {
+                $deletedData[$key] = json_decode($request->input($key, '[]'), true);
+            }
+
+            if (class_exists(MrnDeleteService::class)) {
+                $deleteService = new MrnDeleteService();
+                $deleteResponse = $deleteService->deleteByRequest($deletedData, $header);
+                if (($deleteResponse['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $deleteResponse['message'] ?? 'Delete failed.',
+                    ]);
+                }
+            }
+
+            // Only support cancel action for now
+            if ($actionType !== 'cancel') {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Only cancel action is supported.',
+                ]);
+            }
+
+            // Log and update header
+            $bookId = $header->book_id;
+            $docId = $header->document_id ?? $header->id;
+            $revision = (int) $header->revision_number + 1;
+            $currentLevel = (int) $header->approval_level;
+
+            // Document log (if you rely on it)
+            if (class_exists(Helper::class) && method_exists(Helper::class, 'approveDocument')) {
+                Helper::approveDocument(
+                    $bookId,
+                    $docId,
+                    $revision,
+                    $cancelRemarks,
+                    $request->input('cancel_attachments', []),
+                    $currentLevel,
+                    $actionType,
+                    $header->total_amount,
+                    MrnHeader::class
+                );
+            }
+            // Persist cancellation
+            $header->revision_number = $revision;
+            $header->approval_level = 1;
+            $header->revision_date = now();
+            $header->document_status = ConstantHelper::CANCELLED;
+            $header->final_remarks = $cancelRemarks;
+
+            // Zero-out financials as per your original code
+            $header->total_discount = 0.00;
+            $header->taxable_amount = 0.00;
+            $header->total_taxes = 0.00;
+            $header->total_after_tax_amount = 0.00;
+            $header->expense_amount = 0.00;
+            $header->total_amount = 0.00;
+            $header->total_item_amount = 0.00;
+            $header->reference_type = null;
+
+            $header->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Document cancelled successfully.',
+                'data' => [
+                    'status' => true,
+                    'id' => $header->id,
+                    'document_status' => $header->document_status,
+                    'revision_number' => $header->revision_number,
+                    'cancellation_type' => $cancelType,
+                ],
+            ], 200);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'An error occurred while processing your request.',
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
 }

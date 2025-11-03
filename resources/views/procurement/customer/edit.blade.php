@@ -357,6 +357,9 @@
                                                     <li class="nav-item">
                                                         <a class="nav-link" data-bs-toggle="tab" href="#Items">Items</a>
                                                     </li>
+                                                    <li class="nav-item">
+														<a class="nav-link" data-bs-toggle="tab" href="#customerPortal">Customer Portal</a>
+													</li>
 
 												</ul>
 
@@ -1261,69 +1264,171 @@
                                                         </div>
                                                     </div>
 
-                                                        <!-- Items start -->
-                                                            <div class="tab-pane" id="Items">
-                                                                <div class="table-responsive-md">
-                                                                    <table class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail border" id="vendorTable">
-                                                                        <thead>
-                                                                            <tr>
-                                                                                <th>S.NO</th>
-                                                                                <th width="300px">Item</th>
-                                                                                <th>Customer Item Code</th>
-                                                                                <th>Customer Item Name</th>
-                                                                                <th>Customer Item Details</th>
-                                                                                <th id="sell-price-header">Sell Price</th>
-                                                                                <th>Sell Uom</th>
-                                                                                <th>Action</th>
+                                                    <!-- Items start -->
+                                                        <div class="tab-pane" id="Items">
+                                                            <div class="table-responsive-md">
+                                                                <table class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail border" id="vendorTable">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>S.NO</th>
+                                                                            <th width="300px">Item</th>
+                                                                            <th>Customer Item Code</th>
+                                                                            <th>Customer Item Name</th>
+                                                                            <th>Customer Item Details</th>
+                                                                            <th id="sell-price-header">Sell Price</th>
+                                                                            <th>Sell Uom</th>
+                                                                            <th>Action</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody id="vendorTableBody">
+                                                                        @forelse ($customer->approvedItems as $index => $item)
+                                                                            <tr data-id="{{ $item->id }}" id="row-{{ $index }}">
+                                                                                <input type="hidden" name="customer_item[{{ $index }}][id]" value="{{ $item->id }}">
+                                                                                <td>{{ $index + 1 }}</td>
+                                                                                <td>
+                                                                                    <input type="text" name="customer_item[{{ $index }}][item_name]" class="form-control mw-100 vendor-autocomplete" data-id="{{ $index }}" value="{{$item->item->item_name ??''}}" placeholder="Search Item" autocomplete="off">
+                                                                                    <input type="hidden" id="item-id_{{ $index }}" name="customer_item[{{ $index }}][item_id]" class="item-id" value="{{ $item->item_id ?? '' }}">
+                                                                                </td>
+                                                                                <td><input type="text" name="customer_item[{{ $index }}][item_code]" class="form-control mw-100" value="{{ $item->item_code ??'' }}"></td>
+                                                                                <td><input type="text" name="customer_item[{{ $index }}][item_name]" class="form-control mw-100" value="{{ $item->item_name ??''}}"></td>
+                                                                                <td><input type="text" name="customer_item[{{ $index }}][item_details]" class="form-control mw-100" value="{{ $item->item_details ??'' }}"></td>
+                                                                                <td><input type="text" name="customer_item[{{ $index }}][sell_price]"  class="form-control sell-price-approved-customer mw-100"  id="sell-price_{{ $index }}" value="{{ number_format($item->sell_price, 2) }}"></td>
+                                                                                <td>
+                                                                                    <select name="customer_item[{{ $index }}][uom_id]" id="uom_{{ $index }}" class="form-select mw-100">
+                                                                                        <option value="">Select</option>
+                                                                                        <input type="hidden" id="uom-id_{{ $index }}" value="{{ $item->uom_id }}">
+                                                                                    </select>
+                                                                                </td>
+                                                                                <td>
+                                                                                    <a href="#" class="text-primary add-item"><i data-feather="plus-square" class="me-50"></i></a>
+                                                                                    <a href="#" class="text-danger delete-item"><i data-feather="trash-2" class="me-50"></i></a>
+                                                                                </td>
                                                                             </tr>
-                                                                        </thead>
-                                                                        <tbody id="vendorTableBody">
-                                                                            @forelse ($customer->approvedItems as $index => $item)
-                                                                                <tr data-id="{{ $item->id }}" id="row-{{ $index }}">
-                                                                                 <input type="hidden" name="customer_item[{{ $index }}][id]" value="{{ $item->id }}">
-                                                                                    <td>{{ $index + 1 }}</td>
-                                                                                    <td>
-                                                                                        <input type="text" name="customer_item[{{ $index }}][item_name]" class="form-control mw-100 vendor-autocomplete" data-id="{{ $index }}" value="{{$item->item->item_name ??''}}" placeholder="Search Item" autocomplete="off">
-                                                                                        <input type="hidden" id="item-id_{{ $index }}" name="customer_item[{{ $index }}][item_id]" class="item-id" value="{{ $item->item_id ?? '' }}">
-                                                                                    </td>
-                                                                                    <td><input type="text" name="customer_item[{{ $index }}][item_code]" class="form-control mw-100" value="{{ $item->item_code ??'' }}"></td>
-                                                                                    <td><input type="text" name="customer_item[{{ $index }}][item_name]" class="form-control mw-100" value="{{ $item->item_name ??''}}"></td>
-                                                                                    <td><input type="text" name="customer_item[{{ $index }}][item_details]" class="form-control mw-100" value="{{ $item->item_details ??'' }}"></td>
-                                                                                    <td><input type="text" name="customer_item[{{ $index }}][sell_price]"  class="form-control sell-price-approved-customer mw-100"  id="sell-price_{{ $index }}" value="{{ number_format($item->sell_price, 2) }}"></td>
-                                                                                    <td>
-                                                                                        <select name="customer_item[{{ $index }}][uom_id]" id="uom_{{ $index }}" class="form-select mw-100">
-                                                                                            <option value="">Select</option>
-                                                                                            <input type="hidden" id="uom-id_{{ $index }}" value="{{ $item->uom_id }}">
-                                                                                        </select>
-                                                                                    </td>
-                                                                                    <td>
-                                                                                        <a href="#" class="text-primary add-item"><i data-feather="plus-square" class="me-50"></i></a>
-                                                                                        <a href="#" class="text-danger delete-item"><i data-feather="trash-2" class="me-50"></i></a>
-                                                                                    </td>
-                                                                                </tr>
-                                                                            @empty
-                                                                                <tr id="row-0">
-                                                                                    <td>1</td>
-                                                                                    <td>
-                                                                                        <input type="text" name="customer_item[0][customer_name]" class="form-control mw-100 vendor-autocomplete" data-id="0" placeholder="Search Vendor" autocomplete="off">
-                                                                                        <input type="hidden" id="item-id_0" name="customer_item[0][item_id]" class="item-id">
-                                                                                    </td>
-                                                                                    <td><input type="text" name="customer_item[0][item_code]" class="form-control mw-100"></td>
-                                                                                    <td><input type="text" name="customer_item[0][item_name]" class="form-control mw-100"></td>
-                                                                                    <td><input type="text" name="customer_item[0][item_details]" class="form-control mw-100"></td>
-                                                                                    <td><input type="text" name="customer_item[0][sell_price]" id="sell-price_0" class="form-control sell-price-approved-customer mw-100"></td>
-                                                                                    <td><select name="customer_item[0][uom_id]"  id="uom_0" class="form-select mw-100" disabled></select></td>
-                                                                                    <td>
-                                                                                        <a href="#" class="text-primary add-item"><i data-feather="plus-square" class="me-50"></i></a>
-                                                                                        <a href="#" class="text-danger delete-item"><i data-feather="trash-2" class="me-50"></i></a>
-                                                                                    </td>
-                                                                                </tr>
-                                                                            @endforelse
-                                                                        </tbody>
-                                                                    </table>
-                                                                </div>
+                                                                        @empty
+                                                                            <tr id="row-0">
+                                                                                <td>1</td>
+                                                                                <td>
+                                                                                    <input type="text" name="customer_item[0][customer_name]" class="form-control mw-100 vendor-autocomplete" data-id="0" placeholder="Search Vendor" autocomplete="off">
+                                                                                    <input type="hidden" id="item-id_0" name="customer_item[0][item_id]" class="item-id">
+                                                                                </td>
+                                                                                <td><input type="text" name="customer_item[0][item_code]" class="form-control mw-100"></td>
+                                                                                <td><input type="text" name="customer_item[0][item_name]" class="form-control mw-100"></td>
+                                                                                <td><input type="text" name="customer_item[0][item_details]" class="form-control mw-100"></td>
+                                                                                <td><input type="text" name="customer_item[0][sell_price]" id="sell-price_0" class="form-control sell-price-approved-customer mw-100"></td>
+                                                                                <td><select name="customer_item[0][uom_id]"  id="uom_0" class="form-select mw-100" disabled></select></td>
+                                                                                <td>
+                                                                                    <a href="#" class="text-primary add-item"><i data-feather="plus-square" class="me-50"></i></a>
+                                                                                    <a href="#" class="text-danger delete-item"><i data-feather="trash-2" class="me-50"></i></a>
+                                                                                </td>
+                                                                            </tr>
+                                                                        @endforelse
+                                                                    </tbody>
+                                                                </table>
                                                             </div>
-                                                        <!-- Items End -->    
+                                                        </div>
+                                                    <!-- Items End -->    
+
+                                                    {{-- Customer Portal --}}
+
+                                                    <div class="tab-pane" id="customerPortal">
+                                                        <div class="row align-items-center mb-1">
+                                                            <div class="col-md-2"> 
+                                                                <label for="user" class="form-label">Stores</label>  
+                                                            </div>  
+                                                        </div>
+
+                                                        <div class="row align-items-center mb-1">
+                                                            <div class="table-responsive"> 
+                                                                <table class="mt-1 table myrequesttablecbox table-striped po-order-detail custnewpo-detail border"> 
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <th>S.NO</th>
+                                                                            <th>Organization<span class="text-danger">*</span></th>
+                                                                            <th>Location<span class="text-danger">*</span></th>
+                                                                            <th>Store<span class="text-danger">*</span></th>
+                                                                            <th>Action</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody id="customer-stores-table-body">
+                                                                        @forelse ($customerStores as $customerIndex => $customerStore)
+                                                                            <tr class="stores-row" data-index="{{ $customerIndex }}">
+                                                                                <td class="index">{{ $customerIndex + 1 }}</td>
+                                                                                <td>
+                                                                                    <input type="text" class="form-control mw-100 customer-store-org-input" 
+                                                                                        name="customer_store[{{ $customerIndex }}][organization]" 
+                                                                                        placeholder="Search Organization" 
+                                                                                        value="{{ $customerStore->organization?->name }}">
+                                                                                    <input type="hidden" name="customer_store[{{ $customerIndex }}][organization_id]" 
+                                                                                        class="customer-store-org-id" 
+                                                                                        value="{{ $customerStore->organization_id }}">
+                                                                                </td>
+                                                                                <td>
+                                                                                    <input type="text" class="form-control mw-100 customer-store-location-input" 
+                                                                                        name="customer_store[{{ $customerIndex }}][location]" 
+                                                                                        placeholder="Search Location" 
+                                                                                        value="{{ $customerStore->store?->store_name }}">
+                                                                                    <input type="hidden" name="customer_store[{{ $customerIndex }}][location_id]" 
+                                                                                        class="customer-store-location-id" 
+                                                                                        value="{{ $customerStore->location_id }}">
+                                                                                </td>
+                                                                                <td>
+                                                                                    <input type="text" class="form-control mw-100 customer-store-input" 
+                                                                                        name="customer_store[{{ $customerIndex }}][store]" 
+                                                                                        placeholder="Search Store" 
+                                                                                        value="{{ $customerStore->sub_store?->name }}">
+                                                                                    <input type="hidden" name="customer_store[{{ $customerIndex }}][store_id]" 
+                                                                                        class="customer-location-store-id" 
+                                                                                        value="{{ $customerStore->store_id }}">
+                                                                                </td>
+                                                                                <td>
+                                                                                    <a href="#" class="text-primary add-customer-store">
+                                                                                        <i data-feather="plus-square" class="me-50"></i>
+                                                                                    </a>
+                                                                                    <a href="#" class="text-danger delete-customer-store">
+                                                                                        <i data-feather="trash-2" class="me-50"></i>
+                                                                                    </a>
+                                                                                </td>
+                                                                            </tr>
+                                                                        @empty
+                                                                            <tr class="stores-row" data-index="0">
+                                                                                <td class="index">1</td>
+                                                                                <td>
+                                                                                    <input type="text" class="form-control mw-100 customer-store-org-input" 
+                                                                                        name="customer_store[0][organization]" 
+                                                                                        placeholder="Search Organization">
+                                                                                    <input type="hidden" name="customer_store[0][organization_id]" 
+                                                                                        class="customer-store-org-id">
+                                                                                </td>
+                                                                                <td>
+                                                                                    <input type="text" class="form-control mw-100 customer-store-location-input" 
+                                                                                        name="customer_store[0][location]" 
+                                                                                        placeholder="Search Location">
+                                                                                    <input type="hidden" name="customer_store[0][location_id]" 
+                                                                                        class="customer-store-location-id">
+                                                                                </td>
+                                                                                <td>
+                                                                                    <input type="text" class="form-control mw-100 customer-store-store-input" 
+                                                                                        name="customer_store[0][store]" 
+                                                                                        placeholder="Search Store">
+                                                                                    <input type="hidden" name="customer_store[0][store_id]" 
+                                                                                        class="customer-location-store-id">
+                                                                                </td>
+                                                                                <td>
+                                                                                    <a href="#" class="text-primary add-customer-store">
+                                                                                        <i data-feather="plus-square" class="me-50"></i>
+                                                                                    </a>
+                                                                                    <a href="#" class="text-danger delete-customer-store">
+                                                                                        <i data-feather="trash-2" class="me-50"></i>
+                                                                                    </a>
+                                                                                </td>
+                                                                            </tr>
+                                                                        @endforelse
+                                                                    </tbody>
+                                                                </table>
+                                                            </div> 
+                                                        </div>
+                                                    </div>
+
 												</div> 
 											 
 											</div>
@@ -1928,12 +2033,125 @@
                 $(this).autocomplete("search", "");
             });
 
-            // Function to sync country and state for all rows based on GST address
+            // Customer Org Autocomplete
+            $row.find('.customer-store-org-input').autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: '/search',
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {
+                            q: request.term,
+                            type: 'stock_orgs'
+                        },
+                        success: function(data) {
+                            response($.map(data, function(item) {
+                                return {
+                                    id: item.id,
+                                    label: item['name'],
+                                };
+                            }));
+                        },
+                        error: function(xhr) {
+                            console.error('Error fetching Organization data:', xhr.responseText);
+                        }
+                    });
+                },
+                minLength: 0,
+                select: function(event, ui) {
+                    $(this).val(ui.item.label);  
+                    $(this).closest('tr').find('input[name*="[organization_id]"]').val(ui.item.id);  
+                    return false;
+                }
+            }).focus(function() {
+                $(this).autocomplete("search", "");
+            });
+
+            // Customer Location Autocomplete
+            $row.find('.customer-store-location-input').autocomplete({
+                source: function(request, response) {
+                    const orgId = $(this.element).closest('tr').find('.customer-store-org-id').val();
+                    $.ajax({
+                        url: '/search',
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {
+                            q: request.term,
+                            type: 'customer_locations',
+                            organization_id : orgId
+                        },
+                        success: function(data) {
+                            response($.map(data, function(item) {
+                                return {
+                                    id: item.id,
+                                    label: item['store_name'],
+                                };
+                            }));
+                        },
+                        error: function(xhr) {
+                            console.error('Error fetching Organization data:', xhr.responseText);
+                        }
+                    });
+                },
+                minLength: 0,
+                select: function(event, ui) {
+                    $(this).val(ui.item.label);  
+                    $(this).closest('tr').find('input[name*="[location_id]"]').val(ui.item.id);  
+                    return false;
+                }
+            }).focus(function() {
+                $(this).autocomplete("search", "");
+            });
+
+            // Customer Store Autocomplete
+            $row.find('.customer-store-input').autocomplete({
+                source: function(request, response) {
+                    const orgId = $(this.element).closest('tr').find('.customer-store-org-id').val();
+                    const locationId = $(this.element).closest('tr').find('.customer-store-location-id').val();
+                    $.ajax({
+                        url: '/search',
+                        method: 'GET',
+                        dataType: 'json',
+                        data: {
+                            q: request.term,
+                            type: 'customer_sub_stores',
+                            organization_id : orgId,
+                            location_id : locationId,
+                            store_types : ['Customer']
+                        },
+                        success: function(data) {
+                            response($.map(data, function(item) {
+                                return {
+                                    id: item.id,
+                                    label: item['name'],
+                                };
+                            }));
+                        },
+                        error: function(xhr) {
+                            console.error('Error fetching Organization data:', xhr.responseText);
+                        }
+                    });
+                },
+                minLength: 0,
+                select: function(event, ui) {
+                    $(this).val(ui.item.label);  
+                    $(this).closest('tr').find('input[name*="[store_id]"]').val(ui.item.id);  
+                    return false;
+                }
+            }).focus(function() {
+                $(this).autocomplete("search", "");
+            });
           
 
         }
 
         $('#address-table-body .address-row').each(function() {
+            initializeAutocomplete($(this));
+        });
+
+        
+        //Vendor Stores Initialization
+        $('#customer-stores-table-body .stores-row').each(function() {
             initializeAutocomplete($(this));
         });
 
@@ -1969,6 +2187,17 @@
             updateRowIndexes();
             handleRadioSelection();
             applyCapsLock();
+        });
+
+        $(document).on('click', '.add-customer-store', function(e) {
+            e.preventDefault();
+            const $lastRow = $('#customer-stores-table-body .stores-row').last();
+            const index = $lastRow.data('index') + 1;
+            const $newRow = $lastRow.clone().attr('data-index', index);
+            $newRow.find('input').val('');
+            $('#customer-stores-table-body').append($newRow);
+            initializeAutocomplete($newRow);
+            updateRowIndexesForCustomerStores();
         });
 
         $(document).on('click', '.delete-address', function(e) {
@@ -2012,6 +2241,14 @@
             }
         });
 
+        $(document).on('click', '.delete-customer-store', function(e) {
+            e.preventDefault();
+            if ($('#customer-stores-table-body .stores-row').length > 1) {
+                $(this).closest('.stores-row').remove();
+                updateRowIndexesForCustomerStores();
+            }
+        });
+
         function updateRowIndexes() {
             var $rows = $('#address-table-body tr'); 
             $('#address-table-body .address-row').each(function(index) {
@@ -2025,6 +2262,23 @@
                 } else {
                     $(this).find('.delete-address').show(); 
                     $(this).find('.add-address').toggle(index === 0); 
+                }  
+            });
+        }
+
+        function updateRowIndexesForCustomerStores() {
+            var $rows = $('#customer-stores-table-body tr'); 
+            $('#customer-stores-table-body .stores-row').each(function(index) {
+                $(this).find('.index').text(index + 1);
+                $(this).find('input, select').each(function() {
+                    $(this).attr('name', $(this).attr('name').replace(/\[\d+\]/, `[${index}]`));
+                });
+                if ($rows.length === 1) {
+                    $(this).find('.delete-customer-store').hide(); 
+                    $(this).find('.add-customer-store').show(); 
+                } else {
+                    $(this).find('.delete-customer-store').show(); 
+                    $(this).find('.add-customer-store').toggle(index === 0); 
                 }  
             });
         }

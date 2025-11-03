@@ -95,25 +95,77 @@ class TaxRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $taxDetails = $this->input('tax_details', []);
-            $taxTypePlacePairs = [];
-            
+            $seen = [];
+
             foreach ($taxDetails as $index => $taxDetail) {
                 $taxType = $taxDetail['tax_type'] ?? null;
                 $placeOfSupply = $taxDetail['place_of_supply'] ?? null;
-                if (!empty($taxType) && !empty($placeOfSupply)) {
-                if ($taxType && $placeOfSupply && $taxType === $placeOfSupply) {
-                    $validator->errors()->add("tax_details.{$index}.tax_type", 'The tax type and place of supply must be different.');
-                    $validator->errors()->add("tax_details.{$index}.place_of_supply", 'The tax type and place of supply must be different.');
+                $isPurchase = !empty($taxDetail['is_purchase']);
+                $isSale = !empty($taxDetail['is_sale']);
+
+                if (empty($taxType) || empty($placeOfSupply)) {
+                    continue;
                 }
 
-                $pair = $taxType . '|' . $placeOfSupply;
-                if (isset($taxTypePlacePairs[$pair])) {
-                    $validator->errors()->add("tax_details.{$index}.tax_type", 'The combination of tax type and place of supply must be unique.');
-                    $validator->errors()->add("tax_details.{$index}.place_of_supply", 'The combination of tax type and place of supply must be unique.');
-                } else {
-                    $taxTypePlacePairs[$pair] = true;
+                $txnKey = match (true) {
+                    $isPurchase && $isSale => 'both',
+                    $isPurchase => 'purchase',
+                    $isSale => 'sale',
+                    default => 'none',
+                };
+
+                $key = "{$taxType}|{$placeOfSupply}";
+
+                if (!isset($seen[$key])) {
+                    $seen[$key] = [
+                        'none' => false,
+                        'purchase' => false,
+                        'sale' => false,
+                        'both' => false,
+                    ];
                 }
-            }
+
+                $existing = $seen[$key];
+                $isDuplicate = false;
+
+                switch ($txnKey) {
+                    case 'both':
+                        if ($existing['both'] || $existing['purchase'] || $existing['sale']) {
+                            $isDuplicate = true;
+                        }
+                        break;
+
+                    case 'purchase':
+                        if ($existing['both'] || $existing['purchase']) {
+                            $isDuplicate = true;
+                        }
+                        break;
+
+                    case 'sale':
+                        if ($existing['both'] || $existing['sale']) {
+                            $isDuplicate = true;
+                        }
+                        break;
+
+                    case 'none':
+                        if ($existing['none']) {
+                            $isDuplicate = true;
+                        }
+                        break;
+                }
+
+                if ($isDuplicate) {
+                    $validator->errors()->add(
+                        "tax_details.{$index}.tax_type",
+                        "Duplicate combination found: '{$taxType}' + '{$placeOfSupply}' + '{$txnKey}' already exists."
+                    );
+                    $validator->errors()->add(
+                        "tax_details.{$index}.place_of_supply",
+                        "Duplicate combination found: '{$taxType}' + '{$placeOfSupply}' + '{$txnKey}' already exists."
+                    );
+                } else {
+                    $seen[$key][$txnKey] = true;
+                }
             }
         });
     }

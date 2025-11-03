@@ -41,79 +41,105 @@
                                     class="btn btn-secondary btn-sm mb-50 mb-sm-0">
                                     <i data-feather="arrow-left-circle"></i> Back
                                 </button>
-                                @if (
-                                    !intval(request('amendment') ?? 0) &&
-                                        $mrn->document_status != \App\Helpers\ConstantHelper::DRAFT &&
-                                        $mrn->document_status != \App\Helpers\ConstantHelper::SUBMITTED &&
-                                        $mrn->document_status != \App\Helpers\ConstantHelper::PARTIALLY_APPROVED)
-                                    <a href="{{ route('inspection.generate-pdf', $mrn->id) }}" target="_blank"
-                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer">
-                                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                                            <path
-                                                d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2">
-                                            </path>
-                                            <rect x="6" y="14" width="12" height="8"></rect>
-                                        </svg>
-                                        Print
-                                    </a>
-                                    <a href="{{ route('barcodes.page', $mrn->mrn_header_id) . '?module_type=' . $mrnServiceAlias . '&reference_id=' . $mrn->id }}"
-                                        target="_blank"
-                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer">
-                                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                                            <path
-                                                d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2">
-                                            </path>
-                                            <rect x="6" y="14" width="12" height="8"></rect>
-                                        </svg>
-                                        Print Labels
-                                    </a>
-                                @endif
-                                @if ($buttons['draft'])
-                                    <button type="submit"
-                                        class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button" name="action"
-                                        value="draft">
-                                        <i data-feather='save'></i> Save as Draft
-                                    </button>
-                                @endif
-                                @if ($buttons['submit'])
-                                    <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
-                                        value="submitted">
-                                        <i data-feather="check-circle"></i> Submit
-                                    </button>
-                                @endif
-                                @if ($buttons['approve'])
-                                    <button type="button" class="btn btn-primary btn-sm" id="approved-button"
-                                        name="action" value="approved"><i data-feather="check-circle"></i> Approve</button>
-                                    <button type="button" id="reject-button"
-                                        class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
-                                            xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <line x1="15" y1="9" x2="9" y2="15"></line>
-                                            <line x1="9" y1="9" x2="15" y2="15"></line>
-                                        </svg> Reject</button>
-                                @endif
-                                @if ($buttons['amend'] && intval(request('amendment') ?? 0))
-                                    <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i
-                                            data-feather="check-circle"></i> Submit</button>
-                                @else
-                                    @if ($buttons['amend'])
-                                        <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
-                                            Amendment</button>
+                                @if ($mrn->document_status && $mrn->document_status != 'cancelled')
+                                    @if (
+                                        !intval(request('amendment') ?? 0) &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::DRAFT &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::SUBMITTED &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::PARTIALLY_APPROVED)
+                                        <a href="{{ route('inspection.generate-pdf', $mrn->id) }}" target="_blank"
+                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="feather feather-printer">
+                                                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                                <path
+                                                    d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2">
+                                                </path>
+                                                <rect x="6" y="14" width="12" height="8"></rect>
+                                            </svg>
+                                            Print
+                                        </a>
+                                        <a href="{{ route('barcodes.page', $mrn->mrn_header_id) . '?module_type=' . $mrnServiceAlias . '&reference_id=' . $mrn->id }}"
+                                            target="_blank"
+                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="feather feather-printer">
+                                                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                                <path
+                                                    d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2">
+                                                </path>
+                                                <rect x="6" y="14" width="12" height="8"></rect>
+                                            </svg>
+                                            Print Labels
+                                        </a>
                                     @endif
-                                @endif
-                                @if ($buttons['revoke'])
-                                    <button id="revokeButton" type="button"
-                                        class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
-                                        Revoke</button>
+                                    @if ($buttons['draft'])
+                                        <button type="submit"
+                                            class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button"
+                                            name="action" value="draft">
+                                            <i data-feather='save'></i> Save as Draft
+                                        </button>
+                                    @endif
+                                    @if ($buttons['submit'])
+                                        <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
+                                            value="submitted">
+                                            <i data-feather="check-circle"></i> Submit
+                                        </button>
+                                    @endif
+                                    @if ($mrn->document_status == 'draft' || $mrn->document_status == 'rejected')
+                                        @if ($buttons['cancel'])
+                                            @php $cancelButtonSet = true; @endphp
+                                            <button type="button" onclick="cancelDocument('');"
+                                                class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                                <i data-feather='delete'></i>
+                                                Cancel
+                                            </button>
+                                        @endif
+                                    @endif
+                                    @if ($buttons['approve'])
+                                        <button type="button" class="btn btn-primary btn-sm" id="approved-button"
+                                            name="action" value="approved"><i data-feather="check-circle"></i>
+                                            Approve</button>
+                                        <button type="button" id="reject-button"
+                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                                xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="feather feather-x-circle">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <line x1="15" y1="9" x2="9" y2="15">
+                                                </line>
+                                                <line x1="9" y1="9" x2="15" y2="15">
+                                                </line>
+                                            </svg> Reject</button>
+                                    @endif
+                                    @if ($buttons['amend'] && intval(request('amendment') ?? 0))
+                                        <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i
+                                                data-feather="check-circle"></i> Submit</button>
+                                    @else
+                                        @if ($buttons['amend'])
+                                            <button type="button" data-bs-toggle="modal"
+                                                data-bs-target="#amendmentconfirm"
+                                                class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
+                                                Amendment</button>
+                                        @endif
+                                        @if ($buttons['cancel'] && !isset($cancelButtonSet))
+                                            <button type="button" onclick="cancelDocument('');"
+                                                class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                                <i data-feather='delete'></i>
+                                                Cancel
+                                            </button>
+                                        @endif
+                                    @endif
+                                    @if ($buttons['revoke'])
+                                        <button id="revokeButton" type="button"
+                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
+                                            Revoke</button>
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -216,13 +242,21 @@
                                                         <label class="form-label">Rejected Store</label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select class="form-select rejected_sub_store_id"
+                                                        <select
+                                                            class="form-select rejected_sub_store rejected_sub_store_id"
                                                             id="rejected_sub_store_id" name="rejected_sub_store_id"
-                                                            readonly>
-                                                            <option value="{{ $mrn->rejected_sub_store_id }}">
-                                                                {{ ucfirst($mrn?->rejectedSubStore?->name) }}
-                                                            </option>
+                                                            {{ $mrn->rejected_sub_store_id ? 'disabled' : '' }}>
+                                                            @if ($mrn->rejected_sub_store_id)
+                                                                <option value="{{ $mrn->rejected_sub_store_id }}">
+                                                                    {{ ucfirst($mrn?->rejectedSubStore?->name) }}
+                                                                </option>
+                                                            @else
+                                                                <option value="">Select</option>
+                                                            @endif
                                                         </select>
+                                                        <input type="hidden" name="rejected_sub_store_id"
+                                                            id="rejected_sub_store_id"
+                                                            value="{{ $mrn?->rejected_sub_store_id ?? null }}">
                                                     </div>
                                                 </div>
                                                 @if ($mrn->document_status == 'draft' || $mrn->document_status == 'rejected')
@@ -626,6 +660,7 @@
             </div>
         </div>
         @include('procurement.inspection.partials.amendement-modal', ['id' => $mrn->id])
+        @include('procurement.inspection.partials.cancel-modal', ['id' => $mrn->id])
     </form>
     {{-- Attribute popup --}}
     <div class="modal fade" id="attribute" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
@@ -784,7 +819,8 @@
         @else
             @if ($mrn->document_status != 'draft' && $mrn->document_status != 'rejected')
                 $(':input').prop('readonly', true);
-                $('textarea[name="amend_remark"], input[type="file"][name="amend_attachment[]"]').prop('readonly', false)
+                $('textarea[name="amend_remark"], textarea[name="cancel_remarks"], input[type="file"][name="amend_attachment[]"]')
+                    .prop('readonly', false)
                     .prop('disabled', false);
                 $('select').not('.amendmentselect select').prop('disabled', true);
                 $("#deleteBtn").remove();
@@ -799,7 +835,7 @@
                 $(document).on('show.bs.modal', function(e) {
                     if (e.target.id != 'approveModal') {
                         if (e.target.id != 'shortCloseModal') {
-                            $(e.target).find('.modal-footer').remove();
+                            $(e.target).find('.modal-footer').not('.cancel-modal-footer').remove();
                         }
                         $('select').not('.amendmentselect select').prop('disabled', true);
                     }
@@ -1618,6 +1654,87 @@
                 e.preventDefault();
                 $("#mrnEditForm").submit();
             }
+        });
+
+        /* Open Cancel popup */
+        function cancelDocument(type = 'normal') {
+            const $modal = $('#cancelModal');
+            // write the hidden field (overwrite, not append)
+            $('#cancellation_value').val(type).trigger('change');
+
+            // show the modal (BS5-safe)
+            if (window.bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance($modal[0]).show();
+            } else {
+                $modal.modal('show');
+            }
+        }
+
+        /* cancel btn submit */
+        $(document).on('click', '.cancelBtnSubmit', function(e) {
+            e.preventDefault();
+
+            const $modal = $('#cancelModal');
+
+            const remark = $modal.find('[name="cancel_remarks"]').val()?.trim();
+            const type = $('#cancellation_value').val(); // read by id
+            const docId = $('input[name="id"]').val() || ''; // or set explicitly
+            var arr = @json($itemIds);
+            console.log(arr);
+
+            let itemIds = JSON.stringify(arr || []); // or set explicitly
+            // validation
+            if (!remark) {
+                // NOTE: your markup uses id="amendRemarkError"
+                $('#amendRemarkError').removeClass('d-none');
+                return;
+            } else {
+                $('#amendRemarkError').addClass('d-none');
+            }
+
+            // hide modal
+            if (window.bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
+            } else {
+                $modal.modal('hide');
+            }
+
+            const apiURL = "{{ route('inspection.cancel') }}";
+
+            $.ajax({
+                url: apiURL,
+                type: "POST",
+                dataType: "json",
+                contentType: "application/json",
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
+                },
+                data: JSON.stringify({
+                    id: docId,
+                    cancel_remarks: remark,
+                    cancel_type: type,
+                    deletedMrnItemIds: itemIds // <-- comes from #cancellation_value
+                }),
+                success: function(data) {
+                    const ok = data?.data?.status ?? data?.status ?? false;
+                    const msg = data?.data?.message ?? data?.message ?? 'Done.';
+                    Swal.fire({
+                            title: ok ? 'Success!' : 'Error!',
+                            text: msg,
+                            icon: ok ? 'success' : 'error'
+                        })
+                        .then(() => {
+                            if (ok) location.reload();
+                        });
+                },
+                error: function() {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'Some internal error occurred',
+                        icon: 'error'
+                    });
+                }
+            });
         });
 
         // Revoke Document

@@ -851,6 +851,77 @@ $(document).on("click", ".addDeliveryScheduleBtn", (e) => {
     totalScheduleQty();
 });
 
+/* Display item detail */
+$(document).on("input change focus", "#itemTable tr input", async (e) => {
+    const currentTr = e.target.closest("tr");
+    const $tr = $(currentTr);
+    const rowCount = $tr.data("index");
+    const itemId = $tr.find("[name*='[item_id]']").val();
+    const poItemId = $tr.find("[name*='[po_item_id]']").val() || "";
+    const remark = $tr.find("[name*='remark']").val() || "";
+    const uomId = $tr.find("[name*='[uom_id]']").val() || "";
+    const qty = $tr.find("[name*='[qty]']").val() || "";
+
+    if (!itemId) return;
+
+    const selectedAttr = [];
+    $tr.find("[name*='attr_name']").each(function () {
+        const val = $(this).val();
+        if (val) selectedAttr.push(val);
+    });
+
+    const selectedDelivery = {
+        delivery: [],
+    };
+    $tr.find("input[name*='[delivery]'][name*='[d_qty]']").each(function () {
+        const $qtyInput = $(this);
+        const nameAttr = $qtyInput.attr("name");
+        const deliveryIndexMatch = nameAttr.match(/\[delivery]\[(\d+)]/);
+        const deliveryIndex = deliveryIndexMatch ? deliveryIndexMatch[1] : null;
+
+        let dDate = "";
+        let deliveryId = "";
+        if (deliveryIndex) {
+            dDate =
+                $tr
+                    .find(`input[name*='[delivery][${deliveryIndex}][d_date]']`)
+                    .val() || "";
+            deliveryId =
+                $tr
+                    .find(`input[name*='[delivery][${deliveryIndex}][id]']`)
+                    .val() || "";
+        }
+
+        selectedDelivery.delivery.push({
+            id: deliveryId || null,
+            dDate: dDate || null,
+            dQty: $qtyInput.val() || 0,
+        });
+    });
+
+    // Build query string safely
+    const params = new URLSearchParams({
+        item_id: itemId,
+        selectedAttr: JSON.stringify(selectedAttr),
+        remark: remark,
+        uom_id: uomId,
+        qty: qty,
+        delivery: JSON.stringify(selectedDelivery),
+        po_item_id: poItemId,
+    });
+
+    try {
+        const response = await fetch(`${itemDetailUrl}?${params.toString()}`);
+        const data = await response.json();
+
+        if (data.status === 200) {
+            $("#itemDetailDisplay").html(data.data.html);
+        }
+    } catch (err) {
+        console.error("Error fetching item detail:", err);
+    }
+});
+
 /*Total delivery schedule qty*/
 function totalScheduleQty() {
     let total = 0.0;
@@ -1038,6 +1109,29 @@ $(document).on("change input", '.display_delivery_row [name*="d_qty"]', (e) => {
     });
     totalScheduleQty();
 });
+
+/* Prevent closing modal if delivery total < item total */
+$("#deliveryScheduleModal").on("hide.bs.modal", function (e) {
+    let itemQty = Number(
+        $("#deliveryScheduleModal #deliveryFooter #total").attr("qty")
+    );
+    let totalDeliveryQty = 0;
+
+    $('.display_delivery_row [name*="d_qty"]').each(function () {
+        totalDeliveryQty += Number($(this).val() || 0);
+    });
+
+    if (totalDeliveryQty < itemQty) {
+        e.preventDefault();
+        Swal.fire({
+            title: "Incomplete Quantity!",
+            text: `Total delivery quantity (${totalDeliveryQty}) cannot be less than item quantity (${itemQty}).`,
+            icon: "warning",
+        });
+        return false;
+    }
+});
+
 /*Open item remark modal*/
 $(document).on("click", ".addRemarkBtn", (e) => {
     let rowCount = e.target.closest("div").getAttribute("data-row-count");

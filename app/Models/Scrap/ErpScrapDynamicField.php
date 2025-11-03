@@ -19,6 +19,6 @@ class ErpScrapDynamicField extends Model
 
     public function header()
     {
-        return $this->belongsTo(ErpScrapOrder::class, 'header_id');
+        return $this->belongsTo(ErpScrap::class, 'header_id');
     }
 }

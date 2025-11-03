@@ -11,6 +11,7 @@ use App\Models\NumberPattern;
 use App\Models\ItemAttribute;
 use App\Models\PwoSoMapping;
 use App\Models\PwoStationConsumption;
+use App\Helpers\Configuration\Constants;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Traits\ProcessesComponentJson;
@@ -39,6 +40,10 @@ class MoRequest extends FormRequest
     public function rules(): array
     {
         $moId = $this->route('id');
+        $user = Helper::getAuthenticatedUser();
+        $groupAlias = $user?->group_alias ?? '';
+        $is_attachment = in_array($groupAlias, Constants::GROUP_REQUIRED);
+
         $parameters = [];
         $response = BookHelper::fetchBookDocNoAndParameters($this->input('book_id'), $this->input('document_date'));
         if ($response['status'] === 200) {
@@ -54,6 +59,12 @@ class MoRequest extends FormRequest
             // 'station_id' => 'nullable',
             'quantity' => 'nullable|max:255',
         ];
+        if($is_attachment) {
+            if(!$moId) {
+                $rules['attachments'] = 'required';
+            }
+            $rules['final_remarks'] = 'required';
+        }
         $today = now()->toDateString();
         $isPast = false;
         $isFeature = false;
@@ -84,7 +95,6 @@ class MoRequest extends FormRequest
 
         // Check the condition only if book_id is present
         if ($this->filled('book_id')) {
-            $user = Helper::getAuthenticatedUser();
             $numPattern = NumberPattern::where('organization_id', $user->organization_id)
                 ->where('book_id', $this->book_id)
                 ->orderBy('id', 'DESC')

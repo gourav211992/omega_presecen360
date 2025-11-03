@@ -23,7 +23,6 @@ class BomAttributeHistory extends Model
     ];
 
     public $referencingRelationships = [
-        'itemAttribute' => 'item_attribute_id',
         'headerAttribute' => 'attribute_name',
         'headerAttributeValue' => 'attribute_value'  
     ];

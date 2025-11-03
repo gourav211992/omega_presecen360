@@ -6,6 +6,8 @@ use App\Helpers\ConstantHelper;
 use App\Helpers\InventoryHelper;
 use App\Models\MfgOrder;
 use App\Models\MoBomMapping;
+use App\Helpers\Helper;
+use App\Helpers\Configuration\Constants;
 use App\Models\PslipBomConsumption;
 use App\Traits\ProcessesComponentJson;
 use Illuminate\Foundation\Http\FormRequest;
@@ -22,6 +24,9 @@ class PslipRequest extends FormRequest
     public function rules(): array
     {
         // dd($this->request->all());
+        $user = Helper::getAuthenticatedUser();
+        $groupAlias = $user?->group_alias ?? '';
+        $is_attachment = in_array($groupAlias, Constants::GROUP_REQUIRED);
         $rules = [
             'book_id' => 'required',
             'expiry_date' => 'nullable|date',
@@ -35,7 +40,13 @@ class PslipRequest extends FormRequest
         if(!$this->input('id')) {
             $rules['fg_sub_store_id'] = 'required';
         }
-
+       
+        if($is_attachment) {
+            if(!$this->input('id')) {
+                $rules['attachments'] = 'required';
+            }
+            $rules['final_remarks'] = 'required';
+        }
         // If Item is_batch_no == 1
         if($this->input('is_batch_no') ==1) {
             $rules['expiry_date'] = 'required|date';

@@ -4,7 +4,6 @@
         #soModal .table-responsive {
             overflow-y: auto;
             max-height: 300px;
-            /* Set the height of the scrollable body */
             position: relative;
         }
 
@@ -16,22 +15,62 @@
         #soModal .po-order-detail thead {
             position: sticky;
             top: 0;
-            /* Stick the header to the top of the table container */
             background-color: white;
-            /* Optional: Make sure header has a background */
             z-index: 1;
-            /* Ensure the header stays above the body content */
         }
 
         #soModal .po-order-detail th {
             background-color: #f8f9fa;
-            /* Optional: Background for the header */
             text-align: left;
             padding: 8px;
         }
 
         #soModal .po-order-detail td {
             padding: 8px;
+        }
+
+        /* Correct scoping: apply to #pwoModal only */
+        #pwoModal .table-responsive {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 300px;
+            position: relative;
+        }
+
+        #pwoModal .po-order-detail {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1500px;
+            /* ensures horizontal scroll if content overflows */
+        }
+
+        #pwoModal .po-order-detail thead {
+            position: sticky;
+            top: 0;
+            background-color: white;
+            z-index: 2;
+        }
+
+        #pwoModal .po-order-detail th {
+            background-color: #f8f9fa;
+            text-align: left;
+            padding: 8px;
+            white-space: nowrap;
+            /* prevents header text wrapping */
+        }
+
+        #pwoModal .po-order-detail td {
+            padding: 8px;
+            white-space: nowrap;
+            /* keeps cells aligned horizontally */
+        }
+
+        #pwoModal .table-responsive {
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #soModal .table-responsive {
+            -webkit-overflow-scrolling: touch;
         }
     </style>
 @endsection
@@ -42,6 +81,7 @@
         <input type="hidden" name="procurement_type" id="procurement_type" value="rm">
         <input type="hidden" name="show_attribute" value="0" id="show_attribute">
         <input type="hidden" name="so_item_ids" id="so_item_ids">
+        <input type="hidden" name="pwo_item_ids" id="pwo_item_ids">
         <input type="hidden" name="item_ids" id="item_ids">
         <input type="hidden" name="requester_type" id="requester_type">
         <input type="hidden" name="so_tracking_required" id="so_tracking_required">
@@ -173,6 +213,7 @@
                                                     </div>
                                                     <div class="col-md-5 action-button">
                                                         <button type="button" class="btn btn-outline-primary btn-sm mb-0 soSelect"><i data-feather="plus-square"></i> Sale Order</button>
+                                                        <button type="button" class="btn btn-outline-primary btn-sm mb-0 pwoSelect"><i data-feather="plus-square"></i> PWO</button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -438,19 +479,34 @@
 
     {{-- Taxes --}}
     @include('procurement.pi.partials.so-modal')
-    @include('procurement.pi.partials.analyze-modal')
+    {{-- @include('procurement.pi.partials.analyze-modal') --}}
     @include('procurement.pi.partials.so-modal-submit')
+
+    @include('procurement.pi.partials.pwo-modal')
+    @include('procurement.pi.partials.pwo-modal-submit')
 @endsection
 @section('scripts')
+    <script>
+        const getSoUrl = '{{ route('pi.get.so') }}';
+        const piIndexUrl = '{{ route('pi.index') }}';
+        const getPwoUrl = '{{ route('pi.get.pwo') }}';
+        const getPiItemRowUrl = '{{ route('pi.item.row') }}';
+        const getPiItemAttUrl = '{{ route('pi.item.attr') }}';
+        const processPwoUrl = '{{ route('pi.process.pwo-item') }}';
+        const analyzeSoItemUrl = '{{ route('pi.analyze.so-item') }}';
+        const processSoItemUrl = '{{ route('pi.process.so-item') }}';
+        const getItemDetailsUrl = '{{ route('pi.get.itemdetail') }}';
+        const processPwoItemUrl = '{{ route('pi.process.pwo-item') }}';
+        const processSoActionUrl = '{{ route('pi.process.so-item.submit') }}';
+        const processPwoActionUrl = '{{ route('pi.process.pwo-item.submit') }}';
+        const soServiceAlias = '{{ \App\Helpers\ConstantHelper::SO_SERVICE_ALIAS }}';
+        const pwoServiceAlias = '{{ \App\Helpers\ConstantHelper::PWO_SERVICE_ALIAS }}';
+        const processAnalyzedBomItem = '{{ route('pi.process.analyzed.bom-item') }}';
+    </script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-attr-ui.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/pi.js') }}"></script>
+    <script type="text/javascript" src="{{ asset('assets/js/modules/pi-pwo.js') }}"></script>
     <script type="text/javascript" src="{{ asset('app-assets/js/file-uploader.js') }}"></script>
-    <script>
-        var analyzeSoItemUrl = '{{ route('pi.analyze.so-item') }}';
-        var processSoItemUrl = '{{ route('pi.process.so-item') }}';
-        let processSoActionUrl = '{{ route('pi.process.so-item.submit') }}';
-        var processAnalyzedBomItem = '{{ route('pi.process.analyzed.bom-item') }}';
-    </script>
     <script>
         setTimeout(() => {
             $("#book_id").trigger('change');
@@ -523,289 +579,6 @@
             });
         }
 
-        /*Set Service Parameter*/
-        function setServiceParameters(parameters) {
-            /*Date Validation*/
-            const docDateInput = $("[name='document_date']");
-            let isFeature = false;
-            let isPast = false;
-            if (parameters.future_date_allowed && parameters.future_date_allowed.includes('yes')) {
-                let futureDate = new Date();
-                futureDate.setDate(futureDate.getDate() /*+ (parameters.future_date_days || 1)*/ );
-                docDateInput.val(futureDate.toISOString().split('T')[0]);
-                docDateInput.attr("min", new Date().toISOString().split('T')[0]);
-                isFeature = true;
-            } else {
-                isFeature = false;
-                docDateInput.attr("max", new Date().toISOString().split('T')[0]);
-            }
-            if (parameters.back_date_allowed && parameters.back_date_allowed.includes('yes')) {
-                let backDate = new Date();
-                backDate.setDate(backDate.getDate() /*- (parameters.back_date_days || 1)*/ );
-                docDateInput.val(backDate.toISOString().split('T')[0]);
-                // docDateInput.attr("max", "");
-                isPast = true;
-            } else {
-                isPast = false;
-                docDateInput.attr("min", new Date().toISOString().split('T')[0]);
-            }
-            /*Date Validation*/
-            if (isFeature && isPast) {
-                docDateInput.removeAttr('min');
-                docDateInput.removeAttr('max');
-            }
-            /*Reference from*/
-            let reference_from_service = parameters.reference_from_service;
-            $("#procurement_type_param").val(parameters.procurement_type);
-            if (parameters.procurement_type.includes('all')) {
-                $("#procurement_type").val('rm');
-            }
-            if (parameters.procurement_type.includes('Make to order')) {
-                $("#procurement_type").val('rm');
-            }
-            if (parameters.procurement_type.includes('Buy to order')) {
-                $("#procurement_type").val('fg');
-            }
-
-            if (reference_from_service.length) {
-                let pi = '{{ \App\Helpers\ConstantHelper::SO_SERVICE_ALIAS }}';
-                if (reference_from_service.includes(pi)) {
-                    $("#reference_from").removeClass('d-none');
-                } else {
-                    $("#reference_from").addClass('d-none');
-                }
-                if (reference_from_service.includes('d')) {
-                    $("#addNewItemBtn").removeClass('d-none');
-                } else {
-                    $("#addNewItemBtn").addClass('d-none');
-                }
-            } else {
-                Swal.fire({
-                    title: 'Error!',
-                    text: "Please update first reference from service param.",
-                    icon: 'error',
-                });
-                setTimeout(() => {
-                    location.href = '{{ route('pi.index') }}';
-                }, 1500);
-            }
-
-            //Requester Type
-            let requesterType = parameters?.requester_type || '';
-            if (requesterType.includes('Department')) {
-                $("#user_id_header").addClass('d-none');
-                $("#department_id_header").removeClass('d-none');
-                $("#requester_type").val('Department');
-            } else {
-                $("#user_id_header").removeClass('d-none');
-                $("#department_id_header").addClass('d-none');
-                $("#requester_type").val('User');
-            }
-
-            let soTrackingRequired = parameters?.so_tracking_required || '';
-            $("#so_tracking_required").val(soTrackingRequired);
-            if (soTrackingRequired.includes('yes')) {
-                $("#soTrackingText").removeClass('d-none');
-                $("#soTrackingNo").removeClass('d-none');
-                $("#so_no").removeClass('d-none');
-            } else {
-                $("#soTrackingText").addClass('d-none');
-                $("#soTrackingNo").addClass('d-none');
-                $("#so_no").addClass('d-none');
-            }
-
-        }
-
-        // for component item code
-        function initializeAutocomplete2(selector, type) {
-            $(selector).autocomplete({
-                minLength: 0,
-                source: function(request, response) {
-                    let selectedAllItemIds = [];
-                    $("#itemTable tbody [id*='row_']").each(function(index, item) {
-                        if (Number($(item).find('[name*="[item_id]"]').val())) {
-                            selectedAllItemIds.push(Number($(item).find('[name*="[item_id]"]').val()));
-                        }
-                    });
-                    $.ajax({
-                        url: '/search',
-                        method: 'GET',
-                        dataType: 'json',
-                        data: {
-                            q: request.term,
-                            type: 'pi_comp_item',
-                            selectedAllItemIds: JSON.stringify(selectedAllItemIds)
-                        },
-                        success: function(data) {
-                            response($.map(data, function(item) {
-
-                                console.log({
-                                    id: item.id,
-                                    label: `${item.item_name} (${item.item_code})`,
-                                    code: item.item_code || '',
-                                    item_id: item.id,
-                                    item_name: item.item_name,
-                                    uom_name: item.uom?.name,
-                                    uom_id: item.uom_id,
-                                    hsn_id: item.hsn?.id,
-                                    hsn_code: item.hsn?.code,
-                                    alternate_u_o_ms: item.alternate_u_o_ms,
-                                    is_attr: item.item_attributes_count,
-
-                                });
-
-                                return {
-                                    id: item.id,
-                                    label: `${item.item_name} (${item.item_code})`,
-                                    code: item.item_code || '',
-                                    item_id: item.id,
-                                    item_name: item.item_name,
-                                    uom_name: item.uom?.name,
-                                    uom_id: item.uom_id,
-                                    hsn_id: item.hsn?.id,
-                                    hsn_code: item.hsn?.code,
-                                    alternate_u_o_ms: item.alternate_u_o_ms,
-                                    is_attr: item.item_attributes_count,
-
-                                };
-                            }));
-                        },
-                        error: function(xhr) {
-                            console.error('Error fetching customer data:', xhr.responseText);
-                        }
-                    });
-                },
-                select: function(event, ui) {
-                    let $input = $(this);
-                    let itemCode = ui.item.code;
-                    let itemName = ui.item.value;
-                    let itemN = ui.item.item_name;
-                    let itemId = ui.item.item_id;
-                    let uomId = ui.item.uom_id;
-                    let uomName = ui.item.uom_name;
-                    let hsnId = ui.item.hsn_id;
-                    let hsnCode = ui.item.hsn_code;
-                    $input.attr('data-name', itemName);
-                    $input.attr('data-code', itemCode);
-                    $input.attr('data-id', itemId);
-                    $input.closest('tr').find('[name*="[item_id]"]').val(itemId);
-                    $input.closest('tr').find('[name*=item_code]').val(itemCode);
-                    $input.closest('tr').find('[name*=item_name]').val(itemN);
-                    $input.closest('tr').find('[name*=hsn_id]').val(hsnId);
-                    $input.closest('tr').find('[name*=hsn_code]').val(hsnCode);
-                    $input.val(itemCode);
-                    let uomOption = `<option value=${uomId}>${uomName}</option>`;
-                    if (ui.item?.alternate_u_o_ms) {
-                        for (let alterItem of ui.item.alternate_u_o_ms) {
-                            uomOption +=
-                                `<option value="${alterItem.uom_id}" ${alterItem.is_purchasing ? 'selected' : ''}>${alterItem.uom?.name}</option>`;
-                        }
-                    }
-                    $input.closest('tr').find('[name*=uom_id]').empty().append(uomOption);
-                    $input.closest('tr').find('[name*=attr_group_id]').remove();
-
-                    setTimeout(() => {
-                        if (ui.item.is_attr) {
-                            $input.closest('tr').find('.attributeBtn').trigger('click');
-                        } else {
-                            $input.closest('tr').find('.attributeBtn').trigger('click');
-                            $input.closest('tr').find('[name*="[qty]"]').val('').focus();
-                        }
-                    }, 100);
-                    validateItems($input, true);
-                    return false;
-                },
-                change: function(event, ui) {
-                    if (!ui.item) {
-                        $(this).val("");
-                        $(this).attr('data-name', '');
-                        $(this).attr('data-code', '');
-                    }
-                }
-            }).focus(function() {
-                if (this.value === "") {
-                    $(this).autocomplete("search", "");
-                }
-            }).on("input", function() {
-                if ($(this).val().trim() === "") {
-                    $(this).removeData("selected");
-                    $(this).closest('tr').find("input[name*='component_item_name']").val('');
-                    $(this).closest('tr').find("input[name*='item_name']").val('');
-                    $(this).closest('tr').find("td[id*='itemAttribute_']").html(defautAttrBtn);
-                    $(this).closest('tr').find("input[name*='item_id']").val('');
-                    $(this).closest('tr').find("input[name*='item_code']").val('');
-                    $(this).closest('tr').find("input[name*='attr_name']").remove();
-                }
-            });
-        }
-
-        initializeAutocomplete2(".comp_item_code");
-
-        $(document).on('click', '#addNewItemBtn', (e) => {
-
-            let rowsLength = $("#itemTable > tbody > tr").length;
-            /*Check last tr data shoud be required*/
-            let lastRow = $('#itemTable .mrntableselectexcel tr:last');
-            let lastTrObj = {
-                item_id: "",
-                attr_require: true,
-                row_length: lastRow.length
-            };
-
-            if (lastRow.length == 0) {
-                lastTrObj.attr_require = false;
-                lastTrObj.item_id = "0";
-            }
-
-            if (lastRow.length > 0) {
-                let item_id = lastRow.find("[name*='[item_id]']").val();
-                if (lastRow.find("[name*='attr_name']").length) {
-                    var emptyElements = lastRow.find("[name*='attr_name']").filter(function() {
-                        return $(this).val().trim() === '';
-                    });
-                    attr_require = emptyElements?.length ? true : false;
-                } else {
-                    attr_require = true;
-                }
-
-                lastTrObj = {
-                    item_id: item_id,
-                    attr_require: attr_require,
-                    row_length: lastRow.length
-                };
-
-                if ($("tr[id*='row_']:last").find("[name*='[attr_group_id]']").length == 0 && item_id) {
-                    lastTrObj.attr_require = false;
-                }
-            }
-            let soTracking = $("#so_tracking_required").val() || '';
-            let actionUrl = '{{ route('pi.item.row') }}' + '?count=' + rowsLength + '&component_item=' + JSON
-                .stringify(lastTrObj) + `&so_tracking_required=${soTracking}`;
-            fetch(actionUrl).then(response => {
-                return response.json().then(data => {
-                    if (data.status == 200) {
-                        if (rowsLength) {
-                            $("#itemTable > tbody > tr:last").after(data.data.html);
-                        } else {
-                            $("#itemTable > tbody").html(data.data.html);
-                        }
-                        initializeAutocomplete2('.comp_item_code');
-                        $(".soSelect").prop('disabled', true);
-                        initAutocompVendor("[name*='[vendor_code]']");
-                        document.getElementById('copy_item_section').style.display = "";
-                    } else if (data.status == 422) {
-                        Swal.fire({
-                            title: 'Error!',
-                            text: data.message || 'An unexpected error occurred.',
-                            icon: 'error',
-                        });
-                    } else {
-                        console.log("Someting went wrong!");
-                    }
-                });
-            });
-        });
-
         /*Delete Row*/
         $(document).on('click', '#deleteBtn', (e) => {
             let itemIds = [];
@@ -819,112 +592,17 @@
                     $(`#row_${item}`).remove();
                 });
             } else {
-                alert("Please first add & select row item.");
+                Swal.fire({
+                    title: 'Error!',
+                    text: "Please first add & select row item.",
+                    icon: 'error',
+                });
             }
             if (!$("tr[id*='row_']").length) {
                 $("#itemTable > thead .form-check-input").prop('checked', false);
                 $(".soSelect").prop('disabled', false);
+                $(".pwoSelect").prop('disabled', false);
                 document.getElementById('copy_item_section').style.display = "none";
-            }
-        });
-
-        /*Check attrubute*/
-        $(document).on('click', '.attributeBtn', (e) => {
-            let tr = e.target.closest('tr');
-            let item_name = tr.querySelector('[name*=item_code]').value;
-            let item_id = tr.querySelector('[name*="[item_id]"]').value;
-            let selectedAttr = [];
-            const attrElements = tr.querySelectorAll('[name*=attr_name]');
-            if (attrElements.length > 0) {
-                selectedAttr = Array.from(attrElements).map(element => element.value);
-                selectedAttr = JSON.stringify(selectedAttr);
-            }
-            if (item_name && item_id) {
-                let rowCount = tr.getAttribute('data-index');
-                getItemAttribute(item_id, rowCount, selectedAttr, tr);
-            } else {
-                alert("Please select first item name.");
-            }
-        });
-
-        /*For comp attr*/
-        function getItemAttribute(itemId, rowCount, selectedAttr, tr) {
-            let isSo = $(tr).find('[name*="so_item_id"]').length ? 1 : 0;
-            if (!isSo) {
-                isSo = $(tr).find('[name*="so_pi_mapping_item_id"]').length ? 1 : 0;
-            }
-            if (!isSo) {
-                if ($(tr).find('td[id*="itemAttribute_"]').data('disabled')) {
-                    isSo = 1;
-                }
-            }
-            let actionUrl = '{{ route('pi.item.attr') }}' + '?item_id=' + itemId +
-                `&rowCount=${rowCount}&selectedAttr=${selectedAttr}&isSo=${isSo}`;
-            fetch(actionUrl).then(response => {
-                return response.json().then(data => {
-                    if (data.status == 200) {
-                        $("#attribute tbody").empty();
-                        $("#attribute table tbody").append(data.data.html)
-                        $(tr).find('td:nth-child(2)').find("[name*='[attr_name]']").remove();
-                        $(tr).find('td:nth-child(2)').append(data.data.hiddenHtml);
-                        $(tr).find("td[id*='itemAttribute_']").attr('attribute-array', JSON.stringify(data
-                            .data.itemAttributeArray));
-                        if (data.data.attr) {
-                            $("#attribute").modal('show');
-                            $('#attribute').on('shown.bs.modal', function() {
-                                $("#attribute .select2").select2({
-                                    dropdownParent: $("#attribute"),
-                                    searchInputPlaceholder: 'Search'
-                                });
-                                feather.replace();
-                            });
-                        }
-                        qtyEnabledDisabled();
-                    }
-                });
-            });
-        }
-
-
-        /*Display item detail*/
-        $(document).on('input change focus', '#itemTable tr input', (e) => {
-            let currentTr = e.target.closest('tr');
-            let rowCount = $(currentTr).attr('data-index');
-            let pName = $(currentTr).find("[name*='component_item_name']").val();
-            let itemId = $(currentTr).find("[name*='[item_id]']").val();
-            let remark = '';
-            if ($(currentTr).find("[name*='remark']")) {
-                remark = $(currentTr).find("[name*='remark']").val() || '';
-            }
-            if (itemId) {
-                let selectedAttr = [];
-                $(currentTr).find("[name*='attr_name']").each(function(index, item) {
-                    if ($(item).val()) {
-                        selectedAttr.push($(item).val());
-                    }
-                });
-
-                let uomId = $(currentTr).find("[name*='[uom_id]']").val() || '';
-                let qty = $(currentTr).find("[name*='[qty]']").val() || '';
-                let pi_item_id = '';
-                let store_id = $("#store_id").val() || '';
-                let sub_store_id = $("#sub_store_id").val() || '';
-                let actionUrl = '{{ route('pi.get.itemdetail') }}' + '?item_id=' + itemId + '&selectedAttr=' + JSON
-                    .stringify(selectedAttr) + '&remark=' + remark + '&uom_id=' + uomId + '&qty=' + qty +
-                    '&store_id=' + store_id + '&sub_store_id=' + sub_store_id;
-                fetch(actionUrl).then(response => {
-                    return response.json().then(data => {
-                        if (data.status == 200) {
-                            console.log(data.data.pendingPo);
-                            $("#itemDetailDisplay").html(data.data.html);
-                            let avlStock = data.data?.inventoryStock.confirmedStocks;
-                            $(`input[name="components[${rowCount}][avl_stock]"]`).val(Number(
-                                avlStock).toFixed(2));
-                            $(`input[name="components[${rowCount}][pending_po]"]`).val(Number(data
-                                .data.pendingPo).toFixed(2));
-                        }
-                    });
-                });
             }
         });
 
@@ -933,438 +611,6 @@
             let rowCount = $("[id*=row_].trselected").attr('data-index');
             $(`[name="components[${rowCount}][qty]"]`).focus();
             $("#attribute").modal('hide');
-        });
-
-        /*So modal*/
-        $(document).on('click', '.soSelect', (e) => {
-            let paramValue = $("#procurement_type_param").val();
-            let option = '';
-            if (paramValue.includes('All')) {
-                option += `<option value="rm">Make to order</option><option value="fg">Buy to order</option>`;
-            }
-            if (paramValue.includes('Make to order')) {
-                option += `<option value="rm">Make to order</option>`;
-            }
-            if (paramValue.includes('Buy to order')) {
-                option += `<option value="fg">Buy to order</option>`;
-            }
-            $("#orderTypeSelect").empty().append(option);
-            $("#soModal").modal('show');
-            openSaleRequest();
-            getSoItems();
-        });
-
-        /*searchPiBtn*/
-        $(document).on('click', '.searchSoBtn', (e) => {
-            getSoItems();
-        });
-
-        function openSaleRequest() {
-            initializeAutocompleteQt("customer_code_input_qt", "customer_id_qt_val", "customer", "customer_code",
-                "company_name");
-            initializeAutocompleteQt("book_code_input_qt", "book_id_qt_val", "book_so", "book_code", "");
-            initializeAutocompleteQt("document_no_input_qt", "document_id_qt_val", "sale_order_document_qt_pi",
-                "document_number", "");
-            initializeAutocompleteQt("item_name_input_qt", "item_id_qt_val", "po_item_list", "item_code", "item_name");
-        }
-
-        function initializeAutocompleteQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "") {
-            $("#" + selector).autocomplete({
-                source: function(request, response) {
-                    $.ajax({
-                        url: '/search',
-                        method: 'GET',
-                        dataType: 'json',
-                        data: {
-                            q: request.term,
-                            type: typeVal,
-                            cutomer_id: $("#cutomer_id_qt_val").val(),
-                            header_book_id: $("#book_id").val(),
-                        },
-                        success: function(data) {
-                            response($.map(data, function(item) {
-                                return {
-                                    id: item.id,
-                                    label: `${item[labelKey1]} ${labelKey2 ? (item[labelKey2] ? '(' + item[labelKey2] + ')' : '') : ''}`,
-                                    code: item[labelKey1] || '',
-                                };
-                            }));
-                        },
-                        error: function(xhr) {
-                            console.error('Error fetching customer data:', xhr.responseText);
-                        }
-                    });
-                },
-                appendTo: '#soModal',
-                minLength: 0,
-                select: function(event, ui) {
-                    var $input = $(this);
-                    $input.val(ui.item.label);
-                    $("#" + selectorSibling).val(ui.item.id);
-                    getSoItems();
-                    return false;
-                },
-                change: function(event, ui) {
-                    if (!ui.item) {
-                        $(this).val("");
-                        $("#" + selectorSibling).val("");
-                        getSoItems();
-                    }
-                }
-            }).focus(function() {
-                if (this.value === "") {
-                    $("#" + selectorSibling).val("");
-                    $(this).autocomplete("search", "");
-                    getSoItems();
-                }
-            }).blur(function() {
-                if ($(this).val().trim() === "") {
-                    $("#" + selectorSibling).val("");
-                    getSoItems();
-                }
-            });
-        }
-
-        function getSoItems() {
-            let isAttribute = 0;
-            if ($("#attributeCheck").is(':checked')) {
-                isAttribute = 1;
-            } else {
-                isAttribute = 0;
-            }
-            let header_book_id = $("#book_id").val() || '';
-            let series_id = $("#book_id_qt_val").val() || '';
-            let document_number = $("#document_no_input_qt").val() || '';
-            let item_id = $("#item_id_qt_val").val() || '';
-            let customer_id = $("#customer_id_qt_val").val() || '';
-            let actionUrl = '{{ route('pi.get.so') }}';
-            let item_search = $("#item_name_search").val();
-            let fullUrl =
-                `${actionUrl}?series_id=${encodeURIComponent(series_id)}&document_number=${encodeURIComponent(document_number)}&item_id=${encodeURIComponent(item_id)}&customer_id=${encodeURIComponent(customer_id)}&header_book_id=${encodeURIComponent(header_book_id)}&is_attribute=${isAttribute}&item_search=${item_search}`;
-            fetch(fullUrl).then(response => {
-                return response.json().then(data => {
-                    $(".po-order-detail #soDataTable").empty().append(data.data.pis);
-                    if (data.data.isAttribute) {
-                        $("#soHeaderAttribute").removeClass('d-none');
-                    } else {
-                        $("#soHeaderAttribute").addClass('d-none');
-                    }
-                });
-            });
-        }
-
-        $(document).on('keyup', '#item_name_search', (e) => {
-            getSoItems();
-        });
-
-        $(document).on('change', '#attributeCheck', (e) => {
-            if (e.target.checked) {
-                $("#show_attribute").val(1);
-            } else {
-                $("#show_attribute").val(0);
-            }
-            getSoItems();
-        });
-        $(document).on('blur', '#customer_code_input_qt', (e) => {
-            getSoItems();
-        });
-
-        /*Checkbox for pi item list*/
-        $(document).on('change', '#soModal .po-order-detail > thead .form-check-input', (e) => {
-            if (e.target.checked) {
-                $("#soModal .po-order-detail > tbody .form-check-input").each(function() {
-                    $(this).prop('checked', true);
-                });
-            } else {
-                $("#soModal .po-order-detail > tbody .form-check-input").each(function() {
-                    $(this).prop('checked', false);
-                });
-            }
-        });
-
-        $(document).on('change', '#soModal .po-order-detail > tbody .form-check-input', (e) => {
-            if (!$("#soModal .po-order-detail > tbody .form-check-input:not(:checked)").length) {
-                $('#soModal .po-order-detail > thead .form-check-input').prop('checked', true);
-            } else {
-                $('#soModal .po-order-detail > thead .form-check-input').prop('checked', false);
-            }
-        });
-
-        // asdasdas
-        $(document).on('change', '#soSubmitModal .po-order-detail > thead .form-check-input', (e) => {
-            if (e.target.checked) {
-                $("#soSubmitModal .po-order-detail > tbody .form-check-input").each(function() {
-                    $(this).prop('checked', true);
-                });
-            } else {
-                $("#soSubmitModal .po-order-detail > tbody .form-check-input").each(function() {
-                    $(this).prop('checked', false);
-                });
-            }
-        });
-        $(document).on('change', '#soSubmitModal .po-order-detail > tbody .form-check-input', (e) => {
-            if (!$("#soSubmitModal .po-order-detail > tbody .form-check-input:not(:checked)").length) {
-                $('#soSubmitModal .po-order-detail > thead .form-check-input').prop('checked', true);
-            } else {
-                $('#soSubmitModal .po-order-detail > thead .form-check-input').prop('checked', false);
-            }
-        });
-
-
-        function getSelectedSoIDS() {
-            let ids = [];
-            $('#soModal .pi_item_checkbox:checked').each(function() {
-                ids.push($(this).val());
-            });
-            return ids;
-        }
-
-        function getSelectedItemIDS() {
-            let ids = [];
-            $('#soModal .pi_item_checkbox:checked').each(function() {
-                if (Number($(this).data("item-id"))) {
-                    ids.push(Number($(this).data("item-id")));
-                }
-            });
-            return ids;
-        }
-
-        $(document).on('click', '.soProcess', (e) => {
-            e.preventDefault();
-            $("#soSubmitModal th .form-check-input").prop('checked', false);
-            let ids = getSelectedSoIDS();
-            if (!ids.length) {
-                $("[name='so_item_ids']").val('');
-                $("[name='item_ids']").val('');
-                $("#soModal").modal('hide');
-                Swal.fire({
-                    title: 'Error!',
-                    text: 'Please select at least one one so item.',
-                    icon: 'error',
-                });
-                return false;
-            }
-            $("[name='so_item_ids']").val(ids);
-            let itemIds = getSelectedItemIDS();
-            $("[name='item_ids']").val(itemIds);
-
-            // for component item code
-            function initializeAutocomplete2(selector, type) {
-                $(selector).autocomplete({
-                    minLength: 0,
-                    source: function(request, response) {
-                        let selectedAllItemIds = [];
-                        $("#itemTable tbody [id*='row_']").each(function(index, item) {
-                            if (Number($(item).find('[name*="[item_id]"]').val())) {
-                                selectedAllItemIds.push(Number($(item).find(
-                                    '[name*="[item_id]"]').val()));
-                            }
-                        });
-                        $.ajax({
-                            url: '/search',
-                            method: 'GET',
-                            dataType: 'json',
-                            data: {
-                                q: request.term,
-                                type: 'pi_comp_item',
-                                selectedAllItemIds: JSON.stringify(selectedAllItemIds)
-                            },
-                            success: function(data) {
-                                response($.map(data, function(item) {
-                                    return {
-                                        id: item.id,
-                                        label: `${item.item_name} (${item.item_code})`,
-                                        code: item.item_code || '',
-                                        item_id: item.id,
-                                        item_name: item.item_name,
-                                        uom_name: item.uom?.name,
-                                        uom_id: item.uom_id,
-                                        hsn_id: item.hsn?.id,
-                                        hsn_code: item.hsn?.code,
-                                        alternate_u_o_ms: item.alternate_u_o_ms,
-                                        is_attr: item.item_attributes_count,
-                                    };
-                                }));
-                            },
-                            error: function(xhr) {
-                                console.error('Error fetching customer data:', xhr
-                                    .responseText);
-                            }
-                        });
-                    },
-                    select: function(event, ui) {
-                        let $input = $(this);
-                        let itemCode = ui.item.code;
-                        let itemName = ui.item.value;
-                        let itemN = ui.item.item_name;
-                        let itemId = ui.item.item_id;
-                        let uomId = ui.item.uom_id;
-                        let uomName = ui.item.uom_name;
-                        let hsnId = ui.item.hsn_id;
-                        let hsnCode = ui.item.hsn_code;
-                        $input.attr('data-name', itemName);
-                        $input.attr('data-code', itemCode);
-                        $input.attr('data-id', itemId);
-                        $input.closest('tr').find('[name*="[item_id]"]').val(itemId);
-                        $input.closest('tr').find('[name*=item_code]').val(itemCode);
-                        $input.closest('tr').find('[name*=item_name]').val(itemN);
-                        $input.closest('tr').find('[name*=hsn_id]').val(hsnId);
-                        $input.closest('tr').find('[name*=hsn_code]').val(hsnCode);
-                        $input.val(itemCode);
-                        let uomOption = `<option value=${uomId}>${uomName}</option>`;
-                        if (ui.item?.alternate_u_o_ms) {
-                            for (let alterItem of ui.item.alternate_u_o_ms) {
-                                uomOption +=
-                                    `<option value="${alterItem.uom_id}" ${alterItem.is_purchasing ? 'selected' : ''}>${alterItem.uom?.name}</option>`;
-                            }
-                        }
-                        $input.closest('tr').find('[name*=uom_id]').empty().append(uomOption);
-                        $input.closest('tr').find('[name*=attr_group_id]').remove();
-                        setTimeout(() => {
-                            if (ui.item.is_attr) {
-                                $input.closest('tr').find('.attributeBtn').trigger('click');
-                            } else {
-                                $input.closest('tr').find('.attributeBtn').trigger('click');
-                                $input.closest('tr').find('[name*="[qty]"]').val('').focus();
-                            }
-                        }, 100);
-                        validateItems($input, true);
-                        return false;
-                    },
-                    change: function(event, ui) {
-                        if (!ui.item) {
-                            $(this).val("");
-                            // $('#itemId').val('');
-                            $(this).attr('data-name', '');
-                            $(this).attr('data-code', '');
-                        }
-                    }
-                }).focus(function() {
-                    if (this.value === "") {
-                        $(this).autocomplete("search", "");
-                    }
-                }).on("input", function() {
-                    if ($(this).val().trim() === "") {
-                        $(this).removeData("selected");
-                        $(this).closest('tr').find("input[name*='component_item_name']").val('');
-                        $(this).closest('tr').find("input[name*='item_name']").val('');
-                        $(this).closest('tr').find("td[id*='itemAttribute_']").html(defautAttrBtn);
-                        $(this).closest('tr').find("input[name*='item_id']").val('');
-                        $(this).closest('tr').find("input[name*='item_code']").val('');
-                        $(this).closest('tr').find("input[name*='attr_name']").remove();
-                    }
-                });
-            }
-
-            let isAttribute = 0;
-            if ($("#attributeCheck").is(':checked')) {
-                isAttribute = 1;
-            } else {
-                isAttribute = 0;
-            }
-            let procurementType = $("#orderTypeSelect").val() || 'rm';
-
-            ids = JSON.stringify(ids);
-
-            let selectedItems = [];
-            if (!isAttribute) {
-                $("#soModal .pi_item_checkbox:checked").each(function() {
-                    selectedItems.push({
-                        "sale_order_id": Number($(this).val()),
-                        "item_id": Number($(this).data("item-id"))
-                    });
-                });
-            }
-            let storeId = $("#store_id").val() || '';
-            let selectedItemsParam = encodeURIComponent(JSON.stringify(selectedItems));
-            let soTracking = $("#so_tracking_required").val();
-            let actionUrl =
-                `{{ route('pi.process.so-item') }}?ids=${ids}&is_attribute=${isAttribute}&selected_items=${selectedItemsParam}&so_tracking_required=${soTracking}&procurement_type=${procurementType}&store_id=${storeId}`;
-            fetch(actionUrl).then(response => {
-                return response.json().then(data => {
-                    if (data.status == 200) {
-                        // $("#itemTable .mrntableselectexcel").empty().append(data.data.pos);
-                        // initializeAutocomplete2(".comp_item_code");
-                        $("#soModal").modal('hide');
-                        // $(".soSelect").prop('disabled',true);
-                        if (data.data.procurement_type != 'fg') {
-                            $("#soSubmitDataTable").empty().append(data.data.pos);
-                            $("#soSubmitModal").modal('show');
-                        } else {
-                            $("#itemTable .mrntableselectexcel").empty().append(data.data.pos);
-                            setTimeout(() => {
-                                $("#itemTable .mrntableselectexcel tr").each(function(index,
-                                    item) {
-                                    let currentIndex = index + 1;
-                                    setAttributesUIHelper(currentIndex,
-                                        "#itemTable");
-                                });
-                            }, 100);
-                        }
-                    } else {
-                        Swal.fire({
-                            title: 'Error!',
-                            text: data.message,
-                            icon: 'error',
-                        });
-                    }
-                });
-            });
-        });
-        /*So modal*/
-
-        /*Final process submit*/
-        $(document).on('click', '.soSubmitProcess', (e) => {
-            if ($('#soSubmitModal tbody .form-check-input:checked').length) {
-                $("#analyzeModal").modal('hide');
-                $("#soSubmitModal").modal('hide');
-                let selectedData = [];
-                $('#soSubmitModal tbody .form-check-input:checked').each(function(index, item) {
-                    let dataItem = JSON.parse($(item).attr('data-item'));
-                    selectedData.push(dataItem);
-                });
-
-                if (selectedData.length) {
-                    let soTracking = $("#so_tracking_required").val() || '';
-                    let storeId = $("#store_id").val() || '';
-                    fetch(processSoActionUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                            },
-                            body: JSON.stringify({
-                                selectedData: selectedData,
-                                so_tracking_required: soTracking,
-                                store_id: storeId
-                            })
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status == 200) {
-                                $("#itemTable .mrntableselectexcel").empty().append(data.data.pos);
-                                initAutocompVendor("[name*='[vendor_code]']");
-                                initializeAutocomplete2(".comp_item_code");
-                                $(".soSelect").prop('disabled', true);
-                                $("#soSubmitModal").modal('hide');
-                                document.getElementById('copy_item_section').style.display = "";
-                                setTimeout(() => {
-                                    $("#itemTable .mrntableselectexcel tr").each(function(index, item) {
-                                        let currentIndex = index + 1;
-                                        setAttributesUIHelper(currentIndex, "#itemTable");
-                                    });
-                                }, 100);
-                            }
-                        });
-                }
-            } else {
-                Swal.fire({
-                    title: 'Error!',
-                    text: 'Please select at least one one so item.',
-                    icon: 'error',
-                });
-                return false;
-            }
         });
 
         document.addEventListener("DOMContentLoaded", function() {
@@ -1592,93 +838,6 @@
                 });
             });
 
-
-            // $('#submitBtn').on('click', function () {
-            //     const validRows = window.lastParsedImport?.valid || [];
-            //     const headers = window.lastParsedImport?.headers || {};
-            //     const tbody = $('#item_header');
-            //     console.log('table',tbody);
-            //     tbody.empty(); // Clear existing rows
-            //     let currentIndex = tbody.find('tr').length;
-            //     console.log('validRows', validRows);
-            //     validRows.forEach((row, i) => {
-            //         console.log('Processing row:', row);
-            //         const index = currentIndex + i;
-            //         const itemId = row.item_id || '';
-            //         const itemCode = row.item_code || '';
-            //         const itemName = row.item_name || '';
-            //         const uomId = row.uom_id || '';
-            //         const uomName = row.uom_name || '';
-            //         const rate = row.rate || 0;
-            //         const physicalQty = row.qty || 0;
-            //         const remarks = row.remarks || '';
-            //         const attributeValue = row.attribute_value || '';
-            //         const attributeGroupId = row.attribute_group_id || '';
-            //         const itemValue = (rate * physicalQty).toFixed(2);
-
-            //         const rowHtml = `
-        //         <tr id="item_row_${index}" class="item_header_rows" onclick="onItemClick('${index}');">
-        //             <input type="hidden" id="po_item_id_${index}" name="po_item_id[]" value="">
-        //             <td class="customernewsection-form">
-        //                 <div class="form-check form-check-primary custom-checkbox">
-        //                     <input type="checkbox" class="form-check-input item_row_checks" id="item_checkbox_${index}" del-index="${index}">
-        //                     <label class="form-check-label" for="item_checkbox_${index}"></label>
-        //                 </div>
-        //             </td>
-        //             <td class="poprod-decpt">
-        //                 <input type="text" id="items_dropdown_${index}" name="item_code[${index}]" placeholder="Select" class="form-control mw-100 ledgerselecct comp_item_code ui-autocomplete-input" autocomplete="off" data-name="${row.item_name ?? ''}" data-code="${row.item_code ?? ''}" data-id="${row.item_id ?? ''}" hsn_code="${row.hsn_code ?? ''}" item-name="${row.item_name ?? ''}" specs='${JSON.stringify(row.specifications ?? [])}' attribute-array='${JSON.stringify(row.item_attribute_array ?? [])}' value="${row.item_code ?? ''}" readonly>
-        //                 <input type="hidden" name="item_id[]" id="items_dropdown_${index}_value" value="${row.item_id ?? ''}">
-        //             </td>
-        //             <td>
-        //                 <input type="text" id="items_name_${index}" class="form-control mw-100" value="${itemName}" name="item_name[${index}]" readonly>
-        //             </td>
-        //             <td id="attribute_section_${index}">
-        //                 <button id="attribute_button_${index}" type="button" class="btn p-25 btn-sm btn-outline-secondary"" onclick="setItemAttributes('items_dropdown_${index}', '${index}', false);" data-bs-toggle="modal" data-bs-target="#attribute">Attributes</button>
-        //                 <input type="hidden" name="attribute_value_${index}" value="${attributeValue}">
-        //             </td>
-        //             <td>
-        //                 <select class="form-select" name="uom_id[]" id="uom_dropdown_${index}">
-        //                     <option value="${uomId}" selected>${uomName}</option>
-        //                 </select>
-        //             </td>
-        //             <td class="numeric-alignment">
-        //                 <input type="text" id="item_physical_qty_${index}" value="${physicalQty}" name="item_physical_qty[${index}]" class="form-control mw-100 text-end" oninput="setVariance(this, ${index});setValue(${index});">
-        //             </td>
-        //             <td class="numeric-alignment">
-        //                 <input type="text" id="item_confirmed_qty_${index}" value="0.00" name="item_confirmed_qty[${index}]" class="form-control mw-100 text-end" readonly>
-        //             </td>
-        //             <td class="numeric-alignment">
-        //                 <input type="text" id="item_unconfirmed_qty_${index}" value="0.00" name="item_unconfirmed_qty[${index}]" class="form-control mw-100 text-end" readonly>
-        //             </td>
-        //             <td class="numeric-alignment">
-        //                 <input type="text" id="item_variance_qty_${index}" value="${physicalQty}" name="item_balance_qty[${index}]" class="form-control mw-100 text-end" readonly>
-        //             </td>
-        //             <td class="numeric-alignment">
-        //                 <input type="text" id="item_rate_${index}" value="${rate}" name="item_rate[${index}]" class="form-control mw-100 text-end" oninput="setValue(${index});">
-        //             </td>
-        //             <td class="numeric-alignment">
-        //                 <input type="text" id="item_value_${index}" value="${itemValue}" name="item_value[${index}]" class="form-control mw-100 text-end" readonly>
-        //             </td>
-        //             <td>
-        //                 <div class="d-flex">
-        //                     <div class="me-50 cursor-pointer" data-bs-toggle="modal" data-bs-target="#Remarks" onclick="setItemRemarks('item_remarks_${index}');">
-        //                         <span data-bs-toggle="tooltip" title="Remarks" class="text-primary"><i data-feather="file-text"></i></span>
-        //                     </div>
-        //                 </div>
-        //                 <input type="hidden" id="item_remarks_${index}" name="item_remarks[${index}]" value="${remarks}">
-        //             </td>
-        //         </tr>`;
-            //         tbody.append(rowHtml);
-            //         // setItemAttributes(`items_dropdown_${index}`, index, false);
-            //         setAttributesUI(index);
-            //         onItemClick(index);
-            //         console.log('Row added:', rowHtml);
-            //     });
-            //     console.log('Parsed valid rows:', parsedValidRows);
-            //     renderIcons()
-            //     $('#importItemModal').modal('hide');
-            // });
-
             $('#submitBtn').on('click', function() {
                 console.log('Submit button clicked');
                 const validRows = window.lastParsedImport?.valid || [];
@@ -1776,8 +935,7 @@
                         </td>
                         <td>
                             ${typeof soTrackingRequired !== 'undefined' && soTrackingRequired ? `
-                                                                                                                                                                    <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />
-                                                                                                                                                                ` : ''}
+                                                        <input readonly type="text" name="components[${index}][so_no]" class="form-control mw-100 mb-25" value="${row.so_no || ''}" />` : ''}
                         </td>
                         <td>
                             <input type="text" name="components[${index}][remark]" class="form-control mw-100 mb-25" value="${remarks}"/>

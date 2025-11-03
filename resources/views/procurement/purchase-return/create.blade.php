@@ -113,7 +113,7 @@
                                                         <label class="form-label">Purchase Return Date <span class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="date" class="form-control" value="{{date('Y-m-d')}}" name="document_date">
+                                                        <input id="document_date" type="date" class="form-control" value="{{date('Y-m-d')}}" name="document_date">
                                                     </div>
                                                 </div>
                                                 <div class="row align-items-center mb-1">
@@ -366,8 +366,9 @@
                                                 <div class="col-md-6 text-sm-end">
                                                     <a href="javascript:;" id="deleteBtn" class="btn btn-sm btn-outline-danger me-50">
                                                     <i data-feather="x-circle"></i> Delete</a>
-                                                    <a href="javascript:;" id="addNewItemBtn" class="btn btn-sm btn-outline-primary">
-                                                    <i data-feather="plus"></i> Add New Item</a>
+                                                    <!-- After discussion with Inder Sir direct purchase return create case removed -->
+                                                    {{-- <a href="javascript:;" id="addNewItemBtn" class="btn btn-sm btn-outline-primary">
+                                                    <i data-feather="plus"></i> Add New Item</a> --}}
                                                 </div>
                                             </div>
                                         </div>
@@ -449,6 +450,7 @@
                                                                         <tr class="totalsubheadpodetail">
                                                                             <td><strong>Taxable Value</strong></td>
                                                                             <td class="text-end" id="f_taxable_value" amount="">0.00</td>
+                                                                            <input id = "tax_amount_header" type="hidden" name="taxes_amount_header" />
                                                                         </tr>
                                                                         <tr>
                                                                             <td><strong>Tax</strong></td>
@@ -580,11 +582,11 @@
                                     <label class="form-label">Value <span class="text-danger">*</span></label>
                                     <input step="any" type="number" id="new_item_dis_value" class="form-control mw-100" />
                                 </td>
-                                <td>
+                                {{-- <td>
                                     <a href="javascript:;" id="add_new_item_dis" class="text-primary can_hide">
                                         <i data-feather="plus-square"></i>
                                     </a>
-                                </td>
+                                </td> --}}
                             </tr>
                         </thead>
                     </table>
@@ -655,6 +657,8 @@
         let actionUrlTax = '{{route("purchase-return.tax.calculation")}}';
         var qtyChangeUrl = '{{ route("purchase-return.get.validate-quantity") }}';
         let taxCalUrl = '{{ route('tax.group.calculate') }}';
+        let calRetTaxTdsUrl = '{{ route('return.tds.calculate') }}';
+        let calTaxTdsUrl = '{{ route('tax.calculate.tds') }}';
     </script>
     <script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
     <script type="text/javascript" src="{{asset('assets/js/modules/common-attr-ui.js')}}"></script>
@@ -664,6 +668,7 @@
         let currentProcessType = null;
         let tableRowCount = 0;
         let selectedCostCenterId = "";
+        prData = null;
         window.onload = function () {
             localStorage.removeItem('selectedMrnIds');
             currentProcessType = null;
@@ -782,11 +787,11 @@
                 } else {
                     $("#reference_from").addClass('d-none');
                 }
-                if(reference_from_service.includes('d')) {
-                    $("#addNewItemBtn").removeClass('d-none');
-                } else {
-                    $("#addNewItemBtn").addClass('d-none');
-                }
+                // if(reference_from_service.includes('d')) {
+                //     $("#addNewItemBtn").removeClass('d-none');
+                // } else {
+                //     $("#addNewItemBtn").addClass('d-none');
+                // }
             } else {
                 Swal.fire({
                     title: 'Error!',
@@ -1700,7 +1705,7 @@
 
             let moduleTypes = getSelectedMrnTypes();
             $("[name='mrn_item_ids']").val(ids);
-            $("#addNewItemBtn").hide();
+            // $("#addNewItemBtn").hide();
             if (referenceNo) {
                 $("#referenceNoDiv").show();
                 $("#reference_number_input").val(referenceNo);

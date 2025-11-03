@@ -61,6 +61,9 @@
                                                             <th>S.No</th>
                                                             <th>Company<span class="text-danger">*</span></th>
                                                             <th>Organization<span class="text-danger">*</span></th>
+                                                            <th>Item Group</th>
+                                                            <th>Item</th>
+                                                            <th>Type</th>
                                                             <th>Books</th>
                                                             <th>Ledger<span class="text-danger">*</span></th>
                                                             <th>Ledger Group<span class="text-danger">*</span></th>
@@ -86,6 +89,32 @@
                                                                     <div class="setup-td-width">
                                                                         <select class="form-select select2" name="wip_accounts[0][organization_id]">
                                                                             <option value="">Select Organization</option>
+                                                                        </select>
+                                                                    </div>
+                                                                </td>
+                                                                <td>
+                                                                    <div class="setup-td-width">
+                                                                        <input type="text" class="form-control autocomplete mw-100 sub_category_name"
+                                                                            name="wip_accounts[0][sub_category_name]" placeholder="Enter Group">
+                                                                        <input type="hidden" name="wip_accounts[0][sub_category_id]" />
+                                                                    </div>
+                                                                </td>
+
+                                                                <td>
+                                                                    <div class="setup-td-width">
+                                                                        <select class="form-select select2 item-select" name="wip_accounts[0][item_id][]" multiple>
+                                                                            <option value="">Select Item</option>
+                                                                        </select>
+                                                                    </div>
+                                                                </td>
+
+                                                                <td>
+                                                                    <div class="setup-td-width">
+                                                                        <select class="form-select select2 wip-type-select" name="wip_accounts[0][type]">
+                                                                            <option value="">Select Type</option>
+                                                                            @foreach($wipAccountTypes as $type)
+                                                                                <option value="{{ $type }}">{{ ucfirst($type) }}</option>
+                                                                            @endforeach
                                                                         </select>
                                                                     </div>
                                                                 </td>
@@ -151,6 +180,81 @@
                                                                             </select>
                                                                         </div>
                                                                     </td>
+                                                                    <td>
+                                                                        <div class="setup-td-width">
+                                                                            <input type="text" class="form-control autocomplete mw-100 sub_category_name"
+                                                                                name="wip_accounts[{{ $index }}][sub_category_name]"
+                                                                                value="{{ $item->subCategory->name ?? '' }}"
+                                                                                placeholder="Enter Group">
+                                                                            <input type="hidden" name="wip_accounts[{{ $index }}][sub_category_id]"
+                                                                                value="{{ $item->sub_category_id ?? '' }}" />
+                                                                        </div>
+                                                                    </td>
+
+                                                                    <td>
+                                                                        <div class="setup-td-width">
+                                                                            <select class="form-select select2 item-select"
+                                                                                name="wip_accounts[{{ $index }}][item_id][]" multiple>
+                                                                                @php 
+                                                                                    $subCategoryId = $item->sub_category_id ?? null;
+                                                                                    $organizationId = $item->organization_id ?? null;
+                                                                                    $groupId = $item->group_id ?? null;
+                                                                                    $itemIds = is_array($item->item_id) ? $item->item_id : json_decode($item->item_id, true) ?? [];
+                                                                                @endphp
+
+                                                                                {{-- If no sub-category, check category and items --}}
+                                                                                @if($subCategoryId && $item->subCategory && $item->subCategory->itemSub->where('status', '!=', 'draft'))
+                                                                                    @foreach($item->subCategory->itemSub->where('status', '!=', 'draft') as $itemOption)
+                                                                                        @if(!$organizationId || $itemOption->organization_id == $organizationId)
+                                                                                            <option value="{{ $itemOption->id }}" data-item-code="{{ $itemOption->item_code }}"
+                                                                                                {{ in_array($itemOption->id, $itemIds) ? 'selected' : '' }}>
+                                                                                                {{ $itemOption->item_name }} ({{ $itemOption->item_code }})
+                                                                                            </option>
+                                                                                        @endif
+                                                                                    @endforeach
+
+                                                                                @elseif($organizationId && $item->organization && $item->organization->items->where('status', '!=', 'draft')->count() > 0)
+                                                                                    @foreach($item->organization->items->where('status', '!=', 'draft') as $itemOption)
+                                                                                        @if(!$organizationId || $itemOption->organization_id == $organizationId)
+                                                                                            <option value="{{ $itemOption->id }}" data-item-code="{{ $itemOption->item_code }}"
+                                                                                                {{ in_array($itemOption->id, $itemIds) ? 'selected' : '' }}>
+                                                                                                {{ $itemOption->item_name }} ({{ $itemOption->item_code }})
+                                                                                            </option>
+                                                                                        @endif
+                                                                                    @endforeach
+
+                                                                                @elseif($groupId && $item->group && $item->group->items->where('status', '!=', 'draft'))
+                                                                                    @foreach($item->group->items->where('status', '!=', 'draft') as $itemOption)
+                                                                                        @if(!$groupId || $itemOption->group_id == $groupId)
+                                                                                            <option value="{{ $itemOption->id }}" data-item-code="{{ $itemOption->item_code }}"
+                                                                                                {{ in_array($itemOption->id, $itemIds) ? 'selected' : '' }}>
+                                                                                                {{ $itemOption->item_name }} ({{ $itemOption->item_code }})
+                                                                                            </option>
+                                                                                        @endif
+                                                                                    @endforeach
+
+                                                                                @else
+                                                                                    <option value="">No Items Available</option>
+                                                                                @endif
+                                                                            </select>
+                                                                        </div>
+                                                                    </td>
+
+                                                                    <td>
+                                                                        <div class="setup-td-width">
+                                                                            <select class="form-select select2 wip-type-select"
+                                                                                name="wip_accounts[{{ $index }}][type]">
+                                                                                <option value="">Select Type</option>
+                                                                                @foreach($wipAccountTypes as $type)
+                                                                                    <option value="{{ $type }}"
+                                                                                        {{ ($item->type ?? '') === $type ? 'selected' : '' }}>
+                                                                                        {{ ucfirst($type) }}
+                                                                                    </option>
+                                                                                @endforeach
+                                                                            </select>
+                                                                        </div>
+                                                                    </td>
+
                                                                     <td>
                                                                     <div class="setup-td-width">
                                                                             <select class="form-select select2 book-select" name="wip_accounts[{{ $index }}][book_id][]" multiple data-row="{{ $index }}">
@@ -323,6 +427,34 @@
                 </div>
             </td>
             <td>
+                <div class="setup-td-width">
+                    <input type="text" class="form-control autocomplete mw-100 category_name"
+                        name="wip_accounts[${rowIndex}][sub_category_name]" placeholder="Enter Group">
+                    <input type="hidden" name="wip_accounts[${rowIndex}][sub_category_id]" />
+                </div>
+            </td>
+
+            <td>
+                <div class="setup-td-width">
+                    <select class="form-select select2 item-select"
+                        name="wip_accounts[${rowIndex}][item_id][]" multiple>
+                        <option value="">Select Item</option>
+                    </select>
+                </div>
+            </td>
+            {{-- 🔹 New Type Column --}}
+            <td>
+                <div class="setup-td-width">
+                    <select class="form-select select2 wip-type-select"
+                        name="wip_accounts[${rowIndex}][type]">
+                        <option value="">Select Type</option>
+                        @foreach($wipAccountTypes as $type)
+                            <option value="{{ $type }}">{{ ucfirst($type) }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </td>
+            <td>
                <div class="setup-td-width">
                     <select class="form-select select2" name="wip_accounts[${rowIndex}][book_id][]" multiple>
                         <option value="">Select Book</option>
@@ -408,8 +540,8 @@
     $(document).on('change', '[name$="[organization_id]"]', function () {
         var organizationId = $(this).val();
         var $row = $(this).closest('tr');
-        var categoryInput = $row.find('[name$="[category_name]"]');
-        var categoryIdInput = $row.find('[name$="[category_id]"]');
+        var categoryInput = $row.find('[name$="[sub_category_name]"]');
+        var categoryIdInput = $row.find('[name$="[sub_category_id]"]');
         var ledgerInput = $row.find('[name$="[ledger_name]"]');
         var ledgerIdInput = $row.find('[name$="[ledger_id]"]');
         var itemSelect = $row.find('[name$="[item_id][]"]');
@@ -421,14 +553,14 @@
         itemSelect.empty().append('<option value="">Select Item</option>');
         bookSelect.empty().append('<option value="">Select Book</option>');
         $.get(`/stock-accounts/data-by-organization/${organizationId}`,{organizationId:organizationId}, function (data) {
-            categoryInput.autocomplete({
+               categoryInput.autocomplete({
                 source: function (request, response) {
                     if (data.categories.length === 0) {
                         response([{ label: "No records found", value: "" }]);
                     } else {
                         response($.map(data.categories, function (category) {
                             return {
-                                label: category.name,
+                                label: category.full_name,
                                 value: category.id
                             };
                         }));
@@ -471,7 +603,7 @@
                 bookSelect.append(`<option value="${book.id}">${book.book_code}</option>`);
             });
             
-            itemSelect.empty().append('<option value="">Select Item</option>');
+           itemSelect.empty().append('<option value="">Select Item</option>');
             data.items.forEach(function (item) {
                 itemSelect.append(`<option value="${item.id}" data-item-code="${item.item_code}">${item.item_name} (${item.item_code})</option>`);
             });
@@ -480,10 +612,85 @@
                     return $(selectedOption.element).data('item-code');
                 }
             });
-            subCategorySelect.empty().append('<option value="">Select Subcategory</option>');
         }).fail(function () {
             Swal.fire('Error!', 'An error occurred while loading data for the selected organization.', 'error');
         });
+    });
+
+    $(document).on('focus input', '[name$="[sub_category_name]"]', function () {
+        var $input = $(this);
+        var $row = $input.closest('tr');
+        var categoryIdInput = $row.find('[name$="[sub_category_id]"]');
+        var itemSelect = $row.find('[name$="[item_id][]"]');
+        var organizationId = $row.find('[name$="[organization_id]"]').val();
+        var searchTerm = $input.val(); 
+        categoryIdInput.val('');
+        itemSelect.empty().append('<option value="">Select Item</option>'); 
+        $input.next('.no-records').remove();
+        if (!organizationId) return;
+        $.get(`/stock-accounts/categories-by-organization/${organizationId}`, { search: searchTerm,organizationId:organizationId }, function (data) {
+            console.log('API Response:', data); 
+            var results = data.categories && data.categories.length > 0 ? 
+                $.map(data.categories, function (category) {
+                    return {
+                        label: category.full_name,
+                        name: category.name,
+                        value: category.id
+                    };
+                }) : 
+                [{ label: "No records found", value: "" }];
+
+            $input.autocomplete({
+                source: function(request, response) { 
+                    response(results);
+                },
+                minLength: 0,
+                select: function(event, ui) {
+                    if (ui.item.value === "") return false;
+                    $input.val(ui.item.name);
+                    categoryIdInput.val(ui.item.value); 
+                    categoryIdInput.trigger('change');
+                    return false;
+                }
+            }).autocomplete("search", searchTerm); 
+        }).fail(function () {
+            $input.autocomplete({
+                source: function(request, response) {
+                    response([{ label: "No records found", value: "" }]);
+                },
+                minLength: 0,
+                select: function(event, ui) {
+                    if (ui.item.value === "") return false;
+                    $input.val(ui.item.name);
+                    categoryIdInput.val(ui.item.value);
+                    categoryIdInput.trigger('change');
+                    return false;
+                }
+            });
+        });
+    });
+
+    $(document).on('change input', '[name$="[sub_category_id]"]', function () {
+        var categoryId = $(this).val();
+        var $row = $(this).closest('tr');
+        var itemSelect = $row.find('[name$="[item_id][]"]');
+        itemSelect.empty().append('<option value="">Select Item</option>');
+        var organizationId = $row.find('[name$="[organization_id]"]').val();
+        if (categoryId) {
+            $.get(`/stock-accounts/items-and-subcategories-by-category`, { category_id: categoryId,organizationId:organizationId}, function (data) {
+                itemSelect.empty().append('<option value="">Select Item</option>');
+                data.items.forEach(function (item) {
+                    itemSelect.append(`<option value="${item.id}" data-item-code="${item.item_code}">${item.item_name} (${item.item_code})</option>`);
+                });
+                itemSelect.select2({
+                templateSelection: function (selectedOption) {
+                    return $(selectedOption.element).data('item-code');
+                 }
+                });
+            }).fail(function () {
+                Swal.fire('Error!', 'An error occurred while loading subcategories and items.', 'error');
+            });
+        }
     });
     
     $(document).on('focus input', '[name$="[ledger_name]"]', function () {

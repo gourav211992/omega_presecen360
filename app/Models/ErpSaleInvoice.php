@@ -27,6 +27,7 @@ class ErpSaleInvoice extends Model
         'invoice_required',
         'book_code',
         'document_type',
+        'sale_type',
         'doc_number_type',
         'doc_reset_pattern',
         'document_number',
@@ -45,6 +46,7 @@ class ErpSaleInvoice extends Model
         'department_id',
         'department_code',
         'customer_id',
+        'customer_sub_store_id',
         'customer_email',
         'customer_phone_no',
         'customer_gstin',
@@ -88,6 +90,7 @@ class ErpSaleInvoice extends Model
         'book_terms_id',
         'customer_terms',
         'customer_terms_id',
+        'sale_type',
     ];
 
     protected $appends = [
@@ -297,5 +300,10 @@ class ErpSaleInvoice extends Model
         } else {
             return $this -> book_code . '-' . $this -> document_number;
         }
+    }
+
+    public function SaleReturn()
+    {
+        return $this -> hasMany(ErpSaleReturn::class, 'reference_id')->whereIn('document_status',[ ConstantHelper::APPROVED,ConstantHelper::APPROVAL_NOT_REQUIRED,ConstantHelper::POSTED]);
     }
 }

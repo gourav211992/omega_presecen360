@@ -33,7 +33,7 @@ class GrnAttributeHistory extends Model
 
     public function header()
     {
-        return $this->belongsTo(Header::class, 'header_id');
+        return $this->belongsTo(HeaderHistory::class, 'header_id');
     }
 
     public function source()

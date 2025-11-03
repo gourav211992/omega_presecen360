@@ -325,15 +325,7 @@ class ErpProductionSlipController extends Controller
             if ($currentBundleNo > 0) {
                 $editableBundle = false;
             }
-            foreach ($doc -> items as $docItem) {
-                if (isset($docItem -> so_item_id)) {
-                    $soItem = ErpSoItem::find($docItem -> so_item_id);
-                    if ($soItem) {
-                        $soItem -> pslip_qty = $docItem -> qty;
-                        $soItem -> save();
-                    }
-                }
-            }
+         
             $organization = Organization::find($user ?->organization_id);
             $organizationId = $organization ?-> id ?? null;
             $shifts = Shift::where('organization_id',$organizationId)->where("status", ConstantHelper::ACTIVE)->get();
@@ -561,12 +553,6 @@ class ErpProductionSlipController extends Controller
 
                     $document_number = $numberPatternData['document_number'] ?? $request->document_no;
 
-                    // Define a unique lock key for this document number
-                    $lockKey = "org_{$organization->id}_book_{$request->book_id}_doc_{$document_number}";
-
-                    // Run insertion safely under lock
-                    $lockResult = $lockService->lockDocumentNumber($lockKey, 10, function() use ($request, $document_number, $numberPatternData) {
-
                         // Check again inside lock to prevent duplicates
                         if (ErpProductionSlip::where('book_id', $request->book_id)
                             ->where('document_number', $document_number)
@@ -587,7 +573,7 @@ class ErpProductionSlipController extends Controller
                             abort(422, $currencyExchangeData['message']);
                         }
 
-                        return ErpProductionSlip::create([
+                        $productionSlip = ErpProductionSlip::create([
                             'organization_id' => $organizationId,
                             'group_id' => $groupId,
                             'company_id' => $companyId,
@@ -627,19 +613,7 @@ class ErpProductionSlipController extends Controller
                             'group_currency_code' => $currencyExchangeData['data']['group_currency_code'],
                             'group_currency_exg_rate' => $currencyExchangeData['data']['group_currency_exg_rate'],
                         ]);
-                    });
                  
-                    // Handle lock result errors
-                    if (!$lockResult['success']) {
-                        DB::rollBack();
-                        return response()->json([
-                            'message' => $lockResult['message'],
-                            'error' => 'lockResult',
-                        ], $lockResult['status']);
-                    }
-
-                    // Assign the inserted slip to variable
-                    $productionSlip = $lockResult['data'];
                 }
                 
                 //Dynamic Fields
@@ -680,7 +654,6 @@ class ErpProductionSlipController extends Controller
                                 'store_id' => $productionSlip->store_id,
                                 'sub_store_id' => $productionSlip->sub_store_id,
                                 'qty' => isset($request -> item_qty[$itemKey]) ? $request -> item_qty[$itemKey] : 0,
-                                // 'rate' => isset($request -> item_rate[$itemKey]) ? $request -> item_rate[$itemKey] : 0,
                                 'customer_id' => isset($request -> customer_id[$itemKey]) ? $request -> customer_id[$itemKey] : null,
                                 'inventory_uom_id' => $item -> uom ?-> id,
                                 'inventory_uom_code' => $item -> uom ?-> name,
@@ -691,7 +664,6 @@ class ErpProductionSlipController extends Controller
                                 'rejected_qty' => isset($request -> item_rejected_qty[$itemKey]) ? $request -> item_rejected_qty[$itemKey] : null,
                                 'wip_qty' => isset($request -> item_wip_qty[$itemKey]) ? $request -> item_wip_qty[$itemKey] : null,
                                 'machine_id' => isset($request -> machine_id[$itemKey]) ? $request -> machine_id[$itemKey] : [],
-                                // 'station_line_id' => isset($request -> line[$itemKey]) ? $request -> line[$itemKey] : null,
                                 'cycle_count' => isset($request -> cycle_count[$itemKey]) ? $request -> cycle_count[$itemKey] : null,
                                 'station_line_id' => isset($request -> station_line_id[$itemKey]) ? $request -> station_line_id[$itemKey] : null,
                                 'supervisor_name' => isset($request -> supervisor_name[$itemKey]) ? $request -> supervisor_name[$itemKey] : null,
@@ -725,10 +697,8 @@ class ErpProductionSlipController extends Controller
                             'uom_id' => $itemDataValue['uom_id'],
                             'uom_code' => $itemDataValue['uom_code'],
                             'qty' => $itemDataValue['qty'],
-                            // 'rate' => $itemDataValue['rate'],
                             'customer_id' => $itemDataValue['customer_id'],
                             'inventory_uom_id' => $itemDataValue['inventory_uom_id'],
-                            // 'inventory_uom_code' => $itemDataValue['inventory_uom_code'],
                             'inventory_uom_qty' => $itemDataValue['inventory_uom_qty'],
                             'remarks' => $itemDataValue['remarks'],
                             'accepted_qty' => $itemDataValue['accepted_qty'] ?? 0,
@@ -750,6 +720,36 @@ class ErpProductionSlipController extends Controller
                                 'is_new' => $psItem->wasRecentlyCreated,
                             ];
                         } else {
+                            // lock functionality
+                            $totalRemaining = MoProduct::where('id', $itemDataValue['mo_product_id'])
+                                ->selectRaw('SUM(qty - pslip_qty) as remaining_qty')
+                                ->value('remaining_qty');
+
+                            // Ensure null becomes 0 if no records found
+                            $totalRemaining = $totalRemaining ?? 0;
+
+                            if ($totalRemaining <= 0) {
+                                return response()->json([
+                                    'error'=>true,
+                                    'success' => false,
+                                    'message' => 'This MO item('.$itemDataValue['item_code'].') quantity has been completely consumed in another transaction process.',
+                                ],409);
+                            }
+
+                            $moItemLockKey="MOITEM_{$organization->id}_{$itemDataValue['mo_product_id']}";
+                            $lockResult = $lockService->lockRemainingItemQty($moItemLockKey, $itemDataValue['item_code'], 'PSLIP');
+                            // Check if the lock was successful
+                            if (!$lockResult['success']) {
+                                // If the lock wasn't successful, roll back the transaction
+                                DB::rollBack();
+                                
+                                // Return the response with the error message and status from the lock service
+                                return response()->json([
+                                    'message' => $lockResult['message'],
+                                    'error' => 'lockResult',
+                                ], $lockResult['status']);
+                            }
+                                     
                             $psItem = ErpPslipItem::create($itemRowData);
                             $oldItem[$psItem->id] = ['qty' => 0, 'is_new' => true];
                         }
@@ -996,7 +996,7 @@ class ErpProductionSlipController extends Controller
                     $currentLevel = $productionSlip->approval_level;
                     $modelName = get_class($productionSlip);
                     $actionType = $request -> action_type ?? "";
-
+                    $document_number=$productionSlip->document_number;
                     if(($productionSlip -> document_status == ConstantHelper::APPROVED || $productionSlip -> document_status == ConstantHelper::APPROVAL_NOT_REQUIRED) && $actionType == 'amendment')
                     {
                         //*amendmemnt document log*/
@@ -1187,7 +1187,23 @@ class ErpProductionSlipController extends Controller
                         }
                     }
                 }
+                // Define a unique lock key for this document number
+                $lockKey = "PSLIP_org_{$organization->id}_book_{$request->book_id}_doc_{$document_number}";
 
+                // Run insertion safely under lock
+                $lockResult = $lockService->lockDocumentNumber($lockKey);
+
+                // Check if the lock was successful
+                if (!$lockResult['success']) {
+                    // If the lock wasn't successful, roll back the transaction
+                    DB::rollBack();
+                    
+                    // Return the response with the error message and status from the lock service
+                    return response()->json([
+                        'message' => $lockResult['message'],
+                        'error' => 'lockResult',
+                    ], $lockResult['status']);
+                }
                 DB::commit();
 
                 return response() -> json([

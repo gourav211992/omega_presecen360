@@ -26,6 +26,8 @@ class ErpRgrItem extends Model
         'uom_id',
         'customer_id',
         'customer_name',
+        'customer_sub_store_id',
+        'consignee_id',
         'inventory_uom_id',
         'inventory_uom_code',
         'inventory_uom_qty',

@@ -3,7 +3,11 @@
 namespace App\Http\Controllers\ProductionSlip;
 
 use Exception;
+use App\Models\Shift;
+use App\Models\Category;
 use App\Helpers\Helper;
+use App\Helpers\Common\OrganizationHelper;
+use App\Helpers\InventoryHelper;
 use Illuminate\Http\Request;
 use App\Helpers\ConstantHelper;
 use Illuminate\Support\Facades\DB;
@@ -11,10 +15,11 @@ use App\Http\Controllers\Controller;
 use App\Helpers\FinancialPostingHelper;
 use App\Models\ErpProductionSlip;
 use App\Models\Organization;
+use App\Models\ErpPslipItemDetail;
 use App\Models\View\BomVsConsumption;
 use App\Services\PslipDeleteService;
 use Yajra\DataTables\DataTables;
-
+use Barryvdh\DomPDF\Facade\Pdf;
 class ProductionSlipController extends Controller
 {
 
@@ -134,7 +139,7 @@ class ProductionSlipController extends Controller
                     }
                 }
 
-                if ($request->filled('so_document_number')) {
+                 if ($request->filled('so_document_number')) {
                     $so = explode('-', $request->so_document_number);
                     $so_number=isset($so[1])?$so[1]:$request->so_document_number;
                     $query->where('so_document_number', 'like', '%' . $so_number . '%');
@@ -142,7 +147,7 @@ class ProductionSlipController extends Controller
 
                 if ($request->filled('mo_document_number')) {
                     $mo = explode('-', $request->mo_document_number);
-                    $mo_number=isset($mo[1])?$mo[1]:'';
+                    $mo_number=isset($mo[1])?$mo[1]:$request->mo_document_number;
                     $query->where('mo_document_number', 'like', '%' . $mo_number . '%');
                 }
 
@@ -241,22 +246,22 @@ class ProductionSlipController extends Controller
                 }
 
 
-                if ($request->filled('so_number')) {
-                    $so = explode('-', $request->so_number);
+                if ($request->filled('so_document_number')) {
+                    $so = explode('-', $request->so_document_number);
 
-                    $so_number=isset($so[1])?$so[1]:$request->so_number;
+                    $so_number=isset($so[1])?$so[1]:$request->so_document_number;
                     $query->where('so_document_number', 'like', '%' . $so_number . '%');
                 }
 
-                if ($request->filled('mo_number')) {
-                    $mo = explode('-', $request->mo_number);
-                    $mo_number=isset($mo[1])?$mo[1]:'';
+                if ($request->filled('mo_document_number')) {
+                    $mo = explode('-', $request->mo_document_number);
+                    $mo_number=isset($mo[1])?$mo[1]:$request->mo_document_number;
                     $query->where('mo_document_number', 'like', '%' . $mo_number . '%');
                 }
 
                 if ($request->filled('item_code')) {
-
-                    $query->where('item_code', 'like', '%' . $request->item_code . '%');
+                   
+                    $query->where('pslip_item_code', 'like', '%' . $request->item_code . '%');
                 }
             $results=$query->get();
 
@@ -325,6 +330,83 @@ class ProductionSlipController extends Controller
 
 
         return response()->download($localFilePath)->deleteFileAfterSend(true);
+    }
+
+    public function generateLabels(Request $request ,$id){
+        $ids = $request->input('ids', []);
+        $packageIds = $request->input('package_ids', []);
+        $qtys = $request->input('qtys', []);
+
+        $parentUrl = request() -> segments()[0];
+        $user = Helper::getAuthenticatedUser();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $stores = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCKK);
+        $books = Helper::getBookSeriesNew(ConstantHelper::PRODUCTION_SLIP_SERVICE_ALIAS) -> get();
+        $pslip = ErpProductionSlip::findOrFail($id);
+        $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$pslip->document_status] ?? '';
+        $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl, $pslip->book?->service?->alias, $user);
+        $psItems=$pslip->items()->with(['item'])->whereIn('id', $ids)->get();
+        $submenu='Print Label';
+        $title='Packing Label';
+
+        if(!empty($ids)){
+            $bundle_data=[];
+            foreach($ids as $key=>$id){
+                $bundle_data[$id][$key]['package']=$packageIds[$key];
+                $bundle_data[$id][$key]['qty']=$qtys[$key];
+            }
+            $pdf = PDF::loadView(
+        
+            'pdf.pslip-label',
+            [
+                'pslipItems'=>  $psItems,
+                'pslip'=>$pslip,
+                'organizationAddress'=> $organization->addresses,
+                'packRaw'=>$bundle_data
+            ]
+            );
+     
+            return $pdf->stream('ProductionSlip-' . date('Y-m-d') . '.pdf');
+        }
+        $bundle=[];
+        if($request->bundle){
+         $bundle=ErpPslipItemDetail::where('pslip_id',$id)->get();
+         $title='Bundle QR';
+         $submenu='Print QR';
+        }
+        $data = [
+            'slip'=> $pslip,
+            'bundlePack'=>$bundle,
+            'docStatusClass' => $docStatusClass,
+            'series' => $books,
+            'stores' => $stores,
+            'services' => $servicesBooks['services'],
+            'title'=>$title,
+            'sub'=>$submenu
+        ];
+        return view('productionSlip.pslip_label', $data);
+    }
+
+    public function generateQr(Request $request,$id){
+
+     $packageIds = $request->input('package_ids', []);
+     $stores = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCKK);
+     $pslip = ErpProductionSlip::findOrFail($id);
+
+     if(!empty($packageIds)){
+            $bundle=ErpPslipItemDetail::whereIn('id',$packageIds)->get();
+            $address=$stores->where('id', $pslip->store_id)->first();
+
+            $pdf = PDF::loadView(
+                'pdf.pslip-qr',
+                [
+                 'bundle'=>$bundle,
+                 'address'=>$address?->address,
+                 'pslip'=>$pslip
+                ]
+            );
+            return $pdf->stream('ProductionSlip-' . date('Y-m-d') . '.pdf');
+        }
     }
 }
 

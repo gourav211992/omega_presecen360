@@ -12,6 +12,7 @@ use App\Models\ErpStore;
 use App\Models\ErpRgr;
 use App\Models\ErpRgrItemSegregation;
 use App\Helpers\CommonHelper;
+use App\Helpers\Helper;
 use App\Exceptions\ApiGenericException;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
@@ -150,7 +151,6 @@ class RepairQcJobController extends Controller
                     ->find($repairOrder->rgr_id);
             }
 
-            // Take only the first item from itemUniqueCodes
             $uniqueCode = $job->itemUniqueCodes->first();
             $item = null;
 
@@ -172,10 +172,9 @@ class RepairQcJobController extends Controller
 
                 $repItem = ErpRepItem::where('repair_order_id', $repairOrder->id)->first();
 
-                $defectDetails = [];
+                $defectDetails = (object)[];
                 if ($repItem) {
                     $segregation = ErpRgrItemSegregation::where('rgr_id', $repairOrder->rgr_id)
-                        ->where('rgr_item_id', $repItem->rgr_item_id)
                         ->where('job_item_id', $repItem->rgr_job_detail_id)
                         ->with('media')
                         ->first();
@@ -242,7 +241,7 @@ class RepairQcJobController extends Controller
     }
 
 
-   public function closeRepairQcJob(Request $request)
+  public function closeRepairQcJob(Request $request)
     {
         $validated = $request->validate([
             'job_id'  => 'required|numeric',
@@ -256,7 +255,7 @@ class RepairQcJobController extends Controller
         try {
             $job = ErpWhmJob::where('id', $job_id)
                 ->where('type', 'repair-qc')
-                ->with('itemUniqueCodes.morphable') 
+                ->with('itemUniqueCodes.morphable.repairOrder') 
                 ->first();
 
             if (!$job) {
@@ -270,12 +269,12 @@ class RepairQcJobController extends Controller
             $action  = $validated['action'];
             $remarks = $validated['remarks'];
 
+            // ---------- Update job status ----------
             $job->status = match ($action) {
                 'approve'                => 'closed',
                 'reject'                 => 'rejected',
                 'approve_with_deviation' => 'deviation',
             };
-
             $job->job_closed_at = now();
             $job->save();
 
@@ -287,6 +286,24 @@ class RepairQcJobController extends Controller
                 if ($repItem && $repItem instanceof ErpRepItem) {
                     $repItem->repair_qc_remarks = $remarks;
                     $repItem->save();
+
+                    $repairOrder = $repItem->repairOrder;
+
+                    if ($action === 'reject' && $repairOrder) {
+                        // ---------- Reject logic ----------
+                        $repairOrder->type = null;
+                        $repairOrder->document_status = 'pending';
+                        $repairOrder->save();
+
+                        foreach ($repairOrder->items ?? [] as $item) {
+                            $item->rejuvenate_item_id = null;
+                            $item->rejuvenate_item_code = null;
+                            $item->rejuvenate_item_name = null;
+                            $item->rejuvenate_item_attributes = null;
+                            $item->repair_remarks = null;
+                            $item->save();
+                        }
+                    }
                 }
             }
 

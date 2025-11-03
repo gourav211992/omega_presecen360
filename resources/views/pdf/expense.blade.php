@@ -155,45 +155,14 @@
                                 </td>
                             @endif
                         </tr>
-                        @if($exp->reference_number)
+                        @if($exp->reference_type)
                         <tr>
-                            <td><b>Reference :</b></td>
-                                <td style="font-weight: 900;">{{ $exp->reference_number }}
+                            <td><b>Reference Type:</b></td>
+                                <td style="font-weight: 900;">
+                                    {{ ucFirst($exp->reference_type) }}
                                 </td>
                             </tr>
                         @endif
-                        <tr>
-                            <td>
-                                <b>PO No:</b>
-                            </td>
-                            <td style="font-weight: 900;">
-
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <b>PO Date:</b>
-                            </td>
-                            <td style="font-weight: 900;">
-
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <b>SO No:</b>
-                            </td>
-                            <td style="font-weight: 900;">
-
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <b>SO Date:</b>
-                            </td>
-                            <td style="font-weight: 900;">
-
-                            </td>
-                        </tr>
                         <tr>
                             <td>
                                 <b style="font-weight: 900;">Status :-</b>
@@ -375,6 +344,13 @@
                                 @endforeach
                             @endif
                             {{ @$val->item_code }}<br />
+                            <br>
+                            @if (@$val->expenseHeader->reference_type ==='jo')
+                                <b> JO No:- {{ $val->jo->book->book_code }} - {{ $val->jo->document_number }}</b>
+                            @elseif (@$val->expenseHeader->reference_type ==='po')
+                                <b> PO No:- {{ $val?->expenseHeader?->po?->book?->book_code }} - {{ $val?->expenseHeader?->po?->document_number }}</b>
+                            @else
+                            @endif
                             {{@$val->remark}}
                         </div>
                     </td>

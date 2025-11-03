@@ -6,6 +6,7 @@ use Yajra\DataTables\Facades\DataTables;
 use App\Models\WipAccount;
 use App\Models\Organization;
 use App\Models\OrganizationCompany;
+use App\Helpers\ConstantHelper;
 use App\Models\Category;
 use App\Models\Group;
 use App\Models\Ledger;
@@ -43,6 +44,7 @@ class WipAccountController extends Controller
         $items = Item::where('status', 'active') ->get();
         $wipAccount = WipAccount::query()->get();
         $erpBooks = Book::where('status', 'active') ->get(); 
+        $wipAccountTypes = ConstantHelper::WIP_ACCOUNT_TYPES;
         
         if ($request->ajax()) {
             $wipAccounts = WipAccount::with([
@@ -87,7 +89,7 @@ class WipAccountController extends Controller
         }
 
         return view('procurement.wip-account.index', compact(
-            'companies', 'categories', 'subCategories', 'ledgerGroups', 'ledgers', 'items', 'wipAccount','erpBooks','orgIds'
+            'companies', 'categories', 'subCategories', 'ledgerGroups', 'ledgers', 'items', 'wipAccount','erpBooks','orgIds','wipAccountTypes'
         ));
     }
 
@@ -114,6 +116,7 @@ class WipAccountController extends Controller
                         'category_id' => $wipAccountData['category_id'] ?? null,
                         'sub_category_id' => $wipAccountData['sub_category_id'] ?? null,
                         'item_id' => $wipAccountData['item_id'] ?? null,
+                        'type' => $wipAccountData['type'] ?? null,
                         'book_id' => $wipAccountData['book_id'] ?? null,
                     ]);
                     $updateResults[] = $existingAccount;
@@ -129,6 +132,9 @@ class WipAccountController extends Controller
                     'group_id' =>$groupId,
                     'company_id' => $wipAccountData['company_id'],
                     'organization_id' => $wipAccountData['organization_id'],
+                    'sub_category_id' => $wipAccountData['sub_category_id'] ?? null,
+                    'item_id' => $wipAccountData['item_id'] ?? null,
+                    'type' => $wipAccountData['type'] ?? null,
                     'ledger_group_id' => $wipAccountData['ledger_group_id'] ?? null,
                     'ledger_id' => $wipAccountData['ledger_id'] ?? null,
                     'book_id' => $wipAccountData['book_id'] ?? null,
@@ -155,9 +161,14 @@ class WipAccountController extends Controller
 
     public function testLedgerGroupAndLedgerId(Request $request)
     {
-        $organizationId = $request->query('organization_id', 1);
-        $bookId = $request->query('book_id',1);  
-        $ledgerData = AccountHelper::getwipLedgerGroupAndLedgerId( $organizationId, $bookId);
+        $organizationId = $request->query('organization_id', 16);
+        $itemId = $request->query('item_id',1830);
+        $bookId = $request->query('book_id',256); 
+        $type = $request->query('type', 'consumption');
+        if ($itemId && is_string($itemId)) {
+            $itemId = explode(',', $itemId);
+        }
+        $ledgerData = AccountHelper::getWipLedgerGroupAndLedgerId($organizationId, $bookId, $itemId, $type);
         if ($ledgerData) {
             return response()->json($ledgerData);
         }

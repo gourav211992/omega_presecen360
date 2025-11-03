@@ -91,7 +91,7 @@ class IndexController extends Controller
                     $employeeQuery->where('employee_id', $employee->id);
                 });
             })
-            ->get();
+            ->paginate(CommonHelper::PAGE_LENGTH_10);
 
         return [
             'data' => $stores,
@@ -121,7 +121,7 @@ class IndexController extends Controller
                     ->where('status',ConstantHelper::ACTIVE)
                     ->where('type','stock')
                     // ->where('is_warehouse_required',1)
-                    ->get();
+                    ->paginate(CommonHelper::PAGE_LENGTH_10);
 
         return [
             'data' => $subStores,
@@ -152,7 +152,9 @@ class IndexController extends Controller
         $storeId = $request->store_id;
         $subStoreId = $job->sub_store_id ?? NULL;
         $itemIds = $job->itemUniqueCodes()->pluck('item_id')->unique()->values()->toArray();
-        $response = StoragePointHelper::getStoragePointsForMultipleItems($itemIds, $storeId, $subStoreId);
+        $page = $request->input('page', 1);
+        $perPage = $request->input('per_page', 10);
+        $response = StoragePointHelper::getStoragePointsForMultipleItems($itemIds, $storeId, $subStoreId, $page, $perPage);
         
         if($response['code'] == 500){
             throw ValidationException::withMessages([
@@ -161,31 +163,48 @@ class IndexController extends Controller
         }
 
         $storagePoints = $response['data'];
-        $storagePointIds = $storagePoints->pluck('id')->toArray();
-
-        // Fetch scanned packets grouped by storage_point_id
-        $scannedPacketsGrouped = ErpItemUniqueCode::with(['vendor' => function ($q) {
-                $q->select('id', 'vendor_code', 'company_name');
-            },'storagePoint' => function($q){
-                $q->select('id', 'storage_number');
-            }])
-            ->where('job_id', $request->job_id)
-            ->whereIn('storage_point_id', $storagePointIds)
-            ->where('status', CommonHelper::SCANNED)
-            ->whereNull('utilized_id')
-            ->select('uid','job_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_name','item_code','item_attributes','vendor_id','storage_point_id')
-            ->get()
-            ->groupBy('storage_point_id');
 
         // Pass scanned packets grouped data to resource collection
-        $storagePoints = $storagePoints->map(function($storagePoint) use ($scannedPacketsGrouped) {
-            $storagePoint->scanned_packets = $scannedPacketsGrouped->get($storagePoint->id, collect());
-            return $storagePoint;
+        $storagePoints->map(function($record) use ($request) {
+            $scannedPackets = self::scannedPackets(
+                $request->job_id,
+                $record->id
+            );
+            
+            $record->scanned_packet_count = $scannedPackets['count'];
+            $record->scanned_packets = $scannedPackets['data'];
+            return $record;
         });
 
         return [
             'data' => $storagePoints,
             'message' => $response['message'],
+        ];
+    }
+
+    private function scannedPackets($jobId,$storagePointId){
+        $query = ErpItemUniqueCode::with(['vendor' => function ($q) {
+                $q->select('id', 'vendor_code', 'company_name');
+            },'storagePoint' => function($q){
+                $q->select('id', 'storage_number');
+            }])
+            ->where('job_id', $jobId)
+            ->where('storage_point_id', $storagePointId)
+            ->where('status', CommonHelper::SCANNED)
+            ->whereNull('utilized_id');
+
+            // Total count of matching records
+        $totalCount = $query->count();
+
+        // Get only first 5 records
+        $packets = $query->select('uid','job_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_name','item_code','item_attributes','vendor_id','storage_point_id')
+            ->limit(5)
+            ->get();
+
+        // Return both
+        return [
+            'count' => $totalCount,
+            'data'  => $packets
         ];
     }
 
@@ -230,15 +249,17 @@ class IndexController extends Controller
         })
         ->where('storage_point_id', $storagePointId)
         ->where('status',CommonHelper::SCANNED)
-        ->whereNull('utilized_id')
-        ->select('uid','job_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_uid','item_name','item_code','item_attributes','vendor_id','storage_point_id')
-        ->get();
+        ->whereNull('utilized_id');
 
-        $storagePoint->quantity = count($scannedPackets);
-        $storagePoint->scanned_packets = $scannedPackets;
+        $storagePoint->quantity = $scannedPackets->count();
+        $packets = $scannedPackets->select('uid','job_id','group_id','company_id','organization_id','book_code','doc_no','doc_date','status','item_id','item_uid','item_name','item_code','item_attributes','vendor_id','storage_point_id')
+        ->paginate(CommonHelper::PAGE_LENGTH_10);
 
         return [
-            'data' => $response['data'],
+            'data' => [
+                'storagePoint' => $storagePoint,
+                'scannedPackets' => $packets,
+            ],
             'message' => $response['message'],
         ];
     }
@@ -312,18 +333,23 @@ class IndexController extends Controller
     public function getStoragePointPackets(Request $request){
         $validator = Validator::make($request->all(),[
             'storage_number' => ['required'],
+            'job_id' => ['nullable'],
         ]);
 
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
 
+        $jobId = $request->job_id;
         $unicodes = ErpItemUniqueCode::whereHas('storagePoint', function($q) use($request) {
                 $q->whereStorageNumber($request->storage_number);
             })
+            ->when($jobId, function ($query) use ($jobId) {
+                $query->where('job_id', $jobId);
+            })
             ->whereNull('utilized_id')
             ->select('uid','item_id','item_name','item_code','item_attributes','status','vendor_id','storage_point_id')
-            ->get();
+            ->paginate(CommonHelper::PAGE_LENGTH_10);
 
 
         return [
@@ -360,7 +386,7 @@ class IndexController extends Controller
                     ->orWhere('item_code','like','%'.$search.'%');
             })
             ->select('id','item_name','item_code')
-            ->get();
+            ->paginate(CommonHelper::PAGE_LENGTH_10);
 
         return [
             'data' => $items,
@@ -416,7 +442,7 @@ class IndexController extends Controller
             ->where('store_id', $request->store_id)
             ->where('sub_store_id', $request->sub_store_id)
             ->select('id','name')
-            ->get();
+            ->paginate(CommonHelper::PAGE_LENGTH_10);
 
 
         return [
@@ -435,15 +461,18 @@ class IndexController extends Controller
             throw new ValidationException($validator);
         }
 
+        $page = $request->input('page', 1);
+        $perPage = $request->input('per_page', 10);
         $response = StoragePointHelper::getStoragePoints(
                 $request->item_id,
-                null,
                 $request->store_id,
-                $request->sub_store_id
+                $request->sub_store_id,
+                $page,
+                $perPage
             );
 
         return [
-            'data' => $response,
+            'data' => $response['data'],
             'message' => 'Data fetched successfully.',
         ];
     }

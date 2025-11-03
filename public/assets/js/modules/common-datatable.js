@@ -35,7 +35,7 @@ function initializeDataTable(
     pdfPageOrientation = "portrait",
     ajaxRequestType = "GET"
 ) {
-    if ($('#datatable-loader').length === 0) {
+    if ($("#datatable-loader").length === 0) {
         const loaderHtml = `
             <div id="datatable-loader">
                 <div class="dt-processing">
@@ -46,18 +46,20 @@ function initializeDataTable(
                 </div>
             </div>
         `;
-        $('body').append(loaderHtml);
+        $("body").append(loaderHtml);
     }
 
-    var table = $(selector).on('processing.dt', function(e, settings, processing) {
-        if (processing) {
-            $('#datatable-loader').css('display', 'flex');
-        } else {
-            $('#datatable-loader').hide();
+    var table = $(selector).on(
+        "processing.dt",
+        function (e, settings, processing) {
+            if (processing) {
+                $("#datatable-loader").css("display", "flex");
+            } else {
+                $("#datatable-loader").hide();
+            }
         }
-    });
+    );
 
-    
     var table = $(selector);
     if (table.length) {
         let dataTableInstance = table.DataTable({
@@ -65,7 +67,10 @@ function initializeDataTable(
             serverSide: true,
             scrollX: true,
             colReorder: true,
-            lengthMenu: [[8, 10, 25, 50, 100, -1],[8, 10, 25, 50, 100, "All"]],
+            lengthMenu: [
+                [8, 10, 25, 50, 100, -1],
+                [8, 10, 25, 50, 100, "All"],
+            ],
             ajax: {
                 url: ajaxUrl,
                 type: ajaxRequestType,
@@ -83,7 +88,7 @@ function initializeDataTable(
             },
             order: defaultOrder,
             columns: columns,
-            processing:true,
+            processing: true,
             columnDefs: [
                 {
                     targets: "_all",
@@ -198,103 +203,123 @@ function initializeDataTable(
         return dataTableInstance;
     }
 }
-// This fun use for custom datatable under modal
+
+/**
+ * Custom DataTable initializer
+ * @param {string} selector - table selector
+ * @param {string} ajaxUrl - API URL
+ * @param {Array} columns - DataTable columns config
+ * @param {string} ajaxRequestType - GET/POST (default: GET)
+ * @param {Object} options - optional overrides
+ */
 function initializeDataTableCustom(
     selector,
     ajaxUrl,
     columns,
-    ajaxRequestType = "GET"
+    ajaxRequestType = "GET",
+    options = {}
 ) {
-    var table = $(selector);
-    if (table.length) {
-        let dataTableInstance = table.DataTable({
-            processing: true,
-            serverSide: true,
-            scrollY: "300px",
-            scrollX: true,
-            scrollCollapse: true,
-            autoWidth: false,
-            // responsive: true,
-            // fixedHeader: true,
-            columnDefs: [
-                { targets: 0, width: "40px", orderable: true },
-                { targets: 1, width: "50px" },
-                { targets: 2, width: "90px" },
-                { targets: 3, width: "120px" },
-                { targets: "_all", orderable: false },
-            ],
-            lengthMenu: [
-                [10, 25, 50, 100, -1],
-                [10, 25, 50, 100, "All"],
-            ],
-            ajax: {
-                url: ajaxUrl,
-                type: ajaxRequestType,
-                headers: {
-                    "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr(
-                        "content"
-                    ),
-                },
-                data: function (d) {
-                    let dynamicParams =
-                        typeof getDynamicParams === "function"
-                            ? getDynamicParams()
-                            : {};
-                    Object.assign(d, dynamicParams);
-                },
-            },
-            columns: columns,
-            order: [[0, "desc"]],
-            // columnDefs: [
-            //     {
-            //         targets: '0',
-            //         orderable: true
-            //     },
-            //     {
-            //         targets: '_all',
-            //         orderable: false
-            //     },
-            // ],
-            dom:
-                "<'row'<'col-sm-12'tr>>" + // Table
-                "<'row align-items-center'" +
-                "<'col-md-4 text-start'l>" + // Length (Show X entries)
-                "<'col-md-4 text-center'i>" + // Info (Showing 1 to 10 of N)
-                "<'col-md-4 text-end'p>" + // Pagination
-                ">",
-            searching: false,
-            drawCallback: function () {
-                feather.replace();
+    const table = $(selector);
+    if (!table.length) return;
 
-               /* let $vendorSelect = $("#prModal .po-order-detail .vendor-select");
-                if ($vendorSelect.data("select2")) {
-                    $vendorSelect.select2("destroy");
-                }
+    // Destroy existing instance if exists
+    if ($.fn.DataTable.isDataTable(selector)) {
+        table.DataTable().destroy();
+        table.find("tbody").empty();
+    }
 
-                $("#prModal .po-order-detail .vendor-select").select2({
-                    width: '100%',
-                    placeholder: "Select vendor",
-                    allowClear: true,
-                    dropdownParent: $("#prModal .po-order-detail"),
-                    language: {
-                        noResults: function () {
-                            return "No vendor found";
-                        }
-                    },
-                    escapeMarkup: function (markup) {
-                        return markup;
-                    },
-                }); */
+    const defaults = {
+        processing: true,
+        serverSide: true,
+        scrollY: options.scrollY || "300px",
+        scrollX: true,
+        scrollCollapse: true,
+        autoWidth: false,
+        responsive: false,
+        fixedHeader: true,
+        lengthMenu: [
+            [10, 25, 50, 100, -1],
+            [10, 25, 50, 100, "All"],
+        ],
+        searching: false,
+        order: [[0, "desc"]],
+        ajax: {
+            url: ajaxUrl,
+            type: ajaxRequestType,
+            headers: {
+                "X-CSRF-TOKEN": $('meta[name="csrf-token"]').attr("content"),
             },
-            rowCallback: function (row, data, index) {
+            data: function (d) {
+                const dynamicParams =
+                    typeof getDynamicParams === "function"
+                        ? getDynamicParams()
+                        : {};
+                Object.assign(d, dynamicParams);
+            },
+        },
+        columns: columns,
+        dom:
+            "<'row'<'col-sm-12'tr>>" +
+            "<'row align-items-center'" +
+            "<'col-md-4 text-start'l>" +
+            "<'col-md-4 text-center'i>" +
+            "<'col-md-4 text-end'p>>",
+        drawCallback: function (settings) {
+            feather.replace(); // Replace feather icons
+
+            // Adjust columns (fix header/body misalignment)
+            this.api().columns.adjust();
+
+            // Optional: re-initialize select2 inside table if needed
+            if (options.select2Selector) {
+                const $selects = $(options.select2Selector);
+                $selects.each(function () {
+                    const $select = $(this);
+                    if ($select.data("select2")) $select.select2("destroy");
+
+                    $select.select2({
+                        width: "100%",
+                        placeholder: $select.data("placeholder") || "Select",
+                        allowClear: true,
+                        dropdownParent: $select.closest(".modal, body"),
+                        language: {
+                            noResults: function () {
+                                return "No results found";
+                            },
+                        },
+                        escapeMarkup: function (markup) {
+                            return markup;
+                        },
+                    });
+                });
+            }
+        },
+        rowCallback: function (row, data) {
+            if (data.DT_RowIndex !== undefined) {
                 $(row).attr("id", "row_" + data.DT_RowIndex);
                 $(row).attr("data-index", data.DT_RowIndex);
-            },
-            language: {
-                paginate: { previous: " ", next: " " },
-            },
-            search: { caseInsensitive: true },
+            }
+        },
+        language: { paginate: { previous: " ", next: " " } },
+        search: { caseInsensitive: true },
+        columnDefs: options.columnDefs || [],
+    };
+
+    // Initialize table
+    const dataTableInstance = table.DataTable(defaults);
+
+    // Recalculate widths if inside modal
+    const $modal = table.closest(".modal");
+    if ($modal.length) {
+        $modal.on("shown.bs.modal", function () {
+            dataTableInstance.columns.adjust();
         });
-        return dataTableInstance;
     }
+
+    // Recalculate on window resize / zoom
+    $(window).on("resize", function () {
+        dataTableInstance.columns.adjust();
+    });
+
+    return dataTableInstance;
 }

@@ -28,9 +28,13 @@ class MrnAssetDetailHistory extends Model
 
     protected $hidden = ['deleted_at'];
 
+    protected $casts = [
+        'capitalization_date' => 'date', // returns a Carbon instance
+    ];
+
     public function mrnHeader()
     {
-        return $this->belongsTo(MrnHeader::class, 'header_id');
+        return $this->belongsTo(MrnHeaderHistory::class, 'header_id');
     }
 
     public function source()
@@ -40,7 +44,7 @@ class MrnAssetDetailHistory extends Model
 
     public function mrnDetail()
     {
-        return $this->belongsTo(MrnDetail::class, 'detail_id');
+        return $this->belongsTo(MrnDetailHistory::class, 'detail_id');
     }
 
     public function item()

@@ -5914,10 +5914,10 @@ class FinancialPostingHelper
             } else {
                 //Normal Tax Credit to Vendor
                 if (trim(strtolower($taxDetail->applicability_type)) === ConstantHelper::DEDUCTION) {
-                        $totalsupplierCredit -= $tax->ted_amount;
-                    } else {
-                        $totalsupplierCredit += $tax->ted_amount;
-                    }
+                    $totalsupplierCredit -= $tax->ted_amount;
+                } else {
+                    $totalsupplierCredit += $tax->ted_amount;
+                }
             }
         }
         //EXPENSES
@@ -6113,7 +6113,7 @@ class FinancialPostingHelper
             self::RCM_TAX_ACCOUNT => [],
             self::EXPENSE_ACCOUNT => [],
             self::DISCOUNT_ACCOUNT => [],
-             self::PV_ACCOUNT => [],
+            self::PV_ACCOUNT => [],
             self::SUPPLIER_ACCOUNT => [],
         );
         //Assign Credit and Debit amount for tally check
@@ -6186,7 +6186,7 @@ class FinancialPostingHelper
             });
             //Ledger found
             if (count($existingVendorLedger) > 0) {
-                $postingArray[self::SUPPLIER_ACCOUNT][0]['credit_amount'] += ($itemValueAfterDiscount+$varianceAmount);
+                $postingArray[self::SUPPLIER_ACCOUNT][0]['credit_amount'] += ($itemValueAfterDiscount + $varianceAmount);
             } else { //Assign new ledger
                 array_push($postingArray[self::SUPPLIER_ACCOUNT], [
                     'ledger_id' => $vendorLedgerId,
@@ -6194,7 +6194,7 @@ class FinancialPostingHelper
                     'ledger_code' => $vendorLedger?->code,
                     'ledger_name' => $vendorLedger?->name,
                     'ledger_group_code' => $vendorLedgerGroup?->name,
-                    'credit_amount' => ($itemValueAfterDiscount+$varianceAmount),
+                    'credit_amount' => ($itemValueAfterDiscount + $varianceAmount),
                     'debit_amount' => 0
                 ]);
             }
@@ -6529,14 +6529,14 @@ class FinancialPostingHelper
         foreach ($document->grnDetails as $docItemKey => $docItem) {
             $stockDebitAmount = $docItem->allocated_cost;
 
-            $stockLedgerDetails = AccountHelper::getServiceLedgerGroupAndLedgerId($document->organization_id, $docItem->item_id, $document->book_id);
+            $stockLedgerDetails = AccountHelper::getStockLedgerGroupAndLedgerId($document->organization_id, $docItem->item_id, $document->book_id);
             $stockLedgerId = is_a($stockLedgerDetails, Collection::class) ? $stockLedgerDetails->first()['ledger_id'] : null;
             $stockLedgerGroupId = is_a($stockLedgerDetails, Collection::class) ? $stockLedgerDetails->first()['ledger_group'] : null;
             $stockLedger = Ledger::find($stockLedgerId);
             $stockLedgerGroup = Group::find($stockLedgerGroupId);
             //LEDGER NOT FOUND
             if (!isset($stockLedger) || !isset($stockLedgerGroup)) {
-                $ledgerErrorStatus = self::ERROR_PREFIX . 'Inventory Account not setup';
+                $ledgerErrorStatus = self::ERROR_PREFIX . 'Stock Account not setup';
                 break;
             }
 
@@ -8471,20 +8471,27 @@ class FinancialPostingHelper
             if (count($existingTaxLedger) > 0) {
                 $postingArray[self::TAX_ACCOUNT][0]['credit_amount'] += $tax->ted_amount;
             } else { //Assign a new ledger
+                $debitAmount = 0;
+                $creditAmount = 0;
+                if (trim(strtolower($taxDetail->applicability_type)) === ConstantHelper::DEDUCTION) {
+                    $debitAmount = $tax->ted_amount;
+                } else {
+                    $creditAmount = $tax->ted_amount;
+                }
                 array_push($postingArray[self::TAX_ACCOUNT], [
                     'ledger_id' => $taxLedgerId,
                     'ledger_group_id' => $taxLedgerGroupId,
                     'ledger_code' => $taxLedger?->code,
                     'ledger_name' => $taxLedger?->name,
                     'ledger_group_code' => $taxLedgerGroup?->name,
-                    'credit_amount' => $tax->ted_amount,
-                    'debit_amount' => 0,
+                    'credit_amount' => $creditAmount,
+                    'debit_amount' => $debitAmount,
                 ]);
             }
             //Tax for SUPPLIER ACCOUNT
             $vendorGstAppicable = ($document->vendor?->compliances && ($document->vendor?->compliances?->gst_applicable == 1)) ? 1 : 0;
             $vendorRCMAppicable = ($document->vendor?->compliances && ($document->vendor?->compliances?->is_rcm == 1)) ? 1 : 0;
-            if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1) {
+            if ($vendorGstAppicable == 0 && $vendorRCMAppicable == 1 && ($tax->taxDetail->erpTax->tax_category === ConstantHelper::GST)) {
                 $revTaxLedgerId = $taxDetail->reverse_ledger_id ?? null; //MAKE IT DYNAMIC
                 $revTaxLedgerGroupId = $taxDetail->reverse_ledger_group_id ?? null; //MAKE IT DYNAMIC
                 $revTaxLedger = Ledger::find($revTaxLedgerId);

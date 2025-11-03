@@ -130,4 +130,15 @@ class PslipBomConsumption extends Model
 
         return $stockBalanceQty;
     }
+
+
+    public function getStockBatch(){
+    
+        $book_id=$this->pslip->book_id;
+        return StockLedger::where('document_header_id',$this->pslip_id)
+        ->where('document_detail_id',$this->id)
+        ->where('book_id',$book_id)
+        ->where('transaction_type','issue')
+        ->first();
+    }
 }

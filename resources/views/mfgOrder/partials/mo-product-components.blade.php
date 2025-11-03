@@ -37,8 +37,8 @@
                             @endforeach
                         </td>
                         <td>{{ $bomDetail->uom?->name }}</td>
-                        <td class="text-end">{{ $bomDetail->bom_qty }}</td>
-                        <td class="text-end">{{ $bomDetail->qty }}</td>
+                        <td class="text-end">{{ $mQty }}</td>
+                        <td class="text-end">{{ $bomDetail->bom_qty*$mQty }}</td>
                         @php
                             $selectedAttr = collect($bomDetail->attributes)->pluck('attribute_value')->toArray();
                             $availableStocks = App\Helpers\InventoryHelper::totalInventoryAndStock(

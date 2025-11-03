@@ -40,8 +40,8 @@ class EditExpenseRequest extends FormRequest
             'vendor_id' => 'nullable',
             'currency_id' => 'nullable',
             'payment_term_id' => 'nullable',
-            'supplier_invoice_no' => 'nullable|max:50',
-            'supplier_invoice_date' => 'nullable|date',
+            'supplier_invoice_no' => 'required|max:50',
+            'supplier_invoice_date' => 'required|date',
             'remarks' => 'nullable|max:500',
         ];
 
@@ -49,9 +49,9 @@ class EditExpenseRequest extends FormRequest
         if ($this->filled('book_id')) {
             $user = Helper::getAuthenticatedUser();
             $numPattern = NumberPattern::where('organization_id', $user->organization_id)
-                        ->where('book_id', $this->book_id)
-                        ->orderBy('id', 'DESC')
-                        ->first();
+                ->where('book_id', $this->book_id)
+                ->orderBy('id', 'DESC')
+                ->first();
 
             // Update document_number rule based on the condition
             if ($numPattern && $numPattern->series_numbering == 'Manually') {
