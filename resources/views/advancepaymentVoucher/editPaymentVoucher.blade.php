@@ -2067,6 +2067,7 @@ function check_amount() {
                 type: "GET",
                 dataType: "json",
                 success: function(data) {
+                    console.log(data);
                     if (!data.data.status) {
                         Swal.fire({
                             title: 'Error!',

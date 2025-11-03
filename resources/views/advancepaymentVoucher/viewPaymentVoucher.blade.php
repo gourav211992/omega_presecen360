@@ -139,11 +139,10 @@
                                                 class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
                                                 Revoke</a>
                                         @endif
-                                        @if ($buttons['post'])
+                                       
                                             <button onclick = "onPostVoucherOpen();" type = "button"
                                                 class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
                                                     data-feather="check-circle"></i> Post</button>
-                                        @endif
                                         @if (
                                             $data->document_status == 'approved' ||
                                                 $data->document_status == 'approval_not_required' ||
@@ -2013,8 +2012,13 @@
         dataType: "json",
         success: function(datas) {
             let error = false;
-            if (datas.status !== "success" || !Array.isArray(datas.data)) {
-                Swal.fire(datas.message, datas.error, "error");
+            console.log(datas);
+            if (!datas.data.status) {
+                Swal.fire({
+                    title: 'Error!',
+                    text: datas.data.message,
+                    icon: 'error',
+                });
                 return;
             }
             let inCVBlock = false;
