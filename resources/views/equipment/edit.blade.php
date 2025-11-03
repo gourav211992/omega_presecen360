@@ -51,7 +51,7 @@
                                         Submit</button>
                                     @endif
 
-                                    @if ($equipment->document_status=='rejected')
+                                    @if ($equipment->document_status=='rejected' && $equipment->created_by == App\Helpers\Helper::getAuthenticatedUser()->auth_user_id)
                                         <button type="button" onclick="submitForm('draft');" id="draft"
                                             class="btn btn-outline-primary btn-sm mb-50 mb-sm-0"><i data-feather='save'></i> Save as
                                             Draft</button>

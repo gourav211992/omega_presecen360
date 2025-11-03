@@ -40,7 +40,7 @@
 								</button>
 							@endif
 
-							@if ($bom->document_status=='rejected')
+							@if ($bom->document_status=='rejected' && $bom->created_by == App\Helpers\Helper::getAuthenticatedUser()->auth_user_id)
 								<button class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" type="button" id="save-draft-btn">
 									<i data-feather="save"></i> Save as Draft
 								</button>

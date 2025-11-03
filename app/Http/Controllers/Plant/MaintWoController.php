@@ -1499,7 +1499,7 @@ class MaintWoController extends Controller
                 $dueDate = null;
                 $base = null;
             
-                if ($plantMaintWo && in_array($plantMaintWo->document_status, ['submitted', 'approved', 'approval_not_required', 'closed'])) {
+                if ($plantMaintWo && in_array($plantMaintWo->document_status, ['submitted', 'approved', 'approval_not_required', 'closed','rejected'])) {
                     $equipmentDetails = json_decode($plantMaintWo->equipment_details, true);
                     $dueDate = $equipmentDetails['due_date'] ?? null;
             
