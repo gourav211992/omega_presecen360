@@ -536,7 +536,7 @@
                                                                 <th width="300px">Ledger Code</th>
                                                                 <th width="300px">Ledger Name</th>
                                                                 <th width="300px">Ledger Group</th>
-                                                                <th width="300px">Organization</th>
+                                                                <!-- <th width="300px">Organization</th> -->
                                                                 <th width="300px">Reference</th>
                                                                 <th width="200px" class="text-end">Amount (<span
                                                                         id="selectedCurrencyName">{{ $data->currencyCode }}</span>)
@@ -598,13 +598,13 @@
                                                                     
                                                                   
                                                                    
-                                                                    <td>
+                                                                    <!-- <td>
                                                                         <input type="text" disabled
                                                                             placeholder="Select"
                                                                             class="form-control mw-100 mb-25 organization"
                                                                             id="organization{{$no}}"
                                                                             value="{{ $item?->organization?->name ?? $item?->party?->organization?->name ?? $item?->ledger?->organization?->name }}" />
-                                                                    </td>
+                                                                    </td> -->
                                                                     <td>
                                                                         <div class="position-relative d-flex align-items-center">
                                                                             <select class="form-select mw-100 invoiceDrop drop{{ $no }}" data-id="{{ $no }}" name="reference[]">
@@ -1800,13 +1800,6 @@ function check_amount() {
                                 name="parent_ledger_id[]"
                                 class="ledgerGroup form-select mw-100">
                             </select>
-                        </td>
-                        <td>
-                            <input type="text" disabled
-                                placeholder="Select"
-                                class="form-control mw-100 mb-25 organization"
-                                id="organization${rowCount}"
-                                    />
                         </td>
                         <td>
                             <div class="position-relative d-flex align-items-center">

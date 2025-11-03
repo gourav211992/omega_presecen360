@@ -1181,6 +1181,7 @@ class PaymentVoucherController extends Controller
     {
         try {
             $document = PaymentVoucher::find($id);
+            $documentdetail = PaymentVoucherDetails::where('payment_voucher_id',$id)->where('ledger_id',$ledger)->where('ledger_group_id',$group)->first();
 
             if (!$document) {
                 throw new Exception("Payment voucher not found.");
@@ -1311,7 +1312,7 @@ class PaymentVoucherController extends Controller
             $receipt_date = $document->document_date;
             $remarks = $document->remarks;
             $payment_mode = $document->payment_mode;
-            $ref_no = $document->reference_no;
+            $ref_no = $documentdetail->reference_no;
             $payment_type = $document->payment_type;
             $status = $document->document_status;
             $report_type = $document->document_type === "receipts" ? "Received" : "Paid";

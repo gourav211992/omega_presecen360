@@ -413,7 +413,7 @@
                                                                 <th width="300px">Ledger Code</th>
                                                                 <th width="300px">Ledger Name</th>
                                                                 <th width="300px">Ledger Group</th>
-                                                                <th width="300px">Organization</th>
+                                                                <!-- <th width="300px">Organization</th> -->
                                                                 <th width="200px">Reference</th>
                                                                 <th width="200px" class="text-end">Amount (<span
                                                                         id="selectedCurrencyName"></span>)</th>
@@ -504,13 +504,13 @@
                                                                                 </option>
                                                                             </select>
                                                                         </td>
-                                                                        <td>
+                                                                        <!-- <td>
                                                                             <input type="text" disabled
                                                                                 placeholder="Select"
                                                                                 class="form-control mw-100 mb-25 organization"
                                                                                 id="organization{{ $no }}"
                                                                                 value="{{ $voucher['organization'] }}" />
-                                                                        </td>
+                                                                        </td> -->
                                                                         <td>
                                                                             <div
                                                                                 class="position-relative d-flex align-items-center">
@@ -607,12 +607,12 @@
                                                                             class="ledgerGroup form-select mw-100">
                                                                         </select>
                                                                     </td>
-                                                                    <td>
+                                                                    <!-- <td>
                                                                         <input type="text" disabled
                                                                             placeholder="Select"
                                                                             class="form-control mw-100 mb-25 organization"
                                                                             id="organization1" />
-                                                                    </td>
+                                                                    </td> -->
                                                                     <td>
 
                                                                         <div
@@ -652,7 +652,7 @@
                                                         </tbody>
                                                         <tfoot>
                                                             <tr class="totalsubheadpodetail">
-                                                                <td colspan="7" class="text-end">Total</td>
+                                                                <td colspan="6" class="text-end">Total</td>
                                                                 <td class="text-end currentCurrencySum">
                                                                     {{ App\Helpers\Helper::formatIndianNumber($totalAmount) }}
                                                                 </td>
@@ -1566,13 +1566,6 @@
                                 name="parent_ledger_id[]"
                                 class="ledgerGroup form-select mw-100">
                             </select>
-                        </td>
-                        <td>
-                            <input type="text" disabled
-                                placeholder="Select"
-                                class="form-control mw-100 mb-25 organization"
-                                id="organization${rowCount}"
-                                    />
                         </td>
                         <td>
                             <div class="position-relative d-flex align-items-center">
