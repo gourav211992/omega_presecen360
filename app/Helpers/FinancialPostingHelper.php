@@ -427,7 +427,19 @@ class FinancialPostingHelper
             }
             $env[] = $pay;
             $entries = $env;
-        } else if ($serviceAlias === ConstantHelper::PSV_SERVICE_ALIAS) {
+        }else if ($serviceAlias === ConstantHelper::ADVANCE_RECEIPTS_SERVICE_ALIAS) {
+            $pay = self::advancereceiptInvoiceVoucherDetails($documentId, "");
+            if (!$pay['status']) {
+                return array(
+                    'status' => false,
+                    'message' => $pay['message'],
+                    'data' => []
+                );
+            }
+            $env[] = $pay;
+            $entries = $env;
+        }
+         else if ($serviceAlias === ConstantHelper::PSV_SERVICE_ALIAS) {
             $entries = self::PsvVoucherDetails($documentId, "");
             if (!$entries['status']) {
                 return array(
@@ -6957,6 +6969,224 @@ class FinancialPostingHelper
             ]
         );
     }
+     public static function advancereceiptInvoiceVoucherDetails(int $documentId, string $remarks)
+    {
+        $accountSetup = isset(self::SERVICE_POSTING_MAPPING[ConstantHelper::ADVANCE_RECEIPTS_SERVICE_ALIAS]) ? self::SERVICE_POSTING_MAPPING[ConstantHelper::ADVANCE_RECEIPTS_SERVICE_ALIAS] : [];
+        if (!isset($accountSetup) || count($accountSetup) == 0) {
+            return array(
+                'status' => false,
+                'message' => 'Account Setup not found',
+                'data' => []
+            );
+        }
+        $document = AdvancePaymentVoucher::find($documentId);
+        $vendors = $document->details;
+        $vocuherdata = $document;
+        if (!isset($document)) {
+            return array(
+                'status' => false,
+                'message' => 'Document not found',
+                'data' => []
+            );
+        }
+        //Make array according to setup
+        $postingArray = array(
+            self::PAYMENT_ACCOUNT => [],
+            self::VENDOR_ACCOUNT => [],
+        );
+        $totalCreditAmount = 0;
+        $totalDebitAmount = 0;
+
+        $ledgerErrorStatus = null;
+
+        if (!empty($vocuherdata)) {
+            $BankLedgerId = $vocuherdata->ledger_id;
+            $BankLedgerGroupId = $vocuherdata->ledger_group_id;
+            $BankLedger = Ledger::find($BankLedgerId);
+            $BankLedgerGroup = Group::find($BankLedgerGroupId);
+        }
+
+        if (!isset($BankLedger)) {
+            return array(
+                'status' => false,
+                'message' => 'Bank Ledger not setup',
+                'data' => []
+            );
+        }
+
+        if (!isset($BankLedgerGroup)) {
+            return array(
+                'status' => false,
+                'message' => 'Bank Ledger Group not found',
+                'data' => []
+            );
+        }
+
+        $cost = CostCenter::find($document?->cost_center_id);
+        $ids = array_column(Helper::getActiveCostCenters($document->location), 'id');
+        $exists = in_array($cost?->id, $ids);
+
+        if (!$exists && $cost != null) {
+            return array(
+                'status' => false,
+                'message' => $cost->name . ' not Mapped with header location',
+                'data' => []
+            );
+        }
+
+
+        array_push($postingArray[self::PAYMENT_ACCOUNT], [
+            'ledger_id' => $vocuherdata->ledger_id,
+            'ledger_group_id' => $vocuherdata->ledger_group_id,
+            'ledger_code' => $BankLedger?->code,
+            'cost_center_id' => $document?->cost_center_id,
+            'cost_name' => $cost->name ?? "-",
+            'ledger_name' => $BankLedger?->name,
+            'ledger_group_code' => $BankLedgerGroup?->name,
+            'debit_amount' => $vocuherdata->amount,
+            'credit_amount' => 0
+        ]);
+        foreach ($vendors as $vendor) {
+            if (!empty($vendor)) {
+                
+                    $VendorLedgerId = $vendor->ledger_id;
+                    $VendorLedgerGroupId = $vendor->ledger_group_id;
+                    $VendorLedger = Ledger::find($VendorLedgerId);
+                    $VendorLedgerGroup = Group::find($VendorLedgerGroupId);
+
+
+                    if (!isset($VendorLedger) || !isset($VendorLedgerGroup)) {
+                        return array(
+                            'status' => false,
+                            'message' => 'Vendor Ledger not setup',
+                            'data' => []
+                        );
+                    }
+                    $cost = CostCenter::find($document?->cost_center_id);
+                    $ids = array_column(Helper::getActiveCostCenters($document->location), 'id');
+                    $exists = in_array($cost?->id, $ids);
+
+                    if (!$exists && $cost != null) {
+                        return array(
+                            'status' => false,
+                            'message' => $cost->name . ' not Mapped with header location',
+                            'data' => []
+                        );
+                    }
+
+
+
+                    array_push($postingArray[self::VENDOR_ACCOUNT], [
+                        'ledger_id' => $VendorLedgerId,
+                        'ledger_group_id' => $VendorLedgerGroupId,
+                        'ledger_code' => $VendorLedger?->code,
+                        'ledger_name' => $VendorLedger?->name,
+                        'cost_center_id' => $document?->cost_center_id,
+                        'cost_name' => $cost->name ?? "-",
+                        'ledger_group_code' => $VendorLedgerGroup?->name,
+                        'credit_amount' => $vendor->currentAmount,
+                        'debit_amount' => 0,
+                    ]);
+            }
+        }
+
+
+
+        //Check if All Legders exists and posting is properly set
+        if ($ledgerErrorStatus) {
+            return array(
+                'status' => false,
+                'message' => $ledgerErrorStatus,
+                'data' => []
+            );
+        }
+
+
+        //Check debit and credit tally
+        foreach ($postingArray as $postAccount) {
+            foreach ($postAccount as $postingValue) {
+
+                $totalDebitAmount += $postingValue['debit_amount'];
+                $totalCreditAmount += $postingValue['credit_amount'];
+            }
+        }
+
+        $book = Book::find($document->book_id);
+        $glPostingBookParam = OrganizationBookParameter::where('book_id', $book->id)->where('parameter_name', ServiceParametersHelper::GL_POSTING_SERIES_PARAM)->first();
+        if (isset($glPostingBookParam) && isset($glPostingBookParam->parameter_value[0])) {
+            $glPostingBookId = $glPostingBookParam->parameter_value[0];
+        } else {
+            return array(
+                'status' => false,
+                'message' => 'Financial Book Code is not specified',
+                'data' => []
+            );
+        }
+        $currency = Currency::find($document->currency_id);
+
+
+        $userData = Helper::userCheck();
+        $book = Book::find($document->book_id);
+        $glPostingBookParam = OrganizationBookParameter::where('book_id', $book->id)->where('parameter_name', ServiceParametersHelper::GL_POSTING_SERIES_PARAM)->first();
+        if (isset($glPostingBookParam) && isset($glPostingBookParam->parameter_value[0])) {
+            $glPostingBookId = $glPostingBookParam->parameter_value[0];
+        } else {
+            return array(
+                'status' => false,
+                'message' => self::ERROR_PREFIX . 'Financial Book Code is not specified',
+                'data' => []
+            );
+        }
+
+        $voucherHeader = [
+            'voucher_no' => $document->voucher_no,
+            'document_date' => $document->document_date,
+            'book_id' => $glPostingBookId,
+            'date' => $document->document_date,
+            'amount' => $totalCreditAmount,
+            'location' => $document->location ?? null,
+            'currency_id' => $document->currency_id,
+            'currency_code' => $document->currencyCode,
+            'org_currency_id' => $document->org_currency_id,
+            'org_currency_code' => $document->org_currency_code,
+            'org_currency_exg_rate' => $document->org_currency_exg_rate,
+            'comp_currency_id' => $document->comp_currency_id, // Missing comma added here
+            'comp_currency_code' => $document->comp_currency_code,
+            'comp_currency_exg_rate' => $document->comp_currency_exg_rate,
+            'group_currency_id' => $document->group_currency_id,
+            'group_currency_code' => $document->group_currency_code,
+            'group_currency_exg_rate' => $document->group_currency_exg_rate,
+            'reference_service' => $book?->service?->alias,
+            'reference_doc_id' => $document->id,
+            'group_id' => $document->group_id,
+            'company_id' => $document->company_id,
+            'organization_id' => $document->organization_id,
+            'voucherable_type' => $userData['user_type'],
+            'voucherable_id' => $userData['user_id'],
+            'approvalStatus' => ConstantHelper::APPROVED,
+            'document_status' => ConstantHelper::APPROVED,
+            'approvalLevel' => $document->approval_level,
+            'remarks' => $remarks,
+        ];
+
+        $voucherDetails = self::generateInvoiceDetailsArray($postingArray, $voucherHeader, $document);
+
+        return array(
+            'status' => true,
+            'message' => 'Posting Details found',
+            'data' => [
+                'voucher_header' => $voucherHeader,
+                'voucher_details' => $voucherDetails,
+                'document_date' => $document->document_date,
+                'ledgers' => $postingArray,
+                'total_debit' => $totalDebitAmount,
+                'total_credit' => $totalCreditAmount,
+                'book_code' => $book?->book_code,
+                'document_number' => $document?->voucher_no,
+                'currency_code' => $currency?->short_name
+            ]
+        );
+    }
     public static function PsvVoucherDetails(int $documentId, string $remarks)
     {
         $accountSetup = isset(self::SERVICE_POSTING_MAPPING[ConstantHelper::PSV_SERVICE_ALIAS]) ? self::SERVICE_POSTING_MAPPING[ConstantHelper::PSV_SERVICE_ALIAS] : [];
@@ -7263,7 +7493,18 @@ class FinancialPostingHelper
                     'data' => []
                 );
             }
-        } else {
+        }
+        else if ($serviceAlias === ConstantHelper::ADVANCE_RECEIPTS_SERVICE_ALIAS) {
+            $entries = self::advancereceiptInvoiceVoucherDetails($documentId, $remarks);
+            if (!$entries['status']) {
+                return array(
+                    'status' => false,
+                    'message' => $entries['message'],
+                    'data' => []
+                );
+            }
+        }
+         else {
             $entries = array(
                 'status' => false,
                 'message' => 'No method found',

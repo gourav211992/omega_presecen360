@@ -1067,7 +1067,7 @@ class AdvancePaymentVoucherController extends Controller
                 throw new Exception("Payment voucher not found.");
             }
 
-            $type = $document->document_type === "receipts" ? "debit" : "credit";
+            $type = $document->document_type === "advance-receipts" ? "debit" : "credit";
             $ledger_group = $group;
             $organization_id = Helper::getAuthenticatedUser()->organization_id;
 
