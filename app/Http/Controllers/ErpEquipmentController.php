@@ -616,7 +616,7 @@ class ErpEquipmentController extends Controller
             $lastWorkOrder = PlantMaintWo::where('equipment_id', $maintenanceDetail->erp_equipment_id)
                 ->where('maintenance_type_id', $maintenanceDetail->maintenance_type_id)
                 ->where('maintenance_detail_id', $maintenanceDetail->id)
-                ->whereIn('document_status', ['submitted', 'approved', 'approval_not_required', 'closed'])
+                ->whereIn('document_status', ['submitted', 'approved', 'approval_not_required', 'closed','rejected'])
                 ->orderBy('id', 'desc')
                 ->first();
 
@@ -645,7 +645,7 @@ class ErpEquipmentController extends Controller
             $lastWorkOrder = PlantMaintWo::where('equipment_id', $maintenanceDetail->erp_equipment_id)
                 ->where('maintenance_type_id', $maintenanceDetail->maintenance_type_id)
                 ->where('maintenance_detail_id', $maintenanceDetail->id)
-                ->whereIn('document_status', ['submitted', 'approved', 'approval_not_required', 'closed'])
+                ->whereIn('document_status', ['submitted', 'approved', 'approval_not_required', 'closed','rejected'])
                 ->orderBy('id', 'desc')
                 ->first();
          
