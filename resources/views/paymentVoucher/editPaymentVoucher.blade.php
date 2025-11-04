@@ -562,8 +562,51 @@
                                                                             id="party_id{{ $no }}"
                                                                             class="ledgers"
                                                                             value="{{ $item->ledger_id??$item->party_id }}" />
-                                                                            <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers{{$no}}" class="party_vouchers" value="{{json_encode($item->invoice)}}"/>
+                                                                       @php
+                                                                            $transformed = [];
 
+                                                                            $headerIds = explode(',', $item['header_id']);
+                                                                            $headerNames = explode(',', $item['header_name']);
+                                                                            $headerAmounts = explode(',', $item['header_amounts']);
+
+                                                                            foreach ($headerIds as $index => $voucherId) {
+                                                                                foreach ($detail->invoice as $ref) {
+                                                                                    $transformed[] = [
+                                                                                        'header_id'      => $voucher->id,
+                                                                                        'header_name'    => $headerNames[$index] ?? $voucher->voucher_no ?? '',
+                                                                                        'party_id'       => (string)($detail->ledger_id ?? $ref->party_id ?? ''),
+                                                                                        'voucher_id'     => (string)($ref->voucher_id ?? ''),
+                                                                                        'voucher_item_id'=> (string)($ref->voucher_item_id ?? ''),
+                                                                                        'amount'         => $ref->amount ?? '0',
+                                                                                        'header_amounts' => $headerAmounts[$index] ?? '0',
+                                                                                    ];
+                                                                                }
+                                                                                $transformed[] = [
+                                                                                    'party_id' => (string)$item['ledger_id'],   // or $item['party_id'] if needed
+                                                                                    'voucher_id' => (string)$voucherId,         // you can replace with your internal voucher_id if exists
+                                                                                    'amount' => $headerAmounts[$index] ?? '0',
+                                                                                    'header_amounts' => $headerAmounts[$index] ?? '0',
+                                                                                    'header_id' => (int)$voucherId,
+                                                                                    'header_name' => $headerNames[$index] ?? ''
+                                                                                ];
+                                                                            }
+                                                                            @endphp
+
+                                                                            <input type="hidden" 
+                                                                                name="party_vouchers[]" 
+                                                                                id="party_vouchers{{ $no }}" 
+                                                                                class="party_vouchers" 
+                                                                                value='@json($transformed)' />
+                                                                            <input type="hidden" name="customerid[]"
+                                                                                id="customerid{{ $no }}"
+                                                                                class="party_vouchers"
+                                                                                value="{{$item?->customer?->id}}"
+                                                                            />
+                                                                            <input type="hidden" name="vendorid[]"
+                                                                                id="vendorid{{ $no }}"
+                                                                                class="party_vouchers"
+                                                                                value="{{$item?->vendor?->id}}"
+                                                                            />
                                                                     </td>
                                                                     <td class="poprod-decpt"><input type="text"
                                                                             disabled placeholder="Select"
@@ -597,7 +640,15 @@
                                                                                 <option @if($item->reference=="On Account") selected @endif>On Account</option>
                                                                             </select>
                                                                             <div class="ms-50 flex-shrink-0">
+                                                                                @if($item->reference=="Invoice")
                                                                                 <button type="button" class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}" style="font-size: 10px" onclick="openInvoice({{ $no }},{{$data->id}},{{$item->id}})" @if($item->reference!="Invoice" || !$fyear['authorized']) disabled @endif>Invoice</button>
+                                                                                @elseif($item->reference=="Advance")
+                                                                                <button type="button" class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}" style="font-size: 10px" onclick="openAdvance({{ $no }},{{$data->id}},{{$item->id}})" @if($item->reference!="Advance" || !$fyear['authorized']) disabled @endif>Invoice</button>
+
+                                                                                @else
+                                                                                <button type="button" class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}" style="font-size: 10px" onclick="openInvoice({{ $no }},{{$data->id}},{{$item->id}})" disabled>Invoice</button>
+
+                                                                                @endif
                                                                             </div>
                                                                         </div>
                                                                     </td>
@@ -887,6 +938,100 @@
     <input type="hidden" id="currentRow">
     <input type="hidden" id="LedgerId">
 
+     <div class="modal fade text-start" id="advance" tabindex="-1" aria-labelledby="myModalLabel17"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 1000px">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">Select
+                            Pending Advance</h4>
+                        <p class="mb-0">Settled Amount from the below list</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+
+                        <div class="col-md-3">
+                            <div class="mb-1">
+                                <label class="form-label">Date <span class="text-danger">*</span></label>
+                                <input type="text" id="fp-range" name="date_range"
+                                    value="{{ Request::get('date_range') }}"
+                                    class="form-control flatpickr-range bg-white"
+                                    placeholder="YYYY-MM-DD to YYYY-MM-DD" />
+                            </div>
+                        </div>
+
+                        <!-- <div class="col-md-3">
+                            <div class="mb-1">
+                                <label class="form-label">Voucher Type <span class="text-danger">*</span></label>
+                                <select class="form-select select2" id="book_code">
+                                    <option value="">Select Type</option>
+                                    @foreach ($books_t->unique('alias') as $book)
+                                        <option value="{{ $book->alias }}">{{ strtoupper($book->name) }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div> -->
+
+                        <div class="col-md-3">
+                            <div class="mb-1">
+                                <label class="form-label">Document No. <span class="text-danger">*</span></label>
+                                <input type="text" id="document_no" class="form-control" />
+                            </div>
+                        </div>
+
+                        <div class="col-md-3  mb-1">
+                            <label class="form-label">&nbsp;</label><br />
+                            <button type="button" class="btn btn-warning btn-sm" onclick="getLedgers()"><i
+                                    data-feather="search"></i> Search</button>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="table-responsive">
+                                <table class="mt-1 table myrequesttablecbox table-striped po-order-detail">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Date</th>
+                                            <th>Series</th>
+                                            <th>Document No.</th>
+                                            <th class="text-end">Amount</th>
+                                            <th class="text-end">Advance</th>
+                                            <!-- <th class="text-end">Settle</th> -->
+                                            <th class="text-end" width="150px">To Pay</th>
+                                            <th class="text-center">
+                                                <div class="form-check form-check-inline me-0">
+                                                    <input class="form-check-input" type="checkbox" name="podetail"
+                                                        id="inlineCheckbox1">
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="advancevouchersBody">
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="6" class="text-end">Total</td>
+                                            <td class="fw-bolder text-dark text-end settleTotal">0</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer text-end">
+                    <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i
+                            data-feather="x-circle"></i> Cancel</button>
+                    <button class="btn btn-primary btn-sm" type="button" onclick="advancesetAmount()"><i
+                            data-feather="check-circle"></i> Process</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Amendment Modal --}}
     <div class="modal fade text-start alertbackdropdisabled" id="amendmentconfirm" tabindex="-1"
         aria-labelledby="myModalLabel1" aria-hidden="true" data-bs-backdrop="false">
@@ -1046,29 +1191,28 @@
         function setAmount() {
             let isValid = true;
 
-$('.settleInput').each(function () {
-        let input = $(this);
-        let row = input.closest('.voucherRows');
-        let balanceText = row.find('.balanceInput').text().replace(/,/g, '');
-        let balance = parseFloat(balanceText);
-        let settleAmount = parseFloat(input.val());
+            $('.settleInput').each(function () {
+                    let input = $(this);
+                    let row = input.closest('.voucherRows');
+                    let balanceText = row.find('.balanceInput').text().replace(/,/g, '');
+                    let balance = parseFloat(balanceText);
+                    let settleAmount = parseFloat(input.val());
 
-        // Remove existing error message
-        input.next('.invalid-feedback').remove();
+                    // Remove existing error message
+                    input.next('.invalid-feedback').remove();
 
-        if (settleAmount > balance) {
-            input.addClass('is-invalid');
-            input.after('<span class="invalid-feedback d-block" style="font-size:12px">Settle amount cannot be greater than balance.</span>');
-            isValid = false;
-        } else {
-            input.removeClass('is-invalid');
-        }
-    });
-
-    if (!isValid) {
-        // Prevent modal close or further processing
-        return false;
-    }
+                    if (settleAmount > balance) {
+                        input.addClass('is-invalid');
+                        input.after('<span class="invalid-feedback d-block" style="font-size:12px">Settle amount cannot be greater than balance.</span>');
+                        isValid = false;
+                    } else {
+                        input.removeClass('is-invalid');
+                    }
+                });
+                if (!isValid) {
+                    // Prevent modal close or further processing
+                    return false;
+                }
 
             $('#excAmount' + $('#currentRow').val()).val($('.settleTotal').text().replace(/,/g, ''));
             $('#excAmount' + $('#currentRow').val()).trigger('keyup');
@@ -1077,10 +1221,12 @@ $('.settleInput').each(function () {
             var selectedVouchers = [];
             const preSelected = $('.vouchers:checked').map(function() {
                 selectedVouchers.push({
-                    "voucher_item_id": $(this).data('itemid'),
                     "party_id": $('#LedgerId').val(),
-                    "voucher_id": $(this).data('id'),
-                    "amount": $('.settleAmount' + this.value).val()
+                    "voucher_id": this.value,
+                    "amount": $('.settleAmount' + this.value).val(),
+                    "header_amounts":$('.settleAmount' + this.value).val(),
+                    "header_id": $(this).data('header_id'),
+                    "header_name": $(this).data('header_name'),
                 });
                 return this.value;
             }).get();
@@ -1088,6 +1234,77 @@ $('.settleInput').each(function () {
             resetCalculations();
             $('#invoice').modal('hide');
         }
+         function advancesetAmount() 
+        {
+            let isValid = true;
+
+            $('.settleInput').each(function() {
+                let input = $(this);
+                let row = input.closest('.voucherRows');
+                let balanceText = row.find('.balanceInput').text().replace(/,/g, '');
+                let balance = parseFloat(balanceText);
+                let settleAmount = parseFloat(input.val());
+
+                // Remove existing error message
+                input.next('.invalid-feedback').remove();
+
+                if (settleAmount > balance) {
+                    input.addClass('is-invalid');
+                    input.after(
+                        '<span class="invalid-feedback d-block" style="font-size:12px">Settle amount cannot be greater than balance.</span>'
+                    );
+                    isValid = false;
+                } else {
+                    input.removeClass('is-invalid');
+                }
+            });
+
+            if (!isValid) {
+                // Prevent modal close or further processing
+                return false;
+            }
+            console.log('Current Row:', $('#currentRow').val());
+
+            let currentRow = $('#currentRow').val();
+            let targetSelector = '#excAmount' + currentRow;
+            let $target = $(targetSelector);
+            
+            console.log('Target selector:', targetSelector);
+            console.log('Target exists:', $target.length);
+            console.log('Before set value:', $target.val());
+
+            if ($target.length) {
+                $target.val($('.settleTotal').first().text().replace(/,/g, '').trim());
+                console.log('After set value:', $target.val());
+                $target.trigger('keyup');
+            } else {
+                console.error('Target element not found for selector:', targetSelector);
+            }
+            $('#advance').modal('toggle');
+
+            var selectedVouchers = [];
+            const preSelected = $('.vouchers:checked').map(function() {
+               selectedVouchers.push({
+                    "party_id": $('#LedgerId').val(),
+                    "voucher_id": this.value,
+                    "amount": $('.settleAmount' + this.value).val(),
+                    "header_amounts":$('.settleAmount' + this.value).val(),
+                    "header_id": $(this).data('header_id'),
+                    "header_name": $(this).data('header_name'),
+                });
+                return this.value;
+            }).get();
+            $('#party_vouchers' + $('#currentRow').val()).val(JSON.stringify(selectedVouchers));
+
+            resetCalculations();
+            $('#advance').modal('hide');
+            console.log(token)
+            console.log("Token value:", `"${token}"`);
+            if (token && token.trim() !== "") {
+                processVoucherRowsAndUpdateCache(false, null);
+            }
+        }
+
 
 
 
@@ -1107,10 +1324,12 @@ $('.settleInput').each(function () {
         });
 
         function openInvoice(id,paymentId=null,details=null,ref=null) {
+           const selectedType = $('.drop' + id).val();
+            console.log(selectedType);
             console.log(id);
              $('#excAmount' + id).attr('readonly', true);
             if ($('#party_id'+id).val()!="") {
-                $('.drop' + id).val('Invoice');
+               $('.drop' + id).val(selectedType);
                 const comingParty = $('#party_id' + id).val();
                 if (comingParty != $('#currentParty').val()) {
                     $('#vouchersBody').empty();
@@ -1120,12 +1339,45 @@ $('.settleInput').each(function () {
                 }
                 $('#currentParty').val(comingParty);
                 $('#currentRow').val(id);
-                getLedgers(paymentId,details,ref);
+                 if(selectedType == 'Invoice')
+                {
+                    getLedgers(paymentId,details,ref);
+                    $('#invoice').modal('toggle');
+                }
+                if(selectedType == 'Advance')
+                {
+                    advancegetLedgers(paymentId,details,ref);
+                    $('#advance').modal('toggle');
+                }
+                
                 $('#invoice').modal('show');
 
             } else {
                 $('.drop' + id).val('');
                 showToast('error','Select ledger to select invoice!!');
+            }
+        }
+
+         function openAdvance(id,paymentId=null,details=null,ref=null) {
+            console.log(id);
+             $('#excAmount' + id).attr('readonly', true);
+            if ($('#party_id'+id).val()!="") {
+                $('.drop' + id).val('Advance');
+                const comingParty = $('#party_id' + id).val();
+                if (comingParty != $('#currentParty').val()) {
+                    $('#advancevouchersBody').empty();
+                    $("#inlineCheckbox1").attr('checked', false);
+                    calculateSettle();
+                    $('#fp-range').val('');
+                }
+                $('#currentParty').val(comingParty);
+                $('#currentRow').val(id);
+                advancegetLedgers(paymentId,details,ref);
+                $('#advance').modal('show');
+
+            } else {
+                $('.drop' + id).val('');
+                showToast('error','Select ledger to select advance!!');
             }
         }
 
@@ -1143,7 +1395,8 @@ $('.settleInput').each(function () {
             const partyData = $('#party_vouchers' + $('#currentRow').val()).val();
             const payment_voucher_id = '{{ $data->id }}';
             console.log(partyData);
-            $('#vouchersBody').empty();
+           $('#vouchersBody').empty();
+             $('#advancevouchersBody').empty();
             $.ajax({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
@@ -1180,17 +1433,26 @@ $('.settleInput').each(function () {
                                 var totalsettleshow = 0.00;
                                 var itemset = false;
                                 if (partyData != "" && partyData != undefined) {
+                                    var amount = 0.00;
+                                var checked = "";
+                                var dataAmount = 0.00;
                                     $.each(JSON.parse(partyData), function(indexP, valP) {
-                                        if (valP['voucher_id'] != null &&
-                                            valP['voucher_item_id'] != null &&
-                                            val['id'] != null &&
-                                            item.id != null && 
-                                            valP['voucher_id'].toString() == val['id'] && item.id == valP['voucher_item_id'].toString()) 
-                                        {
-                                            amount = (parseFloat(valP['amount'])).toFixed(2);
-                                            checked = "checked";
-                                            dataAmount = (parseFloat(valP['amount'])).toFixed(
-                                            2);
+                                        console.log(valP['header_id'],valP['header_amounts']);
+                                        if (valP['header_id'] && valP['header_amounts']) {
+                                            // Split both strings into arrays
+                                            const headerIds = valP['header_id'].toString().split(',');
+                                            const headerAmounts = valP['header_amounts'].toString().split(',');
+                                           
+                                            // Find the index where header id matches val['id']
+                                            const index = headerIds.indexOf(item.id.toString());
+                                            console.log(index);
+                                            console.log(headerAmounts);
+                                            if (index !== -1) {
+                                                // Get the matching amount using the same index
+                                                amount = parseFloat(headerAmounts[index]).toFixed(2);
+                                                checked = "checked";
+                                                dataAmount = amount;
+                                            }
                                         }
                                     });
                                 }
@@ -1303,6 +1565,100 @@ $('.settleInput').each(function () {
                         $('#LedgerId').val(response.ledgerId);
                         $('#vouchersBody').append(html);
                         calculateSettle();
+                        updateVoucherNumbers();
+                    }
+                    calculateSettle();
+                }
+            });
+        }
+        function advancegetLedgers() {
+            $('.vouchers:not(:checked)').map(function() {
+                $('#' + this.value).remove();
+            }).get();
+            updateVoucherNumbers();
+
+            const preSelected = $('.vouchers:checked').map(function() {
+                return this.value;
+            }).get();
+
+            var preData = [];
+            const partyData = $('#party_vouchers' + $('#currentRow').val()).val();
+             $('#vouchersBody').empty();
+             $('#advancevouchersBody').empty();
+            $.ajax({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                url: '{{ route('advancegetLedgerVouchers') }}',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    date: $('#fp-range').val(),
+                    '_token': '{!! csrf_token() !!}',
+                    partyCode: $('.partyCode' + $('#currentRow').val()).val(),
+                    partyID: $('#party_id' + $('#currentRow').val()).val(),
+                    customer_id: $('#customerid' + $('#currentRow').val()).val(),
+                    vendor_id: $('#vendorid' + $('#currentRow').val()).val(),
+                    headerid: $('#headerid' + $('#currentRow').val()).val(),
+                    ledgerGroup: $('#groupSelect' + $('#currentRow').val()).val(),
+                    book_code: $('#book_code').val(),
+                    document_no: $('#document_no').val(),
+                    type: $('#document_type').val()
+                },
+                success: function(response) {
+                    console.log(response);
+                    if (response.data.length > 0) {
+                        var html = '';
+                        const ledgerId = $('#party_id' + $('#currentRow').val()).val();
+                        $.each(response.data, function(index, val) 
+                        {
+                            if(val.topay > 0 && val.settle == 0)
+                            {
+                                var amount = 0.00;
+                                var checked = "";
+                                var dataAmount = 0.00;
+                                    $.each(JSON.parse(partyData), function(indexP, valP) {
+                                        console.log(valP['header_id'],valP['header_amounts']);
+                                        if (valP['header_id'] && valP['header_amounts']) {
+                                            // Split both strings into arrays
+                                            const headerIds = valP['header_id'].toString().split(',');
+                                            const headerAmounts = valP['header_amounts'].toString().split(',');
+
+                                            // Find the index where header id matches val['id']
+                                            const index = headerIds.indexOf(val['id'].toString());
+                                            console.log(index);
+                                            console.log(headerAmounts);
+                                            if (index !== -1) {
+                                                // Get the matching amount using the same index
+                                                amount = parseFloat(headerAmounts[index]).toFixed(2);
+                                                checked = "checked";
+                                                dataAmount = amount;
+                                            }
+                                        }
+                                    });
+                                    var calculatedValue = (val['total_item_value'] * val['percent']) / 100;
+                                    html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
+                                        <td>${index + 1}</td>
+                                        <td>${new Date(val['date']).toLocaleDateString('en-GB')}</td>
+                                        <td class="fw-bolder text-dark">${val['book_code']?.toUpperCase() ?? '-'}</td>
+                                        <td>${val['document_number']}</td>
+                                        <td class="text-end">${formatIndianNumber(val['total_item_value'])}</td>
+                                        <td class="balanceInput text-end">${formatIndianNumber(calculatedValue)}</td>
+                                        
+                                        <td class="text-end">
+                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" readonly value="${amount}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${calculatedValue}"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="form-check form-check-inline me-0">
+                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-header_name="${val['header_name']}" data-id="${val['id']}" data-header_id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-amount="${calculatedValue}" data-balanceminus="${calculatedValue.toFixed(2)}">
+                                            </div>
+                                        </td>
+                                        <input type="hidden" class="ledger-id" value="${ledgerId}">
+                                        <input type="hidden" class="item-id" value="${val['id']}">
+                                        </tr>`;
+                            }
+                        });
+                        $('#advancevouchersBody').append(html);
                         updateVoucherNumbers();
                     }
                     calculateSettle();

@@ -543,6 +543,10 @@ class PaymentVoucherController extends Controller
             $voucher->save();
             // Process voucher details
             foreach ($request->party_id as $index => $party) {
+                $voucherData = json_decode($request->party_vouchers[$index], true);
+                $headerIds   = collect($voucherData)->pluck('header_id')->toArray();
+                $headerNames = collect($voucherData)->pluck('header_name')->toArray();
+                $amounts     = collect($voucherData)->pluck('amount')->toArray();
                 $details = new PaymentVoucherDetails();
                 if ($request->reference_no && $request->reference_no[$index] != "" && $request->payment_type === "Bank") {
                     $ref = PaymentVoucherDetails::where('reference_no', $request->reference_no[$index])->exists();
@@ -561,6 +565,10 @@ class PaymentVoucherController extends Controller
                 $details->ledger_id = $customer->id;
                 $details->ledger_group_id = $request->parent_ledger_id[$index];
                 $details->partyCode = $customer->code;
+                $details->party_id = ConstantHelper::RECEIPTS_SERVICE_ALIAS ? $request->customerid[$index] : $request->vendorid[$index];
+                $details->header_name = implode(',', $headerNames);
+                $details->header_id = implode(',', $headerIds);
+                $details->header_amounts = implode(',', $amounts);
                 $details->type = $request->document_type == ConstantHelper::RECEIPTS_SERVICE_ALIAS ? "customer" : "vendor";
                 $details->currentAmount = $request->amount[$index];
                 $details->reference_no = $request->reference_no[$index];
@@ -573,10 +581,11 @@ class PaymentVoucherController extends Controller
                         Log::error('Reference amount : ' . ($reference->amount ?? 0));
                         Log::error('Reference voucher_id : ' . ($reference->voucher_id ?? 'N/A'));
                         Log::error('Reference document_type : ' . ($request->document_type ?? 'N/A'));
-
-                        $blnc = self::getVoucherBalance($reference->amount, $reference->voucher_id, $request->document_type, $details->ledger_id, $details->ledger_group_id);
+                         $blnc = self::getVoucherBalance($reference->amount, $reference->voucher_id, $request->document_type, $details->ledger_id, $details->ledger_group_id);
+                        
                         if ($blnc < 0) {
                             $voucher = Voucher::find($reference->voucher_id)?->voucher_no;
+                            
                             return redirect()->route($request->document_type . '.create', ['token' => $selected_token])
                                 ->withErrors("The settled amount exceeds the balance amount for Voucher No." . $voucher);
                         } else {
@@ -584,8 +593,8 @@ class PaymentVoucherController extends Controller
                             $insertRef->payment_voucher_id = $voucher->id;
                             $insertRef->voucher_details_id = $details->id;
                             $insertRef->party_id = $reference->party_id;
-                            $insertRef->voucher_id = $reference->voucher_id;
-                            $insertRef->voucher_item_id = $reference->voucher_item_id;
+                            $insertRef->voucher_id = $reference->header_id;
+                            $insertRef->voucher_item_id = $reference->voucher_id;
                             $insertRef->amount = $reference->amount;
                             $insertRef->save();
 
@@ -615,6 +624,7 @@ class PaymentVoucherController extends Controller
         } catch (Exception $e) {
             // Rollback transaction if any error occurs
             DB::rollback();
+            dd($e);
             // dd($e->getMessage());
 
             // Log the error or return a response
@@ -650,9 +660,9 @@ class PaymentVoucherController extends Controller
         $data = PaymentVoucher::with('details')->find($id);
 
         if ($r->has('revisionNumber') && $data->revision_number != $currNumber) {
-            $data = PaymentVoucherHistory::with('details')->where('source_id', $id)->where('revision_number', $currNumber)->first();
+            $data = PaymentVoucherHistory::with('details','details.invoice')->where('source_id', $id)->where('revision_number', $currNumber)->first();
         } else {
-            $data = PaymentVoucher::with('details')->find($id);
+            $data = PaymentVoucher::with('details','details.invoice')->find($id);
         }
 
 
@@ -757,7 +767,6 @@ class PaymentVoucherController extends Controller
 //         ->withErrors(['Reference No. Already Exist!'])->withInput();
 // }
 // }
-
         DB::beginTransaction();
 
         try {
@@ -778,6 +787,11 @@ class PaymentVoucherController extends Controller
             VoucherReference::where('payment_voucher_id', $id)->delete();
 
             foreach ($request->party_id as $index => $party) {
+                $voucherData = json_decode($request->party_vouchers[0], true);
+                $headerIds   = collect($voucherData)->pluck('header_id')->toArray();
+                $headerNames = collect($voucherData)->pluck('header_name')->toArray();
+                $amounts     = collect($voucherData)->pluck('header_amounts')->toArray();
+                
                 $details = new PaymentVoucherDetails();
                 if ($request->reference_no && $request->reference_no[$index] != "" && $request->payment_type === "Bank") {
                     $ref = PaymentVoucherDetails::where('reference_no', $request->reference_no[$index])->exists();
@@ -794,6 +808,9 @@ class PaymentVoucherController extends Controller
                 $details->ledger_group_id = $request->parent_ledger_id[$index];
                 $details->partyCode = $customer->code;
                 $details->type = $request->document_type == ConstantHelper::RECEIPTS_SERVICE_ALIAS ? "customer" : "vendor";
+                $details->header_name = is_array($headerNames) ? implode(',', $headerNames) : $headerNames;
+                $details->header_id = is_array($headerIds) ? implode(',', $headerIds) : $headerIds;
+                $details->header_amounts = is_array($amounts) ? implode(',', $amounts) : $amounts;
                 $details->currentAmount = $request->amount[$index];
                 $details->reference_no = $request->reference_no[$index];
                 $details->orgAmount = $request->amount_exc[$index];
@@ -810,6 +827,7 @@ class PaymentVoucherController extends Controller
 
                     $insertData = [];
                     foreach ($partyVouchers as $reference) {
+                    
                         $diff = self::getVoucherBalance($reference['amount'], $reference['voucher_id'], $request->document_type, $details->ledger_id, $details->ledger_group_id, $id, $details->id);
                         if ($diff < 0) {
                             $voucherNo = Voucher::find($reference['voucher_id'])?->voucher_no;
@@ -919,6 +937,7 @@ class PaymentVoucherController extends Controller
 
         } catch (Exception $e) {
             DB::rollBack();
+            dd($e);
             // dd($e->getTraceAsString());
             return back()->withErrors('Something went wrong: ' . $e->getMessage());
         }
@@ -1477,13 +1496,11 @@ class PaymentVoucherController extends Controller
 
         // Get ledger vouchers
         $data = VoucherController::getLedgerVouchers($request);
-
         // Convert to collection
         $voucherCollection = collect($data->getData()->data ?? []);
-
         // Find voucher by ID
         $voucher = $voucherCollection->firstWhere('id', $voucher_id);
-
+       
         // Log for debugging
         Log::info('Voucher Data:', ['all' => $voucherCollection->toArray()]);
         Log::info('Voucher Detail:', ['voucher' => $voucher]);
@@ -1498,8 +1515,6 @@ class PaymentVoucherController extends Controller
     {
 
         $type = $doc_type == ConstantHelper::RECEIPTS_SERVICE_ALIAS ? 'customer' : 'vendor';
-
-
 
         if ($ledger && $group) {
             $ledger = (int) $ledger;
@@ -1518,8 +1533,7 @@ class PaymentVoucherController extends Controller
                 ->groupBy('id')  // Assuming 'id' is the primary key or unique field for Voucher
                 ->orderBy('document_date', 'asc')
                 ->orderBy('created_at', 'asc');
-
-
+            
 
             if (!$id) {
 
@@ -1546,7 +1560,7 @@ class PaymentVoucherController extends Controller
                         return $voucher;
                     });
 
-
+                   
                 $advanceSum = PaymentVoucherDetails::where('type', $type)
                     ->whereIn('reference', ['On Account'])
                     ->withWhereHas('voucher', function ($query) {
@@ -1653,7 +1667,6 @@ class PaymentVoucherController extends Controller
 
                         return $voucher;
                     });
-
 
                 $advanceSum = PaymentVoucherDetails::where('type', $type)
                     ->whereIn('reference', ['On Account'])

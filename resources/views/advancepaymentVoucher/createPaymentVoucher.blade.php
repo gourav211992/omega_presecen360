@@ -1555,7 +1555,7 @@
                             <input type="text" placeholder="Select" class="form-control mw-100 ledgerselect partyCode${rowCount} mb-25" required data-id="${rowCount}"/>
                             <input type="hidden" name="party_id[]" type="hidden" id="party_id${rowCount}" class="ledgers"/>
                             <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers${rowCount}" class="party_vouchers"/>
-                            <input type="hidden" name="customer_id[]" type="hidden" id="customerid${rowCount}" class="party_customers"/>
+                            <input type="hidden" name="customerid[]" type="hidden" id="customerid${rowCount}" class="party_customers"/>
                             <input type="hidden" name="vendor_id[]" type="hidden" id="vendorid${rowCount}" class="party_vendors"/>
                             <input type="hidden" name="headerid[]" type="hidden" id="headerid${rowCount}" class="party_vendors"/>
 
