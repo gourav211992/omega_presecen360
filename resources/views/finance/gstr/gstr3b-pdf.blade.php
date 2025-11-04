@@ -123,107 +123,154 @@
     <div class="header">
         <h1>Form GSTR-3B</h1>
         <h2>[ See Rule 61(5)]</h2>
-        
-        <div class="header-info">
-            <div>
-                <strong>Year:</strong><br>
-                {{ $financialYear }}
-            </div>
-            <div>
-                <strong>Month:</strong><br>
-                {{ $previousMonth }}
-            </div>
-        </div>
-        
-        <div style="margin-top: 15px;">
-            <p><strong>{{ $organizationName }}</strong></p>
-            <p><strong>GSTIN:</strong> {{ $gstin }}</p>
-        </div>
     </div>
 
-    <div class="section-title">3.1 Details of Outward Supplies and inward supplies liable to reverse charge</div>
+    <table class="main-table">
+    <tr>
+        <td class="text-left">GSTIN of the supplier</td>
+        <td class="text-right">{{$gstin}}</td>
+    </tr>
+    <tr>
+        <td class="text-left">2(a). Legal name of the registered person</td>
+        <td class="text-right">{{$organizationName}}</td>
+    </tr>
+    <tr>
+        <td class="text-left">2(b). Trade name, if any</td>
+        <td class="text-right"></td>
+    </tr>
+    <tr>
+        <td class="text-left">2(c). ARN</td>
+        <td class="text-right"></td>
+    </tr>
+    <tr>
+        <td class="text-left">2(d). Date of ARN</td>
+        <td class="text-right"></td>
+    </tr>
+    </table>
+
+
+    <!-- New Section 3.1 -->
+    <div class="section-title">3.1 Details of Outward supplies and inward supplies liable to reverse charge (other than those covered by Table 3.1.1)</div>
     
     <table class="main-table">
         <thead>
             <tr>
-                <th rowspan="2" style="width: 30%;">Nature of Supplies</th>
-                <th rowspan="2" style="width: 15%;">Total Taxable Value</th>
-                <th rowspan="2" style="width: 12%;">Integrated Tax</th>
-                <th colspan="2" style="width: 24%;">Central Tax</th>
-                <th rowspan="2" style="width: 12%;">Cess</th>
-            </tr>
-            <tr>
-                <th style="width: 12%;">Tax Amount</th>
-                <th style="width: 12%;">State/UT Tax</th>
+                <th style="width: 30%;">Nature of Supplies</th>
+                <th style="width: 15%;">Total taxable value</th>
+                <th style="width: 12%;">Integrated tax</th>
+                <th style="width: 12%;">Central tax</th>
+                <th style="width: 12%;">State/UT tax</th>
+                <th style="width: 12%;">Cess</th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td class="text-left">(a) Outward taxable supplies (other than zero rated, nil rated and exempted)</td>
-                <td class="text-right">{{ number_format($gstr3bData['taxable_amt'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bData['igst'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bData['cgst'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bData['sgst'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bData['cess'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['b2b']['taxable_amt'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['b2b']['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['b2b']['cgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['b2b']['sgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['b2b']['cess'] ?? 0, 2) }}</td>
             </tr>
             <tr>
                 <td class="text-left">(b) Outward taxable supplies (zero rated)</td>
-                <td class="text-right">{{ number_format($gstr3bZeroRatedData['taxable_amt'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bZeroRatedData['igst'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bZeroRatedData['cgst'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bZeroRatedData['sgst'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bZeroRatedData['cess'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['zero_rated']['taxable_amt'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['zero_rated']['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">-</td>
+                <td class="text-right">-</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['zero_rated']['cess'] ?? 0, 2) }}</td>
             </tr>
             <tr>
-                <td class="text-left">(c) Other outward supplies, (Nil rated, exempted)</td>
-                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['taxable_amt'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['igst'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['cgst'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['sgst'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['cess'] ?? 0, 2) }}</td>
+                <td class="text-left">(c) Other outward supplies (nil rated, exempted)</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['nil_exempted']['taxable_amt'] ?? 0, 2) }}</td>
+                <td class="text-right">-</td>
+                <td class="text-right">-</td>
+                <td class="text-right">-</td>
+                <td class="text-right">-</td>
             </tr>
             <tr>
                 <td class="text-left">(d) Inward supplies (liable to reverse charge)</td>
-                <td class="text-right">7328553.00</td>
-                <td class="text-right">52121.45</td>
-                <td class="text-right">157160.60</td>
-                <td class="text-right">157160.60</td>
-                <td class="text-right">0.00</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['reverse_charge']['taxable_amt'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['reverse_charge']['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['reverse_charge']['cgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['reverse_charge']['sgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['reverse_charge']['cess'] ?? 0, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="text-left">(e) Non-GST outward supplies</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['non_gst']['taxable_amt'] ?? 0, 2) }}</td>
+                <td class="text-right">-</td>
+                <td class="text-right">-</td>
+                <td class="text-right">-</td>
+                <td class="text-right">-</td>
             </tr>
         </tbody>
     </table>
 
-    <div class="section-title">3.2 Of the supplies shown in 3.1 (a) above, details of inter-State supplies made to unregistered persons, composition taxable persons and UIN holders</div>
+    <!-- New Section 3.1.1 -->
+    <div class="section-title">3.1.1 Details of Supplies notified under section 9(5) of the CGST Act, 2017 and corresponding provisions in IGST/UTGST/SGST Acts</div>
+    
+    <table class="main-table">
+        <thead>
+            <tr>
+                <th style="width: 30%;">Nature of Supplies</th>
+                <th style="width: 15%;">Total taxable value</th>
+                <th style="width: 12%;">Integrated tax</th>
+                <th style="width: 12%;">Central tax</th>
+                <th style="width: 12%;">State/UT tax</th>
+                <th style="width: 12%;">Cess</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="text-left">(i) Taxable supplies on which electronic commerce operator pays tax u/s 9(5) [to be furnished by electronic commerce operator]</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">0.00</td>
+            </tr>
+            <tr>
+                <td class="text-left">(ii) Taxable supplies made by registered person through electronic commerce operator, on which electronic commerce operator is required to pay tax u/s 9(5) [to be furnished by registered person making supplies through electronic commerce operator]</td>
+                <td class="text-right">0.00</td>
+                <td class="text-right">-</td>
+                <td class="text-right">-</td>
+                <td class="text-right">-</td>
+                <td class="text-right">-</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- New Section 3.2 -->
+    <div class="section-title">3.2 Out of supplies made in 3.1 (a) and 3.1.1 (i), details of inter-state supplies made</div>
     
     <table class="main-table">
         <thead>
             <tr>
                 <th style="width: 40%;">Nature of Supplies</th>
-                <th style="width: 30%;">Place of Supply (State/UT)</th>
-                <th style="width: 15%;">Total Taxable Value</th>
-                <th style="width: 15%;">Amount of Integrated Tax</th>
+                <th style="width: 30%;">Total taxable value</th>
+                <th style="width: 30%;">Integrated tax</th>
             </tr>
         </thead>
         <tbody>
-            @if(isset($gstr3bInterStateData) && $gstr3bInterStateData->count() > 0)
-                @foreach($gstr3bInterStateData as $stateData)
-                <tr>
-                    <td class="text-left">(a) Supplies made to Unregistered Persons</td>
-                    <td class="text-left">{{ strtoupper($stateData->place_of_supply) }}(STATE)</td>
-                    <td class="text-right">{{ number_format($stateData->taxable_amt ?? 0, 2) }}</td>
-                    <td class="text-right">{{ number_format($stateData->igst ?? 0, 2) }}</td>
-                </tr>
-                @endforeach
-            @else
-                <tr>
-                    <td class="text-left">(a) Supplies made to Unregistered Persons</td>
-                    <td class="text-left">-</td>
-                    <td class="text-right">0.00</td>
-                    <td class="text-right">0.00</td>
-                </tr>
-            @endif
+            <tr>
+                <td class="text-left">Supplies made to Unregistered Persons</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_2Data['unregistered']['taxable_value'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_2Data['unregistered']['igst'] ?? 0, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="text-left">Supplies made to Composition Taxable Persons</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_2Data['composition']['taxable_value'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_2Data['composition']['igst'] ?? 0, 2) }}</td>
+            </tr>
+            <tr>
+                <td class="text-left">Supplies made to UIN holders</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_2Data['uin']['taxable_value'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_2Data['uin']['igst'] ?? 0, 2) }}</td>
+            </tr>
         </tbody>
-    </table>
+    </table><br><br><br> <br><br><br><br><br><br>
+
 
     <div class="section-title">4 Eligible ITC</div>
     
@@ -247,38 +294,38 @@
             </tr>
             <tr>
                 <td class="text-left">(1) Import of goods</td>
-                <td class="text-right">467824.72</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0.00</td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['import_goods']['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['import_goods']['cgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['import_goods']['sgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['import_goods']['cess'] ?? 0, 2) }}</td>
             </tr>
             <tr>
                 <td class="text-left">(2) Import of services</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0.00</td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['import_services']['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['import_services']['cgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['import_services']['sgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['import_services']['cess'] ?? 0, 2) }}</td>
             </tr>
             <tr>
                 <td class="text-left">(3) Inward supplies liable to reverse charge (other than 1 & 2 above)</td>
-                <td class="text-right">52121.45</td>
-                <td class="text-right">156225.00</td>
-                <td class="text-right">156225.00</td>
-                <td class="text-right">0.00</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['reverse_charge']['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['reverse_charge']['cgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['reverse_charge']['sgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection3_1Data['reverse_charge']['cess'] ?? 0, 2) }}</td>
             </tr>
             <tr>
                 <td class="text-left">(4) Inward supplies from ISD</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">0.00</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
             </tr>
             <tr>
                 <td class="text-left">(5) All other ITC</td>
                 <td class="text-right">30982738.21</td>
                 <td class="text-right">2654766.00</td>
                 <td class="text-right">2654766.00</td>
-                <td class="text-right">0.00</td>
+                <td class="text-right"></td>
             </tr>
             <tr>
                 <td class="text-left">(B) ITC Reversed</td>
@@ -303,10 +350,10 @@
             </tr>
             <tr>
                 <td class="text-left">(C) Net ITC Available (A)-(B)</td>
-                <td class="text-right">31502684.38</td>
-                <td class="text-right">2810991.00</td>
-                <td class="text-right">2810991.00</td>
-                <td class="text-right">0.00</td>
+                <td class="text-right">{{ number_format($getGstr3bSection4PartC['final_totals']['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($getGstr3bSection4PartC['final_totals']['cgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($getGstr3bSection4PartC['final_totals']['sgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($getGstr3bSection4PartC['final_totals']['cess'] ?? 0, 2) }}</td>
             </tr>
             <tr>
                 <td class="text-left">(D) Ineligible ITC</td>
@@ -340,14 +387,14 @@
             <tr>
                 <td class="row-number">1</td>
                 <td class="text-left">From a supplier under composition scheme, Exempt and Nil rated supply</td>
-                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['inter_state'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bNilRatedExemptedData['intra_state'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection5Data['composition_exempt_nil']['total_amount'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection5Data['composition_exempt_nil']['total_amount'] ?? 0, 2) }}</td>
             </tr>
             <tr>
                 <td class="row-number">2</td>
                 <td class="text-left">Non GST supply</td>
-                <td class="text-right">0.00</td>
-                <td class="text-right">153040.00</td>
+                <td class="text-right">{{ number_format($gstr3bSection5Data['non_gst']['total_amount'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection5Data['non_gst']['total_amount'] ?? 0, 2) }}</td>
             </tr>
         </tbody>
     </table>

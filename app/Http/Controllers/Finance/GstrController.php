@@ -9,6 +9,7 @@ use App\Models\Finance\GstrCompiledData;
 use App\Models\Organization;
 use App\Models\OrganizationCompany;
 use App\Models\OrganizationGroup;
+use App\Services\Gstr3bService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,13 +19,16 @@ use App\Helpers\CommonHelper;
 use App\Helpers\GstrHelper;
 use App\Helpers\Helper;
 use Illuminate\Pagination\LengthAwarePaginator;
-use App\Exports\finance\GstrExportService as XlsxExportService;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-
 use Barryvdh\DomPDF\Facade\Pdf;
 class GstrController extends Controller
 {
+
+    protected $gstr3bService;
+
+    public function __construct(Gstr3bService $gstr3bService)
+    {
+        $this->gstr3bService = $gstr3bService;
+    }
 
     public function index(Request $request){
         $pageLengths = ConstantHelper::PAGE_LENGTHS;
@@ -365,23 +369,9 @@ class GstrController extends Controller
                 $typeIds = ErpGstInvoiceType::whereIn('code', CommonHelper::HSN_B2B_INVOICE_TYPES)
                         ->where('status',ConstantHelper::ACTIVE)
                         ->pluck('id');
-                $query->select(
-                            "erp_gstr_compiled_data.hsn_code",
-                            "erp_gstr_compiled_data.description",
-                            "erp_gstr_compiled_data.uqc",
-                            "erp_gstr_compiled_data.qty",
-                            DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
-                            DB::raw("erp_gstr_compiled_data.rate as rate"),
-                            DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
-                            DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
-                            DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
-                            DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
-                            DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
-                        )
-                        ->whereIn('invoice_type_id', $typeIds)
+                $query->whereIn('invoice_type_id', $typeIds)
                         ->whereNotNull('hsn_code')
                         ->whereNotNull('uqc')
-                        ->whereNotNull('rate')
                         ->groupBy('hsn_code','uqc', 'rate');
                 break;
 
@@ -389,24 +379,10 @@ class GstrController extends Controller
                 $typeIds = ErpGstInvoiceType::whereIn('code', CommonHelper::HSN_B2C_INVOICE_TYPES)
                         ->where('status',ConstantHelper::ACTIVE)
                         ->pluck('id');
-                $query->select(
-                            "erp_gstr_compiled_data.hsn_code",
-                            "erp_gstr_compiled_data.description",
-                            "erp_gstr_compiled_data.uqc",
-                            "erp_gstr_compiled_data.qty",
-                            DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
-                            DB::raw("erp_gstr_compiled_data.rate as rate"),
-                            DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
-                            DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
-                            DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
-                            DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
-                            DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
-                        )
-                        ->whereIn('invoice_type_id', $typeIds)
+                $query->whereIn('invoice_type_id', $typeIds)
                         ->whereNotNull('hsn_code')
                         ->whereNotNull('uqc')
-                        ->whereNotNull('rate')
-                        ->groupBy('hsn_code','uqc', 'rate');
+                        ->groupBy('hsn_code','uqc');
                 break;
 
             case CommonHelper::DOC:
@@ -419,26 +395,7 @@ class GstrController extends Controller
                 break;
 
             case CommonHelper::B2B:
-                $query->select(
-                        "erp_gstr_compiled_data.party_gstin",
-                        "erp_gstr_compiled_data.party_name",
-                        "erp_gstr_compiled_data.invoice_no",
-                        "erp_gstr_compiled_data.invoice_date",
-                        "erp_gstr_compiled_data.pos",
-                        "erp_gstr_compiled_data.place_of_supply",
-                        "erp_gstr_compiled_data.reverse_charge",
-                        "erp_gstr_compiled_data.applicable_tax_rate",
-                        "erp_gstr_compiled_data.invoice_type",
-                        "erp_gstr_compiled_data.e_commerce_gstin",
-                        DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
-                        DB::raw("erp_gstr_compiled_data.rate as rate"),
-                        DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
-                        DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
-                        DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
-                        DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
-                        DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
-                    )
-                    ->where('invoice_type_id', $id)
+                $query->where('invoice_type_id', $id)
                     ->whereNotNull('invoice_id')
                     ->whereNotNull('invoice_no')
                     ->whereNotNull('rate')
@@ -596,172 +553,6 @@ class GstrController extends Controller
 
     }
 
-    public function exportExcelSheet(Request $request)
-    {
-        try {
-            $organization = OrganizationHelper::getAuthenticatedOrganization();
-            $gstin = $organization->gst_number;
-
-            // Ensure directory exists
-            $directoryPath = public_path('storage/temp/finance/gstr1');
-            if (!file_exists($directoryPath)) {
-                mkdir($directoryPath, 0775, true);
-                chmod($directoryPath, 0775);
-            }
-
-            $service = new XlsxExportService();
-            $fileName = $gstin . '_gstr1.xlsx';
-
-            $result = $service->exportAll($fileName, $request, $gstin);
-
-            if (empty($result['status']) || !$result['status']) {
-                return back()->with('error', $result['message'] ?? 'Export failed.');
-            }
-
-            $excelPublicPath = public_path('storage/' . ltrim($result['file'] ?? '', '/'));
-
-            if (!file_exists($excelPublicPath)) {
-                return back()->with('error', 'Generated Excel file not found.');
-            }
-
-            $staticPath = public_path('GSTR/GSTR1_HELP_INSTRUCTION.xlsx');
-
-            if (file_exists($staticPath)) {
-                try {
-
-                    $generatedWorkbook = IOFactory::load($excelPublicPath);
-                    $staticWorkbook = IOFactory::load($staticPath);
-
-                    // get first sheet from static workbook
-                    $helpSheet = $staticWorkbook->getSheet(0);
-                    if ($helpSheet) {
-                        $baseTitle = 'Help Instructions';
-                        $existingTitles = $generatedWorkbook->getSheetNames();
-                        $finalTitle = $baseTitle;
-                        $i = 1;
-                        while (in_array($finalTitle, $existingTitles)) {
-                            $finalTitle = $baseTitle . '_' . $i++;
-                        }
-
-                        $newSheet = $generatedWorkbook->addExternalSheet($helpSheet);
-                        $newSheet->setTitle($finalTitle);
-
-                        $mergedFileName = basename($excelPublicPath, '.xlsx') . '_report.xlsx';
-                        $mergedPath = dirname($excelPublicPath) . '/' . $mergedFileName;
-
-                        $writer = new Xlsx($generatedWorkbook);
-                        $writer->save($mergedPath);
-
-                        if (file_exists($mergedPath)) {
-                            $excelPublicPath = $mergedPath;
-                        }
-                    } 
-                } catch (\Throwable $e) {
-                     return back()->with('error',  $e->getMessage());
-                }
-            } else {
-                return back()->with('error',  'Static Help Excel not found at: ' . $staticPath);
-            }
-
-            return response()->download($excelPublicPath)->deleteFileAfterSend(true);
-
-        } catch (\Throwable $e) {
-            return back()->with('error', 'Something went wrong during Excel export.');
-        }
-    }
-    
-    private function getGstr3bInterStateData($gstin, $month)
-    {
-        $b2clTypeIds = ErpGstInvoiceType::whereIn("code", ["b2cl"])
-            ->where("status", ConstantHelper::ACTIVE)
-            ->pluck("id")
-            ->toArray();
-
-        $data = GstrCompiledData::whereIn("invoice_type_id", $b2clTypeIds)
-            ->where("erp_gstr_compiled_data.month", $month)
-            ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
-            ->where("erp_gstr_compiled_data.igst", ">", 0)
-            ->select(
-                "erp_gstr_compiled_data.place_of_supply",
-                DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
-                DB::raw("SUM(erp_gstr_compiled_data.igst) as igst")
-            )
-            ->whereNotNull("invoice_id")
-            ->whereNotNull("place_of_supply")
-            ->groupBy("place_of_supply")
-            ->get();
-
-        return $data;
-    }
-
-    private function getGstr3bZeroRatedData($gstin, $month)
-    {
-        $data = GstrCompiledData::where("erp_gstr_compiled_data.month", $month)
-            ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
-            ->where("erp_gstr_compiled_data.rate", 0)
-            ->select(
-                DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt")
-            )
-            ->whereNotNull("invoice_id")
-            ->first();
-
-        return [
-            "taxable_amt" => $data->taxable_amt ?? 0,
-            "igst" => 0,
-            "cgst" => 0,
-            "sgst" => 0,
-            "cess" => 0
-        ];
-    }
-
-    private function getGstr3bNilRatedExemptedData($gstin, $month)
-    {
-        $data = GstrCompiledData::where("erp_gstr_compiled_data.month", $month)
-            ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
-            ->select(
-                DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt")
-            )
-            ->whereNotNull("invoice_id")
-            ->first();
-
-        return [
-            "taxable_amt" => $data->taxable_amt ?? 0,
-            "igst" => 0,
-            "cgst" => 0,
-            "sgst" => 0,
-            "cess" => 0
-        ];
-    }
-
-    private function getGstr3bB2BData($gstin, $month)
-    {
-        $b2bTypeIds = ErpGstInvoiceType::whereIn("code", ["b2b", "b2ba"])
-            ->where("status", ConstantHelper::ACTIVE)
-            ->pluck("id")
-            ->toArray();
-
-        $data = GstrCompiledData::whereIn("invoice_type_id", $b2bTypeIds)
-            ->where("erp_gstr_compiled_data.month", $month)
-            ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
-            ->select(
-                DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
-                DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
-                DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
-                DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
-                DB::raw("SUM(erp_gstr_compiled_data.cess) as cess")
-            )
-            ->whereNotNull("invoice_id")
-            ->first();
-
-        return [
-            "taxable_amt" => $data->taxable_amt ?? 0,
-            "igst" => $data->igst ?? 0,
-            "cgst" => $data->cgst ?? 0,
-            "sgst" => $data->sgst ?? 0,
-            "cess" => $data->cess ?? 0
-        ];
-    }
-
     public function gstr3b(Request $request)
     {
         $organization = OrganizationHelper::getAuthenticatedOrganization();
@@ -771,29 +562,24 @@ class GstrController extends Controller
         $fyear = Helper::getFinancialYear(date("Y-m-d"));
         $financialYear = $fyear["range"] ?? "2025-26";
 
-        $currentDate = now();
-        $previousMonthDate = $currentDate->copy()->subMonth();
-        $previousMonthName = $previousMonthDate->format("M");
-        $previousMonthYear = $previousMonthDate->year;
-        $previousMonth = $previousMonthName . "-" . $previousMonthYear;
+        $previousMonthDate = now()->subMonth();
         $month = $previousMonthDate->month;
+        $previousMonth = $previousMonthDate->format("M-Y");
 
-        $gstr3bData = $this->getGstr3bB2BData($gstin, $month);
-        $gstr3bZeroRatedData = $this->getGstr3bZeroRatedData($gstin, $month);
-        $gstr3bNilRatedExemptedData = $this->getGstr3bNilRatedExemptedData($gstin, $month);
-        $gstr3bInterStateData = $this->getGstr3bInterStateData($gstin, $month);
-
-        return view("finance.gstr.gstr3b", compact(
-            "financialYear",
-            "previousMonth",
-            "fyear",
-            "gstin",
-            "organizationName",
-            "gstr3bData",
-            "gstr3bZeroRatedData",
-            "gstr3bNilRatedExemptedData",
-            "gstr3bInterStateData"
-        ));
+        $data = [
+            'financialYear' => $financialYear,
+            'previousMonth' => $previousMonth,
+            'fyear' => $fyear,
+            'gstin' => $gstin,
+            'organizationName' => $organizationName,
+            'gstr3bSection3_1Data' => $this->gstr3bService->getSection3_1Data($gstin, $month),
+            'gstr3bSection3_2Data' => $this->gstr3bService->getSection3_2Data($gstin, $month),
+            'gstr3bSection4Data'   => $this->gstr3bService->getGstr4Section($month, $gstin),
+            'gstr3bSection5Data'   => $this->gstr3bService->getGstr3bSection5Data($gstin, $month),
+            'getGstr3bSection4PartC' => $this->gstr3bService->getGstr3bSection4PartC($gstin, $month),
+        ];
+        
+        return view('finance.gstr.gstr3b', $data);
     }
 
     public function gstr3bPdf(Request $request)
@@ -804,35 +590,26 @@ class GstrController extends Controller
 
         $fyear = Helper::getFinancialYear(date("Y-m-d"));
         $financialYear = $fyear["range"] ?? "2025-26";
-
-        $currentDate = now();
-        $previousMonthDate = $currentDate->copy()->subMonth();
-        $previousMonthName = $previousMonthDate->format("M");
-        $previousMonthYear = $previousMonthDate->year;
-        $previousMonth = $previousMonthName . "-" . $previousMonthYear;
+        $previousMonthDate = now()->subMonth();
         $month = $previousMonthDate->month;
+        $previousMonth = $previousMonthDate->format("M-Y");
 
-        $gstr3bData = $this->getGstr3bB2BData($gstin, $month);
-        $gstr3bZeroRatedData = $this->getGstr3bZeroRatedData($gstin, $month);
-        $gstr3bNilRatedExemptedData = $this->getGstr3bNilRatedExemptedData($gstin, $month);
-        $gstr3bInterStateData = $this->getGstr3bInterStateData($gstin, $month);
+        $data = [
+            'financialYear' => $financialYear,
+            'previousMonth' => $previousMonth,
+            'fyear' => $fyear,
+            'gstin' => $gstin,
+            'organizationName' => $organizationName,
+            'gstr3bSection3_1Data' => $this->gstr3bService->getSection3_1Data($gstin, $month),
+            'gstr3bSection3_2Data' => $this->gstr3bService->getSection3_2Data($gstin, $month),
+            'gstr3bSection4Data'   => $this->gstr3bService->getGstr4Section($month, $gstin),
+            'gstr3bSection5Data'   => $this->gstr3bService->getGstr3bSection5Data($gstin, $month),
+            'getGstr3bSection4PartC' => $this->gstr3bService->getGstr3bSection4PartC($gstin, $month),
+        ];
 
-        $pdf = Pdf::loadView('finance.gstr.gstr3b-pdf', compact(
-            "financialYear",
-            "previousMonth",
-            "fyear",
-            "gstin",
-            "organizationName",
-            "gstr3bData",
-            "gstr3bZeroRatedData",
-            "gstr3bNilRatedExemptedData",
-            "gstr3bInterStateData"
-        ));
-
+        $pdf = Pdf::loadView('finance.gstr.gstr3b-pdf', $data);
         $pdf->setPaper('A4', 'portrait');
-        
-        $filename = "GSTR3B_" . $gstin . "_" . $previousMonth . ".pdf";
-        
-        return $pdf->download($filename);
+
+        return $pdf->download("GSTR3B_{$gstin}_{$previousMonth}.pdf");
     }
 }
