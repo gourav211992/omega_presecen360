@@ -350,10 +350,10 @@
             </tr>
             <tr>
                 <td class="text-left">(C) Net ITC Available (A)-(B)</td>
-                <td class="text-right">31502684.38</td>
-                <td class="text-right">2810991.00</td>
-                <td class="text-right">2810991.00</td>
-                <td class="text-right"></td>
+                <td class="text-right">{{ number_format($getGstr3bSection4PartC['final_totals']['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($getGstr3bSection4PartC['final_totals']['cgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($getGstr3bSection4PartC['final_totals']['sgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($getGstr3bSection4PartC['final_totals']['cess'] ?? 0, 2) }}</td>
             </tr>
             <tr>
                 <td class="text-left">(D) Ineligible ITC</td>
