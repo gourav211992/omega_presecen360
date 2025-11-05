@@ -1280,7 +1280,7 @@
 
 
 
-                                    if(balanceshow > 0)
+                                    if(balanceshow > 0 && val['balance'] > 0)
                                     {
                                         html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
                                         <td>${index + 1}</td>
