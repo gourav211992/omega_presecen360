@@ -1207,6 +1207,8 @@
                         $.each(response.data, function(index, val) {
                             if (!preSelected.includes(val['id'].toString())) {
                                  var set = false;
+                                 var advance = parseFloat(val['advance']) || 0;;
+
                                 $.each(val.items || [], function(i, item) {
 
                                     var amount = 0.00;
@@ -1214,6 +1216,7 @@
                                     var checked = "";
                                     var dataAmount = parseFloat(val['balance']).toFixed(2);
                                     var balanceshow = 0.00;
+                                    var totalitempayment = 0.00;
 
                                     if (partyData != "" && partyData != undefined) {
                                         $.each(JSON.parse(partyData), function(indexP, valP) {
@@ -1252,36 +1255,31 @@
                                         showamount = item.credit_amt_org;
                                     }
                                     console.log(item.itemreference);
-                                   if (item.itemreference && item.itemreference.length > 0) {
-                                        item.itemreference.map((refval) => {
-                                            balanceshow += parseFloat(refval.amount) || 0;
-                                        });
-                                        balanceshow = showamount - balanceshow;
-                                        set = true;
-                                    } else 
+                                    if (item.itemreference && item.itemreference.length > 0) 
                                     {
-                                        if(set == true)
-                                        {
-                                            balanceshow = showamount;      
-                                        }
-                                        else
-                                        {
-                                            if(val['balance'] > showamount)
-                                            {
-                                                 balanceshow = showamount;
-                                            }
-                                            else
-                                            {
-                                                 balanceshow = val['balance'];
-                                            }
-                                           
-                                        }
-                                        
+                                        item.itemreference.map((refval) => {
+                                            totalitempayment += parseFloat(refval.amount) || 0;
+                                        });
+                                    } 
+
+                                    if(showamount > 0)
+                                    {
+                                        balanceshow = showamount - totalitempayment;
                                     }
 
-                                    if (val['balance'] < 1 && checked == "") {
-                                        console.log('hii' + val['id']);
-                                    } else {
+                                    if(advance && advance > 0)
+                                    {
+                                        balanceshow = balanceshow - advance;
+                                    }
+
+                                    if(balanceshow < 0)
+                                    {
+                                        advance = -(balanceshow);
+                                    }
+                                    
+
+
+
                                     if(balanceshow > 0)
                                     {
                                         html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
@@ -1304,7 +1302,6 @@
                                                 <input type="hidden" class="ledger-id" value="${item.ledger_id}">
                                                 <input type="hidden" class="item-id" value="${item.id}">
                                         </tr>`;
-                                    }
                                     }
                                 });
                             }

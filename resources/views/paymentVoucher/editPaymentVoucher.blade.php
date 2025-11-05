@@ -605,6 +605,9 @@
                                                                                 id="party_vouchers{{ $no }}" 
                                                                                 class="party_vouchers" 
                                                                                 value='@json($transformed)' />
+                                                                             <input type="hidden" 
+                                                                                class="oldparty_vouchers" 
+                                                                                value='@json($transformed)' />
                                                                             <input type="hidden" name="customerid[]"
                                                                                 id="customerid{{ $no }}"
                                                                                 class="party_vouchers"
@@ -700,6 +703,7 @@
                                                 <div class="row mt-2">
                                                     <div class="col-md-4 mb-1">
                                                         <label class="form-label">Document</label>
+                                                        <input type="hidden" id="editdeleteparty_voucher" value="">
                                                         <input type="file" class="form-control" name="document" />
                                                         @if ($data->document)
                                                             <a href="{{ asset('voucherPaymentDocuments') . '/' . $data->document }}"
@@ -1361,39 +1365,53 @@
             }
         });
 
-        function openInvoice(id,paymentId=null,details=null,ref=null) {
+        function openInvoice(id,paymentId=null,details=null,ref=null) 
+        {
            const selectedType = $('.drop' + id).val();
             console.log(selectedType);
             console.log(id);
-             $('#excAmount' + id).attr('readonly', true);
-            if ($('#party_id'+id).val()!="") {
-               $('.drop' + id).val(selectedType);
-                const comingParty = $('#party_id' + id).val();
-                if (comingParty != $('#currentParty').val()) {
-                    $('#vouchersBody').empty();
-                    $("#inlineCheckbox1").attr('checked', false);
-                    calculateSettle();
-                    $('#fp-range').val('');
-                }
-                $('#currentParty').val(comingParty);
-                $('#currentRow').val(id);
-                 if(selectedType == 'Invoice')
+           
+                $('#excAmount' + id).attr('readonly', true);
+                if ($('#party_id'+id).val()!="") 
                 {
-                    getLedgers(paymentId,details,ref);
-                    $('#invoice').modal('toggle');
-                }
-                if(selectedType == 'Advance')
-                {
-                    advancegetLedgers(paymentId,details,ref);
-                    $('#advance').modal('toggle');
-                }
-                
-                $('#invoice').modal('show');
+                    if(selectedType)
+                    {
+                        $('.drop' + id).val(selectedType);
+                            const comingParty = $('#party_id' + id).val();
+                            if (comingParty != $('#currentParty').val()) {
+                                $('#vouchersBody').empty();
+                                $("#inlineCheckbox1").attr('checked', false);
+                                calculateSettle();
+                                $('#fp-range').val('');
+                            }
+                            $('#currentParty').val(comingParty);
+                            $('#currentRow').val(id);
+                            if(selectedType == 'Invoice')
+                            {
+                                getLedgers(paymentId,details,ref);
+                                $('#invoice').modal('toggle');
+                                 $('#invoice').modal('show');
+                            }
+                            if(selectedType == 'Advance')
+                            {
+                                advancegetLedgers(paymentId,details,ref);
+                                $('#advance').modal('toggle');
+                                 $('#advance').modal('show');
+                            }
+                            
+                           
 
-            } else {
-                $('.drop' + id).val('');
-                showToast('error','Select ledger to select invoice!!');
-            }
+                    }
+                    else
+                    {
+                        showToast('error','Please choose reference first');
+                    } 
+                }
+                else {
+                    $('.drop' + id).val('');
+                    showToast('error','Select ledger to select invoice!!');
+                }
+
         }
 
          function openAdvance(id,paymentId=null,details=null,ref=null) {
@@ -1430,7 +1448,14 @@
             }).get();
 
             var preData = [];
-            const partyData = $('#party_vouchers' + $('#currentRow').val()).val();
+            let currentRow = $('#currentRow').val();
+            let partyData = $('#party_vouchers' + currentRow).val();
+
+            // Agar partyData blank ya undefined hai to fallback lo
+            if (!partyData || partyData.trim() === "") {
+                partyData = $('#editdeleteparty_voucher').val();
+            }
+
             const payment_voucher_id = '{{ $data->id }}';
             console.log(partyData);
            $('#vouchersBody').empty();
@@ -1620,7 +1645,14 @@
             }).get();
 
             var preData = [];
-            const partyData = $('#party_vouchers' + $('#currentRow').val()).val();
+            let currentRow = $('#currentRow').val();
+            let partyData = $('#party_vouchers' + currentRow).val();
+
+            // Agar partyData blank ya undefined hai to fallback lo
+            if (!partyData || partyData.trim() === "") {
+                partyData = $('#editdeleteparty_voucher').val();
+            }
+            console.log(partyData);
              $('#vouchersBody').empty();
              $('#advancevouchersBody').empty();
             $.ajax({
@@ -1645,7 +1677,8 @@
                 },
                 success: function(response) {
                     console.log(response);
-                    if (response.data.length > 0) {
+                    if (response.data.length > 0) 
+                    {
                         var html = '';
                         const ledgerId = $('#party_id' + $('#currentRow').val()).val();
                         $.each(response.data, function(index, val) {
@@ -1656,21 +1689,23 @@
                             var existsInPartyData = false;
 
                             // Check if current val exists in partyData
-                            $.each(JSON.parse(partyData), function(indexP, valP) {
-                                if (valP['header_id'] && valP['header_amounts']) {
-                                    const headerIds = valP['header_id'].toString().split(',');
-                                    const headerAmounts = valP['header_amounts'].toString().split(',');
-                                    const matchIndex = headerIds.indexOf(val['id'].toString());
+                            if (partyData && partyData.trim() !== "") {
+                                $.each(JSON.parse(partyData), function(indexP, valP) {
+                                    if (valP['header_id'] && valP['header_amounts']) {
+                                        const headerIds = valP['header_id'].toString().split(',');
+                                        const headerAmounts = valP['header_amounts'].toString().split(',');
+                                        const matchIndex = headerIds.indexOf(val['id'].toString());
 
-                                    if (matchIndex !== -1) {
-                                        existsInPartyData = true; // found match
-                                        amount = parseFloat(headerAmounts[matchIndex]).toFixed(2);
-                                        checked = "checked";
-                                        dataAmount = amount;
-                                        return false; // break inner loop once match is found
+                                        if (matchIndex !== -1) {
+                                            existsInPartyData = true; // found match
+                                            amount = parseFloat(headerAmounts[matchIndex]).toFixed(2);
+                                            checked = "checked";
+                                            dataAmount = amount;
+                                            return false; // break inner loop once match is found
+                                        }
                                     }
-                                }
-                            });
+                                });
+                            }
 
                             // ✅ Include only when:
                             // - settle == 0, OR
@@ -1680,6 +1715,7 @@
                                 var amount = 0.00;
                                 var checked = "";
                                 var dataAmount = 0.00;
+                                if (partyData && partyData.trim() !== "") {
                                     $.each(JSON.parse(partyData), function(indexP, valP) {
                                         console.log(valP['header_id'],valP['header_amounts']);
                                         if (valP['header_id'] && valP['header_amounts']) {
@@ -1699,6 +1735,7 @@
                                             }
                                         }
                                     });
+                                }
                                     var calculatedValue = (val['total_item_value'] * val['percent']) / 100;
                                     html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
                                         <td>${index + 1}</td>
@@ -1822,6 +1859,7 @@
                 const value = parseFloat($('.settleAmount' + this.value).val()) || 0;
                 settleSum += value;
             }).get();
+            console.log(settleSum);
             $('.settleTotal').text(formatIndianNumber(settleSum));
         }
 
@@ -2280,6 +2318,36 @@ function check_amount() {
             $('.mrntableselectexcel').on('click', '.deleteRow', function(e) {
                 e.preventDefault();
                 let row = $(this).closest('tr');
+                // Find by class instead of id
+                let oldVoucherVal = row.find('.oldparty_vouchers').val();
+
+                if (oldVoucherVal && oldVoucherVal.trim() !== "") {
+                    // Get existing hidden field value
+                    let existing = $('#editdeleteparty_voucher').val();
+                    let merged = [];
+
+                    try {
+                        if (existing && existing.trim() !== "") {
+                            merged = JSON.parse(existing);
+                        }
+                    } catch (e) {
+                        console.warn("Invalid JSON in editdeleteparty_voucher:", e);
+                    }
+
+                    try {
+                        let newData = JSON.parse(oldVoucherVal);
+                        if (Array.isArray(newData)) {
+                            merged = merged.concat(newData);
+                        } else {
+                            merged.push(newData);
+                        }
+                    } catch (e) {
+                        console.warn("Invalid JSON in oldparty_vouchers:", e);
+                    }
+
+                    // Save merged result
+                    $('#editdeleteparty_voucher').val(JSON.stringify(merged));
+                }
                 row.remove();
                 updateLevelNumbers();
                 // evaluateCostCenterVisibility();

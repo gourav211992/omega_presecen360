@@ -669,10 +669,12 @@ class VoucherController extends Controller
                             return $adv->ledger_id == $ledger && $adv->ledger_group_id == $ledger_group;
                         }
                     });
+
+                    
                     foreach ($advanceItems as $advanceItem) {
                         $bucketTotalDeducted = 0;
                         $remainingAdvanceAmount = $advanceItem->orgAmount;
-
+                       
                         // Loop through each customer in the result set
                         foreach ($data as $res) {
                             $documentDate = $advanceItem->voucher->document_date; // e.g. '2025-04-10'
@@ -693,16 +695,17 @@ class VoucherController extends Controller
 
                             $resDateTimestamp = $parsedDate ? $parsedDate->getTimestamp() : null;
 
-
-
-                            if ($vendorDateTimestamp < $resDateTimestamp) {
+                            if ($vendorDateTimestamp < $resDateTimestamp) 
+                            {
                                 $bucketTotalDeducted = 0; // Track total amount deducted from all aging buckets
-                                if ($remainingAdvanceAmount > 0) {
-                                            $deductAmount = min($remainingAdvanceAmount, $res->balance);
-                                            $res->balance -= $deductAmount; // Reduce the bucket value
-                                            $remainingAdvanceAmount -= $deductAmount; // Reduce the advance sum
-                                            $bucketTotalDeducted += $deductAmount; // Track total deducted
-                                        }
+                                if ($remainingAdvanceAmount > 0) 
+                                {
+                                    $deductAmount = min($remainingAdvanceAmount, $res->balance);
+                                    $res->advance = ($res->advance ?? 0) + $remainingAdvanceAmount;
+                                    $res->balance -= $deductAmount; // Reduce the bucket value
+                                    $remainingAdvanceAmount -= $deductAmount; // Reduce the advance sum
+                                    $bucketTotalDeducted += $deductAmount; // Track total deducted
+                                }
                             }
 
                         }
