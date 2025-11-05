@@ -1968,7 +1968,15 @@ function check_amount() {
                 $('#excAmount' + rowId).attr('readonly', true).val('0.00');
                 $('.excAmount' + rowId).val('0.00'); // Set to 0.00 initially
                 openInvoice(rowId);
-            } else {
+            } 
+            else if (selectedValue == "Advance") 
+            {
+                $('.invoice' + rowId).attr('disabled', false);
+                $('#excAmount' + rowId).attr('readonly', true).val('0.00');
+                $('.excAmount' + rowId).val('0.00'); // Set to 0.00 initially
+                openAdvance(rowId);
+            }
+            else {
                 $('.invoice' + rowId).attr('disabled', true);
                 $('#excAmount' + rowId).attr('readonly', false).val('0.00');
                 $('.excAmount' + rowId).val('0.00'); // Set to 0.00 initially
@@ -2194,6 +2202,9 @@ function check_amount() {
                         const id = $(this).attr("data-id");
                         $("#party_id" + id).val(ui.item.value);
                         $("#party_vouchers" + id).val("");
+                        $("#customerid" + id).val(ui.item.customer ? ui.item.customer.id : "");
+                        $("#vendorid" + id).val(ui.item.vendor ? ui.item.vendor.id : "");
+                        $("#headerid" + id).val(ui.item.id);
                         $("#excAmount" + id).val("0.00");
                         $("#organization" + id).val(ui.item.organization.name);
                         $(".drop" + id).val("");
@@ -2285,6 +2296,9 @@ function check_amount() {
                             <input type="text" placeholder="Select" class="form-control mw-100 ledgerselect partyCode${rowCount} mb-25" required data-id="${rowCount}"/>
                             <input type="hidden" name="party_id[]" type="hidden" id="party_id${rowCount}" class="ledgers"/>
                             <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers${rowCount}" class="party_vouchers"/>
+                            <input type="hidden" name="customerid[]" type="hidden" id="customerid${rowCount}" class="party_customers"/>
+                            <input type="hidden" name="vendorid[]" type="hidden" id="vendorid${rowCount}" class="party_vendors"/>
+                            <input type="hidden" name="headerid[]" type="hidden" id="headerid${rowCount}" class="party_vendors"/>
                         </td>
                         <td class="poprod-decpt"><input type="text" disabled placeholder="Select" class="form-control mw-100 mb-25 partyName" id="party_name${rowCount}"/></td>
                         <td>
