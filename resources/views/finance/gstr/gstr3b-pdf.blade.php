@@ -322,10 +322,10 @@
             </tr>
             <tr>
                 <td class="text-left">(5) All other ITC</td>
-                <td class="text-right">30982738.21</td>
-                <td class="text-right">2654766.00</td>
-                <td class="text-right">2654766.00</td>
-                <td class="text-right"></td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['all_other_itc']['igst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['all_other_itc']['cgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['all_other_itc']['sgst'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($gstr3bSection4Data['all_other_itc']['cess'] ?? 0, 2) }}</td>
             </tr>
             <tr>
                 <td class="text-left">(B) ITC Reversed</td>

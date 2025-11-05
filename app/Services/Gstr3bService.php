@@ -15,9 +15,8 @@ class Gstr3bService
     public function getSection3_1Data($gstin, $month)
     {
         $baseQuery = GstrCompiledData::query()
-            ->where('erp_gstr_compiled_data.supplier_gstin', $gstin)
-            ->whereNotNull('invoice_id');
-
+            ->where('month', $month)           
+            ->where('erp_gstr_compiled_data.supplier_gstin', $gstin);
         $b2bData = (clone $baseQuery)
             ->whereIn('doc_type', ['b2b', 'b2ba'])
             ->selectRaw('
@@ -33,6 +32,7 @@ class Gstr3bService
             ->where('rate', 0)
             ->selectRaw('SUM(taxable_amt) as taxable_amt')
             ->first();
+      
 
         $nilExemptedData = (clone $baseQuery)
             ->selectRaw('SUM(expt_amt + nil_amt) as taxable_amt')
@@ -86,6 +86,7 @@ class Gstr3bService
 
     public function getSection3_2Data($gstin, $month)
     {
+       
         $results = [
             'unregistered' => ['taxable_value' => 0, 'igst' => 0, 'details' => []],
             'composition'  => ['taxable_value' => 0, 'igst' => 0, 'details' => []],
@@ -95,10 +96,14 @@ class Gstr3bService
         $unregistered = GstrCompiledData::where('erp_gstr_compiled_data.igst', '>', 0)
             ->where(function ($q) {
                 $q->whereNull('erp_gstr_compiled_data.party_gstin')
-                  ->orWhere('erp_gstr_compiled_data.party_gstin', '');
+                  ->orWhere('erp_gstr_compiled_data.party_gstin', '')
+                  ->orWhere('erp_gstr_compiled_data.party_gstin', NULL);
             })
+            ->where('erp_gstr_compiled_data.supplier_gstin',$gstin)
             ->whereNotNull('erp_gstr_compiled_data.place_of_supply')
             ->where('doc_type', 'b2b')
+            ->where('month',$month)
+            ->where('year',date('Y'))
             ->select(
                 DB::raw("'unregistered' as category"),
                 'erp_gstr_compiled_data.place_of_supply',
@@ -112,8 +117,6 @@ class Gstr3bService
         $results['unregistered']['igst'] = $unregistered->sum('igst');
         $results['unregistered']['details'] = $unregistered->toArray();
 
-        // ... same logic for composition and UIN as your current code
-        // (trimmed for brevity)
         return $results;
     }
 
@@ -204,10 +207,30 @@ class Gstr3bService
             'expense_header_id'
         );
 
+        // All other ITC from erp_gstr_compiled_data with doc_type = 'pur'
+        $allOtherItcData = GstrCompiledData::where('month', $month)
+            ->where('supplier_gstin', $gstin)
+            ->where('doc_type', 'pur')
+            ->selectRaw('
+                SUM(taxable_amt) as taxable_amt,
+                SUM(igst) as igst,
+                SUM(cgst) as cgst,
+                SUM(sgst) as sgst,
+                SUM(cess) as cess
+            ')
+            ->first();
+
         return [
             'import_goods' => $importTotals,
             'import_services' => $importSerTotals,
             'taxable_amount_goods' => $taxableAmount,
+            'all_other_itc' => [
+                'taxable_amt' => $allOtherItcData->taxable_amt ?? 0,
+                'igst' => $allOtherItcData->igst ?? 0,
+                'cgst' => $allOtherItcData->cgst ?? 0,
+                'sgst' => $allOtherItcData->sgst ?? 0,
+                'cess' => $allOtherItcData->cess ?? 0,
+            ],
         ];
     }
 
