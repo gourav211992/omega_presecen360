@@ -69,6 +69,7 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/advancepayment-receipt/email', [AdvancePaymentVoucherController::class, 'sendMail'])->name('advancepaymentVouchers.email');
     Route::post('/advancevoucher/check-reference', [AdvancePaymentVoucherController::class, 'checkReference'])->name('advancevoucher.checkReference');
     Route::post('advancegetLedgerVouchers', [AdvancePaymentVoucherController::class, 'getLedgerVouchers'])->name('advancegetLedgerVouchers');
+    Route::post('advancegetPaymentLedgerVouchers', [AdvancePaymentVoucherController::class, 'getPaymentLedgerVouchers'])->name('advancegetPaymentLedgerVouchers');
 
     Route::controller(GstrController::class)->prefix('finance/gstr')->group(function () {
         Route::get('/gstr-3b', 'gstr3b')->name('finance.gstr.gstr-3b');

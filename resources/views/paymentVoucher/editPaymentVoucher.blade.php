@@ -562,35 +562,43 @@
                                                                             id="party_id{{ $no }}"
                                                                             class="ledgers"
                                                                             value="{{ $item->ledger_id??$item->party_id }}" />
-                                                                       @php
-                                                                            $transformed = [];
+                                                                      @php
+                                                                        $transformed = [];
 
-                                                                            $headerIds = explode(',', $item['header_id']);
-                                                                            $headerNames = explode(',', $item['header_name']);
-                                                                            $headerAmounts = explode(',', $item['header_amounts']);
+                                                                        $headerIds = explode(',', $item['header_id']);
+                                                                        $headerNames = explode(',', $item['header_name']);
+                                                                        $headerAmounts = explode(',', $item['header_amounts']);
 
-                                                                            foreach ($headerIds as $index => $voucherId) {
-                                                                                foreach ($detail->invoice as $ref) {
+                                                                        foreach ($headerIds as $index => $headerId) 
+                                                                        {
+                                                                            if($item->reference == 'Invoice')
+                                                                            {
+                                                                                $invoice = $item->invoice[$index] ?? null;
+
+                                                                                if ($invoice) {
                                                                                     $transformed[] = [
-                                                                                        'header_id'      => $voucher->id,
-                                                                                        'header_name'    => $headerNames[$index] ?? $voucher->voucher_no ?? '',
-                                                                                        'party_id'       => (string)($detail->ledger_id ?? $ref->party_id ?? ''),
-                                                                                        'voucher_id'     => (string)($ref->voucher_id ?? ''),
-                                                                                        'voucher_item_id'=> (string)($ref->voucher_item_id ?? ''),
-                                                                                        'amount'         => $ref->amount ?? '0',
+                                                                                        'party_id'       => (string) $item['ledger_id'],
+                                                                                        'voucher_id'     => (string) ($invoice->voucher_id ?? ''),
+                                                                                        'amount'         => $headerAmounts[$index] ?? '0',
                                                                                         'header_amounts' => $headerAmounts[$index] ?? '0',
+                                                                                        'header_id'      => (int) $headerId,
+                                                                                        'header_name'    => $headerNames[$index] ?? '',
                                                                                     ];
                                                                                 }
+                                                                            }
+                                                                            else
+                                                                            {
                                                                                 $transformed[] = [
-                                                                                    'party_id' => (string)$item['ledger_id'],   // or $item['party_id'] if needed
-                                                                                    'voucher_id' => (string)$voucherId,         // you can replace with your internal voucher_id if exists
-                                                                                    'amount' => $headerAmounts[$index] ?? '0',
+                                                                                    'party_id'       => (string) $item['ledger_id'],
+                                                                                    'voucher_id'     => '',
+                                                                                    'amount'         => $headerAmounts[$index] ?? '0',
                                                                                     'header_amounts' => $headerAmounts[$index] ?? '0',
-                                                                                    'header_id' => (int)$voucherId,
-                                                                                    'header_name' => $headerNames[$index] ?? ''
+                                                                                    'header_id'      => (int) $headerId,
+                                                                                    'header_name'    => $headerNames[$index] ?? '',
                                                                                 ];
                                                                             }
-                                                                            @endphp
+                                                                        }
+                                                                        @endphp
 
                                                                             <input type="hidden" 
                                                                                 name="party_vouchers[]" 
@@ -956,7 +964,7 @@
                         <div class="col-md-3">
                             <div class="mb-1">
                                 <label class="form-label">Date <span class="text-danger">*</span></label>
-                                <input type="text" id="fp-range" name="date_range"
+                                <input type="text" id="advancefp-range" name="date_range"
                                     value="{{ Request::get('date_range') }}"
                                     class="form-control flatpickr-range bg-white"
                                     placeholder="YYYY-MM-DD to YYYY-MM-DD" />
@@ -978,13 +986,13 @@
                         <div class="col-md-3">
                             <div class="mb-1">
                                 <label class="form-label">Document No. <span class="text-danger">*</span></label>
-                                <input type="text" id="document_no" class="form-control" />
+                                <input type="text" id="advancedocument_no" class="form-control" />
                             </div>
                         </div>
 
                         <div class="col-md-3  mb-1">
                             <label class="form-label">&nbsp;</label><br />
-                            <button type="button" class="btn btn-warning btn-sm" onclick="getLedgers()"><i
+                            <button type="button" class="btn btn-warning btn-sm" onclick="advancegetLedgers()"><i
                                     data-feather="search"></i> Search</button>
                         </div>
                         <div class="col-md-12">
@@ -1200,6 +1208,35 @@
 
                     // Remove existing error message
                     input.next('.invalid-feedback').remove();
+                    let partyVoucherArray = [];
+                    $('.party_vouchers').each(function() {
+                        let jsonVal = $(this).val();
+                        if (jsonVal) {
+                            try {
+                                partyVoucherArray = partyVoucherArray.concat(JSON.parse(jsonVal));
+                            } catch (e) {
+                                console.error('Invalid JSON in party_vouchers', e);
+                            }
+                        }
+                    });
+
+                    // --- Find matching record (header_id + voucher_id) ---
+                    let headerId = input.data('itemid');
+                    let voucherId = input.data('id');
+
+                    let matchedRecord = partyVoucherArray.find(obj =>
+                        parseInt(obj.header_id) === parseInt(headerId) &&
+                        parseInt(obj.voucher_id) === parseInt(voucherId)
+                    );
+
+                    // --- ✅ Add matched JSON amount into balance ---
+                    if (matchedRecord) {
+                        let jsonAmount = parseFloat(matchedRecord.amount) || 0;
+                        balance += jsonAmount; // only balance increases
+                        console.log(`Matched → header_id=${headerId}, voucher_id=${voucherId}, +${jsonAmount} added to balance`);
+                    }
+
+                    console.log(balance);
 
                     if (settleAmount > balance) {
                         input.addClass('is-invalid');
@@ -1214,7 +1251,8 @@
                     return false;
                 }
 
-            $('#excAmount' + $('#currentRow').val()).val($('.settleTotal').text().replace(/,/g, ''));
+            console.log($('.settleTotal').text());
+            $('#excAmount' + $('#currentRow').val()).val($('.settleTotal').first().text().replace(/,/g, '').trim());
             $('#excAmount' + $('#currentRow').val()).trigger('keyup');
             $('#invoice').modal('toggle');
 
@@ -1222,10 +1260,10 @@
             const preSelected = $('.vouchers:checked').map(function() {
                 selectedVouchers.push({
                     "party_id": $('#LedgerId').val(),
-                    "voucher_id": this.value,
+                    "voucher_id": $(this).data('id'),
                     "amount": $('.settleAmount' + this.value).val(),
                     "header_amounts":$('.settleAmount' + this.value).val(),
-                    "header_id": $(this).data('header_id'),
+                    "header_id": $(this).data('itemid'),
                     "header_name": $(this).data('header_name'),
                 });
                 return this.value;
@@ -1286,10 +1324,10 @@
             const preSelected = $('.vouchers:checked').map(function() {
                selectedVouchers.push({
                     "party_id": $('#LedgerId').val(),
-                    "voucher_id": this.value,
+                    "voucher_id": "",
                     "amount": $('.settleAmount' + this.value).val(),
                     "header_amounts":$('.settleAmount' + this.value).val(),
-                    "header_id": $(this).data('header_id'),
+                    "header_id": $(this).data('id'),
                     "header_name": $(this).data('header_name'),
                 });
                 return this.value;
@@ -1589,11 +1627,11 @@
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                url: '{{ route('advancegetLedgerVouchers') }}',
+                url: '{{ route('advancegetPaymentLedgerVouchers') }}',
                 type: 'POST',
                 dataType: 'json',
                 data: {
-                    date: $('#fp-range').val(),
+                    date: $('#advancefp-range').val(),
                     '_token': '{!! csrf_token() !!}',
                     partyCode: $('.partyCode' + $('#currentRow').val()).val(),
                     partyID: $('#party_id' + $('#currentRow').val()).val(),
@@ -1602,7 +1640,7 @@
                     headerid: $('#headerid' + $('#currentRow').val()).val(),
                     ledgerGroup: $('#groupSelect' + $('#currentRow').val()).val(),
                     book_code: $('#book_code').val(),
-                    document_no: $('#document_no').val(),
+                    document_no: $('#advancedocument_no').val(),
                     type: $('#document_type').val()
                 },
                 success: function(response) {
@@ -1610,9 +1648,34 @@
                     if (response.data.length > 0) {
                         var html = '';
                         const ledgerId = $('#party_id' + $('#currentRow').val()).val();
-                        $.each(response.data, function(index, val) 
-                        {
-                            if(val.topay > 0 && val.settle == 0)
+                        $.each(response.data, function(index, val) {
+                            // Default values
+                            var amount = 0.00;
+                            var checked = "";
+                            var dataAmount = 0.00;
+                            var existsInPartyData = false;
+
+                            // Check if current val exists in partyData
+                            $.each(JSON.parse(partyData), function(indexP, valP) {
+                                if (valP['header_id'] && valP['header_amounts']) {
+                                    const headerIds = valP['header_id'].toString().split(',');
+                                    const headerAmounts = valP['header_amounts'].toString().split(',');
+                                    const matchIndex = headerIds.indexOf(val['id'].toString());
+
+                                    if (matchIndex !== -1) {
+                                        existsInPartyData = true; // found match
+                                        amount = parseFloat(headerAmounts[matchIndex]).toFixed(2);
+                                        checked = "checked";
+                                        dataAmount = amount;
+                                        return false; // break inner loop once match is found
+                                    }
+                                }
+                            });
+
+                            // ✅ Include only when:
+                            // - settle == 0, OR
+                            // - settle > 0 but exists in partyData
+                            if ((val.topay > 0 && val.settle == 0) || (val.settle > 0 && existsInPartyData))
                             {
                                 var amount = 0.00;
                                 var checked = "";

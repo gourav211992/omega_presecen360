@@ -811,7 +811,7 @@
                         <div class="col-md-3">
                             <div class="mb-1">
                                 <label class="form-label">Date <span class="text-danger">*</span></label>
-                                <input type="text" id="fp-range" name="date_range"
+                                <input type="text" id="advancefp-range" name="date_range"
                                     value="{{ Request::get('date_range') }}"
                                     class="form-control flatpickr-range bg-white"
                                     placeholder="YYYY-MM-DD to YYYY-MM-DD" />
@@ -833,13 +833,13 @@
                         <div class="col-md-3">
                             <div class="mb-1">
                                 <label class="form-label">Document No. <span class="text-danger">*</span></label>
-                                <input type="text" id="document_no" class="form-control" />
+                                <input type="text" id="advancedocument_no" class="form-control" />
                             </div>
                         </div>
 
                         <div class="col-md-3  mb-1">
                             <label class="form-label">&nbsp;</label><br />
-                            <button type="button" class="btn btn-warning btn-sm" onclick="getLedgers()"><i
+                            <button type="button" class="btn btn-warning btn-sm" onclick="advancegetLedgers()"><i
                                     data-feather="search"></i> Search</button>
                         </div>
                         <div class="col-md-12">
@@ -1335,11 +1335,11 @@
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                url: '{{ route('advancegetLedgerVouchers') }}',
+                url: '{{ route('advancegetPaymentLedgerVouchers') }}',
                 type: 'POST',
                 dataType: 'json',
                 data: {
-                    date: $('#fp-range').val(),
+                    date: $('#advancefp-range').val(),
                     '_token': '{!! csrf_token() !!}',
                     partyCode: $('.partyCode' + $('#currentRow').val()).val(),
                     partyID: $('#party_id' + $('#currentRow').val()).val(),
@@ -1348,7 +1348,7 @@
                     headerid: $('#headerid' + $('#currentRow').val()).val(),
                     ledgerGroup: $('#groupSelect' + $('#currentRow').val()).val(),
                     book_code: $('#book_code').val(),
-                    document_no: $('#document_no').val(),
+                    document_no: $('#advancedocument_no').val(),
                     type: $('#document_type').val()
                 },
                 success: function(response) {

@@ -593,8 +593,8 @@ class PaymentVoucherController extends Controller
                             $insertRef->payment_voucher_id = $voucher->id;
                             $insertRef->voucher_details_id = $details->id;
                             $insertRef->party_id = $reference->party_id;
-                            $insertRef->voucher_id = $reference->header_id;
-                            $insertRef->voucher_item_id = $reference->voucher_id;
+                            $insertRef->voucher_id = $reference->voucher_id;
+                            $insertRef->voucher_item_id = $reference->header_id;
                             $insertRef->amount = $reference->amount;
                             $insertRef->save();
 
@@ -787,7 +787,7 @@ class PaymentVoucherController extends Controller
             VoucherReference::where('payment_voucher_id', $id)->delete();
 
             foreach ($request->party_id as $index => $party) {
-                $voucherData = json_decode($request->party_vouchers[0], true);
+                $voucherData = json_decode($request->party_vouchers[$index], true);
                 $headerIds   = collect($voucherData)->pluck('header_id')->toArray();
                 $headerNames = collect($voucherData)->pluck('header_name')->toArray();
                 $amounts     = collect($voucherData)->pluck('header_amounts')->toArray();
@@ -838,7 +838,7 @@ class PaymentVoucherController extends Controller
                                 'payment_voucher_id' => $voucher->id,
                                 'voucher_details_id' => $details->id,
                                 'party_id' => $reference['party_id'],
-                                'voucher_item_id' => $reference['voucher_item_id'],
+                                'voucher_item_id' => $reference['header_id'],
                                 'voucher_id' => $reference['voucher_id'],
                                 'amount' => $reference['amount'],
                                 'created_at' => now(),
