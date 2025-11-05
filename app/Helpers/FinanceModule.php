@@ -2,8 +2,25 @@
 
 namespace App\Helpers;
 
+use stdClass;
+use Exception;
+use Carbon\Carbon;
 use App\Models\FixedAssetRegistration;
 use App\Models\FixedAssetSub;
+use App\Models\PbHeader;
+use App\Models\MrnHeader;
+use App\Models\MrnAssetDetail;
+use App\Models\Book;
+use App\Models\OrganizationBookParameter;
+use App\Models\FixedAssetSetup;
+use App\Models\MrnDetail;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Session;
 
 class FinanceModule
 {
@@ -106,7 +123,7 @@ class FinanceModule
         }
     }
 
-    public static function mrnAssetRegister($mrn_id, $alias): array
+    public static function mrnExpenseAssetRegister($mrn_id, $alias): array
     {
 
         DB::beginTransaction();
@@ -234,205 +251,35 @@ class FinanceModule
                     $exitingReg = FixedAssetRegistration::where('mrn_detail_id', $mrn_detail->id)
                         ->where('mrn_header_id', $mrn->id)->first();
 
-                    if (!empty($exitingReg)) {
-                        DB::rollBack();
-                        return [
-                            'message' => 'MRN already registered with asset code ' . $exitingReg->asset_code,
-                            'status' => false
-                        ];
-                    }
-
-                    if (!empty($existingAsset)) {
-                        DB::rollBack();
-                        return [
-                            'status' => false,
-                            'message' => 'Asset Code ' . $existingAsset->asset_code . ' already exists.',
-                            'data' => []
-                        ];
-                    }
-
-                    if (!empty($alias) && ($alias == ConstantHelper::PB_SERVICE_ALIAS)) {
-                        Log::error('pb item value set: ' . $mrn_detail->pb_item_value);
-                        $currentValue = $mrn_detail->pb_item_value;
-                    } else {
-                        Log::error('basic_value: ' . ($mrn_detail->basic_value + $mrn_detail->header_exp_amount));
-                        $currentValue = $mrn_detail->basic_value + $mrn_detail->header_exp_amount;
-                    }
-
-                    $depreciationPercentage = $setup->salvage_percentage ?? $organization->dep_percentage ?? null;
-                    $salvageValue = round($currentValue * ($depreciationPercentage / 100), 2);
-                    $method = $organization->dep_method;
-
-                    $depreciationRate = 0;
-                    if ($method === 'SLM') {
-                        $annualDepreciation = ($currentValue - $salvageValue) / $life;
-                        $depreciationRate = round(($annualDepreciation / $currentValue) * 100, 2);
-                    } elseif ($method === 'WDV') {
-                        $depreciationRate = round((1 - pow($salvageValue / $currentValue, 1 / $life)) * 100, 2);
-                    }
-
-
-
-
-                    if (count($mrn_detail->batches) > 0) {
-                        $count = count($mrn_detail->batches);
-                        $uniqueCodes = $mrn_detail->uniqueCodes->values();
-                        $totalqty = 0;
-                        foreach ($mrn_detail->batches as $batch) {
-                            $totalqty += $batch->inventory_uom_qty;
-                        }
-                        $singlevalue = round($currentValue / $totalqty, 2);
-
-                        $offset = 0;
-
-                        foreach ($mrn_detail->batches as $batch) {
-                            $salvageValue = round(($singlevalue * $batch->inventory_uom_qty) * ($depreciationPercentage / 100), 2);
-
-                            $asset_code = self::generateAssetCode($category_id);
-                            $existingAsset = FixedAssetRegistration::where('asset_code', $asset_code)->first();
-
-                            $data = [
-                                'organization_id' => $user->organization_id,
-                                'group_id' => $organization->group_id,
-                                'company_id' => $organization->company_id,
-                                'created_by' => $user->id,
-                                'type' => get_class($user),
-                                'book_id' => $glPostingBookId,
-                                'document_number' => $mrn->document_number,
-                                'document_date' => $mrn->document_date,
+                    if (!empty($exitingReg)) 
+                    {
+                        
+                         Log::info('mrn register', [
                                 'mrn_detail_id' => $mrn_detail->id,
                                 'mrn_header_id' => $mrn->id,
-                                'asset_code' => $asset_code,
-                                'asset_name' => $asset_name,
-                                'brand_name' => $mrn_asset->brand_name,
-                                'model_no' => $mrn_asset->model_no,
-                                'procurement_type' => $mrn_asset->procurement_type,
-                                'quantity' => $batch->inventory_uom_qty,
-                                'category_id' => $category_id,
-                                'reference_doc_id' => $mrn->id,
-                                'reference_series' => ConstantHelper::MRN_SERVICE_ALIAS,
-                                'ledger_id' => $setup->ledger_id,
-                                'ledger_group_id' => $setup->ledger_group_id,
-                                'capitalize_date' => $capitalize_date,
-                                'last_dep_date' => $capitalize_date,
-                                'vendor_id' => $mrn->vendor_id,
-                                'currency_id' => $mrn->vendor?->currency_id,
-                                'sub_total' => $mrn_detail->basic_value,
-                                'tax' => $mrn_detail->tax_value,
-                                'purchase_amount' => $mrn_detail->basic_value + $mrn_detail->tax_value,
-                                'supplier_invoice_date' => $mrn->supplier_invoice_date,
-                                'book_date' => $mrn_detail->created_at ?? null,
-                                'supplier_invoice_no' => $mrn->supplier_invoice_no,
-                                'location_id' => $mrn->sub_store_id ?? null,
-                                'cost_center_id' => $mrn->cost_center_id ?? null,
-                                'maintenance_schedule' => $setup->maintenance_schedule ?? null,
-                                'depreciation_method' => $method,
-                                'useful_life' => $life,
-                                'salvage_value' => $salvageValue,
-                                'depreciation_percentage' => $depreciationRate,
-                                'depreciation_percentage_year' => $depreciationRate,
-                                'total_depreciation' => 0,
-                                'dep_type' => $organization->dep_type,
-                                'current_value' => ($singlevalue * $batch->inventory_uom_qty),
-                                'current_value_after_dep' => ($singlevalue * $batch->inventory_uom_qty),
-                                'document_status' => 'approved',
-                                'approval_level' => 1,
-                                'revision_number' => 0,
-                                'revision_date' => null,
-                                'status' => 'active',
-                            ];
-                            $asset = FixedAssetRegistration::create($data);
-
-                            FixedAssetSub::generateSubAssets(
-                                $asset->id,
-                                $asset->asset_code,
-                                $batch->inventory_uom_qty,
-                                $asset->current_value,
-                                $asset->salvage_value
-                            );
-
-
-                            $mrn_asset->salvage_value = $salvageValue;
-                            $mrn_asset->asset_code = $asset_code;
-                            $mrn_asset->asset_id = $asset->id;
-                            $mrn_asset->save();
-                            $asset->batchupdateUniqueCodes($uniqueCodes, $batch, $offset);
-                            $offset += $batch->inventory_uom_qty;
+                                'message' =>  'existing fixed asset id in db'
+                            ]);
+                        $expensedata = DB::table('erp_exp_alc_grn_details')->where('grn_header_id',$mrn->id)->where('grn_detail_id',$mrn_detail->id)->first();
+                        if(!empty($expensedata))
+                        {
+                            $exitingReg->expense = $expensedata->allocated_cost;
+                            $exitingReg->purchase_amount = $expensedata->allocated_cost + $exitingReg->purchase_amount;
+                            $exitingReg->save();
+                             Log::info('mrn register', [
+                                'mrn_detail_id' => $mrn_detail->id,
+                                'mrn_header_id' => $mrn->id,
+                                'message' =>  'expense save in db'
+                            ]);
                         }
-                    } else {
-                        $asset_code = self::generateAssetCode($category_id);
-                        $existingAsset = FixedAssetRegistration::where('asset_code', $asset_code)->first();
-
-                        $data = [
-                            'organization_id' => $user->organization_id,
-                            'group_id' => $organization->group_id,
-                            'company_id' => $organization->company_id,
-                            'created_by' => $user->id,
-                            'type' => get_class($user),
-                            'book_id' => $glPostingBookId,
-                            'document_number' => $mrn->document_number,
-                            'document_date' => $mrn->document_date,
-                            'mrn_detail_id' => $mrn_detail->id,
-                            'mrn_header_id' => $mrn->id,
-                            'asset_code' => $asset_code,
-                            'asset_name' => $asset_name,
-                            'brand_name' => $mrn_asset->brand_name,
-                            'model_no' => $mrn_asset->model_no,
-                            'procurement_type' => $mrn_asset->procurement_type,
-                            'quantity' => $mrn_detail->accepted_inv_uom_qty,
-                            'category_id' => $category_id,
-                            'reference_doc_id' => $mrn->id,
-                            'reference_series' => ConstantHelper::MRN_SERVICE_ALIAS,
-                            'ledger_id' => $setup->ledger_id,
-                            'ledger_group_id' => $setup->ledger_group_id,
-                            'capitalize_date' => $capitalize_date,
-                            'last_dep_date' => $capitalize_date,
-                            'vendor_id' => $mrn->vendor_id,
-                            'currency_id' => $mrn->vendor?->currency_id,
-                            'sub_total' => $currentValue,
-                            'tax' => $mrn_detail->tax_value,
-                            'purchase_amount' => $currentValue + $mrn_detail->tax_value,
-                            'supplier_invoice_date' => $mrn->supplier_invoice_date,
-                            'book_date' => $mrn_detail->created_at ?? null,
-                            'supplier_invoice_no' => $mrn->supplier_invoice_no,
-                            'location_id' => $mrn->store_id ?? null,
-                            'cost_center_id' => $mrn->cost_center_id ?? null,
-                            'maintenance_schedule' => $setup->maintenance_schedule ?? null,
-                            'depreciation_method' => $method,
-                            'useful_life' => $life,
-                            'salvage_value' => $salvageValue,
-                            'depreciation_percentage' => $depreciationRate,
-                            'depreciation_percentage_year' => $depreciationRate,
-                            'total_depreciation' => 0,
-                            'dep_type' => $organization->dep_type,
-                            'current_value' => $currentValue,
-                            'current_value_after_dep' => $currentValue,
-                            'document_status' => 'approved',
-                            'approval_level' => 1,
-                            'revision_number' => 0,
-                            'revision_date' => null,
-                            'status' => 'active',
-                        ];
-                        $asset = FixedAssetRegistration::create($data);
-
-                        $batches = $mrn_detail->batches;
-
-                        FixedAssetSub::generateSubAssets(
-                            $asset->id,
-                            $asset->asset_code,
-                            $asset->quantity,
-                            $asset->current_value,
-                            $asset->salvage_value
-                        );
-                        $mrn_asset->salvage_value = $salvageValue;
-                        $mrn_asset->asset_code = $asset_code;
-                        $mrn_asset->asset_id = $asset->id;
-                        $mrn_asset->save();
-
-                        $asset->updateUniqueCodes();
+                        Log::info('mrn register', [
+                                'mrn_detail_id' => $mrn_detail->id,
+                                'mrn_header_id' => $mrn->id,
+                                'message' =>  'expense data is not exist in db'
+                            ]);
                     }
-                }
 
+            
+                }
 
                 DB::commit();
 
