@@ -145,10 +145,10 @@ class FinanceModule
                     $q->where('basic_value', '>', 0) // must have positive basic_value
                         ->whereHas('item', function ($q) {
                             $q->where('is_asset', 1); // must be an asset
-                        })
-                        ->doesntHave('asset'); // must not have linked asset
+                        });
                 })
                 ->exists();
+
 
             $mrn_assets = MrnAssetDetail::where('header_id', $mrn_id)->get();
 
@@ -165,29 +165,27 @@ class FinanceModule
 
                 $user = Helper::getAuthenticatedUser();
                 $organization = $user->organization;
-                $book = Book::find($mrn->book_id);
-                if (empty($book)) {
-                    DB::rollBack();
-                    return [
-                        'message' => 'MRN Book not found',
-                        'status' => false
-                    ];
-                }
+                // $book = Book::find($mrn->book_id);
+                // if (empty($book)) {
+                //     DB::rollBack();
+                //     return [
+                //         'message' => 'MRN Book not found',
+                //         'status' => false
+                //     ];
+                // }
 
-                $glPostingBookParam = OrganizationBookParameter::where('book_id', $book->id)
-                    ->where('parameter_name', ServiceParametersHelper::GL_POSTING_SERIES_PARAM)
-                    ->first();
+                // $glPostingBookParam = OrganizationBookParameter::where('book_id', $book->id)
+                //     ->where('parameter_name', ServiceParametersHelper::GL_POSTING_SERIES_PARAM)
+                //     ->first();
 
-                if (!isset($glPostingBookParam) || !isset($glPostingBookParam->parameter_value[0])) {
-                    DB::rollBack();
-                    return [
-                        'status' => false,
-                        'message' => 'Financial Book Code is not specified',
-                        'data' => []
-                    ];
-                }
-
-                $glPostingBookId = $glPostingBookParam->parameter_value[0];
+                // if (!isset($glPostingBookParam) || !isset($glPostingBookParam->parameter_value[0])) {
+                //     DB::rollBack();
+                //     return [
+                //         'status' => false,
+                //         'message' => 'Financial Book Code is not specified',
+                //         'data' => []
+                //     ];
+                // }
 
                 foreach ($mrn_assets as $mrn_asset) {
                     $category_id = $mrn_asset->asset_category_id;
@@ -250,7 +248,7 @@ class FinanceModule
 
                     $exitingReg = FixedAssetRegistration::where('mrn_detail_id', $mrn_detail->id)
                         ->where('mrn_header_id', $mrn->id)->first();
-
+                    
                     if (!empty($exitingReg)) 
                     {
                         

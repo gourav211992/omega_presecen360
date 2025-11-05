@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Helpers\ConstantHelper;
 use App\Helpers\Helper;
+use App\Helpers\FinanceModule;
 use App\Helpers\FinancialPostingHelper;
 use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 use App\Helpers\SaleModuleHelper;
@@ -194,7 +195,7 @@ class PaymentVoucherController extends Controller
 
     public function index(Request $request, $type = "Payment")
     {
-
+    
         $user = Helper::getAuthenticatedUser();
         $userId = $user->auth_user_id;
         $organizationId = $user->organization_id;
