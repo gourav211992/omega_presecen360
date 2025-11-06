@@ -476,7 +476,6 @@
                                     var amount = parseFloat(item.amount ?? 0).toFixed(2);
                                     var showamount = 0.00;
                                     var checked = "";
-                                    var dataAmount = parseFloat(val['balance']).toFixed(2);
                                     var balance = 0.00;
                                     var totalitempayment = 0.00;
 
