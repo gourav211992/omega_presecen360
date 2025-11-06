@@ -1529,56 +1529,36 @@
                                     {
                                         showamount = item.credit_amt_org;
                                     }
-                                    console.log(item.itemreference);
-                                    if (item.itemreference && item.itemreference.length > 0) 
-                                    {   
 
-                                        item.itemreference.map((refval) => {
-                                            if(refval.payment_voucher_id == payment_voucher_id)
-                                            {
-                                                
-                                                balanceshow += parseFloat(refval.amount) || 0;
-                                                totalsettleshow += parseFloat(refval.amount) || 0;
-                                                balanceshow = (parseFloat(showamount)) - parseFloat(balanceshow);
-                                                set = true;
-                                                itemset = true;
-                                                console.log(item.id);
-                                            }
-                                        });
-                                        if(!itemset)
-                                        {
-                                            console.log(item.id);
-                                            balanceshow = showamount; 
-                                        }
-
-                                    } 
-                                    else 
+                                   if (item.itemreference && item.itemreference.length > 0) 
                                     {
-                                        if(set == true)
-                                        {
-                                            balanceshow = showamount;      
-                                        }
-                                        else
-                                        {
-                                            if(val['balance'] > showamount)
-                                            {
-                                                 balanceshow = showamount;
-                                            }
-                                            else
-                                            {
-                                                 balanceshow = val['balance'];
-                                            }
-                                           
-                                        }
-                                        
+                                        item.itemreference.map((refval) => {
+                                            totalitempayment += parseFloat(refval.amount) || 0;
+                                        });
+                                    } 
+
+                                    if(showamount > 0)
+                                    {
+                                        balanceshow = showamount - totalitempayment;
                                     }
 
-                                    console.log(balanceshow);
+                                    if(advance && advance > 0)
+                                    {
+                                        balanceshow = balanceshow - advance;
+                                    }
 
+                                    if(balanceshow < 0)
+                                    {
+                                        advance = -(balanceshow);
+                                    }
 
-                                if (parseFloat(val['balance']).toFixed(2) <=0 && checked == "") {
-                                    console.log('hii' + val['id']);
-                                } else {
+                                    if(balanceshow == 0)
+                                    {
+                                        advance = 0;
+                                    }
+
+                                if(balanceshow > 0 && val['balance'] > 0)
+                                {
                                     if(parseFloat(val['balance']).toFixed(2).toLocaleString('en-IN')=="0.00" && val['settle'] && details!=null){
                                     html += `<tr id="${val['id']}" class="voucherRows">
                                             <td>${index+1}</td>

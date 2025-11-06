@@ -1276,6 +1276,11 @@
                                     {
                                         advance = -(balanceshow);
                                     }
+
+                                    if(balanceshow == 0)
+                                    {
+                                        advance = 0;
+                                    }
                                     
 
 

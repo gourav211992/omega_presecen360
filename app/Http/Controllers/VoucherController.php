@@ -660,7 +660,7 @@ class VoucherController extends Controller
                         $query->when($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,function ($query){
                     $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
                     })->whereIn("organization_id",$orgs);
-                    $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
+                    $query->where('document_status', ConstantHelper::POSTED);
                     })
                     ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledger_group) {
                         if (is_null($adv->ledger_id)) {
@@ -781,7 +781,7 @@ class VoucherController extends Controller
                             $query->when($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,function ($query){
                                 $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)->withoutGlobalScope('defaultLocation');
                             })->whereIn("organization_id",$orgs)
-                                ->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
+                                ->where('document_status', ConstantHelper::POSTED);
                         })
                         ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledger_group) {
                             if (is_null($adv->ledger_id)) {
