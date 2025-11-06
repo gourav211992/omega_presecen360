@@ -474,7 +474,7 @@
                                 items.forEach(function(item, i) 
                                 {
                                     var amount = parseFloat(item.amount ?? 0).toFixed(2);
-                                    var showamount = 0.00;
+                                    var showamount = parseFloat(item.amount ?? 0).toFixed(2);
                                     var checked = "";
                                     var balance = 0.00;
                                     var totalitempayment = 0.00;
@@ -491,6 +491,8 @@
                                         balance = showamount - totalitempayment;
                                     }
 
+                                    console.log(balance);
+
                                     if(advance && advance > 0)
                                     {
                                         balance = balance - advance;
@@ -505,6 +507,7 @@
                                     {
                                         advance = 0;
                                     }
+                                    console.log(balance);
 
                                     if (item.balance >= 1 && balance > 0) 
                                     {   // 👈 यहाँ item.balance चेक करो
