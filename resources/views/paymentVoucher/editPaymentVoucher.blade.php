@@ -1554,7 +1554,7 @@
                                         advance = -(balanceshow);
                                     }
 
-                                    if(balanceshow == 0)
+                                    if(balanceshow == 0 || balanceshow > 0)
                                     {
                                         advance = 0;
                                     }
