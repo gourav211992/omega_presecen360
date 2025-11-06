@@ -1486,6 +1486,7 @@
                         $.each(response.data, function(index, val) {
                             if (!preSelected.includes(val['id'].toString())) {
                                  var set = false;
+                                 var advance = parseFloat(val['advance']) || 0;;
                                 $.each(val.items || [], function (i, item) {
 
                                 var amount = 0.00;
@@ -1493,6 +1494,7 @@
                                 var checked = "";
                                 var dataAmount = parseFloat(val['balance']).toFixed(2);
                                 var balanceshow = 0.00;
+                                var totalitempayment = 0.00;
                                 var totalsettleshow = 0.00;
                                 var itemset = false;
                                 if (partyData != "" && partyData != undefined) {

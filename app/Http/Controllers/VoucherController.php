@@ -819,6 +819,7 @@ class VoucherController extends Controller
                                     $bucketTotalDeducted = 0; // Track total amount deducted from all aging buckets
                                     if ($remainingAdvanceAmount > 0) {
                                                 $deductAmount = min($remainingAdvanceAmount, $res->balance);
+                                                $res->advance = ($res->advance ?? 0) + $remainingAdvanceAmount;
                                                 $res->balance -= $deductAmount; // Reduce the bucket value
                                                 $remainingAdvanceAmount -= $deductAmount; // Reduce the advance sum
                                                 $bucketTotalDeducted += $deductAmount; // Track total deducted
@@ -941,6 +942,7 @@ class VoucherController extends Controller
                                 $bucketTotalDeducted = 0; // Track total amount deducted from all aging buckets
                                 if ($remainingAdvanceAmount > 0) {
                                             $deductAmount = min($remainingAdvanceAmount, $res->balance);
+                                            $res->advance = ($res->advance ?? 0) + $remainingAdvanceAmount;
                                             $res->balance -= $deductAmount; // Reduce the bucket value
                                             $remainingAdvanceAmount -= $deductAmount; // Reduce the advance sum
                                             $bucketTotalDeducted += $deductAmount; // Track total deducted
