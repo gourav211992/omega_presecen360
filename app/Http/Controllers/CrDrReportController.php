@@ -2513,6 +2513,7 @@ $mappings = DB::table('organizations')
                         'ledger.customer',
                         'ledger_group',
                         'costCenter',
+                        'itemreference',
                     ]);
                 })
                 ->groupBy('id')
@@ -2695,7 +2696,7 @@ $mappings = DB::table('organizations')
             });
                     $query->when(!empty($organizations), function ($query) use ($organizations) {
                             $query->whereIn('organization_id', $organizations);
-                        })->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
+                        })->where('document_status', ConstantHelper::POSTED);
                 })
                 ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledgerGroupIds) {
                     if (is_null($adv->ledger_id)) {
@@ -2729,6 +2730,7 @@ $mappings = DB::table('organizations')
                     if ($vendorDateTimestamp < $resDateTimestamp) {
                         if ($remainingAdvanceAmount > 0) {
                             $deductAmount = min($remainingAdvanceAmount, $res->balance);
+                             $res->advance = ($res->advance ?? 0) + $remainingAdvanceAmount;
                             $res->balance -= $deductAmount;
                             $remainingAdvanceAmount -= $deductAmount;
                         }
