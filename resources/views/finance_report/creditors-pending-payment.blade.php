@@ -469,7 +469,7 @@
                             if (!preSelected.includes(voucher.id.toString())) {
                                 const items = voucher.items || [];
                                  var set = false;
-                                 var advance = parseFloat(val['advance']) || 0;;
+                                var advance = parseFloat(voucher.advance ?? 0);
 
                                 items.forEach(function(item, i) 
                                 {
