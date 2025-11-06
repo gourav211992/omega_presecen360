@@ -468,9 +468,47 @@
 
                             if (!preSelected.includes(voucher.id.toString())) {
                                 const items = voucher.items || [];
+                                 var set = false;
+                                 var advance = parseFloat(val['advance']) || 0;;
 
-                                items.forEach(function(item, i) {
-                                    if (item.balance >= 1) {   // 👈 यहाँ item.balance चेक करो
+                                items.forEach(function(item, i) 
+                                {
+                                    var amount = parseFloat(item.amount ?? 0).toFixed(2);
+                                    var showamount = 0.00;
+                                    var checked = "";
+                                    var dataAmount = parseFloat(val['balance']).toFixed(2);
+                                    var balance = 0.00;
+                                    var totalitempayment = 0.00;
+
+                                    if (item.itemreference && item.itemreference.length > 0) 
+                                    {
+                                        item.itemreference.map((refval) => {
+                                            totalitempayment += parseFloat(refval.amount) || 0;
+                                        });
+                                    } 
+
+                                    if(showamount > 0)
+                                    {
+                                        balance = showamount - totalitempayment;
+                                    }
+
+                                    if(advance && advance > 0)
+                                    {
+                                        balance = balance - advance;
+                                    }
+
+                                    if(balance < 0)
+                                    {
+                                        advance = -(balance);
+                                    }
+
+                                    if(balance == 0 || balance > 0)
+                                    {
+                                        advance = 0;
+                                    }
+
+                                    if (item.balance >= 1 && balance > 0) 
+                                    {   // 👈 यहाँ item.balance चेक करो
                                         num++;
                                         const uniqueKey = `${voucher.id}_${num}`;
                                         voucherMap[uniqueKey] = {
@@ -478,8 +516,8 @@
                                             item: item // हर item को attach किया
                                         };
 
-                                        const amount = parseFloat(item.amount ?? 0).toFixed(2);
-                                        const balance = parseFloat(item.balance ?? 0).toFixed(2);
+                                        // const amount = parseFloat(item.amount ?? 0).toFixed(2);
+                                        // const balance = parseFloat(item.balance ?? 0).toFixed(2);
                                         const dataAmount = balance;
 
                                         const existingSettleAmt = voucherMap[uniqueKey]?.settle_amt ?? 0;
