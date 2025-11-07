@@ -434,7 +434,7 @@
         <tbody>
             <tr>
                 <td class="text-left">Integrated Tax</td>
-                <td class="text-right">25966875.12</td>
+                <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
@@ -446,7 +446,7 @@
             </tr>
             <tr>
                 <td class="text-left">Central Tax</td>
-                <td class="text-right">10943114.16</td>
+                <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
@@ -458,7 +458,7 @@
             </tr>
             <tr>
                 <td class="text-left">State/UT Tax</td>
-                <td class="text-right">10943114.16</td>
+                <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
@@ -470,7 +470,7 @@
             </tr>
             <tr>
                 <td class="text-left">Cess</td>
-                <td class="text-right">10943114.16</td>
+                <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
@@ -482,13 +482,13 @@
             </tr>
             <tr>
                 <td class="text-left">Reverse Charge</td>
-                <td class="text-right">52121.45</td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
-                <td class="text-right">52121.45</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
             </tr>
@@ -506,13 +506,13 @@
             </tr>
             <tr>
                 <td class="text-left">Reverse Charge</td>
-                <td class="text-right">157160.60</td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
-                <td class="text-right">157160.60</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
             </tr>
@@ -530,13 +530,13 @@
             </tr>
             <tr>
                 <td class="text-left">Reverse Charge</td>
-                <td class="text-right">157160.60</td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
-                <td class="text-right">157160.60</td>
+                <td class="text-right"></td>
+                <td class="text-right"></td>
                 <td class="text-right"></td>
                 <td class="text-right"></td>
             </tr>
