@@ -253,10 +253,10 @@
              <tr>
                 <td  style="padding: 7px 7px; border: 1px solid #000; border-top: none;">(5) All other ITC
                 </td>
-                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">30982738.21</td>
-                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">2654766.00</td>
-                 <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">2654766.00</td>
-                 <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;"></td>
+                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ number_format($gstr3bSection4Data['all_other_itc']['igst'] ?? 0, 2) }}</td>
+                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ number_format($gstr3bSection4Data['all_other_itc']['cgst'] ?? 0, 2) }}</td>
+                 <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ number_format($gstr3bSection4Data['all_other_itc']['sgst'] ?? 0, 2) }}</td>
+                 <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ number_format($gstr3bSection4Data['all_other_itc']['cess'] ?? 0, 2) }}</td>
             </tr>
 
             <tr>
@@ -347,15 +347,15 @@
             </tr>
             <tr>
                 <td  style="padding: 7px 7px; border: 1px solid #000; border-top: none;">From a supplier under composition scheme,Exempt and Nil rated supply</td>
-                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ number_format($gstr3bSection5Data['composition_exempt_nil']['total_amount'] ?? 0, 2) }}</td>
-                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ number_format($gstr3bSection5Data['composition_exempt_nil']['total_amount'] ?? 0, 2) }}</td>
+                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ $gstr3bSection5Data['composition_exempt_nil']['inter_state'] ?? '0.00' }}</td>
+                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ $gstr3bSection5Data['composition_exempt_nil']['intra_state'] ?? '0.00' }}</td>
 
             </tr>
 
             <tr>
                 <td  style="padding: 7px 7px; border: 1px solid #000; border-top: none;">Non GST supply</td>
-                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ number_format($gstr3bSection5Data['non_gst']['total_amount'] ?? 0, 2) }}</td>
-                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ number_format($gstr3bSection5Data['non_gst']['total_amount'] ?? 0, 2) }}</td>
+                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ $gstr3bSection5Data['non_gst']['inter_state'] ?? '0.00' }}</td>
+                <td style="padding: 7px 7px; border: 1px solid #000; border-top: none; border-left: none; text-align: right;">{{ $gstr3bSection5Data['non_gst']['intra_state'] ?? '0.00' }}</td>
 
             </tr>
 

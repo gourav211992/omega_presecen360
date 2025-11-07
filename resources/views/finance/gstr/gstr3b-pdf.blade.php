@@ -136,7 +136,7 @@
     </tr>
     <tr>
         <td class="text-left">2(b). Trade name, if any</td>
-        <td class="text-right"></td>
+        <td class="text-right">{{$organizationName}}</td>
     </tr>
     <tr>
         <td class="text-left">2(c). ARN</td>
@@ -387,14 +387,14 @@
             <tr>
                 <td class="row-number">1</td>
                 <td class="text-left">From a supplier under composition scheme, Exempt and Nil rated supply</td>
-                <td class="text-right">{{ number_format($gstr3bSection5Data['composition_exempt_nil']['total_amount'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bSection5Data['composition_exempt_nil']['total_amount'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ $gstr3bSection5Data['composition_exempt_nil']['inter_state'] ?? '0.00' }}</td>
+                <td class="text-right">{{ $gstr3bSection5Data['composition_exempt_nil']['intra_state'] ?? '0.00' }}</td>
             </tr>
             <tr>
                 <td class="row-number">2</td>
                 <td class="text-left">Non GST supply</td>
-                <td class="text-right">{{ number_format($gstr3bSection5Data['non_gst']['total_amount'] ?? 0, 2) }}</td>
-                <td class="text-right">{{ number_format($gstr3bSection5Data['non_gst']['total_amount'] ?? 0, 2) }}</td>
+                <td class="text-right">{{ $gstr3bSection5Data['non_gst']['inter_state'] ?? '0.00' }}</td>
+                <td class="text-right">{{ $gstr3bSection5Data['non_gst']['intra_state'] ?? '0.00' }}</td>
             </tr>
         </tbody>
     </table>

@@ -12,11 +12,14 @@ use Carbon\Carbon;
 
 class Gstr3bService
 {
-    public function getSection3_1Data($gstin, $month)
+    public function getSection3_1Data($gstin, $month, $year = null)
     {
+        $currentYear = $year ?? now()->year; 
         $baseQuery = GstrCompiledData::query()
-            ->where('month', $month)           
+            ->where('year', $currentYear)
+            ->where('month', $month)
             ->where('erp_gstr_compiled_data.supplier_gstin', $gstin);
+
         $b2bData = (clone $baseQuery)
             ->whereIn('doc_type', ['b2b', 'b2ba'])
             ->selectRaw('
@@ -32,11 +35,16 @@ class Gstr3bService
             ->where('rate', 0)
             ->selectRaw('SUM(taxable_amt) as taxable_amt')
             ->first();
-      
 
         $nilExemptedData = (clone $baseQuery)
             ->selectRaw('SUM(expt_amt + nil_amt) as taxable_amt')
             ->first();
+
+        // $nilExemptedData = (clone $baseQuery)
+        //     ->where('expt_amt', '>', 0)
+        //     ->orWhere('nil_amt', '>', 0)
+        //     ->selectRaw('SUM(taxable_amt) as taxable_amt')
+        //     ->first();
 
         $reverseChargeData = (clone $baseQuery)
             ->where('reverse_charge', 'Y')
@@ -53,6 +61,11 @@ class Gstr3bService
             ->where('non_gst_amt', '>', 0)
             ->selectRaw('SUM(non_gst_amt) as non_gst_amt')
             ->first();
+
+        // $nonGstData = (clone $baseQuery)
+        //     ->where('non_gst_amt', '>', 0)
+        //     ->selectRaw('SUM(taxable_amt) as non_gst_amt')
+        //     ->first();
 
         return [
             'b2b' => [
@@ -84,9 +97,11 @@ class Gstr3bService
         ];
     }
 
-    public function getSection3_2Data($gstin, $month)
+
+    public function getSection3_2Data($gstin, $month, $year = null)
     {
-       
+        $currentYear = $year ?? date('Y');
+        
         $results = [
             'unregistered' => ['taxable_value' => 0, 'igst' => 0, 'details' => []],
             'composition'  => ['taxable_value' => 0, 'igst' => 0, 'details' => []],
@@ -96,14 +111,13 @@ class Gstr3bService
         $unregistered = GstrCompiledData::where('erp_gstr_compiled_data.igst', '>', 0)
             ->where(function ($q) {
                 $q->whereNull('erp_gstr_compiled_data.party_gstin')
-                  ->orWhere('erp_gstr_compiled_data.party_gstin', '')
-                  ->orWhere('erp_gstr_compiled_data.party_gstin', NULL);
+                ->orWhere('erp_gstr_compiled_data.party_gstin', '')
+                ->orWhere('erp_gstr_compiled_data.party_gstin', NULL);
             })
-            ->where('erp_gstr_compiled_data.supplier_gstin',$gstin)
+            ->where('erp_gstr_compiled_data.supplier_gstin', $gstin)
             ->whereNotNull('erp_gstr_compiled_data.place_of_supply')
-            ->where('doc_type', 'b2b')
-            ->where('month',$month)
-            ->where('year',date('Y'))
+            ->where('month', $month)
+            ->where('year', $currentYear)
             ->select(
                 DB::raw("'unregistered' as category"),
                 'erp_gstr_compiled_data.place_of_supply',
@@ -113,21 +127,51 @@ class Gstr3bService
             ->groupBy('erp_gstr_compiled_data.place_of_supply')
             ->get();
 
+
         $results['unregistered']['taxable_value'] = $unregistered->sum('taxable_value');
         $results['unregistered']['igst'] = $unregistered->sum('igst');
         $results['unregistered']['details'] = $unregistered->toArray();
 
+
+        // 2 Composition Taxable Persons 
+        $composition = GstrCompiledData::where('erp_gstr_compiled_data.igst', '>', 0)
+            ->whereNotNull('erp_gstr_compiled_data.party_gstin')
+            ->where('erp_gstr_compiled_data.supplier_gstin', $gstin)
+            ->whereNotNull('erp_gstr_compiled_data.place_of_supply')
+            ->where('month', $month)
+            ->where('year', $currentYear)
+            ->select(
+                DB::raw("'composition' as category"),
+                'erp_gstr_compiled_data.place_of_supply',
+                DB::raw('SUM(taxable_amt) as taxable_value'),
+                DB::raw('SUM(igst) as igst')
+            )
+            ->groupBy('erp_gstr_compiled_data.place_of_supply')
+            ->get();
+
+        $results['composition']['taxable_value'] = $composition->sum('taxable_value');
+        $results['composition']['igst'] = $composition->sum('igst');
+        $results['composition']['details'] = $composition->toArray();
+
+
+        $results['uin'] = [
+            'taxable_value' => 0,
+            'igst'          => 0,
+            'details'       => []
+        ];
+
         return $results;
     }
 
+
     //Section 4 
-    public function getGstr4Section($month, $gstin)
+    public function getGstr4Section($month, $gstin, $year = null)
     {
         // Get organization's country ID from addresses for comparison
         $organization = OrganizationHelper::getAuthenticatedOrganization();
         $orgCountryId = $this->getOrganizationCountryId($organization);
 
-        $getTaxDataWithCountryFilter = function ($headerTable, $detailTable, $tedTable, $headerKey, $filters = []) use ($orgCountryId) {
+        $getTaxDataWithCountryFilter = function ($headerTable, $detailTable, $tedTable, $headerKey, $filters = []) use ($orgCountryId,$organization) {
             $query = DB::table("$headerTable as mh")
                 ->join("$detailTable as md", "mh.id", '=', "md.$headerKey")
                 ->join("$tedTable as mea", "mh.id", '=', "mea.$headerKey")
@@ -137,6 +181,7 @@ class Gstr3bService
                          ->where('va.addressable_type', '=', 'App\\Models\\Vendor');
                 })
                 ->where('mh.document_status', '!=', 'draft')
+                ->where('mh.organization_id', $organization->id)
                 ->whereNull('mh.deleted_at')
                 ->whereNull('md.deleted_at')
                 ->whereNull('mea.deleted_at')
@@ -188,6 +233,7 @@ class Gstr3bService
             ->whereMonth('mh.document_date', $month)
             ->whereYear('mh.document_date', date('Y'))
             ->where('mh.document_status', '!=', 'draft')
+            ->where('mh.organization_id', $organization->id)
             ->whereNull('mh.deleted_at')
             ->whereNull('md.deleted_at')
             ->whereNull('v.deleted_at');
@@ -208,7 +254,9 @@ class Gstr3bService
         );
 
         // All other ITC from erp_gstr_compiled_data with doc_type = 'pur'
+        $currentYear = $year ?? date('Y');
         $allOtherItcData = GstrCompiledData::where('month', $month)
+            ->where('year', $currentYear)
             ->where('supplier_gstin', $gstin)
             ->where('doc_type', 'pur')
             ->selectRaw('
@@ -242,134 +290,81 @@ class Gstr3bService
         if (!$organization) {
             return null;
         }
-
-        // Get the first address of the organization to determine country
         $address = $organization->addresses()->first();
         
         return $address ? $address->country_id : null;
     }
 
     //Section 5 - Values of exempt, nil-rated and non-GST inward supplies
-    public function getGstr3bSection5Data($gstin, $month)
+    public function getGstr3bSection5Data($gstin, $month, $year = null)
     {
-        // Step 1: Get organization's state_id from address table (based on GSTIN)
-        $companyStateId = DB::table('erp_addresses as a')
-            ->join('organizations as o', function ($join) {
-                $join->on('a.addressable_id', '=', 'o.id')
-                    ->where('a.addressable_type', '=', 'App\\Models\\Organization');
+        $currentYear = $year ?? date('Y');
+
+        $base = GstrCompiledData::where('supplier_gstin', $gstin)
+            ->where('month', $month)
+            ->where('year', $currentYear)
+            ->where('doc_type', 'pur');
+       
+
+        $row1_inter = (clone $base)
+            ->where(function($q){
+                $q->where('expt_amt', '>', 0)
+                ->orWhere('nil_amt', '>', 0);
             })
-            ->where('o.gst_number', $gstin)
-            ->value('a.state_id');
-    
+            ->where('igst', '>', 0)
+            ->sum('invoice_amt');
 
-        if (!$companyStateId) {
-            return [
-                'error' => 'Organization address or GSTIN not found.'
-            ];
-        }
+        $row1_intra = (clone $base)
+            ->where(function($q){
+                $q->where('expt_amt', '>', 0)
+                ->orWhere('nil_amt', '>', 0);
+            })
+            ->where(function($q){
+                $q->where('cgst', '>', 0)->orWhere('sgst', '>', 0);
+            })
+            ->sum('invoice_amt');
 
-        // Step 2: Function to fetch exempt & non-GST data from any header/detail set
-        $getTaxExemptData = function ($headerTable, $detailTable, $tedTable, $headerKey, $addressableType) use ($month, $companyStateId) {
-            $query = DB::table("$headerTable as h")
-                ->join("$detailTable as d", "h.id", '=', "d.$headerKey")
-                ->leftJoin("$tedTable as t", "h.id", '=', "t.$headerKey")
-                ->leftJoin('erp_addresses as a', function ($join) use ($addressableType) {
-                    $join->on('h.vendor_id', '=', 'a.addressable_id')
-                        ->where('a.addressable_type', '=', $addressableType);
-                })
-                ->whereMonth('h.document_date', $month)
-                ->whereYear('h.document_date', date('Y'))
-                ->where('h.document_status', '!=', 'draft')
-                ->whereNull('h.deleted_at')
-                ->whereNull('d.deleted_at');
-
-            $result = $query->selectRaw("
-                    SUM(CASE 
-                        WHEN t.ted_code IS NULL OR t.ted_amount = 0 OR t.ted_type != 'Tax' 
-                        THEN d.taxable_amount 
-                        ELSE 0 
-                    END) as exempt_nil_amount,
-                    SUM(CASE 
-                        WHEN d.taxable_amount > 0 AND (t.ted_code IS NULL OR t.ted_amount = 0)
-                        THEN d.taxable_amount 
-                        ELSE 0 
-                    END) as non_gst_amount,
-                    SUM(
-                        CASE 
-                            WHEN a.state_id = $companyStateId THEN d.taxable_amount 
-                            ELSE 0 
-                        END
-                    ) as intrastate_amount,
-                    SUM(
-                        CASE 
-                            WHEN a.state_id != $companyStateId THEN d.taxable_amount 
-                            ELSE 0 
-                        END
-                    ) as interstate_amount
-                ")->first();
-
-            return [
-                'exempt_nil_amount' => $result->exempt_nil_amount ?? 0,
-                'non_gst_amount' => $result->non_gst_amount ?? 0,
-                'intrastate_amount' => $result->intrastate_amount ?? 0,
-                'interstate_amount' => $result->interstate_amount ?? 0,
-            ];
-        };
-
-        // Step 3: MRN data (Material Receipt Note)
-        $mrnData = $getTaxExemptData(
-            'erp_mrn_headers',
-            'erp_mrn_details',
-            'erp_mrn_extra_amounts',
-            'mrn_header_id',
-            'App\\Models\\Vendor'
-        );
-
-        // Step 4: PB data (Purchase Bill)
-        $pbData = $getTaxExemptData(
-            'erp_pb_headers',
-            'erp_pb_details',
-            'erp_pb_ted',
-            'header_id',
-            'App\\Models\\Vendor'
-        );
-
-        // Step 5: Combine results
-        $combinedData = [
+        $row2_inter = (clone $base)
+            ->where('non_gst_amt', '>', 0)
+            ->where(function($q){
+                $q->whereNull('supplier_gstin')
+                  ->orWhere('supplier_gstin', '');
+            })
+            ->where('igst', '=', 0)
+            ->sum('invoice_amt');
+        
+        $row2_intra = (clone $base)
+            ->where('non_gst_amt', '>', 0)
+            ->where(function($q){
+                $q->whereNull('supplier_gstin')
+                  ->orWhere('supplier_gstin', '');
+            })
+            ->where('cgst', '=', 0)
+            ->where('sgst', '=', 0)
+            ->sum('invoice_amt');
+        
+        return [
             'composition_exempt_nil' => [
-                'total_amount' => ($mrnData['exempt_nil_amount'] ?? 0) + ($pbData['exempt_nil_amount'] ?? 0),
-                'intrastate'   => ($mrnData['intrastate_amount'] ?? 0) + ($pbData['intrastate_amount'] ?? 0),
-                'interstate'   => ($mrnData['interstate_amount'] ?? 0) + ($pbData['interstate_amount'] ?? 0),
+                'nature_of_supplies' => 'From a supplier under composition scheme, Exempt and Nil rated supply',
+                'inter_state' => number_format($row1_inter, 2, '.', ''),
+                'intra_state' => number_format($row1_intra, 2, '.', ''),
             ],
             'non_gst' => [
-                'total_amount' => ($mrnData['non_gst_amount'] ?? 0) + ($pbData['non_gst_amount'] ?? 0),
-                'intrastate'   => ($mrnData['intrastate_amount'] ?? 0) + ($pbData['intrastate_amount'] ?? 0),
-                'interstate'   => ($mrnData['interstate_amount'] ?? 0) + ($pbData['interstate_amount'] ?? 0),
-            ],
-        ];
-
-        // Step 6: Return final formatted array for GSTR-3B Section 5 table
-        return [
-            [
-                'nature_of_supplies' => 'From a supplier under composition scheme, Exempt and Nil rated supply',
-                'inter_state' => number_format($combinedData['composition_exempt_nil']['interstate'] ?? 0, 2, '.', ''),
-                'intra_state' => number_format($combinedData['composition_exempt_nil']['intrastate'] ?? 0, 2, '.', ''),
-            ],
-            [
                 'nature_of_supplies' => 'Non GST supply',
-                'inter_state' => number_format($combinedData['non_gst']['interstate'] ?? 0, 2, '.', ''),
-                'intra_state' => number_format($combinedData['non_gst']['intrastate'] ?? 0, 2, '.', ''),
+                'inter_state' => number_format($row2_inter, 2, '.', ''),
+                'intra_state' => number_format($row2_intra, 2, '.', ''),
             ],
         ];
     }
 
-    public function getGstr3bSection4PartC($gstin, $month)
+
+    public function getGstr3bSection4PartC($gstin, $month, $year = null)
     {
         // Get Section 3.1 data (nil exempted supplies)
-        $section3_1Data = $this->getSection3_1Data($gstin, $month);
+        $section3_1Data = $this->getSection3_1Data($gstin, $month, $year);
         
         // Get Section 4 data (imports)
-        $section4Data = $this->getGstr4Section($month, $gstin);
+        $section4Data = $this->getGstr4Section($month, $gstin, $year);
         
         // Extract nil exempted data from Section 3.1
         $nilExemptedData = $section3_1Data['reverse_charge'] ?? [
