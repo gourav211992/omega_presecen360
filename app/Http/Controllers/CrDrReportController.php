@@ -2542,54 +2542,6 @@ $mappings = DB::table('organizations')
             }
             
 
-            // $data = $data->with([
-            //     'series' => function ($s) {
-            //         $s->select('id', 'book_code');
-            //     }
-            // ])
-            // ->select('id', 'amount', 'book_id', 'document_date as date', 'created_at', 'voucher_name', 'voucher_no', 'location', 'organization_id')
-            // ->orderBy('id', 'desc')
-            // ->get()
-            // ->map(function ($voucher) use ($request, $ledger,$organizations)  {
-            //     $voucher->date = date('d/m/Y', strtotime($voucher->date));
-            //     $voucher->document_date = $voucher->document_date;
-            
-            //     $balance = VoucherReference::where('voucher_id', $voucher->id)
-            //         ->withWhereHas('voucherPayRec', function ($query) use ($organizations,$request) {
-            //             $query->when($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,function ($q){
-            //                 $q->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
-            //                 $q->withoutGlobalScope('defaultLocation');
-            //             });
-            //             $query->when(!empty($organizations), function ($query) use ($organizations) {
-            //                 $query->whereIn('organization_id', $organizations);
-            //             });
-            //             $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-            //         })->where('party_id', $ledger->id);
-            
-               
-            //     $voucher->items->transform(function($item) use ($request) {
-            //         $item->amount = $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS 
-            //             ? $item->credit_amt_org 
-            //             : $item->debit_amt_org;
-                   
-
-            //         $itemBalance = $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS 
-            //             ? $item->credit_amt_org 
-            //             : $item->debit_amt_org;
-
-            //         return $item;
-            //     });
-            
-               
-            //     unset($voucher->amount);
-            
-            //     $balance = $balance->sum('amount');
-            //     $voucher->set = $balance;
-            //     $voucher->balance = ($voucher->items->isNotEmpty() ? $voucher->items->sum('amount') : 0) - $balance;
-            
-            //     return $voucher;
-            // });
-
             $data = $data->with([
                 'series' => function ($s) {
                     $s->select('id', 'book_code');
@@ -2610,45 +2562,26 @@ $mappings = DB::table('organizations')
             ->map(function ($voucher) use ($request, $ledger, $organizations) {
                 $voucher->date = date('d/m/Y', strtotime($voucher->date));
                 $voucher->document_date = $voucher->document_date;
-            
-                // 🔹 पहले voucher का total settlement निकालो
-                $settled = VoucherReference::where('voucher_id', $voucher->id)
-                    ->withWhereHas('voucherPayRec', function ($query) use ($organizations, $request) {
-                        $query->when(
-                            $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,
-                            function ($q) {
-                                $q->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
-                                $q->withoutGlobalScope('defaultLocation');
-                            }
-                        );
-                        $query->when(!empty($organizations), function ($query) use ($organizations) {
-                            $query->whereIn('organization_id', $organizations);
-                        });
-                        $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                    })
-                    ->where('party_id', $ledger->id)
-                    ->sum('amount');
-            
-                // 🔹 अब हर item को उसका amount और balance assign करो
-                $voucher->items->transform(function ($item) use ($request, $settled) {
-                    $amount = $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS
-                        ? $item->credit_amt_org
-                        : $item->debit_amt_org;
-            
-                    $item->amount  = $amount;
-                    $item->balance = $amount - $settled; // 👈 हर item का अपना balance
-            
-                    return $item;
-                });
-            
-                // voucher-level amount और balance हटाओ
-                unset($voucher->amount);
-                unset($voucher->balance);
-            
-                // voucher-level पर सिर्फ total settled रखो
-                $voucher->set = $settled;
-            
-                return $voucher;
+                $balance = VoucherReference::where('voucher_id', $voucher->id)
+                            ->withWhereHas('voucherPayRec', function ($query) use($request,$organizations) {
+                                $query->when($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,function ($query){
+                                    $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
+                                    ->withoutGlobalScope('defaultLocation');
+                                })->whereIn("organization_id",$organizations);
+                                //$query->where('organization_id', Helper::getAuthenticatedUser()->organization_id);
+                                $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
+                            })->where('party_id', $ledger);
+                        $amount = 0;
+                        foreach ($voucher->items as $item) {
+                            $amount += $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS ? $item->credit_amt_org : $item->debit_amt_org;
+                        }
+                        $voucher->amount = $amount;
+               
+                        $balance = $balance->sum('amount');
+                        $voucher->set = $balance;
+                        $voucher->balance = $voucher->amount - $balance;
+                        return $voucher;
+        
             });
             
             
