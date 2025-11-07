@@ -1617,6 +1617,7 @@ class VoucherController extends Controller
             'location.required' => 'location is required.',
 
         ]);
+       
 
         if ($validator->fails()) {
             return redirect()
@@ -1711,7 +1712,7 @@ class VoucherController extends Controller
         $costCenters = $request->input('cost_center_id');
 
         $parentLedger = $request->input('parent_ledger_id');
-
+      
         foreach ($debitAmts as $index => $debitAmount) {
             if (isset($request->ledger_id[$index]) && isset($parentLedger[$index])) {
                 $notename = "notes" . $index + 1;
@@ -1729,12 +1730,12 @@ class VoucherController extends Controller
                 $parent_ledger_id = $parentLedger[$index];
 
                 $item_remarks = $itemRemarks[$index] ?? "";
-
+                
                 ItemDetail::create([
                     'voucher_id' => $id,
                     'ledger_id' => $ledger_id,
-                    'debit_amt' =>$debitAmts[$index] ?? 0,
-                    'credit_amt' => $creditAmts[$index] ?? 0,
+                    'debit_amt' => isset($debitAmts[$index]) ? floatval(str_replace(',', '', $debitAmts[$index])) : 0,
+                    'credit_amt' => isset($creditAmts[$index]) ? floatval(str_replace(',', '', $creditAmts[$index])) : 0,
                     'debit_amt_org' => $debitOrg,
                     'credit_amt_org' => $creditOrg,
                     'debit_amt_comp' => $debitComp,
