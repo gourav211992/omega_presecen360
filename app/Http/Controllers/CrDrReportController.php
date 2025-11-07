@@ -2714,25 +2714,37 @@ $mappings = DB::table('organizations')
            
 
             foreach ($advanceItems as $advanceItem) {
+                $bucketTotalDeducted = 0;
                 $remainingAdvanceAmount = $advanceItem->orgAmount;
 
                 foreach ($data as $res) {
-                    $combinedDateTime = \DateTime::createFromFormat(
-                        'Y-m-d H:i:s',
-                        $advanceItem->voucher->document_date . ' ' . date('H:i:s', strtotime($advanceItem->voucher->created_at))
-                    );
+                        $documentDate = $advanceItem->voucher->document_date; // e.g. '2025-04-10'
+                        $createdAt = $advanceItem->voucher->created_at; // e.g. '2025-04-10 15:30:00'
 
-                    $vendorDateTimestamp = $combinedDateTime?->getTimestamp();
-                    $resTime = date('H:i:s', strtotime($res->created_at));
-                    $parsedDate = \DateTime::createFromFormat('d/m/Y H:i:s', $res->date . ' ' . $resTime);
-                    $resDateTimestamp = $parsedDate?->getTimestamp();
+                        // Combine the date from `document_date` and time from `created_at`
+                        $combinedDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $documentDate . ' ' . date('H:i:s', strtotime($createdAt)));
 
-                    if ($vendorDateTimestamp < $resDateTimestamp) {
+                        $vendorDateTimestamp = $combinedDateTime ? $combinedDateTime->getTimestamp() : null;
+                        $resDate = $res->date; // e.g. '10/04/2025'
+                        $resCreatedAt = $res->created_at; // e.g. '2025-04-10 14:45:00'
+
+                        // Extract the time from created_at
+                        $resTime = date('H:i:s', strtotime($resCreatedAt));
+
+                        // Combine date (converted to Y-m-d) with time
+                        $parsedDate = \DateTime::createFromFormat('d/m/Y H:i:s', $resDate . ' ' . $resTime);
+
+                        $resDateTimestamp = $parsedDate ? $parsedDate->getTimestamp() : null;
+
+                    if ($vendorDateTimestamp < $resDateTimestamp) 
+                    {
+                        $bucketTotalDeducted = 0; // Track total amount deducted from all aging buckets
                         if ($remainingAdvanceAmount > 0) {
                             $deductAmount = min($remainingAdvanceAmount, $res->balance);
-                             $res->advance = ($res->advance ?? 0) + $remainingAdvanceAmount;
-                            $res->balance -= $deductAmount;
-                            $remainingAdvanceAmount -= $deductAmount;
+                            $res->advance = ($res->advance ?? 0) + $remainingAdvanceAmount;
+                            $res->balance -= $deductAmount; // Reduce the bucket value
+                            $remainingAdvanceAmount -= $deductAmount; // Reduce the advance sum
+                            $bucketTotalDeducted += $deductAmount; // Track total deducted
                         }
                     }
                 }

@@ -32,7 +32,13 @@
                                                         href="{{ url('finance/gstr/json') }}{{ Request::getQueryString() ? '?' . Request::getQueryString() : '' }}">Export
                                                         to
                                                         json</a></li>
-                                                        <li><a class="dropdown-item export-csv" href="#">Export to Excel</a></li>
+                                                        <li>
+                                                            <a class="dropdown-item export-csv"
+                                                                 href="{{ url('finance/gstr/detail/csv') }}/all{{ request()->getQueryString() ? '?' . request()->getQueryString() : '' }}"
+                                                                 data-query="{{ request()->getQueryString() ?? '' }}">
+                                                                Export to Excel
+                                                            </a>
+                                                        </li>
                                             </ul>
                                         </div>
                                         <a href="{{ route('finance.gstr.gstr-3b-pdf') }}{{ Request::getQueryString() ? '?' . Request::getQueryString() : '' }}" 
@@ -318,7 +324,12 @@
     // Attach event listener to the Export to CSV link
         document.querySelector('.export-csv').addEventListener('click', function(e) {
         e.preventDefault();
+        const query = this.dataset.query;
+
         let url = `{{ url('finance/gstr/detail/csv') }}/all`;
+        if(query){
+             url += `?${query}`;
+        }
         window.location.href = url;
     });
 });
