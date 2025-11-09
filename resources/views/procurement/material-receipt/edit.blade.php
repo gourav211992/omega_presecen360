@@ -18,9 +18,10 @@
         enctype="multipart/form-data">
         @csrf
         <input type="hidden" name="tax_required" id="tax_required" value="">
-        <input type="hidden" name="bill_to_follow" id="bill_to_follow" class="bill_to_follow" value={{ $mrn->bill_to_follow }}>
+        <input type="hidden" name="bill_to_follow" id="bill_to_follow" class="bill_to_follow"
+            value={{ $mrn->bill_to_follow }}>
         <input type="hidden" name="inspection_required" id="inspection_required" class="inspection_required"
-            value="{{ ($mrn->is_inspection_completion === 1) ? 'no' : 'yes' }}">
+            value="{{ $mrn->is_inspection_completion === 1 ? 'no' : 'yes' }}">
         <input type="hidden" name="is_free_cost" id="is_free_cost" class="is_free_cost"
             value="{{ $mrn->is_free_cost == 1 ? 'yes' : 'no' }}">
         <div class="app-content content ">
@@ -53,27 +54,13 @@
                                     class="btn btn-secondary btn-sm mb-50 mb-sm-0">
                                     <i data-feather="arrow-left-circle"></i> Back
                                 </button>
-                                @if (
-                                    !intval(request('amendment') ?? 0) &&
-                                        $mrn->document_status != \App\Helpers\ConstantHelper::DRAFT &&
-                                        $mrn->document_status != \App\Helpers\ConstantHelper::SUBMITTED &&
-                                        $mrn->document_status != \App\Helpers\ConstantHelper::PARTIALLY_APPROVED)
-                                    <a href="{{ route('material-receipt.generate-pdf', $mrn->id) }}" target="_blank"
-                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer">
-                                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                                            <path
-                                                d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2">
-                                            </path>
-                                            <rect x="6" y="14" width="12" height="8"></rect>
-                                        </svg>
-                                        Print
-                                    </a>
-                                    @if ($mrn->is_inspection_completion == 1 && $mrn->is_enforce_uic_scanning == 1)
-                                        <a href="{{ route('barcodes.page', $mrn->id) . '?module_type=' . $serviceAlias . '&reference_id=' }}"
-                                            target="_blank"
+                                @if ($mrn->document_status && $mrn->document_status != 'cancelled')
+                                    @if (
+                                        !intval(request('amendment') ?? 0) &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::DRAFT &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::SUBMITTED &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::PARTIALLY_APPROVED)
+                                        <a href="{{ route('material-receipt.generate-pdf', $mrn->id) }}" target="_blank"
                                             class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -85,94 +72,136 @@
                                                 </path>
                                                 <rect x="6" y="14" width="12" height="8"></rect>
                                             </svg>
-                                            Print Labels
+                                            Print
                                         </a>
+                                        @if ($mrn->is_inspection_completion == 1 && $mrn->is_enforce_uic_scanning == 1)
+                                            <a href="{{ route('barcodes.page', $mrn->id) . '?module_type=' . $serviceAlias . '&reference_id=' }}"
+                                                target="_blank"
+                                                class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    class="feather feather-printer">
+                                                    <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                                    <path
+                                                        d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2">
+                                                    </path>
+                                                    <rect x="6" y="14" width="12" height="8"></rect>
+                                                </svg>
+                                                Print Labels
+                                            </a>
+                                        @endif
+                                        @if ($mrn->is_inspection_completion === 1 && $buttons['post'])
+                                            <button id="postButton" onclick="onPostVoucherOpen();" type="button"
+                                                class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                                    xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    class="feather feather-check-circle">
+                                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                                </svg> Post</button>
+                                        @endif
                                     @endif
-                                    @if ($mrn->is_inspection_completion === 1 && $buttons['post'])
-                                        <button id="postButton" onclick="onPostVoucherOpen();" type="button"
-                                            class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                    @if ($buttons['draft'])
+                                        <button type="submit"
+                                            class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button"
+                                            name="action" value="draft">
+                                            <i data-feather='save'></i> Save as Draft
+                                        </button>
+                                    @endif
+                                    @if ($buttons['submit'])
+                                        <button type="submit" class="btn btn-primary btn-sm submit-button"
+                                            name="action" value="submitted">
+                                            <i data-feather="check-circle"></i> Submit
+                                        </button>
+                                    @endif
+                                    @if ($mrn->document_status == 'draft' || $mrn->document_status == 'rejected')
+                                        @if ($buttons['cancel'])
+                                            @php $cancelButtonSet = true; @endphp
+                                            <button type="button" onclick="cancelDocument('');"
+                                                class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                                <i data-feather='delete'></i>
+                                                Cancel
+                                            </button>
+                                        @endif
+                                    @endif
+                                    @if ($buttons['approve'])
+                                        <button type="button" class="btn btn-primary btn-sm" id="approved-button"
+                                            name="action" value="approved"><i data-feather="check-circle"></i>
+                                            Approve</button>
+                                        <button type="button" id="reject-button"
+                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
                                                 xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                                stroke-linecap="round" stroke-linejoin="round"
-                                                class="feather feather-check-circle">
-                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                            </svg> Post</button>
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                class="feather feather-x-circle">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <line x1="15" y1="9" x2="9" y2="15">
+                                                </line>
+                                                <line x1="9" y1="9" x2="15" y2="15">
+                                                </line>
+                                            </svg> Reject</button>
                                     @endif
-                                @endif
-                                @if ($buttons['draft'])
-                                    <button type="submit"
-                                        class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button" name="action"
-                                        value="draft">
-                                        <i data-feather='save'></i> Save as Draft
-                                    </button>
-                                @endif
-                                @if ($buttons['submit'])
-                                    <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
-                                        value="submitted">
-                                        <i data-feather="check-circle"></i> Submit
-                                    </button>
-                                @endif
-                                @if ($buttons['approve'])
-                                    <button type="button" class="btn btn-primary btn-sm" id="approved-button"
-                                        name="action" value="approved"><i data-feather="check-circle"></i>
-                                        Approve</button>
-                                    <button type="button" id="reject-button"
-                                        class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
-                                            xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round"
-                                            class="feather feather-x-circle">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <line x1="15" y1="9" x2="9" y2="15">
-                                            </line>
-                                            <line x1="9" y1="9" x2="15" y2="15">
-                                            </line>
-                                        </svg> Reject</button>
-                                @endif
-                                @if ($buttons['voucher'])
-                                    <button type="button" onclick="onPostVoucherOpen('posted')"
-                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round"
-                                            class="feather feather-file-text">
-                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                            <polyline points="14 2 14 8 20 8"></polyline>
-                                            <line x1="16" y1="13" x2="8" y2="13">
-                                            </line>
-                                            <line x1="16" y1="17" x2="8" y2="17">
-                                            </line>
-                                            <polyline points="10 9 9 9 8 9"></polyline>
-                                        </svg> Voucher
-                                    </button>
-                                @endif
-                                @if ($buttons['amend'] && intval(request('amendment') ?? 0))
-                                    <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i
-                                            data-feather="check-circle"></i> Submit</button>
-                                @else
-                                    @if ($buttons['amend'])
-                                        <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-                                            class="btn btn-primary btn-sm mb-50 mb-sm-0">
-                                            <i data-feather='edit'></i> Amendment
+                                    @if ($buttons['voucher'])
+                                        <button type="button" onclick="onPostVoucherOpen('posted')"
+                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                class="feather feather-file-text">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                                <polyline points="14 2 14 8 20 8"></polyline>
+                                                <line x1="16" y1="13" x2="8" y2="13">
+                                                </line>
+                                                <line x1="16" y1="17" x2="8" y2="17">
+                                                </line>
+                                                <polyline points="10 9 9 9 8 9"></polyline>
+                                            </svg> Voucher
                                         </button>
                                     @endif
-                                    @if (@$mrn->deviationJob)
-                                        <input type="hidden" name="mrn_head_id" id="mrn_head_id"
-                                            value="{{ $mrn?->id }}">
-                                        <input type="hidden" name="closing_job_id" id="closing_job_id"
-                                            value="{{ $mrn?->deviationJob?->id }}">
-                                        <button type="button" data-bs-toggle="modal" id="deviation-button"
-                                            class="btn btn-primary btn-sm mb-50 mb-sm-0">
-                                            <i data-feather='edit'></i> Deviation
+                                    @if ($buttons['cancel'] && !isset($cancelButtonSet) && (isset($cancelAmendButtonSet) && $cancelAmendButtonSet))
+                                        <button type="button" onclick="cancelDocument('');"
+                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                            <i data-feather='delete'></i>
+                                            Cancel
                                         </button>
                                     @endif
-                                @endif
-
-                                @if ($buttons['revoke'])
-                                    <button id="revokeButton" type="button"
-                                        class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
-                                        Revoke</button>
+                                    @if ($buttons['amend'] && intval(request('amendment') ?? 0))
+                                        <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i
+                                                data-feather="check-circle"></i> Submit</button>
+                                    @else
+                                        @if ($buttons['amend'])
+                                            <button type="button" data-bs-toggle="modal"
+                                                data-bs-target="#amendmentconfirm"
+                                                class="btn btn-primary btn-sm mb-50 mb-sm-0">
+                                                <i data-feather='edit'></i> Amendment
+                                            </button>
+                                        @endif
+                                        @if (@$mrn->deviationJob)
+                                            <input type="hidden" name="mrn_head_id" id="mrn_head_id"
+                                                value="{{ $mrn?->id }}">
+                                            <input type="hidden" name="closing_job_id" id="closing_job_id"
+                                                value="{{ $mrn?->deviationJob?->id }}">
+                                            <button type="button" data-bs-toggle="modal" id="deviation-button"
+                                                class="btn btn-primary btn-sm mb-50 mb-sm-0">
+                                                <i data-feather='edit'></i> Deviation
+                                            </button>
+                                        @endif
+                                    @endif
+                                    @if ($buttons['cancel'] && !isset($cancelButtonSet) && !isset($cancelAmendButtonSet))
+                                        @php $cancelAmendButtonSet = true; @endphp
+                                        <button type="button" onclick="cancelDocument('');"
+                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                            <i data-feather='delete'></i>
+                                            Cancel
+                                        </button>
+                                    @endif
+                                    @if ($buttons['revoke'])
+                                        <button id="revokeButton" type="button"
+                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
+                                            Revoke</button>
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -318,10 +347,8 @@
                                                         </div>
                                                     </div>
                                                 @endif
-                                                <input type="hidden" name="mrn_tds_id"
-                                                                class="form-control mrn_tds_id"
-                                                                id="mrn_tds_input"
-                                                                value="{{ $mrn?->header_tax?->id }}" readonly>
+                                                <input type="hidden" name="mrn_tds_id" class="form-control mrn_tds_id"
+                                                    id="mrn_tds_input" value="{{ $mrn?->header_tax?->id }}" readonly>
                                             </div>
                                             {{-- Approval History Section --}}
                                             @include('partials.approval-history', [
@@ -351,7 +378,7 @@
                                                                 {{ count($mrn->items) > 0 ? 'readonly' : '' }}
                                                                 value="{{ @$mrn->vendor->company_name }}" />
                                                             <input type="hidden" value="{{ @$mrn->vendor_id }}"
-                                                                id="vendor_id" name="vendor_id" class="vendor_id"/>
+                                                                id="vendor_id" name="vendor_id" class="vendor_id" />
                                                             <input type="hidden" value="{{ @$mrn->vendor_code }}"
                                                                 id="vendor_code" name="vendor_code" />
                                                             @if ($mrn->latestShippingAddress() || $mrn->latestBillingAddress())
@@ -781,13 +808,17 @@
                                                                                 amount="">
                                                                                 <!-- {{ number_format(@$mrn->taxable_amount, 2) }} -->
                                                                             </td>
+                                                                            <input id = "old_tds_value" type="hidden"
+                                                                                name="old_tds_value"
+                                                                                value="{{ $mrn?->header_tax?->assesment_amount ?? 0 }}" />
                                                                         </tr>
                                                                         <tr>
                                                                             <td><strong>Tax</strong></td>
                                                                             <td class="text-end" id="f_tax">
                                                                                 <!-- {{ number_format(@$mrn->total_taxes, 2) }}         -->
                                                                             </td>
-                                                                            <input id = "tax_amount_header" type="hidden" name="taxes_amount_header" />
+                                                                            <input id = "tax_amount_header" type="hidden"
+                                                                                name="taxes_amount_header" />
                                                                         </tr>
                                                                         <tr class="totalsubheadpodetail">
                                                                             <td><strong>Total After Tax</strong></td>
@@ -872,6 +903,7 @@
             </div>
         </div>
         @include('procurement.material-receipt.partials.amendement-modal', ['id' => $mrn->id])
+        @include('procurement.material-receipt.partials.cancel-modal', ['id' => $mrn->id])
     </form>
     {{-- Item upload modal --}}
     @include('partials.import-item-modal')
@@ -1234,7 +1266,7 @@
                                 </div>
                             </div>
                             <!-- <div id="deviation-batch-table-wrap" class="mt-3"></div>
-                                                                                                <input type="hidden" name="deviation_breakup_json" id="deviation_breakup_json"> -->
+                                                                                                                                                                            <input type="hidden" name="deviation_breakup_json" id="deviation_breakup_json"> -->
                         </div>
                         <div class="mb-3">
                             <label for="remarks" class="form-label fw-semibold text-dark">Remarks</label>
@@ -1267,6 +1299,7 @@
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/mrn.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/asset-registration.js') }}"></script>
+    <script type="text/javascript" src="{{ asset('assets/js/modules/mrn-field-lock.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/item-batch.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/import-item.js') }}"></script>
     <script type="text/javascript" src="{{ asset('app-assets/js/file-uploader.js') }}"></script>
@@ -1326,8 +1359,7 @@
             $(".dnoteSelect").hide();
             $("#addNewItemBtn").show();
             $("#importItem").show();
-        }
-        else{
+        } else {
             document.getElementById('rateHeader').textContent = 'Rate';
             $(".poSelect").show();
             $(".joSelect").show();
@@ -1369,11 +1401,12 @@
         @else
             @if ($mrn->document_status != 'draft' && $mrn->document_status != 'rejected')
                 $(':input').prop('readonly', true);
-                $('textarea[name="amend_remark"], textarea[name="closing_remarks"], input[type="file"][name="amend_attachment[]"]')
+                $('textarea[name="amend_remark"], textarea[name="cancel_remarks"], textarea[name="closing_remarks"], input[type="file"][name="amend_attachment[]"]')
                     .prop('readonly', false).prop('disabled', false);
                 $('select').not('.amendmentselect select').prop('disabled', true);
                 $("#deleteBtn").remove();
                 $("#addNewItemBtn").remove();
+                $("#importItem").remove();
                 $(".editAddressBtn").remove();
                 $("#add_new_item_dis").remove();
                 $(".deleteItemDiscountRow").remove();
@@ -1381,13 +1414,20 @@
                 $(".deleteSummaryDiscountRow").remove();
                 $("#add_new_head_exp").remove();
                 $(".deleteExpRow").remove();
-                $('a.add-batch-row-header, button.add-batch-row-header').remove();
-                $('a.remove-batch-row, button.remove-batch-row, .delete-batch-row-header').remove();
+                initReadOnlyModalAuto(
+                    ['#itemBatchModal', '#assetDetailModal', {
+                        title: /Item Batches/i
+                    }, {
+                        title: /Assets Detail/i
+                    }], {
+                        extraBlock: ['.add-batch-row-header', '.delete-batch-row-header', '.remove-batch-row']
+                    }
+                );
 
                 $(document).on('show.bs.modal', function(e) {
                     if (e.target.id != 'approveModal') {
                         if (e.target.id != 'deviateModal') {
-                            $(e.target).find('.modal-footer').remove();
+                            $(e.target).find('.modal-footer').not('.cancel-modal-footer').remove();
                         }
                         $('select').not('.amendmentselect select').prop('disabled', true);
                     }
@@ -2447,6 +2487,87 @@
             }
         });
 
+        /* Open Cancel popup */
+        function cancelDocument(type = 'normal') {
+            const $modal = $('#cancelModal');
+            // write the hidden field (overwrite, not append)
+            $('#cancellation_value').val(type).trigger('change');
+
+            // show the modal (BS5-safe)
+            if (window.bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance($modal[0]).show();
+            } else {
+                $modal.modal('show');
+            }
+        }
+
+        /* cancel btn submit */
+        $(document).on('click', '.cancelBtnSubmit', function(e) {
+            e.preventDefault();
+
+            const $modal = $('#cancelModal');
+
+            const remark = $modal.find('[name="cancel_remarks"]').val()?.trim();
+            const type = $('#cancellation_value').val(); // read by id
+            const docId = $('input[name="id"]').val() || ''; // or set explicitly
+            var arr = @json($itemIds);
+            console.log(arr);
+
+            let itemIds = JSON.stringify(arr || []); // or set explicitly
+            // validation
+            if (!remark) {
+                // NOTE: your markup uses id="amendRemarkError"
+                $('#amendRemarkError').removeClass('d-none');
+                return;
+            } else {
+                $('#amendRemarkError').addClass('d-none');
+            }
+
+            // hide modal
+            if (window.bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
+            } else {
+                $modal.modal('hide');
+            }
+
+            const apiURL = "{{ route('material-receipt.cancel') }}";
+
+            $.ajax({
+                url: apiURL,
+                type: "POST",
+                dataType: "json",
+                contentType: "application/json",
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
+                },
+                data: JSON.stringify({
+                    id: docId,
+                    cancel_remarks: remark,
+                    cancel_type: type,
+                    deletedMrnItemIds: itemIds // <-- comes from #cancellation_value
+                }),
+                success: function(data) {
+                    const ok = data?.data?.status ?? data?.status ?? false;
+                    const msg = data?.data?.message ?? data?.message ?? 'Done.';
+                    Swal.fire({
+                            title: ok ? 'Success!' : 'Error!',
+                            text: msg,
+                            icon: ok ? 'success' : 'error'
+                        })
+                        .then(() => {
+                            if (ok) location.reload();
+                        });
+                },
+                error: function() {
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'Some internal error occurred',
+                        icon: 'error'
+                    });
+                }
+            });
+        });
+
         function resetPostVoucher() {
             document.getElementById('voucher_doc_no').value = '';
             document.getElementById('voucher_date').value = '';
@@ -3024,41 +3145,39 @@
             //     $("#addNewItemBtn").show();
             //     $("#importItem").show();
             // } else {
-                if (currentProcessType === po) {
-                    $(".joSelect").hide();
-                    $(".poSelect").show();
-                    $(".soSelect").hide();
-                    $("#addNewItemBtn").hide();
-                    $("#importItem").hide();
-                } else if (currentProcessType === jo) {
-                    $(".joSelect").show();
-                    $(".poSelect").hide();
-                    $(".soSelect").hide();
-                    $("#addNewItemBtn").hide();
-                    $("#importItem").hide();
-                } else if (currentProcessType === so) {
-                    $(".joSelect").hide();
-                    $(".poSelect").hide();
-                    $(".soSelect").show();
-                    $("#addNewItemBtn").hide();
-                    $("#importItem").hide();
-                }
-                else if (currentProcessType === dnote) {
-                    $(".joSelect").hide();
-                    $(".poSelect").hide();
-                    $(".soSelect").hide();
-                    $(".dnoteSelect").show();
-                    $("#addNewItemBtn").hide();
-                    $("#importItem").hide();
-                }
-                else if (currentProcessType === 'direct') {
-                    $(".joSelect").hide();
-                    $(".poSelect").hide();
-                    $(".soSelect").hide();
-                    $(".dnoteSelect").hide();
-                    $("#addNewItemBtn").show();
-                    $("#importItem").show();
-                }
+            if (currentProcessType === po) {
+                $(".joSelect").hide();
+                $(".poSelect").show();
+                $(".soSelect").hide();
+                $("#addNewItemBtn").hide();
+                $("#importItem").hide();
+            } else if (currentProcessType === jo) {
+                $(".joSelect").show();
+                $(".poSelect").hide();
+                $(".soSelect").hide();
+                $("#addNewItemBtn").hide();
+                $("#importItem").hide();
+            } else if (currentProcessType === so) {
+                $(".joSelect").hide();
+                $(".poSelect").hide();
+                $(".soSelect").show();
+                $("#addNewItemBtn").hide();
+                $("#importItem").hide();
+            } else if (currentProcessType === dnote) {
+                $(".joSelect").hide();
+                $(".poSelect").hide();
+                $(".soSelect").hide();
+                $(".dnoteSelect").show();
+                $("#addNewItemBtn").hide();
+                $("#importItem").hide();
+            } else if (currentProcessType === 'direct') {
+                $(".joSelect").hide();
+                $(".poSelect").hide();
+                $(".soSelect").hide();
+                $(".dnoteSelect").hide();
+                $("#addNewItemBtn").show();
+                $("#importItem").show();
+            }
             // }
 
             ['selectedPoIds', 'selectedJoIds', 'selectedSoIds', 'selectedDnoteIds'].forEach(key => localStorage
@@ -5036,8 +5155,7 @@
                     $('[name="payment_term_id"]').empty().append(payOption);
                     $('[name="credit_days"]').val(firstCreditDays);
                     setTimeout(() => {
-                        if ($(".bill_to_follow").val() === 'no')
-                        {
+                        if ($(".bill_to_follow").val() === 'no') {
                             getTdsTax();
                         }
                         setTableCalculation();

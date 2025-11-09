@@ -59,6 +59,7 @@ use App\Helpers\EInvoiceHelper;
 use App\Helpers\InventoryHelper;
 use App\Helpers\FinancialPostingHelper;
 use App\Helpers\ServiceParametersHelper;
+use App\Helpers\Common\OrganizationHelper;
 use App\Jobs\SendEmailJob;
 use App\Lib\Services\WHM\UnloadingJob;
 use App\Models\AuthUser;
@@ -75,6 +76,7 @@ use App\Models\JobOrder\JobOrder;
 use App\Models\JobOrder\JoProduct;
 use App\Models\JobOrder\JobOrderTed;
 use App\Models\Scopes\DefaultGroupCompanyOrgScope;
+use App\Services\Common\DocumentLockService;
 use App\Services\GeDeleteService;
 use App\Services\GeCheckAndUpdateService;
 use Carbon\Carbon;
@@ -105,8 +107,8 @@ class GateEntryController extends Controller
         $orderType = ConstantHelper::GATE_ENTRY_SERVICE_ALIAS;
         request()->merge(['type' => $orderType]);
         if (request()->ajax()) {
-            $user = Helper::getAuthenticatedUser();
-            $organization = Organization::where('id', $user->organization_id)->first();
+            $user = request()->user();
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             $records = GateEntryHeader::with(
                 [
                     'items',
@@ -120,6 +122,7 @@ class GateEntryController extends Controller
                 // ->withDefaultGroupCompanyOrg()
                 ->withDraftListingLogic()
                 ->bookViewAccess($parentUrl)
+                ->selfCreatedDocuments($user)
                 // ->where('company_id', $organization->company_id)
                 ->latest();
             return DataTables::of($records)
@@ -158,7 +161,7 @@ class GateEntryController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-
+    
                         return $joReferences ?: 'N/A';
                     } elseif ($row->reference_type === 'po') {
                         // Multiple POs from related items
@@ -171,7 +174,7 @@ class GateEntryController extends Controller
                         })
                             ->unique() // avoid duplicates
                             ->implode(', '); // convert to comma-separated string
-
+    
                         return $poReferences ?: 'N/A';
                     } else {
                         return '';
@@ -216,7 +219,7 @@ class GateEntryController extends Controller
                 ->addColumn('total_amount', function ($row) {
                     return number_format($row->total_amount, 2);
                 })
-                ->addColumn('created_by', function ($row){
+                ->addColumn('created_by', function ($row) {
                     return $row->createdBy?->name;
                 })
                 ->rawColumns(['document_status'])
@@ -232,7 +235,7 @@ class GateEntryController extends Controller
      */
     public function create(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         //Get the menu
         $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
@@ -254,9 +257,16 @@ class GateEntryController extends Controller
     }
 
     # MRN store
-    public function store(GateEntryRequest $request)
+    public function store(GateEntryRequest $request, DocumentLockService $lockService)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
+        if (!$request->consignment_no || !$request->supplier_invoice_no || !$request->supplier_invoice_date || !$request->transporter_name || !$request->manual_entry_no || !$request->vehicle_no) {
+            return response()->json([
+                'message' => "Please fill general information fields",
+                'error' => "",
+            ], 422);
+        }
+
         \DB::beginTransaction();
         try {
             $parameters = [];
@@ -265,8 +275,8 @@ class GateEntryController extends Controller
                 $parameters = json_decode(json_encode($response['data']['parameters']), true);
             }
 
-            $user = Helper::getAuthenticatedUser();
-            $organization = Organization::where('id', $user->organization_id)->first();
+            $user = request()->user();
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             $organizationId = $organization?->id ?? null;
             $purchaseOrderId = null;
             $groupId = $organization?->group_id ?? null;
@@ -451,29 +461,6 @@ class GateEntryController extends Controller
                     if (!$item) {
                         \DB::rollBack();
                         return response()->json(['message' => 'Item not found.'], 422);
-                    }
-
-                    switch ($refType) {
-                        case ConstantHelper::JO_SERVICE_ALIAS:
-                            $result = self::processJobOrderComponent($component, $item, $inputQty);
-                            break;
-
-                        case ConstantHelper::SO_SERVICE_ALIAS:
-                            $result = self::processSaleOrderComponent($component, $item, $inputQty);
-                            break;
-
-                        case ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS:
-                        case ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS:
-                            $result = self::processDnoteComponent($component, $item, $inputQty);
-                            break;
-
-                        default:
-                            $result = self::processPurchaseOrderComponent($component, $item, $inputQty);
-                            break;
-                    }
-
-                    if ($result !== true) {
-                        return $result; // return response from updatePoQty or entry logic
                     }
 
                     $inventory_uom_id = null;
@@ -673,6 +660,31 @@ class GateEntryController extends Controller
                             }
                         }
                     }
+
+                    // Back Update Functionality
+                    $backUpdateQty = floatval($component['accepted_qty'] ?? $component['order_qty'] ?? 0);
+                    switch ($refType) {
+                        case ConstantHelper::JO_SERVICE_ALIAS:
+                            $result = self::processJobOrderComponent($component, $item, $backUpdateQty, $organization);
+                            break;
+
+                        case ConstantHelper::SO_SERVICE_ALIAS:
+                            $result = self::processSaleOrderComponent($component, $item, $backUpdateQty, $organization);
+                            break;
+
+                        case ConstantHelper::DELIVERY_CHALLAN_SERVICE_ALIAS:
+                        case ConstantHelper::DELIVERY_CHALLAN_CUM_SI_SERVICE_ALIAS:
+                            $result = self::processDnoteComponent($component, $item, $backUpdateQty, $organization);
+                            break;
+
+                        default:
+                            $result = self::processPurchaseOrderComponent($component, $item, $backUpdateQty, $organization);
+                            break;
+                    }
+
+                    if ($result !== true) {
+                        return $result; // return response from updatePoQty or entry logic
+                    }
                 }
 
                 /*Header level save discount*/
@@ -833,6 +845,25 @@ class GateEntryController extends Controller
                 (new UnloadingJob)->createJob($mrn->id, 'App\Models\GateEntryHeader');
             }
 
+            $lockKey = \App\Helpers\GeneralHelper::generateLockKey($organization->id, $request->book_id, $document_number);
+            if (!$lockKey) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Invalid Argument passed in Lock Key Generator.',
+                    'line' => '',
+                    'error' => '',
+                ], 500);
+            }
+
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+            if (!$lockResult['success']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -843,7 +874,7 @@ class GateEntryController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'message' => 'Error occurred while creating the record.'. $e->getMessage(). ' on line ' .$e->getLine(),
+                'message' => 'Error occurred while creating the record.' . $e->getMessage() . ' on line ' . $e->getLine(),
                 'error' => $e->getMessage(),
             ], 500);
         }
@@ -851,7 +882,7 @@ class GateEntryController extends Controller
 
     public function show(string $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $mrn = GateEntryHeader::with([
             'vendor',
@@ -898,7 +929,7 @@ class GateEntryController extends Controller
         }
         $serviceAlias = ConstantHelper::MRN_SERVICE_ALIAS;
         $books = Helper::getBookSeriesNew($serviceAlias, $parentUrl)->get();
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $mrn = GateEntryHeader::with([
             'vendor',
             'currency',
@@ -910,6 +941,7 @@ class GateEntryController extends Controller
         ])->findOrFail($id);
 
         $items = $mrn['items'] ?? [];
+        $itemIds = $mrn->items() ? $mrn->items()->pluck('id')->toArray() : [];
         $referenceType = $mrn['reference_type'] ?? null;
 
         $headerField = null;
@@ -1021,6 +1053,7 @@ class GateEntryController extends Controller
         return view($view, [
             'mrn' => $mrn,
             'books' => $books,
+            'itemIds' => $itemIds,
             'buttons' => $buttons,
             'vendors' => $vendors,
             'erpStores' => $erpStores,
@@ -1046,8 +1079,14 @@ class GateEntryController extends Controller
     public function update(EditGateEntryRequest $request, $id)
     {
         $mrn = GateEntryHeader::find($id);
-        $user = Helper::getAuthenticatedUser();
-        $organization = Organization::where('id', $user->organization_id)->first();
+        if (!$request->consignment_no || !$request->supplier_invoice_no || !$request->supplier_invoice_date || !$request->transporter_name || !$request->manual_entry_no || !$request->vehicle_no) {
+            return response()->json([
+                'message' => "Please fill general information fields",
+                'error' => "",
+            ], 422);
+        }
+        $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $organizationId = $organization?->id ?? null;
         $groupId = $organization?->group_id ?? null;
         $companyId = $organization?->company_id ?? null;
@@ -1223,6 +1262,7 @@ class GateEntryController extends Controller
                     $inputQty = floatval($component['accepted_qty'] ?? 0);
                     if (isset($component['po_detail_id']) && $component['po_detail_id']) {
                         $poItem = PoItem::find($component['po_detail_id'] ?? @$gateEntryDetail->purchase_order_item_id);
+                        $lockRow = self::lockReferenceDetail($poItem, 'purchase-order', $organization);
                         if (isset($poItem) && $poItem) {
                             if (isset($poItem->id) && $poItem->id) {
                                 $orderQty = floatval(@$gateEntryDetail->accepted_qty) ?? 0.00;
@@ -1238,6 +1278,7 @@ class GateEntryController extends Controller
                         }
                     } else if (isset($component['jo_detail_id']) && $component['jo_detail_id']) {
                         $joItem = JoProduct::find($component['jo_detail_id'] ?? @$gateEntryDetail->job_order_item_id);
+                        $lockRow = self::lockReferenceDetail($joItem, 'job-order', $organization);
                         if (isset($joItem) && $joItem) {
                             if (isset($joItem->id) && $joItem->id) {
                                 $orderQty = floatval(@$gateEntryDetail->accepted_qty) ?? 0;
@@ -1253,14 +1294,14 @@ class GateEntryController extends Controller
                         }
                     } else if (isset($component['invoice_itm_id']) && $component['invoice_itm_id']) {
                         $dnoteItem = ErpInvoiceItem::find($component['invoice_itm_id'] ?? @$gateEntryDetail->job_order_item_id);
+                        $lockRow = self::lockReferenceDetail($dnoteItem, 'd-note', $organization);
                         if (isset($dnoteItem) && $dnoteItem) {
                             if (isset($dnoteItem->id) && $dnoteItem->id) {
                                 $orderQty = floatval(@$gateEntryDetail->accepted_qty) ?? 0;
                                 $componentQty = floatval($component['accepted_qty'] ?? $component['order_qty']);
                                 $qtyDifference = $componentQty - $orderQty;
 
-                                if(floatval($qtyDifference) != 0)
-                                {
+                                if (floatval($qtyDifference) != 0) {
                                     DB::rollBack();
                                     return response()->json([
                                         'message' => 'Qty cannot be greater or less than Dnote Qunatity',
@@ -1271,17 +1312,17 @@ class GateEntryController extends Controller
                                 if ($qtyDifference) {
                                     $dnoteItem->ge_qty += $qtyDifference;
                                 }
-                                if($dnoteItem->saleOrderItem?->poItems){
+                                if ($dnoteItem->saleOrderItem?->poItems) {
                                     $poDetail = PoItem::find($dnoteItem?->saleOrderItem?->po_item_id);
 
-                                    if($poDetail){
+                                    if ($poDetail) {
                                         $poDetail->ge_qty += $qtyDifference;
                                         $poDetail->save();
                                     }
                                 }
-                                if($dnoteItem->saleOrderItem?->joItems){
+                                if ($dnoteItem->saleOrderItem?->joItems) {
                                     $joDetail = JoProduct::find($dnoteItem?->saleOrderItem?->jo_product_id);
-                                    if($joDetail){
+                                    if ($joDetail) {
                                         $joDetail->ge_qty += $qtyDifference;
                                         $joDetail->save();
                                     }
@@ -1696,7 +1737,7 @@ class GateEntryController extends Controller
     // Add Item Row
     public function addItemRow(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $item = json_decode($request->item, true) ?? [];
         $componentItem = json_decode($request->component_item, true) ?? [];
         /*Check last tr in table mandatory*/
@@ -1782,10 +1823,9 @@ class GateEntryController extends Controller
     # get tax calcualte
     public function taxCalculation(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $location = ErpStore::find($request->location_id ?? null);
-
-        $organization = $user->organization;
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $firstAddress = $location?->address ?? null;
         if (!$firstAddress) {
             $firstAddress = $organization?->addresses->first();
@@ -1831,7 +1871,7 @@ class GateEntryController extends Controller
     // Get Address
     public function getAddress(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $vendorId = $request?->id ?? null;
         $type = $request?->type ?? null;
         $typeId = $request?->typeId ?? null;
@@ -1898,7 +1938,7 @@ class GateEntryController extends Controller
         $store = ErpStore::find($storeId);
         $locationAddress = $store?->address;
 
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $organizationAddress = Address::with(['city', 'state', 'country'])
             ->where('addressable_id', $user->organization_id)
             ->where('addressable_type', Organization::class)
@@ -1927,7 +1967,7 @@ class GateEntryController extends Controller
      */
     public function getStoreRacks(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $storeBins = array();
         $storeRacks = array();
         $storeCode = ErpStore::find($request->store_code_id);
@@ -1951,7 +1991,7 @@ class GateEntryController extends Controller
 
     public function getStoreShelfs(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $storeShelfs = array();
         $rackCode = ErpRack::find($request->rack_code_id);
         if ($rackCode) {
@@ -1969,7 +2009,7 @@ class GateEntryController extends Controller
 
     public function getStoreBins(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $storeBins = array();
         $shelfCode = ErpShelf::find($request->shelf_code_id);
         if ($shelfCode) {
@@ -2149,7 +2189,7 @@ class GateEntryController extends Controller
 
     public function logs(Request $request, string $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
         $revisionNo = $request->revision_number ?? 0;
         $GateEntryHeader = GateEntryHeader::with(['vendor', 'currency', 'items', 'book'])
@@ -2205,9 +2245,9 @@ class GateEntryController extends Controller
     // genrate pdf
     public function generatePdf(Request $request, $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
 
         $organizationAddress = Address::with(['city', 'state', 'country'])
             ->where('addressable_id', $user->organization_id)
@@ -2400,27 +2440,27 @@ class GateEntryController extends Controller
                 }
             }
 
-            $randNo = rand(10000, 99999);
+            // $randNo = rand(10000, 99999);
 
-            $revisionNumber = "GE" . $randNo;
-            $GateEntryHeader->revision_number += 1;
-            // $GateEntryHeader->status = "draft";
-            // $GateEntryHeader->document_status = "draft";
+            // $revisionNumber = "GE" . $randNo;
+            // $GateEntryHeader->revision_number += 1;
+            // // $GateEntryHeader->status = "draft";
+            // // $GateEntryHeader->document_status = "draft";
+            // // $GateEntryHeader->save();
+
+            // /*Create document submit log*/
+            // if ($GateEntryHeader->document_status) {
+            //     $bookId = $GateEntryHeader->series_id;
+            //     $docId = $GateEntryHeader->id;
+            //     $remarks = $GateEntryHeader->remarks;
+            //     $attachments = $request->file('attachment');
+            //     $currentLevel = $GateEntryHeader->approval_level ?? 1;
+            //     $revisionNumber = $GateEntryHeader->revision_number ?? 0;
+            //     $actionType = 'submit'; // Approve // reject // submit
+            //     $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
+            //     $GateEntryHeader->document_status = $approveDocument['approvalStatus'];
+            // }
             // $GateEntryHeader->save();
-
-            /*Create document submit log*/
-            if ($GateEntryHeader->document_status) {
-                $bookId = $GateEntryHeader->series_id;
-                $docId = $GateEntryHeader->id;
-                $remarks = $GateEntryHeader->remarks;
-                $attachments = $request->file('attachment');
-                $currentLevel = $GateEntryHeader->approval_level ?? 1;
-                $revisionNumber = $GateEntryHeader->revision_number ?? 0;
-                $actionType = 'submit'; // Approve // reject // submit
-                $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
-                $GateEntryHeader->document_status = $approveDocument['approvalStatus'];
-            }
-            $GateEntryHeader->save();
 
             DB::commit();
             return response()->json([
@@ -2516,7 +2556,7 @@ class GateEntryController extends Controller
                     : 'null';
 
                 // $disabled = ($dataExistingPo != 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-
+    
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input po_item_checkbox' type='checkbox' name='po_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-po='{$dataCurrentPo}' data-current-asn='{$dataCurrentAsn}' data-current-asn-item='{$dataCurrentAsnItem}' data-existing-po='{$dataExistingPo}' >
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -2734,7 +2774,7 @@ class GateEntryController extends Controller
     # Process PO Item list
     public function processPoItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $type = 'po';
         $ids = json_decode($request->ids, true) ?? [];
         $asnIds = json_decode($request->asnIds, true) ?? [];
@@ -2911,7 +2951,7 @@ class GateEntryController extends Controller
                     : 'null';
 
                 // $disabled = ($dataExistingPo != 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-
+    
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input jo_item_checkbox' type='checkbox' name='jo_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-jo='{$dataCurrentJo}' data-current-asn='{$dataCurrentAsn}' data-current-asn-item='{$dataCurrentAsnItem}' data-existing-jo='{$dataExistingJo}' >
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -3123,7 +3163,7 @@ class GateEntryController extends Controller
     # Process JO Item list
     public function processJoItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $type = 'jo';
         $ids = json_decode($request->ids, true) ?? [];
         $asnIds = json_decode($request->asnIds, true) ?? [];
@@ -3289,7 +3329,7 @@ class GateEntryController extends Controller
                     : 'null';
 
                 // $disabled = ($dataExistingPo != 'null' && $dataExistingPo != $row->purchase_order_id) ? 'disabled' : '';
-
+    
                 return "<div class='form-check form-check-inline me-0'>
                             <input class='form-check-input so_item_checkbox' type='checkbox' name='so_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-jo='{$dataCurrentJo}' data-current-asn='{$dataCurrentAsn}' data-current-asn-item='{$dataCurrentAsnItem}' data-existing-jo='{$dataExistingSo}' >
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
@@ -3484,9 +3524,9 @@ class GateEntryController extends Controller
             ->with(['headers', 'item', 'attributes', 'headers.vendors'])
             ->whereHas('headers', function ($dnote) use ($seriesId, $docNumber, $request, $storeId) {
                 $dnote->whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::POSTED])
-                ->whereNot('organization_id', $request->user()->organization_id)
-                ->where('group_id', $request->user()->group_id)
-                ->where('company_id', $request->user()->company_id);
+                    ->whereNot('organization_id', $request->user()->organization_id)
+                    ->where('group_id', $request->user()->group_id)
+                    ->where('company_id', $request->user()->company_id);
                 if ($seriesId) {
                     $dnote->where('erp_sale_invoices.book_id', $seriesId);
                 }
@@ -3504,10 +3544,10 @@ class GateEntryController extends Controller
         } elseif ($request->type == 'edit') {
             if (!empty($header_ids)) {
                 $dnoteItems->whereIn('erp_invoice_items.sale_invoice_id', $header_ids)
-                ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+                    ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
                 if (!empty($details_ids)) {
                     $dnoteItems->whereNotIn('erp_invoice_items.id', $details_ids)
-                    ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
+                        ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
                 }
             }
 
@@ -3518,10 +3558,10 @@ class GateEntryController extends Controller
 
         foreach ($dnoteItems as $dnoteItem) {
             if (!in_array($dnoteItem->id, $selected_dnote_ids)) {
-                    $finaldnoteItems[] = $dnoteItem;
-                    $dnoteItemIds[] = $dnoteItem->id;
-                }
+                $finaldnoteItems[] = $dnoteItem;
+                $dnoteItemIds[] = $dnoteItem->id;
             }
+        }
         return $finaldnoteItems;
     }
 
@@ -3729,7 +3769,7 @@ class GateEntryController extends Controller
     // Gate Entry Report
     public function Report()
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', null)->get();
         $sub_categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', '!=', null)->get();
         $items = Item::withDefaultGroupCompanyOrg()->get();
@@ -3758,7 +3798,7 @@ class GateEntryController extends Controller
 
     public function getReportFilter(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $period = $request->query('period');
         $startDate = $request->query('startDate');
         $endDate = $request->query('endDate');
@@ -4065,13 +4105,14 @@ class GateEntryController extends Controller
 
     public function gateEntryReport(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $pathUrl = route('gate-entry.index');
         $orderType = ConstantHelper::GATE_ENTRY_SERVICE_ALIAS;
         $gateEntries = GateEntryHeader::withDefaultGroupCompanyOrg()
             // ->where('document_type', $orderType)
             // ->bookViewAccess($pathUrl)
             ->withDraftListingLogic()
+            ->selfCreatedDocuments($user)
             ->orderByDesc('id');
 
         // Vendor Filter
@@ -4374,10 +4415,11 @@ class GateEntryController extends Controller
     }
 
     # Process Job Order Component
-    private static function processJobOrderComponent($component, $item, $inputQty)
+    private static function processJobOrderComponent($component, $item, $inputQty, $organization)
     {
         if (!empty($component['vendor_asn_dtl_id'])) {
             $asn = VendorAsnItem::find($component['vendor_asn_dtl_id']);
+            $lockGeRow = self::lockReferenceDetail($asn, 'supplier-invoice', $organization);
             $jo = JoProduct::find($asn?->jo_prod_id);
             if (!$asn || !$jo)
                 return self::notFoundResponse('ASN or Job Order');
@@ -4389,22 +4431,22 @@ class GateEntryController extends Controller
 
             $asn->ge_qty += $inputQty;
             $asn->save();
-            return self::updatePoQty($item, $jo, $inputQty, 'supplier-invoice');
+            return self::updatePoQty($item, $jo, $inputQty, 'job-order', $organization);
         }
 
         $jo = JoProduct::find($component['jo_detail_id']);
-        return $jo ? self::updatePoQty($item, $jo, $inputQty, 'job-order') : self::notFoundResponse('Job Order');
+        return $jo ? self::updatePoQty($item, $jo, $inputQty, 'job-order', $organization) : self::notFoundResponse('Job Order');
     }
 
     # Process Sale Order Component
-    private static function processSaleOrderComponent($component, $item, $inputQty)
+    private static function processSaleOrderComponent($component, $item, $inputQty, $organization)
     {
         $so = ErpSoJobWorkItem::find($component['po_detail_id']);
         return $so ? self::updatePoQty($item, $so, $inputQty, 'sale-order') : self::notFoundResponse('Sale Order');
     }
 
     # Process Purchase Order Component
-    private static function processPurchaseOrderComponent($component, $item, $inputQty)
+    private static function processPurchaseOrderComponent($component, $item, $inputQty, $organization)
     {
         if (!empty($component['vendor_asn_dtl_id'])) {
             $inv = VendorAsnItem::find($component['vendor_asn_dtl_id']);
@@ -4412,16 +4454,17 @@ class GateEntryController extends Controller
 
             $inv->ge_qty += $inputQty;
             $inv->save();
-            return self::updatePoQty($item, $po, $inputQty, 'supplier-invoice');
+            return self::updatePoQty($item, $po, $inputQty, 'purchase-order', $organization);
         }
 
         $po = PoItem::find($component['po_detail_id']);
-        return $po ? self::updatePoQty($item, $po, $inputQty, 'purchase-order') : self::notFoundResponse('PO Item');
+        return $po ? self::updatePoQty($item, $po, $inputQty, 'purchase-order', $organization) : self::notFoundResponse('PO Item');
     }
 
     // Update Purchase Order Quantity
-    private static function updatePoQty($item, $poDetail, $inputQty, $type)
+    private static function updatePoQty($item, $poDetail, $inputQty, $type, $organization)
     {
+        $lockGeRow = self::lockReferenceDetail($poDetail, $type, $organization);
         $orderQty = floatval($poDetail->order_qty);
         $geQty = floatval($poDetail->ge_qty ?? 0);
         $totalQty = $geQty + $inputQty;
@@ -4452,18 +4495,19 @@ class GateEntryController extends Controller
         return true;
     }
 
-    private static function processDnoteComponent($component, $item, $inputQty)
+    private static function processDnoteComponent($component, $item, $inputQty, $organization)
     {
         $oldQty = 0;
-        if(@$component['detail_id']){
+        if (@$component['detail_id']) {
             $geDetail = GateEntryDetail::find($component['detail_id']);
             $oldQty = $geDetail->accepted_qty ?? 0;
         }
         $qtyDifference = floatval($inputQty) - floatval($oldQty);
 
         $dnote = ErpInvoiceItem::where('id', $component['invoice_itm_id'])
-        ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
-        ->first();
+            ->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
+            ->first();
+        $lockGeRow = self::lockReferenceDetail($dnote, 'd-note', $organization);
 
         $orderQty = floatval($dnote->dnote_qty);
         if ($inputQty != $orderQty) {
@@ -4472,17 +4516,17 @@ class GateEntryController extends Controller
         $dnote->ge_qty += $qtyDifference;
         $dnote->save();
 
-        if($dnote->saleOrderItem?->poItems){
+        if ($dnote->saleOrderItem?->poItems) {
             $poDetail = PoItem::find($dnote?->saleOrderItem?->po_item_id);
 
-            if($poDetail){
+            if ($poDetail) {
                 $poDetail->ge_qty += $qtyDifference;
                 $poDetail->save();
             }
         }
-        if($dnote->saleOrderItem?->joItems){
+        if ($dnote->saleOrderItem?->joItems) {
             $joDetail = JoProduct::find($dnote?->saleOrderItem?->jo_product_id);
-            if($joDetail){
+            if ($joDetail) {
                 $joDetail->ge_qty += $qtyDifference;
                 $joDetail->save();
             }
@@ -4534,8 +4578,7 @@ class GateEntryController extends Controller
             $poOrderQty = floatval($poItemData?->order_qty ?? 0);
             $existingPoGrnQty = floatval($poItemData?->ge_qty ?? 0);
             $poItemData->ge_qty += $inputQty;
-            if($existingPoGrnQty > $poOrderQty)
-            {
+            if ($existingPoGrnQty > $poOrderQty) {
                 return response()->json(['message' => 'Quantity cannot be greater than PO Quantity.'], 422);
             }
             $poItemData->save();
@@ -4545,13 +4588,163 @@ class GateEntryController extends Controller
             $joOrderQty = floatval($joItemData?->order_qty ?? 0);
             $existingJoGrnQty = floatval($joItemData?->ge_qty ?? 0);
             $joItemData->ge_qty += $inputQty;
-            if($existingJoGrnQty > $joOrderQty)
-            {
+            if ($existingJoGrnQty > $joOrderQty) {
                 return response()->json(['message' => 'Quantity cannot be greater than JO Quantity.'], 422);
             }
             $joItemData->save();
         }
         $poDetail->save();
+        return true;
+    }
+
+    // Cancel Document
+    public function cancel(Request $request)
+    {
+        // Validate incoming AJAX JSON
+        $documentId = (int) $request->input('id'); // from AJAX
+        $actionType = $request->input('action_type', 'cancel');
+        $cancelType = $request->input('cancel_type', 'normal') ?? 'normal'; // normal|voucher
+        $cancelRemarks = $request->input('cancel_remarks', '');
+        $deletedMrnItemIds = json_decode($request->input('deletedMrnItemIds', []), true) ?? [];
+        \DB::beginTransaction();
+        try {
+            /** @var GateEntryHeader|null $ge */
+            $ge = GateEntryHeader::find($documentId);
+
+            if (!$ge) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Gate Entry not found.'
+                ]);
+            }
+
+            // Submit Amendment (if your method returns ['status'=>'success|error','message'=>...])
+            if (method_exists($this, 'amendmentSubmit')) {
+                $amendment = $this->amendmentSubmit($request, $ge->id);
+                if (is_array($amendment) && ($amendment['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $amendment['message'] ?? 'Amendment submission failed.'
+                    ]);
+                }
+            }
+
+            // Optional: delete related records as per your existing flow
+            $keys = ['deletedMrnItemIds'];
+            $deletedData = [];
+            foreach ($keys as $key) {
+                $deletedData[$key] = json_decode($request->input($key, '[]'), true);
+            }
+
+            if (class_exists(GeDeleteService::class)) {
+                $deleteService = new GeDeleteService();
+                $deleteResponse = $deleteService->deleteByRequest($deletedData, $ge);
+                if (($deleteResponse['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $deleteResponse['message'] ?? 'Delete failed.'
+                    ]);
+                }
+            }
+
+            // Only support cancel action for now
+            if ($actionType !== 'cancel') {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Only cancel action is supported.'
+                ]);
+            }
+
+            // Log and update header
+            $bookId = $ge->book_id;
+            $docId = $ge->document_id ?? $ge->id;
+            $revision = (int) $ge->revision_number + 1;
+            $currentLevel = (int) $ge->approval_level;
+
+            // Document log (if you rely on it)
+            if (class_exists(Helper::class) && method_exists(Helper::class, 'approveDocument')) {
+                Helper::approveDocument(
+                    $bookId,
+                    $docId,
+                    $revision,
+                    $cancelRemarks,
+                    $request->input('cancel_attachments', []),
+                    $currentLevel,
+                    $actionType,
+                    $ge->total_amount,
+                    GateEntryHeader::class
+                );
+            }
+            // Persist cancellation
+            $ge->revision_number = $revision;
+            $ge->approval_level = 1;
+            $ge->revision_date = now();
+            $ge->document_status = ConstantHelper::CANCELLED;
+            $ge->final_remark = $cancelRemarks;
+
+            // Zero-out financials as per your original code
+            $ge->total_discount = 0.00;
+            $ge->taxable_amount = 0.00;
+            $ge->total_taxes = 0.00;
+            $ge->total_after_tax_amount = 0.00;
+            $ge->expense_amount = 0.00;
+            $ge->total_amount = 0.00;
+            $ge->total_item_amount = 0.00;
+            $ge->reference_type = null;
+
+            $ge->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Document cancelled successfully.',
+                'data' => [
+                    'status' => true,
+                    'id' => $ge->id,
+                    'document_status' => $ge->document_status,
+                    'revision_number' => $ge->revision_number,
+                    'cancellation_type' => $cancelType,
+                ],
+            ], 200);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'An error occurred while processing your request.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    # Lock Reference Detail
+    private static function lockReferenceDetail($refDetail, $type, $organization)
+    {
+        $lockService = new DocumentLockService();
+
+        $lockKey = $lockService->generateItemLockKey($organization->id, $refDetail->id, $type);
+        if (!$lockKey) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Invalid Argument passed in Lock Key Generator.',
+                'line' => '',
+                'error' => '',
+            ], 500);
+        }
+
+        $itemCode = $refDetail?->item?->item_name;
+        $lockResult = $lockService->lockRemainingItemQty($lockKey, $itemCode, $type);
+        if (!$lockResult['success']) {
+            DB::rollBack();
+            return response()->json([
+                'message' => $lockResult['message'],
+                'error' => 'lockResult',
+            ], $lockResult['status']);
+        }
         return true;
     }
 

@@ -1,8 +1,12 @@
 // ===== Expense Allocation — Create + Edit (PO tab + GRN tab) =====
 (function () {
+    // make $ available BEFORE any usage
+    const $ = window.jQuery || window.$;
+
+    let IS_EDIT = false;
     // ---------- CONFIG ----------
     const CFG = {
-        tabs: { po: "#poItems", grn: "#grnItems" },
+        tabs: { po: ".poItems", grn: ".grnItems" },
 
         // Buttons
         distributeBtn: ".distributeBtn, .allocateBtn",
@@ -40,8 +44,148 @@
         document.querySelector('meta[name="route-type"]')?.content || "create"
     ).toLowerCase();
 
+    // ---------- DELETE (common) helpers ----------
+    // DO NOT use $ here. Use plain DOM queries (safe even if jQuery isn't ready yet)
+    function readExpenseIdFromDOM() {
+        return (
+            document.querySelector(".po_exp_alc_id")?.value ||
+            document.querySelector(".grn_exp_alc_id")?.value ||
+            document.querySelector('input[name="id"]')?.value ||
+            document.querySelector('input[name="header_id"]')?.value ||
+            ""
+        ).trim();
+    }
+
+    // read once (might be empty if script is in <head>, we will recompute on init)
+    let EXPENSE_ID = readExpenseIdFromDOM();
+    IS_EDIT = PAGE_MODE === "edit" || !!EXPENSE_ID;
+
+    // make this mutable so we can refresh it on init
+    let LS_KEYS = {
+        po: `deleted_po_item_ids:${EXPENSE_ID || "new"}`,
+        grn: `deleted_grn_item_ids:${EXPENSE_ID || "new"}`,
+    };
+
+    function refreshKeysAfterDomReady() {
+        // recompute if empty or if DOM wasn't parsed when script ran
+        if (!EXPENSE_ID) {
+            EXPENSE_ID = readExpenseIdFromDOM();
+            IS_EDIT = PAGE_MODE === "edit" || !!EXPENSE_ID;
+            LS_KEYS = {
+                po: `deleted_po_item_ids:${EXPENSE_ID || "new"}`,
+                grn: `deleted_grn_item_ids:${EXPENSE_ID || "new"}`,
+            };
+        }
+    }
+
+    function uniq(arr) {
+        return [...new Set(arr.filter(Boolean).map(String))];
+    }
+    function readCsv(str) {
+        return (str || "")
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+    }
+    function toCsv(arr) {
+        return uniq(arr).join(",");
+    }
+
+    function lsRead(key) {
+        return readCsv(localStorage.getItem(key) || "");
+    }
+    function lsWrite(key, arr) {
+        localStorage.setItem(key, toCsv(arr));
+    }
+
+    // Always write JSON arrays for backend (not CSV)
+    function updateDeleteHiddenFields($scope, poIds, grnIds) {
+        const $form = $scope.closest("form").length
+            ? $scope.closest("form")
+            : $("form").first();
+
+        let $po = $form.find('input[name="deleted_po_item_ids"]');
+        let $grn = $form.find('input[name="deleted_grn_item_ids"]');
+
+        if (!$po.length)
+            $po = $("<input>", {
+                type: "hidden",
+                name: "deleted_po_item_ids",
+            }).appendTo($form);
+        if (!$grn.length)
+            $grn = $("<input>", {
+                type: "hidden",
+                name: "deleted_grn_item_ids",
+            }).appendTo($form);
+
+        // parse existing values (JSON-safe)
+        let curPo = [];
+        let curGrn = [];
+        try {
+            curPo = JSON.parse($po.val() || "[]");
+        } catch {}
+        try {
+            curGrn = JSON.parse($grn.val() || "[]");
+        } catch {}
+
+        // merge + unique
+        const nextPo = [
+            ...new Set(curPo.concat(poIds.map(Number)).filter(Boolean)),
+        ];
+        const nextGrn = [
+            ...new Set(curGrn.concat(grnIds.map(Number)).filter(Boolean)),
+        ];
+
+        // write JSON
+        $po.val(JSON.stringify(nextPo));
+        $grn.val(JSON.stringify(nextGrn));
+    }
+
+    function detectSavedRow($tr, fallbackType) {
+        const idPO = Number($tr.find('[name*="[po_dtl_id]"]').val()) || 0;
+        const idGRN = Number($tr.find('[name*="[grn_dtl_id]"]').val()) || 0;
+        if (idPO) return { type: "po", id: idPO };
+        if (idGRN) return { type: "grn", id: idGRN };
+
+        const dataType = ($tr.data("type") || fallbackType || "")
+            .toString()
+            .toLowerCase();
+        const dataId =
+            Number($tr.data("id")) ||
+            Number($tr.find(".form-check-input").data("id")) ||
+            0;
+        return { type: dataType, id: dataId };
+    }
+
+    function cleanupSelectedPoIds($tr) {
+        const poItemHiddenId = $tr
+            .find("input[name*='[po_item_hidden_ids]']")
+            .val();
+        if (!poItemHiddenId) return;
+        const idsToRemove = poItemHiddenId.split(",");
+        let selectedPoIds = [];
+        try {
+            selectedPoIds = JSON.parse(
+                localStorage.getItem("selectedPoIds") || "[]"
+            );
+        } catch {}
+        localStorage.setItem(
+            "selectedPoIds",
+            JSON.stringify(
+                selectedPoIds.filter((id) => !idsToRemove.includes(id))
+            )
+        );
+    }
+
+    function removeRowUI($tr) {
+        $tr.addClass("is-deleted")
+            .attr("data-removed", "1")
+            .slideUp(120, function () {
+                $(this).remove();
+            });
+    }
+
     // ---------- UTIL ----------
-    const $ = window.jQuery || window.$;
     const toNum = (v) => {
         const n = parseFloat(
             String(v ?? "")
@@ -502,56 +646,138 @@
     });
 
     // ---------- DELETE (toolbar) ----------
-    function markRowDeleted($row) {
-        $row.addClass("is-deleted")
-            .attr("data-removed", "1")
-            .slideUp(120, function () {
-                $(this).remove();
-            });
-    }
     function afterRowsDeleted() {
         setTimeout(() => {
             const ok = runDistribution({ showSuccess: false });
-            if (ok)
+            if (ok) {
                 Swal.fire({
                     icon: "success",
                     title: "Recalculated after deletion",
                     timer: 900,
                     showConfirmButton: false,
                 });
-            else markDistributionDirty();
+            } else {
+                markDistributionDirty();
+            }
+            if (typeof setTableCalculation === "function")
+                setTableCalculation();
         }, 140);
     }
+
     $(document).on("click", CFG.bulkDeleteBtn, function (e) {
-        const { key, $scope } = detectTabScope($(this));
+        const $btn = $(this);
+        console.log("Bulk delete clicked", $btn);
+
+        const { key, $scope } = detectTabScope($btn); // key: 'po' | 'grn' | 'unknown'
         const rowSel =
             key === "grn" ? CFG.grn.row : key === "po" ? CFG.expense.row : null;
         if (!rowSel) return;
+
         const $rows = $scope.find(rowSel).filter(function () {
             return $(this).find('input[type="checkbox"]:checked').length;
         });
-        if ($rows.length) {
-            e.preventDefault();
-            $rows.each(function () {
-                markRowDeleted($(this));
-            });
-            afterRowsDeleted();
+        console.log("Deleting rows:", $rows.length);
 
-            setTimeout(() => {
-                setTableCalculation();
-            }, 300);
+        if (!$rows.length) {
+            Swal.fire({
+                icon: "error",
+                title: "Nothing selected",
+                text: "Please select at least one row.",
+            });
+            return;
         }
+
+        e.preventDefault();
+
+        const confirmText = IS_EDIT
+            ? "Saved rows will be deleted on Update. They will be removed from the form now."
+            : "Rows will be removed from the form.";
+
+        Swal.fire({
+            icon: "warning",
+            title: "Delete selected rows?",
+            text: confirmText,
+            showCancelButton: true,
+            confirmButtonText: "Yes, delete",
+            cancelButtonText: "Cancel",
+        }).then((res) => {
+            if (!res.isConfirmed) return;
+
+            // Buckets to accumulate saved ids per type (for edit)
+            const poIdsToStore = [];
+            const grnIdsToStore = [];
+
+            $rows.each(function () {
+                const $tr = $(this);
+
+                // keep your "selectedPoIds" cleanup logic
+                cleanupSelectedPoIds($tr);
+
+                // If edit: collect saved ids to store
+                if (IS_EDIT) {
+                    const det = detectSavedRow($tr, key); // {type, id}
+                    if (det.id && det.type === "po")
+                        poIdsToStore.push(String(det.id));
+                    if (det.id && det.type === "grn")
+                        grnIdsToStore.push(String(det.id));
+                }
+
+                // Remove from DOM
+                removeRowUI($tr);
+            });
+
+            // Update hidden inputs + localStorage immediately (no submit hook needed)
+            if (IS_EDIT) {
+                // Hidden fields (so server receives them without extra JS on submit)
+                updateDeleteHiddenFields($scope, poIdsToStore, grnIdsToStore);
+
+                // LocalStorage (to persist across reloads before final update)
+                if (poIdsToStore.length) {
+                    lsWrite(
+                        LS_KEYS.po,
+                        uniq(lsRead(LS_KEYS.po).concat(poIdsToStore))
+                    );
+                }
+                if (grnIdsToStore.length) {
+                    lsWrite(
+                        LS_KEYS.grn,
+                        uniq(lsRead(LS_KEYS.grn).concat(grnIdsToStore))
+                    );
+                }
+            }
+
+            // Empty state UI like your create page
+            if (
+                !$(".poItemsTable .poItemsTbody").find("tr[id*='row_']").length
+            ) {
+                $(".poSelect").removeClass("d-none");
+                $(".poItemsTable > thead .form-check-input").prop(
+                    "checked",
+                    false
+                );
+            }
+            afterRowsDeleted();
+        });
     });
 
     // ---------- INIT ----------
     $(function () {
+        // recompute EXPENSE_ID & keys now that DOM is guaranteed to be ready
+        refreshKeysAfterDomReady();
+
         distributedOK = false;
         setSubmitState();
         wireDirtyHandlers();
         $(".submit-button").attr("type", "button");
 
         if (PAGE_MODE === "edit") {
-            hydrateAllRowsOnEdit(); // make Show work immediately & ensure hidden allocations are filled
+            hydrateAllRowsOnEdit();
+            // Optional: hydrate hidden delete inputs from any prior LS
+            const poBag = lsRead(LS_KEYS.po);
+            const grnBag = lsRead(LS_KEYS.grn);
+            if (poBag.length || grnBag.length) {
+                updateDeleteHiddenFields($(document.body), poBag, grnBag);
+            }
         }
     });
 

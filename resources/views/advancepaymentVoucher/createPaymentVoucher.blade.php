@@ -413,7 +413,7 @@
                                                                 <th width="300px">Ledger Code</th>
                                                                 <th width="300px">Ledger Name</th>
                                                                 <th width="300px">Ledger Group</th>
-                                                                <th width="300px">Organization</th>
+                                                                <!-- <th width="300px">Organization</th> -->
                                                                 <th width="200px">Reference</th>
                                                                 <th width="200px" class="text-end">Amount (<span
                                                                         id="selectedCurrencyName"></span>)</th>
@@ -504,13 +504,13 @@
                                                                                 </option>
                                                                             </select>
                                                                         </td>
-                                                                        <td>
+                                                                        <!-- <td>
                                                                             <input type="text" disabled
                                                                                 placeholder="Select"
                                                                                 class="form-control mw-100 mb-25 organization"
                                                                                 id="organization{{ $no }}"
                                                                                 value="{{ $voucher['organization'] }}" />
-                                                                        </td>
+                                                                        </td> -->
                                                                         <td>
                                                                             <div
                                                                                 class="position-relative d-flex align-items-center">
@@ -607,12 +607,12 @@
                                                                             class="ledgerGroup form-select mw-100">
                                                                         </select>
                                                                     </td>
-                                                                    <td>
+                                                                    <!-- <td>
                                                                         <input type="text" disabled
                                                                             placeholder="Select"
                                                                             class="form-control mw-100 mb-25 organization"
                                                                             id="organization1" />
-                                                                    </td>
+                                                                    </td> -->
                                                                     <td>
 
                                                                         <div
@@ -652,7 +652,7 @@
                                                         </tbody>
                                                         <tfoot>
                                                             <tr class="totalsubheadpodetail">
-                                                                <td colspan="7" class="text-end">Total</td>
+                                                                <td colspan="6" class="text-end">Total</td>
                                                                 <td class="text-end currentCurrencySum">
                                                                     {{ App\Helpers\Helper::formatIndianNumber($totalAmount) }}
                                                                 </td>
@@ -752,8 +752,9 @@
                                             <th>Date</th>
                                             <th>Series</th>
                                             <th>Document No.</th>
+                                            <th class="text-end">Amount</th>
                                             <th class="text-end">Advance</th>
-                                            <th class="text-end">Settle</th>
+                                            <!-- <th class="text-end">Settle</th> -->
                                             <th class="text-end" width="150px">To Pay</th>
                                             <th class="text-center">
                                                 <div class="form-check form-check-inline me-0">
@@ -861,18 +862,16 @@
                 selectedVouchers.push({
                     "party_id": $('#LedgerId').val(),
                     "voucher_id": this.value,
-                    "amount": $('.settleAmount' + this.value).val()
+                    "amount": $('.settleAmount' + this.value).val(),
+                    "header_amounts":$('.settleAmount' + this.value).val(),
+                    "header_id": $(this).data('header_id'),
+                    "header_name": $(this).data('header_name'),
                 });
                 return this.value;
             }).get();
-            let selectedVoucherId = $('.vouchers:checked').first().data('id'); // get first checked only
             let currentRow = $('#currentRow').val();
             let headerSelector = '#headerid' + currentRow;
 
-            // Set hidden input to selected voucher id
-            $('#headerid' + currentRow).val(selectedVoucherId);
-            console.log('Selected voucher ID:', selectedVoucherId);
-            console.log('Value after set:', $('#headerid' + currentRow).val());
             $('#party_vouchers' + $('#currentRow').val()).val(JSON.stringify(selectedVouchers));
             
 
@@ -947,7 +946,7 @@
             let balanceminus = parseFloat($(this).data('balanceminus'));
             let calculatedvaluebalance = parseFloat($(this).data('calculatedvaluebalance'));
 
-            if (settleAmount > balanceminus || settleAmount > calculatedvaluebalance) {
+            if (value > balanceminus || value > calculatedvaluebalance) {
                 e.target.value = max;
             }
         });
@@ -1014,24 +1013,24 @@
                         const ledgerId = $('#party_id' + $('#currentRow').val()).val();
                         $.each(response.data, function(index, val) 
                         {
-                            if(val.topay > 0)
+                            if(val.topay > 0 && val.settle == 0)
                             {
                                     var checked = "";
                                     var calculatedValue = (val['total_item_value'] * val['percent']) / 100;
                                     html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
                                         <td>${index + 1}</td>
-                                        <td>${val['date']}</td>
-                                        <td class="fw-bolder text-dark">${val['series']?.book_code?.toUpperCase() ?? '-'}</td>
+                                        <td>${new Date(val['date']).toLocaleDateString('en-GB')}</td>
+                                        <td class="fw-bolder text-dark">${val['book_code']?.toUpperCase() ?? '-'}</td>
                                         <td>${val['document_number']}</td>
                                         <td class="text-end">${formatIndianNumber(val['total_item_value'])}</td>
-                                        <td class="balanceInput text-end">${formatIndianNumber(val['settle'])}</td>
+                                        <td class="balanceInput text-end">${formatIndianNumber(calculatedValue)}</td>
                                         
                                         <td class="text-end">
-                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${val['total_item_value'] - val['settle'] > calculatedValue ? calculatedValue : val['total_item_value'] - val['settle']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle']}"/>
+                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" readonly value="${calculatedValue.toFixed(2)}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${calculatedValue}"/>
                                         </td>
                                         <td class="text-center">
                                             <div class="form-check form-check-inline me-0">
-                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle']}">
+                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-header_name="${val['header_name']}" data-id="${val['id']}" data-header_id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${calculatedValue.toFixed(2)}">
                                             </div>
                                         </td>
                                         <input type="hidden" class="ledger-id" value="${ledgerId}">
@@ -1556,7 +1555,7 @@
                             <input type="text" placeholder="Select" class="form-control mw-100 ledgerselect partyCode${rowCount} mb-25" required data-id="${rowCount}"/>
                             <input type="hidden" name="party_id[]" type="hidden" id="party_id${rowCount}" class="ledgers"/>
                             <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers${rowCount}" class="party_vouchers"/>
-                            <input type="hidden" name="customer_id[]" type="hidden" id="customerid${rowCount}" class="party_customers"/>
+                            <input type="hidden" name="customerid[]" type="hidden" id="customerid${rowCount}" class="party_customers"/>
                             <input type="hidden" name="vendor_id[]" type="hidden" id="vendorid${rowCount}" class="party_vendors"/>
                             <input type="hidden" name="headerid[]" type="hidden" id="headerid${rowCount}" class="party_vendors"/>
 
@@ -1567,13 +1566,6 @@
                                 name="parent_ledger_id[]"
                                 class="ledgerGroup form-select mw-100">
                             </select>
-                        </td>
-                        <td>
-                            <input type="text" disabled
-                                placeholder="Select"
-                                class="form-control mw-100 mb-25 organization"
-                                id="organization${rowCount}"
-                                    />
                         </td>
                         <td>
                             <div class="position-relative d-flex align-items-center">

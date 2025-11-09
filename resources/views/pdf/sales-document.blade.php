@@ -252,7 +252,7 @@
             </tr>
         </table>
 
-        @if (isset($dyanmicFields) && count($dynamicFields))
+        @if (isset($dynamicFields) && count($dynamicFields))
             <table style = "border-left: 1px solid #000; border-right:1px solid #000; width:100%;">
                 <tr>
                     @foreach ($dynamicFields as $dynamicField)

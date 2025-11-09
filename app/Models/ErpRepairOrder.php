@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Models;
-
+use App\Helpers\ConstantHelper;
 use App\Traits\DateFormatTrait;
 use App\Traits\DefaultGroupCompanyOrg;
 use App\Traits\DynamicFieldsTrait;
@@ -24,9 +24,21 @@ class ErpRepairOrder extends Model
         'book_id',
         'book_code',
         'store_id',
+         'store_name',
         'rgr_sub_store_id',
         'qc_sub_store_id',
-        'store_name',
+        'customer_sub_store_id',
+         'currency_id',
+        'currency_code',
+        'org_currency_id',
+        'org_currency_code',
+        'org_currency_exg_rate',
+        'comp_currency_id',
+        'comp_currency_code',
+        'comp_currency_exg_rate',
+        'group_currency_id',
+        'group_currency_code',
+        'group_currency_exg_rate',
         'vendor_id',
         'type',
         'defect_status',
@@ -64,6 +76,21 @@ class ErpRepairOrder extends Model
     public function store()
     {
         return $this->belongsTo(ErpStore::class, 'store_id');
+    }
+
+     public function rgrSubStore()
+    {
+        return $this->belongsTo(ErpSubStore::class, 'rgr_sub_store_id');
+    }
+
+    public function qcSubStore()
+    {
+        return $this->belongsTo(ErpSubStore::class, 'qc_sub_store_id');
+    }
+    
+    public function book()
+    {
+        return $this->belongsTo(Book::class, 'book_id');
     }
 
     public function vendor()
@@ -104,5 +131,19 @@ class ErpRepairOrder extends Model
     public function deletedBy()
     {
         return $this->belongsTo(AuthUser::class, 'deleted_by','id');
+    }
+
+     public function getDisplayStatusAttribute()
+    {
+        $status = str_replace('_', ' ', $this->document_status);
+        return ucwords($status);
+    }
+    
+    public function getDocumentStatusAttribute()
+    {
+        if ($this->attributes['document_status'] == ConstantHelper::APPROVAL_NOT_REQUIRED) {
+            return ConstantHelper::APPROVED;
+        }
+        return $this->attributes['document_status'];
     }
 }

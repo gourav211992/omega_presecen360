@@ -108,7 +108,7 @@
 @endsection
 
 @section('scripts')
-<script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
+<script type="text/javascript" src="{{asset('assets/js/modules/common-datatable.js')}}"></script>
 <script>
  $(window).on("load", function () {
      if (feather) feather.replace({ width: 14, height: 14 });

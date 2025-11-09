@@ -24,6 +24,7 @@ class RgrRequest extends FormRequest
             'store_id'        => 'required|integer|exists:erp_stores,id',
 
             'rgr_items'                   => 'required|array|min:1',
+            'rgr_items.*.pickup_item_id'  => 'required|integer|exists:erp_pickup_items,id',
             'rgr_items.*.item_id'         => 'required|integer|exists:erp_items,id',
             'rgr_items.*.category_id'     => 'nullable|integer|exists:erp_categories,id',
             'rgr_items.*.hsn_id'          => 'nullable|integer|exists:erp_hsns,id',

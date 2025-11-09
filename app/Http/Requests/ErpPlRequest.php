@@ -27,6 +27,7 @@ class ErpPlRequest extends FormRequest
            'document_date' => 'required|date',
            'store_id' => 'required|numeric|integer|exists:erp_stores,id',
            'main_sub_store_id' => 'required|numeric|integer|exists:erp_sub_stores,id',
+           'trip_header_id' => 'required|integer',
            'staging_sub_store_id' => 'required|numeric|integer|exists:erp_sub_stores,id',
            'remarks' => 'nullable|string|max:255',
        ];

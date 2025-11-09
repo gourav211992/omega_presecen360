@@ -413,7 +413,7 @@ private function processCustomerFromUpload($uploadedCustomers)
             ];
 
             $rules = [
-                'organization_type_id' => 'nullable|exists:erp_organization_types,id',
+                 'organization_type_id' => 'required|exists:mysql_master.erp_organization_types,id',
                  'customer_code' => [
                     'required_if:customer_code_type,Manual', 
                     'string',
@@ -463,9 +463,9 @@ private function processCustomerFromUpload($uploadedCustomers)
                             $query->whereNull('deleted_at');
                         }),
                      ],
-                'country_id' => 'nullable|exists:countries,id',
-                'state_id' => 'nullable|exists:states,id',
-                'city_id' => 'nullable|exists:cities,id',
+                'country_id' => 'nullable|exists:mysql_master.countries,id',
+                'state_id' => 'nullable|exists:mysql_master.states,id',
+                'city_id' => 'nullable|exists:mysql_master.cities,id',
                 'pin_code' => 'nullable|regex:/^\d{6}$/',
                 'address' => 'nullable|string',
                 'customer_type' => 'required|string',

@@ -8,7 +8,8 @@
     <tr data-group-item="{{ json_encode($item) }}" id="row_{{ $rowCount }}" data-index="{{ $rowCount }}"
         class="row_{{ $rowCount }} po_row_{{ $rowCount }} po-row expense-row {{ $rowCount < 2 ? 'trselected' : '' }}">
         <input type="hidden" name="components[po][{{ $rowCount }}][header_id]" value="{{ $item->header_id }}">
-        <input type="hidden" name="components[po][{{ $rowCount }}][detail_id]" value="{{ $item->id }}">
+        <input type="hidden" name="components[po][{{ $rowCount }}][po_dtl_id]" value="{{ $item->id }}"
+            id="po_exp_alc_id" class="po_exp_alc_id">
         <input type="hidden" name="components[po][{{ $rowCount }}][po_header_id]"
             value="{{ $item->po_header_id }}">
         <input type="hidden" name="components[po][{{ $rowCount }}][po_detail_id]" value="{{ $item->id }}">
@@ -51,15 +52,10 @@
         <td>
             <input type="hidden" name="components[po][{{ $rowCount }}][currency_id]"
                 value="{{ $item?->currency_id }}">
-            <input type="text" class="form-control mw-100 currency_code" value="{{ $item?->currency_code ?? '' }}"
-                name="components[po][{{ $rowCount }}][currency_code]" readonly />
-        </td>
-        <td>
             <input type="hidden" name="components[po][{{ $rowCount }}][org_currency_id]"
                 value="{{ $item?->org_currency_id }}">
-            <input type="text" class="form-control mw-100 org_currency_code"
-                value="{{ $item?->org_currency_code ?? '' }}"
-                name="components[po][{{ $rowCount }}][org_currency_code]" readonly />
+            <input type="text" class="form-control mw-100 currency_code" value="{{ $item?->currency_code ?? '' }}"
+                name="components[po][{{ $rowCount }}][currency_code]" readonly />
         </td>
         <td>
             <input type="number" class="form-control mw-100 po_qty text-end checkNegativeVal expense-qty"
@@ -71,14 +67,14 @@
                 readonly class="form-control po_rate mw-100 text-end" step="any" />
         </td>
         <td>
-            <input type="text" id="old_amt_po_{{ $rowCount }}"
-                name="components[po][{{ $rowCount }}][old_amt_po]" value="{{ $item->value }}" readonly
-                class="form-control mw-100 text-end old_amt_po" step="any" />
-        </td>
-        <td>
             <input type="text" id="po_value_{{ $rowCount }}"
                 name="components[po][{{ $rowCount }}][po_value]" value="{{ $item->value }}" readonly
                 class="form-control mw-100 text-end po_value expense-amount" step="any" />
+        </td>
+        <td>
+            <input type="text" id="old_amt_po_{{ $rowCount }}"
+                name="components[po][{{ $rowCount }}][old_amt_po]" value="{{ $item->value }}" readonly
+                class="form-control mw-100 text-end old_amt_po" step="any" />
         </td>
         <td>
             <select class="form-select mw-100 alloc-type" name="components[po][{{ $rowCount }}][dist_type]">

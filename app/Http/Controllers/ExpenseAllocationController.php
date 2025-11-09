@@ -96,6 +96,7 @@ class ExpenseAllocationController extends Controller
         $orderType = ConstantHelper::EXP_ALC_SERVICE_ALIAS;
         request()->merge(['type' => $orderType]);
         if (request()->ajax()) {
+            $user = Helper::getAuthenticatedUser();
             $selectColumns = [
                 'id',
                 'document_status',
@@ -109,11 +110,11 @@ class ExpenseAllocationController extends Controller
                 'total_landed_cost_value'
             ];
             $records = Header::select($selectColumns)
-                ->bookViewAccess($orderType)
+                ->bookViewAccess($parentUrl)
+                ->selfCreatedDocuments($user)
                 ->whereBetween('document_date', [$selectedfyYear['start_date'], $selectedfyYear['end_date']])
                 ->withDraftListingLogic()
                 ->latest();
-
 
             // Apply drawer filters
             if ($request->filled('date_range')) {
@@ -191,6 +192,8 @@ class ExpenseAllocationController extends Controller
     public function create(Request $request)
     {
         $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $currency = ModelsCurrency::find($organization->currency_id);
         $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         if (count($servicesBooks['services']) == 0) {
@@ -206,6 +209,7 @@ class ExpenseAllocationController extends Controller
         return view('procurement.expense-allocation.create', [
             'books' => $books,
             'vendors' => $vendors,
+            'currency' => $currency,
             'customers' => $customers,
             'locations' => $locations,
             'saleOrders' => $saleOrders,
@@ -410,6 +414,8 @@ class ExpenseAllocationController extends Controller
     public function edit(Request $request, string $id)
     {
         $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $currency = ModelsCurrency::find($organization->currency_id);
         $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         if (count($servicesBooks['services']) == 0) {
@@ -482,12 +488,13 @@ class ExpenseAllocationController extends Controller
         $locations = InventoryHelper::getAccessibleLocations(ConstantHelper::STOCKK);
         $distributionTypes = ConstantHelper::getDistributionTypes();
         $dynamicFieldsUI = $expense->dynamicfieldsUi();
-
+        // dd($view);
         return view($view, [
             'user' => $user,
             'books' => $books,
             'buttons' => $buttons,
             'expense' => $expense,
+            'currency' => $currency,
             'locations' => $locations,
             'poDetails' => $poDetails,
             'grnDetails' => $grnDetails,
@@ -548,22 +555,21 @@ class ExpenseAllocationController extends Controller
                 $this->amendmentSubmit($request, $id);
             }
 
-            $keys = ['deletedMrnItemIds'];
+            $keys = ['deleted_po_item_ids', 'deleted_grn_item_ids'];
             $deletedData = [];
-
             foreach ($keys as $key) {
-                $deletedData[$key] = json_decode($request->input($key, '[]'), true);
+                // $deletedData[$key] = json_decode($request->input($key, '[]'), true);
+                $deletedData[$key] = self::parseIds($request->input($key, '[]'));
             }
-
-            // $deleteService = new DeleteService();
-            // $deleteResponse = $deleteService->store($deletedData, $expense);
-            // if ($deleteResponse['status'] === 'error') {
-            //     \DB::rollBack();
-            //     return response()->json([
-            //         'message' => $deleteResponse['message'],
-            //         'error' => ''
-            //     ], 422);
-            // }
+            $deleteService = new DeleteService();
+            $deleteResponse = $deleteService->deleteByRequest($deletedData, $expense);
+            if ($deleteResponse['status'] === 'error') {
+                \DB::rollBack();
+                return response()->json([
+                    'message' => $deleteResponse['message'],
+                    'error' => ''
+                ], 422);
+            }
 
             # Expense Header save
             $expense->document_status = $request->document_status ?? ConstantHelper::DRAFT;
@@ -689,6 +695,8 @@ class ExpenseAllocationController extends Controller
     public function addItemRow(Request $request)
     {
         $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
+        $currency = ModelsCurrency::find($organization->currency_id);
         $item = json_decode($request->item, true) ?? [];
         $componentItem = json_decode($request->component_item, true) ?? [];
         $distributionTypes = ConstantHelper::getDistributionTypes();
@@ -699,7 +707,7 @@ class ExpenseAllocationController extends Controller
             }
         }
         $rowCount = intval($request->count) == 0 ? 1 : intval($request->count) + 1;
-        $html = view('procurement.expense-allocation.partials.item-row', compact(['rowCount', 'distributionTypes']))->render();
+        $html = view('procurement.expense-allocation.partials.item-row', compact(['rowCount', 'distributionTypes', 'currency']))->render();
         return response()->json(['data' => ['html' => $html], 'status' => 200, 'message' => 'fetched.']);
     }
 
@@ -1134,67 +1142,62 @@ class ExpenseAllocationController extends Controller
     public function generatePdf(Request $request, $id)
     {
         $user = request()->user();
-
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $organizationAddress = Address::with(['city', 'state', 'country'])
-            ->where('addressable_id', $user->organization_id)
+            ->where('addressable_id', $organization->id)
             ->where('addressable_type', Organization::class)
             ->first();
-        $expense = Header::with(['vendor', 'currency', 'items', 'book', 'expenses'])
-            ->findOrFail($id);
 
-        $shippingAddress = $expense->shippingAddress;
-        $billingAddress = $expense->billingAddress;
+        $expense = Header::with(['currency', 'grnDetails', 'book', 'poDetails', 'createdBy'])->findOrFail($id);
 
-        $totalItemValue = $expense->total_item_amount ?? 0.00;
-        $totalDiscount = $expense->total_discount ?? 0.00;
-        $totalTaxes = $expense->total_taxes ?? 0.00;
-        $totalTaxableValue = ($totalItemValue - $totalDiscount);
-        $totalAfterTax = ($totalTaxableValue + $totalTaxes);
-        $totalExpense = $expense->expense_amount ?? 0.00;
-        $totalAmount = ($totalAfterTax + $totalExpense);
-        $amountInWords = NumberHelper::convertAmountToWords($expense->total_amount);
-        // Path to your image (ensure the file exists and is accessible)
-        $imagePath = public_path('assets/css/midc-logo.jpg'); // Store the image in the public directory
-        $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$expense->document_status] ?? '';
-        $taxes = Ted::where('header_id', $expense->id)
-            ->where('ted_type', 'Tax')
-            ->select('ted_type', 'ted_id', 'ted_name', 'ted_percentage', DB::raw('SUM(ted_amount) as total_amount'), DB::raw('SUM(assesment_amount) as total_assesment_amount'))
-            ->groupBy('ted_name', 'ted_percentage')
-            ->get();
-        $sellerShippingAddress = $expense->latestShippingAddress();
-        $sellerBillingAddress = $expense->latestBillingAddress();
+        $totalPoValue = $expense->total_po_value ?? 0.00;
+        $totalGrnValue = $expense->total_grn_value ?? 0.00;
+        $totalAllocatedCost = $expense->total_allocated_value ?? 0.00;
+        $totalLandedCost = $expense->total_landed_cost_value ?? 0.00;
+        $allocatedCostInWords = NumberHelper::convertAmountToWords($totalAllocatedCost);
+        $landedCostInWords = NumberHelper::convertAmountToWords($totalLandedCost);
+
         $buyerAddress = $expense?->erpStore?->address;
+        $docStatusClass = ConstantHelper::DOCUMENT_STATUS_CSS[$expense->document_status] ?? '';
 
-        $pdf = PDF::loadView(
-            'pdf.expense',
-            [
-                'exp' => $expense,
-                'user' => $user,
-                'shippingAddress' => $shippingAddress,
-                'billingAddress' => $billingAddress,
-                'organization' => $organization,
-                'amountInWords' => $amountInWords,
-                'organizationAddress' => $organizationAddress,
-                'totalItemValue' => $totalItemValue,
-                'totalDiscount' => $totalDiscount,
-                'totalTaxes' => $totalTaxes,
-                'totalTaxableValue' => $totalTaxableValue,
-                'totalAfterTax' => $totalAfterTax,
-                'totalExpense' => $totalExpense,
-                'totalAmount' => $totalAmount,
-                'imagePath' => $imagePath,
-                'docStatusClass' => $docStatusClass,
-                'taxes' => $taxes,
-                'sellerShippingAddress' => $sellerShippingAddress,
-                'sellerBillingAddress' => $sellerBillingAddress,
-                'buyerAddress' => $buyerAddress
-            ]
-        );
+        // Safer for Dompdf: embed logo as base64
+        $logoPath = public_path('assets/css/midc-logo.jpg');
+        $logoBase64 = file_exists($logoPath)
+            ? 'data:image/' . pathinfo($logoPath, PATHINFO_EXTENSION) . ';base64,' . base64_encode(file_get_contents($logoPath))
+            : null;
 
-        $fileName = 'Expense-Advice-' . date('Y-m-d') . '.pdf';
-        return $pdf->stream($fileName);
+        $approvedBy = Helper::getDocStatusUser(get_class($expense), $expense->id, $expense->document_status);
+
+        $pdf = \PDF::loadView('pdf.expense-allocation', [
+            'user' => $user,
+            'exp' => $expense,
+            'logoBase64' => $logoBase64,
+            'buyerAddress' => $buyerAddress,
+            'organization' => $organization,
+            'organizationAddress' => $organizationAddress,
+            'docStatusClass' => $docStatusClass,
+            'totalPoValue' => $totalPoValue,
+            'totalGrnValue' => $totalGrnValue,
+            'totalAllocatedCost' => $totalAllocatedCost,
+            'totalLandedCost' => $totalLandedCost,
+            'allocatedCostInWords' => $allocatedCostInWords,
+            'landedCostInWords' => $landedCostInWords,
+        ])
+            ->setPaper('a4', 'portrait')
+            ->setOptions([
+                'isHtml5ParserEnabled' => true,
+                'isRemoteEnabled' => true,
+                'defaultFont' => 'Helvetica',
+            ]);
+
+        // $pdf->getDomPDF()->set_option('isRemoteEnabled', true);
+        // $pdf->getDomPDF()->set_option('isHtml5ParserEnabled', true);
+        // // $pdf->getDomPDF()->set_option('dpi', 96);
+        // $pdf->getDomPDF()->set_option('defaultFont', 'Helvetica');
+
+        return $pdf->stream('Expense-Allocation-' . date('Y-m-d') . '.pdf');
     }
+
 
     # Submit Amendment
     public function amendmentSubmit(Request $request, $id)
@@ -1644,7 +1647,7 @@ class ExpenseAllocationController extends Controller
                     ->where('stock_ledger.store_id', $storeId)
                     ->whereNull('stock_ledger.utilized_id')
                     ->where('stock_ledger.transaction_type', 'receipt')
-                    ->whereNull('stock_ledger.deleted_at'); // ✅ this line is required;
+                    ->whereNull('stock_ledger.deleted_at'); // âœ… this line is required;
             })
             ->leftJoin('erp_mrn_headers', 'erp_mrn_headers.id', '=', 'erp_mrn_details.mrn_header_id')
             ->leftJoin('erp_vendors', 'erp_vendors.id', '=', 'erp_mrn_headers.vendor_id');
@@ -1712,8 +1715,8 @@ class ExpenseAllocationController extends Controller
             }
         }
 
-        // ❌ Do not call get()
-        // ✅ Return query
+        // âŒ Do not call get()
+        // âœ… Return query
         $finalData = [
             'mrn_items' => $mrnItems
         ];
@@ -1765,7 +1768,7 @@ class ExpenseAllocationController extends Controller
                     // ->where('stock_ledger.sub_store_id', $subStoreId)
                     ->whereNull('stock_ledger.utilized_id')
                     ->where('stock_ledger.transaction_type', 'receipt')
-                    ->whereNull('stock_ledger.deleted_at'); // ✅ this line is required;
+                    ->whereNull('stock_ledger.deleted_at'); // âœ… this line is required;
             })
             ->leftJoin('erp_mrn_headers', 'erp_mrn_headers.id', '=', 'erp_mrn_details.mrn_header_id')
             ->leftJoin('erp_vendors', 'erp_vendors.id', '=', 'erp_mrn_headers.vendor_id')
@@ -1872,592 +1875,39 @@ class ExpenseAllocationController extends Controller
         }
     }
 
-    // Expense Advise Report
-    public function Report()
+    /**
+     * Normalize any input (int, string, csv, json, array) into a clean array of integers.
+     */
+    private function parseIds($raw): array
     {
-        $user = request()->user();
-        $categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', null)->get();
-        $sub_categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', '!=', null)->get();
-        $items = Item::withDefaultGroupCompanyOrg()->get();
-        $vendors = Vendor::withDefaultGroupCompanyOrg()->get();
-        $employees = Employee::where('organization_id', $user->organization_id)->get();
-        $users = AuthUser::where('organization_id', Helper::getAuthenticatedUser()->organization_id)
-            ->where('status', ConstantHelper::ACTIVE)
-            ->get();
-        $attribute_groups = AttributeGroup::withDefaultGroupCompanyOrg()->get();
-        $purchaseOrderIds = Header::withDefaultGroupCompanyOrg()
-            ->distinct()
-            ->pluck('purchase_order_id');
-        $purchaseOrders = PurchaseOrder::whereIn('id', $purchaseOrderIds)->get();
-        $soIds = Detail::whereHas('expenseHeader', function ($query) {
-            $query->withDefaultGroupCompanyOrg();
-        })
-            ->distinct()
-            ->pluck('so_id');
+        if (empty($raw) && $raw !== 0)
+            return [];
 
-        $so = ErpSaleOrder::whereIn('id', $soIds)->get();
-        $gateEntry = Header::withDefaultGroupCompanyOrg()->get();
-        $statusCss = ConstantHelper::DOCUMENT_STATUS_CSS_LIST;
-        // $attributes = Attribute::get();
-        return view('procurement.expense-allocation.detail_report', compact('categories', 'sub_categories', 'items', 'vendors', 'employees', 'users', 'attribute_groups', 'so', 'purchaseOrders', 'gateEntry', 'statusCss'));
-    }
-
-    public function getReportFilter(Request $request)
-    {
-        $user = request()->user();
-        $period = $request->query('period');
-        $startDate = $request->query('startDate');
-        $endDate = $request->query('endDate');
-        $poId = $request->query('poNo');
-        $gateEntryId = $request->query('gateEntryNo');
-        $soId = $request->query('soNo');
-        $vendorId = $request->query('vendor');
-        $itemId = $request->query('item');
-        $status = $request->query('status');
-        $mCategoryId = $request->query('m_category');
-        $mSubCategoryId = $request->query('m_subCategory');
-        $mAttribute = $request->query('m_attribute');
-        $mAttributeValue = $request->query('m_attributeValue');
-
-        $query = Header::query()
-            ->withDefaultGroupCompanyOrg();
-
-        if ($poId) {
-            $query->where('purchase_order_id', $poId);
-        }
-        if ($gateEntryId) {
-            $query->where('id', $gateEntryId);
+        // If already an array
+        if (is_array($raw)) {
+            return array_values(array_filter(array_map('intval', $raw)));
         }
 
-        $query->with([
-            'items' => function ($query) use ($itemId, $soId, $mCategoryId, $mSubCategoryId) {
-                $query->whereHas('item', function ($q) use ($itemId, $soId, $mCategoryId, $mSubCategoryId) {
-                    if ($itemId) {
-                        $q->where('id', $itemId);
-                    }
-                    if ($soId) {
-                        $q->where('so_id', $soId);
-                    }
-                    if ($mCategoryId) {
-                        $q->where('category_id', $mCategoryId);
-                    }
-                    if ($mSubCategoryId) {
-                        $q->where('subcategory_id', $mSubCategoryId);
-                    }
-                });
-            },
-            'items.item',
-            'items.item.category',
-            'items.item.subCategory',
-            'vendor',
-            'items.so',
-            'po'
-        ]);
-
-        // Date Filtering
-        if (($startDate && $endDate) || $period) {
-            if ($startDate && $endDate) {
-                $startDate = Carbon::createFromFormat('d-m-Y', $startDate);
-                $endDate = Carbon::createFromFormat('d-m-Y', $endDate);
-            }
-            if (!$startDate || !$endDate) {
-                switch ($period) {
-                    case 'this-month':
-                        $startDate = Carbon::now()->startOfMonth();
-                        $endDate = Carbon::now()->endOfMonth();
-                        break;
-                    case 'last-month':
-                        $startDate = Carbon::now()->subMonth()->startOfMonth();
-                        $endDate = Carbon::now()->subMonth()->endOfMonth();
-                        break;
-                    case 'this-year':
-                        $startDate = Carbon::now()->startOfYear();
-                        $endDate = Carbon::now()->endOfYear();
-                        break;
-                }
-            }
-            $query->whereBetween('document_date', [$startDate, $endDate]);
+        // If it's numeric (single id)
+        if (is_numeric($raw)) {
+            return [(int) $raw];
         }
 
-        // Vendor Filter
-        if ($vendorId) {
-            $query->where('vendor_id', $vendorId);
-        }
-
-        // Status Filter
-        if ($status) {
-            $query->where('document_status', $status);
-        }
-
-        // Fetch Results
-        $po_reports = $query->get();
-
-        DB::enableQueryLog();
-
-        return response()->json($po_reports);
-    }
-
-    public function addScheduler(Request $request)
-    {
-        try {
-            $headers = $request->input('displayedHeaders');
-            $data = $request->input('displayedData');
-            $itemName = '';
-            $poNo = '';
-            $gateEntryNo = '';
-            $soNo = '';
-            $lotNo = '';
-            $status = '';
-            $vendorName = '';
-            $categoryName = '';
-            $subCategoriesName = '';
-            $formattedstartDate = '';
-            $formattedendDate = '';
-            $startDate = '';
-            $endDate = '';
-            if ($request->filled('startDate')) {
-                $startDate = new DateTime($request->input('startDate'));
-            }
-
-            if ($request->filled('endDate')) {
-                $endDate = new DateTime($request->input('endDate'));
-            }
-            $period = $request->input('period');
-
-            if (($startDate && $endDate) || $period) {
-                if (!$startDate || !$endDate) {
-                    switch ($period) {
-                        case 'this-month':
-                            $startDate = Carbon::now()->startOfMonth();
-                            $endDate = Carbon::now()->endOfMonth();
-                            break;
-                        case 'last-month':
-                            $startDate = Carbon::now()->subMonth()->startOfMonth();
-                            $endDate = Carbon::now()->subMonth()->endOfMonth();
-                            break;
-                        case 'this-year':
-                            $startDate = Carbon::now()->startOfYear();
-                            $endDate = Carbon::now()->endOfYear();
-                            break;
-                    }
-                }
-                $formattedstartDate = $startDate->format('d-m-y');
-                $formattedendDate = $endDate->format('d-m-y');
-            }
-
-            if ($request->filled('po_no')) {
-                $poData = PurchaseOrder::find($request->input('po_no'));
-                $poNo = optional($poData)->document_number;
-            }
-
-            if ($request->filled('so_no')) {
-                $soData = ErpSaleOrder::find($request->input('so_no'));
-                $soNo = optional($soData)->document_number;
-            }
-
-            if ($request->filled('gate_entry_no')) {
-                $gateEntryNo = $request->input('gate_entry_no');
-            }
-
-            if ($request->filled('lot_no')) {
-                $lotNo = $request->input('lot_no');
-            }
-
-            if ($request->filled('status')) {
-                $status = $request->input('status');
-            }
-
-            if ($request->filled('m_category')) {
-                $categories = Category::find($request->input('m_category'));
-                $categoryName = optional($categories)->name;
-            }
-
-            if ($request->filled('m_subCategory')) {
-                $subCategories = Category::find($request->input('m_subCategory'));
-                $subCategoriesName = optional($subCategories)->name;
-            }
-
-            if ($request->filled('item')) {
-                $itemData = ErpItem::find($request->input('item'));
-                $itemName = optional($itemData)->item_name;
-            }
-
-            if ($request->filled('vendor')) {
-                $vendorData = ErpVendor::find($request->input('vendor'));
-                $vendorName = optional($vendorData)->company_name;
-            }
-
-            $blankSpaces = count($headers) - 1;
-            $centerPosition = (int) floor($blankSpaces / 2);
-            $filters = [
-                'Filters',
-                'Item: ' . $itemName,
-                'Vendor: ' . $vendorName,
-                'PO No: ' . $poNo,
-                'SO No: ' . $soNo,
-                'Status:' . $status,
-                'Category:' . $categoryName,
-                'Sub Category' . $subCategoriesName,
-            ];
-
-            $fileName = 'expense-advise.xlsx';
-            $filePath = storage_path('app/public/expense-advise/' . $fileName);
-            $directoryPath = storage_path('app/public/expense-advise');
-            if ($formattedstartDate && $formattedendDate) {
-                $customHeader = array_merge(
-                    array_fill(0, $centerPosition, ''),
-                    ['Expense Advise Report(From ' . $formattedstartDate . ' to ' . $formattedendDate . ')'],
-                    array_fill(0, $blankSpaces - $centerPosition, '')
-                );
-            } else {
-                $customHeader = array_merge(
-                    array_fill(0, $centerPosition, ''),
-                    ['Expense Advise Report'],
-                    array_fill(0, $blankSpaces - $centerPosition, '')
-                );
-            }
-
-            $remainingSpaces = $blankSpaces - count($filters) + 1;
-            $filterHeader = array_merge($filters, array_fill(0, $remainingSpaces, ''));
-
-            $excelData = Excel::raw(new ExpenseAdviceExport($customHeader, $filterHeader, $headers, $data), \Maatwebsite\Excel\Excel::XLSX);
-
-            if (!file_exists($directoryPath)) {
-                mkdir($directoryPath, 0755, true);
-            }
-            file_put_contents($filePath, $excelData);
-            if (!file_exists($filePath)) {
-                throw new \Exception('File does not exist at path: ' . $filePath);
-            }
-
-            $email_to = $request->email_to ?? [];
-            $email_cc = $request->email_cc ?? [];
-
-            foreach ($email_to as $email) {
-                $user = AuthUser::where('email', $email)
-                    ->where('organization_id', Helper::getAuthenticatedUser()->organization_id)
-                    ->where('status', ConstantHelper::ACTIVE)
-                    ->get();
-
-                if ($user->isEmpty()) {
-                    $user = new AuthUser();
-                    $user->email = $email;
-                }
-                $title = "Expense Advise Report Generated";
-                $heading = "Expense Advise Report";
-
-                $remarks = $request->remarks ?? null;
-                $mail_from = '';
-                $mail_from_name = '';
-                $cc = implode(', ', $email_cc);
-                $bcc = null;
-                $attachment = $filePath ?? null;
-                // $name = $user->name;
-                $description = <<<HTML
-                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; padding: 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); font-family: Arial, sans-serif; line-height: 1.6;">
-                    <tr>
-                        <td>
-                            <h2 style="color: #2c3e50; font-size: 24px; margin-bottom: 20px;">{$heading}</h2>
-                            <p style="font-size: 16px; color: #555; margin-bottom: 20px;">
-                                Dear <strong style="color: #2c3e50;">user</strong>,
-                            </p>
-
-                            <p style="font-size: 15px; color: #333; margin-bottom: 20px;">
-                                We hope this email finds you well. Please find your expense advise report attached below.
-                            </p>
-                            <p style="font-size: 15px; color: #333; margin-bottom: 30px;">
-                                <strong>Remark:</strong> {$remarks}
-                            </p>
-                            <p style="font-size: 14px; color: #777;">
-                                If you have any questions or need further assistance, feel free to reach out to us.
-                            </p>
-                        </td>
-                    </tr>
-                </table>
-                HTML;
-                self::sendMail($user, $title, $description, $cc, $bcc, $attachment, $mail_from, $mail_from_name);
-            }
-            return response()->json([
-                'status' => 'success',
-                'message' => 'emails sent successfully.'
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'An unexpected error occurred.',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-    public function sendMail($receiver, $title, $description, $cc = null, $bcc = null, $attachment, $mail_from = null, $mail_from_name = null)
-    {
-        if (!$receiver || !isset($receiver->email)) {
-            return "Error: Receiver details are missing or invalid.";
-        }
-
-        dispatch(new SendEmailJob($receiver, $mail_from, $mail_from_name, $title, $description, $cc, $bcc, $attachment));
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Email request sent succesfully',
-        ]);
-    }
-
-    public function expenseAdviseReport(Request $request)
-    {
-        $user = request()->user();
-        $pathUrl = route('expense-adv.index');
-        $orderType = ConstantHelper::EXP_ALC_SERVICE_ALIAS;
-        $expenseAdvises = Header::withDefaultGroupCompanyOrg()
-            // ->where('document_type', $orderType)
-            // ->bookViewAccess($pathUrl)
-            ->withDraftListingLogic()
-            ->orderByDesc('id');
-
-        // Vendor Filter
-        $expenseAdvises = $expenseAdvises->when($request->vendor, function ($vendorQuery) use ($request) {
-            $vendorQuery->where('vendor_id', $request->vendor);
-        });
-
-        // PO No Filter
-        $expenseAdvises = $expenseAdvises->when($request->po_no, function ($poQuery) use ($request) {
-            $poQuery->where('purchase_order_id', $request->po_no);
-        });
-
-        // Document Status Filter
-        $expenseAdvises = $expenseAdvises->when($request->status, function ($docStatusQuery) use ($request) {
-            $searchDocStatus = [];
-            if ($request->status === ConstantHelper::DRAFT) {
-                $searchDocStatus = [ConstantHelper::DRAFT];
-            } else if ($request->status === ConstantHelper::SUBMITTED) {
-                $searchDocStatus = [ConstantHelper::SUBMITTED, ConstantHelper::PARTIALLY_APPROVED];
-            } else {
-                $searchDocStatus = [ConstantHelper::APPROVAL_NOT_REQUIRED, ConstantHelper::APPROVED];
-            }
-            $docStatusQuery->whereIn('document_status', $searchDocStatus);
-        });
-
-        // Date Filters
-        $dateRange = $request->date_range ?? Carbon::now()->startOfMonth()->format('Y-m-d') . " to " . Carbon::now()->endOfMonth()->format('Y-m-d');
-        $expenseAdvises = $expenseAdvises->when($dateRange, function ($dateRangeQuery) use ($request, $dateRange) {
-            $dateRanges = explode('to', $dateRange);
-            if (count($dateRanges) == 2) {
-                $fromDate = Carbon::parse(trim($dateRanges[0]))->format('Y-m-d');
-                $toDate = Carbon::parse(trim($dateRanges[1]))->format('Y-m-d');
-                $dateRangeQuery->whereDate('document_date', ">=", $fromDate)->where('document_date', '<=', $toDate);
-            }
-        });
-
-        // Item Id Filter
-        // $materialReceipts = $materialReceipts->when($request->item_id, function ($itemQuery) use ($request) {
-        //     $itemQuery->withWhereHas('items', function ($itemSubQuery) use ($request) {
-        //         $itemSubQuery->where('item_id', $request->item_id)
-        //             // Compare Item Category
-        //             ->when($request->item_category_id, function ($itemCatQuery) use ($request) {
-        //                 $itemCatQuery->whereHas('item', function ($itemRelationQuery) use ($request) {
-        //                     $itemRelationQuery->where('category_id', $request->item_category_id)
-        //                         // Compare Item Sub Category
-        //                         ->when($request->item_sub_category_id, function ($itemSubCatQuery) use ($request) {
-        //                             $itemSubCatQuery->where('subcategory_id', $request->item_sub_category_id);
-        //                         });
-        //                 });
-        //             });
-        //     });
-        // });
-
-        $expenseAdvises->with([
-            'items' => function ($query) use ($request) {
-                $query
-                    ->when($request->item_id, function ($subQuery) use ($request) {
-                        $subQuery->where('item_id', $request->item_id);
-                    })
-                    ->when($request->so_no, function ($subQuery) use ($request) {
-                        $subQuery->where('so_id', $request->so_no);
-                    })
-                    ->whereHas('item', function ($q) use ($request) {
-                        $q->when($request->m_category_id, function ($subQ) use ($request) {
-                            $subQ->where('category_id', $request->m_category_id);
-                        });
-
-                        $q->when($request->m_subcategory_id, function ($subQ) use ($request) {
-                            $subQ->where('category_id', $request->m_subcategory_id);
-                        });
-                    });
-            },
-            'items.item',
-            'items.item.category',
-            'items.item.subCategory',
-            'vendor',
-            'items.so',
-            'po'
-        ]);
-
-
-        $expenseAdvises = $expenseAdvises->get();
-        $processedExpenseAllocations = collect([]);
-
-        foreach ($expenseAdvises as $expenseAdvise) {
-            foreach ($expenseAdvise->items as $expenseAdviseItem) {
-                $reportRow = new stdClass();
-
-                // Header Details
-                $header = $expenseAdviseItem->expenseHeader;
-                $total_item_value = (($expenseAdviseItem?->rate ?? 0.00) * ($expenseAdviseItem?->accepted_qty ?? 0.00)) - ($expenseAdviseItem?->discount_amount ?? 0.00);
-                $reportRow->id = $expenseAdviseItem->id;
-                $reportRow->book_code = $header->book_code;
-                $reportRow->document_number = $header->document_number;
-                $reportRow->document_date = $header->document_date;
-                $reportRow->po_no = !empty($header->po?->book_code) && !empty($header->po?->document_number)
-                    ? $header->po?->book_code . ' - ' . $header->po?->document_number
-                    : '';
-                $reportRow->so_no = !empty($header->so?->book_code) && !empty($header->so?->document_number)
-                    ? $header->so?->book_code . ' - ' . $header->so?->document_number
-                    : '';
-                $reportRow->vendor_name = $header->vendor?->company_name;
-                $reportRow->vendor_rating = null;
-                $reportRow->category_name = $expenseAdviseItem->item?->category?->name;
-                $reportRow->sub_category_name = $expenseAdviseItem->item?->category?->name;
-                $reportRow->item_type = $expenseAdviseItem->item?->type;
-                $reportRow->sub_type = null;
-                $reportRow->item_name = $expenseAdviseItem->item?->item_name;
-                $reportRow->item_code = $expenseAdviseItem->item?->item_code;
-
-                // Amount Details
-                $reportRow->receipt_qty = number_format($expenseAdviseItem->accepted_qty, 2);
-                $reportRow->store_name = $expenseAdviseItem?->erpStore?->store_name;
-                $reportRow->rate = number_format($expenseAdviseItem->rate);
-                $reportRow->basic_value = number_format($expenseAdviseItem->basic_value, 2);
-                $reportRow->item_discount = number_format($expenseAdviseItem->discount_amount, 2);
-                $reportRow->header_discount = number_format($expenseAdviseItem->header_discount_amount, 2);
-                $reportRow->item_amount = number_format($total_item_value, 2);
-
-                // Attributes UI
-                // $attributesUi = '';
-                // if (count($mrnItem->item_attributes) > 0) {
-                //     foreach ($mrnItem->item_attributes as $mrnAttribute) {
-                //         $attrName = $mrnAttribute->attribute_name;
-                //         $attrValue = $mrnAttribute->attribute_value;
-                //         $attributesUi .= "<span class='badge rounded-pill badge-light-primary' > $attrName : $attrValue </span>";
-                //     }
-                // } else {
-                //     $attributesUi = 'N/A';
-                // }
-                // $reportRow->item_attributes = $attributesUi;
-
-                // Document Status
-                $reportRow->status = $header->document_status;
-                $processedExpenseAllocations->push($reportRow);
+        // JSON array like "[1,2,3]"
+        if (is_string($raw) && str_starts_with(trim($raw), '[')) {
+            $arr = json_decode($raw, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($arr)) {
+                return array_values(array_filter(array_map('intval', $arr)));
             }
         }
 
-        return DataTables::of($processedExpenseAllocations)
-            ->addIndexColumn()
-            ->editColumn('status', function ($row) use ($orderType) {
-                $statusClass = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$row->status ?? ConstantHelper::DRAFT];
-                $displayStatus = ucfirst($row->status);
-                return "
-                    <div style='text-align:right;'>
-                        <span class='badge rounded-pill $statusClass'>$displayStatus</span>
-                    </div>
-                ";
-            })
-            ->rawColumns(['status'])
-            ->make(true);
-    }
-
-    private static function processPurchaseOrderComponent($component, $item, $inputQty)
-    {
-        $po = PoItem::find($component['po_detail_id']);
-        return $po ? self::updatePoQty($item, $po, $inputQty, 'purchase-order') : self::notFoundResponse('PO Item');
-    }
-
-    // Update Purchase Order Quantity
-    private static function updatePoQty($item, $poDetail, $inputQty, $type)
-    {
-        $orderQty = floatval($poDetail->order_qty);
-        $expQty = floatval($poDetail->expense_advise_qty ?? 0);
-        $totalQty = $expQty + $inputQty;
-        if ($totalQty > $orderQty) {
-            return response()->json(['message' => 'Order Qty cannot exceed PO Qty.'], 422);
+        // CSV string "1,2,3"
+        if (is_string($raw)) {
+            $parts = preg_split('/\s*,\s*/', trim($raw), -1, PREG_SPLIT_NO_EMPTY);
+            return array_values(array_filter(array_map('intval', $parts)));
         }
 
-        $poDetail->expense_advise_qty += $inputQty;
-        $poDetail->save();
-
-        return true;
-    }
-
-    private static function processJobOrderComponent($component, $item, $inputQty)
-    {
-        $jo = JoProduct::find($component['jo_detail_id']);
-        return $jo ? self::updateJoQty($item, $jo, $inputQty, 'job-order') : self::notFoundResponse('JO Item');
-    }
-
-    // Update Job Order Quantity
-    private static function updateJoQty($item, $joDetail, $inputQty, $type)
-    {
-        $orderQty = floatval($joDetail->order_qty);
-        $expQty = floatval($joDetail->expense_advise_qty ?? 0);
-        $totalQty = $expQty + $inputQty;
-        if ($totalQty > $orderQty) {
-            return response()->json(['message' => 'Order Qty cannot exceed JO Qty.'], 422);
-        }
-
-        $joDetail->expense_advise_qty += $inputQty;
-        $joDetail->save();
-
-        return true;
-    }
-
-    private static function notFoundResponse($label)
-    {
-        \DB::rollBack();
-        return response()->json(['message' => "{$label} not found."], 422);
-    }
-
-    // # Validate Order Qty For Frontend
-    private static function validateQuantityBackend($component, $refType)
-    {
-        $inputData = [
-            'item_id' => $component['item_id'] ?? null,
-            'purchase_order_id' => $component['purchase_order_id'] ?? null,
-            'po_detail_id' => $component['po_detail_id'] ?? null,
-            'job_order_id' => $component['job_order_id'] ?? null,
-            'jo_detail_id' => $component['jo_detail_id'] ?? null,
-            'expense_item_id' => $component['detail_id'] ?? null,
-            'qty' => $component['accepted_qty'] ?? 0.00,
-            'type' => $refType ?? 'po',
-        ];
-
-        $checkService = new ExpenseCheckAndUpdateService();
-        $data = $checkService->validateOrderQuantity($inputData);
-        return $data;
-    }
-
-    // Validate Order Qty For Frontend
-    public function validateQuantity(Request $request)
-    {
-        $inputData = [
-            'item_id' => $request->item_id,
-            'po_header_id' => $request->purchase_order_id,
-            'po_detail_id' => $request->po_detail_id,
-            'jo_header_id' => $request->job_order_id,
-            'jo_detail_id' => $request->jo_detail_id,
-            'expense_item_id' => $request->detail_id,
-            'qty' => $request->qty,
-            'type' => $request->type,
-        ];
-        $checkService = new ExpenseCheckAndUpdateService();
-        $data = $checkService->validateOrderQuantity($inputData);
-        if ($data['status'] === 'success') {
-            return response()->json(['message' => $data['message'], 'status' => 200, 'accepted_qty' => $data['accepted_qty']['accepted_qty'] ?? 0.00]);
-        } else {
-            return response()->json(['message' => $data['message'], 'status' => 422, 'accepted_qty' => $data['accepted_qty']['accepted_qty'] ?? 0.00]);
-        }
-    }
-
-    private static function processDirectComponent($component, $item, $inputQty)
-    {
-        return true;
-        // return self::validateComponentQuantities($component, $inputQty) === true ? true : self::validateComponentQuantities($component, $inputQty);
+        return [];
     }
 }
+

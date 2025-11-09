@@ -50,6 +50,7 @@ use App\Models\JobOrder\JoItemAttribute;
 use App\Helpers\Common\OrganizationHelper;
 use App\Models\JobOrder\JoProductDelivery;
 use App\Models\JobOrder\JobOrderTedHistory;
+use App\Services\Common\DocumentLockService;
 use App\Services\Common\FinancialYearService;
 
 class JoController extends Controller
@@ -442,7 +443,7 @@ class JoController extends Controller
     }
 
     # Purchase Order store
-    public function store(JoRequest $request)
+    public function store(JoRequest $request, DocumentLockService $lockService)
     {
         DB::beginTransaction();
         try {
@@ -777,6 +778,25 @@ class JoController extends Controller
             $redirectUrl = '';
             if ($jo->document_status == ConstantHelper::APPROVED) {
                 $redirectUrl = route('jo.generate-pdf', $jo->id);
+            }
+
+            $lockKey = \App\Helpers\GeneralHelper::generateLockKey($organization->id, $request->book_id, $document_number);
+            if (!$lockKey) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Invalid Argument passed in Lock Key Generator.',
+                    'line' => '',
+                    'error' => '',
+                ], 500);
+            }
+
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+            if (!$lockResult['success']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
             }
 
             DB::commit();

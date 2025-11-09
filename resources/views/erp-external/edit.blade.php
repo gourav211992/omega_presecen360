@@ -140,6 +140,38 @@
                                                     </div>
                                                 </div>
 
+                                                <div class="row align-items-center mb-1">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">DNote Cum Invoice Series </label>
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <select class="form-select select2" id="dn_cum_invoice_book_id"
+                                                            name="dn_cum_invoice_book_id">
+                                                            <option value="">Select</option>
+                                                            @foreach ($dnoteCumInvBook as $siDnotebook)
+                                                                <option value="{{ $siDnotebook->id }}" {{$siDnotebook->id == $external->dn_cum_invoice_book_id ? 'selected' : ''}}>
+                                                                    {{ ucfirst($siDnotebook->book_code) }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <div class="row align-items-center mb-1">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">Pickup Schedule Series </label>
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <select class="form-select select2" id="pickup_schedule_book_id"
+                                                            name="pickup_schedule_book_id">
+                                                            <option value="">Select</option>
+                                                            @foreach ($pickupScheduleBook as $pdsBook)
+                                                                <option value="{{ $pdsBook->id }}" {{$pdsBook->id == $external->pickup_schedule_book_id ? 'selected' : ''}}>
+                                                                    {{ ucfirst($pdsBook->book_code) }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                </div>
+
                                             </div>
                                             <div class="col-md-3 border-start">
                                                 <div class="row align-items-center mb-2">

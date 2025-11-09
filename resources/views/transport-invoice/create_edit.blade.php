@@ -514,7 +514,7 @@ class="ajax-input-form sales_module_form transport_invoice"
                            </div> -->
                            <div class="col-md-6">
                               <div class="customer-billing-section">
-                                 <p>Pickup Address&nbsp;<span class="text-danger">*</span>
+                                 <p>Dispatch From&nbsp;<span class="text-danger">*</span>
                                  </p>
                                  <div class="bilnbody">
                                     <div class="genertedvariables genertedvariablesnone">

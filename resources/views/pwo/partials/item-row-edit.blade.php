@@ -9,13 +9,13 @@
          <label class="form-check-label" for="Email_{{$rowCount}}"></label>
       </div>
    </td>
-   <td class="poprod-decpt"> 
+   <td class="poprod-decpt">
       <input type="text" {{$moProduct->soItem ? 'disabled' : ''}} value="{{$moProduct->item_code}}" name="component_item_name[{{$rowCount}}]" placeholder="Select" class="form-control mw-100 mb-25 ledgerselecct comp_item_code " />
       <input type="hidden" name="components[{{$rowCount}}][item_id]" value="{{$moProduct->item_id}}"/>
       <input type="hidden" name="components[{{$rowCount}}][item_code]" value="{{$moProduct->item_code}}"/>
 
       @php
-      $selectedAttr = array_column($moProduct->attributes, 'attribute_id'); 
+      $selectedAttr = array_column($moProduct->attributes, 'attribute_id');
       @endphp
       {{-- @foreach($moProduct->attributes as $attributeHidden)
          <input type="hidden" name="components[{{$rowCount}}][attr_group_id][{{$attributeHidden->attribute_name}}][attr_id]" value="{{$attributeHidden->id}}">

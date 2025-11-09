@@ -299,11 +299,11 @@
                                                         <i data-feather="package"></i>
                                                         Allocate
                                                     </a>
-                                                    {{-- <a href="javascript:;" id="delete-po-items"
+                                                    <a href="javascript:;" id="delete-po-items"
                                                         class="btn btn-sm btn-outline-danger me-50 delete-po-items">
                                                         <i data-feather="x-circle"></i>
                                                         Delete
-                                                    </a> --}}
+                                                    </a>
                                                     <a href="javascript:;" id="addNewItemBtn"
                                                         class="btn btn-sm btn-outline-primary addNewItemBtn">
                                                         <i data-feather="plus"></i>
@@ -332,11 +332,11 @@
                                                                         <th width="225">Item Name</th>
                                                                         <th>UOM</th>
                                                                         <th>Currency</th>
-                                                                        <th>Org Currency</th>
                                                                         <th class="text-end">Qty</th>
                                                                         <th class="text-end">Rate</th>
+                                                                        <th class="text-end">
+                                                                            Value({{ $currency?->short_name }})</th>
                                                                         <th class="text-end">Po Value</th>
-                                                                        <th class="text-end">Value</th>
                                                                         <th>Allocation Type</th>
                                                                         <th width="225">Vendor</th>
                                                                         <th width="150">Po No.</th>
@@ -349,7 +349,7 @@
                                                                 </tbody>
                                                                 <tfoot>
                                                                     <tr class="totalsubheadpodetail">
-                                                                        <td colspan="6"></td>
+                                                                        <td colspan="5"></td>
                                                                         <td class="text-end total-po-qty"
                                                                             id="total-po-qty">
                                                                             {{ @$expense->poDetails->sum('receipt_qty') }}
@@ -366,7 +366,7 @@
                                                                         <td colspan="4"></td>
                                                                     </tr>
                                                                     <tr valign="top">
-                                                                        <td colspan="14" rowspan="12">
+                                                                        <td colspan="13" rowspan="12">
                                                                             <table
                                                                                 class="table border po-item-detail-display"
                                                                                 id="po-item-detail-display">
@@ -390,9 +390,9 @@
                                             {{-- GRN Items --}}
                                             <div class="tab-pane grnItems" id="grnItems">
                                                 <div class="text-end mb-50">
-                                                    {{-- <a href="javascript:;" id="delete-grn-items"
+                                                    <a href="javascript:;" id="delete-grn-items"
                                                         class="btn btn-sm btn-outline-danger me-50 delete-grn-items">
-                                                        <i data-feather="x-circle"></i> Delete</a> --}}
+                                                        <i data-feather="x-circle"></i> Delete</a>
                                                     <a href="javascript:;"
                                                         class="btn btn-outline-primary btn-sm mb-0 grnSelect">
                                                         <i data-feather="plus-square"></i>
@@ -421,10 +421,10 @@
                                                                 <th>Attributes</th>
                                                                 <th>UOM</th>
                                                                 <th>Currency</th>
-                                                                <th>Org Currency</th>
                                                                 <th class="text-end">Qty</th>
+                                                                <th class="text-end">Value({{ $currency?->short_name }})
+                                                                </th>
                                                                 <th class="text-end">Grn Value</th>
-                                                                <th class="text-end">Value</th>
                                                                 <th class="text-end">Weight</th>
                                                                 <th class="text-end">Volume(CFT)</th>
                                                                 <th width="200">Allocated Expense</th>
@@ -437,7 +437,7 @@
                                                         </tbody>
                                                         <tfoot>
                                                             <tr class="totalsubheadgrndetail">
-                                                                <td colspan="10"></td>
+                                                                <td colspan="9"></td>
                                                                 <td class="text-end total-grn-qty" id="total-grn-qty">
                                                                     {{ @$expense->grnDetails->sum('receipt_qty') }}
                                                                 </td>
@@ -466,7 +466,7 @@
                                                                 </td>
                                                             </tr>
                                                             <tr valign="top">
-                                                                <td colspan="17" rowspan="12">
+                                                                <td colspan="16" rowspan="12">
                                                                     <table class="table border grn-item-detail-display"
                                                                         id="grn-item-detail-display">
                                                                         <tr>
@@ -710,51 +710,6 @@
             currentProcessType = null;
         };
 
-        /*Delete Row*/
-        $(document).on('click', '#deleteBtn', (e) => {
-            let itemIds = [];
-            $('#itemTable > tbody .form-check-input').each(function() {
-                if ($(this).is(":checked")) {
-                    itemIds.push($(this).val());
-                }
-            });
-
-            if (itemIds.length) {
-                itemIds.forEach(function(item, index) {
-                    let poItemHiddenId = $(`#row_${item}`).find("input[name*='[po_item_hidden_ids]']")
-                        .val();
-
-                    if (poItemHiddenId) {
-                        let idsToRemove = poItemHiddenId.split(',');
-                        let selectedPoIds = localStorage.getItem('selectedPoIds');
-                        if (selectedPoIds) {
-                            selectedPoIds = JSON.parse(selectedPoIds);
-                            let updatedIds = selectedPoIds.filter(id => !idsToRemove.includes(id));
-                            localStorage.setItem('selectedPoIds', JSON.stringify(updatedIds));
-                        }
-                    }
-                    $(`#row_${item}`).remove();
-                });
-            } else {
-                Swal.fire({
-                    title: 'Error!',
-                    text: "Please first add & select row item.",
-                    icon: 'error',
-                });
-            }
-
-            if (!$("#itemTable .mrntableselectexcel").find("tr[id*='row_']").length) {
-                $(".poSelect").removeClass('d-none');
-                $(".grnSelect").removeClass('d-none');
-                $("#referenceNoDiv").hide();
-                $("#addNewItemBtn").show();
-                $("#itemTable > thead .form-check-input").prop('checked', false);
-                $(".reference_type_input").val('');
-                getLocation();
-            }
-            setTableCalculation();
-        });
-
         /*Check box check and uncheck*/
         $(document).on('change', '#itemTable > thead .form-check-input', (e) => {
             if (e.target.checked) {
@@ -951,7 +906,8 @@
             const apiURL = "{{ route('exp-allocation.posting.get') }}";
             $.ajax({
                 url: apiURL + "?book_id=" + $("#book_id").val() + "&document_id=" +
-                    "{{ isset($expense) ? $expense->id : '' }}",
+                    "{{ isset($expense) ? $expense->id : '' }}" + "&type=" + (type == "not_posted" ? 'get' :
+                        'view'),
                 type: "GET",
                 dataType: "json",
                 success: function(data) {

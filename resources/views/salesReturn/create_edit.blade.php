@@ -491,7 +491,7 @@
 
                                             <div class="col-md-4">
                                                     <div class="customer-billing-section">
-                                                        <p>Pickup Address&nbsp;<span class="text-danger">*</span>
+                                                        <p>Dispatched From&nbsp;<span class="text-danger">*</span>
                                                         </p>
                                                         <div class="bilnbody">
                                                             <div class="genertedvariables genertedvariablesnone">
@@ -3605,7 +3605,7 @@
                                         </div>
                                     </td>
                                         </td>
-                                        <td><input type="text" disabled id = "item_qty_${itemIndex}" name = "item_qty[]" oninput = "changeItemQty(this, '${itemIndex}');" value = "${item?.balance_qty}" class="form-control item_store_locations mw-100 text-end" onblur = "setFormattedNumericValue(this);" max = "${item?.balance_qty}"/></td>
+                                        <td><input type="text" id = "item_qty_${itemIndex}" name = "item_qty[]" oninput = "changeItemQty(this, '${itemIndex}');" value = "${item?.balance_qty}" class="form-control item_store_locations mw-100 text-end" onblur = "setFormattedNumericValue(this);" max = "${item?.balance_qty}"/></td>
                                         <td><input type="text" disabled id = "item_rate_${itemIndex}" name = "item_rate[]" oninput = "changeItemRate(this, '${itemIndex}');" ${item.balance_qty} value = "${item?.rate}" class="form-control mw-100 text-end" onblur = "setFormattedNumericValue(this);" /></td>
                                         <td><input type="text" id = "item_value_${itemIndex}" disabled class="form-control mw-100 text-end item_values_input" value = "${(item?.balance_qty ? item?.balance_qty : 0) * (item?.rate ? item?.rate : 0)}" /></td>
                                         <input type = "hidden" id = "header_discount_${itemIndex}" value = "${item?.header_discount_amount}" ></input>

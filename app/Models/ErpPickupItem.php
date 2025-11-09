@@ -17,6 +17,8 @@ class ErpPickupItem extends Model
         'uom_id',
         'uom_code',
         'customer_id',
+        'customer_sub_store_id',
+        'consignee_id',
         'uid',
         'customer_name',
         'customer_email',

@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Helpers\ConstantHelper;
 use App\Helpers\InventoryHelperV2;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 class PslipDeleteService
 {
      /**
@@ -43,6 +44,31 @@ class PslipDeleteService
 
             // Process Delete Pslip Bom Consumptions
             $result = $this->processDeletePslipBomConsumptions($pslipBomMappings, $productionSlip);
+          
+            // 3: Check stock for receipt reversal
+            $pslipItemattributes = $psItem->attributes ?? [];
+            $ItemselectedAttr = collect($pslipItemattributes)->pluck('attribute_value')->filter()->values()->toArray();
+
+            $receiptCheck = $this->checkReceiptStock($psItem, $productionSlip, $ItemselectedAttr);
+
+            if ($receiptCheck !== true) return $receiptCheck;
+            
+            if($psItem->subprime_qty > 0) {
+                    $subReceiptCheck = $this->checkReceiptStock($psItem, $productionSlip, $ItemselectedAttr); 
+                    if ($subReceiptCheck !== true) return $subReceiptCheck;
+            }
+            if($productionSlip->rg_sub_store_id && $psItem->rejected_qty > 0) {
+                $rjReceiptCheck = $this->checkReceiptRejectStock($psItem, $productionSlip, $ItemselectedAttr);
+                if ($rjReceiptCheck !== true) return $rjReceiptCheck;
+            }
+               // 4: Update MO product & station consumption
+            $this->updatePwoStationConsumption($psItem);
+
+            // 5: Update Sales Order & Mapping if applicable
+            $this->updateSalesOrderAndMapping($psItem, $productionSlip);
+
+            // 6: Clean up related records and delete psItem
+            $this->cleanupPsItem($psItem, $productionSlip);
             // Remove attributes
             $psItem->attributes()->delete();
 
@@ -112,7 +138,9 @@ class PslipDeleteService
 
     private function processDeletePslipBomConsumptions($pslipBomMappings, $productionSlip)
     {
-        foreach($pslipBomMappings as $keys=>$pslipBomMapping) {
+
+        foreach($pslipBomMappings as $keys=>$pslipBomMapping) {  
+         
             $attributes = $pslipBomMapping->attributes ?? [];
             $psItem = $pslipBomMapping->pslip_item;
 
@@ -126,28 +154,6 @@ class PslipDeleteService
             $issueCheck = $this->checkIssueStock($pslipBomMapping, $psItem, $productionSlip, $selectedAttr);
 
             if ($issueCheck !== true) return $issueCheck;
-
-            // 3: Check stock for receipt reversal
-            $receiptCheck = $this->checkReceiptStock($psItem, $productionSlip, $selectedAttr);
-
-            if($psItem->subprime_qty > 0) {
-                 $receiptCheck = $this->checkReceiptStock($psItem, $productionSlip, $selectedAttr);
-            }
-            if($productionSlip->rg_sub_store_id && $psItem->rejected_qty > 0) {
-                $receiptCheck = $this->checkReceiptRejectStock($psItem, $productionSlip, $selectedAttr);
-            }
-
-
-            if ($receiptCheck !== true) return $receiptCheck;
-
-            // 4: Update MO product & station consumption
-            $this->updatePwoStationConsumption($psItem);
-
-            // 5: Update Sales Order & Mapping if applicable
-            $this->updateSalesOrderAndMapping($psItem, $productionSlip);
-
-            // 6: Clean up related records and delete psItem
-            $this->cleanupPsItem($psItem, $productionSlip);
 
         }
 
@@ -287,20 +293,19 @@ class PslipDeleteService
      */
     private function updateSalesOrderAndMapping($psItem, $productionSlip)
     {
+        $so_item=$psItem->so_item_id;
+
         $deductQty = $psItem->accepted_qty + $psItem->subprime_qty;
+        if ($psItem->mo_product?->mo?->is_last_station && in_array($productionSlip->document_status ,ConstantHelper::DOCUMENT_STATUS_APPROVED)) {
+            // Reduce duplicate database queries by using 'find' only if ID exists
+           
+            $so_item=ErpSoItem::where('id', $so_item)->update([
+                'pslip_qty' => DB::raw("pslip_qty - {$deductQty}")
+            ]);
 
-        if ($psItem->mo_product?->mo?->is_last_station
-            && in_array($productionSlip->document_status, ConstantHelper::DOCUMENT_STATUS_APPROVED)
-            && ($actionType ?? null) === 'amendment') {
-
-            if ($soItem = ErpSoItem::find($psItem->so_item_id)) {
-                $soItem->pslip_qty -= $deductQty;
-                $soItem->save();
-            }
-
-            if ($pwoSoMappingItem = PwoSoMapping::find($psItem->mo_product->pwo_mapping_id)) {
-                $pwoSoMappingItem->pslip_qty -= $deductQty;
-                $pwoSoMappingItem->save();
+            $pwoMappingId = $psItem->mo_product->pwo_mapping_id ?? null;
+            if (!empty($pwoMappingId)) {
+                PwoSoMapping::whereKey($pwoMappingId)->decrement('pslip_qty', $deductQty);
             }
         }
 

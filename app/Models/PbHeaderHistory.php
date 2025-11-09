@@ -18,7 +18,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class PbHeaderHistory extends Model
 {
-    use HasFactory, SoftDeletes, DateFormatTrait, FileUploadTrait,DefaultGroupCompanyOrg, DynamicFieldsTrait;
+    use HasFactory, SoftDeletes, DateFormatTrait, FileUploadTrait, DefaultGroupCompanyOrg, DynamicFieldsTrait;
 
     protected $table = 'erp_pb_header_histories';
     protected $fillable = [
@@ -98,16 +98,16 @@ class PbHeaderHistory extends Model
     {
         parent::boot();
         $user = Helper::getAuthenticatedUser();
-        if($user) {
-            static::creating(function ($model) use($user) {
+        if ($user) {
+            static::creating(function ($model) use ($user) {
                 $model->created_by = $user->auth_user_id;
             });
 
-            static::updating(function ($model) use($user) {
+            static::updating(function ($model) use ($user) {
                 $model->updated_by = $user->auth_user_id;
             });
 
-            static::deleting(function ($model) use($user) {
+            static::deleting(function ($model) use ($user) {
                 $model->deleted_by = $user->auth_user_id;
             });
         }
@@ -180,12 +180,12 @@ class PbHeaderHistory extends Model
 
     public function ship_address()
     {
-        return $this->belongsTo(ErpAddress::class,'shipping_address');
+        return $this->belongsTo(ErpAddress::class, 'shipping_address');
     }
 
     public function bill_address()
     {
-        return $this->belongsTo(ErpAddress::class,'billing_address');
+        return $this->belongsTo(ErpAddress::class, 'billing_address');
     }
 
     public function billingAddress()
@@ -215,7 +215,7 @@ class PbHeaderHistory extends Model
 
     public function paymentTerm()
     {
-        return $this->belongsTo(PaymentTerm::class,'payment_term_id');
+        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
 
     public function getTotalAmountAttribute()
@@ -226,7 +226,12 @@ class PbHeaderHistory extends Model
     /*Header Level Discount*/
     public function headerDiscount()
     {
-        return $this->hasMany(PbTedHistory::class, 'header_history_id')->where('ted_level', 'H')->where('ted_type','Discount');
+        return $this->hasMany(PbTedHistory::class, 'header_history_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
+    }
+
+    public function header_tax()
+    {
+        return $this->hasOne(PbTedHistory::class, 'header_history_id')->where('ted_level', 'H')->where('ted_type', 'Tax');
     }
 
     /*Total discount header level total_header_disc_amount*/
@@ -237,7 +242,7 @@ class PbHeaderHistory extends Model
 
     public function expenses()
     {
-        return $this->hasMany(PbTedHistory::class,'header_history_id')->where('ted_type', '=', 'Pb')
+        return $this->hasMany(PbTedHistory::class, 'header_history_id')->where('ted_type', '=', 'Pb')
             ->where('ted_level', '=', 'H');
     }
 
@@ -248,12 +253,12 @@ class PbHeaderHistory extends Model
 
     public function createdBy()
     {
-        return $this->belongsTo(User::class,'created_by');
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function updatedBy()
     {
-        return $this->belongsTo(User::class,'updated_by');
+        return $this->belongsTo(User::class, 'updated_by');
     }
 
     public function addresses()
@@ -292,17 +297,17 @@ class PbHeaderHistory extends Model
 
     public function bill_address_details()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'billing')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'billing')->with(['city', 'state', 'country']);
     }
 
     public function ship_address_details()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'shipping')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'shipping')->with(['city', 'state', 'country']);
     }
 
     public function store_address()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type','location')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'location')->with(['city', 'state', 'country']);
     }
 
     public function costCenters()
@@ -312,7 +317,7 @@ class PbHeaderHistory extends Model
 
     public function dynamic_fields()
     {
-        return $this -> hasMany(ErpPbDynamicField::class, 'header_id');
+        return $this->hasMany(ErpPbDynamicField::class, 'header_id');
     }
 
 }

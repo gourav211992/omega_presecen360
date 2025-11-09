@@ -16,6 +16,7 @@ class PiItem extends Model
     protected $fillable = [
         'pi_id',
         'so_id',
+        'pwo_id',
         'item_id',
         'item_code',
         'hsn_id',
@@ -61,6 +62,16 @@ class PiItem extends Model
         return $this->belongsTo(ErpSaleOrder::class, 'so_id');
     }
 
+    public function pwo()
+    {
+        return $this->belongsTo(ErpProductionWorkOrder::class, 'pwo_id');
+    }
+
+    public function piPwoMapping()
+    {
+        return $this->hasOne(PiPwoMappingItem::class, 'pi_item_id');
+    }
+
     public function header()
     {
         return $this->belongsTo(PurchaseIndent::class, 'pi_id');
@@ -93,7 +104,7 @@ class PiItem extends Model
 
     public function attributes()
     {
-        return $this->hasMany(PiItemAttribute::class,'pi_item_id');
+        return $this->hasMany(PiItemAttribute::class, 'pi_item_id');
     }
 
     public function item_attributes_array()
@@ -105,9 +116,9 @@ class PiItem extends Model
         $itemAttributes = ItemAttribute::where('item_id', $itemId)->get();
         $processedData = [];
         $mappingAttributes = PiItemAttribute::where('pi_item_id', $this->getAttribute('id'))
-        ->select(['item_attribute_id as attribute_id', 'attribute_value as attribute_value_id'])
-        ->get()
-        ->toArray();
+            ->select(['item_attribute_id as attribute_id', 'attribute_value as attribute_value_id'])
+            ->get()
+            ->toArray();
         foreach ($itemAttributes as $attribute) {
             $attributeIds = is_array($attribute->attribute_id) ? $attribute->attribute_id : [$attribute->attribute_id];
             $attribute->group_name = $attribute->group?->name;
@@ -138,12 +149,12 @@ class PiItem extends Model
 
     public function po_item()
     {
-        return $this->hasOne(PoItem::class,'pi_item_id','id');
+        return $this->hasOne(PoItem::class, 'pi_item_id', 'id');
     }
 
     public function po_items()
     {
-        return $this->hasMany(PoItem::class,'pi_item_id');
+        return $this->hasMany(PoItem::class, 'pi_item_id');
     }
 
     public function getBalenceQtyAttribute()
@@ -153,7 +164,7 @@ class PiItem extends Model
 
     public function so_pi_mapping_item()
     {
-        return $this->hasMany(PiSoMappingItem::class,'pi_item_id');
+        return $this->hasMany(PiSoMappingItem::class, 'pi_item_id');
     }
 
     public function getMiBalanceQtyAttribute()
@@ -188,7 +199,7 @@ class PiItem extends Model
     public function getAvlStockForPi($storeId = null)
     {
         $selectedAttributeIds = [];
-        $itemAttributes = $this -> item_attributes_array();
+        $itemAttributes = $this->item_attributes_array();
         foreach ($itemAttributes as $itemAttr) {
             foreach ($itemAttr['values_data'] as $valueData) {
                 if ($valueData['selected']) {
@@ -207,7 +218,7 @@ class PiItem extends Model
 
     public function getQtyAttribute()
     {
-        return $this -> indent_qty;
+        return $this->indent_qty;
     }
 
     public function getPendingPoAttribute()
@@ -218,5 +229,4 @@ class PiItem extends Model
         $storeId      = $this?->pi?->store_id;
         return InventoryHelper::getPendingPo($itemId, $uomId, $selectedAttr, $storeId);
     }
-
 }

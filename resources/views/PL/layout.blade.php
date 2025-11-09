@@ -219,9 +219,12 @@
                                                     <input type="text" class="form-control" value="{{ $order->trip->book_code . '-' . $order->trip->document_number }}" disabled>
                                                     <input type="hidden" name="trip_header_id" value="{{ $order->trip_id }}">
                                                 @else
-                                                    <select class="form-select disable_on_edit" name="trip_header_id" id="trip_header_input" oninput="loadOrders();">
+                                                    <!-- <select class="form-select disable_on_edit" name="trip_header_id" id="trip_header_input" oninput="loadOrders();">
                                                         <option value="">Select</option> 
-                                                    </select>
+                                                    </select> -->
+                                                    <input type="text" id = "trip_header_input" placeholder="Select" class="form-control mw-100 ledgerselecct ui-autocomplete-input disable_on_edit" autocomplete="off" va   CMDlue = "" onblur = "">
+                                                    <input type = "hidden" name = "trip_header_id" id = "trip_header_id_input" value = "{{isset($order) ? $order -> trip_id : ''}}"></input>
+                                                    
                                                 @endif    
                                             </div>
                                         </div>

@@ -139,6 +139,11 @@ class MrnDetailHistory extends Model
         return $this->hasMany(MrnAttributeHistory::class, 'mrn_detail_history_id');
     }
 
+    public function batches()
+    {
+        return $this->hasMany(MrnBatchDetailHistory::class, 'detail_id');
+    }
+
     public function extraAmounts()
     {
         return $this->belongsTo(MrnExtraAmountHistory::class, 'mrn_detail_history_id');
@@ -169,6 +174,15 @@ class MrnDetailHistory extends Model
         return $this->belongsTo(Unit::class, 'uom_id');
     }
 
+    public function asset()
+    {
+        return $this->hasOne(FixedAssetRegistration::class, 'mrn_detail_id')->latest();
+    }
+
+    public function assetDetail()
+    {
+        return $this->hasOne(MrnAssetDetailHistory::class, 'detail_id');
+    }
     public function item_attributes_array()
     {
         $itemId = $this->getAttribute('item_id');

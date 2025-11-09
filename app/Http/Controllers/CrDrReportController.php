@@ -2513,6 +2513,7 @@ $mappings = DB::table('organizations')
                         'ledger.customer',
                         'ledger_group',
                         'costCenter',
+                        'itemreference',
                     ]);
                 })
                 ->groupBy('id')
@@ -2541,54 +2542,6 @@ $mappings = DB::table('organizations')
             }
             
 
-            // $data = $data->with([
-            //     'series' => function ($s) {
-            //         $s->select('id', 'book_code');
-            //     }
-            // ])
-            // ->select('id', 'amount', 'book_id', 'document_date as date', 'created_at', 'voucher_name', 'voucher_no', 'location', 'organization_id')
-            // ->orderBy('id', 'desc')
-            // ->get()
-            // ->map(function ($voucher) use ($request, $ledger,$organizations)  {
-            //     $voucher->date = date('d/m/Y', strtotime($voucher->date));
-            //     $voucher->document_date = $voucher->document_date;
-            
-            //     $balance = VoucherReference::where('voucher_id', $voucher->id)
-            //         ->withWhereHas('voucherPayRec', function ($query) use ($organizations,$request) {
-            //             $query->when($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,function ($q){
-            //                 $q->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
-            //                 $q->withoutGlobalScope('defaultLocation');
-            //             });
-            //             $query->when(!empty($organizations), function ($query) use ($organizations) {
-            //                 $query->whereIn('organization_id', $organizations);
-            //             });
-            //             $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-            //         })->where('party_id', $ledger->id);
-            
-               
-            //     $voucher->items->transform(function($item) use ($request) {
-            //         $item->amount = $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS 
-            //             ? $item->credit_amt_org 
-            //             : $item->debit_amt_org;
-                   
-
-            //         $itemBalance = $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS 
-            //             ? $item->credit_amt_org 
-            //             : $item->debit_amt_org;
-
-            //         return $item;
-            //     });
-            
-               
-            //     unset($voucher->amount);
-            
-            //     $balance = $balance->sum('amount');
-            //     $voucher->set = $balance;
-            //     $voucher->balance = ($voucher->items->isNotEmpty() ? $voucher->items->sum('amount') : 0) - $balance;
-            
-            //     return $voucher;
-            // });
-
             $data = $data->with([
                 'series' => function ($s) {
                     $s->select('id', 'book_code');
@@ -2609,45 +2562,26 @@ $mappings = DB::table('organizations')
             ->map(function ($voucher) use ($request, $ledger, $organizations) {
                 $voucher->date = date('d/m/Y', strtotime($voucher->date));
                 $voucher->document_date = $voucher->document_date;
-            
-                // 🔹 पहले voucher का total settlement निकालो
-                $settled = VoucherReference::where('voucher_id', $voucher->id)
-                    ->withWhereHas('voucherPayRec', function ($query) use ($organizations, $request) {
-                        $query->when(
-                            $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,
-                            function ($q) {
-                                $q->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
-                                $q->withoutGlobalScope('defaultLocation');
-                            }
-                        );
-                        $query->when(!empty($organizations), function ($query) use ($organizations) {
-                            $query->whereIn('organization_id', $organizations);
-                        });
-                        $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
-                    })
-                    ->where('party_id', $ledger->id)
-                    ->sum('amount');
-            
-                // 🔹 अब हर item को उसका amount और balance assign करो
-                $voucher->items->transform(function ($item) use ($request, $settled) {
-                    $amount = $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS
-                        ? $item->credit_amt_org
-                        : $item->debit_amt_org;
-            
-                    $item->amount  = $amount;
-                    $item->balance = $amount - $settled; // 👈 हर item का अपना balance
-            
-                    return $item;
-                });
-            
-                // voucher-level amount और balance हटाओ
-                unset($voucher->amount);
-                unset($voucher->balance);
-            
-                // voucher-level पर सिर्फ total settled रखो
-                $voucher->set = $settled;
-            
-                return $voucher;
+                $balance = VoucherReference::where('voucher_id', $voucher->id)
+                            ->withWhereHas('voucherPayRec', function ($query) use($request,$organizations) {
+                                $query->when($request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS,function ($query){
+                                    $query->withoutGlobalScope(DefaultGroupCompanyOrgScope::class)
+                                    ->withoutGlobalScope('defaultLocation');
+                                })->whereIn("organization_id",$organizations);
+                                //$query->where('organization_id', Helper::getAuthenticatedUser()->organization_id);
+                                $query->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
+                            })->where('party_id', $ledger);
+                        $amount = 0;
+                        foreach ($voucher->items as $item) {
+                            $amount += $request->type == ConstantHelper::PAYMENTS_SERVICE_ALIAS ? $item->credit_amt_org : $item->debit_amt_org;
+                        }
+                        $voucher->amount = $amount;
+               
+                        $balance = $balance->sum('amount');
+                        $voucher->set = $balance;
+                        $voucher->balance = $voucher->amount - $balance;
+                        return $voucher;
+        
             });
             
             
@@ -2695,7 +2629,7 @@ $mappings = DB::table('organizations')
             });
                     $query->when(!empty($organizations), function ($query) use ($organizations) {
                             $query->whereIn('organization_id', $organizations);
-                        })->whereNotIn('document_status', ConstantHelper::DOCUMENT_STATUS_REJECTED);
+                        })->where('document_status', ConstantHelper::POSTED);
                 })
                 ->with('partyName')->get()->filter(function ($adv) use ($ledger, $ledgerGroupIds) {
                     if (is_null($adv->ledger_id)) {
@@ -2713,24 +2647,37 @@ $mappings = DB::table('organizations')
            
 
             foreach ($advanceItems as $advanceItem) {
+                $bucketTotalDeducted = 0;
                 $remainingAdvanceAmount = $advanceItem->orgAmount;
 
                 foreach ($data as $res) {
-                    $combinedDateTime = \DateTime::createFromFormat(
-                        'Y-m-d H:i:s',
-                        $advanceItem->voucher->document_date . ' ' . date('H:i:s', strtotime($advanceItem->voucher->created_at))
-                    );
+                        $documentDate = $advanceItem->voucher->document_date; // e.g. '2025-04-10'
+                        $createdAt = $advanceItem->voucher->created_at; // e.g. '2025-04-10 15:30:00'
 
-                    $vendorDateTimestamp = $combinedDateTime?->getTimestamp();
-                    $resTime = date('H:i:s', strtotime($res->created_at));
-                    $parsedDate = \DateTime::createFromFormat('d/m/Y H:i:s', $res->date . ' ' . $resTime);
-                    $resDateTimestamp = $parsedDate?->getTimestamp();
+                        // Combine the date from `document_date` and time from `created_at`
+                        $combinedDateTime = \DateTime::createFromFormat('Y-m-d H:i:s', $documentDate . ' ' . date('H:i:s', strtotime($createdAt)));
 
-                    if ($vendorDateTimestamp < $resDateTimestamp) {
+                        $vendorDateTimestamp = $combinedDateTime ? $combinedDateTime->getTimestamp() : null;
+                        $resDate = $res->date; // e.g. '10/04/2025'
+                        $resCreatedAt = $res->created_at; // e.g. '2025-04-10 14:45:00'
+
+                        // Extract the time from created_at
+                        $resTime = date('H:i:s', strtotime($resCreatedAt));
+
+                        // Combine date (converted to Y-m-d) with time
+                        $parsedDate = \DateTime::createFromFormat('d/m/Y H:i:s', $resDate . ' ' . $resTime);
+
+                        $resDateTimestamp = $parsedDate ? $parsedDate->getTimestamp() : null;
+
+                    if ($vendorDateTimestamp < $resDateTimestamp) 
+                    {
+                        $bucketTotalDeducted = 0; // Track total amount deducted from all aging buckets
                         if ($remainingAdvanceAmount > 0) {
                             $deductAmount = min($remainingAdvanceAmount, $res->balance);
-                            $res->balance -= $deductAmount;
-                            $remainingAdvanceAmount -= $deductAmount;
+                            $res->advance = ($res->advance ?? 0) + $remainingAdvanceAmount;
+                            $res->balance -= $deductAmount; // Reduce the bucket value
+                            $remainingAdvanceAmount -= $deductAmount; // Reduce the advance sum
+                            $bucketTotalDeducted += $deductAmount; // Track total deducted
                         }
                     }
                 }

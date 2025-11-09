@@ -734,11 +734,12 @@
 @endsection
 @section('scripts')
     <script type="text/javascript">
-        var type = '{{ request()->route('type') }}';
-        let taxCalUrl = '{{ route('tax.group.calculate') }}';
-        var actionUrlTax = '{{ route('po.tax.calculation', ['type' => ':type']) }}'.replace(':type', type);
-        var getLocationUrl = '{{ route('store.get') }}';
-        var getAddressOnVendorChangeUrl = "{{ route('po.get.address', ['type' => ':type']) }}".replace(':type', type);
+        const type = '{{ request()->route('type') }}';
+        const getLocationUrl = '{{ route('store.get') }}';
+        const taxCalUrl = '{{ route('tax.group.calculate') }}';
+        const actionUrlTax = '{{ route('po.tax.calculation', ['type' => ':type']) }}'.replace(':type', type);
+        const itemDetailUrl = '{{ route('po.get.itemdetail', ['type' => ':type']) }}'.replace(':type', type);
+        const getAddressOnVendorChangeUrl = "{{ route('po.get.address', ['type' => ':type']) }}".replace(':type', type);
     </script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-attr-ui.js') }}"></script>
@@ -1088,7 +1089,6 @@
                 }
             }
 
-            let type = '{{ request()->route('type') }}';
             let actionUrl = '{{ route('po.item.row', ['type' => ':type']) }}'
                 .replace(':type', type) +
                 '?count=' + rowsLength +
@@ -1193,7 +1193,6 @@
                     isPi = 1;
                 }
             }
-            let type = '{{ request()->route('type') }}';
             let actionUrl = '{{ route('po.item.attr', ['type' => ':type']) }}'
                 .replace(':type', type) +
                 `?item_id=${itemId}&rowCount=${rowCount}&selectedAttr=${selectedAttr}&isPi=${isPi}`;
@@ -1311,7 +1310,6 @@
                 addressType = 'consignee_address';
             }
 
-            let type = '{{ request()->route('type') }}';
             let actionUrl = `{{ route('po.edit.address', ['type' => ':type']) }}`
                 .replace(':type', type) +
                 `?type=${addressType}&vendor_id=${vendorId}&consignee_id=${consigneeId}&address_id=${addressId}`;
@@ -1415,54 +1413,6 @@
             $("#pincode").val(selectedAddress?.pincode ?? '');
             $("#address").val(selectedAddress?.address ?? '');
         }
-
-        /*Display item detail*/
-        $(document).on('input change focus', '#itemTable tr input', (e) => {
-            let currentTr = e.target.closest('tr');
-            let pName = $(currentTr).find("[name*='component_item_name']").val();
-            let itemId = $(currentTr).find("[name*='[item_id]']").val();
-            let remark = '';
-            if ($(currentTr).find("[name*='remark']")) {
-                remark = $(currentTr).find("[name*='remark']").val() || '';
-            }
-            if (itemId) {
-                let selectedAttr = [];
-                $(currentTr).find("[name*='attr_name']").each(function(index, item) {
-                    if ($(item).val()) {
-                        selectedAttr.push($(item).val());
-                    }
-                });
-
-                let selectedDelivery = {
-                    delivery: []
-                };
-                $(currentTr).find("[name*='delivery'][name*='[d_qty]']").each(function(index, item) {
-                    let $td = $(item).closest('td');
-                    let dQty = $(item).val();
-                    let dDate = $td.find('[name*="[d_date]"]').val();
-
-                    selectedDelivery.delivery.push({
-                        dDate: dDate,
-                        dQty: dQty
-                    });
-                });
-                let uomId = $(currentTr).find("[name*='[uom_id]']").val() || '';
-                let qty = $(currentTr).find("[name*='[qty]']").val() || '';
-                let type = '{{ request()->route('type') }}';
-                let pi_item_ids = $("[name='pi_item_ids']").val();
-                let actionUrl = '{{ route('po.get.itemdetail', ['type' => ':type']) }}'
-                    .replace(':type', type) +
-                    `?item_id=${itemId}&selectedAttr=${encodeURIComponent(JSON.stringify(selectedAttr))}&remark=${remark}&uom_id=${uomId}&qty=${qty}&delivery=${encodeURIComponent(JSON.stringify(selectedDelivery))}&pi_item_ids=${encodeURIComponent(JSON.stringify(pi_item_ids))}`;
-
-                fetch(actionUrl).then(response => {
-                    return response.json().then(data => {
-                        if (data.status == 200) {
-                            $("#itemDetailDisplay").html(data.data.html);
-                        }
-                    });
-                });
-            }
-        });
 
         /* Address Submit */
         $(document).on('click', '.submitAddress', function(e) {
@@ -1699,6 +1649,13 @@
                     searchable: false
                 },
                 {
+                    data: 'vendor_select',
+                    name: 'vendor_select',
+                    render: renderData,
+                    orderable: true,
+                    searchable: true
+                },
+                {
                     data: 'item_code',
                     name: 'item_code',
                     render: renderData,
@@ -1755,13 +1712,6 @@
                     createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
                     }
-                },
-                {
-                    data: 'vendor_select',
-                    name: 'vendor_select',
-                    render: renderData,
-                    orderable: true,
-                    searchable: true
                 },
                 {
                     data: 'so_no',
@@ -2059,7 +2009,6 @@
             groupItems = JSON.stringify(groupItems);
             ids = JSON.stringify(ids);
             let current_row_count = $("#itemTable tbody tr[id*='row_']").length;
-            let type = '{{ request()->route('type') }}';
             let actionUrl = '{{ route('po.process.pi-item', ['type' => ':type']) }}'
                 .replace(':type', type) +
                 '?ids=' + encodeURIComponent(ids) +

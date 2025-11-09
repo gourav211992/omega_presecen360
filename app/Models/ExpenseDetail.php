@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Models\PO\PoHeader;
 use App\Models\PO\PoDetail;
 use App\Helpers\ConstantHelper;
+use App\Models\JobOrder\JobOrder;
+use App\Models\JobOrder\JoProduct;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,6 +17,10 @@ class ExpenseDetail extends Model
     protected $fillable = [
         'expense_header_id',
         'purchase_order_item_id',
+        'po_id',
+        'job_order_item_id',
+        'jo_service_item_id',
+        'jo_id',
         'so_id',
         'item_id',
         'item_code',
@@ -51,7 +57,9 @@ class ExpenseDetail extends Model
         'group_currency',
         'exchange_rate_to_group_currency',
         'selected_item',
-        'remark'
+        'remark',
+        'po_rate',
+        'item_variance'
     ];
 
     public $referencingRelationships = [
@@ -100,6 +108,16 @@ class ExpenseDetail extends Model
     public function poItem()
     {
         return $this->belongsTo(PoItem::class, 'purchase_order_item_id');
+    }
+
+    public function joItem()
+    {
+        return $this->belongsTo(JoProduct::class, 'job_order_item_id');
+    }
+
+    public function jo()
+    {
+        return $this->belongsTo(JobOrder::class, 'jo_id');
     }
 
     public function hsn()

@@ -85,6 +85,7 @@ class GstrDetailExport
                     ->whereIn('invoice_type_id', $typeIds)
                     ->whereNotNull('hsn_code')
                     ->whereNotNull('uqc')
+                    ->whereNotNull('rate')
                     ->groupBy('hsn_code','uqc', 'rate');
                 break;
 

@@ -27,6 +27,7 @@ use App\Models\Category;
 use App\Models\Country;
 use App\Models\Customer;
 use App\Models\Address;
+use App\Models\CustomerLocation;
 use App\Models\Department;
 use App\Models\ErpAddress;
 use App\Models\ErpInvoiceItem;
@@ -534,7 +535,7 @@ class ErpSaleOrderController extends Controller
                 if (!$customerPhoneNo || !$customerEmail || !$customerName) {
                     DB::rollBack();
                     return response() -> json([
-                        'message' => 'Please enter all details of the customer',
+                        'message' => 'Please enter Customer Phone, Email and consignee details',
                         'error' => ''
                     ], 422);
                 }
@@ -585,10 +586,76 @@ class ErpSaleOrderController extends Controller
                 $saleOrder = ErpSaleOrder::find($request -> sale_order_id);
                 $saleOrder -> document_date = $request -> document_date;
                 $saleOrder -> reference_number = $request -> reference_no;
+                //Store and department keys
+                $saleOrder -> store_id = $request -> store_id ?? null;
+                $saleOrder -> store_code = $store ?-> store_code ?? null;
                 $saleOrder -> consignee_name = $request -> consignee_name;
                 $saleOrder -> consignee_id = $request -> consignee_id;
                 $saleOrder -> remarks = $request -> final_remarks;
+                $saleOrder -> customer_id = $request -> customer_id;
+                $saleOrder -> payment_term_id = $request -> payment_terms_id;
+                $saleOrder -> payment_term_code = $request -> payment_terms_code;
                 $actionType = $request -> action_type ?? '';
+                //Address Update (Billing)
+                $customerBillingAddress = ErpAddress::find($request -> billing_address);
+                if (isset($customerBillingAddress)) {
+                    $billingAddress = $saleOrder -> billing_address_details() -> update([
+                        'address' => $customerBillingAddress -> address,
+                        'country_id' => $customerBillingAddress -> country_id,
+                        'state_id' => $customerBillingAddress -> state_id,
+                        'city_id' => $customerBillingAddress -> city_id,
+                        'type' => 'billing',
+                        'pincode' => $customerBillingAddress -> pincode,
+                        'phone' => $customerBillingAddress -> phone,
+                        'fax_number' => $customerBillingAddress -> fax_number
+                    ]);
+                }
+                // Shipping Address
+                $customerShippingAddress = ErpAddress::find($request -> shipping_address);
+                if (isset($customerShippingAddress)) {
+                    $shippingAddress = $saleOrder -> shipping_address_details() -> update([
+                        'address' => $customerShippingAddress -> address,
+                        'country_id' => $customerShippingAddress -> country_id,
+                        'state_id' => $customerShippingAddress -> state_id,
+                        'city_id' => $customerShippingAddress -> city_id,
+                        'type' => 'shipping',
+                        'pincode' => $customerShippingAddress -> pincode,
+                        'phone' => $customerShippingAddress -> phone,
+                        'fax_number' => $customerShippingAddress -> fax_number
+                    ]);
+                }
+                //Location Address
+                if (!isset($store->address)) {
+                    DB::rollBack();
+                    return response() -> json([
+                        'message' => 'Location Address not assigned',
+                        'error' => ''
+                    ], 422);
+                }
+                $locationAddress = $saleOrder -> location_address_details() -> update([
+                    'address' => $store -> address -> address,
+                    'country_id' => $store -> address -> country_id,
+                    'state_id' => $store -> address -> state_id,
+                    'city_id' => $store -> address -> city_id,
+                    'type' => 'location',
+                    'pincode' => $store -> address -> pincode,
+                    'phone' => $store -> address -> phone,
+                    'fax_number' => $store -> address -> fax_number
+                ]);
+                //Customer Sub Location 
+                if ($saleOrder -> sale_type === 'Rent') {
+                    $customerSubStore = CustomerLocation::where('organization_id', $saleOrder->organization_id)
+                        -> where('location_id', $saleOrder->store_id) -> where('customer_id', $saleOrder-> customer_id)
+                        -> first();
+                    if (!$customerSubStore) {
+                        DB::rollback();
+                        return response() -> json([
+                            'message' => 'Customer Sub Store not mapped',
+                            'error' => ''
+                        ], 422);
+                    }
+                    $saleOrder->customer_sub_store_id = $customerSubStore->store_id;
+                }
                 //Amend backup
                 if(($saleOrder -> document_status == ConstantHelper::APPROVED || $saleOrder -> document_status == ConstantHelper::APPROVAL_NOT_REQUIRED) && $actionType == 'amendment')
                 {
@@ -659,6 +726,7 @@ class ErpSaleOrderController extends Controller
                     'revision_number' => 0,
                     'revision_date' => null,
                     'order_type' => $request -> sale_order_type ?? SaleModuleHelper::ORDER_TYPE_DEFAULT,
+                    'sale_type' => $request -> sale_type ?? 'Sale',
                     'reference_number' => $request -> reference_no,
                     'store_id' => $request -> store_id ?? null,
                     'store_code' => $store ?-> store_name ?? null,
@@ -764,6 +832,19 @@ class ErpSaleOrderController extends Controller
                     'phone' => $orgLocationAddress -> address -> phone,
                     'fax_number' => $orgLocationAddress -> address -> fax_number
                 ]);
+                if ($saleOrder -> sale_type === 'Rent') {
+                    $customerSubStore = CustomerLocation::where('organization_id', $saleOrder->organization_id)
+                        -> where('location_id', $saleOrder->store_id) -> where('customer_id', $saleOrder-> customer_id)
+                        -> first();
+                    if (!$customerSubStore) {
+                        DB::rollback();
+                        return response() -> json([
+                            'message' => 'Customer Sub Store not mapped',
+                            'error' => ''
+                        ], 422);
+                    }
+                    $saleOrder->customer_sub_store_id = $customerSubStore->store_id;
+                }
             }
                 //Dynamic Fields
                 $status = DynamicFieldHelper::saveDynamicFields(ErpSoDynamicField::class, $saleOrder -> id, $request -> dynamic_field ?? []);
@@ -856,7 +937,8 @@ class ErpSaleOrderController extends Controller
                                 'group_currency_exchange_rate' => null,
                                 'remarks' => isset($request -> item_remarks[$itemKey]) ? $request -> item_remarks[$itemKey] : null,
                                 'value_after_discount' => $itemValueAfterDiscount,
-                                'item_value' => $itemValue
+                                'item_value' => $itemValue,
+                                'sale_type' => $saleOrder -> sale_type
                             ]);
                         }
                     }
@@ -921,6 +1003,7 @@ class ErpSaleOrderController extends Controller
                             'group_currency_id' => null,
                             'group_currency_exchange_rate' => null,
                             'remarks' => $itemDataValue['remarks'],
+                            'sale_type' => $itemDataValue['sale_type']
                         ];
                         if (isset($request -> so_item_id[$itemDataKey])) {
                             $oldSoItem = ErpSoItem::find($request -> so_item_id[$itemDataKey]);

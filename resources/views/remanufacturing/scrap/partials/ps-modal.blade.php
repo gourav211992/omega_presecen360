@@ -48,7 +48,7 @@
                                         <th>Item Name</th>
                                         <th>Attributes</th>
                                         <th>UOM</th>
-                                        <th>QTY</th>
+                                        <th>Rejected Qty</th>
                                         <th>Remarks</th>
                                     </tr>
                                 </thead>

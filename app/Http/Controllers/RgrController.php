@@ -203,16 +203,30 @@ class RgrController extends Controller
 
                     $item = Item::with('uom')->find($itemData['item_id']);
                     $inventoryUomQty = ItemHelper::convertToBaseUom( $item->id, $itemData['uom_id'] ?? 0, $itemData['qty'] ?? 0);
-                    $subStoreId = null;
-                    $categoryId = $itemData['category_id'] ?? $item->subcategory_id ?? null;
-                    if ($request->input('store_id') && $categoryId) {
-                        $storeMapping = ErpRgrStoreMapping::where('store_id', $request->input('store_id'))
-                            ->where('category_id', $categoryId)
-                            ->first();
+                    $categoryId = $itemData['category_id'] ?? $item->subcategory_id;
+                    $storeId = $request->input('store_id');
 
-                        $subStoreId = $storeMapping ? $storeMapping->sub_store_id : null;
+                    if (!$storeId || !$categoryId) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => "Store or Category is missing. Please provide both.",
+                            'error' => "",
+                        ], 422);
                     }
-                    $subStoreId = $storeMapping ? $storeMapping->sub_store_id : null;
+
+                    $storeMapping = ErpRgrStoreMapping::where('store_id', $storeId)
+                        ->where('category_id', $categoryId)
+                        ->first();
+
+                    if (!$storeMapping || !$storeMapping->sub_store_id) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => "The selected store and category are not mapped. Please set up the mapping first.",
+                            'error' => "",
+                        ], 422);
+                    }
+
+                    $subStoreId = $storeMapping->sub_store_id;
 
                     $rgrItem = new ErpRgrItem;
                     $rgrItem->rgr_id = $rgr->id;
@@ -273,7 +287,14 @@ class RgrController extends Controller
                 $currentLevel = $rgr->approval_level ?? 1;
                 $revisionNumber = $rgr->revision_number ?? 0;
                 $actionType = 'submit';
-                $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
+               $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
+               if ($approveDocument['message']) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => $approveDocument['message'],
+                        'error' => "",
+                    ], 422);
+                }
                 $rgr->document_status = $approveDocument['approvalStatus'] ?? $request->input('document_status');
             } else {
                 $rgr->document_status = $request->input('document_status') ?? ConstantHelper::DRAFT;
@@ -414,15 +435,31 @@ class RgrController extends Controller
 
                     $item = Item::with('uom')->find($itemData['item_id']);
                     $inventoryUomQty = ItemHelper::convertToBaseUom($item->id,$itemData['uom_id'] ?? 0,$itemData['qty'] ?? 0);
-                    $subStoreId = null;
-                    $categoryId = $itemData['category_id'] ?? $item->subcategory_id ?? null;
-                    if ($request->input('store_id') && $categoryId) {
-                        $storeMapping = ErpRgrStoreMapping::where('store_id', $request->input('store_id'))
-                            ->where('category_id', $categoryId)
-                            ->first();
+                    $categoryId = $itemData['category_id'] ?? $item->subcategory_id;
+                    $storeId = $request->input('store_id');
 
-                        $subStoreId = $storeMapping ? $storeMapping->sub_store_id : null;
+                    if (!$storeId || !$categoryId) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => "Store or Category is missing. Please provide both.",
+                            'error' => "",
+                        ], 422);
                     }
+
+                    $storeMapping = ErpRgrStoreMapping::where('store_id', $storeId)
+                        ->where('category_id', $categoryId)
+                        ->first();
+
+                    if (!$storeMapping || !$storeMapping->sub_store_id) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => "The selected store and category are not mapped. Please set up the mapping first.",
+                            'error' => "",
+                        ], 422);
+                    }
+
+                    $subStoreId = $storeMapping->sub_store_id;
+
                     if (isset($itemData['id'])) {
                         // Update existing item
                         $rgrItem = ErpRgrItem::find($itemData['id']);
@@ -517,6 +554,13 @@ class RgrController extends Controller
                 $revisionNumber = $rgr->revision_number + 1;
                 $actionType = 'amendment';
                 $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $amendRemarks, $amendAttachments, $currentLevel, $actionType, $totalValue, $modelName);
+                if ($approveDocument['message']) {
+                    DB::rollBack();
+                    return response()->json([
+                        'message' => $approveDocument['message'],
+                        'error' => "",
+                    ], 422);
+                }
                 $rgr->revision_number = $revisionNumber;
                 $rgr->approval_level = 1;
                 $rgr->revision_date = now();
@@ -529,6 +573,13 @@ class RgrController extends Controller
                     $revisionNumber = $rgr->revision_number ?? 0;
                     $actionType = 'submit'; 
                     $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $totalValue, $modelName);
+                    if ($approveDocument['message']) {
+                        DB::rollBack();
+                        return response()->json([
+                            'message' => $approveDocument['message'],
+                            'error' => "",
+                        ], 422);
+                    }
                     $rgr->document_status = $approveDocument['approvalStatus'] ?? $rgr->document_status;
                 } else {
                     $rgr->document_status = $request->input('document_status') ?? ConstantHelper::DRAFT;

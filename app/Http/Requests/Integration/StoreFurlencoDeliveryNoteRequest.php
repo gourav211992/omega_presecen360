@@ -100,7 +100,24 @@ class StoreFurlencoDeliveryNoteRequest extends FormRequest
                 'required_with:items.*.item_attributes',
                 'distinct',
                 'integer',
-                'exists:erp_item_attributes,id',
+                // custom validation: ensure attribute id is valid for item
+                function ($attribute, $value, $fail) {
+                    // Extract Index
+                    preg_match('/items\.(\d+)\.item_attributes\.(\d+)\.id/', $attribute, $matches);
+                    if (count($matches) !== 3) {
+                        return;
+                    }
+
+                    [$full, $itemIndex, $attrIndex] = $matches;
+
+                    $itemId = data_get($this->request->all(), "items.{$itemIndex}.item_id");
+
+                    $exists = ErpItemAttribute::where('id', $value)->where('item_id', $itemId)->exists();
+
+                    if (! $exists) {
+                        $fail("The attribute ID {$value} is not valid for item_id {$itemId}.");
+                    }
+                },
             ],
 
             'items.*.item_attributes.*.attribute_name_id' => [

@@ -41,95 +41,131 @@
                                     class="btn btn-secondary btn-sm mb-50 mb-sm-0">
                                     <i data-feather="arrow-left-circle"></i> Back
                                 </button>
-                                @if (
-                                    !intval(request('amendment') ?? 0) &&
-                                        $mrn->document_status != \App\Helpers\ConstantHelper::DRAFT &&
-                                        $mrn->document_status != \App\Helpers\ConstantHelper::SUBMITTED &&
-                                        $mrn->document_status != \App\Helpers\ConstantHelper::PARTIALLY_APPROVED)
-                                    <a href="{{ route('gate-entry.generate-pdf', $mrn->id) }}" target="_blank"
-                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer">
-                                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
-                                            <path
-                                                d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2">
-                                            </path>
-                                            <rect x="6" y="14" width="12" height="8"></rect>
-                                        </svg>
-                                        Print
-                                    </a>
-                                    @if ($buttons['post'])
-                                        <button id="postButton" onclick="onPostVoucherOpen();" type="button"
-                                            class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                @if ($mrn->document_status && $mrn->document_status != 'cancelled')
+                                    @if (
+                                        !intval(request('amendment') ?? 0) &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::DRAFT &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::SUBMITTED &&
+                                            $mrn->document_status != \App\Helpers\ConstantHelper::PARTIALLY_APPROVED)
+                                        <a href="{{ route('gate-entry.generate-pdf', $mrn->id) }}" target="_blank"
+                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                                stroke-linecap="round" stroke-linejoin="round"
+                                                class="feather feather-printer">
+                                                <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                                <path
+                                                    d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2">
+                                                </path>
+                                                <rect x="6" y="14" width="12" height="8"></rect>
+                                            </svg>
+                                            Print
+                                        </a>
+                                        @if ($buttons['post'])
+                                            <button id="postButton" onclick="onPostVoucherOpen();" type="button"
+                                                class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                                    xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                    viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                    class="feather feather-check-circle">
+                                                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                                                </svg> Post</button>
+                                        @endif
+                                    @endif
+                                    @if ($buttons['draft'])
+                                        <button type="submit"
+                                            class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button"
+                                            name="action" value="draft">
+                                            <i data-feather='save'></i> Save as Draft
+                                        </button>
+                                    @endif
+                                    @if ($buttons['submit'])
+                                        <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
+                                            value="submitted">
+                                            <i data-feather="check-circle"></i> Submit
+                                        </button>
+                                    @endif
+                                    @if ($mrn->document_status == 'draft' || $mrn->document_status == 'rejected')
+                                        @if ($buttons['cancel'])
+                                            @php $cancelButtonSet = true; @endphp
+                                            <button type="button" onclick="cancelDocument('');"
+                                                class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                                <i data-feather='delete'></i>
+                                                Cancel
+                                            </button>
+                                        @endif
+                                    @endif
+                                    @if ($buttons['approve'])
+                                        <button type="button" class="btn btn-primary btn-sm" id="approved-button"
+                                            name="action" value="approved"><i data-feather="check-circle"></i>
+                                            Approve</button>
+                                        <button type="button" id="reject-button"
+                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
                                                 xmlns="http://www.w3.org/2000/svg" width="14" height="14"
                                                 viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                                 stroke-linecap="round" stroke-linejoin="round"
-                                                class="feather feather-check-circle">
-                                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
-                                            </svg> Post</button>
+                                                class="feather feather-x-circle">
+                                                <circle cx="12" cy="12" r="10"></circle>
+                                                <line x1="15" y1="9" x2="9" y2="15">
+                                                </line>
+                                                <line x1="9" y1="9" x2="15" y2="15">
+                                                </line>
+                                            </svg> Reject</button>
                                     @endif
-                                @endif
-                                @if ($buttons['draft'])
-                                    <button type="submit"
-                                        class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button" name="action"
-                                        value="draft">
-                                        <i data-feather='save'></i> Save as Draft
-                                    </button>
-                                @endif
-                                @if ($buttons['submit'])
-                                    <button type="submit" class="btn btn-primary btn-sm submit-button" name="action"
-                                        value="submitted">
-                                        <i data-feather="check-circle"></i> Submit
-                                    </button>
-                                @endif
-                                @if ($buttons['approve'])
-                                    <button type="button" class="btn btn-primary btn-sm" id="approved-button"
-                                        name="action" value="approved"><i data-feather="check-circle"></i> Approve</button>
-                                    <button type="button" id="reject-button"
-                                        class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
-                                            xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle">
-                                            <circle cx="12" cy="12" r="10"></circle>
-                                            <line x1="15" y1="9" x2="9" y2="15"></line>
-                                            <line x1="9" y1="9" x2="15" y2="15"></line>
-                                        </svg> Reject</button>
-                                @endif
-                                @if ($buttons['voucher'])
-                                    <button type="button" onclick="onPostVoucherOpen('posted');"
-                                        class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
-                                            xmlns="http://www.w3.org/2000/svg" width="14" height="14"
-                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                            stroke-linecap="round" stroke-linejoin="round"
-                                            class="feather feather-file-text">
-                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                            <polyline points="14 2 14 8 20 8"></polyline>
-                                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                                            <polyline points="10 9 9 9 8 9"></polyline>
-                                        </svg> Voucher</button>
-                                @endif
-                                @if ($buttons['amend'] && intval(request('amendment') ?? 0))
-                                    <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i
-                                            data-feather="check-circle"></i> Submit</button>
-                                @else
-                                    @if ($buttons['amend'])
-                                        <button type="button" data-bs-toggle="modal" data-bs-target="#amendmentconfirm"
-                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
-                                            Amendment</button>
-                                        @if (@$mrn->deviationJob)
-                                            <button type="button" data-bs-toggle="modal" id="deviation-button"
+                                    @if ($buttons['voucher'])
+                                        <button type="button" onclick="onPostVoucherOpen('posted');"
+                                            class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><svg
+                                                xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                class="feather feather-file-text">
+                                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                                <polyline points="14 2 14 8 20 8"></polyline>
+                                                <line x1="16" y1="13" x2="8" y2="13">
+                                                </line>
+                                                <line x1="16" y1="17" x2="8" y2="17">
+                                                </line>
+                                                <polyline points="10 9 9 9 8 9"></polyline>
+                                            </svg> Voucher</button>
+                                    @endif
+                                    @if ($buttons['cancel'] && !isset($cancelButtonSet) && (isset($cancelAmendButtonSet) && $cancelAmendButtonSet))
+                                        <button type="button" onclick="cancelDocument('');"
+                                            class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                            <i data-feather='delete'></i>
+                                            Cancel
+                                        </button>
+                                    @endif
+                                    @if ($buttons['amend'] && intval(request('amendment') ?? 0))
+                                        <button type="button" class="btn btn-primary btn-sm" id="amendmentBtn"><i
+                                                data-feather="check-circle"></i> Submit</button>
+                                    @else
+                                        @if ($buttons['amend'])
+                                            <button type="button" data-bs-toggle="modal"
+                                                data-bs-target="#amendmentconfirm"
                                                 class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='edit'></i>
-                                                Deviation</button>
+                                                Amendment</button>
+                                            @if (@$mrn->deviationJob)
+                                                <button type="button" data-bs-toggle="modal" id="deviation-button"
+                                                    class="btn btn-primary btn-sm mb-50 mb-sm-0"><i
+                                                        data-feather='edit'></i>
+                                                    Deviation</button>
+                                            @endif
+                                        @endif
+                                        @if ($buttons['cancel'] && !isset($cancelButtonSet) && !isset($cancelAmendButtonSet))
+                                            @php $cancelAmendButtonSet = true; @endphp
+                                            <button type="button" onclick="cancelDocument('');"
+                                                class="btn btn-danger btn-sm mb-50 mb-sm-0 cancelBtn" id="cancelBtn">
+                                                <i data-feather='delete'></i>
+                                                Cancel
+                                            </button>
                                         @endif
                                     @endif
-                                @endif
-                                @if ($buttons['revoke'])
-                                    <button id = "revokeButton" type="button"
-                                        class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
-                                        Revoke</button>
+                                    @if ($buttons['revoke'])
+                                        <button id = "revokeButton" type="button"
+                                            class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
+                                            Revoke</button>
+                                    @endif
                                 @endif
                             </div>
                         </div>
@@ -180,7 +216,8 @@
                                                     </div>
                                                     <div class="col-md-5">
                                                         <input type="text" class="form-control" readonly
-                                                            value="{{ @$mrn->document_number }}" id="document_number" name="document_number">
+                                                            value="{{ @$mrn->document_number }}" id="document_number"
+                                                            name="document_number">
                                                     </div>
                                                 </div>
                                                 <div class="row align-items-center mb-1">
@@ -396,25 +433,25 @@
                                             <div class="card-body">
                                                 <div class="row">
                                                     <!-- <div class="col-md-3">
-                                                                                    <div class="mb-1">
-                                                                                        <label class="form-label">
-                                                                                            Gate Entry No.
-                                                                                        </label>
-                                                                                        <input type="text" name="gate_entry_no"
-                                                                                            class="form-control bg-white" value="{{ @$mrn->gate_entry_no }}"
-                                                                                            placeholder="Enter Gate Entry no">
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div class="col-md-3">
-                                                                                    <div class="mb-1">
-                                                                                        <label class="form-label">
-                                                                                            Gate Entry Date
-                                                                                        </label>
-                                                                                        <input type="date" name="gate_entry_date" value="{{ date('Y-m-d', strtotime($mrn->gate_entry_date)) }}"
-                                                                                            class="form-control bg-white gate-entry" id="datepicker2"
-                                                                                            placeholder="Enter Gate Entry Date">
-                                                                                    </div>
-                                                                                </div> -->
+                                                                                                                                                                <div class="mb-1">
+                                                                                                                                                                    <label class="form-label">
+                                                                                                                                                                        Gate Entry No.
+                                                                                                                                                                    </label>
+                                                                                                                                                                    <input type="text" name="gate_entry_no"
+                                                                                                                                                                        class="form-control bg-white" value="{{ @$mrn->gate_entry_no }}"
+                                                                                                                                                                        placeholder="Enter Gate Entry no">
+                                                                                                                                                                </div>
+                                                                                                                                                            </div>
+                                                                                                                                                            <div class="col-md-3">
+                                                                                                                                                                <div class="mb-1">
+                                                                                                                                                                    <label class="form-label">
+                                                                                                                                                                        Gate Entry Date
+                                                                                                                                                                    </label>
+                                                                                                                                                                    <input type="date" name="gate_entry_date" value="{{ date('Y-m-d', strtotime($mrn->gate_entry_date)) }}"
+                                                                                                                                                                        class="form-control bg-white gate-entry" id="datepicker2"
+                                                                                                                                                                        placeholder="Enter Gate Entry Date">
+                                                                                                                                                                </div>
+                                                                                                                                                            </div> -->
                                                     <div class="col-md-3">
                                                         <div class="mb-1">
                                                             <label class="form-label">
@@ -457,7 +494,8 @@
                                                             </label>
                                                             <input type="date" name="supplier_invoice_date"
                                                                 value="{{ date('Y-m-d', strtotime($mrn->supplier_invoice_date)) }}"
-                                                                class="form-control gate-entry expiry-date" id="datepicker3"
+                                                                class="form-control gate-entry expiry-date"
+                                                                id="datepicker3"
                                                                 placeholder="Enter Supplier Invoice Date">
                                                         </div>
                                                     </div>
@@ -747,6 +785,7 @@
             </div>
         </div>
         @include('procurement.gate-entry.partials.amendement-modal', ['id' => $mrn->id])
+        @include('procurement.gate-entry.partials.cancel-modal', ['id' => $mrn->id])
 
     </form>
 
@@ -1174,8 +1213,7 @@
                     $(".soSelect").hide();
                     $(".dnoteSelect").show();
                     $(".asn-container").hide();
-                }
-                else {
+                } else {
                     $(".joSelect").show();
                     $(".poSelect").show();
                     $(".dnoteSelect").show();
@@ -1183,7 +1221,8 @@
                 }
             }
 
-            ['selectedPoIds', 'selectedJoIds', 'selectedSoIds', 'selectedDnoteIds'].forEach(key => localStorage.removeItem(key));
+            ['selectedPoIds', 'selectedJoIds', 'selectedSoIds', 'selectedDnoteIds'].forEach(key => localStorage
+                .removeItem(key));
 
             // const type = @json($mrn->reference_type);
             const ids = @json($detailsIds);
@@ -1219,7 +1258,7 @@
         @else
             @if ($mrn->document_status != 'draft' && $mrn->document_status != 'rejected')
                 $(':input').prop('readonly', true);
-                $('textarea[name="amend_remark"], textarea[name="closing_remarks"], input[type="file"][name="amend_attachment[]"]')
+                $('textarea[name="amend_remark"], textarea[name="cancel_remarks"], textarea[name="closing_remarks"], input[type="file"][name="amend_attachment[]"]')
                     .prop('readonly', false)
                     .prop('disabled', false);
                 $('select').not('.amendmentselect select').prop('disabled', true);
@@ -1235,7 +1274,7 @@
                 $(document).on('show.bs.modal', function(e) {
                     if (e.target.id != 'approveModal') {
                         if (e.target.id != 'shortCloseModal' && e.target.id != 'deviateModal') {
-                            $(e.target).find('.modal-footer').remove();
+                            $(e.target).find('.modal-footer').not('.cancel-modal-footer').remove();
                         }
 
                         $('select').not('.amendmentselect select').prop('disabled', true);
@@ -2180,6 +2219,88 @@
             }
         });
 
+        /* Open Cancel popup */
+        function cancelDocument(type = 'normal') {
+            const $modal = $('#cancelModal');
+            // write the hidden field (overwrite, not append)
+            $('#cancellation_value').val(type).trigger('change');
+
+            // show the modal (BS5-safe)
+            if (window.bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance($modal[0]).show();
+            } else {
+                $modal.modal('show');
+            }
+        }
+
+        /* cancel btn submit */
+        $(document).on('click', '.cancelBtnSubmit', function(e) {
+            e.preventDefault();
+
+            const $modal = $('#cancelModal');
+
+            const remark = $modal.find('[name="cancel_remarks"]').val()?.trim();
+            const type = $('#cancellation_value').val(); // read by id
+            const docId = $('input[name="id"]').val() || ''; // or set explicitly
+            var arr = @json($itemIds);
+
+            let itemIds = JSON.stringify(arr || []); // or set explicitly
+            // validation
+            if (!remark) {
+                // NOTE: your markup uses id="amendRemarkError"
+                $('#amendRemarkError').removeClass('d-none');
+                return;
+            } else {
+                $('#amendRemarkError').addClass('d-none');
+            }
+            // hide modal
+            if (window.bootstrap?.Modal) {
+                bootstrap.Modal.getOrCreateInstance($modal[0]).hide();
+            } else {
+                $modal.modal('hide');
+            }
+
+            const apiURL = "{{ route('gate-entry.cancel') }}";
+
+            $.ajax({
+                url: apiURL,
+                type: "POST",
+                dataType: "json",
+                contentType: "application/json",
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') || '{{ csrf_token() }}'
+                },
+                data: JSON.stringify({
+                    id: docId,
+                    cancel_remarks: remark,
+                    cancel_type: type,
+                    deletedMrnItemIds: itemIds // <-- comes from #cancellation_value
+                }),
+                success: function(data) {
+                    console.log('ddadasdadadad', data);
+                    const ok = data?.data?.status ?? data?.status ?? false;
+                    const msg = data?.data?.message ?? data?.message;
+                    Swal.fire({
+                            title: ok ? 'Success!' : 'Error!',
+                            text: msg,
+                            icon: ok ? 'success' : 'error'
+                        })
+                        .then(() => {
+                            if (ok) location.reload();
+                        });
+                },
+                error: function(data) {
+                    console.log('error', data?.data?.message ?? data?.message);
+
+                    Swal.fire({
+                        title: 'Error!',
+                        text: 'Some internal error occurred',
+                        icon: 'error'
+                    });
+                }
+            });
+        });
+
         function resetPostVoucher() {
             document.getElementById('voucher_doc_no').value = '';
             document.getElementById('voucher_date').value = '';
@@ -2695,16 +2816,16 @@
                 selectedDnoteIds = JSON.parse(selectedDnoteIds);
                 selectedDnoteIds = encodeURIComponent(JSON.stringify(selectedDnoteIds));
                 document_date = $("[name='document_date']").val() || '',
-                header_book_id = $("#book_id").val() || '',
-                series_id = $("#book_id_qt_val").val() || '',
-                document_number = $("#dnote_document_id_qt_val").val() || '',
-                asn_number = $("#so_asn_id_qt_val").val() || '',
-                ge_number = $("#so_ge_id_qt_val").val() || '',
-                item_id = $("#dnote_item_id_qt_val").val() || '',
-                vendor_id = $("#dnote_vendor_id_qt_val").val(),
-                store_id = $(".header_store_id").val() || '',
-                so_id = $("#dnote_so_qt_val").val() || '',
-                item_search = $("#dnote_item_name_search").length ? $("#dnote_item_name_search").val() : '';
+                    header_book_id = $("#book_id").val() || '',
+                    series_id = $("#book_id_qt_val").val() || '',
+                    document_number = $("#dnote_document_id_qt_val").val() || '',
+                    asn_number = $("#so_asn_id_qt_val").val() || '',
+                    ge_number = $("#so_ge_id_qt_val").val() || '',
+                    item_id = $("#dnote_item_id_qt_val").val() || '',
+                    vendor_id = $("#dnote_vendor_id_qt_val").val(),
+                    store_id = $(".header_store_id").val() || '',
+                    so_id = $("#dnote_so_qt_val").val() || '',
+                    item_search = $("#dnote_item_name_search").length ? $("#dnote_item_name_search").val() : '';
                 selected_po_ids = encodeURIComponent(selectedDnoteIds)
             }
             // if(@json($headerIds) && @json($detailsIds))
@@ -3786,7 +3907,8 @@
                 "company_name");
             initializeAutocompleteDQt("dnote_document_no_input_qt", "dnote_document_id_qt_val", "dnote_document_qt",
                 "document_number", "");
-            initializeAutocompleteDQt("po_dnote_no_input_qt", "po_dnote_qt_val", "po_dnote_qt", "book_code", "document_number");
+            initializeAutocompleteDQt("po_dnote_no_input_qt", "po_dnote_qt_val", "po_dnote_qt", "book_code",
+                "document_number");
         }
 
         function initializeAutocompleteDQt(selector, selectorSibling, typeVal, labelKey1, labelKey2 = "") {
@@ -4193,7 +4315,8 @@
                             localStorage.setItem('selectedDnoteIds', JSON.stringify(newIds));
                         }
 
-                        let existingIdsUpdate = JSON.parse(localStorage.getItem('selectedDnoteIds'));
+                        let existingIdsUpdate = JSON.parse(localStorage.getItem(
+                            'selectedDnoteIds'));
                         $("[name='dnote_item_ids']").val(existingIdsUpdate.join(','));
 
                         let module_type = data?.data?.moduleType || '';

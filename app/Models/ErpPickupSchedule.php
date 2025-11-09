@@ -47,6 +47,11 @@ class ErpPickupSchedule extends Model
         'created_by',
         'updated_by',
         'deleted_by',
+        'trip_id',
+        'transport_mode',
+        'transporter_name',
+        'driver_name',
+        'data_source_type',
     ];
 
     public function pickupItems()

@@ -75,7 +75,8 @@
                                                                 class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <select name="store_id" class="form-select select2" id = "store_id">
+                                                        <select name="store_id" class="form-select select2" id = "store_id"
+                                                            onchange="fetchStockStoreMapping()">
                                                             <option value="">Select Location</option>
 
                                                         </select>
@@ -146,6 +147,37 @@
                                                     </div>
                                                 </div>
 
+                                                <div class="row align-items-center mb-1">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">DNote Cum Invoice Series </label>
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <select class="form-select select2" id="dn_cum_invoice_book_id"
+                                                            name="dn_cum_invoice_book_id">
+                                                            <option value="">Select</option>
+                                                            @foreach ($dnoteCumInvBook as $siDnotebook)
+                                                                <option value="{{ $siDnotebook->id }}">
+                                                                    {{ ucfirst($siDnotebook->book_code) }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <div class="row align-items-center mb-1">
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">Pickup Schedule Series </label>
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <select class="form-select select2" id="pickup_schedule_book_id"
+                                                            name="pickup_schedule_book_id">
+                                                            <option value="">Select</option>
+                                                            @foreach ($pickupScheduleBook as $pdsBook)
+                                                                <option value="{{ $pdsBook->id }}">
+                                                                    {{ ucfirst($pdsBook->book_code) }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                </div>
 
                                             </div>
                                             <div class="col-md-3 border-start">
@@ -206,6 +238,7 @@
                                                                         Action</th>
                                                                 </tr>
                                                             </thead>
+                                                            <tbody id="render-existing-stock"></tbody>
                                                             <tbody id="item-details-body">
                                                                 <tr>
                                                                     <td class="serial-number">1</td>
@@ -506,25 +539,103 @@
             });
 
             // Check if any stock type group has no primary
-            $.each(stockGroups, function(stockType, hasPrimary) {
-                if (!hasPrimary) {
-                    Swal.fire({
-                        title: 'Validation Error',
-                        text: "Please select at least one primary checkbox for Stock Type: " +
-                            stockType,
-                        icon: 'error',
-                        confirmButtonText: 'OK'
-                    });
-                    isValid = false;
-                    return false; // break loop
-                }
-            });
+            // $.each(stockGroups, function(stockType, hasPrimary) {
+            //     if (!hasPrimary) {
+            //         Swal.fire({
+            //             title: 'Validation Error',
+            //             text: "Please select at least one primary checkbox for Stock Type: " +
+            //                 stockType,
+            //             icon: 'error',
+            //             confirmButtonText: 'OK'
+            //         });
+            //         isValid = false;
+            //         return false; // break loop
+            //     }
+            // });
 
             if (!isValid) {
                 e.stopImmediatePropagation();
                 e.preventDefault();
                 return false;
             }
+        });
+    </script>
+
+    <script>
+        function fetchStockStoreMapping() {
+            let organizationId = document.getElementById('organization_id').value;
+            let storeId = document.getElementById('store_id').value;
+            console.log(organizationId);
+
+            if (organizationId && storeId) {
+                fetch(`/external-integration/get-stock-store-mapping?organization_id=${organizationId}&store_id=${storeId}`)
+                    .then(response => response.json())
+                    .then(response => {
+                        if (response.data) {
+                            document.getElementById('render-existing-stock').innerHTML = response.data;
+
+                            // Reinitialize any plugins (like select2 or feather icons)
+                            $('.select2').select2();
+                            if (typeof feather !== 'undefined') {
+                                feather.replace();
+                            }
+                        } else {
+                            document.getElementById('render-existing-stock').innerHTML = '';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching stock-store mapping:', error);
+                    });
+            }
+        }
+
+        $(document).on("click", '[data-request="remove"]', function() {
+            var $this = $(this); // You forgot to declare $this
+            var $url = $this.attr("data-url");
+
+            Swal.fire({
+                title: "Alert! ",
+                text: "Are you sure you want to delete ?",
+                showCancelButton: true,
+                confirmButtonColor: "#3085d6",
+                cancelButtonColor: "#d33",
+                confirmButtonText: "Yes, please!",
+            }).then((result) => {
+                if (result.isConfirmed) { // updated from result.value to result.isConfirmed
+                    $.ajax({
+                        url: $url,
+                        type: "DELETE",
+                        beforeSend: function() {
+                            $('#loaderDiv').show();
+                        },
+                        success: function(data) {
+                            $('#loaderDiv').hide();
+                            Swal.fire("Success!", data.message, "success");
+
+                            $this.closest('tr')
+                                .children('td')
+                                .animate({
+                                    padding: 0
+                                })
+                                .wrapInner('<div/>')
+                                .children()
+                                .slideToggle(function() {
+                                    $(this).closest('tr').remove();
+                                });
+
+                            // setTimeout(function() {
+                            //     window.location.replace(window.location.pathname);
+                            // }, 1000);
+                        },
+                        error: function(xhr) {
+                            $('#loaderDiv').hide();
+                            var errMsg = xhr.responseJSON && xhr.responseJSON.message ? xhr
+                                .responseJSON.message : 'Something went wrong.';
+                            Swal.fire("Info!", errMsg, "warning");
+                        },
+                    });
+                }
+            });
         });
     </script>
 @endsection

@@ -46,8 +46,15 @@ class GateEntryHeaderHistory extends Model
         'revision_date',
         'approval_level',
         'reference_number',
+        'gate_entry_no',
+        'gate_entry_date',
         'supplier_invoice_no',
         'supplier_invoice_date',
+        'eway_bill_no',
+        'consignment_no',
+        'transporter_name',
+        'vehicle_no',
+        'manual_entry_no',
         'billing_to',
         'ship_to',
         'billing_address',
@@ -134,12 +141,12 @@ class GateEntryHeaderHistory extends Model
 
     public function mrn_ted()
     {
-        return $this->hasMany(GateEntryTedHistory::class,'source_id');
+        return $this->hasMany(GateEntryTedHistory::class, 'source_id');
     }
 
     public function mrn_ted_tax()
     {
-        return $this->hasMany(GateEntryTedHistory::class,'source_id')->where('ted_type','Tax');
+        return $this->hasMany(GateEntryTedHistory::class, 'source_id')->where('ted_type', 'Tax');
     }
 
     public function billingAddress()
@@ -180,7 +187,7 @@ class GateEntryHeaderHistory extends Model
     /*Header Level Discount*/
     public function headerDiscount()
     {
-        return $this->hasMany(GateEntryTedHistory::class, 'source_id')->where('ted_level', 'H')->where('ted_type','Discount');
+        return $this->hasMany(GateEntryTedHistory::class, 'source_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
     }
 
     /*Total discount header level total_header_disc_amount*/
@@ -192,7 +199,7 @@ class GateEntryHeaderHistory extends Model
     /*Header Level Expense*/
     public function expenses()
     {
-        return $this->hasMany(GateEntryTedHistory::class,'source_id')->where('ted_type', '=', 'Expense')
+        return $this->hasMany(GateEntryTedHistory::class, 'source_id')->where('ted_type', '=', 'Expense')
             ->where('ted_level', '=', 'H');
     }
 
@@ -241,22 +248,22 @@ class GateEntryHeaderHistory extends Model
 
     public function paymentTerm()
     {
-        return $this->belongsTo(PaymentTerm::class,'payment_term_id');
+        return $this->belongsTo(PaymentTerm::class, 'payment_term_id');
     }
 
     public function dynamic_fields()
     {
-        return $this -> hasMany(ErpGeDynamicField::class, 'header_id');
+        return $this->hasMany(ErpGeDynamicField::class, 'header_id');
     }
 
     public function bill_address_details()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'billing')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'billing')->with(['city', 'state', 'country']);
     }
 
     public function ship_address_details()
     {
-        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id') -> where('type', 'shipping')->with(['city', 'state', 'country']);
+        return $this->morphOne(ErpAddress::class, 'addressable', 'addressable_type', 'addressable_id')->where('type', 'shipping')->with(['city', 'state', 'country']);
     }
 }
 

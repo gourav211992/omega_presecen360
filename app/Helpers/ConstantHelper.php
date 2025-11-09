@@ -6,6 +6,7 @@ use App\Helpers\PackingList\Constants as PackingListConstants;
 use App\Helpers\ASN\Constants as ASNConstant;
 use App\Helpers\RGR\Constants as RGRConstant;
 use App\Helpers\ReManufacturing\RepairOrder\Constants as REPConstant;
+use App\Helpers\ReManufacturing\RCA\Constants as RCAConstant;
 use App\Models\Legal;
 
 
@@ -56,6 +57,8 @@ class ConstantHelper
     const COMPLETED = 'completed';
     const SHORTLISTED = 'shortlisted';
     const CANCELLED = 'cancelled';
+    const VOUCHER_CANCELLED = 'voucher_cancelled';
+
     const CONFIRMED = 'confirmed';
     const CLOSED = 'closed';
     const APPROVAL_NOT_REQUIRED = 'approval_not_required';
@@ -88,14 +91,15 @@ class ConstantHelper
     const RECEIVABLE = 'Account Receivable';
     const DOCUMENT_STATUS = [self::DRAFT, self::SUBMITTED, self::APPROVAL_NOT_REQUIRED, self::PARTIALLY_APPROVED, self::APPROVED, self::REJECTED];
 
-    const DOCUMENT_STATUS_CSS = [self::DRAFT => 'text-warning', self::SUBMITTED => 'text-primary', self::APPROVAL_NOT_REQUIRED => 'text-success', self::PARTIALLY_APPROVED => 'text-warning', self::APPROVED => 'text-success', self::REJECTED => 'text-danger', self::POSTED => 'text-primary-new', self::COMPLETED => 'text-warning'];
+    const DOCUMENT_STATUS_CSS = [self::DRAFT => 'text-warning', self::SUBMITTED => 'text-primary', self::APPROVAL_NOT_REQUIRED => 'text-success', self::PARTIALLY_APPROVED => 'text-warning', self::APPROVED => 'text-success', self::REJECTED => 'text-danger', self::POSTED => 'text-primary-new', self::COMPLETED => 'text-warning', self::CANCELLED => 'text-danger'];
 
     const DOCUMENT_STATUS_CSS_WO_TEXT = [self::DRAFT => 'warning', self::SUBMITTED => 'primary', self::APPROVAL_NOT_REQUIRED => 'success', self::PARTIALLY_APPROVED => 'warning', self::APPROVED => 'success', self::REJECTED => 'danger', self::POSTED => 'info'];
 
-    const DOCUMENT_STATUS_CSS_LIST = [self::DRAFT => 'badge-light-warning', self::SUBMITTED => 'badge-light-primary', self::APPROVAL_NOT_REQUIRED => 'badge-light-success', self::PARTIALLY_APPROVED => 'badge-light-warning', self::APPROVED => 'badge-light-success', self::CONFIRMED => 'badge-light-success', self::REJECTED => 'badge-light-danger', self::POSTED => 'badge-light-info', self::COMPLETED => 'badge-light-warning', self::CLOSED => 'badge-light-info', self::SHORTLISTED => 'badge-light-primary', self::ACTIVE => 'badge-light-success', self::INACTIVE => 'badge-light-danger'];
+    const DOCUMENT_STATUS_CSS_LIST = [self::DRAFT => 'badge-light-warning', self::SUBMITTED => 'badge-light-primary', self::APPROVAL_NOT_REQUIRED => 'badge-light-success', self::PARTIALLY_APPROVED => 'badge-light-warning', self::APPROVED => 'badge-light-success', self::CONFIRMED => 'badge-light-success', self::REJECTED => 'badge-light-danger', self::POSTED => 'badge-light-info', self::COMPLETED => 'badge-light-warning', self::CLOSED => 'badge-light-info', self::SHORTLISTED => 'badge-light-primary', self::ACTIVE => 'badge-light-success', self::INACTIVE => 'badge-light-danger', self::CANCELLED => 'badge-light-danger'];
     // Error Message
     const DUPLICATE_DOCUMENT_NUMBER = "Document number already exists.";
     const DOCUMENT_NUMBER_NOT_FOUND = "Document number doesn't exists.";
+    const TRIP_NUMBER_NOT_FOUND = "Trip number doesn't exists.";
 
     const DOCUMENT_STATUS_APPROVED = [self::APPROVED, self::APPROVAL_NOT_REQUIRED, self::POSTED];
     const DOCUMENT_STATUS_REJECTED = [self::CANCEL, self::REJECTED];
@@ -591,7 +595,6 @@ class ConstantHelper
     const JOURNAL_VOUCHER = 'jv';
     const CONTRA_VOUCHER = 'cv';
     const PAYMENT_VOUCHER_RECEIPT = 'receipt-payment-voucher';
-    
     const ADVANCE_PAYMENT_VOUCHER_RECEIPT = 'advance-receipt-payment-voucher';
     const PAYMENTS_SERVICE_ALIAS = 'payments';
     const ADVANCE_PAYMENTS_SERVICE_ALIAS = 'advance-payments';
@@ -731,12 +734,12 @@ class ConstantHelper
         self::RECEIPT_VOUCHER => self::RECEIPT_VOUCHER,
         self::ADVANCE_RECEIPT_VOUCHER => self::ADVANCE_RECEIPT_VOUCHER,
         self::PAYMENT_VOUCHER_RECEIPT => self::PAYMENT_VOUCHER_RECEIPT,
-        self::ADVANCE_PAYMENTS_SERVICE_ALIAS => self::ADVANCE_PAYMENTS_SERVICE_ALIAS,
         self::ADVANCE_PAYMENT_VOUCHER_RECEIPT => self::ADVANCE_PAYMENT_VOUCHER_RECEIPT,
-        self::ADVANCE_RECEIPTS_SERVICE_ALIAS => self::ADVANCE_RECEIPTS_SERVICE_ALIAS,
         self::LEASE_INVOICE_SERVICE_ALIAS => self::SALES_VOUCHER,
         self::PAYMENTS_SERVICE_ALIAS => self::PAYMENTS_SERVICE_ALIAS,
+        self::ADVANCE_PAYMENTS_SERVICE_ALIAS => self::ADVANCE_PAYMENTS_SERVICE_ALIAS,
         self::RECEIPTS_SERVICE_ALIAS => self::RECEIPTS_SERVICE_ALIAS,
+        self::ADVANCE_RECEIPTS_SERVICE_ALIAS => self::ADVANCE_RECEIPTS_SERVICE_ALIAS,
         self::FIXED_ASSET_DEPRECIATION => self::FIXED_ASSET_DEPRECIATION,
         self::MAINT => self::MAINT,
         self::FIXED_ASSET_SPLIT => self::FIXED_ASSET_SPLIT,
@@ -883,6 +886,7 @@ class ConstantHelper
         ASNConstant::SERVICE_ALIAS => 'VendorAsn',
         RgrConstant::SERVICE_ALIAS => 'ErpRgr',
         RepConstant::SERVICE_ALIAS => 'ErpRepairOrder',
+        RCAConstant::SERVICE_ALIAS => 'ErpRepairOrder',
     ];
     const CV_ALLOWED_GROUPS = ['Cash-in-Hand', 'Bank Accounts', 'Bank OD A/c', 'Bank OCC A/c'];
     const JV_EXCLUDE_GROUPS = [
@@ -1276,6 +1280,15 @@ class ConstantHelper
     const DIST_VOLUME = 'volume';
 
 
+
+    const WIP_TYPE_WIP = 'wip';
+    const WIP_TYPE_CONSUMPTION = 'consumption';
+
+     const WIP_ACCOUNT_TYPES = [
+        self::WIP_TYPE_WIP,
+        self::WIP_TYPE_CONSUMPTION
+    ];
+
     public static function getDistributionTypes(): array
     {
         return [
@@ -1285,4 +1298,5 @@ class ConstantHelper
             self::DIST_VOLUME => 'Volume',
         ];
     }
+    const LOCK_SECOND = 10;
 }

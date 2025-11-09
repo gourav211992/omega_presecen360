@@ -11,7 +11,7 @@ use App\Helpers\Helper;
 use App\Helpers\ConstantHelper;
 use Illuminate\Support\Facades\Schema;
 use App\Interfaces\Exportable;
-
+use App\Models\Scopes\DefaultGroupCompanyOrgScope;
 
 
 class Item extends Model implements Exportable
@@ -72,6 +72,8 @@ class Item extends Model implements Exportable
         'cost_price_currency_id',
         'sell_price',
         'sell_price_currency_id',
+        'mrp',
+        'mrp_currency_id',
         'book_id',
         'book_code',
         'item_code_type',
@@ -102,6 +104,7 @@ class Item extends Model implements Exportable
     ];
 
     protected $dates = ['created_at', 'updated_at'];
+ 
 
     public function uom()
     {
@@ -133,6 +136,10 @@ class Item extends Model implements Exportable
     public function category()
     {
         return $this->belongsTo(Category::class, 'category_id');
+    } 
+    public function categoryWithoutScope()
+    {
+        return $this->belongsTo(Category::class, 'subcategory_id')->withoutGlobalScope(DefaultGroupCompanyOrgScope::class);
     }
 
     public function subCategory()
@@ -170,6 +177,11 @@ class Item extends Model implements Exportable
     public function sellCurrency()
     {
         return $this->belongsTo(Currency::class, 'sell_price_currency_id');
+    }
+
+     public function mrpCurrency()
+    {
+        return $this->belongsTo(Currency::class, 'mrp_currency_id');
     }
 
     public function approvedCustomers()
@@ -374,6 +386,7 @@ class Item extends Model implements Exportable
         $columns['Asset Category'] = 'assetCategory.name';
         $columns['Cost Currency'] = 'costCurrency.short_name';
         $columns['Sell Currency'] = 'sellCurrency.short_name';
+        $columns['Mrp Currency'] = 'mrpCurrency.short_name';
         $columns['Group'] = 'group.name';
         $columns['Company'] = 'company.name';
         $columns['Organization'] = 'organization.name';

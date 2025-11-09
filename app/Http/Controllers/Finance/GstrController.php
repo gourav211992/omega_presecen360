@@ -19,6 +19,8 @@ use App\Helpers\CommonHelper;
 use App\Helpers\GstrHelper;
 use App\Helpers\Helper;
 use Illuminate\Pagination\LengthAwarePaginator;
+use App\Exports\finance\GstrExportService;
+
 use Barryvdh\DomPDF\Facade\Pdf;
 class GstrController extends Controller
 {
@@ -60,7 +62,6 @@ class GstrController extends Controller
                 $filteredTypes->push($type);
             }
         }
-
         return view('finance.gstr.index',[
             'pageLengths' => $pageLengths,
             'invoiceData' => $invoiceData,
@@ -82,12 +83,22 @@ class GstrController extends Controller
                 return self::getHsnB2CSummary($request, $gstin);
             case 'doc_issue':
                 return self::getDocSummary($request, $gstin);
+            case 'b2b':
+                return self::getB2BSummary($request, $typeId, $gstin);
+            case 'b2cl':
+                return self::getB2BLSummary($request, $typeId, $gstin);
+            case 'b2cs':
+                return self::getB2CSSummary($request, $typeId, $gstin);
+            case 'cdnr':
+                return self::getCDNRSummary($request, $typeId, $gstin);
+            case 'exp':
+                return self::getExpSummary($request, $typeId, $gstin);
             default:
                 return self::getInvoiceSummary($request, $typeId, $gstin);
         }
     }
 
-    private function getHsnB2BSummary($request, $gstin){
+    private function getB2BSummary($request, $gstin){
         // Get Hsn Type Ids
         $masterData = self::masterData();
         $invoiceTypesIds = $masterData['hsnB2bTypeIds'];
@@ -100,7 +111,6 @@ class GstrController extends Controller
         $data = GstrCompiledData::where(function ($query) use ($request) {
                     $this->filter($request,$query);
                 })
-                ->whereIn('invoice_type_id',$invoiceTypesIds)
                 ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
                 ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
                 ->select(
@@ -112,86 +122,376 @@ class GstrController extends Controller
                     DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
                     DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
                 )
-                ->whereNotNull('hsn_code')
-                ->groupBy('hsn_code')
-                ->get()
-                ->toArray();
-
-        return [
-            'taxable_amt' => array_sum(array_column($data, 'taxable_amt')),
-            'rate' => array_sum(array_column($data, 'rate')),
-            'sgst' => array_sum(array_column($data, 'sgst')),
-            'cgst' => array_sum(array_column($data, 'cgst')),
-            'igst' => array_sum(array_column($data, 'igst')),
-            'cess' => array_sum(array_column($data, 'cess')),
-            'invoice_amt' => array_sum(array_column($data, 'invoice_amt')),
-            'invoice_count' => count($data)
-        ];
-    }
-
-    private function getHsnB2CSummary($request, $gstin){
-        // Get Hsn Type Ids
-        $masterData = self::masterData();
-        $invoiceTypesIds = $masterData['hsnB2cTypeIds'];
-
-        // Get Start Date/ End Date
-        $date = self::getStartEndDate($request);
-        $startDate = $date['startDate'];
-        $endDate = $date['endDate'];
-
-        $data = GstrCompiledData::where(function ($query) use ($request) {
-                    $this->filter($request,$query);
-                })
-                ->whereIn('invoice_type_id',$invoiceTypesIds)
-                ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
-                ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
-                ->select(
-                    DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
-                    DB::raw("SUM(erp_gstr_compiled_data.rate) as gst_rate"),
-                    DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
-                    DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
-                    DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
-                    DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
-                    DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
-                )
-                ->whereNotNull('hsn_code')
-                ->groupBy('hsn_code')
-                ->get()
-                ->toArray();
-
-        return [
-            'taxable_amt' => array_sum(array_column($data, 'taxable_amt')),
-            'rate' => array_sum(array_column($data, 'rate')),
-            'sgst' => array_sum(array_column($data, 'sgst')),
-            'cgst' => array_sum(array_column($data, 'cgst')),
-            'igst' => array_sum(array_column($data, 'igst')),
-            'cess' => array_sum(array_column($data, 'cess')),
-            'invoice_amt' => array_sum(array_column($data, 'invoice_amt')),
-            'invoice_count' => count($data)
-        ];
-    }
-
-    private function getDocSummary($request, $gstin){
-        // Get Doc Type Ids
-        $masterData = self::masterData();
-        $invoiceTypesIds = $masterData['docTypeIds'];
-
-        // Get Start Date/ End Date
-        $date = self::getStartEndDate($request);
-        $startDate = $date['startDate'];
-        $endDate = $date['endDate'];
-
-        $data = GstrCompiledData::where(function ($query) use ($request) {
-                    $this->filter($request,$query);
-                })
-                ->whereIn('invoice_type_id',$invoiceTypesIds)
-                ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
-                ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+                ->where('doc_type',CommonHelper::INV)
+                ->whereNotNull('party_gstin')
                 ->whereNotNull('invoice_id')
+                ->whereNotNull('invoice_no')
                 ->groupBy('invoice_id')
                 ->get()
                 ->toArray();
 
+        return [
+            'taxable_amt' => array_sum(array_column($data, 'taxable_amt')),
+            'rate' => array_sum(array_column($data, 'rate')),
+            'sgst' => array_sum(array_column($data, 'sgst')),
+            'cgst' => array_sum(array_column($data, 'cgst')),
+            'igst' => array_sum(array_column($data, 'igst')),
+            'cess' => array_sum(array_column($data, 'cess')),
+            'invoice_amt' => array_sum(array_column($data, 'invoice_amt')),
+            'invoice_count' => count($data)
+        ];
+    }
+
+    private function getB2BLSummary($request, $gstin){
+     
+        // Get Start Date/ End Date
+        $date = self::getStartEndDate($request);
+        $startDate = $date['startDate'];
+        $endDate = $date['endDate'];
+
+        $data = GstrCompiledData::where(function ($query) use ($request) {
+                    $this->filter($request,$query);
+                })
+                ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
+                ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+                ->select(
+                    DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
+                    DB::raw("SUM(erp_gstr_compiled_data.rate) as gst_rate"),
+                    DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
+                    DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                )
+                ->where('doc_type',CommonHelper::INV)
+                ->whereNull('party_gstin')
+                ->whereNotNull('invoice_id')
+                ->where('invoice_amt', '>=', 250000) 
+                ->groupBy('invoice_id')
+                ->get()
+                ->toArray();
+
+        return [
+            'taxable_amt' => array_sum(array_column($data, 'taxable_amt')),
+            'rate' => array_sum(array_column($data, 'rate')),
+            'sgst' => array_sum(array_column($data, 'sgst')),
+            'cgst' => array_sum(array_column($data, 'cgst')),
+            'igst' => array_sum(array_column($data, 'igst')),
+            'cess' => array_sum(array_column($data, 'cess')),
+            'invoice_amt' => array_sum(array_column($data, 'invoice_amt')),
+            'invoice_count' => count($data)
+        ];
+    }
+
+    private function getB2CSSummary($request, $gstin){
+     
+        // Get Start Date/ End Date
+        $date = self::getStartEndDate($request);
+        $startDate = $date['startDate'];
+        $endDate = $date['endDate'];
+
+        $data = GstrCompiledData::where(function ($query) use ($request) {
+                    $this->filter($request,$query);
+                })
+                ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
+                ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+                ->select(
+                    DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
+                    DB::raw("SUM(erp_gstr_compiled_data.rate) as gst_rate"),
+                    DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
+                    DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                )
+                ->where('doc_type',CommonHelper::INV)
+                ->whereNull('party_gstin')
+                ->whereNotNull('invoice_id')
+                ->where('invoice_amt', '<', 250000) 
+                ->groupBy('invoice_id')
+                ->get()
+                ->toArray();
+        return [
+            'taxable_amt' => array_sum(array_column($data, 'taxable_amt')),
+            'rate' => array_sum(array_column($data, 'rate')),
+            'sgst' => array_sum(array_column($data, 'sgst')),
+            'cgst' => array_sum(array_column($data, 'cgst')),
+            'igst' => array_sum(array_column($data, 'igst')),
+            'cess' => array_sum(array_column($data, 'cess')),
+            'invoice_amt' => array_sum(array_column($data, 'invoice_amt')),
+            'invoice_count' => count($data)
+        ];
+    }
+
+    private function getHsnB2BSummary($request, $gstin)
+    {
+        // Get Start Date / End Date
+        $date = self::getStartEndDate($request);
+        $startDate = $date['startDate'];
+        $endDate = $date['endDate'];
+
+        $data = GstrCompiledData::where(function ($query) use ($request) {
+                    $this->filter($request, $query);
+                })
+                ->whereBetween('erp_gstr_compiled_data.invoice_date', [$startDate, $endDate])
+                ->where('erp_gstr_compiled_data.supplier_gstin', $gstin)
+                ->select(
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -taxable_amt
+                                ELSE taxable_amt
+                            END
+                        ) as taxable_amt
+                    "),
+                    DB::raw('erp_gstr_compiled_data.rate as rate'),
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -sgst
+                                ELSE sgst
+                            END
+                        ) as sgst
+                    "),
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -cgst
+                                ELSE cgst
+                            END
+                        ) as cgst
+                    "),
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -igst
+                                ELSE igst
+                            END
+                        ) as igst
+                    "),
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -cess
+                                ELSE cess
+                            END
+                        ) as cess
+                    "),
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -invoice_amt
+                                ELSE invoice_amt
+                            END
+                        ) as invoice_amt
+                    ")
+                )
+                ->whereNotNull('hsn_code')
+                ->whereIn('doc_type', CommonHelper::HSN_B2B_INVOICE_TYPES_V2)
+                ->whereNotNull('party_gstin')
+                ->groupBy('hsn_code')
+                ->get()
+                ->toArray();
+
+        return [
+            'taxable_amt'   => array_sum(array_column($data, 'taxable_amt')),
+            'rate'          => array_sum(array_column($data, 'rate')),
+            'sgst'          => array_sum(array_column($data, 'sgst')),
+            'cgst'          => array_sum(array_column($data, 'cgst')),
+            'igst'          => array_sum(array_column($data, 'igst')),
+            'cess'          => array_sum(array_column($data, 'cess')),
+            'invoice_amt'   => array_sum(array_column($data, 'invoice_amt')),
+            'invoice_count' => count($data)
+        ];
+    }
+
+
+     private function getCDNRSummary($request, $gstin){
+        // Get Start Date/ End Date
+        $date = self::getStartEndDate($request);
+        $startDate = $date['startDate'];
+        $endDate = $date['endDate'];
+
+        $data = GstrCompiledData::where(function ($query) use ($request) {
+                    $this->filter($request,$query);
+                })
+                ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
+                ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+                ->select(
+                    DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
+                    DB::raw("SUM(erp_gstr_compiled_data.rate) as gst_rate"),
+                    DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
+                    DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                )
+                ->whereNotNull('invoice_id')
+                ->whereNotNull('invoice_no')
+                ->where('doc_type',CommonHelper::CDNR)
+                ->whereNotNull('rate')
+                ->groupBy('invoice_id')
+                ->get()
+                ->toArray();
+        return [
+            'taxable_amt' => array_sum(array_column($data, 'taxable_amt')),
+            'rate' => array_sum(array_column($data, 'rate')),
+            'sgst' => array_sum(array_column($data, 'sgst')),
+            'cgst' => array_sum(array_column($data, 'cgst')),
+            'igst' => array_sum(array_column($data, 'igst')),
+            'cess' => array_sum(array_column($data, 'cess')),
+            'invoice_amt' => array_sum(array_column($data, 'invoice_amt')),
+            'invoice_count' => count($data)
+        ];
+    }
+
+    private function getExpSummary($request, $gstin){
+        // Get Start Date/ End Date
+        $date = self::getStartEndDate($request);
+        $startDate = $date['startDate'];
+        $endDate = $date['endDate'];
+
+        $data = GstrCompiledData::where(function ($query) use ($request) {
+                    $this->filter($request,$query);
+                })
+                ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
+                ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+                ->select(
+                    DB::raw("SUM(erp_gstr_compiled_data.taxable_amt) as taxable_amt"),
+                    DB::raw("SUM(erp_gstr_compiled_data.rate) as gst_rate"),
+                    DB::raw("SUM(erp_gstr_compiled_data.sgst) as sgst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.cgst) as cgst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.igst) as igst"),
+                    DB::raw("SUM(erp_gstr_compiled_data.cess) as cess"),
+                    DB::raw("erp_gstr_compiled_data.invoice_amt as invoice_amt")
+                )
+                ->whereNotNull('invoice_id')
+                ->whereNotNull('invoice_no')
+                ->where('doc_type',CommonHelper::EXP)
+                ->whereNotNull('rate')
+                ->groupBy('invoice_id')
+                ->get()
+                ->toArray();
+        return [
+            'taxable_amt' => array_sum(array_column($data, 'taxable_amt')),
+            'rate' => array_sum(array_column($data, 'rate')),
+            'sgst' => array_sum(array_column($data, 'sgst')),
+            'cgst' => array_sum(array_column($data, 'cgst')),
+            'igst' => array_sum(array_column($data, 'igst')),
+            'cess' => array_sum(array_column($data, 'cess')),
+            'invoice_amt' => array_sum(array_column($data, 'invoice_amt')),
+            'invoice_count' => count($data)
+        ];
+    }
+
+    private function getHsnB2CSummary($request, $gstin)
+    {
+        // Get HSN Type Ids
+        $masterData = self::masterData();
+        $invoiceTypesIds = $masterData['hsnB2cTypeIds'];
+
+        // Get Start Date / End Date
+        $date = self::getStartEndDate($request);
+        $startDate = $date['startDate'];
+        $endDate = $date['endDate'];
+
+        $data = GstrCompiledData::where(function ($query) use ($request) {
+                    $this->filter($request, $query);
+                })
+                ->whereBetween('erp_gstr_compiled_data.invoice_date', [$startDate, $endDate])
+                ->where('erp_gstr_compiled_data.supplier_gstin', $gstin)
+                ->select(
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -taxable_amt
+                                ELSE taxable_amt
+                            END
+                        ) as taxable_amt
+                    "),
+                    DB::raw('erp_gstr_compiled_data.rate as rate'),
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -sgst
+                                ELSE sgst
+                            END
+                        ) as sgst
+                    "),
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -cgst
+                                ELSE cgst
+                            END
+                        ) as cgst
+                    "),
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -igst
+                                ELSE igst
+                            END
+                        ) as igst
+                    "),
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -cess
+                                ELSE cess
+                            END
+                        ) as cess
+                    "),
+                    DB::raw("
+                        SUM(
+                            CASE 
+                                WHEN doc_type = 'cdnr' AND nature_of_document = 'credit note' THEN -invoice_amt
+                                ELSE invoice_amt
+                            END
+                        ) as invoice_amt
+                    ")
+                )
+                ->whereNotNull('hsn_code')
+                ->whereIn('doc_type', CommonHelper::HSN_B2C_INVOICE_TYPES_V2)
+                ->whereNull('party_gstin')
+                ->groupBy('hsn_code')
+                ->get()
+                ->toArray();
+
+        return [
+            'taxable_amt'   => array_sum(array_column($data, 'taxable_amt')),
+            'rate'          => array_sum(array_column($data, 'rate')),
+            'sgst'          => array_sum(array_column($data, 'sgst')),
+            'cgst'          => array_sum(array_column($data, 'cgst')),
+            'igst'          => array_sum(array_column($data, 'igst')),
+            'cess'          => array_sum(array_column($data, 'cess')),
+            'invoice_amt'   => array_sum(array_column($data, 'invoice_amt')),
+            'invoice_count' => count($data)
+        ];
+    }
+
+
+    private function getDocSummary($request, $gstin){
+
+        // Get Start Date/ End Date
+        $date = self::getStartEndDate($request);
+        $startDate = $date['startDate'];
+        $endDate = $date['endDate'];
+
+        $data = GstrCompiledData::where(function ($query) use ($request) {
+                    $this->filter($request,$query);
+                })
+                ->whereBetween("erp_gstr_compiled_data.invoice_date", [$startDate, $endDate])
+                ->where("erp_gstr_compiled_data.supplier_gstin", $gstin)
+                ->whereNotNull('invoice_id')
+                 ->whereIn('erp_gstr_compiled_data.doc_type', [
+                    CommonHelper::INV,
+                    CommonHelper::CDNR
+                ])
+                ->groupBy('invoice_id')
+                // ->groupBy('erp_gstr_compiled_data.nature_of_document')
+                ->get()
+                ->toArray();
         return [
             'taxable_amt' => 0,
             'rate' => 0,
@@ -227,6 +527,7 @@ class GstrController extends Controller
                 )
                 ->whereNotNull('invoice_id')
                 ->groupBy('invoice_id')
+                ->whereRaw('1 = 0')
                 ->get()
                 ->toArray();
 
@@ -346,8 +647,8 @@ class GstrController extends Controller
                     ->whereBetween('erp_gstr_compiled_data.invoice_date', [$startDate, $endDate])
                     ->where('supplier_gstin', $supplierGstin);
 
-        // Apply invoice type filters
-        $this->applyInvoiceTypeFilter($query, $type->code, $id);
+        $service = new GstrExportService();
+        $service->applyInvoiceTypeFilter($query, $type->code, $id);
 
         $gstrData = $query->paginate($length);
 
@@ -361,53 +662,6 @@ class GstrController extends Controller
             'organizationData' => $masterData['organizations'],
             'companies' => $masterData['companies'],
         ]);
-    }
-
-    private function applyInvoiceTypeFilter($query, $type, $id) {
-        switch ($type) {
-            case CommonHelper::HSN_B2B:
-                $typeIds = ErpGstInvoiceType::whereIn('code', CommonHelper::HSN_B2B_INVOICE_TYPES)
-                        ->where('status',ConstantHelper::ACTIVE)
-                        ->pluck('id');
-                $query->whereIn('invoice_type_id', $typeIds)
-                        ->whereNotNull('hsn_code')
-                        ->whereNotNull('uqc')
-                        ->groupBy('hsn_code','uqc', 'rate');
-                break;
-
-            case CommonHelper::HSN_B2C:
-                $typeIds = ErpGstInvoiceType::whereIn('code', CommonHelper::HSN_B2C_INVOICE_TYPES)
-                        ->where('status',ConstantHelper::ACTIVE)
-                        ->pluck('id');
-                $query->whereIn('invoice_type_id', $typeIds)
-                        ->whereNotNull('hsn_code')
-                        ->whereNotNull('uqc')
-                        ->groupBy('hsn_code','uqc');
-                break;
-
-            case CommonHelper::DOC:
-                $typeIds = ErpGstInvoiceType::whereIn('code', CommonHelper::DOC_INVOICE_TYPES)
-                        ->where('status',ConstantHelper::ACTIVE)
-                        ->pluck('id');
-                $query->whereIn('invoice_type_id', $typeIds)
-                        ->whereNotNull('invoice_id')
-                        ->groupBy('invoice_id');
-                break;
-
-            case CommonHelper::B2B:
-                $query->where('invoice_type_id', $id)
-                    ->whereNotNull('invoice_id')
-                    ->whereNotNull('invoice_no')
-                    ->whereNotNull('rate')
-                    ->groupBy('invoice_id','invoice_no','rate');
-                break;
-
-            default:
-                $query->where('invoice_type_id', $id)
-                        ->whereNotNull('invoice_id')
-                        ->groupBy('invoice_id');
-                break;
-        }
     }
 
     private function filter($request,$query){
@@ -483,7 +737,7 @@ class GstrController extends Controller
         $organization = OrganizationHelper::getAuthenticatedOrganization();
         $gstin = $organization->gst_number;
 
-        // ✅ Ensure directory exists with correct permissions
+        // Ã¢Å“â€¦ Ensure directory exists with correct permissions
         $directoryPath = public_path('temp/finance/gstr1');
         if (!file_exists($directoryPath)) {
             mkdir($directoryPath, 0775, true);
@@ -561,10 +815,17 @@ class GstrController extends Controller
 
         $fyear = Helper::getFinancialYear(date("Y-m-d"));
         $financialYear = $fyear["range"] ?? "2025-26";
+        
+        // Extract financial year from start_date for dynamic year handling
+        $financialYearStart = \Carbon\Carbon::parse($fyear['start_date']);
+       
+        $year = $financialYearStart->year;
 
         $previousMonthDate = now()->subMonth();
         $month = $previousMonthDate->month;
         $previousMonth = $previousMonthDate->format("M-Y");
+
+       
 
         $data = [
             'financialYear' => $financialYear,
@@ -572,11 +833,11 @@ class GstrController extends Controller
             'fyear' => $fyear,
             'gstin' => $gstin,
             'organizationName' => $organizationName,
-            'gstr3bSection3_1Data' => $this->gstr3bService->getSection3_1Data($gstin, $month),
-            'gstr3bSection3_2Data' => $this->gstr3bService->getSection3_2Data($gstin, $month),
-            'gstr3bSection4Data'   => $this->gstr3bService->getGstr4Section($month, $gstin),
-            'gstr3bSection5Data'   => $this->gstr3bService->getGstr3bSection5Data($gstin, $month),
-            'getGstr3bSection4PartC' => $this->gstr3bService->getGstr3bSection4PartC($gstin, $month),
+            'gstr3bSection3_1Data' => $this->gstr3bService->getSection3_1Data($gstin, $month, $year),
+            'gstr3bSection3_2Data' => $this->gstr3bService->getSection3_2Data($gstin, $month, $year),
+            'gstr3bSection4Data'   => $this->gstr3bService->getGstr4Section($month, $gstin, $year),
+            'gstr3bSection5Data'   => $this->gstr3bService->getGstr3bSection5Data($gstin, $month, $year),
+            'getGstr3bSection4PartC' => $this->gstr3bService->getGstr3bSection4PartC($gstin, $month, $year),
         ];
         
         return view('finance.gstr.gstr3b', $data);
@@ -590,6 +851,11 @@ class GstrController extends Controller
 
         $fyear = Helper::getFinancialYear(date("Y-m-d"));
         $financialYear = $fyear["range"] ?? "2025-26";
+        
+        // Extract financial year from start_date for dynamic year handling
+        $financialYearStart = \Carbon\Carbon::parse($fyear['start_date']);
+        $year = $financialYearStart->year;
+        
         $previousMonthDate = now()->subMonth();
         $month = $previousMonthDate->month;
         $previousMonth = $previousMonthDate->format("M-Y");
@@ -600,12 +866,14 @@ class GstrController extends Controller
             'fyear' => $fyear,
             'gstin' => $gstin,
             'organizationName' => $organizationName,
-            'gstr3bSection3_1Data' => $this->gstr3bService->getSection3_1Data($gstin, $month),
-            'gstr3bSection3_2Data' => $this->gstr3bService->getSection3_2Data($gstin, $month),
-            'gstr3bSection4Data'   => $this->gstr3bService->getGstr4Section($month, $gstin),
-            'gstr3bSection5Data'   => $this->gstr3bService->getGstr3bSection5Data($gstin, $month),
-            'getGstr3bSection4PartC' => $this->gstr3bService->getGstr3bSection4PartC($gstin, $month),
+            'gstr3bSection3_1Data' => $this->gstr3bService->getSection3_1Data($gstin, $month, $year),
+            'gstr3bSection3_2Data' => $this->gstr3bService->getSection3_2Data($gstin, $month, $year),
+            'gstr3bSection4Data'   => $this->gstr3bService->getGstr4Section($month, $gstin, $year),
+            'gstr3bSection5Data'   => $this->gstr3bService->getGstr3bSection5Data($gstin, $month, $year),
+            'getGstr3bSection4PartC' => $this->gstr3bService->getGstr3bSection4PartC($gstin, $month, $year),
         ];
+
+        
 
         $pdf = Pdf::loadView('finance.gstr.gstr3b-pdf', $data);
         $pdf->setPaper('A4', 'portrait');

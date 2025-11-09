@@ -269,4 +269,43 @@ class CustomerHistory extends Model
     {
         return ucwords(str_replace('_', ' ', $this->document_status));
     }
+
+     public function locations()
+    {
+        return $this->hasMany(CustomerLocationHistory::class, 'customer_id');
+    }
+
+   public function syncLocations(array $storeIds)
+    {
+        $orgIds = [];
+        $locIds = [];
+        $subLocIds = [];
+
+        foreach ($storeIds as $storeId) {
+            if (isset($storeId['organization_id']) && isset($storeId['location_id']) && isset($storeId['store_id'])) {
+                CustomerLocation::updateOrCreate([
+                    'customer_id' => $this->id,
+                    'organization_id' => $storeId['organization_id'],
+                    'location_id' => $storeId['location_id'],
+                    'store_id' => $storeId['store_id'],
+                ]);
+
+                array_push($orgIds, $storeId['organization_id']);
+                array_push($locIds, $storeId['location_id']);
+                array_push($subLocIds, $storeId['store_id']);
+            }
+        }
+
+        CustomerLocation::where('customer_id', $this->id)
+            ->whereNotIn('organization_id', $orgIds)
+            ->whereNotIn('location_id', $locIds)
+            ->whereNotIn('store_id', $subLocIds)
+            ->delete();
+
+        return [
+            'status' => true,
+            'message' => ''
+        ];
+    }
+
 }

@@ -815,7 +815,7 @@ function disableGstFields(resetValues = true) {
         $('input[name="compliance[gstin_no]"]').val('');
         $('input[name="compliance[gstin_registration_date]"]').val('');
         $('input[name="compliance[gst_registered_name]"]').val('');
-        $('input[name="pan_number"]').val(''); 
+        $('input[name="pan_number"]').val('');
     }
 }
 
@@ -827,7 +827,7 @@ function enableGstFields() {
 function resetGstDependentFields() {
     $('input[name="compliance[gstin_registration_date]"]').val('');
     $('input[name="compliance[gst_registered_name]"]').val('');
-    $('input[name="pan_number"]').val(''); 
+    $('input[name="pan_number"]').val('');
     $('.error-message').remove();
     $('.field-error-message').remove();
     $('.is-invalid').removeClass('is-invalid');
@@ -1035,7 +1035,7 @@ function fetchGstDetailsByGstin(gstinNo) {
                 });
 
                 if (Gstin && Gstin.length === 15) {
-                    const panNumber = Gstin.substring(2, 12); 
+                    const panNumber = Gstin.substring(2, 12);
                     $('input[name="pan_number"]').val(panNumber);
                 }
 
@@ -1210,6 +1210,7 @@ function getPincodeIdByCode(pincode, stateId, callback,rowIndex) {
         }
     });
 }
+
 //gsttin details
 $(document).on('click', '.delete-btn', function (e) {
     e.preventDefault();
@@ -1265,6 +1266,77 @@ $(document).on('click', '.delete-btn', function (e) {
                         icon: 'error'
                     });
                 }
+            });
+        }
+    });
+});
+
+// cancel document
+$(document).on("click", ".cancell-btn", function (e) {
+    e.preventDefault();
+    let $this = $(this);
+    let url = $this.data("url");
+    let message =
+        $this.data("message") || "Are you sure you want to cancel this record?";
+    let redirectUrl = $this.data("redirect") || window.location.pathname;
+
+    Swal.fire({
+        title: "Alert!",
+        text: message,
+        icon: "warning",
+        showCancelButton: true,
+        cancelButtonColor: "#d33",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#3085d6",
+        confirmButtonText: "Yes, cancel it!",
+        input: "text",
+        inputPlaceholder: "Enter cancellation remark...",
+        inputValidator: (value) => {
+            value = value.trim();
+            const regex = /^[a-zA-Z0-9\s,.\-_]+$/;
+            if (!value) return "Remark is required!";
+            if (value.length > 200)
+                return "Remark must not exceed 200 characters!";
+            if (!regex.test(value))
+                return "Remark contains invalid characters! (Allowed: letters, numbers, spaces, , . - _)";
+        },
+    }).then((remarkResult) => {
+        if (remarkResult.isConfirmed) {
+            let remark = encodeURIComponent(remarkResult.value);
+            let separator = url.includes("?") ? "&" : "?";
+            let finalUrl = `${url}${separator}remark=${remark}`;
+
+            $.ajax({
+                url: finalUrl,
+                type: "GET",
+                beforeSend: () => $("#loaderDiv").show(),
+                success: (res) => {
+                    $("#loaderDiv").hide();
+                    Swal.fire({
+                        title: "Success!",
+                        text: res.message || "Record has been cancelled successfully.",
+                        icon: "success",
+                    });
+
+                    $this.closest("tr").addClass("table-danger");
+
+                    setTimeout(() => {
+                        if (redirectUrl) {
+                            window.location.replace(redirectUrl);
+                        } else {
+                            location.reload();
+                        }
+                    }, 1500);
+                },
+                error: (error) => {
+                    $("#loaderDiv").hide();
+                    let res = error.responseJSON || {};
+                    Swal.fire({
+                        title: "Error!",
+                        text: res.message || "An unexpected error occurred.",
+                        icon: "error",
+                    });
+                },
             });
         }
     });

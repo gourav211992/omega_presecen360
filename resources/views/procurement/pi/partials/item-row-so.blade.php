@@ -12,7 +12,6 @@
             })
             ->values()
             ->all();
-
         $uom = \App\Models\Unit::select('id', 'name')->find($so_item['uom_id'] ?? $item?->uom_id);
         $stocks = \App\Helpers\InventoryHelper::totalInventoryAndStock($item?->id, $selectedAttr, $uom?->id, $storeId);
     @endphp
@@ -46,8 +45,7 @@
         <td>
             <input type="text" name="components[{{ $rowCount }}][item_name]" class="form-control mw-100 mb-25" readonly value="{{ $item?->item_name }}" />
         </td>
-        <td class="poprod-decpt attributeBtn" id="itemAttribute_{{ $rowCount }}" data-count="{{ $rowCount }}" attribute-array="{{ json_encode($so_item['attributes']) ?? [] }}">
-        </td>
+        <td class="poprod-decpt attributeBtn" id="itemAttribute_{{ $rowCount }}" data-count="{{ $rowCount }}" attribute-array="{{ json_encode($so_item['attributes']) ?? [] }}"></td>
         <td>
             <input type="hidden" name="components[{{ $rowCount }}][inventoty_uom_id]" value="" @readonly(true)>
             <select class="form-select mw-100 " name="components[{{ $rowCount }}][uom_id]">

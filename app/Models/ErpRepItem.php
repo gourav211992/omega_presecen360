@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use App\Traits\FileUploadTrait;
+use App\Models\WHM\ErpItemUniqueCode;
+use App\Helpers\ReManufacturing\RepairOrder as REPConstants;
 
 class ErpRepItem extends Model
 {
@@ -14,6 +16,7 @@ class ErpRepItem extends Model
         'repair_order_id',
         'rgr_item_id',
         'rgr_job_detail_id',
+        'rgr_item_segregation_id',
         'item_id',
         'item_code',
         'item_name',
@@ -29,6 +32,7 @@ class ErpRepItem extends Model
         'service_item_name',
         'rgr_sub_store_id',
         'rgr_sub_store_name',
+        'customer_sub_store_id',
         'qc_sub_store_id',
         'qc_sub_store_name',
         'rejuvenate_item_id',
@@ -46,6 +50,11 @@ class ErpRepItem extends Model
         return $this->belongsTo(Item::class, 'item_id');
     }
 
+    public function serviceItem()
+    {
+        return $this->belongsTo(Item::class, 'service_item_id');
+    }
+
     public function subStore()
     {
         return $this->belongsTo(ErpRgrStoreMapping::class, 'rgr_sub_store_id');
@@ -56,6 +65,11 @@ class ErpRepItem extends Model
         return $this->belongsTo(Unit::class, 'uom_id');
     }
     public function repairOrder()
+    {
+        return $this->belongsTo(ErpRepairOrder::class, 'repair_order_id');
+    }
+
+     public function header()
     {
         return $this->belongsTo(ErpRepairOrder::class, 'repair_order_id');
     }
@@ -77,6 +91,23 @@ class ErpRepItem extends Model
 
     public function rgrSegregations()
     {
-        return $this->hasMany(ErpRgrItemSegregation::class, 'rgr_item_id', 'rgr_item_id');
+        return $this->hasOne(ErpRgrItemSegregation::class, 'id', 'rgr_item_segregation_id');
     }
+
+    public function rgrSubStore()
+    {
+        return $this->belongsTo(ErpSubStore::class, 'rgr_sub_store_id');
+    }
+
+    public function qcSubStore()
+    {
+        return $this->belongsTo(ErpSubStore::class, 'qc_sub_store_id');
+    }
+
+    public function uniqueCodes()
+    {
+        return $this->morphMany(ErpItemUniqueCode::class, 'morphable')
+        ->where('job_type','repair');
+    }
+
 }

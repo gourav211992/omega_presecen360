@@ -43,6 +43,7 @@ use Illuminate\Validation\Rule;
 use stdClass;
 use Yajra\DataTables\DataTables;
 use App\Helpers\ReManufacturing\RepairOrder\Constants as RepConstants;
+use App\Helpers\ReManufacturing\RCA\Constants as RcaConstants;
 use App\Models\ErpOrganizationService;
 
 class BookController extends Controller
@@ -135,7 +136,6 @@ class BookController extends Controller
 
     public function store(Request $request)
     {
-
         $authUser = Helper::getAuthenticatedUser();
         $org = Organization::find($authUser->organization_id);
         $company = OrganizationCompany::find($org?->company_id);
@@ -168,7 +168,8 @@ class BookController extends Controller
             'gl_param_names' => 'array',
             //Level Company Id
             'level_company_id' => 'array',
-            'level_company_id.*' => 'required_if:manual_entry,yes|numeric|integer',
+            'level_company_id.*' => 'array',
+            'level_company_id.*.*' => 'required_if:manual_entry,yes|numeric|integer',
 
         ]);
 
@@ -176,7 +177,8 @@ class BookController extends Controller
             $request->validate([
                 //Orgs
                 'level_organization_id' => 'required|array',
-                'level_organization_id.*' => 'required|numeric|integer',
+                'level_organization_id.*' => 'required|array',
+                'level_organization_id.*.*' => 'required|numeric|integer',
             ]);
         }
         if (!empty($request->input('level_organization_id'))) {
@@ -184,7 +186,8 @@ class BookController extends Controller
                 //Approvers
                 'user' => 'required|array',
                 'user.*' => 'required|array',
-                'user.*.*' => 'required|numeric|integer'
+                'user.*.*' => 'required|array',
+                'user.*.*.*' => 'required|numeric|integer'
             ], [
                 'user.required' => 'Approvers must be present in every level'
             ]);
@@ -193,10 +196,12 @@ class BookController extends Controller
             $request->validate([
                 //Min Value
                 'min_value' => 'required|array',
-                'min_value.*' => 'required|numeric',
+                'min_value.*' => 'required|array',
+                'min_value.*.*' => 'required|numeric',
                 //Min Value
                 'rights' => 'required|array',
-                'rights.*' => 'required|in:all,anyone'
+                'rights.*' => 'required|array',
+                'rights.*.*' => 'required|in:all,anyone'
             ]);
             if (count($request->input('level_company_id')) !== count($request->input('level_organization_id')) && count($request->input('level_organization_id')) !== count($request->input('user'))) {
                 return back()->withErrors(['user' => 'All fields should be present']);
@@ -276,38 +281,42 @@ class BookController extends Controller
                 }
 
                 // Save approval workflows with individual users
-                if ($request->level_company_id) {
-                    foreach ($request->level_company_id as $key => $level_company_id) {
-
-                        // Insert levels
-                        $levelInsert = new BookLevel;
-                        $levelInsert->book_id = $insert->id;
-                        $levelInsert->level = $request->level[$key];
-                        //In case of Master type services -> this should be always 0
-                        if ($insert -> master_service ?-> type === ConstantHelper::ERP_MASTER_SERVICE_TYPE) {
-                            $levelInsert->min_value = 0;
-                        } else {
-                            $levelInsert->min_value = $request->min_value[$key];
+                if ($request -> level && count($request->level) > 0) {
+                    foreach($request -> level as $levelKey => $level) {
+                        if (!isset($request->level_company_id[$levelKey])) {
+                            continue;
                         }
-                        // $levelInsert->max_value = $request->max_value[$key];
-                        $levelInsert->rights = $request->rights[$key];
-                        $levelInsert->company_id = $request->level_company_id[$key];
-                        $levelInsert->organization_id = $request->level_organization_id[$key];
-                        $levelInsert->save();
+                        foreach ($request->level_company_id[$levelKey] as $key => $level_company_id) {
+                            // Insert levels
+                            $levelInsert = new BookLevel;
+                            $levelInsert->book_id = $insert->id;
+                            $levelInsert->level = $level;
+                            //In case of Master type services -> this should be always 0
+                            if ($insert -> master_service ?-> type === ConstantHelper::ERP_MASTER_SERVICE_TYPE) {
+                                $levelInsert->min_value = 0;
+                            } else {
+                                $levelInsert->min_value = $request->min_value[$levelKey][$key];
+                            }
+                            // $levelInsert->max_value = $request->max_value[$key];
+                            $levelInsert->rights = $request->rights[$levelKey][$key];
+                            $levelInsert->company_id = $request->level_company_id[$levelKey][$key];
+                            $levelInsert->organization_id = $request->level_organization_id[$levelKey][$key];
+                            $levelInsert->save();
 
-                        // Loop through each user info for that level
-                        foreach ($request->user[$key] as $user_info) {
-                            // Split user info into user_id and user_type
-                            // list($user_id, $user_type) = explode('|', $user_info);
+                            // Loop through each user info for that level
+                            foreach ($request->user[$levelKey][$key] as $user_info) {
+                                // Split user info into user_id and user_type
+                                // list($user_id, $user_type) = explode('|', $user_info);
 
-                            ApprovalWorkflow::create([
-                                'book_id' => $insert->id,
-                                'company_id' => $request->level_company_id[$key],
-                                'book_level_id' => $levelInsert->id,
-                                'organization_id' => $request->level_organization_id[$key],
-                                'user_id' => $user_info,
-                                'user_type' => 'employee'
-                            ]);
+                                ApprovalWorkflow::create([
+                                    'book_id' => $insert->id,
+                                    'company_id' => $request->level_company_id[$levelKey][$key],
+                                    'book_level_id' => $levelInsert->id,
+                                    'organization_id' => $request->level_organization_id[$levelKey][$key],
+                                    'user_id' => $user_info,
+                                    'user_type' => 'employee'
+                                ]);
+                            }
                         }
                     }
                 }
@@ -505,19 +514,24 @@ class BookController extends Controller
     public function edit_book($id)
     {
         $auth = Helper::getAuthenticatedUser();
+        $userOrgs = $auth->organizations()->pluck('organizations.id')->toArray();
         $userRole = $auth -> user_type;
         $book = Book::with([
             'common_parameters',
             'gl_parameters',
-            'patterns',
-            'levels' => function ($l) use($auth, $userRole) {
-                $l -> when($userRole != ConstantHelper::IAM_SUPER_ADMIN, function ($subQuery) use($auth) {
-                    $subQuery->where('organization_id', $auth -> organization_id) -> with(['approvers']);
+            'patterns' => function ($l) use($userOrgs, $userRole) {
+                $l -> when($userRole != ConstantHelper::IAM_SUPER_ADMIN, function ($subQuery) use($userOrgs) {
+                    $subQuery->whereIn('organization_id', $userOrgs);
                 });
             },
-            'amendments' => function ($l) use($auth, $userRole) {
-                $l -> when($userRole != ConstantHelper::IAM_SUPER_ADMIN, function ($subQuery) use($auth) {
-                    $subQuery->where('organization_id', $auth -> organization_id) -> with(['approvers']);
+            'levels' => function ($l) use($userOrgs, $userRole) {
+                $l -> when($userRole != ConstantHelper::IAM_SUPER_ADMIN, function ($subQuery) use($userOrgs) {
+                    $subQuery->whereIn('organization_id', $userOrgs) -> with(['approvers']);
+                });
+            },
+            'amendments' => function ($l) use($userOrgs, $userRole) {
+                $l -> when($userRole != ConstantHelper::IAM_SUPER_ADMIN, function ($subQuery) use($userOrgs) {
+                    $subQuery->whereIn('organization_id', $userOrgs) -> with(['approvers']);
                 });
             }
         ])->findOrFail($id);
@@ -762,7 +776,70 @@ class BookController extends Controller
                         $bookParam->param_array_html = $htmlData;
 
                     }
-                } else {
+                }else if (in_array($bookParam->parameter_name, [
+                    ServiceParametersHelper::RCA_TRANSIT_DAMAGE_PARAM,
+                    ServiceParametersHelper::RCA_PACKAGE_MISSING_PARAM,
+                    ServiceParametersHelper::RCA_WRONG_PRODUCT_PARAM,
+                    ServiceParametersHelper::RCA_DELIVERY_CANCEL_PARAM,
+                    ServiceParametersHelper::RCA_MISSING_EXTRA_ITEMS_PARAM,
+                    ServiceParametersHelper::RCA_REPLACEMENT_PARAM 
+                  ])) {
+
+                    $orgServiceParam = OrganizationServiceParameter::where('service_id', $book->org_service->service_id)
+                        ->where('parameter_name', $bookParam->parameter_name)
+                        ->latest()->first();
+
+                    $actualOrgServiceParam = OrganizationServiceParameter::where('service_id', $book->org_service->service_id)
+                        ->where('parameter_name', $bookParam->parameter_name)
+                        ->first();
+
+                    if (isset($orgServiceParam) && isset($actualOrgServiceParam)) {
+                        $selectOptions = "";
+                        $bookIds = $orgServiceParam->service_parameter->applicable_values;
+
+                        $orgService = ErpOrganizationService::where('alias', RCAConstants::SERVICE_ALIAS)->first();
+
+                        $books = Book::select('id', 'book_code', 'book_name')
+                            ->where('org_service_id', $orgService ?->id)
+                            ->where('status', ConstantHelper::ACTIVE)
+                            ->get();
+
+                        foreach ($books as $bk) {
+                            $label = strtoupper($bk->book_code);
+                            $value = $bk->id;
+
+                            if (in_array($value, $bookParam->parameter_value)) {
+                                $selectOptions .= "<option value='$value' selected>$label</option>";
+                            } else {
+                                $selectOptions .= "<option value='$value'>$label</option>";
+                            }
+                        }
+
+                        $paramLabel = ServiceParametersHelper::SERVICE_PARAMETERS[$actualOrgServiceParam->parameter_name];
+                        $paramName = $actualOrgServiceParam->parameter_name;
+                        $paramId = $actualOrgServiceParam->service_param_id;
+
+                        $bookParam->param_array_html = "
+                        <div class='row align-items-center mb-1'>
+                            <div class='col-md-3'>
+                                <label class='form-label'>$paramLabel</label>
+                            </div>
+                            <div class='col-md-5'>
+                                <input type='hidden' value='$paramName' name='param_names[]' />
+                                <input type='hidden' value='$paramId' name='param_ids[]' />
+                                <select
+                                    id='service_item'
+                                    class='form-select mw-100 select2 bookSelect'
+                                    placeholder='Select Item'
+                                    name='params[$bookParamKey][]'
+                                >
+                                    $selectOptions
+                                </select>
+                            </div>
+                        </div>
+                        ";
+                    }
+                    } else {
                     $multipleSelection = ($bookParam->parameter_name == ServiceParametersHelper::ISSUE_TYPE_PARAM) ? 'multiple' : '';
                     $multipleSelectionCommonClass = ($bookParam->parameter_name == ServiceParametersHelper::ISSUE_TYPE_PARAM) ? 'commonMultipleSelection' : '';
                     $label = ServiceParametersHelper::SERVICE_PARAMETERS[$bookParam->parameter_name];
@@ -808,7 +885,6 @@ class BookController extends Controller
                     $orgServiceParam = OrganizationServiceParameter::where('service_id', $book->org_service->service_id)
                         ->where('parameter_name', $bookParam->parameter_name)
                         ->latest()->first();
-                    // dd($orgServiceParam);
 
                     if($orgServiceParam)
                     // if(isset($orgServiceParam->parameter_value) && count($orgServiceParam->parameter_value))
@@ -1058,42 +1134,45 @@ class BookController extends Controller
 
 
             // Save approval workflows with individual users
-            if ($request->level_company_id) {
-                foreach ($request->level_company_id as $key => $level_company_id) {
-                    $levelInsert = new BookLevel;
-                    $levelInsert->book_id = $update->id;
-                    $levelInsert->level = $request->level[$key];
-                    //In case of Master type services -> this should always be 0
-                    if ($update -> master_service ?-> type === ConstantHelper::ERP_MASTER_SERVICE_TYPE) {
-                        $levelInsert->min_value = 0;
-                    } else {
-                        $levelInsert->min_value = $request->min_value[$key];
-                    }
-                    $rightsValue = $request->rights[$key] ?? null;
+                if ($request -> level && count($request->level) > 0) {
+                    foreach($request -> level as $levelKey => $level) {
+                        if (!isset($request->level_company_id[$levelKey])) {
+                            continue;
+                        }
+                        foreach ($request->level_company_id[$levelKey] as $key => $level_company_id) {
+                            // Insert levels
+                            $levelInsert = new BookLevel;
+                            $levelInsert->book_id = $update->id;
+                            $levelInsert->level = $level;
+                            //In case of Master type services -> this should be always 0
+                            if ($update -> master_service ?-> type === ConstantHelper::ERP_MASTER_SERVICE_TYPE) {
+                                $levelInsert->min_value = 0;
+                            } else {
+                                $levelInsert->min_value = $request->min_value[$levelKey][$key];
+                            }
+                            // $levelInsert->max_value = $request->max_value[$key];
+                            $levelInsert->rights = $request->rights[$levelKey][$key];
+                            $levelInsert->company_id = $request->level_company_id[$levelKey][$key];
+                            $levelInsert->organization_id = $request->level_organization_id[$levelKey][$key];
+                            $levelInsert->save();
 
-                    if (is_array($rightsValue)) {
-                        $levelInsert->rights = json_encode($rightsValue); // for multi-select case
-                    } else {
-                        $levelInsert->rights = $rightsValue; // plain string like "anyone"
-                    }
-                    $levelInsert->company_id = $request->level_company_id[$key];
-                    $levelInsert->organization_id = $request->level_organization_id[$key];
-                    $levelInsert->save();
+                            // Loop through each user info for that level
+                            foreach ($request->user[$levelKey][$key] as $user_info) {
+                                // Split user info into user_id and user_type
+                                // list($user_id, $user_type) = explode('|', $user_info);
 
-                    if (isset($request->user[$key])) {
-                        foreach ($request->user[$key] as $user_info) {
-                            ApprovalWorkflow::create([
-                                'book_id' => $update->id,
-                                'company_id' => $request->level_company_id[$key],
-                                'book_level_id' => $levelInsert->id,
-                                'organization_id' => $request->level_organization_id[$key],
-                                'user_id' => $user_info,
-                                'user_type' => 'employee'
-                            ]);
+                                ApprovalWorkflow::create([
+                                    'book_id' => $update->id,
+                                    'company_id' => $request->level_company_id[$levelKey][$key],
+                                    'book_level_id' => $levelInsert->id,
+                                    'organization_id' => $request->level_organization_id[$levelKey][$key],
+                                    'user_id' => $user_info,
+                                    'user_type' => 'employee'
+                                ]);
+                            }
                         }
                     }
                 }
-            }
 
             if ($request->amendment_company_id) {
                 foreach ($request->amendment_company_id as $key => $amendment_company_id) {
@@ -1223,8 +1302,9 @@ class BookController extends Controller
 
             if (isset($organizationService)) {
                 $masterService = $organizationService -> service;
-                //Common Service
+                    //Common Service
                 foreach ($organizationService->common_parameters as $orgServiceParamKey => &$orgServiceParam) {
+    
                     $currentParamHTML = '';
 
                     if ($orgServiceParam->parameter_name === ServiceParametersHelper::REFERENCE_FROM_SERVICE_PARAM) {
@@ -1397,7 +1477,59 @@ class BookController extends Controller
                         // $orgServiceParam->param_array_html = $htmlData;
                         $currentParamHTML = $htmlData;
 
-                    } else {
+                    }else if (in_array($orgServiceParam->parameter_name, [
+                        ServiceParametersHelper::RCA_TRANSIT_DAMAGE_PARAM,
+                        ServiceParametersHelper::RCA_PACKAGE_MISSING_PARAM,
+                        ServiceParametersHelper::RCA_WRONG_PRODUCT_PARAM,
+                        ServiceParametersHelper::RCA_DELIVERY_CANCEL_PARAM,
+                        ServiceParametersHelper::RCA_MISSING_EXTRA_ITEMS_PARAM,
+                        ServiceParametersHelper::RCA_REPLACEMENT_PARAM 
+                    ])) {
+
+                        $selectOptions = "";
+                        $bookIds = $orgServiceParam->service_parameter->applicable_values;
+                        $orgService = ErpOrganizationService::where('alias', RCAConstants::SERVICE_ALIAS)->first();
+
+                        $books = Book::select('id', 'book_code', 'book_name')
+                            ->where('org_service_id', $orgService ?->id)
+                            ->where('status', ConstantHelper::ACTIVE)
+                            ->get();
+
+                        foreach ($books as $book) {
+                            $label = strtoupper($book->book_code);
+                            $value = $book->id;
+
+                            $selectOptions .= in_array($value, $orgServiceParam->parameter_value)
+                                ? "<option value='$value' selected>$label</option>"
+                                : "<option value='$value'>$label</option>";
+                        }
+
+                        $paramLabel = ServiceParametersHelper::SERVICE_PARAMETERS[$orgServiceParam->parameter_name];
+                        $paramName = $orgServiceParam->parameter_name;
+                        $paramId = $orgServiceParam->service_param_id;
+                        $htmlData = "
+                         <div class='row align-items-center mb-1'>
+                            <div class='col-md-3'>
+                                <label class='form-label'>$paramLabel</label>
+                            </div>
+                            <div class='col-md-5'>
+                                <input type = 'hidden' value = '$paramName' name = 'param_names[]' />
+                                <input type = 'hidden' value = '$paramId' name = 'param_ids[]' />
+                                <select
+                                    class='form-select mw-100 select2 referenceService'
+                                    id='service_item'
+                                    placeholder = 'Select Book'
+                                    name = 'params[$orgServiceParamKey][]'
+                                    id = '$paramName'
+                                    >
+                                    $selectOptions
+                                </select>
+                            </div>
+                        </div>
+                        ";
+                        // $orgServiceParam->param_array_html = $htmlData;
+                        $currentParamHTML = $htmlData;
+                        } else {
                         $label = ServiceParametersHelper::SERVICE_PARAMETERS[$orgServiceParam->parameter_name];
                         if (count(ServiceParametersHelper::SERVICE_PARAMETERS_VALUES[$orgServiceParam -> parameter_name]) == 0) { //Direct input type
                             $paramName = $orgServiceParam->parameter_name;

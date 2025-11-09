@@ -27,6 +27,7 @@ class ExpenseHeaderHistory extends Model
         'company_id',
         'header_id',
         'vendor_id',
+        'reference_type',
         'vendor_code',
         'customer_id',
         'customer_code',

@@ -78,5 +78,7 @@
         <input type="hidden" name="components[{{ $rowCount }}][pi_item_id]" value="{{ $pi_item?->id }}">
         <input type="hidden" name="components[{{ $rowCount }}][po_item_id]" value="{{ $pi_item?->po_item?->id }}">
         <input type="hidden" name="components[{{ $rowCount }}][so_id]" value="{{ $pi_item?->so_id }}">
+        <input type="hidden" name="components[{{ $rowCount }}][pwo_id]" value="{{ $pi_item->pwo_id }}">
+        <input type="hidden" name="components[{{ $rowCount }}][pwo_mapping_id]" value="{{ $pi_item?->piPwoMapping?->pi_pwo_mapping?->id }}">
     </tr>
 @endforeach

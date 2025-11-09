@@ -34,11 +34,13 @@ class ErpSaleOrder extends Model
         'revision_date',
         'reference_number',
         'order_type',
+        'sale_type',
         'store_id',
         'store_code',
         'department_id',
         'department_code',
         'customer_id',
+        'customer_sub_store_id',
         'customer_email',
         'customer_phone_no',
         'customer_gstin',
@@ -68,7 +70,11 @@ class ErpSaleOrder extends Model
         'total_discount_value',
         'total_tax_value',
         'total_expense_value',
-        'total_amount'
+        'total_amount',
+        'ref_order_number',
+        'trip_number',
+        'trip_id',
+        'data_source_type',
     ];
 
 
@@ -100,6 +106,10 @@ class ErpSaleOrder extends Model
     public function book()
     {
         return $this -> hasOne(Book::class, 'id', 'book_id');
+    }
+    public function customerSubStore()
+    {
+        return $this -> hasOne(ErpSubStore::class, 'id', 'customer_sub_store_id');
     }
 
     public function customer()

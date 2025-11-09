@@ -43,11 +43,61 @@ class Constants
             'is_multiple' => false,
             'service_level_visibility' => false
         ],
+
+         // RCA series parameters
+
+        [
+            "name" => ServiceParametersHelper::RCA_TRANSIT_DAMAGE_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => true
+        ],
+        [
+            "name" => ServiceParametersHelper::RCA_PACKAGE_MISSING_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => true
+        ],
+        [
+            "name" => ServiceParametersHelper::RCA_WRONG_PRODUCT_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => true
+        ],
+        [
+            "name" => ServiceParametersHelper::RCA_DELIVERY_CANCEL_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => true
+        ],
+        [
+            "name" => ServiceParametersHelper::RCA_MISSING_EXTRA_ITEMS_PARAM,
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => true
+        ],
+        [
+            "name" => ServiceParametersHelper::RCA_REPLACEMENT_PARAM, 
+            "applicable_values" => [],
+            "default_value" => [],
+            'is_multiple' => true,
+            'service_level_visibility' => true
+        ],
     ];
 
     const RGR_SEGREGATION_WRONG_PRODUCT = "Wrong Product";
     const RGR_SEGREGATION_PACK_MISSING = "Package Missing";
+    const RGR_SEGREGATION_DELIVERY_CANCEL = "Delivery Cancel";
+    const RGR_SEGREGATION_REPLACEMENT_ITEM = "Replacement Item"; 
+    const RGR_SEGREGATION_TRANSIT_DAMAGE  = "Transit Damage";
     const RGR_SEGREGATION_OK_TO_RECIEVE = "Ok to recieve";
+    const RGR_SEGREGATION_EXTRA_ITEM  = "Extra Item";
+    const RGR_SEGREGATION_MISSING_ITEM = "Missing Item";
 
     const DEFECT_SEVERITY_MINOR = 'Minor';
     const DEFECT_SEVERITY_MAJOR = 'Major';
@@ -58,6 +108,17 @@ class Constants
         ['label' => self::DEFECT_SEVERITY_MAJOR, 'value' => self::DEFECT_SEVERITY_MAJOR],
         ['label' => self::DEFECT_SEVERITY_SCRAP, 'value' => self::DEFECT_SEVERITY_SCRAP],
     ];
+
+
+     const RGR_STATUSES = [
+            self::RGR_SEGREGATION_PACK_MISSING,
+             self::RGR_SEGREGATION_WRONG_PRODUCT,
+             self::RGR_SEGREGATION_DELIVERY_CANCEL,
+             self::RGR_SEGREGATION_TRANSIT_DAMAGE,
+             self::RGR_SEGREGATION_EXTRA_ITEM,
+             self::RGR_SEGREGATION_REPLACEMENT_ITEM,
+             self::RGR_SEGREGATION_MISSING_ITEM,
+     ];
 
     const DAMAGE_NATURE_NO_DAMAGE = 'No Damage';
     const DAMAGE_NATURE_CUSTOMER_DAMAGE = 'Customer Damage';

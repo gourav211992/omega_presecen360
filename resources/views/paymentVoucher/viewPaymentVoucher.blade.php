@@ -599,6 +599,59 @@
                                                                             id="party_id{{ $no }}"
                                                                             class="ledgers"
                                                                             value="{{ $item->ledger_id ?? $item->party_id }}" />
+                                                                             @php
+                                                                        $transformed = [];
+
+                                                                        $headerIds = explode(',', $item['header_id']);
+                                                                        $headerNames = explode(',', $item['header_name']);
+                                                                        $headerAmounts = explode(',', $item['header_amounts']);
+
+                                                                        foreach ($headerIds as $index => $headerId) 
+                                                                        {
+                                                                            if($item->reference == 'Invoice')
+                                                                            {
+                                                                                $invoice = $item->invoice[$index] ?? null;
+
+                                                                                if ($invoice) {
+                                                                                    $transformed[] = [
+                                                                                        'party_id'       => (string) $item['ledger_id'],
+                                                                                        'voucher_id'     => (string) ($invoice->voucher_id ?? ''),
+                                                                                        'amount'         => $headerAmounts[$index] ?? '0',
+                                                                                        'header_amounts' => $headerAmounts[$index] ?? '0',
+                                                                                        'header_id'      => (int) $headerId,
+                                                                                        'header_name'    => $headerNames[$index] ?? '',
+                                                                                    ];
+                                                                                }
+                                                                            }
+                                                                            else
+                                                                            {
+                                                                                $transformed[] = [
+                                                                                    'party_id'       => (string) $item['ledger_id'],
+                                                                                    'voucher_id'     => '',
+                                                                                    'amount'         => $headerAmounts[$index] ?? '0',
+                                                                                    'header_amounts' => $headerAmounts[$index] ?? '0',
+                                                                                    'header_id'      => (int) $headerId,
+                                                                                    'header_name'    => $headerNames[$index] ?? '',
+                                                                                ];
+                                                                            }
+                                                                        }
+                                                                        @endphp
+
+                                                                            <input type="hidden" 
+                                                                                name="party_vouchers[]" 
+                                                                                id="party_vouchers{{ $no }}" 
+                                                                                class="party_vouchers" 
+                                                                                value='@json($transformed)' />
+                                                                         <input type="hidden" name="customerid[]"
+                                                                                id="customerid{{ $no }}"
+                                                                                class="party_vouchers"
+                                                                                value="{{$item?->customer?->id}}"
+                                                                            />
+                                                                            <input type="hidden" name="vendorid[]"
+                                                                                id="vendorid{{ $no }}"
+                                                                                class="party_vouchers"
+                                                                                value="{{$item?->vendor?->id}}"
+                                                                            />
                                                                     </td>
                                                                     <td class="poprod-decpt"><input type="text"
                                                                             disabled placeholder="Select"
@@ -644,11 +697,24 @@
                                                                                     On Account</option>
                                                                             </select>
                                                                             <div class="ms-50 flex-shrink-0">
+                                                                                @if ($item->reference == 'Invoice')
                                                                                 <button type="button"
                                                                                     class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}"
                                                                                     style="font-size: 10px"
                                                                                     onclick="openInvoice({{ $no }},{{ $data->id }},{{ $item->id }})"
                                                                                     @if ($item->reference != 'Invoice') disabled @endif>Invoice</button>
+                                                                                 @elseif ($item->reference == 'Advance')
+                                                                                <button type="button"
+                                                                                    class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}"
+                                                                                    style="font-size: 10px"
+                                                                                    onclick="openAdvance({{ $no }},{{ $data->id }},{{ $item->id }})"
+                                                                                    @if ($item->reference != 'Advance') disabled @endif>Invoice</button>
+                                                                                @else
+                                                                                <button type="button"
+                                                                                    class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}"
+                                                                                    style="font-size: 10px"
+                                                                                    @if ($item->reference != 'Invoice') disabled @endif>Invoice</button>
+                                                                                @endif
                                                                             </div>
                                                                         </div>
                                                                     </td>
@@ -896,6 +962,100 @@
                             data-feather="x-circle"></i> Cancel</button>
                     <button class="btn btn-primary btn-sm" data-bs-dismiss="modal" type="button" hidden
                         onclick="setAmount()"><i data-feather="check-circle"></i> Process</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade text-start" id="advance" tabindex="-1" aria-labelledby="myModalLabel17"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 1000px">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">Select
+                            Pending Advance</h4>
+                        <p class="mb-0">Settled Amount from the below list</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+
+                        <div class="col-md-3">
+                            <div class="mb-1">
+                                <label class="form-label">Date <span class="text-danger">*</span></label>
+                                <input type="text" id="fp-range" name="date_range"
+                                    value="{{ Request::get('date_range') }}"
+                                    class="form-control flatpickr-range bg-white"
+                                    placeholder="YYYY-MM-DD to YYYY-MM-DD" />
+                            </div>
+                        </div>
+
+                        <!-- <div class="col-md-3">
+                            <div class="mb-1">
+                                <label class="form-label">Voucher Type <span class="text-danger">*</span></label>
+                                <select class="form-select select2" id="book_code">
+                                    <option value="">Select Type</option>
+                                    @foreach ($books_t->unique('alias') as $book)
+                                        <option value="{{ $book->alias }}">{{ strtoupper($book->name) }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div> -->
+
+                        <div class="col-md-3">
+                            <div class="mb-1">
+                                <label class="form-label">Document No. <span class="text-danger">*</span></label>
+                                <input type="text" id="document_no" class="form-control" />
+                            </div>
+                        </div>
+
+                        <div class="col-md-3  mb-1">
+                            <label class="form-label">&nbsp;</label><br />
+                            <button type="button" class="btn btn-warning btn-sm" onclick="getLedgers()"><i
+                                    data-feather="search"></i> Search</button>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="table-responsive">
+                                <table class="mt-1 table myrequesttablecbox table-striped po-order-detail">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Date</th>
+                                            <th>Series</th>
+                                            <th>Document No.</th>
+                                            <th class="text-end">Amount</th>
+                                            <th class="text-end">Advance</th>
+                                            <!-- <th class="text-end">Settle</th> -->
+                                            <th class="text-end" width="150px">To Pay</th>
+                                            <th class="text-center">
+                                                <div class="form-check form-check-inline me-0">
+                                                    <input class="form-check-input" type="checkbox" name="podetail"
+                                                        id="inlineCheckbox1">
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="advancevouchersBody">
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="6" class="text-end">Total</td>
+                                            <td class="fw-bolder text-dark text-end settleTotal">0</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer text-end">
+                    <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i
+                            data-feather="x-circle"></i> Cancel</button>
+                    <button class="btn btn-primary btn-sm" type="button" onclick="advancesetAmount()"><i
+                            data-feather="check-circle"></i> Process</button>
                 </div>
             </div>
         </div>
@@ -1237,8 +1397,11 @@
             const preSelected = $('.vouchers:checked').map(function() {
                 selectedVouchers.push({
                     "party_id": $('#LedgerId').val(),
-                    "voucher_id": this.value,
-                    "amount": $('.settleAmount' + this.value).val()
+                    "voucher_id": $(this).data('id'),
+                    "amount": $('.settleAmount' + this.value).val(),
+                    "header_amounts":$('.settleAmount' + this.value).val(),
+                    "header_id": $(this).data('itemid'),
+                    "header_name": $(this).data('header_name'),
                 });
                 return this.value;
             }).get();
@@ -1285,6 +1448,30 @@
             }
         }
 
+        function openAdvance(id, paymentId = null, details = null, ref = null) {
+            console.log(id);
+             $('#excAmount' + id).attr('readonly', true);
+            if ($('#party_id' + id).val() != "") {
+                $('.drop' + id).val('Advance');
+                const comingParty = $('#party_id' + id).val();
+                if (comingParty != $('#currentParty').val()) {
+                    $('#vouchersBody').empty();
+                    $("#inlineCheckbox1").attr('checked', false);
+                    calculateSettle();
+                    $('#voucherDate').val('');
+                }
+                $('#currentParty').val(comingParty);
+                $('#currentRow').val(id);
+                getAdvanceLedgers(paymentId, details, ref);
+                $('#advance').modal('toggle');
+                if (paymentId != null)
+                    $('.header_invoices').hide();
+            } else {
+                $('.drop' + id).val('');
+                alert('Select party to select invoice!!');
+            }
+        }
+
         function getLedgers(paymentId = null, details = null, ref = null) {
             $('.vouchers:not(:checked)').map(function() {
                 $('#' + this.value).remove();
@@ -1297,12 +1484,15 @@
 
             var preData = [];
             const partyData = $('#party_vouchers' + $('#currentRow').val()).val();
+            const payment_voucher_id = '{{ $data->id }}';
+              $('#vouchersBody').empty();
+              $('#advancevouchersBody').empty();
 
             $.ajax({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 },
-                url: '{{ route('getLedgerVouchers') }}',
+                url: '{{ route('getPaymentLedgerVouchers') }}',
                 type: 'POST',
                 dataType: 'json',
                 data: {
@@ -1324,24 +1514,86 @@
                         $.each(response.data, function(index, val) {
                             console.log(val)
                             if (!preSelected.includes(val['id'].toString())) {
+                                var set = false;
                                 $.each(val.items || [], function(i, item) {
 
                                     var amount = 0.00;
                                     var checked = "";
+                                    var itemset = false;
+                                    var totalsettleshow = 0.00;
                                     var dataAmount = parseFloat(val['balance']).toFixed(2);
-                                    if (partyData != "" && partyData != undefined) {
-                                        $.each(JSON.parse(partyData), function(indexP, valP) {
-                                            if (valP['voucher_id'].toString() == val[
-                                                    'id']) {
-                                                amount = (parseFloat(valP['amount']))
-                                                    .toFixed(2);
-                                                checked = "checked";
-                                                dataAmount = (parseFloat(valP[
-                                                    'amount'])).toFixed(
-                                                    2);
+                                   if (partyData != "" && partyData != undefined) {
+                                    $.each(JSON.parse(partyData), function(indexP, valP) {
+                                        if (valP['voucher_id'] != null &&
+                                            valP['voucher_item_id'] != null &&
+                                            val['id'] != null &&
+                                            item.id != null && 
+                                            valP['voucher_id'].toString() == val['id'] && item.id == valP['voucher_item_id'].toString()) 
+                                        {
+                                            amount = (parseFloat(valP['amount'])).toFixed(2);
+                                            checked = "checked";
+                                            dataAmount = (parseFloat(valP['amount'])).toFixed(
+                                            2);
+                                        }
+                                    });
+                                }
+                                    const documentType = $("#document_type").val();
+                                    const isReceipts = (documentType === '{{ ConstantHelper::RECEIPTS_SERVICE_ALIAS }}');
+                                    if(isReceipts)
+                                    {
+                                        showamount = item.debit_amt_org;
+                                    }
+                                    else
+                                    {
+                                        showamount = item.credit_amt_org;
+                                    }
+
+                                    if (item.itemreference && item.itemreference.length > 0) 
+                                    {   
+
+                                        item.itemreference.map((refval) => {
+                                            if(refval.payment_voucher_id == payment_voucher_id)
+                                            {
+                                                
+                                                balanceshow += parseFloat(refval.amount) || 0;
+                                                totalsettleshow += parseFloat(refval.amount) || 0;
+                                                balanceshow = (parseFloat(showamount)) - parseFloat(balanceshow);
+                                                set = true;
+                                                itemset = true;
+                                                console.log(item.id);
+                                                console.log(showamount);
+                                                console.log(balanceshow);
+                                                console.log((parseFloat(showamount)) - parseFloat(balanceshow));
                                             }
                                         });
+                                        if(!itemset)
+                                        {
+                                            balanceshow = showamount; 
+                                        }
+
+                                    } 
+                                    else 
+                                    {
+                                        if(set == true)
+                                        {
+                                            balanceshow = showamount;      
+                                        }
+                                        else
+                                        {
+                                            if(val['balance'] > showamount)
+                                            {
+                                                 balanceshow = showamount;
+                                            }
+                                            else
+                                            {
+                                                 balanceshow = val['balance'];
+                                            }
+                                           
+                                        }
+                                        
                                     }
+
+                                    console.log((parseFloat(showamount)) - parseFloat(balanceshow));
 
                                     if (val['balance'] < 1 && checked == "") {
                                         console.log('hii' + val['id']);
@@ -1354,14 +1606,14 @@
                                             <td>${val['voucher_no']}</td>
                                             <td class="">${val['erp_location']?.store_name ?? '-'}</td>
                                             <td>${item.cost_center?.name ?? '-'}</td>
-                                            <td class="text-end">${formatIndianNumber(val['amount'])}</td>
-                                            <td class="text-end">${formatIndianNumber(val['balance'])}</td>
+                                            <td class="text-end">${formatIndianNumber(showamount)}</td>
+                                            <td class="text-end">${formatIndianNumber((parseFloat(showamount)) - parseFloat(totalsettleshow))}</td>
                                             <td class="text-end">
-                                                <input type="text" class="form-control mw-100 settleInput settleAmount${val['id']}" readonly data-id="${val['id']}" value="${formatIndianNumber(val['settle'])}"/>
+                                                <input type="text" class="form-control mw-100 settleInput settleAmount${item.id}" data-itemid="${item.id}" data-id="${val['id']}" value="${totalsettleshow}" readonly/>
                                             </td>
                                             <td class="text-center">
                                                 <div class="form-check form-check-inline me-0">
-                                                    <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" disabled type="checkbox" ${checked} checked name="vouchers" value="${val['id']}" data-amount="${dataAmount}">
+                                                    <input class="form-check-input vouchers voucherCheck${item.id}" ${itemset ? 'checked' : ''} data-itemid="${item.id}" data-id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${item.id}" data-amount="${balanceshow}" disabled>
                                                 </div>
                                             </td>
                                         </tr>`;
@@ -1373,6 +1625,132 @@
                         $('#LedgerId').val(response.ledgerId);
                         $('#vouchersBody').append(html);
                         calculateSettle();
+                        updateVoucherNumbers();
+                    }
+                    calculateSettle();
+                }
+            });
+        }
+
+        function getAdvanceLedgers(paymentId = null, details = null, ref = null) {
+            $('.vouchers:not(:checked)').map(function() {
+                $('#' + this.value).remove();
+            }).get();
+            updateVoucherNumbers();
+
+            const preSelected = $('.vouchers:checked').map(function() {
+                return this.value;
+            }).get();
+
+            var preData = [];
+            const partyData = $('#party_vouchers' + $('#currentRow').val()).val();
+            const payment_voucher_id = '{{ $data->id }}';
+              $('#vouchersBody').empty();
+              $('#advancevouchersBody').empty();
+
+            $.ajax({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                },
+                url: '{{ route('advancegetPaymentLedgerVouchers') }}',
+                type: 'POST',
+                dataType: 'json',
+                data: {
+                    date: $('#voucherDate').val(),
+                    '_token': '{!! csrf_token() !!}',
+                    partyCode: $('.partyCode' + $('#currentRow').val()).val(),
+                    book_code: $('#book_code').val(),
+                    partyID: $('#party_id' + $('#currentRow').val()).val(),
+                    customer_id: $('#customerid' + $('#currentRow').val()).val(),
+                    vendor_id: $('#vendorid' + $('#currentRow').val()).val(),
+                    headerid: $('#headerid' + $('#currentRow').val()).val(),
+                    ledgerGroup: $('#groupSelect' + $('#currentRow').val()).val(),
+                    document_no: $('#document_no').val(),
+                    type: $('#document_type').val(),
+                    payment_voucher_id: '{{ $data->id }}',
+                    page: 'view',
+                    details_id: details,
+                },
+                success: function(response) {
+                    console.log(response);
+                    if (response.data.length > 0) 
+                    {
+                        var html = '';
+                        const ledgerId = $('#party_id' + $('#currentRow').val()).val();
+                         $.each(response.data, function(index, val) {
+                            // Default values
+                            var amount = 0.00;
+                            var checked = "";
+                            var dataAmount = 0.00;
+                            var existsInPartyData = false;
+
+                            // Check if current val exists in partyData
+                            $.each(JSON.parse(partyData), function(indexP, valP) {
+                                if (valP['header_id'] && valP['header_amounts']) {
+                                    const headerIds = valP['header_id'].toString().split(',');
+                                    const headerAmounts = valP['header_amounts'].toString().split(',');
+                                    const matchIndex = headerIds.indexOf(val['id'].toString());
+
+                                    if (matchIndex !== -1) {
+                                        existsInPartyData = true; // found match
+                                        amount = parseFloat(headerAmounts[matchIndex]).toFixed(2);
+                                        checked = "checked";
+                                        dataAmount = amount;
+                                        return false; // break inner loop once match is found
+                                    }
+                                }
+                            });
+
+                            // ✅ Include only when:
+                            // - settle == 0, OR
+                            // - settle > 0 but exists in partyData
+                            if ((val.topay > 0 && val.settle == 0) || (val.settle > 0 && existsInPartyData))
+                            {
+                                var amount = 0.00;
+                                var checked = "";
+                                var dataAmount = 0.00;
+                                    $.each(JSON.parse(partyData), function(indexP, valP) {
+                                        console.log(valP['header_id'],valP['header_amounts']);
+                                        if (valP['header_id'] && valP['header_amounts']) {
+                                            // Split both strings into arrays
+                                            const headerIds = valP['header_id'].toString().split(',');
+                                            const headerAmounts = valP['header_amounts'].toString().split(',');
+
+                                            // Find the index where header id matches val['id']
+                                            const index = headerIds.indexOf(val['id'].toString());
+                                            console.log(index);
+                                            console.log(headerAmounts);
+                                            if (index !== -1) {
+                                                // Get the matching amount using the same index
+                                                amount = parseFloat(headerAmounts[index]).toFixed(2);
+                                                checked = "checked";
+                                                dataAmount = amount;
+                                            }
+                                        }
+                                    });
+                                    var calculatedValue = (val['total_item_value'] * val['percent']) / 100;
+                                    html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
+                                        <td>${index + 1}</td>
+                                        <td>${new Date(val['date']).toLocaleDateString('en-GB')}</td>
+                                        <td class="fw-bolder text-dark">${val['book_code']?.toUpperCase() ?? '-'}</td>
+                                        <td>${val['document_number']}</td>
+                                        <td class="text-end">${formatIndianNumber(val['total_item_value'])}</td>
+                                        <td class="balanceInput text-end">${formatIndianNumber(calculatedValue)}</td>
+                                        
+                                        <td class="text-end">
+                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" readonly value="${amount}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${calculatedValue}"/>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="form-check form-check-inline me-0">
+                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-header_name="${val['header_name']}" data-id="${val['id']}" data-header_id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-amount="${calculatedValue}" data-balanceminus="${calculatedValue.toFixed(2)}">
+                                            </div>
+                                        </td>
+                                        <input type="hidden" class="ledger-id" value="${ledgerId}">
+                                        <input type="hidden" class="item-id" value="${val['id']}">
+                                        </tr>`;
+                            }
+                        });
+                        $('#advancevouchersBody').append(html);
                         updateVoucherNumbers();
                     }
                     calculateSettle();

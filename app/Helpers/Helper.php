@@ -69,6 +69,8 @@ use App\Http\Controllers\VoucherController;
 use App\Models\ErpOrganizationMasterPolicy;
 use P360\Core\Interfaces\TagCacheInterface;
 use App\Models\Scopes\DefaultGroupCompanyOrgScope;
+use App\Helpers\ReManufacturing\RepairOrder\RepairQcHelper;
+use App\Helpers\ReManufacturing\RepairOrder\Constants as REPConstants;
 
 class Helper
 {
@@ -134,15 +136,15 @@ class Helper
         return $series;
     }
 
-    public static function getBookSeriesNew($serviceAlias, $menuServiceAlias = '', $isEdit = false,$is_manually = false)
+    public static function getBookSeriesNew($serviceAlias, $menuServiceAlias = '', $isEdit = false, $is_manually = false)
     {
         $servicesBooks = self::getAccessibleServicesFromMenuAlias($menuServiceAlias, $isEdit ? $serviceAlias : '');
         $bookIds = $servicesBooks['books'];
         $allBookAccess = $servicesBooks['all_book_access'];
         $series = Book::withDefaultGroupCompanyOrg()
             ->whereHas('org_service', function ($orgService) use ($serviceAlias) {
-                $orgService->where('alias', $serviceAlias); 
-            })->when($is_manually, function ($query){
+                $orgService->where('alias', $serviceAlias);
+            })->when($is_manually, function ($query) {
                 $query->whereHas('patterns', function ($patterns) {
                     $patterns->where('series_numbering', 'Manually');
                 });
@@ -236,7 +238,7 @@ class Helper
 
         \Log::info('Cookies for Financial Year:', [
             'startDate' => $startDate,
-            'endDate'   => $endDate,
+            'endDate' => $endDate,
         ]);
 
         if (!$startDate || !$endDate) {
@@ -271,8 +273,8 @@ class Helper
             \Log::debug('Checking month:', [
                 'month_id' => $month->id,
                 'start_date' => $month->start_date,
-                'end_date'   => $month->end_date,
-                'access_by'  => $month->access_by,
+                'end_date' => $month->end_date,
+                'access_by' => $month->access_by,
             ]);
 
             if (is_array($month->access_by)) {
@@ -388,7 +390,6 @@ class Helper
         $financialYear = self::getFinancialYear($document_date);
         $financialQuarter = self::getFinancialYearQuarter($document_date);
         $financialMonth = self::getFinancialMonth($document_date);
-
         if ($pattern && $modelName) {
             $model = resolve("App\\Models\\{$modelName}");
             if ($pattern->series_numbering === ConstantHelper::DOC_NO_TYPE_AUTO) {
@@ -457,7 +458,8 @@ class Helper
                     && $parameters->{ServiceParametersHelper::INVOICE_TO_FOLLOW_PARAM}[0] === "no"
                 );
 
-                if (($shouldCheckTransportDocForPrSr || $shouldCheckTransportDocForSi)
+                if (
+                    ($shouldCheckTransportDocForPrSr || $shouldCheckTransportDocForSi)
                     && strlen($book->book_code . '-' . $voucher_no) > EInvoiceHelper::TRANPORTER_DOC_NO_MAX_LIMIT
                 ) {
                     return self::errorData('Document Number cannot exceed 15 characters');
@@ -521,7 +523,6 @@ class Helper
         if ($data && $modelName) {
 
             $model = resolve('App\\Models\\' . $modelName);
-            
 
             if ($data->series_numbering === ConstantHelper::DOC_NO_TYPE_AUTO) {
                 $startFrom = $data->starting_no;
@@ -1068,7 +1069,8 @@ class Helper
                 // $query->where('cost_center_id', $cost)
                 return is_array($cost)
                     ? $query->whereIn('cost_center_id', $cost)
-                    : $query->where('cost_center_id', $cost);;
+                    : $query->where('cost_center_id', $cost);
+                ;
             })
             ->where('ledger_parent_id', $ledger_parent)
             ->whereHas('voucher', function ($query) use ($organization_id, $startDate, $endDate, $location) {
@@ -1293,6 +1295,7 @@ class Helper
         $submit = false;
         $approve = false;
         $amend = false;
+        $cancel = false;
         $amendDelete = false;
         $delete = false;
         $post = false;
@@ -1309,6 +1312,7 @@ class Helper
             if ($user->auth_user_id === $createdBy) {
                 $draft = true;
                 $submit = true;
+                $cancel = true;
             }
             if ($revisionNumber == 0 && $createdBy === $user->auth_user_id) {
                 $delete = true;
@@ -1351,6 +1355,7 @@ class Helper
                 ->first();
             if ($amendmentWorkflow) {
                 $amend = true;
+                $cancel = true;
             }
 
             if ($bookTypeServiceAlias == ConstantHelper::MO_SERVICE_ALIAS) {
@@ -1403,10 +1408,17 @@ class Helper
         if ($docStatus == ConstantHelper::POSTED) {
             $voucher = true;
             $print = true;
+            $cancel = true;
         }
+
+        if (in_array($bookTypeServiceAlias, ['rep', 'rca'])) {
+            $revoke = false;
+        }
+
         return [
             'draft' => $draft,
             'submit' => $submit,
+            'cancel' => $cancel,
             'approve' => $approve,
             'delete' => $delete,
             'amend' => $amend,
@@ -2044,6 +2056,7 @@ class Helper
         $docApproval->revision_number = $revisionNumber;
         $docApproval->remarks = $remarks;
         $docApproval->user_id = $user->auth_user_id;
+
         // $user_type = null;
         // if (Auth::guard('web')->check()) {
         //     $user_type = 'user';
@@ -2284,19 +2297,31 @@ class Helper
 
         if (!empty($emailReceiver) && $emailReceiver->email) {
             $mailData = [
-                'link'        => $docUrl,
+                'link' => $docUrl,
                 'attachments' => $attachments,
-                'receiver'    => $emailReceiver,
-                'to_name'     => $emailReceiver->name,
-                'status'      => $approvalStatus ?? $actionType,
-                'document'    => $document->document_number ?? 'Document',
-                'cc'          => count($ccUsers) ? $ccUsers->toArray() : [],
-                'title'       => "Series: $docApproval->document_type, Document " . ucfirst($approvalStatus),
-                'content'     => "The Document from Series: {$docApproval->document_type}, " . "Document Number: " . ($document->document_number ?? '-') . " has been " . ucfirst($approvalStatus) . " by {$user->name} ({$user->email})",
-                'remarks'     => $remarks,
+                'receiver' => $emailReceiver,
+                'to_name' => $emailReceiver->name,
+                'status' => $approvalStatus ?? $actionType,
+                'document' => $document->document_number ?? 'Document',
+                'cc' => count($ccUsers) ? $ccUsers->toArray() : [],
+                'title' => "Series: $docApproval->document_type, Document " . ucfirst($approvalStatus),
+                'content' => "The Document from Series: {$docApproval->document_type}, " . "Document Number: " . ($document->document_number ?? '-') . " has been " . ucfirst($approvalStatus) . " by {$user->name} ({$user->email})",
+                'remarks' => $remarks,
             ];
 
             // MailHelper::sendDocumentStatusEmail($mailData);
+        }
+
+          // ---------- Check for Repair QC service ----------
+        if (empty($message)) {
+            if ($bookTypeServiceAlias == REPConstants::SERVICE_ALIAS) {
+                $repairQcStatus = RepairQcHelper::handleApproval($docId, $approvalStatus, $user);
+                if ($repairQcStatus['status'] =='error'){
+                     $message = $repairQcStatus['message'];
+                }else{
+                     $approvalStatus = $repairQcStatus['approvalStatus'];
+                }
+            }
         }
 
         return [
@@ -2495,30 +2520,30 @@ class Helper
                             });
                     }
                 ])->withSum([
-                    'details as details_sum_debit_amt' => function ($query) use ($startDate, $endDate, $group_id, $cost, $organizations, $location) {
-                        $query->where('ledger_parent_id', $group_id)
-                            ->when(!empty($cost), function ($query) use ($cost) {
-                                // dd($cost);
-                                // $query->where('cost_center_id', $cost);
-                                return is_array($cost)
-                                    ? $query->whereIn('cost_center_id', $cost)
-                                    : $query->where('cost_center_id', $cost);
-                            })
-                            ->withwhereHas('voucher', function ($query) use ($startDate, $endDate, $organizations, $location) {
+                        'details as details_sum_debit_amt' => function ($query) use ($startDate, $endDate, $group_id, $cost, $organizations, $location) {
+                            $query->where('ledger_parent_id', $group_id)
+                                ->when(!empty($cost), function ($query) use ($cost) {
+                                    // dd($cost);
+                                    // $query->where('cost_center_id', $cost);
+                                    return is_array($cost)
+                                        ? $query->whereIn('cost_center_id', $cost)
+                                        : $query->where('cost_center_id', $cost);
+                                })
+                                ->withwhereHas('voucher', function ($query) use ($startDate, $endDate, $organizations, $location) {
 
-                                $query->when(!empty($organizations), function ($query) use ($organizations) {
-                                    $query->whereIn('organization_id', $organizations);
-                                });
-                                $query->when(!empty($location), function ($query) use ($location) {
-                                    $query->where('location', $location);
-                                });
+                                    $query->when(!empty($organizations), function ($query) use ($organizations) {
+                                        $query->whereIn('organization_id', $organizations);
+                                    });
+                                    $query->when(!empty($location), function ($query) use ($location) {
+                                        $query->where('location', $location);
+                                    });
 
-                                $query->whereIn('approvalStatus', ConstantHelper::DOCUMENT_STATUS_APPROVED);
-                                $query->orderBy('document_date', 'asc');
-                                $query->whereBetween('document_date', [$startDate, $endDate]);
-                            });
-                    }
-                ], "debit_amt_{$currency}")
+                                    $query->whereIn('approvalStatus', ConstantHelper::DOCUMENT_STATUS_APPROVED);
+                                    $query->orderBy('document_date', 'asc');
+                                    $query->whereBetween('document_date', [$startDate, $endDate]);
+                                });
+                        }
+                    ], "debit_amt_{$currency}")
                 ->withSum([
                     'details as details_sum_credit_amt' => function ($query) use ($startDate, $endDate, $group_id, $cost, $organizations, $location) {
                         $query->where('ledger_parent_id', $group_id)
@@ -3384,10 +3409,10 @@ class Helper
                         <td>' . $n++ . '</td>
                         <td>
                             ' . ucwords(str_replace(
-                        ['loan', 'Doc', 'Fee'],
-                        ['Loan', 'Document', 'Fee'],
-                        preg_replace('/(?<!^)([A-Z])/', ' $1', $column)
-                    )) . '
+                            ['loan', 'Doc', 'Fee'],
+                            ['Loan', 'Document', 'Fee'],
+                            preg_replace('/(?<!^)([A-Z])/', ' $1', $column)
+                        )) . '
                         </td>
                         <td>
                             <a target="_blank" href="' . asset('storage/' . $data->$column->doc) . '">
@@ -4143,7 +4168,7 @@ class Helper
                 $existingGroups[] = $partyGroups->id;
 
 
-                if (!in_array((int)$group_id, $existingGroups))
+                if (!in_array((int) $group_id, $existingGroups))
                     return [
                         'success' => false,
                         'message' => 'Group ID not mapped with ' . $group,
@@ -4185,7 +4210,7 @@ class Helper
                 $validatedData['created_by'] = self::getAuthenticatedUser()->id;
                 $validatedData['code'] = $code;
                 $validatedData['name'] = $name;
-                $validatedData['ledger_group_id'] = json_encode([(string)$group_id]);
+                $validatedData['ledger_group_id'] = json_encode([(string) $group_id]);
                 $validatedData['status'] = 1;
                 $validatedData['document_status'] = ConstantHelper::APPROVAL_NOT_REQUIRED;
 
@@ -4407,7 +4432,7 @@ class Helper
 
         while (
             FixedAssetRegistration::where('asset_code', $finalItemCode)
-            ->exists()
+                ->exists()
         ) {
             $nextSuffix = str_pad(intval($nextSuffix) + 1, 3, '0', STR_PAD_LEFT);
             $finalItemCode = $baseCode . $nextSuffix;
@@ -4627,9 +4652,9 @@ class Helper
                                 'last_dep_date' => $capitalize_date,
                                 'vendor_id' => $mrn->vendor_id,
                                 'currency_id' => $mrn->vendor?->currency_id,
-                                'sub_total' =>  $mrn_detail->basic_value,
+                                'sub_total' => $mrn_detail->basic_value,
                                 'tax' => $mrn_detail->tax_value,
-                                'purchase_amount' =>  $mrn_detail->basic_value + $mrn_detail->tax_value,
+                                'purchase_amount' => $mrn_detail->basic_value + $mrn_detail->tax_value,
                                 'supplier_invoice_date' => $mrn->supplier_invoice_date,
                                 'book_date' => $mrn_detail->created_at ?? null,
                                 'supplier_invoice_no' => $mrn->supplier_invoice_no,

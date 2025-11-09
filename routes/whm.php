@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\WHM\JobScriptController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -144,6 +145,10 @@ Route::group(['middleware' => ['sso-api', 'apiresponse']], function () {
         Route::get('actions', 'getQcAction')->name('repair-qc.actions');
         Route::post('close-job',  'closeRepairQcJob')->name('repair-qc.close-job');
 
+    });
+
+    Route::controller(JobScriptController::class)->group(function () {
+        Route::post('create-job', 'createJob')->name('whm.create-job');
     });
      
 });

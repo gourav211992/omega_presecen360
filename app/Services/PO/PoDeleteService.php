@@ -3,6 +3,7 @@
 namespace App\Services\PO;
 
 use App\Models\PoItem;
+use App\Helpers\Helper;
 use App\Models\PiPoMapping;
 use App\Models\PurchaseOrder;
 use App\Models\PoItemDelivery;
@@ -44,15 +45,89 @@ class PoDeleteService
             $po->terms()->delete();
             $po->po_items_attribute()->delete();
             $po->po_items_delivery()->delete();
-            $po->media()->delete();
             \DB::afterCommit(function () use ($po) {
                 $po->media()->each(fn($m) => Storage::delete($m->file_name));
+                $po->media()->delete();
             });
             $po->delete();
         } catch (\Throwable $e) {
             return SELF::errorResponse("Error deleting PO header: " . $e->getMessage());
         }
         return SELF::successResponse("PO deleted successfully.");
+    }
+
+    /**
+     * Cancel entire purchase order header with dependencies
+     */
+    public function cancelPoHeader($po, $remark = '')
+    {
+        if (empty($po)) {
+            return SELF::errorResponse("No PO header found to delete.");
+        }
+
+        try {
+
+            $revisionData = [
+                ['model_type' => 'header', 'model_name' => 'PurchaseOrder', 'relation_column' => ''],
+                ['model_type' => 'detail', 'model_name' => 'PoItem', 'relation_column' => 'purchase_order_id'],
+                ['model_type' => 'detail', 'model_name' => 'PoTerm', 'relation_column' => 'purchase_order_id'],
+                ['model_type' => 'sub_detail', 'model_name' => 'PoItemAttribute', 'relation_column' => 'po_item_id'],
+                ['model_type' => 'sub_detail', 'model_name' => 'PoItemDelivery', 'relation_column' => 'po_item_id'],
+                ['model_type' => 'sub_detail', 'model_name' => 'PurchaseOrderTed', 'relation_column' => 'po_item_id']
+            ];
+
+            if (!Helper::documentAmendment($revisionData, $po->id)) {
+                DB::rollBack();
+                return SELF::errorResponse("Error occured during document revision.");
+            }
+
+
+            foreach ($po->po_items as $item) {
+                $validation = SELF::preValidatePoItemDependencies($item);
+                if ($validation['status'] == 'error') {
+                    return $validation;
+                }
+            }
+
+            foreach ($po->po_items as $item) {
+                SELF::deleteSinglePoItem($item);
+            }
+
+            $po->po_ted()->delete();
+            $po->addresses()->delete();
+            $po->dynamic_fields()->delete();
+            $po->terms()->delete();
+            $po->po_items_attribute()->delete();
+            $po->po_items_delivery()->delete();
+            \DB::afterCommit(function () use ($po) {
+                $po->media()->each(fn($m) => Storage::delete($m->file_name));
+                $po->media()->delete();
+            });
+
+            $bookId = $po->book_id;
+            $docId = $po->document_id ?? $po->id;
+            $revision = (int) $po->revision_number + 1;
+            $currentLevel = (int) $po->approval_level;
+
+            if (class_exists(Helper::class) && method_exists(Helper::class, 'approveDocument')) {
+                Helper::approveDocument($bookId, $docId, $revision, $remark, [], $currentLevel, 'cancel', $po->total_amount, get_class($po));
+            }
+
+            $po->total_expense_value = 0;
+            $po->total_tax_value = 0;
+            $po->total_discount_value = 0;
+            $po->total_item_value = 0;
+            $po->revision_number = $revision;
+
+            $po->revision_date = now();
+            $po->remarks = $remark;
+            $po->document_status = ConstantHelper::CANCELLED;
+            $po->save();
+
+            return SELF::successResponse("Po header and all dependencies deleted successfully.");
+        } catch (\Exception $e) {
+            return SELF::errorResponse("Error deleting Po header: " . $e->getMessage()  . " \n Trace:" . $e->getTraceAsString());
+        }
     }
 
     public function deletePoItems(array $ids): array

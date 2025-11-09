@@ -26,6 +26,16 @@ class VendorLocationHistory extends Model
 
     public function store()
     {
-        return $this -> belongsTo(ErpStore::class, 'store_id');
+        return $this -> belongsTo(ErpStore::class, 'location_id');
+    }
+
+    public function organization()
+    {
+        return $this -> belongsTo(Organization::class, 'organization_id');
+    }
+
+    public function sub_store()
+    {
+        return $this -> belongsTo(ErpSubStore::class, 'store_id');
     }
 }

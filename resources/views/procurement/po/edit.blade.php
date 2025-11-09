@@ -9,7 +9,7 @@
     </style>
 @endsection
 @section('content')
-    <form id="poEditForm" data-module="po" class="ajax-input-form" action="{{ route('po.update', ['type' => request()->route('type'), 'id' => $po->id]) }}" method="POST" data-redirect="/{{ request()->route('type') }}" enctype="multipart/form-data">
+    <form id="poEditForm" data-module="po" class="ajax-input-form" action="{{ route('po.update', ['type' => request()->route('type'), 'id' => $po->id]) }}" method="POST" data-redirect="{{ route('po.index', ['type' => request()->route('type')]) }}" enctype="multipart/form-data">
         @csrf
         @php
             $pi_item_ids = $po->pi_item_mappings()->pluck('pi_item_id')->implode(',');
@@ -80,13 +80,36 @@
                                     <button id = "revokeButton" type="button" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
                                         Revoke</button>
                                 @endif
-                                @if ($buttons['delete'])
+
+                                @if ($po->document_status == 'draft' || $po->document_status == 'rejected')
+                                    @if ($buttons['cancel'])
+                                        @php $cancelButtonSet = true; @endphp
+                                        <button type="button" id="cancelButton" class="btn btn-danger btn-sm mb-50 mb-sm-0 cancell-btn" data-url="{{ route('po.cancel', ['type' => request()->route('type'), 'id' => $po->id]) }}"
+                                                data-redirect="{{ route('po.index', ['type' => request()->route('type')]) }}" data-message="Are you sure you want to cancel document?">
+                                            <i data-feather="trash-2" class="me-50"></i> Cancel
+                                        </button>
+                                    @endif
+                                @endif
+                                @if ($buttons['cancel'] && !isset($cancelButtonSet) && (isset($cancelAmendButtonSet) && $cancelAmendButtonSet))
+                                    <button type="button" id="cancelButton" class="btn btn-danger btn-sm mb-50 mb-sm-0 cancell-btn" data-url="{{ route('po.cancel', ['type' => request()->route('type'), 'id' => $po->id]) }}"
+                                            data-redirect="{{ route('po.index', ['type' => request()->route('type')]) }}" data-message="Are you sure you want to cancel document?">
+                                        <i data-feather="trash-2" class="me-50"></i> Cancel
+                                    </button>
+                                @endif
+                                @if ($buttons['cancel'] && !isset($cancelButtonSet) && !isset($cancelAmendButtonSet))
+                                    @php $cancelAmendButtonSet = true; @endphp
+                                    <button type="button" id="cancelButton" class="btn btn-danger btn-sm mb-50 mb-sm-0 cancell-btn" data-url="{{ route('po.cancel', ['type' => request()->route('type'), 'id' => $po->id]) }}"
+                                            data-redirect="{{ route('po.index', ['type' => request()->route('type')]) }}" data-message="Are you sure you want to cancel document?">
+                                        <i data-feather="trash-2" class="me-50"></i> Cancel
+                                    </button>
+                                @endif
+                                {{-- @if ($buttons['delete'])
                                     <button type="button" id="deleteButton" class="btn btn-danger btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light delete-btn"
                                             data-url="{{ route('po.destroy', ['type' => request()->route('type'), 'id' => $po->id, 'isAmedment' => $buttons['amend'] ? $buttons['amend'] : 0]) }}" data-redirect="{{ route('po.index', ['type' => request()->route('type')]) }}"
                                             data-message="Are you sure you want to delete entire document?">
                                         <i data-feather="trash-2" class="me-50"></i> Delete
                                     </button>
-                                @endif
+                                @endif --}}
 
                             </div>
                         </div>
@@ -295,7 +318,7 @@
                                                                         <a href="javascript:;" class="float-end font-small-2 editAddressBtn d-none {{ $po->po_items->count() ? 'd-none' : '' }}" data-type="vendor_address"><i data-feather='edit-3'></i> Edit</a>
                                                                     </label>
                                                                     <div class="mrnaddedd-prim vendor_address">
-                                                                        {{ $po->latestShippingAddress()->display_address }}
+                                                                        {{ $po->latestShippingAddress()?->display_address }}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -944,15 +967,15 @@
     {{-- Purchase Model --}}
     @include('procurement.po.partials.pr-modal')
     @include('procurement.po.partials.short-close-modal')
-
 @endsection
 @section('scripts')
     <script type="text/javascript">
-        let type = '{{ request()->route('type') }}';
-        let taxCalUrl = '{{ route('tax.group.calculate') }}';
-        let actionUrlTax = '{{ route('po.tax.calculation', ['type' => ':type']) }}'.replace(':type', type);
-        var getLocationUrl = '{{ route('store.get') }}';
-        var getAddressOnVendorChangeUrl = "{{ route('po.get.address', ['type' => ':type']) }}".replace(':type', type);
+        const type = '{{ request()->route('type') }}';
+        const taxCalUrl = '{{ route('tax.group.calculate') }}';
+        const getLocationUrl = '{{ route('store.get') }}';
+        const actionUrlTax = '{{ route('po.tax.calculation', ['type' => ':type']) }}'.replace(':type', type);
+        const itemDetailUrl = '{{ route('po.get.itemdetail', ['type' => ':type']) }}'.replace(':type', type);
+        const getAddressOnVendorChangeUrl = "{{ route('po.get.address', ['type' => ':type']) }}".replace(':type', type);
     </script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-attr-ui.js') }}"></script>
@@ -1439,7 +1462,7 @@
                     lastTrObj.attr_require = false;
                 }
             }
-            let type = '{{ request()->route('type') }}';
+
             let actionUrl = '{{ route('po.item.row', ['type' => ':type']) }}'
                 .replace(':type', type) +
                 '?count=' + rowsLength +
@@ -1652,7 +1675,7 @@
             if ($(tr).find('[name*="po_item_id"]').length) {
                 poItemId = Number($(tr).find('[name*="po_item_id"]').val()) || 0;
             }
-            let type = '{{ request()->route('type') }}';
+
             let actionUrl = '{{ route('po.item.attr', ['type' => ':type']) }}'
                 .replace(':type', type) +
                 `?item_id=${itemId}&rowCount=${rowCount}&selectedAttr=${selectedAttr}&isPi=${isPi}`;
@@ -1745,7 +1768,7 @@
             let addressType = $("#address_type").val();
             let addressId = selectedValue
 
-            let type = '{{ request()->route('type') }}';
+
             let actionUrl = `{{ route('po.edit.address', ['type' => ':type']) }}`
                 .replace(':type', type) +
                 `?type=${addressType}&vendor_id=${vendorId}&address_id=${addressId}`;
@@ -1828,56 +1851,6 @@
             $("#pincode").val(selectedAddress.pincode);
             $("#address").val(selectedAddress.address);
         }
-
-        /*Display item detail*/
-        $(document).on('input change focus', '#itemTable tr input', (e) => {
-            let currentTr = e.target.closest('tr');
-            let rowCount = $(currentTr).attr('data-index');
-            let pName = $(currentTr).find("[name*='component_item_name']").val();
-            let itemId = $(currentTr).find("[name*='[item_id]']").val();
-            let po_item_id = $(currentTr).find("[name*='[po_item_id]']").val();
-            let remark = '';
-            if ($(currentTr).find("[name*='remark']")) {
-                remark = $(currentTr).find("[name*='remark']").val() || '';
-            }
-            if (itemId) {
-                let selectedAttr = [];
-                $(currentTr).find("[name*='attr_name']").each(function(index, item) {
-                    if ($(item).val()) {
-                        selectedAttr.push($(item).val());
-                    }
-                });
-
-                let selectedDelivery = {
-                    delivery: []
-                };
-                $(currentTr).find("[name*='delivery'][name*='[d_qty]']").each(function(index, item) {
-                    let $td = $(item).closest('td');
-                    let dQty = $(item).val();
-                    let dDate = $td.find('[name*="[d_date]"]').val();
-
-                    selectedDelivery.delivery.push({
-                        dDate: dDate,
-                        dQty: dQty
-                    });
-                });
-
-                let uomId = $(currentTr).find("[name*='[uom_id]']").val() || '';
-                let qty = $(currentTr).find("[name*='[qty]']").val() || '';
-                let type = '{{ request()->route('type') }}';
-                let actionUrl = '{{ route('po.get.itemdetail', ['type' => ':type']) }}'
-                    .replace(':type', type) +
-                    `?item_id=${itemId}&selectedAttr=${encodeURIComponent(JSON.stringify(selectedAttr))}&remark=${remark}&uom_id=${uomId}&qty=${qty}&delivery=${encodeURIComponent(JSON.stringify(selectedDelivery))}&po_item_id=${po_item_id}`;
-                fetch(actionUrl).then(response => {
-                    return response.json().then(data => {
-                        if (data.status == 200) {
-                            selectedDelivery = [];
-                            $("#itemDetailDisplay").html(data.data.html);
-                        }
-                    });
-                });
-            }
-        });
 
         /* Address Submit */
         $(document).on('click', '.submitAddress', function(e) {
@@ -2006,19 +1979,6 @@
                 }
 
             }
-        });
-
-        /*Amendment modal open*/
-        $(document).on('click', '.amendmentBtn', (e) => {
-            $("#amendmentconfirm").modal('show');
-        });
-
-        $(document).on('click', '#amendmentSubmit', (e) => {
-            let url = new URL(window.location.href);
-            url.search = '';
-            url.searchParams.set('amendment', 1);
-            let amendmentUrl = url.toString();
-            window.location.replace(amendmentUrl);
         });
 
         /*submit attribute*/
@@ -2183,6 +2143,13 @@
                         searchable: false
                     },
                     {
+                        data: 'vendor_select',
+                        name: 'vendor_select',
+                        render: renderData,
+                        orderable: true,
+                        searchable: true
+                    },
+                    {
                         data: 'item_code',
                         name: 'item_code',
                         render: renderData,
@@ -2239,13 +2206,6 @@
                         createdCell: function(td, cellData, rowData, row, col) {
                             $(td).addClass('text-end');
                         }
-                    },
-                    {
-                        data: 'vendor_select',
-                        name: 'vendor_select',
-                        render: renderData,
-                        orderable: true,
-                        searchable: true
                     },
                     {
                         data: 'so_no',
@@ -2679,7 +2639,7 @@
 
             ids = JSON.stringify(ids);
             let current_row_count = $("#itemTable tbody tr[id*='row_']").length;
-            let type = '{{ request()->route('type') }}'; // Dynamically fetch the `type` from the current route
+            // Dynamically fetch the `type` from the current route
             let actionUrl = '{{ route('po.process.pi-item', ['type' => ':type']) }}'
                 .replace(':type', type) +
                 '?ids=' + encodeURIComponent(ids) +
@@ -3207,7 +3167,7 @@
 
         // Revoke Document
         $(document).on('click', '#revokeButton', (e) => {
-            let type = '{{ request()->route('type') }}';
+
             let actionUrl = '{{ route('po.revoke.document', ['type' => ':type']) }}'
                 .replace(':type', type) + '?id=' + '{{ $po->id }}';
             fetch(actionUrl).then(response => {
@@ -3321,7 +3281,7 @@
             for (let i = 0; i < files.length; i++) {
                 formData.append('amend_attachment[]', files[i]);
             }
-            let type = '{{ request()->route('type') }}';
+
             $.ajax({
                 url: '{{ route('po.short.close.submit', ['type' => ':type']) }}'.replace(':type', type),
                 type: 'POST',

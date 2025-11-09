@@ -340,7 +340,7 @@ class ErpTripPlanController extends Controller
                 'vendors' => $vendors,
                 'stations' => $stations,
                 'transportationModes' => $transportationModes,
-                'maxFileCount' => isset($order -> mediaFiles) ? (10 - count($doc -> media_files)) : 10,
+                'maxFileCount' => isset($doc -> mediaFiles) ? (10 - count($doc -> media_files)) : 10,
                 'services' => $servicesBooks['services'],
                 'departments' => $departments['departments'],
                 'selectedDepartmentId' => $doc ?-> department_id,
@@ -413,7 +413,7 @@ class ErpTripPlanController extends Controller
                     ], 422);
                 }
             }
-
+            
             // Resolve stores/substores & config
             $store = ErpStore::find($request->store_id ?? null);
             $mainSubStore = ErpSubStore::find($request->main_sub_store_id ?? null);

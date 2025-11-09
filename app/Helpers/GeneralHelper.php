@@ -192,4 +192,18 @@ class GeneralHelper
         $date = $date ? date('d-m-Y', strtotime($date)) : '';
         return $date;
     }
+
+    public static function generateLockKey($organizationId, $bookId, $documentNumber)
+    {
+        if (!$organizationId || !$bookId || !$documentNumber)
+            return null;
+        return "org_{$organizationId}_book_{$bookId}_doc_{$documentNumber}";
+    }
+
+    public static function generateItemLockKey($organizationId, $refDetailId, $type)
+    {
+        if (!$organizationId || !$refDetailId || !$type)
+            return null;
+        return "module_{$type}_org_{$organizationId}_key_{$refDetailId}";
+    }
 }

@@ -45,6 +45,7 @@ use App\Services\PwoDeleteService;
 use Yajra\DataTables\DataTables;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf; 
+use App\Services\Common\DocumentLockService;
 use Exception;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -174,7 +175,7 @@ class PWOController extends Controller
      }
  
      #Bill of material store
-     public function store(PwoRequest $request)
+     public function store(PwoRequest $request, DocumentLockService $lockService)
      {
          DB::beginTransaction();
          try {
@@ -449,6 +450,24 @@ class PWOController extends Controller
                  $mediaFiles = $mo->uploadDocuments($request->file('attachment'), 'pwo', false);
              }
              $mo->save();
+            // Define a unique lock key for this document number
+            $lockKey = "org_{$organization->id}_book_{$request->book_id}_doc_{$document_number}";
+
+            // Run insertion safely under lock
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+
+            // Check if the lock was successful
+            if (!$lockResult['success']) {
+                // If the lock wasn't successful, roll back the transaction
+                DB::rollBack();
+                
+                // Return the response with the error message and status from the lock service
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
+            }
+            
              DB::commit();
  
              return response()->json([

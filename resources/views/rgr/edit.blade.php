@@ -17,10 +17,10 @@
                             'menu' => 'Home',
                             'menu_url' => url('home'),
                             'sub_menu' => 'Edit'
-                            ])
+                        ])
                         <div class="content-header-right text-sm-end col-md-6 mb-50 mb-sm-0">
                             <div class="form-group breadcrumb-right">
-                                <input type="hidden" id="documentStatus" name="document_status" value="{{ $rgr->documentStatus ?? '' }}">
+                                <input type="hidden" name="document_status" id="document_status">
                                 <button onClick="javascript: history.go(-1)" class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i> Back</button>
                                 @if($buttons['draft'])
                                     <button type="submit" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0 submit-button" name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
@@ -292,11 +292,7 @@
                                                             <span class="text-primary small">{{ __("message.attachment_caption") }}</span>
                                                         </div>
                                                     </div>
-                                                    <div class="col-md-6" style="margin-top:19px;">
-                                                        <div class="row" id="main_rgr_file_preview">
-                                                            @include('partials.document-preview',['documents' => $rgr->getDocuments(), 'document_status' => $rgr->document_status,'elementKey' => 'main_rgr_file_preview'])
-                                                        </div>
-                                                    </div>
+                                                     @include('partials.document-preview',['documents' => $rgr->getDocuments(), 'document_status' => $rgr->document_status,'elementKey' => 'main_rgr_file_preview'])
                                                 </div>
                                             </div>
 
@@ -305,7 +301,7 @@
                                                 <div class="mb-1">
                                                     <label class="form-label">Final Remark</label>
                                                     <textarea maxlength="250" name="final_remark" rows="4" class="form-control"
-                                                            placeholder="Enter Remarks here...">{{ $rgr->final_remark }}</textarea>
+                                                      placeholder="Enter Remarks here...">{{ $rgr->final_remark }}</textarea>
                                                 </div>
                                             </div>
                                         </div>

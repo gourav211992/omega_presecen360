@@ -36,8 +36,7 @@
     </style>
 @endsection
 @section('content')
-    <form id="expAlcEditForm" class="ajax-input-form">
-        @csrf
+    <form id="expAlcEditForm" class="ajax-input-form" enctype="multipart/form-data">
         <div class="app-content content ">
             <div class="content-overlay"></div>
             <div class="header-navbar-shadow"></div>
@@ -103,10 +102,10 @@
                                                                 class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="hidden" name="book_id" class="form-control"
+                                                        <input type="hidden" name="book_id" class="form-control book_id"
                                                             id="book_id" value="{{ $expense->book_id }}" readonly>
                                                         <input readonly type="text" class="form-control"
-                                                            value="{{ $expense->book->book_code }}" id="book_code">
+                                                            value="{{ $expense?->book_code }}" id="book_code">
                                                     </div>
                                                 </div>
                                                 <div class="row align-items-center mb-1">
@@ -115,7 +114,7 @@
                                                                 class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="text" class="form-control" readonly
+                                                        <input type="text" class="form-control document_number" readonly
                                                             value="{{ @$expense->document_number }}" id="document_number">
                                                     </div>
                                                 </div>
@@ -125,7 +124,8 @@
                                                                 class="text-danger">*</span></label>
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <input type="date" name="document_date" class="form-control"
+                                                        <input type="date" name="document_date"
+                                                            class="form-control document_date"
                                                             value="{{ @$expense->document_date }}">
                                                     </div>
                                                 </div>
@@ -148,24 +148,12 @@
                                                         </select>
                                                     </div>
                                                 </div>
-                                                @if ($expense->document_status == 'draft' || $expense->document_status == 'rejected')
-                                                    <div class="row align-items-center mb-1 reference_from d-none"
-                                                        id="reference_from">
-                                                        <div class="col-md-3">
-                                                            <label class="form-label">
-                                                                Reference From
-                                                            </label>
-                                                        </div>
-                                                        <div class="col-md-5 action-button">
-                                                            <button type="button"
-                                                                class="btn btn-outline-primary btn-sm mb-0 poSelect">
-                                                                <i data-feather="plus-square"></i>
-                                                                Outstanding PO
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                @endif
                                             </div>
+                                            {{-- Approval History Section --}}
+                                            @include('partials.approval-history', [
+                                                'document_status' => $expense->document_status,
+                                                'revision_number' => $revision_number,
+                                            ])
                                         </div>
                                     </div>
                                 </div>
@@ -196,29 +184,11 @@
                                         </div>
                                         <div class="tab-content pb-1">
                                             <div class="tab-pane active poItems" id="poItems">
-                                                <div class="text-end mb-50">
-                                                    <a href="javascript:;" id="distributeBtn"
-                                                        class="btn btn-sm btn-outline-success me-50 distributeBtn">
-                                                        <i data-feather="package"></i>
-                                                        Allocate
-                                                    </a>
-                                                    <a href="javascript:;" id="delete-po-items"
-                                                        class="btn btn-sm btn-outline-danger me-50 delete-po-items">
-                                                        <i data-feather="x-circle"></i>
-                                                        Delete
-                                                    </a>
-                                                    <a href="javascript:;" id="addNewItemBtn"
-                                                        class="btn btn-sm btn-outline-primary addNewItemBtn">
-                                                        <i data-feather="plus"></i>
-                                                        Add Item
-                                                    </a>
-                                                </div>
                                                 <div class="row">
                                                     <div class="col-md-12">
                                                         <div class="table-responsive pomrnheadtffotsticky">
                                                             <table id="poItemsTable"
                                                                 class="ItemsTable poItemsTable table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad"
-                                                                data-json-key="components_json"
                                                                 data-row-selector="tr[id^='row_']">
                                                                 <thead id="poItemsThead" class="poItemsThead">
                                                                     <tr>
@@ -236,11 +206,11 @@
                                                                         <th width="225">Item Name</th>
                                                                         <th>UOM</th>
                                                                         <th>Currency</th>
-                                                                        <th>Org Currency</th>
                                                                         <th class="text-end">Qty</th>
                                                                         <th class="text-end">Rate</th>
+                                                                        <th class="text-end">
+                                                                            Value({{ $currency?->short_name }})</th>
                                                                         <th class="text-end">Po Value</th>
-                                                                        <th class="text-end">Value</th>
                                                                         <th>Allocation Type</th>
                                                                         <th width="225">Vendor</th>
                                                                         <th width="150">Po No.</th>
@@ -253,7 +223,7 @@
                                                                 </tbody>
                                                                 <tfoot>
                                                                     <tr class="totalsubheadpodetail">
-                                                                        <td colspan="6"></td>
+                                                                        <td colspan="5"></td>
                                                                         <td class="text-end total-po-qty"
                                                                             id="total-po-qty">
                                                                             {{ @$expense->poDetails->sum('receipt_qty') }}
@@ -270,7 +240,7 @@
                                                                         <td colspan="4"></td>
                                                                     </tr>
                                                                     <tr valign="top">
-                                                                        <td colspan="14" rowspan="12">
+                                                                        <td colspan="13" rowspan="12">
                                                                             <table
                                                                                 class="table border po-item-detail-display"
                                                                                 id="po-item-detail-display">
@@ -293,16 +263,6 @@
                                             </div>
                                             {{-- GRN Items --}}
                                             <div class="tab-pane grnItems" id="grnItems">
-                                                <div class="text-end mb-50">
-                                                    <a href="javascript:;" id="delete-grn-items"
-                                                        class="btn btn-sm btn-outline-danger me-50 delete-grn-items">
-                                                        <i data-feather="x-circle"></i> Delete</a>
-                                                    <a href="javascript:;"
-                                                        class="btn btn-outline-primary btn-sm mb-0 grnSelect">
-                                                        <i data-feather="plus-square"></i>
-                                                        Add GRN
-                                                    </a>
-                                                </div>
                                                 <div class="table-responsive pomrnheadtffotsticky">
                                                     <table id="grnItemsTable"
                                                         class="ItemsTable grnItemsTable table myrequesttablecbox table-striped po-order-detail custnewpo-detail border newdesignerptable newdesignpomrnpad">
@@ -325,10 +285,10 @@
                                                                 <th>Attributes</th>
                                                                 <th>UOM</th>
                                                                 <th>Currency</th>
-                                                                <th>Org Currency</th>
                                                                 <th class="text-end">Qty</th>
+                                                                <th class="text-end">Value({{ $currency?->short_name }})
+                                                                </th>
                                                                 <th class="text-end">Grn Value</th>
-                                                                <th class="text-end">Value</th>
                                                                 <th class="text-end">Weight</th>
                                                                 <th class="text-end">Volume(CFT)</th>
                                                                 <th width="200">Allocated Expense</th>
@@ -341,7 +301,7 @@
                                                         </tbody>
                                                         <tfoot>
                                                             <tr class="totalsubheadgrndetail">
-                                                                <td colspan="10"></td>
+                                                                <td colspan="9"></td>
                                                                 <td class="text-end total-grn-qty" id="total-grn-qty">
                                                                     {{ @$expense->grnDetails->sum('receipt_qty') }}
                                                                 </td>
@@ -370,7 +330,7 @@
                                                                 </td>
                                                             </tr>
                                                             <tr valign="top">
-                                                                <td colspan="17" rowspan="12">
+                                                                <td colspan="16" rowspan="12">
                                                                     <table class="table border grn-item-detail-display"
                                                                         id="grn-item-detail-display">
                                                                         <tr>
@@ -391,15 +351,6 @@
                                         </div>
                                         <div class="row mt-2">
                                             <div class="col-md-12">
-                                                <div class="col-md-4">
-                                                    <div class="mb-1">
-                                                        <label class="form-label">Upload Document</label>
-                                                        <input type="file" name="attachment[]" class="form-control"
-                                                            onchange = "addFiles(this,'main_expense_preview')" multiple>
-                                                        <span
-                                                            class = "text-primary small">{{ __('message.attachment_caption') }}</span>
-                                                    </div>
-                                                </div>
                                                 @include('partials.document-preview', [
                                                     'documents' => $expense->getDocuments(),
                                                     'document_status' => $expense->document_status,
@@ -421,12 +372,6 @@
                 </div>
             </div>
         </div>
-        {{-- Add Outstanding PO modal --}}
-        @include('procurement.expense-allocation.partials.outstanding-po-modal')
-        {{-- Add Outstanding GRN modal --}}
-        @include('procurement.expense-allocation.partials.outstanding-grn-modal')
-        {{-- Add Amendment modal --}}
-        @include('procurement.expense-allocation.partials.amendement-modal', ['id' => $expense->id])
     </form>
     {{-- Attribute popup --}}
     <div class="modal fade" id="attribute" tabindex="-1" aria-labelledby="shareProjectTitle" aria-hidden="true">
@@ -459,8 +404,6 @@
             </div>
         </div>
     </div>
-    <!-- Approve/Reject Modal -->
-    @include('procurement.expense-allocation.partials.approve-modal', ['id' => $expense->id])
     <!-- GL Posting Modal -->
     <div class="modal fade text-start show" id="postvoucher" tabindex="-1" aria-labelledby="postVoucherModal"
         aria-modal="true" role="dialog">
@@ -519,10 +462,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="text-end">
-                    <button style="margin: 1%;" onclick = "postVoucher(this);" id="posting_button" type = "button"
-                        class="btn btn-primary btn-sm waves-effect waves-float waves-light">Submit</button>
-                </div>
+                <div class="text-end"></div>
             </div>
         </div>
     </div>
@@ -536,6 +476,7 @@
         let processGrnUrl = '{{ route('exp-allocation.process.grn-item') }}';
         let getPoUrl = '{{ route('exp-allocation.get.po') }}';
         let getGrnUrl = '{{ route('exp-allocation.get.grn') }}';
+        let addItemRowUrl = '{{ route('exp-allocation.item.row') }}';
     </script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-datatable.js') }}"></script>
     <script type="text/javascript" src="{{ asset('assets/js/modules/common-attr-ui.js') }}"></script>
@@ -544,13 +485,13 @@
     <script type="text/javascript" src="{{ asset('assets/js/modules/dist-expense-alc.js') }}"></script>
     <script type="text/javascript" src="{{ asset('app-assets/js/file-uploader.js') }}"></script>
     <script>
-        const selectedCostCenterId = "";
-        let currentProcessType = null;
         let tableRowCount = 0;
-        let po_header_ids = @json($poHeaderIds);
-        let grn_header_ids = @json($grnHeaderIds);
-        let po_details_ids = @json($poDetailsIds);
-        let grn_details_ids = @json($grnDetailsIds);
+        selectedCostCenterId = "";
+        currentProcessType = null;
+        po_header_ids = @json($poHeaderIds);
+        grn_header_ids = @json($grnHeaderIds);
+        po_details_ids = @json($poDetailsIds);
+        grn_details_ids = @json($grnDetailsIds);
         @if ($buttons['amend'] && intval(request('amendment') ?? 0))
         @else
             @if ($expense->document_status != 'draft' && $expense->document_status != 'rejected')
@@ -592,103 +533,6 @@
             localStorage.removeItem("selectedMrnIds");
             currentProcessType = null;
         };
-
-        function initializeAutocomplete2(selector, type) {
-            $(selector).autocomplete({
-                source: function(request, response) {
-                    let selectedAllItemIds = [];
-                    $("#itemTable tbody [id*='row_']").each(function(index, item) {
-                        if (Number($(item).find('[name*="item_id"]').val())) {
-                            selectedAllItemIds.push(Number($(item).find('[name*="item_id"]').val()));
-                        }
-                    });
-                    $.ajax({
-                        url: '/search',
-                        method: 'GET',
-                        dataType: 'json',
-                        data: {
-                            q: request.term,
-                            type: 'service_item_list',
-                            selectedAllItemIds: JSON.stringify(selectedAllItemIds)
-                        },
-                        success: function(data) {
-                            response($.map(data, function(item) {
-                                return {
-                                    id: item.id,
-                                    label: `${item.item_name} (${item.item_code})`,
-                                    code: item.item_code || '',
-                                    item_id: item.id,
-                                    item_name: item.item_name,
-                                    uom_name: item.uom?.name,
-                                    uom_id: item.uom_id,
-                                    hsn_id: item.hsn?.id,
-                                    hsn_code: item.hsn?.code,
-                                    alternate_u_o_ms: item.alternate_u_o_ms,
-                                };
-                            }));
-                        },
-                        error: function(xhr) {
-                            console.error('Error fetching customer data:', xhr.responseText);
-                        }
-                    });
-                },
-                minLength: 0,
-                select: function(event, ui) {
-                    let $input = $(this);
-                    let itemCode = ui.item.code;
-                    let itemName = ui.item.value;
-                    let itemN = ui.item.item_name;
-                    let itemId = ui.item.item_id;
-                    let uomId = ui.item.uom_id;
-                    let uomName = ui.item.uom_name;
-                    let hsnId = ui.item.hsn_id;
-                    let hsnCode = ui.item.hsn_code;
-                    $input.attr('data-name', itemName);
-                    $input.attr('data-code', itemCode);
-                    $input.attr('data-id', itemId);
-                    let closestTr = $input.closest('tr');
-                    closestTr.find('[name*=item_id]').val(itemId);
-                    closestTr.find('[name*=item_code]').val(itemCode);
-                    closestTr.find('[name*=item_name]').val(itemN);
-                    closestTr.find('[name*=hsn_id]').val(hsnId);
-                    closestTr.find('[name*=hsn_code]').val(hsnCode);
-                    closestTr.find("td[id*='itemAttribute_']").html(defautAttrBtn);
-                    $input.val(itemCode);
-                    let uomOption = `<option value=${uomId}>${uomName}</option>`;
-                    if (ui.item?.alternate_u_o_ms) {
-                        for (let alterItem of ui.item.alternate_u_o_ms) {
-                            uomOption +=
-                                `<option value="${alterItem.uom_id}" ${alterItem.is_purchasing ? 'selected' : ''}>${alterItem.uom?.name}</option>`;
-                        }
-                    }
-                    closestTr.find('[name*=uom_id]').append(uomOption);
-                    closestTr.find('.attributeBtn').trigger('click');
-                    setTimeout(() => {
-                        if (ui.item.is_attr) {
-                            $input.closest('tr').find('.attributeBtn').trigger('click');
-                        } else {
-                            $input.closest('tr').find('.attributeBtn').trigger('click');
-                            $input.closest('tr').find('[name*="[order_qty]"]').val('').focus();
-                        }
-                    }, 100);
-                    getItemDetail(closestTr);
-                    getItemCostPrice($input.closest('tr'));
-                    return false;
-                },
-                change: function(event, ui) {
-                    if (!ui.item) {
-                        $(this).val("");
-                        // $('#itemId').val('');
-                        $(this).attr('data-name', '');
-                        $(this).attr('data-code', '');
-                    }
-                }
-            }).focus(function() {
-                if (this.value === "") {
-                    $(this).autocomplete("search", "");
-                }
-            });
-        }
 
         /*Check box check and uncheck*/
         $(document).on('change', '#itemTable > thead .form-check-input', (e) => {
@@ -825,28 +669,5 @@
                 // $('html, body').scrollTop($('.trselected').offset().top - 200);
             }
         });
-
-        /*Get location based on vendor*/
-        function getLocation(locationId = '') {
-            let actionUrl = '{{ route('store.get') }}' + '?location_id=' + locationId;
-            fetch(actionUrl).then(response => {
-                return response.json().then(data => {
-                    if (data.status == 200) {
-                        let options = '';
-                        data.data.locations.forEach(function(location) {
-                            options +=
-                                `<option value="${location.id}">${location.store_code}</option>`;
-                        });
-                        $("[name='header_store_id']").empty().append(options);
-                    } else {
-                        Swal.fire({
-                            title: 'Error!',
-                            text: data.message,
-                            icon: 'error',
-                        });
-                    }
-                });
-            });
-        }
     </script>
 @endsection

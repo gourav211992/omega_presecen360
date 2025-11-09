@@ -87,7 +87,7 @@
                 {{-- <h6 class="m-0 text-left flex-grow-1 text-danger d-none" id="soTrackingText">*SO tracking enabled, only one SO and item pair can be selected.</h6> --}}
                 <button type = "button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal"><i data-feather="x-circle"></i> Cancel</button>
                 <button type = "button" class="btn btn-primary btn-sm soProcess"><i data-feather="check-circle"></i> Process</button>
-                <button type="button" class="btn btn-primary btn-sm analyzeButton"> <i data-feather="check-circle"></i> Analyze</button>
+                {{-- <button type="button" class="btn btn-primary btn-sm analyzeButton"> <i data-feather="check-circle"></i> Analyze</button> --}}
             </div>
         </div>
     </div>

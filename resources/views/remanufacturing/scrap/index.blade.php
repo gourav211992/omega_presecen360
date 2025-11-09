@@ -165,21 +165,26 @@
                 }
             ];
 
-            var filters = {
-                status: '#filter-status', // Status filter (dropdown)
-                category: '#filter-category', // Category filter (dropdown)
-                item_code: '#filter-item-code' // Item code filter (input text field)
+            let filtersComponents = @json($filterArray);
+            let filters = {
+                'date_range': '#document_date_filter'
             };
-            var exportColumns = [0, 1, 2, 3, 4, 5, 6];
-            initializeDataTable('.datatables-basic',
-                "{{ route('scrap.index') }}",
-                columns,
-                filters, // Apply filters
-                'Scrap  ', // Export title
-                exportColumns, // Export columns
-                // [[1, "desc"]] // default order
 
+            filtersComponents.forEach(filter => {
+                filters[filter.requestName] = "#" + (filter.id + "_input");
+            });
+
+            let title = '';
+            title = 'Scrap';
+            var exportColumns = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
+            reportDataTableInstance = initializeDataTable('.datatables-basic',
+                '{{ route('scrap.index') }}',
+                columns,
+                filters,
+                title,
+                exportColumns,
             );
         });
     </script>
+    @include('partials.index-filter', $filterArray)
 @endsection

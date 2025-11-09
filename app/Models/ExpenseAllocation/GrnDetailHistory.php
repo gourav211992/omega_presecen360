@@ -63,7 +63,7 @@ class GrnDetailHistory extends Model
 
     public function header()
     {
-        return $this->belongsTo(Header::class);
+        return $this->belongsTo(HeaderHistory::class);
     }
 
     public function mrnHeader()
@@ -81,14 +81,9 @@ class GrnDetailHistory extends Model
         return $this->belongsTo(Vendor::class);
     }
 
-    public function headerHistory()
-    {
-        return $this->belongsTo(HeaderHistory::class, 'header_history_id');
-    }
-
     public function attributes()
     {
-        return $this->hasMany(GrnAttributeHistory::class, 'grn_detail_id');
+        return $this->hasMany(GrnAttributeHistory::class, 'detail_id');
     }
 
     public function allocations()

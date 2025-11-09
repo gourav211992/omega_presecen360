@@ -16,17 +16,43 @@ class VoucherHistory extends Model
         'voucher_no',
         'voucher_name',
         'book_type_id',
-        'date',
         'book_id',
+        'date',
+        'amount',
         'document',
-        'note',
         'remarks',
+        'approvalLevel',
+        'approvalStatus',
         'group_id',
         'company_id',
         'organization_id',
-        'status',
-        'approvalLevel',
-        'approvalStatus'
+        'voucherable_type',
+        'voucherable_id',
+        'revision_number',
+        'revision_date',
+        'location',
+        'document_date',
+        'doc_number_type',
+        'doc_reset_pattern',
+        'doc_prefix',
+        'doc_suffix',
+        'doc_no',
+        'currency_id',
+        'currency_code',
+        'org_currency_id',
+        'org_currency_code',
+        'org_currency_exg_rate',
+        'comp_currency_id',
+        'comp_currency_code',
+        'comp_currency_exg_rate',
+        'group_currency_id',
+        'group_currency_code',
+        'group_currency_exg_rate',
+        'reference_service',
+        'reference_doc_id',
+        'document_status',
+        'created_by',
+        'approval_level'
     ];
 
 
@@ -42,7 +68,12 @@ class VoucherHistory extends Model
 
     public function items()
     {
-        return $this->hasMany(ItemDetailHistory::class,'voucher_id');
+        return $this->hasMany(ItemDetailHistory::class, 'voucher_id');
+    }
+
+    public function ledger_items()
+    {
+        return $this->hasMany(ItemDetailHistory::class, 'voucher_id')->select('credit_amt AS credit_amount', 'debit_amt AS debit_amount', 'ledger_parent_id', 'ledger_parent_id AS ledger_group_id', 'ledger_id', 'entry_type', 'due_date');
     }
 
     public function approvals()

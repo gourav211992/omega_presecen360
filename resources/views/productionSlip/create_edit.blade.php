@@ -63,12 +63,28 @@
                         <button type = "button" onclick="javascript: history.go(-1)" class="btn btn-secondary btn-sm mb-50 mb-sm-0"><i data-feather="arrow-left-circle"></i> Back</button>
                             @if (isset($slip) && !empty($slip))
                                 @if($buttons['print'])
-                                    <a href="{{ route('production.slip.generate-pdf', $slip->id) }}" target="_blank" class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
+                                    {{-- <a href="{{ route('production.slip.generate-pdf', $slip->id) }}" target="_blank" class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                         stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer"><polyline points="6 9 6 2 18 2 18 9"></polyline>
                                         <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
                                         <rect x="6" y="14" width="12" height="8"></rect></svg> Print
-                                    </a>
+                                    </a> --}}
+                                <button href="#" class="btn btn-dark btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round" class="feather feather-printer">
+                                        <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                                        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                                        <rect x="6" y="14" width="12" height="8"></rect>
+                                    </svg>
+                                    Print
+                                </button>
+                                <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                        <li>
+                                            <a class="dropdown-item" href="{{ route('production.slip.generate-pdf', $slip->id) }}" target="_blank"> Print Pslip </a>
+                                            <a class="dropdown-item" href="{{ route('production.slip.generate-labels', $slip->id) }}" target="_blank"> Print Labels </a>
+                                            <a class="dropdown-item" href="{{ route('production.slip.generate-labels', $slip->id) }}?bundle=true" target="_blank"> Print QR </a>
+                                        </li>
+                                </ul>
                                 @endif
                                 @if($buttons['draft'])
                                     <button type="button" onclick = "submitForm('draft');" name="action" value="draft" class="btn btn-outline-primary btn-sm mb-50 mb-sm-0" id="save-draft-button" name="action" value="draft"><i data-feather='save'></i> Save as Draft</button>
@@ -415,7 +431,7 @@
                                             <div class="col">
                                                 <div class="mb-1">
                                                     <label class="form-label">Expiry Date <span class="text-danger show_required_field_for_batch" style="display: none;">*</span> </label>
-                                                    <input type="date" @if(isset($slip)) value="{{$slip?->expiry_date}}" @endif placeholder="Select" class="form-control mw-100" id="expiry_date" name="expiry_date" />
+                                                    <input type="date" min="{{ date('Y-m-d') }}" @if(isset($slip)) value="{{$slip?->expiry_date}}" @endif placeholder="Select" class="form-control mw-100" id="expiry_date" name="expiry_date" />
                                                 </div>
                                             </div>
                                         </div>
@@ -722,8 +738,8 @@
                                                         <div class = "row">
                                                          <div class="col-md-4">
                                                             <div class="mb-1">
-                                                                <label class="form-label">Upload Document</label>
-                                                                <input type="file" class="form-control" name = "attachments[]" onchange = "addFiles(this,'main_order_file_preview')" max_file_count = "{{isset($maxFileCount) ? $maxFileCount : 10}}" multiple >
+                                                                <label class="form-label">Upload Document  <span class="text-danger">*</span></label>
+                                                                <input type="file" class="form-control" name = "attachments[]" onchange = "addFiles(this,'main_order_file_preview')" max_file_count = "{{isset($maxFileCount) ? $maxFileCount : 10}}" multiple required>
                                                                 <span class = "text-primary small">{{__("message.attachment_caption")}}</span>
                                                             </div>
                                                         </div>
@@ -742,8 +758,8 @@
                                                     </div>
                                                     <div class="col-md-12">
                                                         <div class="mb-1">
-                                                            <label class="form-label">Final Remarks</label>
-                                                            <textarea type="text" rows="4" class="form-control" placeholder="Enter Remarks here..." name = "final_remarks">{{isset($slip) ? $slip -> remarks : '' }}</textarea>
+                                                            <label class="form-label">Final Remarks  <span class="text-danger">*</span></label>
+                                                            <textarea type="text" rows="4" class="form-control" placeholder="Enter Remarks here..." name = "final_remarks" required>{{isset($slip) ? $slip -> remarks : '' }}</textarea>
                                                         </div>
                                                     </div>
 
@@ -1072,7 +1088,7 @@
                 <div class="modal-header">
                     <div>
                     <h4 class="modal-title fw-bolder text-dark namefont-sizenewmodal" id="myModalLabel17">Amend
-                    Invoice
+                    Production Slip
                     </h4>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -1083,14 +1099,14 @@
                     <div class="row mt-1">
                     <div class="col-md-12">
                         <div class="mb-1">
-                            <label class="form-label">Remarks</label>
-                            <textarea name="amend_remarks" class="form-control cannot_disable"></textarea>
+                            <label class="form-label">Remarks <span class="text-danger">*</span></label>
+                            <textarea name="amend_remarks" class="form-control cannot_disable" required></textarea>
                         </div>
                         <div class = "row">
                             <div class = "col-md-8">
                                 <div class="mb-1">
-                                    <label class="form-label">Upload Document</label>
-                                    <input name = "amend_attachments[]" onchange = "addFiles(this, 'amend_files_preview')" type="file" class="form-control cannot_disable" max_file_count = "2" multiple/>
+                                    <label class="form-label">Upload Document <span class="text-danger">*</span></label>
+                                    <input name = "amend_attachments[]" onchange = "addFiles(this, 'amend_files_preview')" type="file" class="form-control cannot_disable" max_file_count = "2" multiple required/>
                                 </div>
                             </div>
                             <div class = "col-md-4" style = "margin-top:19px;">
@@ -3939,7 +3955,7 @@ function locationOnChange(storeId = '') {
                 }
                 $("#sub_store_id").empty().append(subStore);
 
-                let subFgStore = `<option value="">Select</option>`;
+                let subFgStore = ``;
                 let selectedId1 = @json($slip->fg_sub_store_id ?? '');
                 if(data?.data?.fg_sub_store?.length) {
                     data?.data?.fg_sub_store?.forEach(element => {
@@ -4618,6 +4634,7 @@ function validateYear(input) {
         }
     }
 }
+
 
 </script>
 

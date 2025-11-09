@@ -43,6 +43,8 @@ class ItemHistory extends Model
         'cost_price_currency_id',
         'sell_price',
         'sell_price_currency_id',
+        'mrp',
+        'mrp_currency_id',
         'min_stocking_level',
         'max_stocking_level',
         'reorder_level',

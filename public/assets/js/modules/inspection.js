@@ -518,6 +518,14 @@ if (selectedStoreId) {
     }
 }
 
+if ($("#rejected_sub_store_id").val() == '') {
+        const rejectedSubStoreSelect = $("#rejected_sub_store_id");
+        rejectedSubStoreSelect.on('change', function() {
+            const selectedRejectedSubStoreId = $(this).val();
+        });
+        getRejectedSubStores(selectedStoreId);
+    }
+
 // Get SUb Storeso
 function getSubStores(storeLocationId) {
     const storeId = storeLocationId;

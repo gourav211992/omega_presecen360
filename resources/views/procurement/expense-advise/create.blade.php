@@ -148,13 +148,13 @@
                                                     </div>
                                                 </div>
                                                 <!-- <div class="row align-items-center mb-1">
-                                                            <div class="col-md-3">
-                                                                <label class="form-label">Reference No </label>
-                                                            </div>
-                                                            <div class="col-md-5">
-                                                                <input type="text" name="reference_number" class="form-control">
-                                                            </div>
-                                                        </div> -->
+                                                                                            <div class="col-md-3">
+                                                                                                <label class="form-label">Reference No </label>
+                                                                                            </div>
+                                                                                            <div class="col-md-5">
+                                                                                                <input type="text" name="reference_number" class="form-control">
+                                                                                            </div>
+                                                                                        </div> -->
                                                 <div class="row align-items-center mb-1 d-none" id="reference_from">
                                                     <div class="col-md-3">
                                                         <label class="form-label">
@@ -311,6 +311,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 Supplier Invoice No.
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="text" name="supplier_invoice_no"
                                                                 class="form-control bg-white supplier_invoice_no"
@@ -321,7 +322,7 @@
                                                         <div class="mb-1">
                                                             <label class="form-label">
                                                                 Supplier Invoice Date
-                                                                <!-- <span class="text-danger">*</span> -->
+                                                                <span class="text-danger">*</span>
                                                             </label>
                                                             <input type="date" name="supplier_invoice_date"
                                                                 class="form-control bg-white gate-entry supplier_invoice_date"
@@ -414,7 +415,7 @@
                                                                         </tr>
                                                                     </table>
                                                                 </td>
-                                                                <td colspan="4">
+                                                                <td colspan="5">
                                                                     <table class="table border mrnsummarynewsty">
                                                                         <tr>
                                                                             <td colspan="2" class="p-0">
@@ -2565,7 +2566,7 @@
             const ids = JSON.stringify(asnData.ids);
             const moduleTypes = JSON.stringify(asnData.module_type);
             const moduleType = asnData.module_type?.[0] ?? 'po';
-
+            let idsLength = ids.length;
 
             const currencyId = $("[name='currency_id']").val();
             const transactionDate = $("[name='document_date']").val();
@@ -2619,21 +2620,32 @@
                     initializeAutocomplete2(".comp_item_code");
 
                     $("#poModal, #joModal").modal('hide');
+                    $('.header_store_id').prop('disabled', true);
+                    $('.sub_store').prop('disabled', true);
 
                     switch (moduleProcess) {
                         case 'po-process':
                             $(".poSelect").removeClass('d-none');
                             $(".joSelect").addClass('d-none');
+                            $(".summaryDisBtn").addClass('d-none');
+                            $("#add_new_item_dis").addClass('d-none');
+                            $("#add_new_head_exp").addClass('d-none');
                             $("#reference_type_input").val('po');
                             break;
                         case 'jo-process':
                             $(".joSelect").removeClass('d-none');
                             $(".poSelect").addClass('d-none');
+                            $(".summaryDisBtn").addClass('d-none');
+                            $("#add_new_item_dis").addClass('d-none');
+                            $("#add_new_head_exp").addClass('d-none');
                             $("#reference_type_input").val('jo');
                             break;
                         default:
                             $(".poSelect").addClass('d-none');
                             $(".joSelect").addClass('d-none');
+                            $(".summaryDisBtn").removeClass('d-none');
+                            $("#add_new_item_dis").removeClass('d-none');
+                            $("#add_new_head_exp").removeClass('d-none');
                             $("#reference_type_input").val('');
                             break;
                     }
@@ -2650,40 +2662,6 @@
                     // Expenses
                     const $expBody = $("#summaryExpTable tbody");
                     $expBody.find('.display_summary_exp_row').remove();
-
-                    if (finalDiscounts.length) {
-                        let rows = '';
-                        finalDiscounts.forEach(function(item, index) {
-                            index = index + 1;
-
-                            rows += `<tr class="display_summary_discount_row">
-                                    <td>${index}</td>
-                                    <td>${item.ted_name}
-                                        <input type="hidden" value="${item.ted_id}" name="disc_summary[${index}][ted_d_id]">
-                                        <input type="hidden" value="" name="disc_summary[${index}][d_id]">
-                                        <input type="hidden" value="${item.ted_name}" name="disc_summary[${index}][d_name]">
-                                    </td>
-                                    <td class="text-end">${typeof item.ted_perc === "number" ? '0' : item.ted_perc}
-                                        <input type="hidden" value="${typeof item.ted_perc === "number" ? '0' : item.ted_perc}" name="disc_summary[${index}][d_perc]">
-                                        <input type="hidden" value="${item.ted_perc}" name="disc_summary[${index}][hidden_d_perc]">
-                                    </td>
-                                    <td class="text-end">
-                                    <input type="hidden" value="" name="disc_summary[${index}][d_amnt]">
-                                    </td>
-                                    <td>
-                                        <a href="javascript:;" class="text-danger deleteSummaryDiscountRow">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-trash-2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                                        </a>
-                                    </td>
-                                </tr>`
-                        });
-
-                        $("#summaryDiscountTable tbody").find('.display_summary_discount_row').remove();
-                        $("#summaryDiscountTable tbody").find('#disSummaryFooter').before(rows);
-                        $("#f_header_discount_hidden").removeClass('d-none');
-                    } else {
-                        $("#f_header_discount_hidden").addClass('d-none');
-                    }
 
                     if (finalExpenses.length) {
                         let rows = '';
@@ -2751,10 +2729,22 @@
                     }
 
                     setTimeout(() => {
+                        if (idsLength > 1) {
+                            $("#itemTable .mrntableselectexcel tr").each(function(index, item) {
+                                currentIndex = index + 1;
+                                if (tableRowCount > 0) {
+                                    currentIndex = tableRowCount + 1;
+                                }
+                                setAttributesUIHelper(currentIndex, "#itemTable");
+                            });
+                        }
+                        currentIndex = tableRowCount + 1;
+                        setAttributesUIHelper(currentIndex, "#itemTable");
                         setTableCalculation();
-                        $("#itemTable .mrntableselectexcel tr").each((index, item) => {
-                            setAttributesUIHelper(index + 1, "#itemTable");
-                        });
+                        // setTableCalculation();
+                        // $("#itemTable .mrntableselectexcel tr").each((index, item) => {
+                        //     setAttributesUIHelper(index + 1, "#itemTable");
+                        // });
                     }, 3000);
                 })
             // .catch(() => {

@@ -19,6 +19,9 @@ class WipAccount extends Model
         'group_id',
         'company_id',
         'organization_id',
+        'sub_category_id',
+        'item_id',
+        'type',
         'ledger_group_id',
         'ledger_id',
         'book_id',
@@ -53,11 +56,6 @@ class WipAccount extends Model
     public function ledger()
     {
         return $this->belongsTo(Ledger::class, 'ledger_id');
-    }
-
-    public function category()
-    {
-        return $this->belongsTo(Category::class, 'category_id');
     }
 
     public function subCategory()

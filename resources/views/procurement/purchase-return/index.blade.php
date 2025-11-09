@@ -63,6 +63,7 @@
                                                 <th>Tax</th>
                                                 <th>Expenses</th>
                                                 <th>Total Amt</th>
+                                                <th>Created By</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
@@ -209,6 +210,10 @@
                 },
                 { data: 'total_amount', name: 'total_amount', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
                         $(td).addClass('text-end');
+                    }
+                },
+                { data: 'created_by', name: 'created_by', render: renderData, createdCell: function(td, cellData, rowData, row, col) {
+                    $(td).addClass('no-wrap');
                     }
                 },
                 { data: 'document_status', name: 'document_status', render: renderData, createdCell: function(td, cellData, rowData, row, col) {

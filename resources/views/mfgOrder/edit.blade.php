@@ -420,7 +420,7 @@
                                     <div class="row">
                                         <div class="col-md-4">
                                     <div class="mb-1">
-                                        <label class="form-label">Upload Document</label>
+                                        <label class="form-label">Upload Document <span class="text-danger">*</span></label>
                                         <input type="file" name="attachment[]" class="form-control" onchange = "addFiles(this,'main_bom_file_preview')" multiple>
                                         <span class = "text-primary small">{{__("message.attachment_caption")}}</span>
                                     </div>
@@ -434,7 +434,7 @@
                             </div>
                             <div class="col-md-12">
                                 <div class="mb-1">
-                                    <label class="form-label">Final Remarks</label>
+                                    <label class="form-label">Final Remarks <span class="text-danger">*</span></label>
                                     <textarea maxlength="250" name="remarks" type="text" rows="4" class="form-control" placeholder="Enter Remarks here...">{!! $bom->remarks !!}</textarea>
                                 </div>
                             </div>
@@ -497,7 +497,7 @@
                     <div class="col-md-12 mb-1">
                         <label class="form-label">Remarks <span class="text-danger">*</span></label>
                         <input type="hidden" name="row_count" id="row_count">
-                        <textarea class="form-control" placeholder="Enter Remarks"></textarea>
+                        <textarea class="form-control" placeholder="Enter Remarks" required></textarea>
                     </div>
                 </div>
             </div>
@@ -1217,6 +1217,7 @@ function fetchItemDetails(currentTr) {
     let itemId = $(currentTr).find("[name*='item_id']").val();
 
     let pwoMappingId = $(currentTr).find("[name*='pwo_mapping_id']").val();
+    let mQty = $(currentTr).find("[name*='qty']").val();
     let storeId = $("#store_id option:selected").val();
     let subStoreId = $("#sub_store_id option:selected").val();
 
@@ -1238,7 +1239,7 @@ function fetchItemDetails(currentTr) {
         let total_qty = $(currentTr).find("[name*='[total_qty]']").val() || '';
         let std_qty = $(currentTr).find("[name*='[std_qty]']").val() || '';
 
-        let actionUrl = `{{route("mo.get.itemdetail")}}?item_id=${itemId}&selectedAttr=${JSON.stringify(selectedAttr)}&remark=${remark}&section_name=${sectionName}&sub_section_name=${subSectionName}&station_name=${stationName}&qty_per_unit=${qty_per_unit}&total_qty=${total_qty}&pwo_papping_id=${pwoMappingId}&store_id=${storeId}&sub_store_id=${subStoreId}&std_qty=${std_qty}`;
+        let actionUrl = `{{route("mo.get.itemdetail")}}?item_id=${itemId}&selectedAttr=${JSON.stringify(selectedAttr)}&remark=${remark}&section_name=${sectionName}&sub_section_name=${subSectionName}&station_name=${stationName}&qty_per_unit=${qty_per_unit}&total_qty=${total_qty}&pwo_papping_id=${pwoMappingId}&store_id=${storeId}&sub_store_id=${subStoreId}&std_qty=${std_qty}&mQty=${mQty}`;
         fetch(actionUrl).then(response => {
             return response.json().then(data => {
                 if (data.status == 200) {
@@ -1251,8 +1252,8 @@ function fetchItemDetails(currentTr) {
 
                      // Show Prodcut Component Details  
                      // Not Required on Edit Page
-                    //$("#componentDetails").html(data.data.mo_product_component_html);
-                    //$("#componentDetails").show();
+                    $("#componentDetails").html(data.data.mo_product_component_html);
+                    $("#componentDetails").show();
                 }
             });
         });

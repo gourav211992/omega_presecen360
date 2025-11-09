@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Controllers;
 
+use App\Exceptions\ApiGenericException;
 use DB;
 use stdClass;
 use DateTime;
@@ -89,7 +90,13 @@ use App\Services\PRCheckAndUpdateService;
 use App\Exports\PurchaseReturnExport;
 
 use App\Http\Controllers\EInvoiceServiceController;
+use App\Models\MrnExtraAmount;
 use App\Models\PbHeader;
+use App\Models\Voucher;
+use App\Services\Common\DocumentLockService;
+use App\Services\VoucherService;
+use Exception;
+use Illuminate\Support\Facades\Validator;
 
 class PurchaseReturnController extends Controller
 {
@@ -119,12 +126,14 @@ class PurchaseReturnController extends Controller
                     'erpStore',
                     'erpSubStore',
                     'costCenters',
-                    'currency'
+                    'currency',
+                    'createdBy'
                 ]
             )
                 ->withDefaultGroupCompanyOrg()
                 ->withDraftListingLogic()
                 ->bookViewAccess($parentUrl)
+                ->selfCreatedDocuments($user)
                 ->latest();
             return DataTables::of($records)
                 ->addIndexColumn()
@@ -195,6 +204,9 @@ class PurchaseReturnController extends Controller
                 ->addColumn('total_amount', function ($row) {
                     return number_format($row->total_amount, 2);
                 })
+                ->addColumn('created_by', function ($row) {
+                    return $row->createdBy?->name;
+                })
                 ->rawColumns(['document_status'])
                 ->make(true);
         }
@@ -241,7 +253,7 @@ class PurchaseReturnController extends Controller
     }
 
     # Purchase Bill store
-    public function store(PRRequest $request)
+    public function store(PRRequest $request, DocumentLockService $lockService)
     {
         $user = Helper::getAuthenticatedUser();
         DB::beginTransaction();
@@ -278,6 +290,7 @@ class PurchaseReturnController extends Controller
             $totalExpValue = 0.00;
             $totalItemLevelDiscValue = 0.00;
             $totalAmount = 0.00;
+            $tdsAccesableAmt = 0.00;
 
             $currencyExchangeData = CurrencyHelper::getCurrencyExchangeRates($request->currency_id, $request->document_date);
             if ($currencyExchangeData['status'] == false) {
@@ -722,6 +735,72 @@ class PurchaseReturnController extends Controller
                 $pb->mrn_header_id = $mrnHeaderId;
                 $pb->save();
 
+                $invTdsAssessAmt = 0;
+                $returnedTdsAssessAmt = 0;
+                $balanceTdsAssessAmt = 0;
+                $tdsQuery = null;
+                $totalTaxableValue = ($itemTotalValue - ($totalDiscValue));
+                $invTdsAssess = $pb->mrn->header_tax()
+                    ->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first();
+                $invTdsAssessAmt = $invTdsAssess?->assesment_amount ?? 0;
+                $tds_ted_perc = $invTdsAssess?->ted_percentage ?? 0;
+                $tds_ted_id = $invTdsAssess?->ted_id ?? null;
+                $tds_applicable_type = $invTdsAssess?->applicable_type ?? 'Collection';
+                // Returned TDS excluding current one (if editing)
+                $returnedTdsAssessAmt = PRHeader::where('mrn_header_id', $pb->mrn_header_id)
+                    ->when($request->id, fn($q) => $q->where('id', '!=', $request->id))
+                    ->with(['header_tax' => fn($q) => $q->where('ted_name', ConstantHelper::TDS_SECTION_194Q)])
+                    ->get()
+                    ->pluck('header_tax')
+                    ->flatten()
+                    ->sum('assesment_amount') ?? 0;
+
+                $balanceTdsAssessAmt = $invTdsAssessAmt - $returnedTdsAssessAmt;
+                if ($balanceTdsAssessAmt > 0) {
+                    $newTdsAssessableAmt = min($totalTaxableValue, $balanceTdsAssessAmt);
+                    $tdsRequest = new Request([
+                        'mrn_id' => (int) $pb->mrn_header_id,
+                        'taxable_value' => (int) $newTdsAssessableAmt,
+                        'purchase_return_id' => (int) $request->id ?? null,
+                    ]);
+                    $tdsData = app(static::class)->getTdsTax($tdsRequest);
+                    if ($tdsData instanceof \Illuminate\Http\JsonResponse) {
+                        $data = $tdsData->getData(true);
+                        if (($data['status'] ?? '') === 'error' && ($data['message'] ?? '') === 'Mrn not found.') {
+                            return response()->json($data, 404);
+                        }
+                    }
+                    if ($tdsData) {
+                        $tdsQuery = PRTed::updateOrCreate(
+                            [
+                                'header_id' => $pb->id,
+                                'detail_id' => null,
+                                'ted_type' => "Tax",
+                                'ted_level' => 'H',
+                                'ted_id' => $tdsData['ted_id'],
+                            ],
+                            [
+                                'ted_name' => $tdsData['ted_name'],
+                                'assesment_amount' => $tdsData['assesment_amount'],
+                                'ted_percentage' => $tdsData['ted_percentage'],
+                                'ted_amount' => $tdsData['ted_amount'],
+                                'applicability_type' => $tdsData['applicable_type'],
+                            ]
+                        );
+                        if (isset($tdsQuery) && $tdsQuery instanceof PRTed) {
+                            $tdsQuery->save();
+                        }
+                    }
+                } else {
+                    // No TDS applicable, remove if exists
+                    $tdsQuery = PRTed::where([
+                        'header_id' => $pb->id,
+                        'detail_id' => null,
+                        'ted_type' => ConstantHelper::TDS,
+                        'ted_level' => 'H',
+                        'ted_id' => $tds_ted_id,
+                    ])->delete();
+                }
             } else {
                 DB::rollBack();
                 return response()->json([
@@ -743,6 +822,11 @@ class PurchaseReturnController extends Controller
             $pb->group_currency_code = $currencyExchangeData['data']['group_currency_code'];
             $pb->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
             $pb->save();
+            $pb->refresh();
+            $currentTdsAssessableAmt = $pb->header_tax()->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first()?->assesment_amount ?? 0;
+            $currentNonTdsAssessableAmount = ($pb->total_return_value - $pb->total_discount_value) - $currentTdsAssessableAmt - ($request->id ? $tdsAccesableAmt : 0);
+            $currentNonTdsAssessableAmt = -abs((float) $currentNonTdsAssessableAmount);
+            TaxHelper::buildTaxThresholdUtilization($pb, 'purchase', ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $currentNonTdsAssessableAmt);
 
             /*Create document submit log*/
             if ($request->document_status == ConstantHelper::SUBMITTED) {
@@ -802,15 +886,14 @@ class PurchaseReturnController extends Controller
                                 return response()->json([
                                     'status' => 'error',
                                     'message' => 'Unable to Post PR Document because reference PB not posted.'
-                                ],422);
-                            }
-                            else {
+                                ], 422);
+                            } else {
                                 if ($referenceData->document_status != ConstantHelper::POSTED) {
                                     DB::rollBack();
                                     return response()->json([
                                         'status' => 'error',
                                         'message' => 'Unable to Post PR Document because reference MRN not posted.'
-                                    ],422);
+                                    ], 422);
                                 }
                             }
                         } else {
@@ -819,7 +902,7 @@ class PurchaseReturnController extends Controller
                                 return response()->json([
                                     'status' => 'error',
                                     'message' => 'Unable to Post PR Document because reference MRN not posted.'
-                                ],422);
+                                ], 422);
                             }
                         }
                     }
@@ -863,6 +946,25 @@ class PurchaseReturnController extends Controller
                 }
             }
 
+            $lockKey = \App\Helpers\GeneralHelper::generateLockKey($organization->id, $request->book_id, $document_number);
+            if (!$lockKey) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Invalid Argument passed in Lock Key Generator.',
+                    'line' => '',
+                    'error' => '',
+                ], 500);
+            }
+
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+            if (!$lockResult['success']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
+            }
+
             DB::commit();
 
             return response()->json([
@@ -874,7 +976,7 @@ class PurchaseReturnController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while creating the record.',
-                'error' => $e->getMessage(). ' on line '. $e->getLine(),
+                'error' => $e->getMessage() . ' on line ' . $e->getLine(),
             ], 500);
         }
     }
@@ -931,6 +1033,7 @@ class PurchaseReturnController extends Controller
 
 
         $totalItemValue = $pb->items()->sum('basic_value');
+        $itemIds = $pb->items() ? $pb->items()->pluck('id')->toArray() : [];
         $vendors = Vendor::where('status', ConstantHelper::ACTIVE)->get();
         $revision_number = $pb->revision_number;
         $userType = Helper::userCheck();
@@ -976,6 +1079,7 @@ class PurchaseReturnController extends Controller
             'user' => $user,
             'users' => $users,
             'books' => $books,
+            'itemIds' => $itemIds,
             'buttons' => $buttons,
             'vendors' => $vendors,
             'eInvoice' => $eInvoice,
@@ -1071,6 +1175,11 @@ class PurchaseReturnController extends Controller
             $pb->document_status = $request->document_status ?? ConstantHelper::DRAFT;
             $pb->cost_center_id = $request->cost_center_id ?? '';
             $pb->save();
+            $oldHeaderTax = PRTed::where('header_id', $id)
+                ->where('ted_type', 'Tax')
+                ->where('ted_level', 'H')
+                ->first();
+            $oldAssesmentAmount = $oldHeaderTax ? $oldHeaderTax->assesment_amount : 0.00;
 
             $vendorBillingAddress = $pb->billingAddress ?? null;
             $vendorShippingAddress = $pb->shippingAddress ?? null;
@@ -1132,6 +1241,7 @@ class PurchaseReturnController extends Controller
             $totalExpValue = 0.00;
             $totalItemLevelDiscValue = 0.00;
             $totalTax = 0;
+            $tdsAccesableAmt = 0.00;
 
             $totalHeaderDiscount = 0;
             if (isset($request->all()['disc_summary']) && count($request->all()['disc_summary']) > 0)
@@ -1454,6 +1564,74 @@ class PurchaseReturnController extends Controller
                 $totalAmount = (($itemTotalValue - $totalDiscValue) + ($totalTax + $totalHeaderExpense)) ?? 0.00;
                 $pb->total_amount = $totalAmount ?? 0.00;
                 $pb->save();
+
+                $invTdsAssessAmt = 0;
+                $returnedTdsAssessAmt = 0;
+                $balanceTdsAssessAmt = 0;
+                $tdsQuery = null;
+                $totalTaxableValue = ($itemTotalValue - ($totalDiscValue));
+
+                $invTdsAssess = $pb->mrn->header_tax()
+                    ->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first();
+                $invTdsAssessAmt = $invTdsAssess?->assesment_amount ?? 0;
+                $tds_ted_perc = $invTdsAssess?->ted_percentage ?? 0;
+                $tds_ted_id = $invTdsAssess?->ted_id ?? null;
+                $tds_applicable_type = $invTdsAssess?->applicable_type ?? 'Collection';
+                // Returned TDS excluding current one (if editing)
+                $returnedTdsAssessAmt = PRHeader::where('mrn_header_id', $pb->mrn_header_id)
+                    ->when($request->id, fn($q) => $q->where('id', '!=', $request->id))
+                    ->with(['header_tax' => fn($q) => $q->where('ted_name', ConstantHelper::TDS_SECTION_194Q)])
+                    ->get()
+                    ->pluck('header_tax')
+                    ->flatten()
+                    ->sum('assesment_amount') ?? 0;
+
+                $balanceTdsAssessAmt = $invTdsAssessAmt - $returnedTdsAssessAmt;
+                if ($balanceTdsAssessAmt > 0) {
+                    $newTdsAssessableAmt = min($totalTaxableValue, $balanceTdsAssessAmt);
+                    $tdsRequest = new Request([
+                        'mrn_id' => (int) $pb->mrn_header_id,
+                        'taxable_value' => (int) $newTdsAssessableAmt,
+                        'purchase_return_id' => (int) $request->id ?? null,
+                    ]);
+                    $tdsData = app(static::class)->getTdsTax($tdsRequest);
+                    if ($tdsData instanceof \Illuminate\Http\JsonResponse) {
+                        $data = $tdsData->getData(true);
+                        if (($data['status'] ?? '') === 'error' && ($data['message'] ?? '') === 'Mrn not found.') {
+                            return response()->json($data, 404);
+                        }
+                    }
+                    if ($tdsData) {
+                        $tdsQuery = PRTed::updateOrCreate(
+                            [
+                                'header_id' => $pb->id,
+                                'detail_id' => null,
+                                'ted_type' => "Tax",
+                                'ted_level' => 'H',
+                                'ted_id' => $tdsData['ted_id'],
+                            ],
+                            [
+                                'ted_name' => $tdsData['ted_name'],
+                                'assesment_amount' => $tdsData['assesment_amount'],
+                                'ted_percentage' => $tdsData['ted_percentage'],
+                                'ted_amount' => $tdsData['ted_amount'],
+                                'applicability_type' => $tdsData['applicable_type'],
+                            ]
+                        );
+                        if (isset($tdsQuery) && $tdsQuery instanceof PRTed) {
+                            $tdsQuery->save();
+                        }
+                    }
+                } else {
+                    // No TDS applicable, remove if exists
+                    $tdsQuery = PRTed::where([
+                        'header_id' => $pb->id,
+                        'detail_id' => null,
+                        'ted_type' => ConstantHelper::TDS,
+                        'ted_level' => 'H',
+                        'ted_id' => $tds_ted_id,
+                    ])->delete();
+                }
             } else {
                 if ($request->document_status == ConstantHelper::SUBMITTED) {
                     DB::rollBack();
@@ -1487,6 +1665,11 @@ class PurchaseReturnController extends Controller
             $pb->group_currency_code = $currencyExchangeData['data']['group_currency_code'];
             $pb->group_currency_exg_rate = $currencyExchangeData['data']['group_currency_exg_rate'];
             $pb->save();
+
+            $pb->refresh();
+            $currentTdsAssessableAmt = $pb->header_tax()->where('ted_name', ConstantHelper::TDS_SECTION_194Q)->first()?->assesment_amount ?? 0;
+            $currentNonTdsAssessableAmt = (float) $oldAssesmentAmount - (float) $currentTdsAssessableAmt;
+            TaxHelper::buildTaxThresholdUtilization($pb, 'purchase', ConstantHelper::TDS, ConstantHelper::TDS_SECTION_194Q, $currentNonTdsAssessableAmt);
 
             /*Create document submit log*/
             $bookId = $pb->book_id;
@@ -1563,15 +1746,14 @@ class PurchaseReturnController extends Controller
                                 return response()->json([
                                     'status' => 'error',
                                     'message' => 'Unable to Post PR Document because reference PB not posted.'
-                                ],422);
-                            }
-                            else {
+                                ], 422);
+                            } else {
                                 if ($referenceData->document_status != ConstantHelper::POSTED) {
                                     DB::rollBack();
                                     return response()->json([
                                         'status' => 'error',
                                         'message' => 'Unable to Post PR Document because reference MRN not posted.'
-                                    ],422);
+                                    ], 422);
                                 }
                             }
                         } else {
@@ -1580,7 +1762,7 @@ class PurchaseReturnController extends Controller
                                 return response()->json([
                                     'status' => 'error',
                                     'message' => 'Unable to Post PR Document because reference MRN not posted.'
-                                ],422);
+                                ], 422);
                             }
                         }
                     }
@@ -1637,7 +1819,7 @@ class PurchaseReturnController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while creating the record.',
-                'error' => $e->getMessage(). ' on line '. $e->getLine(),
+                'error' => $e->getMessage() . ' on line ' . $e->getLine(),
             ], 500);
         }
     }
@@ -2148,7 +2330,7 @@ class PurchaseReturnController extends Controller
     }
 
     // genrate pdf
-    public function generatePdf(Request $request, $id)
+    public function generatePdf(Request $request, $id, $pattern)
     {
         $user = Helper::getAuthenticatedUser();
 
@@ -2184,12 +2366,14 @@ class PurchaseReturnController extends Controller
         $sellerBillingAddress = $purchaseReturn->latestBillingAddress();
         $eInvoice = $purchaseReturn->irnDetail()->first();
         $qrCodeBase64 = '';
-        $heading = "Purchase Return";
-        if($eInvoice)
-        {
+        $view = 'pdf.purchase-return';
+        if ($eInvoice) {
             // QrCode::format('png')->size(300)->generate($eInvoice->signed_qr_code, $qrCodePath);
             $qrCodeBase64 = $eInvoice->signed_qr_code ? EInvoiceHelper::generateQRCodeBase64($eInvoice->signed_qr_code) : '';
-            $heading = "Debit Note";
+        }
+
+        if ($pattern === 'Debit Note') {
+            $view = 'pdf.debit-note';
         }
 
         $options = new Options();
@@ -2199,7 +2383,7 @@ class PurchaseReturnController extends Controller
         $dompdf = new Dompdf($options);
 
         $html = view(
-            'pdf.purchase-return',
+            $view,
             [
                 'pb' => $purchaseReturn,
                 'user' => $user,
@@ -2218,7 +2402,6 @@ class PurchaseReturnController extends Controller
                 'totalAmount' => $totalAmount,
                 'imagePath' => $imagePath,
                 'eInvoice' => $eInvoice,
-                'heading' => $heading,
                 'approvedBy' => $approvedBy,
                 'qrCodeBase64' => $qrCodeBase64
             ]
@@ -2557,26 +2740,26 @@ class PurchaseReturnController extends Controller
                 }
             }
 
-            $randNo = rand(10000, 99999);
+            // $randNo = rand(10000, 99999);
 
-            $revisionNumber = "PR" . $randNo;
-            $pbHeader->revision_number += 1;
-            // $pbHeader->document_status = "draft";
+            // $revisionNumber = "PR" . $randNo;
+            // $pbHeader->revision_number += 1;
+            // // $pbHeader->document_status = "draft";
+            // // $pbHeader->save();
+
+            // /*Create document submit log*/
+            // if ($pbHeader->document_status) {
+            //     $bookId = $pbHeader->series_id;
+            //     $docId = $pbHeader->id;
+            //     $remarks = $pbHeader->remarks;
+            //     $attachments = $request->file('attachment');
+            //     $currentLevel = $pbHeader->approval_level ?? 1;
+            //     $revisionNumber = $pbHeader->revision_number ?? 0;
+            //     $actionType = 'submit'; // Approve // reject // submit
+            //     $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
+            //     $pbHeader->document_status = $approveDocument['approvalStatus'];
+            // }
             // $pbHeader->save();
-
-            /*Create document submit log*/
-            if ($pbHeader->document_status) {
-                $bookId = $pbHeader->series_id;
-                $docId = $pbHeader->id;
-                $remarks = $pbHeader->remarks;
-                $attachments = $request->file('attachment');
-                $currentLevel = $pbHeader->approval_level ?? 1;
-                $revisionNumber = $pbHeader->revision_number ?? 0;
-                $actionType = 'submit'; // Approve // reject // submit
-                $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType);
-                $pbHeader->document_status = $approveDocument['approvalStatus'];
-            }
-            $pbHeader->save();
 
             DB::commit();
             return response()->json([
@@ -2736,8 +2919,8 @@ class PurchaseReturnController extends Controller
                 return $qtyTypeRequired === 'rejected'
                     ? number_format(0, 2)
                     : ($row->is_foc == 0
-                        ? number_format((float)($row->accepted_qty ?? 0), 2)
-                        : number_format((float)($row->foc_qty ?? 0), 2));
+                        ? number_format((float) ($row->accepted_qty ?? 0), 2)
+                        : number_format((float) ($row->foc_qty ?? 0), 2));
 
             })
             ->addColumn('rejected_qty', function ($row) use ($qtyTypeRequired) {
@@ -2749,7 +2932,7 @@ class PurchaseReturnController extends Controller
                 $val = $qtyTypeRequired === 'rejected'
                     ? ((float) $row?->pr_rejected_qty ?? 0)
                     : ($row->is_foc == 0
-                        ? number_format((float)($row->pr_qty ?? 0), 2)
+                        ? number_format((float) ($row->pr_qty ?? 0), 2)
                         : number_format(0, 2));
                 return number_format($val, 2);
             })
@@ -3054,6 +3237,7 @@ class PurchaseReturnController extends Controller
         ]);
     }
 
+    // Get Posting Details
     public function getPostingDetails(Request $request)
     {
         try {
@@ -3063,6 +3247,25 @@ class PurchaseReturnController extends Controller
                 'data' => $data
             ]);
         } catch (\Exception $ex) {
+            return response()->json([
+                'status' => 'exception',
+                'message' => 'Some internal error occured',
+                'error' => $ex->getMessage()
+            ]);
+        }
+    }
+
+    // Get Posting History Details
+    public function getPostingHistoryDetails(Request $request)
+    {
+        try {
+            $history = PRHeaderHistory::find($request->document_id);
+            $data = VoucherService::financeVoucherPostingHistory($request->book_id ?? 0, $history->header_id ?? 0, $request->type ?? 'get');
+            return response()->json([
+                'status' => 'success',
+                'data' => $data
+            ]);
+        } catch (Exception $ex) {
             return response()->json([
                 'status' => 'exception',
                 'message' => 'Some internal error occured',
@@ -3085,8 +3288,7 @@ class PurchaseReturnController extends Controller
                             'status' => 'error',
                             'message' => 'Unable to Post PR Document because reference PB not posted.'
                         ]);
-                    }
-                    else {
+                    } else {
                         if ($referenceData->document_status != ConstantHelper::POSTED) {
                             DB::rollBack();
                             return response()->json([
@@ -3249,45 +3451,45 @@ class PurchaseReturnController extends Controller
     }
 
     // Cancel EInvoice
-    public function cancelEInvoice(Request $request)
-    {
-        try {
-            $user = Helper::getAuthenticatedUser();
-            $organization = Organization::find($user->organization_id);
-            $eInvoiceData = ErpEinvoice::find($request->eInvoice_id)->first();
-            $cancelData = [
-                "user_gstin" => $organization->gst_number,
-                "irn" => $eInvoiceData->irn_number,
-                "cancel_reason" => "2",
-                "cancel_remarks" => "WRONG ENTRY",
-            ];
-            $data = MasterIndiaHelper::cancelEInvoice($cancelData);
-            if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
-                return response()->json([
-                    'status' => 'error',
-                    'error' => 'error',
-                    'message' => $data['message'],
-                ], 500);
-            } else {
-                $existingData = ErpEinvoice::where('irn_number', $eInvoiceData->irn_number)->first();
-                $existingData->cancel_date = date('Y-m-d H:i:s', strtotime($data['results']['CancelDate']));
-                $existingData->status = ConstantHelper::CANCELLED;
-                $existingData->save();
-                MasterIndiaHelper::generateEinvoiceHistoryLog($existingData);
-                return response()->json([
-                    'status' => 'success',
-                    'results' => $data,
-                    'message' => 'E-Invoice generated succesfully',
-                ]);
-            }
+    // public function cancelEInvoice(Request $request)
+    // {
+    //     try {
+    //         $user = Helper::getAuthenticatedUser();
+    //         $organization = Organization::find($user->organization_id);
+    //         $eInvoiceData = ErpEinvoice::find($request->eInvoice_id)->first();
+    //         $cancelData = [
+    //             "user_gstin" => $organization->gst_number,
+    //             "irn" => $eInvoiceData->irn_number,
+    //             "cancel_reason" => "2",
+    //             "cancel_remarks" => "WRONG ENTRY",
+    //         ];
+    //         $data = MasterIndiaHelper::cancelEInvoice($cancelData);
+    //         if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
+    //             return response()->json([
+    //                 'status' => 'error',
+    //                 'error' => 'error',
+    //                 'message' => $data['message'],
+    //             ], 500);
+    //         } else {
+    //             $existingData = ErpEinvoice::where('irn_number', $eInvoiceData->irn_number)->first();
+    //             $existingData->cancel_date = date('Y-m-d H:i:s', strtotime($data['results']['CancelDate']));
+    //             $existingData->status = ConstantHelper::CANCELLED;
+    //             $existingData->save();
+    //             MasterIndiaHelper::generateEinvoiceHistoryLog($existingData);
+    //             return response()->json([
+    //                 'status' => 'success',
+    //                 'results' => $data,
+    //                 'message' => 'E-Invoice generated succesfully',
+    //             ]);
+    //         }
 
-        } catch (\Exception $ex) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $ex->getMessage(),
-            ]);
-        }
-    }
+    //     } catch (\Exception $ex) {
+    //         return response()->json([
+    //             'status' => 'error',
+    //             'message' => $ex->getMessage(),
+    //         ]);
+    //     }
+    // }
 
     public function generateEwayBill(Request $request)
     {
@@ -3330,6 +3532,80 @@ class PurchaseReturnController extends Controller
                 'status' => 'error',
                 'message' => $ex->getMessage(),
             ]);
+        }
+    }
+
+    /*Cancel E Way Bill*/
+    public function cancelEWayBill(Request $request)
+    {
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'id' => [
+                    'required',
+                ],
+                'cancel_reason' => 'required|numeric',
+                "cancel_remarks" => 'required|string'
+            ]
+            ,
+             [
+                'id.required' => 'The ID field is required.',
+                'cancel_reason.required' => 'Please provide a reason for cancellation.',
+                'cancel_reason.numeric' => 'The cancellation reason must be a valid numeric code.',
+                'cancel_remarks.required' => 'Please enter your cancellation remarks.',
+                'cancel_remarks.string' => 'Cancellation remarks must be text.',
+            ]
+        );
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validator->messages()->first(),
+            ], 422);
+        }
+        try{
+            $documentHeader = ErpEinvoice::find($request->id)->first();
+            if (!$documentHeader) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Invoice not found',
+                ], 422);
+            }
+            $irn = $documentHeader -> irnDetail;
+            if (!$irn -> ewb_no) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'E Way bill not found',
+                ], 422);
+            }
+            if ($irn -> ewb_cancel_date) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'E-Way Bill already cancelled',
+                ], 422);
+            }
+            $currentOrg = Organization::find($request->user()->organization_id);;
+            //First cancel E-Way Bill
+            $cancelEwbData = [];
+            $cancelEwbData['user_gstin'] = $currentOrg ?-> gst_number;
+            $cancelEwbData['eway_bill_number'] = $irn ?-> ewb_no;
+            $cancelEwbData['cancel_reason'] = $request ?-> cancel_reason;
+            $cancelEwbData['cancel_remarks'] = $request ?-> cancel_remarks;
+            DB::beginTransaction();
+            $cancelEwb = MasterIndiaHelper::cancelEWayBill($cancelEwbData, $documentHeader);
+            if ($cancelEwb['status'] == 'error') {
+                DB::rollback();
+                return response()->json([
+                    'status' => 'error',
+                    'message' => $cancelEwb['message'],
+                ], 422);
+            }
+            DB::commit();
+            return response()->json([
+                'status' => 'error',
+                'message' => 'E-Way bill cancelled successfully',
+            ], 200);
+        } catch(Exception $ex) {
+            throw new ApiGenericException($ex -> getMessage());
         }
     }
 
@@ -3698,11 +3974,13 @@ class PurchaseReturnController extends Controller
     public function purchaseReturnReport(Request $request)
     {
         $user = Helper::getAuthenticatedUser();
-        $pathUrl = route('purchase-return.index');
+        // $pathUrl = route('purchase-return.index');
+        $pathUrl = request()->segments()[0];
         $orderType = ConstantHelper::PURCHASE_RETURN_SERVICE_ALIAS;
         $purchaseReturns = PRHeader::withDefaultGroupCompanyOrg()
             // ->where('document_type', $orderType)
-            // ->bookViewAccess($pathUrl)
+            ->bookViewAccess($pathUrl)
+            ->selfCreatedDocuments($user)
             ->withDraftListingLogic()
             ->orderByDesc('id');
 
@@ -3863,6 +4141,225 @@ class PurchaseReturnController extends Controller
             })
             ->rawColumns(['item_attributes', 'status'])
             ->make(true);
+    }
+
+    // Cancel Document
+    public function cancel(Request $request)
+    {
+        $user = $request->user();
+        $referenceService = ConstantHelper::PURCHASE_RETURN_SERVICE_ALIAS;
+        // Validate incoming AJAX JSON
+        $documentId = (int) $request->input('id'); // from AJAX
+        $actionType = $request->input('action_type', 'cancel');
+        $cancelType = $request->input('cancel_type', 'normal') ?? 'normal'; // normal|voucher
+        $cancelRemarks = $request->input('cancel_remarks', '');
+        $deletedMrnItemIds = json_decode($request->input('deletedMrnItemIds', []), true) ?? [];
+        \DB::beginTransaction();
+        try {
+            /** @var PRHeader|null $header */
+            $header = PRHeader::find($documentId);
+
+            if (!$header) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Document not found.'
+                ]);
+            }
+
+            // Submit Amendment (if your method returns ['status'=>'success|error','message'=>...])
+            if (method_exists($this, 'amendmentSubmit')) {
+                $amendment = $this->amendmentSubmit($request, $header->id);
+                if (is_array($amendment) && ($amendment['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $amendment['message'] ?? 'Amendment submission failed.'
+                    ]);
+                }
+            }
+
+            // Delete Voucher Details and create history if needed
+            if (class_exists(VoucherService::class)) {
+                $voucher = Voucher::with(['items'])
+                    ->where('reference_service', $referenceService)
+                    ->where('reference_doc_id', $documentId)
+                    ->first();
+                if ($voucher) {
+                    $payload = [
+                        'voucher_id' => $voucher->id,
+                        'reference_service' => $referenceService,
+                        'reference_doc_id' => $documentId,
+                        'cancel_remarks' => $cancelRemarks,
+                        'cancel_attachments' => $request->input('cancel_attachments', []),
+                    ];
+                    $voucherService = new VoucherService();
+                    $voucherResponse = $voucherService->cancelVoucher($user, $voucher, $payload);
+                    if (($voucherResponse['status'] ?? 'success') === 'error') {
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => false,
+                            'message' => $voucherResponse['message'] ?? 'Delete failed.'
+                        ]);
+                    }
+                }
+            }
+
+            // Optional: delete related records as per your existing flow
+            $keys = ['deletedMrnItemIds'];
+            $deletedData = [];
+            foreach ($keys as $key) {
+                $deletedData[$key] = json_decode($request->input($key, '[]'), true);
+            }
+
+            if (class_exists(PRDeleteService::class)) {
+                $deleteService = new PRDeleteService();
+                $deleteResponse = $deleteService->deleteByRequest($deletedData, $header);
+                if (($deleteResponse['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $deleteResponse['message'] ?? 'Delete failed.'
+                    ]);
+                }
+            }
+
+            // Only support cancel action for now
+            if ($actionType !== 'cancel') {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Only cancel action is supported.'
+                ]);
+            }
+            // Log and update header
+            $bookId = $header->book_id;
+            $docId = $header->document_id ?? $header->id;
+            $revision = (int) $header->revision_number + 1;
+            $currentLevel = (int) $header->approval_level;
+
+            // Document log (if you rely on it)
+            if (class_exists(Helper::class) && method_exists(Helper::class, 'approveDocument')) {
+                Helper::approveDocument(
+                    $bookId,
+                    $docId,
+                    $revision,
+                    $cancelRemarks,
+                    $request->input('cancel_attachments', []),
+                    $currentLevel,
+                    $actionType,
+                    $header->total_amount,
+                    PRHeader::class
+                );
+            }
+            // Persist cancellation
+            $header->revision_number = $revision;
+            $header->approval_level = 1;
+            $header->revision_date = now();
+            $header->document_status = ConstantHelper::CANCELLED;
+            $header->final_remark = $cancelRemarks;
+
+            // Zero-out financials as per your original code
+            $header->total_discount = 0.00;
+            $header->taxable_amount = 0.00;
+            $header->total_taxes = 0.00;
+            $header->total_after_tax_amount = 0.00;
+            $header->expense_amount = 0.00;
+            $header->total_amount = 0.00;
+            $header->total_item_amount = 0.00;
+            $header->reference_type = null;
+
+            $header->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Document cancelled successfully.',
+                'data' => [
+                    'status' => true,
+                    'id' => $header->id,
+                    'document_status' => $header->document_status,
+                    'revision_number' => $header->revision_number,
+                    'cancellation_type' => $cancelType,
+                ],
+            ], 200);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'An error occurred while processing your request.',
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function getTdsTax(Request $request)
+    {
+        $request->validate([
+            'mrn_item_id' => 'required_without:mrn_id|integer|nullable',
+            'mrn_id' => 'required_without:mrn_item_id|integer|nullable',
+            'taxable_value' => 'required|numeric',
+            'purchase_return_id' => 'nullable|integer',
+        ], [
+            'mrn_item_id.required_without' => 'Either MRN Item ID or MRN ID is required.',
+            'mrn_id.required_without' => 'Either MRN ID or MRN Item ID is required.',
+        ]);
+
+        // ✅ Fetch based on which ID is present
+        if ($request->filled('mrn_item_id')) {
+            $mrnQtyItem = MrnDetail::with(['header.header_tax'])->find($request->mrn_item_id);
+            $mrnQty = $mrnQtyItem?->header;
+        } else {
+            $mrnQty = MrnHeader::with('header_tax')->find($request->mrn_id);
+        }
+
+        // ✅ Safety check if invoice not found
+        if (!$mrnQty) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'MRN not found.',
+            ], 404);
+        }
+
+        // Now you can safely use $mrnQty and its header_tax
+
+        if (!$mrnQty) {
+            return response()->json(['error' => 'Invalid mrn ID'], 404);
+        }
+        $taxDetails = MrnExtraAmount::where('mrn_header_id', $mrnQty->id)
+            ->where('ted_name', ConstantHelper::TDS_SECTION_194Q)
+            ->where('ted_level', 'H')
+            ->where('ted_type', 'Tax')
+            ->first();
+
+        if (!$taxDetails) {
+            return null;
+        }
+
+        $returnedTdsAssessAmt = PRTed::where('ted_name', ConstantHelper::TDS_SECTION_194Q)
+            ->whereHas('header', function ($query) use ($mrnQty) {
+                $query->where('mrn_header_id', $mrnQty->id)
+                    ->whereHas('header_tax');
+            })
+            ->sum('assesment_amount') ?? 0;
+
+        $balanceTdsAssessAmt = (float) $taxDetails->assesment_amount - (float) $returnedTdsAssessAmt;
+        if ($balanceTdsAssessAmt > 0 && $taxDetails) {
+            $taxableValue = (float) $request->taxable_value ?? 0.00;
+            $newTdsAssessableAmt = min($taxableValue, $balanceTdsAssessAmt);
+            $taxAmount = round(($newTdsAssessableAmt * ($taxDetails->ted_percentage) / 100), 2);
+            $taxAttrs = [
+                'ted_name' => $taxDetails->ted_name,
+                'ted_percentage' => $taxDetails->ted_percentage,
+                'assesment_amount' => $newTdsAssessableAmt,
+                'ted_amount' => number_format($taxAmount, 2, '.', ''),
+                'applicable_type' => $taxDetails->applicability_type,
+                'ted_id' => $taxDetails->ted_id,
+            ];
+            return $taxAttrs;
+        }
+        return null;
     }
 
 }

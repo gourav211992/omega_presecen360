@@ -250,12 +250,18 @@ function deInitializeCashCustomerFlow()
 async function setShippingAddressFromBillingAddress(element)
 {
     let billingCountryIdInput = $("#billing_country_id_input").val();
+    if (!billingCountryIdInput) {
+        billingCountryIdInput = $("#current_billing_country_id").val();
+    }
     let billingStateIdInput = $("#billing_state_id_input").val();
+    if (!billingStateIdInput) {
+        billingStateIdInput = $("#current_billing_state_id").val();
+    }
     let billingCityIdInput = $("#billing_city_id_input").val();
     let billingPincodeInput = $("#billing_pincode_input").val();
     let billingAddressInput = $("#billing_address_input").val();
 
-    if (!(billingCountryIdInput && billingStateIdInput && billingCityIdInput && billingPincodeInput) && element.checked) {
+    if (!(billingCountryIdInput && billingStateIdInput) && element.checked) {
         Swal.fire({
             title: 'Error!',
             text: "Please enter Billing Address first",
@@ -280,6 +286,7 @@ async function setShippingAddressFromBillingAddress(element)
         shippingAddressInput.val(billingAddressInput);
         currentShippingCountryIdInput.val(billingCountryIdInput);   
         currentShippingStateId.val(billingStateIdInput);
+        $("#shipping_address_dropdown").val($("#billing_address_dropdown").val());
         shipAddressText.innerText = billAddressText.innerText;
         editShipButton.style.display = "none";
     } else {

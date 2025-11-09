@@ -5,6 +5,7 @@ namespace App\Models\Scrap;
 use App\Models\Hsn;
 use App\Models\Item;
 use App\Models\Unit;
+use App\Models\CostCenter;
 use App\Models\ErpAttribute;
 use App\Models\ItemAttribute;
 use App\Models\Scrap\ErpScrap;
@@ -69,7 +70,7 @@ class ErpScrapItem extends Model
 
     public function costCenter()
     {
-        return $this->belongsTo(ErpCostCenter::class, 'cost_center_id', 'id');
+        return $this->belongsTo(CostCenter::class, 'cost_center_id', 'id');
     }
 
     public function attributes()

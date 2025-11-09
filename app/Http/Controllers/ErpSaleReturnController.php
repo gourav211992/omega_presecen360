@@ -43,6 +43,7 @@ use App\Models\ErpSoItem;
 use App\Models\ErpStore;
 use App\Models\Organization;
 use Carbon\Carbon;
+use DateTime;
 use DB;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -2530,77 +2531,6 @@ class ErpSaleReturnController extends Controller
     //         ], 500);
     //     }
     // }
-    public function generateEwayBill(Request $request)
-    {
-        $validator = Validator::make(
-            $request->all(),
-            [
-                'vehicle_no' => [
-                    'required',
-                    'regex:/^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/'
-                ],
-                'transporter_mode' => 'required|integer',
-                "transporter_name" => [
-                   "required",
-                   'string'
-                ],
-            ],
-            [
-                'vehicle_no.required' => 'Vehicle number is required.',
-                'vehicle_no.regex' => 'Vehicle number format is invalid. Example: MH12AB1234.',
-                'transporter_mode.required' => 'Transporter mode is required.',
-                'transporter_mode.integer' => 'Transporter mode must be an integer.',
-                'transporter_name.required' => 'Transporter name is required.',
-                'transporter_name.string' => 'Transporter name must be a string.',
-            ]
-        );
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 'error',
-                'message' => $validator->messages()->first(),
-            ], 422);
-        }
-        $user = request()->user();;
-
-        try{
-            $documentHeader = ErpSaleReturn::find($request->id);
-            $transportationMode = EwayBillMaster::find($request->transporter_mode);
-            $documentHeader->transporter_name=$request->transporter_name;
-            $documentHeader->transportation_mode=$transportationMode?->description ?? null;
-            $documentHeader->eway_bill_master_id=$transportationMode?->id ?? null;
-            $documentHeader->vehicle_no=$request->vehicle_no;
-            $data = EInvoiceHelper::generateEwayBill($documentHeader);
-            if (isset($data) && (isset($data['status']) && ($data['status'] == 'error'))) {
-                return response()->json([
-                    'status' => 'error',
-                    'error' => 'error',
-                    'message' => $data['message'],
-                ], 500);
-            } else{
-                $eInvoice = $documentHeader->irnDetail()->first();
-                $eInvoice->ewb_no = $data['EwbNo'];
-                $eInvoice->ewb_date = date('Y-m-d H:i:s', strtotime($data['EwbDt']));
-                $eInvoice->ewb_valid_till = date('Y-m-d H:i:s', strtotime($data['EwbValidTill']));
-                $eInvoice->save();
-
-                $documentHeader -> is_ewb_generated = 1;
-                $documentHeader -> save();
-
-                return response() -> json([
-                    'status' => 'success',
-                    'results' => $data,
-                    'message' => 'E-Way bill generated succesfully',
-                ]);
-            }
-            
-        } catch(Exception $ex) {
-            return response() -> json([
-                'status' => 'error',
-                'message' => $ex -> getMessage(),
-            ]);
-        }
-    }
     public function getTcsTax(Request $request)
     {
         $request->validate([
@@ -2612,8 +2542,8 @@ class ErpSaleReturnController extends Controller
             'invoice_item_id.required_without' => 'Either Invoice Item ID or Invoice ID is required.',
             'invoice_id.required_without' => 'Either Invoice ID or Invoice Item ID is required.',
         ]);
-                
-        // ✅ Fetch based on which ID is present
+
+        // Fetch invoice or invoice item header
         if ($request->filled('invoice_item_id')) {
             $invoiceItem = ErpInvoiceItem::with(['header.header_tax'])->find($request->invoice_item_id);
             $invoice = $invoiceItem?->header;
@@ -2621,35 +2551,47 @@ class ErpSaleReturnController extends Controller
             $invoice = ErpSaleInvoice::with('header_tax')->find($request->invoice_id);
         }
 
-        // ✅ Safety check if invoice not found
         if (!$invoice) {
             return response()->json([
-                'status' => 'error',
-                'message' => 'Invoice not found.',
+            'status' => 'error',
+            'message' => 'Invoice not found.',
             ], 404);
         }
 
-        // Now you can safely use $invoice and its header_tax
-
-        if (!$invoice) {
-            return response()->json(['error' => 'Invalid invoice ID'], 404);
-        }
-
+        // Get existing TCS header tax definition on the invoice (if any)
         $taxDetails = $invoice->header_tax
             ->where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS)
             ->first();
-
-        if (!$taxDetails) {
-            return null;
+            if (!$taxDetails) {
+                // No TCS configured on invoice
+                return null;
+            }
+            
+        $previousReturnedAssessAmount = $invoice->SaleReturn
+            ->when($request->sale_return_id, fn($q) =>
+                $q->where('id', '!=', $request->sale_return_id)
+            )
+            ->flatMap(fn($sr) => $sr->header_tax)
+            ->where('ted_name', ConstantHelper::TCS_SECTION_SALE_OF_OTHER_GOODS)
+            ->sum('assessment_amount');
+        $AvlReturnAssesAmt = isset($taxDetails->assessment_amount) && $taxDetails->assessment_amount - $previousReturnedAssessAmount > 0 ? $taxDetails->assessment_amount - $previousReturnedAssessAmount : 0.00;
+        // Use incoming taxable_value to compute new assessment and ted_amount
+        if($AvlReturnAssesAmt < $request->taxable_value){
+            $taxableValue = (float) $AvlReturnAssesAmt;
         }
-
+        else{
+            $taxableValue = (float) $request->taxable_value;
+        }
+        $tedPercentage = (float) ($taxDetails->ted_percentage ?? 0);
+        // Calculate TCS amount based on provided taxable value and percentage
+        $calculatedTedAmount = round(($taxableValue * $tedPercentage / 100), 2);
 
         return [
             'ted_name' => $taxDetails->ted_name,
             'ted_id' => $taxDetails->ted_id,
-            'ted_percentage' => $taxDetails->ted_percentage ?? 0,
-            'assessment_amount' => $taxDetails->assessment_amount ?? 0,
-            'ted_amount' => $taxDetails->ted_amount ?? 0,
+            'ted_percentage' => $tedPercentage,
+            'assessment_amount' => $taxableValue,
+            'ted_amount' => $calculatedTedAmount,
             'applicable_type' => $taxDetails->applicable_type ?? 'Collection',
         ];
     }
@@ -2857,5 +2799,102 @@ class ErpSaleReturnController extends Controller
     {
         
     }
+
+    public function generateEwayBill(Request $request)
+    {
+        $validator = Validator::make(
+            $request->all(),
+            [
+                'vehicle_no' => [
+                    'required',
+                    'regex:/^[A-Z]{2}[0-9]{2}[A-Z]{0,3}[0-9]{4}$/'
+                ],
+                'transporter_mode' => 'required|integer',
+                "transporter_name" => [
+                   "required",
+                   'string'
+                ],
+            ],
+            [
+                'vehicle_no.required' => 'Vehicle number is required.',
+                'vehicle_no.regex' => 'Vehicle number format is invalid. Example: MH12AB1234.',
+                'transporter_mode.required' => 'Transporter mode is required.',
+                'transporter_mode.integer' => 'Transporter mode must be an integer.',
+                'transporter_name.required' => 'Transporter name is required.',
+                'transporter_name.string' => 'Transporter name must be a string.',
+            ]
+        );
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $validator->messages()->first(),
+            ], 422);
+        }
+        try{
+            $authUser = Helper::getAuthenticatedUser();
+            $documentHeader = ErpSaleReturn::find($request->id);
+            $transportationMode = EwayBillMaster::find($request->transporter_mode);
+            $documentHeader->transporter_name=$request->transporter_name;
+            $documentHeader->transportation_mode=$transportationMode?->description ?? null;
+            $documentHeader->eway_bill_master_id=$transportationMode?->id ?? null;
+            $documentHeader->vehicle_no=$request->vehicle_no;
+            $data = MasterIndiaHelper::generateEwayBill($documentHeader, $authUser);
+            if (isset($data) && (isset($data['results']) && ($data['results']['status'] != 'Success'))) {
+                return response()->json([
+                    'status' => 'error',
+                    'error' => 'error',
+                    'message' => $data['results']['message'],
+                ], 500);
+            } else{
+                $message = $data['results']['message'];
+                //Get all the required data
+                $originalEwbDate = $message['ewayBillDate'];
+                $originalValidUpto = $message['validUpto'];
+                $ewbDateObj = DateTime::createFromFormat('d/m/Y h:i:s A', $originalEwbDate);
+                $validUptoObj = DateTime::createFromFormat('d/m/Y h:i:s A', $originalValidUpto);
+                $ewb_date = $ewbDateObj ? $ewbDateObj->format('Y-m-d H:i:s') : null;
+                $ewb_valid_till = $validUptoObj ? $validUptoObj->format('Y-m-d H:i:s') : null;
+                $ewbUrl = isset($message['url']) ? $message['url'] : null;
+
+                $eInvoice = $documentHeader?->irnDetail()?->first();
+                if ($eInvoice) {
+                    $eInvoice->ewb_no = $message['ewayBillNo'];
+                    $eInvoice->ewb_date = $ewb_date;
+                    $eInvoice->ewb_valid_till = $ewb_valid_till;
+                    $eInvoice->status = $data['results']['status'];
+                    $eInvoice->type = "Direct Eway Bill";
+                    $eInvoice->ewb_url = $ewbUrl;
+                    $eInvoice->save();
+                } else {
+                    $documentHeader->irnDetail()->create([
+                        'ewb_no' => $message['ewayBillNo'],
+                        'ewb_date' => $ewb_date,
+                        'ewb_valid_till' => $ewb_valid_till,
+                        'ewb_url' => $ewbUrl,
+                        'status' => $data['results']['status'],
+                        'type' => 'Direct Eway Bill'
+                    ]);
+                }
+
+                $documentHeader -> is_ewb_generated = 1;
+                $documentHeader -> save();
+
+                return response() -> json([
+                    'status' => 'success',
+                    'results' => $data,
+                    'message' => 'E-Way bill generated succesfully',
+                ]);
+            }
+            
+        } catch(Exception $ex) {
+            return response() -> json([
+                'status' => 'error',
+                'message' => $ex -> getMessage() . $ex -> getLine() . $ex -> getFile(),
+            ]);
+        }
+    }
+    
+    
 }
 

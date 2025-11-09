@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ErpTripPlanHeader;
 use DB;
 use Auth;
 use Carbon\Carbon;
@@ -57,6 +58,7 @@ use App\Models\ErpSaleInvoice;
 use App\Models\ErpTransaction;
 use App\Models\ProductSection;
 use App\Models\PurchaseIndent;
+use App\Models\Scrap\ErpScrap;
 use App\Helpers\ConstantHelper;
 use App\Models\GateEntryHeader;
 use App\Models\ProductionRoute;
@@ -505,7 +507,7 @@ class AutocompleteController extends Controller
             } elseif ($type === 'scrap_comp_item') {
                 $results = Item::searchByKeywords($term)
                     ->where('status', ConstantHelper::ACTIVE)
-                    ->where('is_scrap', '0')
+                    ->where('is_scrap', '1')
                     ->with([
                     'itemAttributes:id',
                     'uom:id,name'
@@ -2276,6 +2278,31 @@ class AutocompleteController extends Controller
                     $results = JobOrder::limit(10)
                         ->get(['id', 'document_number']);
                 }
+            }else if ($type === 'report_scrap_book') {
+                $service = Service::where('alias', ConstantHelper::SCRAP_SERVICE_ALIAS) -> first();
+                $query = Book::where('service_id', $service ?-> id);
+                $results = $query->when($term, function ($q) use ($term) {
+                    return $q->where(function($query) use ($term) {
+                        $query->where('book_code', 'LIKE', "%$term%")
+                        ->orWhere('book_name', 'LIKE', "%$term%");
+                    });
+                }) -> get(['id', 'book_code']);
+                if ($results->isEmpty()) {
+                    $results = Book::where('service_id', $service ?-> id)
+                        ->limit(10)
+                        ->get(['id', 'book_code']);
+                }
+            }else if ($type === 'report_scrap_documents') {
+                $query = ErpScrap::query();
+                $results = $query->when($term, function ($q) use ($term) {
+                    return $q->where(function($query) use ($term) {
+                        $query->where('document_number', 'LIKE', "%$term%");
+                    });
+                }) -> get(['id', 'document_number']);
+                if ($results->isEmpty()) {
+                    $results = ErpScrap::limit(10)
+                        ->get(['id', 'document_number']);
+                }
             }else if ($type === 'report_pslip_book') {
                 $service = Service::where('alias', ConstantHelper::PRODUCTION_SLIP_SERVICE_ALIAS) -> first();
 
@@ -2522,6 +2549,39 @@ class AutocompleteController extends Controller
                 }) -> when($term, function ($termQuery) use($term) {
                     $termQuery -> where('name', 'LIKE', '%'.$term.'%');
                 }) -> where('type', ConstantHelper::VENDOR_STORE) -> where('status', ConstantHelper::ACTIVE) -> limit(10) -> get();
+            } elseif ($type === 'customer_locations') {
+                $selectedOrg = $request->organization_id ?? null;
+                $results = ErpStore::select('id', 'store_name')
+                    ->when(($authUser->authenticable_type == "employee"), function ($locationQuery) use ($authUser) {
+                        $locationQuery->whereHas('employees', function ($employeeQuery) use ($authUser) {
+                            $employeeQuery->where('employee_id', $authUser->id);
+                        });
+                    })
+                    ->withWhereHas('subStores', function ($subStoreQuery) {
+                        $subStoreQuery->where('type', ConstantHelper::CUSTOMER);
+                    })
+                    ->when($term, function ($termQuery) use($term) {
+                        $termQuery->where('store_name', 'LIKE', '%'.$term.'%');
+                    })
+                    ->where('organization_id', $selectedOrg)
+                    ->where('status', ConstantHelper::ACTIVE)
+                    ->limit(10)
+                    ->get();
+                } elseif ($type === 'customer_sub_stores') {
+                    $selectedLocation = $request->location_id ?? null;
+                    $results = ErpSubStore::select('id', 'name')
+                        ->when(true, function ($locationQuery) use($selectedLocation) {
+                            $locationQuery->whereHas('parents', function ($parentQuery) use($selectedLocation) {
+                                $parentQuery->where('store_id', $selectedLocation);
+                            });
+                        })
+                        ->when($term, function ($termQuery) use($term) {
+                            $termQuery->where('name', 'LIKE', '%'.$term.'%');
+                        })
+                        ->where('type', ConstantHelper::CUSTOMER)
+                        ->where('status', ConstantHelper::ACTIVE)
+                        ->limit(10)
+                        ->get();
             } elseif ($type === 'stock_items') {
                 $item_ids = $request -> item_ids ?? [];
                 $results = Item::withDefaultGroupCompany() -> whereIn('id', $item_ids) -> select('id', 'item_name', 'item_code')
@@ -2575,6 +2635,36 @@ class AutocompleteController extends Controller
                 $results = $query
                     ->limit(10)
                     ->get(['id', 'item_name', 'item_code', 'uom_id']);
+            }elseif ($type === 'trip_number') {
+                $results = ErpTripPlanHeader::when($term, function ($q) use ($term) {
+                    $q->where(function ($query) use ($term) {
+                        $query->where('book_code', 'LIKE', "%$term%")
+                            ->orWhere('document_number', 'LIKE', "%$term%")
+                            ->orWhere('vehicle_number', 'LIKE', "%$term%")
+                            // handle combination forms
+                            ->orWhereRaw("CONCAT(book_code, '-', document_number) LIKE ?", ["%$term%"])
+                            ->orWhereRaw("CONCAT(book_code, '-', document_number, ' (', vehicle_number, ')') LIKE ?", ["%$term%"])
+                            ->orWhereRaw("CONCAT(book_code, '-', document_number, ' ', vehicle_number) LIKE ?", ["%$term%"]);
+                    });
+                })
+                ->whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])
+                ->get([
+                    'id',
+                    'book_code',
+                    'document_number',
+                    'vehicle_number',
+                ]);
+
+                if ($results->isEmpty() && !$term) {
+                    $results = ErpTripPlanHeader::whereIn('document_status', [ConstantHelper::APPROVED, ConstantHelper::APPROVAL_NOT_REQUIRED])
+                        ->limit(10)
+                        ->get([
+                            'id',
+                            'book_code',
+                            'document_number',
+                            'vehicle_number',
+                        ]);
+                }
             }elseif ($type === 'consignee') {
                 $isVendor = $request->is_vendor;
                 $isCostumer = $request->is_customer;

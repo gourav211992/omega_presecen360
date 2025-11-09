@@ -202,12 +202,14 @@ $(document).on("change", "[name*='po_qty']", function (e) {
     const $poQtyInput = $tr.find("[name*='po_qty']");
     const $poRateInput = $tr.find("[name*='po_rate']");
     const $poValueInput = $tr.find("[name*='po_value']");
+    const $oldPoValueInput = $tr.find("[name*='old_amt_po']");
     const dataIndex = $tr.attr("data-index");
     const itemId = $tr.find("[name*='item_id']").val();
 
     let poQty = parseFloat($poQtyInput.val()) || 0;
     let poRate = parseFloat($poRateInput.val()) || 0;
     let poValue = parseFloat($poValueInput.val()) || 0;
+    let oldPoValue = parseFloat($oldPoValueInput.val()) || 0;
 
     if (poQty <= 0) {
         Swal.fire({
@@ -220,8 +222,10 @@ $(document).on("change", "[name*='po_qty']", function (e) {
     if (Number(poRate)) {
         let totalValue = parseFloat(poQty) * parseFloat(poRate);
         $poValueInput.val(totalValue.toFixed(6));
+        $oldPoValueInput.val(totalValue.toFixed(6));
     } else {
         $poValueInput.val("");
+        $oldPoValueInput.val("");
     }
     setTableCalculation();
 });
@@ -233,12 +237,14 @@ $(document).on("change", "[name*='po_rate']", function (e) {
     const $poQtyInput = $tr.find("[name*='po_qty']");
     const $poRateInput = $tr.find("[name*='po_rate']");
     const $poValueInput = $tr.find("[name*='po_value']");
+    const $oldPoValueInput = $tr.find("[name*='old_amt_po']");
     const dataIndex = $tr.attr("data-index");
     const itemId = $tr.find("[name*='item_id']").val();
 
     let poQty = parseFloat($poQtyInput.val()) || 0;
     let poRate = parseFloat($poRateInput.val()) || 0;
     let poValue = parseFloat($poValueInput.val()) || 0;
+    let oldPoValue = parseFloat($oldPoValueInput.val()) || 0;
 
     if (poRate <= 0) {
         Swal.fire({
@@ -251,8 +257,10 @@ $(document).on("change", "[name*='po_rate']", function (e) {
     if (Number(poRate)) {
         let totalValue = parseFloat(poQty) * parseFloat(poRate);
         $poValueInput.val(totalValue.toFixed(6));
+        $oldPoValueInput.val(totalValue.toFixed(6));
     } else {
         $poValueInput.val("");
+        $oldPoValueInput.val("");
     }
     setTableCalculation();
 });
@@ -327,7 +335,6 @@ function initializeAutocomplete2(selector, type) {
                 closestTr.find("[name*=item_name]").val(itemN);
                 closestTr.find("[name*=hsn_id]").val(hsnId);
                 closestTr.find("[name*=hsn_code]").val(hsnCode);
-                closestTr.find("td[id*='itemAttribute_']").html(defautAttrBtn);
                 $input.val(itemCode);
                 let uomOption = `<option value=${uomId}>${uomName}</option>`;
                 if (ui.item?.alternate_u_o_ms) {
@@ -338,7 +345,6 @@ function initializeAutocomplete2(selector, type) {
                     }
                 }
                 closestTr.find("[name*=uom_id]").append(uomOption);
-                closestTr.find(".attributeBtn").trigger("click");
                 setTimeout(() => {
                     $input
                         .closest("tr")
@@ -346,13 +352,11 @@ function initializeAutocomplete2(selector, type) {
                         .val("1")
                         .focus();
                 }, 100);
-                // getItemDetail(closestTr);
                 return false;
             },
             change: function (event, ui) {
                 if (!ui.item) {
                     $(this).val("");
-                    // $('#itemId').val('');
                     $(this).attr("data-name", "");
                     $(this).attr("data-code", "");
                 }
@@ -1688,7 +1692,7 @@ function handleAsnError(message = "Invalid data") {
 }
 
 setTimeout(() => {
-    $(".grnItemsTable .grnItemsBody tr").each(function (index, item) {
+    $(".grnItemsTable .grnItemsTbody tr").each(function (index, item) {
         let currentIndex = index + 1;
         setAttributesUIHelper(currentIndex, ".grnItemsTable");
     });

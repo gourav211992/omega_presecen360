@@ -95,6 +95,16 @@ class PurchaseIndent extends Model
             ->toArray();
     }
 
+    public function getPwoIdAttribute()
+    {
+        return $this->items
+            ->pluck('pwo_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
     public function requester()
     {
         return $this->belongsTo(AuthUser::class, 'user_id', 'id');

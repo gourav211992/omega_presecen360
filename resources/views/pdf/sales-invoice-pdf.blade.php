@@ -52,12 +52,15 @@
 
                 </td>
             </tr>
+            
+        </table>
+        <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
             <tr>
-                <td style="border: 1px solid #000;  border-bottom: none; padding: 3px; width: 30%; vertical-align: top;">
+                <td style="border: 1px solid #000;  vertical-align: middle; border-bottom: none; padding: 3px; width: 30%;">
                     @if (isset($orgLogo) && $orgLogo)
-                        <img src="{!! $orgLogo !!}" alt="" height="50px" />
+                        <img src="{!! $orgLogo !!}" alt="" width="200px;" />
                     @else
-                        <img src="{{ $imagePath }}" height="50px" alt="">
+                        <img src="{{ $imagePath }}" width="200px" alt="">
                     @endif
                 </td>
                 <td style="border: 1px solid #000;  border-bottom: none; padding: 3px; width: 40%; vertical-align: top; font-size: 10px;">
@@ -153,8 +156,6 @@
                 </td> -->
                 
             </tr>
-        </table>
-        <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
             <tr>
                 <td  style="border: 1px solid #000;  border-bottom: none; padding: 3px; width: 30%; vertical-align: top;">
                     <table style="width: 100%; margin-bottom: 0px;" cellspacing="0" cellpadding="0">
@@ -641,6 +642,7 @@
                     </table>
                 </td>
             </tr>
+            @if($bankInfo->count() > 0)
             <tr>
                 <td colspan="2"
                     style="padding: 3px; border: 1px solid #000; width: 50%; border-top: none; vertical-align: top;">
@@ -657,7 +659,6 @@
                                             </tr>
                                             <tr>
                                                 <td>
-                                                    <span><b>{{ $organization->name }}</b> </span><br>
                                                     <span><b>Bank Name:</b> {{ $bank->bank_name }}</span><br>
                                                     @foreach($bank->bankDetails as $detail)
                                                         <span><b>Account No:</b> {{ $detail->account_number }}</span><br>
@@ -679,6 +680,7 @@
 
                 </td>
             </tr>
+            @endif
             <tr>
                 <td colspan="2"
                     style="padding: 3px; border: 1px solid #000; width: 50%; border-top: none; vertical-align: top;">

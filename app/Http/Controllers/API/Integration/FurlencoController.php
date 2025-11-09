@@ -8,15 +8,19 @@ use App\Services\Integration\ConsigneeService;
 use App\Services\Integration\SaleOrderService;
 use App\Services\Integration\DeliveryNoteService;
 use App\Http\Requests\Integration\ConsigneeRequest;
+use App\Http\Requests\Integration\SaleOrderRequest;
 use App\Http\Requests\Integration\StoreFurlencoDeliveryNoteRequest;
 use App\Repositories\StockLedgerRepository;
 use Illuminate\Validation\ValidationException;
 use App\Http\Requests\Integration\StoreFurlencoSaleOrderRequest;
 use App\Http\Requests\Integration\UpdateFurlencoSaleOrderRequest;
+use App\Http\Requests\Integration\UpdateTransportDetailRequest;
 use App\Http\Requests\Integration\WarehouseRequest as WmsValidator;
 use App\Http\Resources\Integration\BarCodeDetailResource;
 use App\Models\ERP\StockStoreMapping;
 use App\Repositories\ItemUniqueCodeRepository;
+use App\Repositories\SaleOrderRepository;
+use App\Services\Integration\TransportService;
 
 class FurlencoController extends Controller
 {
@@ -24,6 +28,7 @@ class FurlencoController extends Controller
     public function __construct(
         private ConsigneeService $consigneeService,
         private SaleOrderService $saleOrderService,
+        private TransportService $transportService,
         private DeliveryNoteService $dnoteService
     ) {}
 
@@ -46,10 +51,10 @@ class FurlencoController extends Controller
 
         if (!$result['status']) {
             return response()->json([
-                'error'   => 'Server Error',
+                'error'   => $result['errors'],
                 'message'=> $result['message'],
                 'exception' => 'Error occurred while creating the record.',
-            ], 422);
+            ], 500);
         }
 
         return response()->json([
@@ -127,6 +132,41 @@ class FurlencoController extends Controller
 
     public function createDeliveryNote(StoreFurlencoDeliveryNoteRequest $request){
         $result = $this->dnoteService->create($request,  $request->user());
+
+        if (!$result['status']) {
+            return response()->json([
+                'error'   => 'Server Error',
+                'message'=> $result['message'],
+                'exception' => 'Error occurred while creating the record.',
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => $result['message'],
+            'data' => $result['data'],
+        ]);
+    }
+
+    public function getSaleOrder(Request $request, SaleOrderRepository $saleOrder){
+
+        $data = $saleOrder->getDetail($request);
+
+        if(!$data['status']){
+            throw ValidationException::withMessages([
+                'error' => $data['message'],
+            ]);
+        }
+
+        return response()->json([
+            'message' => $data['message'],
+            'data' => $data['data'],
+        ]);
+
+    }
+
+    public function updateTransportDetail(UpdateTransportDetailRequest $request)
+    {
+        $result = $this->transportService->update($request,  $request->user());
 
         if (!$result['status']) {
             return response()->json([

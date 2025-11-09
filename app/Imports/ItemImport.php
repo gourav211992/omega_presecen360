@@ -340,7 +340,6 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
 
                 $subTypeValue = ($itemType === 'Goods') ? ($row['sub_type'] ?? null) : null;
 
-
                 $uploadedItem = UploadItemMaster::create([
                     'item_name' => $row['item_name'] ?? null,
                     'item_code' => $itemCode,
@@ -353,6 +352,8 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'cost_price_currency' => $row['cost_price_currency'] ?? null,
                     'sell_price' => $row['sale_price'] ?? null,
                     'sell_price_currency' => $row['sell_price_currency'] ?? null,
+                    'mrp' => $row['mrp'] ?? null,
+                    'mrp_currency' => $row['mrp_currency'] ?? null,
                     'type' => $itemType,
                     'status' => 'Processed',
                     'group_id' => $validatedData['group_id'],
@@ -498,6 +499,18 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
                 }
             }
 
+
+            // MRP Currency 
+            if (!empty($uploadedItem->mrp_currency)) {
+                try {
+                    $mrpCurrencyId = $this->service->getCurrencyId($uploadedItem->mrp_currency);
+                } catch (Throwable $e) {
+                    $errors[] = $e->getMessage();
+                }
+            } else {
+                $mrpCurrencyId = null;
+            }
+
             if (!empty($uploadedItem->sub_type)) {
                 try {
                     $subTypes = array_map('trim', explode(',', $uploadedItem->sub_type));
@@ -584,6 +597,7 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'uom_id' => $uomId ?? null,
                     'cost_price_currency_id' => $costPriceCurrencyId ?? null,
                     'sell_price_currency_id' => $sellPriceCurrencyId ?? null,
+                    'mrp_currency_id'        => $mrpCurrencyId ?? null,
                     'storage_uom_id' => $uomId ?? null,
                     'storage_uom_conversion' => 1,
                     'storage_uom_count' =>1,
@@ -591,6 +605,7 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'group_id' => $uploadedItem->group_id ?? null,
                     'company_id' => $uploadedItem->company_id ?? null,
                     'organization_id' => null,
+                    'mrp' => $uploadedItem->mrp ?? null,
                     'cost_price' => $uploadedItem->cost_price ?? null,
                     'sell_price' => $uploadedItem->sell_price ?? null,
                     'min_stocking_level' => $uploadedItem->min_stocking_level ?? null,
@@ -632,6 +647,7 @@ class ItemImport implements ToCollection, WithHeadingRow, WithChunkReading
                     'subcategory_id' => 'required|exists:erp_categories,id',
                     'cost_price_currency_id' => 'nullable|exists:mysql_master.currency,id',
                     'sell_price_currency_id' => 'nullable|exists:mysql_master.currency,id',
+                    'mrp_currency_id'        => 'nullable|exists:mysql_master.currency,id',
                     'group_id' => 'nullable',
                     'company_id' => 'nullable',
                     'organization_id' => 'nullable',

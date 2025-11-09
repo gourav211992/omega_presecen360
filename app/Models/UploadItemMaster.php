@@ -25,6 +25,8 @@ class UploadItemMaster extends Model
         'cost_price_currency',
         'sell_price',
         'sell_price_currency',
+        'mrp',
+        'mrp_currency',
         'type',
         'min_stocking_level',
         'max_stocking_level',

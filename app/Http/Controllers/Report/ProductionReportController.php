@@ -59,7 +59,7 @@ class ProductionReportController extends Controller
 
                 if ($request->filled('mo_document_number')) {
                     $mo = explode('-', $request->mo_document_number);
-                    $mo_number=isset($mo[1])?$mo[1]:'';
+                    $mo_number=isset($mo[1])?$mo[1]:$request->mo_document_number;
                     $query->where('mo_document_number', 'like', '%' . $mo_number . '%');
                 }
 
@@ -158,22 +158,22 @@ class ProductionReportController extends Controller
                 }
         
 
-                if ($request->filled('so_number')) {
-                    $so = explode('-', $request->so_number);
-                  
-                    $so_number=isset($so[1])?$so[1]:$request->so_number;
+                if ($request->filled('so_document_number')) {
+                    $so = explode('-', $request->so_document_number);
+
+                    $so_number=isset($so[1])?$so[1]:$request->so_document_number;
                     $query->where('so_document_number', 'like', '%' . $so_number . '%');
                 }
 
-                if ($request->filled('mo_number')) {
-                    $mo = explode('-', $request->mo_number);
-                    $mo_number=isset($mo[1])?$mo[1]:'';
+                if ($request->filled('mo_document_number')) {
+                    $mo = explode('-', $request->mo_document_number);
+                    $mo_number=isset($mo[1])?$mo[1]:$request->mo_document_number;
                     $query->where('mo_document_number', 'like', '%' . $mo_number . '%');
                 }
 
-                if ($request->filled('item')) {
+                if ($request->filled('item_code')) {
                    
-                    $query->where('pslip_item_code', 'like', '%' . $request->item . '%');
+                    $query->where('pslip_item_code', 'like', '%' . $request->item_code . '%');
                 }
             $results=$query->get();
 

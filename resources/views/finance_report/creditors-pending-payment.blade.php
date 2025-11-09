@@ -415,62 +415,52 @@
                         let rowIndex = 1; 
                         $.each(response.data, function(index, voucher) {
                             console.log("check the voucher",voucher);
-                            
-                            // if (!preSelected.includes(voucher.id.toString())) {
-                            // if (!preSelected.includes(voucher.id.toString()) && voucher.balance >= 1) {
-                            //     console.log("in the if");
-                                
-                            //     const items = voucher.items || [];
-
-                            //     items.forEach(function(item, i) {
-                            //         console.log("chck the item balance",item);
-                                    
-                            //         num++;
-                            //         const uniqueKey = `${voucher.id}_${num}`;
-                            //         voucherMap[uniqueKey] = {
-                            //             ...voucher,
-                            //             item: item // Also attach the specific item
-                            //         };
-                            //         const amount = parseFloat(item.amount ?? voucher.amount ??
-                            //             0).toFixed(2);
-                            //         const balance = parseFloat(item.balance ?? voucher
-                            //             .balance ?? 0).toFixed(2);
-                            //         const dataAmount = balance;
-
-                            //         const existingSettleAmt = voucherMap[uniqueKey]
-                            //             ?.settle_amt ?? 0;
-                            //         const isChecked = existingSettleAmt > 0;
-                            //         html += `<tr id="${uniqueKey}" class="voucherRows">
-                            //             <td>${rowIndex}</td>
-                            //             <td class="text-nowrap">${voucher.date ?? '-'}</td>
-                            //             <td class="text-nowrap" data-ledger-id="${item.ledger ?? ''}">${item.ledger?.name ?? '-'}</td>
-                            //             <td class="text-nowrap">${item.ledger_group?.name ?? item.ledger?.ledger_group?.name ?? '-'}</td>
-                            //             <td class="text-nowrap">${voucher.organization?.name ?? '-'}</td>
-                            //             <td class="text-nowrap">${voucher.erp_location?.store_name ?? '-'}</td>
-                            //             <td class="text-nowrap">${item.cost_center?.name ?? '-'}</td>
-                            //             <td class="text-nowrap fw-bolder text-dark">${voucher.series?.book_code?.toUpperCase() || '-'}</td>
-                            //             <td class="text-nowrap">${voucher.voucher_no ?? '-'}</td>
-                            //             <td class="text-nowrap text-end">${formatIndianNumber(amount)}</td>
-                            //             <td class="text-nowrap balanceInput text-end">${formatIndianNumber(balance)}</td>
-                            //             <td class="text-end">
-                            //                 <input type="number" style="width:105px" class="form-control text-end mw-100 settleInput settleAmount${uniqueKey}" data-id="${uniqueKey}" value="${existingSettleAmt}"/>
-                            //             </td>
-                            //             <td class="text-center">
-                            //                 <div class="form-check form-check-inline me-2">
-                            //                     <input class="form-check-input vouchers voucherCheck${uniqueKey}" data-id="${uniqueKey}" type="checkbox" name="vouchers" value="${uniqueKey}" data-amount="${dataAmount}"  ${isChecked ? 'checked' : ''}/>
-                            //                 </div>
-                            //             </td>
-                            //         </tr>`;
-
-                            //         rowIndex++;
-                            //     });
-                            // }
-
+                
                             if (!preSelected.includes(voucher.id.toString())) {
                                 const items = voucher.items || [];
+                                 var set = false;
+                                var advance = parseFloat(voucher.advance ?? 0);
 
-                                items.forEach(function(item, i) {
-                                    if (item.balance >= 1) {   // 👈 यहाँ item.balance चेक करो
+                                items.forEach(function(item, i) 
+                                {
+                                    var amount = item.credit_amt_org;
+                                    var showamount = item.credit_amt_org;
+                                    var checked = "";
+                                    var balance = 0.00;
+                                    var totalitempayment = 0.00;
+
+                                    if (item.itemreference && item.itemreference.length > 0) 
+                                    {
+                                        item.itemreference.map((refval) => {
+                                            totalitempayment += parseFloat(refval.amount) || 0;
+                                        });
+                                    } 
+
+                                    if(showamount > 0)
+                                    {
+                                        balance = showamount - totalitempayment;
+                                    }
+
+                                    console.log(balance);
+
+                                    if(advance && advance > 0)
+                                    {
+                                        balance = balance - advance;
+                                    }
+
+                                    if(balance < 0)
+                                    {
+                                        advance = -(balance);
+                                    }
+
+                                    if(balance == 0 || balance > 0)
+                                    {
+                                        advance = 0;
+                                    }
+                                    console.log(balance);
+
+                                    if (voucher.balance >= 1 && balance > 0) 
+                                    {   // 👈 यहाँ item.balance चेक करो
                                         num++;
                                         const uniqueKey = `${voucher.id}_${num}`;
                                         voucherMap[uniqueKey] = {
@@ -478,8 +468,8 @@
                                             item: item // हर item को attach किया
                                         };
 
-                                        const amount = parseFloat(item.amount ?? 0).toFixed(2);
-                                        const balance = parseFloat(item.balance ?? 0).toFixed(2);
+                                        // const amount = parseFloat(item.amount ?? 0).toFixed(2);
+                                        // const balance = parseFloat(item.balance ?? 0).toFixed(2);
                                         const dataAmount = balance;
 
                                         const existingSettleAmt = voucherMap[uniqueKey]?.settle_amt ?? 0;

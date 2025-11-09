@@ -15,6 +15,10 @@ class Constants
         'Shufab UAT',
         'Shufab',
         'Staqo',
+    ]; 
+    public const GROUP_REQUIRED = [
+        'Furlenco',
+        'Staqo'
     ];
 
     // To make attachment mandatory for mrn as per Group alias

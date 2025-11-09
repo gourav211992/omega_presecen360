@@ -139,11 +139,10 @@
                                                 class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i>
                                                 Revoke</a>
                                         @endif
-                                        @if ($buttons['post'])
+                                       
                                             <button onclick = "onPostVoucherOpen();" type = "button"
                                                 class="btn btn-warning btn-sm mb-50 mb-sm-0 waves-effect waves-float waves-light"><i
                                                     data-feather="check-circle"></i> Post</button>
-                                        @endif
                                         @if (
                                             $data->document_status == 'approved' ||
                                                 $data->document_status == 'approval_not_required' ||
@@ -579,7 +578,7 @@
                                                                 <th width="300px">Ledger Code</th>
                                                                 <th width="300px">Ledger Name</th>
                                                                 <th width="300px">Ledger Group</th>
-                                                                <th width="300px">Organization</th>
+                                                                <!-- <th width="300px">Organization</th> -->
                                                                 <th width="300px">Reference</th>
                                                                 <th width="200px" class="text-end">Amount (<span
                                                                         id="selectedCurrencyName">{{ $data->currencyCode }}</span>)
@@ -608,6 +607,20 @@
                                                                             id="party_id{{ $no }}"
                                                                             class="ledgers"
                                                                             value="{{ $item->ledger_id ?? $item->party_id }}" />
+                                                                             @php
+                                                                                // remove ledger and wrap in array
+                                                                                $cleanItem = collect($item)->except('ledger')->toArray();
+                                                                                $wrappedItem = [$cleanItem];
+                                                                            @endphp
+                                                                            <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers{{$no}}" class="party_vouchers"  value='@json($wrappedItem)'/>
+                                                                             <input type="hidden" name="customerid[]"
+                                                                                id="customerid{{ $no }}"
+                                                                                value="{{$item?->customer?->id}}"
+                                                                            />
+                                                                            <input type="hidden" name="vendorid[]"
+                                                                                id="vendorid{{ $no }}"
+                                                                                value="{{$item?->vendor?->id}}"
+                                                                            />
                                                                     </td>
                                                                     
                                                                     <td class="poprod-decpt"><input type="text"
@@ -630,13 +643,13 @@
                                                                     
                                                                     
                                                                     
-                                                                    <td>
+                                                                    <!-- <td>
                                                                         <input type="text" disabled
                                                                             placeholder="Select"
                                                                             class="form-control mw-100 mb-25 organization"
                                                                             id="organization{{ $no }}"
                                                                             value="{{ $item?->organization?->name ?? $item?->party?->organization?->name ?? $item?->ledger?->organization?->name }}" />
-                                                                    </td>
+                                                                    </td> -->
                                                                     
                                                                     
                                                                     <td>
@@ -653,7 +666,7 @@
                                                                                     class="btn p-25 btn-sm btn-outline-secondary invoice{{ $no }}"
                                                                                     style="font-size: 10px"
                                                                                     onclick="openInvoice({{ $no }},{{ $data->id }},{{ $item->id }})"
-                                                                                    @if ($item->reference != 'Invoice') disabled @endif>Invoice</button>
+                                                                                    >Invoice</button>
                                                                             </div>
                                                                         </div>
                                                                     </td>
@@ -868,29 +881,27 @@
                             <div class="table-responsive">
                                 <table class="mt-1 table myrequesttablecbox table-striped po-order-detail">
                                     <thead>
-                                        <tr>
-                                            <th>#</th>
+                                         <tr>
+                                             <th>#</th>
                                             <th>Date</th>
                                             <th>Series</th>
                                             <th>Document No.</th>
-                                            <th>Location</th>
-                                            <th>Cost Center</th>
-                                            <th class="text-end">Amount</th>
-                                            <th class="text-end">Balance</th>
-                                            <th class="text-end" width="150px">Settle Amt</th>
+                                            <th class="text-end">Advance</th>
+                                            <th class="text-end">Settle</th>
+                                            <th class="text-end" width="150px">To Pay</th>
                                             <th class="text-center">
                                                 <div class="form-check form-check-inline me-0">
                                                     <input class="form-check-input" type="checkbox" name="podetail"
-                                                        disabled id="inlineCheckbox1">
+                                                        id="inlineCheckbox1">
                                                 </div>
                                             </th>
-                                        </tr>
+                                          </tr>
                                     </thead>
                                     <tbody id="vouchersBody">
                                     </tbody>
                                     <tfoot>
                                         <tr>
-                                            <td colspan="8" class="text-end">Total</td>
+                                            <td colspan="6" class="text-end">Total</td>
                                             <td class="fw-bolder text-dark text-end settleTotal">0</td>
                                             <td></td>
                                         </tr>
@@ -1318,6 +1329,8 @@
                     date: $('#voucherDate').val(),
                     '_token': '{!! csrf_token() !!}',
                     partyCode: $('.partyCode' + $('#currentRow').val()).val(),
+                    customer_id: $('#customerid' + $('#currentRow').val()).val(),
+                    vendor_id: $('#vendorid' + $('#currentRow').val()).val(),
                     book_code: $('#book_code').val(),
                     partyID: $('#party_id' + $('#currentRow').val()).val(),
                     ledgerGroup: $('#groupSelect' + $('#currentRow').val()).val(),
@@ -1330,54 +1343,31 @@
                 success: function(response) {
                     if (response.data.length > 0) {
                         var html = '';
-                        $.each(response.data, function(index, val) {
-                            console.log(val)
-                            if (!preSelected.includes(val['id'].toString())) {
-                                $.each(val.items || [], function(i, item) {
-
-                                    var amount = 0.00;
-                                    var checked = "";
-                                    var dataAmount = parseFloat(val['balance']).toFixed(2);
-                                    if (partyData != "" && partyData != undefined) {
-                                        $.each(JSON.parse(partyData), function(indexP, valP) {
-                                            if (valP['voucher_id'].toString() == val[
-                                                    'id']) {
-                                                amount = (parseFloat(valP['amount']))
-                                                    .toFixed(2);
-                                                checked = "checked";
-                                                dataAmount = (parseFloat(valP[
-                                                    'amount'])).toFixed(
-                                                    2);
-                                            }
-                                        });
-                                    }
-
-                                    if (val['balance'] < 1 && checked == "") {
-                                        console.log('hii' + val['id']);
-                                    } else {
-                                        if (val['settle']) {
-                                            html += `<tr id="${val['id']}" class="voucherRows">
-                                            <td>${index+1}</td>
-                                            <td>${val['date']}</td>
-                                            <td class="fw-bolder text-dark">${val['series']['book_code'].toUpperCase()}</td>
-                                            <td>${val['voucher_no']}</td>
-                                            <td class="">${val['erp_location']?.store_name ?? '-'}</td>
-                                            <td>${item.cost_center?.name ?? '-'}</td>
-                                            <td class="text-end">${formatIndianNumber(val['amount'])}</td>
-                                            <td class="text-end">${formatIndianNumber(val['balance'])}</td>
-                                            <td class="text-end">
-                                                <input type="text" class="form-control mw-100 settleInput settleAmount${val['id']}" readonly data-id="${val['id']}" value="${formatIndianNumber(val['settle'])}"/>
-                                            </td>
-                                            <td class="text-center">
-                                                <div class="form-check form-check-inline me-0">
-                                                    <input class="form-check-input vouchers voucherCheck${val['id']}" data-id="${val['id']}" disabled type="checkbox" ${checked} checked name="vouchers" value="${val['id']}" data-amount="${dataAmount}">
-                                                </div>
-                                            </td>
+                        console.log(response.data);
+                        $.each(response.data, function(index, val) 
+                        {
+                         console.log(val);
+                         val['settle'] = parseFloat(val['settle']);
+                         
+                            var checked = "";
+                                    var calculatedValue = (val['total_item_value'] * val['percent']) / 100;
+                                    html += `<tr id="${val['id']}" class="voucherRows" data-voucher='${JSON.stringify(val)}'>
+                                        <td>${index + 1}</td>
+                                        <td>${new Date(val['date']).toLocaleDateString('en-GB')}</td>
+                                        <td class="fw-bolder text-dark">${val['book_code']?.toUpperCase() ?? '-'}</td>
+                                        <td>${val['document_number']}</td>
+                                        <td class="text-end">${formatIndianNumber(val['total_item_value'])}</td>
+                                        <td class="balanceInput text-end">${formatIndianNumber(val['settle'])}</td>
+                                        
+                                        <td class="text-end">
+                                            <input type="number" class="form-control mw-100 settleInput settleAmount${val['id']}" data-id="${val['id']}" value="${(val['settle']).toFixed(2)}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle']}" readonly/>
+                                        </td>
+                                        <td class="text-center">
+                                            <div class="form-check form-check-inline me-0">
+                                                <input class="form-check-input vouchers voucherCheck${val['id']}" data-header_name="${val['header_name']}" data-id="${val['id']}" data-header_id="${val['id']}" type="checkbox" ${checked} name="vouchers" value="${val['id']}" data-calculatedValueBalance="${calculatedValue}" data-balanceminus="${val['total_item_value'] - val['settle'] > calculatedValue ? calculatedValue.toFixed(2) : (val['total_item_value'] - val['settle']).toFixed(2)}" readonly disabled>
+                                            </div>
+                                        </td>
                                         </tr>`;
-                                        }
-                                    }
-                                });
-                            }
                         });
                         $('#LedgerId').val(response.ledgerId);
                         $('#vouchersBody').append(html);
@@ -1757,6 +1747,8 @@
                             <input type="text" placeholder="Select" class="form-control mw-100 ledgerselect partyCode${rowCount} mb-25" required data-id="${rowCount}"/>
                             <input type="hidden" name="party_id[]" type="hidden" id="party_id${rowCount}" class="ledgers"/>
                             <input type="hidden" name="party_vouchers[]" type="hidden" id="party_vouchers${rowCount}" class="party_vouchers"/>
+                            <input type="hidden" name="customer_id[]" type="hidden" id="customerid${rowCount}" class="party_customers"/>
+                            <input type="hidden" name="vendor_id[]" type="hidden" id="vendorid${rowCount}" class="party_vendors"/>
                         </td>
                         <td class="poprod-decpt"><input type="text" disabled placeholder="Select" class="form-control mw-100 mb-25 partyName" id="party_name${rowCount}"/></td>
                         <td>
@@ -1764,13 +1756,6 @@
                                 name="parent_ledger_id[]"
                                 class="ledgerGroup form-select mw-100">
                             </select>
-                        </td>
-                        <td>
-                            <input type="text" disabled
-                                placeholder="Select"
-                                class="form-control mw-100 mb-25 organization"
-                                id="organization${rowCount}"
-                                    />
                         </td>
                         <td>
                             <div class="position-relative d-flex align-items-center">
@@ -2027,8 +2012,13 @@
         dataType: "json",
         success: function(datas) {
             let error = false;
-            if (datas.status !== "success" || !Array.isArray(datas.data)) {
-                Swal.fire(datas.message, datas.error, "error");
+            console.log(datas);
+            if (!datas.data.status) {
+                Swal.fire({
+                    title: 'Error!',
+                    text: datas.data.message,
+                    icon: 'error',
+                });
                 return;
             }
             let inCVBlock = false;

@@ -12,6 +12,7 @@ use App\Models\ErpPlHeader;
 use App\Models\ErpProductionSlip;
 use App\Models\ErpRateContract;
 use App\Models\ErpRfqHeader;
+use App\Models\ErpRcaHeader;
 use App\Models\ErpSaleInvoice;
 use App\Models\ErpSaleInvoiceHistory;
 use App\Models\ErpTransporterRequest;
@@ -23,6 +24,7 @@ use App\Models\Vendor;
 use App\Models\Item;
 use App\Models\Customer;
 use App\Models\ErpRgr;
+use App\Models\ErpRepairOrder;
 use App\Services\MaterialIssue\MaterialIssue;
 use DB;
 use App\Helpers\Helper;
@@ -66,6 +68,8 @@ use App\Models\ExpenseAllocation\GrnDetail as ExpAllocationGrnDetail;
 use Exception;
 use Illuminate\Http\Request;
 use Log;
+use App\Models\Scrap\ErpScrap;
+
 class DocumentApprovalController extends Controller
 {
     # Bom Approval
@@ -78,6 +82,19 @@ class DocumentApprovalController extends Controller
         DB::beginTransaction();
         try {
             $bom = Bom::find($request->id);
+            if($bom->type==ConstantHelper::BOM_SERVICE_ALIAS && !in_array($bom->document_status, ConstantHelper::DOCUMENT_STATUS_SUBMITTED)){
+
+                $bomExists = Bom::where('item_id',$bom->item_id)->where('type','bom')->where('status', ConstantHelper::ACTIVE)
+                    ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_SUBMITTED)
+                    ->first();
+    
+                if ($bomExists) {
+                    return response()->json([
+                        'status' => 422,
+                        'message' =>'Bom already exists for this item '.$bomExists->item_code
+                    ], 422);  
+                }
+            }
             $bookId = $bom->book_id;
             $docId = $bom->id;
             $docValue = $bom->total_value;
@@ -1210,7 +1227,7 @@ class DocumentApprovalController extends Controller
             $attachments = $request->file('attachments');
             $currentLevel = $doc->approval_level;
             $revisionNumber = $doc->revision_number ?? 0;
-            $actionType = $request->action_type; // Approve or reject
+            $actionType = $request->action_type; 
             $modelName = get_class($doc);
             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
             if ($approveDocument['message']) {
@@ -1495,6 +1512,13 @@ class DocumentApprovalController extends Controller
             $actionType = $request->action_type;
             $modelName = get_class($item);
             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            if ($approveDocument['message']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $approveDocument['message'],
+                    $approveDocument['message'],
+                ], 500);
+            }
             $item->approval_level = $approveDocument['nextLevel'];
             $document_status = $approveDocument['approvalStatus'];
             $status = $request->status;
@@ -1543,6 +1567,13 @@ class DocumentApprovalController extends Controller
             $actionType = $request->action_type;
             $modelName = get_class($vendor);
             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            if ($approveDocument['message']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $approveDocument['message'],
+                    $approveDocument['message'],
+                ], 500);
+            }
             $vendor->approval_level = $approveDocument['nextLevel'] ?? 1;
             $approvalStatus = $approveDocument['approvalStatus'];
             $status = $request->status;
@@ -1633,7 +1664,13 @@ class DocumentApprovalController extends Controller
             $actionType = $request->action_type;
             $modelName = get_class($customer);
             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
-
+             if ($approveDocument['message']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $approveDocument['message'],
+                    $approveDocument['message'],
+                ], 500);
+            }
             $customer->approval_level = $approveDocument['nextLevel'] ?? 1;
             $approvalStatus = $approveDocument['approvalStatus'];
             $status = $request->status;
@@ -1789,6 +1826,13 @@ class DocumentApprovalController extends Controller
             $actionType = $request->action_type;
             $modelName = get_class($doc);
             $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, $docValue, $modelName);
+            if ($approveDocument['message']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $approveDocument['message'],
+                    $approveDocument['message'],
+                ], 500);
+            }
             $doc->approval_level = $approveDocument['nextLevel'];
             $doc->document_status = $approveDocument['approvalStatus'];
             $doc->save();
@@ -1813,6 +1857,167 @@ class DocumentApprovalController extends Controller
             return response()->json([
                 'message' => "Error occurred while $actionType RGR",
                 'error' => $e->getMessage() . ' on line ' . $e->getLine(),
+            ], 500);
+        }
+    }
+
+   public function repairOrder(Request $request)
+    {
+        $request->validate([
+            'remarks' => 'nullable',
+            'attachment' => 'nullable'
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $repairOrder = ErpRepairOrder::find($request->id);
+
+            if (!$repairOrder) {
+                return response()->json([
+                    'message' => 'Repair Order not found',
+                    'error' => '',
+                ], 404);
+            }
+
+            $bookId = $repairOrder->book_id;
+            $docId = $repairOrder->id;
+            $docValue = 0;
+            $remarks = $request->remarks;
+            $attachments = $request->file('attachment');
+            $currentLevel = $repairOrder->approval_level ?? 1;
+            $revisionNumber = $repairOrder->revision_number ?? 0;
+            $actionType = $request->action_type;
+            $modelName = get_class($repairOrder);
+            $approveDocument = Helper::approveDocument($bookId,$docId,$revisionNumber,$remarks,$attachments,$currentLevel,$actionType,$docValue,$modelName );
+            if ($approveDocument['message']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $approveDocument['message'],
+                    $approveDocument['message'],
+                ], 500);
+            }
+            $repairOrder->approval_level = $approveDocument['nextLevel'];
+            $repairOrder->document_status = $approveDocument['approvalStatus'];
+
+            $repairOrder->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => "Repair Order $actionType successfully!",
+                'data' => $repairOrder,
+            ]);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => "Error occurred while $request->action_type Repair Order document.",
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function rca(Request $request)
+    {
+        $request->validate([
+            'remarks' => 'nullable',
+            'attachment' => 'nullable'
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $rcaHeader = ErpRcaHeader::find($request->id);
+
+            if (!$rcaHeader) {
+                return response()->json([
+                    'message' => 'RCA not found',
+                    'error' => '',
+                ], 404);
+            }
+
+            $bookId = $rcaHeader->book_id;
+            $docId = $rcaHeader->id;
+            $docValue = 0;
+            $remarks = $request->remarks;
+            $attachments = $request->file('attachment');
+            $currentLevel = $rcaHeader->approval_level ?? 1;
+            $revisionNumber = $rcaHeader->revision_number ?? 0;
+            $actionType = $request->action_type;
+            $modelName = get_class($rcaHeader);
+            $approveDocument = Helper::approveDocument($bookId,$docId,$revisionNumber,$remarks,$attachments,$currentLevel,$actionType,$docValue,$modelName);
+            if ($approveDocument['message']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $approveDocument['message'],
+                    $approveDocument['message'],
+                ], 500);
+            }
+            $rcaHeader->approval_level = $approveDocument['nextLevel'];
+            $rcaHeader->document_status = $approveDocument['approvalStatus'];
+            $rcaHeader->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => "RCA document $actionType successfully!",
+                'data' => $rcaHeader,
+            ]);
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => "Error occurred while $request->action_type RCA document.",
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    // Scrap Document Approval
+    public function scrap(Request $request)
+    {
+        $request->validate([
+            'remarks' => 'nullable|string|max:255',
+            'attachment' => 'nullable'
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $scrap = ErpScrap::find($request->id);
+            $docId = $scrap->id;
+            $bookId = $scrap->book_id;
+            $remarks = $request->remarks;
+            $modelName = get_class($scrap);
+            $actionType = $request->action_type;
+            $currentLevel = $scrap->approval_level;
+            $attachments = $request->file('attachment');
+            $revisionNumber = $scrap->revision_number ?? 0;
+
+            $approveDocument = Helper::approveDocument($bookId, $docId, $revisionNumber, $remarks, $attachments, $currentLevel, $actionType, 0, $modelName);
+            if (isset($approveDocument['message']) && $approveDocument['message']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $approveDocument['message'],
+                    'error' => "",
+                ], 422);
+            }
+
+            $scrap->approval_level = $approveDocument['nextLevel'];
+            $scrap->document_status = $approveDocument['approvalStatus'];
+            $scrap->save();
+
+            DB::commit();
+            return response()->json([
+                'message' => "Document $actionType successfully!",
+                'data' => $scrap,
+            ]);
+        } catch (Exception $e) {
+            DB::rollBack();
+            Log::error("Exception Scrap $actionType document: " . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'message' => "Error occurred while $actionType Scrap document.",
+                'error' => $e->getTraceAsString(),
             ], 500);
         }
     }

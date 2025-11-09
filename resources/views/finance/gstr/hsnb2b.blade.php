@@ -16,17 +16,25 @@
     </thead>
     <tbody>
         @forelse ($gstrData as $key => $item)
+            <?php
+            $taxableAmt = $item->taxable_amt ? $item->taxable_amt : 0;
+            $igst = $item->igst ? $item->igst : 0;
+            $cgst = $item->cgst ? $item->cgst : 0;
+            $sgst = $item->sgst ? $item->sgst : 0;
+            $cess = $item->cess ? $item->cess : 0;
+            $totalValue = $taxableAmt + $igst + $cgst + $sgst + $cess;
+            ?>
             <tr class="trail-bal-tabl-none">
                 <td>{{ $gstrData->firstItem() + $key }}</td>
                 <td>{{ $item->hsn_code }}</td>
                 <td>{{ $item->description ? $item->description : '-' }}</td>
                 <td>{{ $item->uqc ? $item->uqc : '-' }}</td>
                 <td>{{ $item->qty ? $item->qty : '-' }}</td>
-                <td>{{ $item->taxable_amt ? number_format($item->taxable_amt, 2) : '-' }}</td>
-                <td>{{ $item->igst ? number_format($item->igst, 2) : 0 }}</td>
-                <td>{{ $item->cgst ? number_format($item->cgst, 2) : 0 }}</td>
-                <td>{{ $item->sgst ? number_format($item->sgst, 2) : 0 }}</td>
-                <td>{{ $item->cess ? number_format($item->cess, 2) : 0 }}</td>
+                <td>{{ $totalValue ? number_format($totalValue, 2) : '-' }}</td>
+                <td>{{ $igst ? number_format($igst, 2) : 0 }}</td>
+                <td>{{ $cgst ? number_format($cgst, 2) : 0 }}</td>
+                <td>{{ $sgst ? number_format($sgst, 2) : 0 }}</td>
+                <td>{{ $cess ? number_format($cess, 2) : 0 }}</td>
                 <td>{{ $item->rate ? $item->rate . '%' : 0 }}</td>
             </tr>
         @empty

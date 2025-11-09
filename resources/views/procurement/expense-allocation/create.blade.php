@@ -291,11 +291,11 @@
                                                                         <th width="225">Item Name</th>
                                                                         <th>UOM</th>
                                                                         <th>Currency</th>
-                                                                        <th>Org Currency</th>
                                                                         <th class="text-end">Qty</th>
                                                                         <th class="text-end">Rate</th>
+                                                                        <th class="text-end">
+                                                                            Value({{ $currency?->short_name }})</th>
                                                                         <th class="text-end">Po Value</th>
-                                                                        <th class="text-end">Value</th>
                                                                         <th>Allocation Type</th>
                                                                         <th width="225">Vendor</th>
                                                                         <th width="150">Po No.</th>
@@ -306,7 +306,7 @@
                                                                     id="poItemsTbody"></tbody>
                                                                 <tfoot>
                                                                     <tr class="totalsubheadpodetail">
-                                                                        <td colspan="6"></td>
+                                                                        <td colspan="5"></td>
                                                                         <td class="text-end total-po-qty"
                                                                             id="total-po-qty">0.00</td>
                                                                         <td colspan="1"></td>
@@ -317,7 +317,7 @@
                                                                         <td colspan="4"></td>
                                                                     </tr>
                                                                     <tr valign="top">
-                                                                        <td colspan="14" rowspan="12">
+                                                                        <td colspan="13" rowspan="12">
                                                                             <table
                                                                                 class="table border po-item-detail-display"
                                                                                 id="po-item-detail-display">
@@ -372,10 +372,10 @@
                                                                 <th>Attributes</th>
                                                                 <th>UOM</th>
                                                                 <th>Currency</th>
-                                                                <th>Org Currency</th>
                                                                 <th class="text-end">Qty</th>
+                                                                <th class="text-end">Value({{ $currency?->short_name }})
                                                                 <th class="text-end">Grn Value</th>
-                                                                <th class="text-end">Value</th>
+                                                                </th>
                                                                 <th class="text-end">Weight</th>
                                                                 <th class="text-end">Volume(CFT)</th>
                                                                 <th width="200">Allocated Expense</th>
@@ -386,7 +386,7 @@
                                                             id="grnItemsTbody"></tbody>
                                                         <tfoot>
                                                             <tr class="totalsubheadgrndetail">
-                                                                <td colspan="10"></td>
+                                                                <td colspan="9"></td>
                                                                 <td class="text-end total-grn-qty" id="total-grn-qty">0.00
                                                                 </td>
                                                                 <td class="text-end total-old-grn-value"
@@ -404,7 +404,7 @@
                                                                     id="total-landed-cost">0.00</td>
                                                             </tr>
                                                             <tr valign="top">
-                                                                <td colspan="17" rowspan="12">
+                                                                <td colspan="16" rowspan="12">
                                                                     <table class="table border grn-item-detail-display"
                                                                         id="grn-item-detail-display">
                                                                         <tr>

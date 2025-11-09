@@ -69,12 +69,14 @@ Route::middleware(['user.auth'])->group(function () {
     Route::post('/advancepayment-receipt/email', [AdvancePaymentVoucherController::class, 'sendMail'])->name('advancepaymentVouchers.email');
     Route::post('/advancevoucher/check-reference', [AdvancePaymentVoucherController::class, 'checkReference'])->name('advancevoucher.checkReference');
     Route::post('advancegetLedgerVouchers', [AdvancePaymentVoucherController::class, 'getLedgerVouchers'])->name('advancegetLedgerVouchers');
+    Route::post('advancegetPaymentLedgerVouchers', [AdvancePaymentVoucherController::class, 'getPaymentLedgerVouchers'])->name('advancegetPaymentLedgerVouchers');
 
     Route::controller(GstrController::class)->prefix('finance/gstr')->group(function () {
         Route::get('/gstr-3b', 'gstr3b')->name('finance.gstr.gstr-3b');
         Route::get('/gstr-3b-pdf', 'gstr3bPdf')->name('finance.gstr.gstr-3b-pdf');
     });
 
+    Route::post('getPaymentLedgerVouchers', [VoucherController::class, 'getPaymentLedgerVouchers'])->name('getPaymentLedgerVouchers');
     Route::prefix('maintenance-inspection-checklists')->controller(InspectionChecklistController::class)->group(function () {
         Route::delete('/{id}', 'destroy')->name('maintenance-inspection-checklists.destroy');
     });

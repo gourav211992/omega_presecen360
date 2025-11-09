@@ -96,18 +96,13 @@
         <td>
             <input type="hidden" name="components[grn][{{ $rowCount }}][currency_id]"
                 value="{{ $item?->mrnHeader?->currency_id }}">
-            <input type="text" class="form-control mw-100 currency_code"
-                value="{{ $item?->mrnHeader?->currency?->short_name ?? '' }}"
-                name="components[grn][{{ $rowCount }}][currency_code]" readonly />
-        </td>
-        <td>
             <input type="hidden" name="components[grn][{{ $rowCount }}][org_currency_id]"
                 value="{{ $currency?->id }}">
             <input type="hidden" name="components[grn][{{ $rowCount }}][exchange_rate]"
                 value="{{ $exchangeRate }}">
-            <input type="text" class="form-control mw-100 org_currency_code"
-                value="{{ $currency?->short_name ?? '' }}"
-                name="components[grn][{{ $rowCount }}][org_currency_code]" readonly />
+            <input type="text" class="form-control mw-100 currency_code"
+                value="{{ $item?->mrnHeader?->currency?->short_name ?? '' }}"
+                name="components[grn][{{ $rowCount }}][currency_code]" readonly />
         </td>
         <td>
             <input type="number" class="form-control mw-100 accepted_qty text-end checkNegativeVal grn-qty"
@@ -115,14 +110,14 @@
                 step="any" />
         </td>
         <td>
-            <input type="number" id="old_grn_value_{{ $rowCount }}"
-                name="components[grn][{{ $rowCount }}][old_grn_value]" value="{{ $itemTotalValue }}" readonly
-                class="form-control mw-100 text-end grn_item_value old-grn-value" step="any" />
-        </td>
-        <td>
             <input type="number" id="grn_value_{{ $rowCount }}"
                 name="components[grn][{{ $rowCount }}][grn_value]" value="{{ $totalValue }}" readonly
                 class="form-control mw-100 text-end item_value grn-value" step="any" />
+        </td>
+        <td>
+            <input type="number" id="old_grn_value_{{ $rowCount }}"
+                name="components[grn][{{ $rowCount }}][old_grn_value]" value="{{ $itemTotalValue }}" readonly
+                class="form-control mw-100 text-end grn_item_value old-grn-value" step="any" />
         </td>
         <td>
             <input type="number" id="grn_weight_{{ $rowCount }}"

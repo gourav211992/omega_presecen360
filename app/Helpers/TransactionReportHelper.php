@@ -15,6 +15,7 @@ use App\Helpers\TransactionReport\mrnReportHelper;
 use App\Helpers\TransactionReport\pwoReportHelper;
 use App\Helpers\TransactionReport\rfqReportHelper;
 use App\Helpers\TransactionReport\pslipReportHelper;
+use App\Helpers\TransactionReport\ScrapReportHelper;
 use App\Helpers\TransactionReport\expenseReportHelper;
 
 class TransactionReportHelper
@@ -38,7 +39,7 @@ class TransactionReportHelper
         ConstantHelper::PSV_SERVICE_ALIAS => 'psv.report',
         ConstantHelper::PO_SERVICE_ALIAS => 'po.report,{"type":"purchase-order"}',
         ConstantHelper::PI_SERVICE_ALIAS => 'pi.report',
-        ConstantHelper::JO_SERVICE_ALIAS => 'jo.report',
+        ConstantHelper::SCRAP_SERVICE_ALIAS => 'scrap.report',
         ConstantHelper::PL_SERVICE_ALIAS => 'PL.report',
         ConstantHelper::MO_SERVICE_ALIAS => 'mo.report',
         ConstantHelper::BOM_SERVICE_ALIAS => 'bill.of.material.report',
@@ -57,6 +58,7 @@ class TransactionReportHelper
         ConstantHelper::PO_SERVICE_ALIAS => 'po.index',
         ConstantHelper::PI_SERVICE_ALIAS => 'pi.index',
         ConstantHelper::JO_SERVICE_ALIAS => 'jo.index',
+        ConstantHelper::SCRAP_SERVICE_ALIAS => 'scrap.index',
         ConstantHelper::PL_SERVICE_ALIAS => 'PL.index',
         ConstantHelper::MO_SERVICE_ALIAS => 'mo.index',
         ConstantHelper::BOM_SERVICE_ALIAS => 'bom.index',
@@ -3404,6 +3406,7 @@ class TransactionReportHelper
         ConstantHelper::PSV_SERVICE_ALIAS => self::PSV_FILTERS,
         ConstantHelper::PO_SERVICE_ALIAS => self::PO_FILTERS,
         ConstantHelper::JO_SERVICE_ALIAS => JoReportHelper::REPORT_FILTERS,
+        ConstantHelper::SCRAP_SERVICE_ALIAS => ScrapReportHelper::REPORT_FILTERS,
         ConstantHelper::PI_SERVICE_ALIAS => self::PI_FILTERS,
         ConstantHelper::PL_SERVICE_ALIAS => plReportHelper::PL_FILTERS,
         ConstantHelper::MO_SERVICE_ALIAS => moReportHelper::MO_FILTERS,
@@ -3434,6 +3437,7 @@ class TransactionReportHelper
             ConstantHelper::PSV_SERVICE_ALIAS => self::PSV_TABLE_HEADERS,
             ConstantHelper::PO_SERVICE_ALIAS => self::PO_TABLE_HEADERS,
             ConstantHelper::JO_SERVICE_ALIAS => JoReportHelper::REPORT_TABLE_HEADERS,
+            ConstantHelper::SCRAP_SERVICE_ALIAS => ScrapReportHelper::REPORT_TABLE_HEADERS,
             ConstantHelper::PI_SERVICE_ALIAS => self::PI_TABLE_HEADERS,
             ConstantHelper::PL_SERVICE_ALIAS => plReportHelper::PL_TABLE_HEADERS,
             ConstantHelper::MO_SERVICE_ALIAS => moReportHelper::MO_TABLE_HEADERS,

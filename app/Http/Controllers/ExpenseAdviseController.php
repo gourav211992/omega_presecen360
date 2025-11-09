@@ -55,6 +55,7 @@ use App\Models\AttributeGroup;
 use App\Helpers\Helper;
 use App\Helpers\TaxHelper;
 use App\Helpers\BookHelper;
+use App\Helpers\Common\OrganizationHelper;
 use App\Helpers\NumberHelper;
 use App\Helpers\ConstantHelper;
 use App\Helpers\CurrencyHelper;
@@ -72,9 +73,12 @@ use App\Models\ErpItem;
 use App\Models\ErpVendor;
 use App\Models\JobOrder\JobOrder;
 use App\Models\JobOrder\JoProduct;
+use App\Models\Voucher;
+use App\Services\Common\DocumentLockService;
 use App\Services\ExpenseCheckAndUpdateService;
 use App\Services\ExpenseDeleteService;
 use App\Services\ExpenseService;
+use App\Services\VoucherService;
 use Carbon\Carbon;
 use DateTime;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -105,8 +109,8 @@ class ExpenseAdviseController extends Controller
         $orderType = ConstantHelper::EXPENSE_ADVISE_SERVICE_ALIAS;
         request()->merge(['type' => $orderType]);
         if (request()->ajax()) {
-            $user = Helper::getAuthenticatedUser();
-            $organization = Organization::where('id', $user->organization_id)->first();
+            $user = request()->user();
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             $records = ExpenseHeader::with(
                 [
                     'items',
@@ -117,7 +121,6 @@ class ExpenseAdviseController extends Controller
                 ]
             )
                 ->withDefaultGroupCompanyOrg()
-                ->where('company_id', $organization->company_id)
                 ->latest();
             return DataTables::of($records)
                 ->addIndexColumn()
@@ -182,7 +185,7 @@ class ExpenseAdviseController extends Controller
                 ->addColumn('total_amount', function ($row) {
                     return number_format($row->total_amount, 2);
                 })
-                ->addColumn('created_by', function ($row){
+                ->addColumn('created_by', function ($row) {
                     return $row->createdBy?->name;
                 })
                 ->rawColumns(['document_status'])
@@ -198,7 +201,7 @@ class ExpenseAdviseController extends Controller
      */
     public function create(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $parentUrl = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
         if (count($servicesBooks['services']) == 0) {
@@ -223,9 +226,9 @@ class ExpenseAdviseController extends Controller
     }
 
     # Purchase Order store
-    public function store(ExpenseAdviseRequest $request)
+    public function store(ExpenseAdviseRequest $request, DocumentLockService $lockService)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         DB::beginTransaction();
         try {
             $parameters = [];
@@ -234,8 +237,7 @@ class ExpenseAdviseController extends Controller
                 $parameters = json_decode(json_encode($response['data']['parameters']), true);
             }
 
-            $user = Helper::getAuthenticatedUser();
-            $organization = Organization::where('id', $user->organization_id)->first();
+            $organization = OrganizationHelper::getAuthenticatedOrganization();
             $organizationId = $organization?->id ?? null;
             $groupId = $organization?->group_id ?? null;
             $companyId = $organization?->company_id ?? null;
@@ -516,6 +518,7 @@ class ExpenseAdviseController extends Controller
                         'basic_value' => $itemValue,
                         'job_order_item_id' => $component['jo_detail_id'] ?? null,
                         'jo_service_item_id' => $component['jo_service_item_id'] ?? null,
+                        'jo_id' => $component['job_order_id'] ?? null,
                         'item_variance' => $component['item_variance'] ?? null
                     ];
                 }
@@ -597,6 +600,7 @@ class ExpenseAdviseController extends Controller
                     $expenseDetail->remark = $expenseItem['remark'];
                     $expenseDetail->jo_service_item_id = $expenseItem['jo_service_item_id'];
                     $expenseDetail->job_order_item_id = $expenseItem['job_order_item_id'];
+                    $expenseDetail->jo_id = $expenseItem['jo_id'];
                     $expenseDetail->save();
                     $_key = $_key + 1;
                     $component = $request->all()['components'][$_key] ?? [];
@@ -794,7 +798,6 @@ class ExpenseAdviseController extends Controller
                 $mediaFiles = $expense->uploadDocuments($request->file('attachment'), 'pb', false);
             }
             $expense->save();
-
             $redirectUrl = '';
             if (($expense->document_status == ConstantHelper::APPROVED) || ($expense->document_status == ConstantHelper::POSTED)) {
                 $parentUrl = request()->segments()[0];
@@ -807,6 +810,24 @@ class ExpenseAdviseController extends Controller
                     'message' => $status['message'],
                     'error' => ''
                 ], 422);
+            }
+            $lockKey = \App\Helpers\GeneralHelper::generateLockKey($organization->id, $request->book_id, $document_number);
+            if (!$lockKey) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Invalid Argument passed in Lock Key Generator.',
+                    'line' => '',
+                    'error' => '',
+                ], 500);
+            }
+
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+            if (!$lockResult['success']) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
             }
             DB::commit();
 
@@ -826,7 +847,7 @@ class ExpenseAdviseController extends Controller
 
     public function show(string $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $expense = ExpenseHeader::with(['vendor', 'currency', 'items', 'book'])
             ->findOrFail($id);
         $totalItemValue = $expense->items()->sum('basic_value');
@@ -861,23 +882,24 @@ class ExpenseAdviseController extends Controller
         }
         $serviceAlias = ConstantHelper::EXPENSE_ADVISE_SERVICE_ALIAS;
         $books = Helper::getBookSeriesNew($serviceAlias, $parentUrl)->get();
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $expense = ExpenseHeader::with(['vendor', 'currency', 'items', 'items.costCenter', 'book', 'erpStore'])
             ->findOrFail($id);
         $items = $expense['items'] ?? [];
         $referenceType = $expense['reference_type'] ?? null;
-
+        $expenseItemIds = $expense->items() ? $expense->items()->pluck('id')->toArray() : [];
+        $headerField = null;
         $detailsField = null;
         $serviceField = null;
         $headerIds = [];
-
         switch ($referenceType) {
             case 'po':
                 $headerIds = $expense->toArray()['purchase_order_id'];
+                $headerField = 'po_id';
                 $detailsField = 'purchase_order_item_id';
                 break;
             case 'jo':
-                $headerIds = $expense->toArray()['job_order_id'];
+                $headerField = 'jo_id';
                 $detailsField = 'job_order_item_id';
                 $serviceField = 'jo_service_item_id';
                 break;
@@ -886,7 +908,15 @@ class ExpenseAdviseController extends Controller
         $detailsIds = [];
         $serviceItemIds = [];
 
-        if ($headerIds && $detailsField) {
+        if ($detailsField) {
+            if (is_array($headerIds) && count($headerIds) < 1) {
+                $headerIds = collect($items)
+                    ->pluck($headerField)
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+            }
             $detailsIds = collect($items)
                 ->pluck($detailsField)
                 ->filter()
@@ -941,6 +971,7 @@ class ExpenseAdviseController extends Controller
             'buttons' => $buttons,
             'vendors' => $vendors,
             'costCenters' => $costCenters,
+            'expenseItemIds' => $expenseItemIds,
             'docStatusClass' => $docStatusClass,
             'totalItemValue' => $totalItemValue,
             'revision_number' => $revision_number,
@@ -958,8 +989,8 @@ class ExpenseAdviseController extends Controller
     public function update(EditExpenseRequest $request, $id)
     {
         $expense = ExpenseHeader::find($id);
-        $user = Helper::getAuthenticatedUser();
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $organizationId = $organization?->id ?? null;
         $groupId = $organization?->group_id ?? null;
         $companyId = $organization?->company_id ?? null;
@@ -1210,6 +1241,7 @@ class ExpenseAdviseController extends Controller
                         'basic_value' => $itemValue,
                         'job_order_item_id' => @$component['jo_detail_id'] ?? null,
                         'jo_service_item_id' => @$component['jo_service_item_id'] ?? null,
+                        'jo_id' => $component['job_order_id'] ?? null,
                         'item_variance' => $component['item_variance'],
                         'po_rate' => floatval($component['po_val']) ?? 0.00,
                     ];
@@ -1269,6 +1301,7 @@ class ExpenseAdviseController extends Controller
                     $expenseDetail->purchase_order_item_id = $expenseItem['purchase_order_item_id'];
                     $expenseDetail->job_order_item_id = $expenseItem['job_order_item_id'];
                     $expenseDetail->jo_service_item_id = $expenseItem['jo_service_item_id'];
+                    $expenseDetail->jo_id = $expenseItem['jo_id'] ?? null;
                     $expenseDetail->item_id = $expenseItem['item_id'];
                     $expenseDetail->item_code = $expenseItem['item_code'];
                     $expenseDetail->hsn_id = $expenseItem['hsn_id'];
@@ -1552,7 +1585,7 @@ class ExpenseAdviseController extends Controller
 
     public function addItemRow(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $item = json_decode($request->item, true) ?? [];
         $componentItem = json_decode($request->component_item, true) ?? [];
         $costCenters = CostCenter::withDefaultGroupCompanyOrg()->get();
@@ -1570,8 +1603,8 @@ class ExpenseAdviseController extends Controller
     // PO Item Rows
     public function poItemRows(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $item_ids = explode(',', $request->item_ids);
         $items = PoItem::whereIn('id', $item_ids)
             ->get();
@@ -1596,14 +1629,14 @@ class ExpenseAdviseController extends Controller
         return response()->json(
             [
                 'data' =>
-                [
-                    'html' => $html,
-                    'vendor' => $vendor,
-                    'currency' => $currency,
-                    'paymentTerm' => $paymentTerm,
-                    'shipping' => $shipping,
-                    'billing' => $billing,
-                ],
+                    [
+                        'html' => $html,
+                        'vendor' => $vendor,
+                        'currency' => $currency,
+                        'paymentTerm' => $paymentTerm,
+                        'shipping' => $shipping,
+                        'billing' => $billing,
+                    ],
                 'status' => 200,
                 'message' => 'fetched.'
             ]
@@ -1613,8 +1646,8 @@ class ExpenseAdviseController extends Controller
     // PO Item Rows
     public function soItemRows(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $user = request()->user();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $item_ids = explode(',', $request->item_ids);
         $items = ErpSoItem::whereIn('id', $item_ids)
             ->get();
@@ -1630,9 +1663,9 @@ class ExpenseAdviseController extends Controller
         return response()->json(
             [
                 'data' =>
-                [
-                    'html' => $html,
-                ],
+                    [
+                        'html' => $html,
+                    ],
                 'status' => 200,
                 'message' => 'fetched.'
             ]
@@ -1706,9 +1739,10 @@ class ExpenseAdviseController extends Controller
     # get tax calcualte
     public function taxCalculation(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $authUser = request()->user();
         $location = ErpStore::find($request->location_id ?? null);
 
+        $user = $authUser->authUser();
         $organization = $user->organization;
         $firstAddress = $location?->address ?? null;
         if (!$firstAddress) {
@@ -1755,7 +1789,7 @@ class ExpenseAdviseController extends Controller
     // Get Address
     public function getAddress(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $vendorId = $request?->id ?? null;
         $type = $request?->type ?? null;
         $typeId = $request?->typeId ?? null;
@@ -1817,7 +1851,7 @@ class ExpenseAdviseController extends Controller
         $store = ErpStore::find($storeId);
         $locationAddress = $store?->address;
 
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $organizationAddress = Address::with(['city', 'state', 'country'])
             ->where('addressable_id', $user->organization_id)
             ->where('addressable_type', Organization::class)
@@ -1997,9 +2031,9 @@ class ExpenseAdviseController extends Controller
     // genrate pdf
     public function generatePdf(Request $request, $id)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
 
-        $organization = Organization::where('id', $user->organization_id)->first();
+        $organization = OrganizationHelper::getAuthenticatedOrganization();
         $organizationAddress = Address::with(['city', 'state', 'country'])
             ->where('addressable_id', $user->organization_id)
             ->where('addressable_type', Organization::class)
@@ -2211,12 +2245,14 @@ class ExpenseAdviseController extends Controller
             return response()->json([
                 'message' => 'Amendement done successfully!',
                 'data' => $expenseHeader,
+                'status' => 'success'
             ]);
         } catch (Exception $e) {
             DB::rollBack();
             return response()->json([
                 'message' => 'Error occurred while amendement.',
                 'error' => $e->getMessage(),
+                'status' => 'error'
             ], 500);
         }
     }
@@ -2427,7 +2463,7 @@ class ExpenseAdviseController extends Controller
     # Process PO Item list
     public function processPoItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $ids = json_decode($request->ids, true) ?? [];
         $vendor = null;
         $tableRowCount = $request->tableRowCount ?: 0;
@@ -2575,7 +2611,7 @@ class ExpenseAdviseController extends Controller
     # Submit SO Item list
     public function processSoItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $ids = json_decode($request->ids, true) ?? [];
         $customer = null;
         $finalDiscounts = collect();
@@ -2651,14 +2687,14 @@ class ExpenseAdviseController extends Controller
                     : 'null';
 
                 // Determine if checkbox should be disabled
-                if (empty($selected_jo_ids)) {
-                    $disabled = '';
-                } else {
-                    $disabled = (!in_array($dataCurrentJo, $joDetail)) ? 'disabled' : '';
-                }
+                // if (empty($selected_jo_ids)) {
+                //     $disabled = '';
+                // } else {
+                //     $disabled = (!in_array($dataCurrentJo, $joDetail)) ? 'disabled' : '';
+                // }
 
                 return "<div class='form-check form-check-inline me-0'>
-                            <input class='form-check-input jo_item_checkbox' type='checkbox' name='jo_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-jo='{$dataCurrentJo}' data-existing-jo='{$dataExistingJo}' {$disabled}>
+                            <input class='form-check-input jo_item_checkbox' type='checkbox' name='jo_item_check' value='{$row->id}' data-module='{$moduleType}' data-current-jo='{$dataCurrentJo}' data-existing-jo='{$dataExistingJo}'>
                             <input type='hidden' name='reference_no' id='reference_no' value='{$ref_no}'>
                         </div>";
             })
@@ -2700,20 +2736,20 @@ class ExpenseAdviseController extends Controller
                 return number_format(($orderQty - $expQty) * ($row->rate ?? 0), 2);
             })
             ->rawColumns([
-                    'select_checkbox',
-                    'attributes',
-                    'vendor',
-                    'jo_doc',
-                    'jo_date',
-                    'item_code',
-                    'item_name',
-                    'order_qty',
-                    'inv_order_qty',
-                    'expense_advise_qty',
-                    'balance_qty',
-                    'rate',
-                    'total_amount'
-                ])
+                'select_checkbox',
+                'attributes',
+                'vendor',
+                'jo_doc',
+                'jo_date',
+                'item_code',
+                'item_name',
+                'order_qty',
+                'inv_order_qty',
+                'expense_advise_qty',
+                'balance_qty',
+                'rate',
+                'total_amount'
+            ])
             ->make(true);
     }
 
@@ -2813,7 +2849,7 @@ class ExpenseAdviseController extends Controller
             }
 
             if (!empty($service_item_ids)) {
-                $joItems->whereIn('erp_jo_products.service_item_id', $service_item_ids);
+                $joItems->whereNotIn('erp_jo_products.service_item_id', $service_item_ids);
             }
 
             if (!empty($details_ids)) {
@@ -2840,96 +2876,233 @@ class ExpenseAdviseController extends Controller
     }
 
     # Process JO Item list
+    // public function processJoItem(Request $request)
+    // {
+    //     $user = request()->user();
+    //     $ids = json_decode($request->ids, true) ?? [];
+    //     $vendor = null;
+    //     $tableRowCount = $request->tableRowCount ?: 0;
+    //     $selected_jo_ids = json_decode($request->selected_po_ids, true) ?? [];
+    //     $allIds = array_merge($ids, $selected_jo_ids);
+    //     $joItems = JoProduct::whereIn('id', $ids)
+    //         ->get();
+    //     foreach ($joItems as $joItem) {
+    //         $joItem->avail_order_qty = $joItem->order_qty ?? 0;
+    //         $joItem->available_qty = ((($joItem->order_qty ?? 0) - ($joItem->short_close_qty ?? 0)) - ($joItem->expense_advise_qty ?? 0));
+    //     }
+
+    //     $uniqueJoIds = JoProduct::whereIn('id', $allIds)
+    //         ->distinct()
+    //         ->pluck('jo_id')
+    //         ->toArray();
+    //     if (count($uniqueJoIds) > 1) {
+    //         return response()->json(['data' => ['pos' => ''], 'status' => 422, 'message' => "Expense Advise can be created from one JO at a time."]);
+    //     }
+
+    //     $joHeaders = JobOrder::whereIn('id', $uniqueJoIds)->get();
+    //     $joHeader = JobOrder::whereIn('id', $uniqueJoIds)->first();
+
+    //     $vendorId = $joHeaders->pluck('vendor_id')->unique()->values()->toArray();
+    //     if (count($vendorId) > 1) {
+    //         return response()->json([
+    //             'data' => ['pos' => ''],
+    //             'status' => 422,
+    //             'message' => "You can not select multiple vendors of JO items at a time."
+    //         ]);
+    //     }
+
+    //     $joHeader = JobOrder::find($uniqueJoIds[0]);
+    //     $vendor = Vendor::find($vendorId[0]);
+    //     // Discounts & Expenses
+    //     $discounts = collect();
+    //     $expenses = collect();
+
+    //     foreach ([$joHeader] as $jo) {
+    //         foreach ($jo->headerDiscount as $headerDiscount) {
+    //             $headerDiscount['ted_perc'] = intval($headerDiscount->ted_perc)
+    //                 ? $headerDiscount->ted_perc
+    //                 : (floatval($headerDiscount->ted_amount) / floatval($headerDiscount->assesment_amount)) * 100;
+
+    //             $discounts->push($headerDiscount);
+    //         }
+
+    //         foreach ($jo->headerExpenses as $headerExpense) {
+    //             $headerExpense['ted_perc'] = intval($headerExpense->ted_perc)
+    //                 ? $headerExpense->ted_perc
+    //                 : (floatval($headerExpense->ted_amount) / floatval($headerExpense->assesment_amount)) * 100;
+
+    //             $expenses->push($headerExpense);
+    //         }
+    //     }
+
+    //     $finalDiscounts = $discounts->groupBy('ted_id')->map(fn($g) => $g->sortByDesc('ted_perc')->first())->values()->toArray();
+    //     $finalExpenses = $expenses->groupBy('ted_id')->map(fn($g) => $g->sortByDesc('ted_perc')->first())->values()->toArray();
+
+    //     $html = view(
+    //         'procurement.expense-advise.partials.jo-item-row',
+    //         [
+    //             'joItems' => $joItems,
+    //             'tableRowCount' => $tableRowCount
+    //         ]
+    //     )
+    //         ->render();
+
+    //     return response()->json(
+    //         [
+    //             'data' => [
+    //                 'pos' => $html,
+    //                 'vendor' => $vendor,
+    //                 'jobOrder' => $joHeader,
+    //                 'finalExpenses' => $finalExpenses,
+    //                 'finalDiscounts' => $finalDiscounts
+    //             ],
+    //             'status' => 200,
+    //             'message' => "fetched!"
+    //         ]
+    //     );
+    // }
+
     public function processJoItem(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
+        $type = 'jo';
         $ids = json_decode($request->ids, true) ?? [];
+        $moduleTypes = json_decode($request->moduleTypes, true) ?? [];
         $vendor = null;
+
+        // Ensure all module types are the same
+        if (count(array_unique($moduleTypes)) > 1) {
+            return response()->json([
+                'data' => ['pos' => ''],
+                'status' => 422,
+                'message' => "Multiple different module types are not allowed."
+            ]);
+        }
+
+        // $selected_jo_ids = json_decode($request->selected_po_ids, true) ?? [];
+        // $allIds = array_merge($ids, $selected_jo_ids);
+
+        // Determine module type
+        $moduleType = $moduleTypes[0] ?? null;
         $tableRowCount = $request->tableRowCount ?: 0;
-        $selected_jo_ids = json_decode($request->selected_po_ids, true) ?? [];
-        $allIds = array_merge($ids, $selected_jo_ids);
-        $joItems = JoProduct::whereIn('id', $ids)
-            ->get();
+        $joItems = JoProduct::whereIn('id', $ids)->get();
         foreach ($joItems as $joItem) {
             $joItem->avail_order_qty = $joItem->order_qty ?? 0;
-            $joItem->available_qty = ((($joItem->order_qty ?? 0) - ($joItem->short_close_qty ?? 0)) - ($joItem->expense_advise_qty ?? 0));
+            $joItem->available_qty = ((($joItem->order_qty ?? 0) - ($joItem->short_close_qty ?? 0)) - ($joItem->grn_qty ?? 0));
+        }
+        $uniqueJoIds = $joItems->pluck('jo_id')->unique()->toArray();
+
+        $locations = InventoryHelper::getAccessibleLocations('stock');
+        $pos = JobOrder::whereIn('id', $uniqueJoIds)->get();
+
+        $jobData = JobOrder::whereIn('id', $uniqueJoIds)
+            ->with([
+                'items' => function ($query) use ($ids) {
+                    $query->whereIn('id', $ids);
+                }
+            ])
+            ->get();
+
+        $jobOrder = JobOrder::whereIn('id', $uniqueJoIds)->first();
+
+        $finalExpenses = [];
+        $joExpenses = JobOrder::whereIn('id', $uniqueJoIds)
+            ->with([
+                'headerExpenses' => function ($query) {
+                    $query->where('ted_level', 'H');
+                }
+            ])
+            ->get()
+            ->keyBy('id');
+
+        $selectedJoItemValues = JoProduct::whereIn('id', $ids)
+            ->select('jo_id', \DB::raw('SUM(order_qty * rate) as total'))
+            ->groupBy('jo_id')
+            ->pluck('total', 'jo_id');
+
+        $joValues = JoProduct::whereIn('jo_id', $uniqueJoIds)
+            ->select('jo_id', \DB::raw('SUM(order_qty * rate) as total'))
+            ->groupBy('jo_id')
+            ->pluck('total', 'jo_id');
+
+        foreach ($joExpenses as $joId => $jo) {
+            $joValue = $joValues[$joId] ?? 0;
+            $selectedJoItemValue = $selectedJoItemValues[$joId] ?? 0;
+
+            foreach ($jo->headerExpenses as $expense) {
+                $perc = $joValue > 0 ? ($expense->ted_amount / $joValue) * 100 : 0;
+                $amount = number_format(($selectedJoItemValue * $perc / 100), 2);
+
+                $finalExpenses[] = [
+                    'id' => $expense->id,
+                    'ref_type' => 'jo',
+                    'job_order_id' => $expense->jo_id,
+                    'ted_id' => $expense->ted_id,
+                    'ted_name' => $expense->ted_name,
+                    'ted_amount' => $amount,
+                    'ted_perc' => round($perc, 8),
+                ];
+            }
         }
 
-        $uniqueJoIds = JoProduct::whereIn('id', $allIds)
-            ->distinct()
-            ->pluck('jo_id')
-            ->toArray();
-        if (count($uniqueJoIds) > 1) {
-            return response()->json(['data' => ['pos' => ''], 'status' => 422, 'message' => "Expense Advise can be created from one JO at a time."]);
-        }
-
-        $joHeaders = JobOrder::whereIn('id', $uniqueJoIds)->get();
-        $joHeader = JobOrder::whereIn('id', $uniqueJoIds)->first();
-
-        $vendorId = $joHeaders->pluck('vendor_id')->unique()->values()->toArray();
-        if (count($vendorId) > 1) {
+        $vendorId = $pos->pluck('vendor_id')->unique();
+        if ($vendorId->count() > 1) {
             return response()->json([
                 'data' => ['pos' => ''],
                 'status' => 422,
                 'message' => "You can not select multiple vendors of JO items at a time."
             ]);
+        } else {
+            $vendor = Vendor::find($vendorId->first());
         }
 
-        $joHeader = JobOrder::find($uniqueJoIds[0]);
-        $vendor = Vendor::find($vendorId[0]);
-        // Discounts & Expenses
-        $discounts = collect();
-        $expenses = collect();
+        $html = view('procurement.expense-advise.partials.jo-item-row', [
+            'pos' => $pos,
+            'type' => $type,
+            'joItems' => $joItems,
+            'locations' => $locations,
+            'purchaseData' => $jobData,
+            'moduleType' => $moduleType,
+            'tableRowCount' => $tableRowCount
+        ])->render();
 
-        foreach ([$joHeader] as $jo) {
-            foreach ($jo->headerDiscount as $headerDiscount) {
-                $headerDiscount['ted_perc'] = intval($headerDiscount->ted_perc)
-                    ? $headerDiscount->ted_perc
-                    : (floatval($headerDiscount->ted_amount) / floatval($headerDiscount->assesment_amount)) * 100;
-
-                $discounts->push($headerDiscount);
-            }
-
-            foreach ($jo->headerExpenses as $headerExpense) {
-                $headerExpense['ted_perc'] = intval($headerExpense->ted_perc)
-                    ? $headerExpense->ted_perc
-                    : (floatval($headerExpense->ted_amount) / floatval($headerExpense->assesment_amount)) * 100;
-
-                $expenses->push($headerExpense);
-            }
-        }
-
-        $finalDiscounts = $discounts->groupBy('ted_id')->map(fn($g) => $g->sortByDesc('ted_perc')->first())->values()->toArray();
-        $finalExpenses = $expenses->groupBy('ted_id')->map(fn($g) => $g->sortByDesc('ted_perc')->first())->values()->toArray();
-
-        $html = view(
-            'procurement.expense-advise.partials.jo-item-row',
-            [
-                'joItems' => $joItems,
-                'tableRowCount' => $tableRowCount
-            ]
-        )
-            ->render();
-
-        return response()->json(
-            [
-                'data' => [
-                    'pos' => $html,
-                    'vendor' => $vendor,
-                    'jobOrder' => $joHeader,
-                    'finalExpenses' => $finalExpenses,
-                    'finalDiscounts' => $finalDiscounts
-                ],
-                'status' => 200,
-                'message' => "fetched!"
-            ]
-        );
+        return response()->json([
+            'data' => [
+                'pos' => $html,
+                'vendor' => $vendor,
+                'moduleType' => $moduleType,
+                'finalExpenses' => $finalExpenses,
+                'finalDiscounts' => [],
+                'jobOrder' => $jobOrder,
+            ],
+            'status' => 200,
+            'message' => "fetched!"
+        ]);
     }
 
     public function getPostingDetails(Request $request)
     {
         try {
             $data = FinancialPostingHelper::financeVoucherPosting($request->book_id ?? 0, $request->document_id ?? 0, "get");
+            return response()->json([
+                'status' => 'success',
+                'data' => $data
+            ]);
+        } catch (Exception $ex) {
+            return response()->json([
+                'status' => 'exception',
+                'message' => 'Some internal error occured',
+                'error' => $ex->getMessage()
+            ]);
+        }
+    }
+
+    // Get Posting History Details
+    public function getPostingHistoryDetails(Request $request)
+    {
+        try {
+            $history = ExpenseHeaderHistory::find($request->document_id);
+            $data = VoucherService::financeVoucherPostingHistory($request->book_id ?? 0, $history->header_id ?? 0, $request->type ?? 'get');
             return response()->json([
                 'status' => 'success',
                 'data' => $data
@@ -3010,7 +3183,7 @@ class ExpenseAdviseController extends Controller
     // Expense Advise Report
     public function Report()
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', null)->get();
         $sub_categories = Category::withDefaultGroupCompanyOrg()->where('parent_id', '!=', null)->get();
         $items = Item::withDefaultGroupCompanyOrg()->get();
@@ -3039,7 +3212,7 @@ class ExpenseAdviseController extends Controller
 
     public function getReportFilter(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $period = $request->query('period');
         $startDate = $request->query('startDate');
         $endDate = $request->query('endDate');
@@ -3339,7 +3512,7 @@ class ExpenseAdviseController extends Controller
 
     public function expenseAdviseReport(Request $request)
     {
-        $user = Helper::getAuthenticatedUser();
+        $user = request()->user();
         $pathUrl = route('expense-adv.index');
         $orderType = ConstantHelper::EXPENSE_ADVISE_SERVICE_ALIAS;
         $expenseAdvises = ExpenseHeader::withDefaultGroupCompanyOrg()
@@ -3594,5 +3767,161 @@ class ExpenseAdviseController extends Controller
     {
         return true;
         // return self::validateComponentQuantities($component, $inputQty) === true ? true : self::validateComponentQuantities($component, $inputQty);
+    }
+
+    // Cancel Document
+    public function cancel(Request $request)
+    {
+        $user = $request->user();
+        $referenceService = ConstantHelper::EXPENSE_ADVISE_SERVICE_ALIAS;
+        // Validate incoming AJAX JSON
+        $documentId = (int) $request->input('id'); // from AJAX
+        $actionType = $request->input('action_type', 'cancel');
+        $cancelType = $request->input('cancel_type', 'normal') ?? 'normal'; // normal|voucher
+        $cancelRemarks = $request->input('cancel_remarks', '');
+        $deletedMrnItemIds = json_decode($request->input('deletedMrnItemIds', []), true) ?? [];
+        \DB::beginTransaction();
+        try {
+            /** @var ExpenseHeader|null $expense */
+            $expense = ExpenseHeader::find($documentId);
+
+            if (!$expense) {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Expense Advise not found.'
+                ]);
+            }
+
+            // Submit Amendment (if your method returns ['status'=>'success|error','message'=>...])
+            if (method_exists($this, 'amendmentSubmit')) {
+                $amendment = $this->amendmentSubmit($request, $expense->id);
+                if (is_array($amendment) && ($amendment['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $amendment['message'] ?? 'Amendment submission failed.'
+                    ]);
+                }
+            }
+
+            // Delete Voucher Details and create history if needed
+            if (class_exists(VoucherService::class)) {
+                $voucher = Voucher::with(['items'])
+                    ->where('reference_service', $referenceService)
+                    ->where('reference_doc_id', $documentId)
+                    ->first();
+                if ($voucher) {
+                    $payload = [
+                        'voucher_id' => $voucher->id,
+                        'reference_service' => $referenceService,
+                        'reference_doc_id' => $documentId,
+                        'cancel_remarks' => $cancelRemarks,
+                        'cancel_attachments' => $request->input('cancel_attachments', []),
+                    ];
+                    $voucherService = new VoucherService();
+                    $voucherResponse = $voucherService->cancelVoucher($user, $voucher, $payload);
+                    if (($voucherResponse['status'] ?? 'success') === 'error') {
+                        DB::rollBack();
+                        return response()->json([
+                            'status' => false,
+                            'message' => $voucherResponse['message'] ?? 'Delete failed.'
+                        ]);
+                    }
+                }
+            }
+
+            // Optional: delete related records as per your existing flow
+            $keys = ['deletedMrnItemIds'];
+            $deletedData = [];
+            foreach ($keys as $key) {
+                $deletedData[$key] = json_decode($request->input($key, '[]'), true);
+            }
+
+            if (class_exists(ExpenseDeleteService::class)) {
+                $deleteService = new ExpenseDeleteService();
+                $deleteResponse = $deleteService->deleteByRequest($deletedData, $expense);
+                if (($deleteResponse['status'] ?? 'success') === 'error') {
+                    DB::rollBack();
+                    return response()->json([
+                        'status' => false,
+                        'message' => $deleteResponse['message'] ?? 'Delete failed.'
+                    ]);
+                }
+            }
+
+            // Only support cancel action for now
+            if ($actionType !== 'cancel') {
+                DB::rollBack();
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Only cancel action is supported.'
+                ]);
+            }
+
+            // Log and update header
+            $bookId = $expense->book_id;
+            $docId = $expense->document_id ?? $expense->id;
+            $revision = (int) $expense->revision_number + 1;
+            $currentLevel = (int) $expense->approval_level;
+
+            // Document log (if you rely on it)
+            if (class_exists(Helper::class) && method_exists(Helper::class, 'approveDocument')) {
+                Helper::approveDocument(
+                    $bookId,
+                    $docId,
+                    $revision,
+                    $cancelRemarks,
+                    $request->input('cancel_attachments', []),
+                    $currentLevel,
+                    $actionType,
+                    $expense->total_amount,
+                    ExpenseHeader::class
+                );
+            }
+            // Persist cancellation
+            $expense->revision_number = $revision;
+            $expense->approval_level = 1;
+            $expense->revision_date = now();
+            $expense->document_status = ConstantHelper::CANCELLED;
+            $expense->final_remark = $cancelRemarks;
+
+            // Zero-out financials as per your original code
+            $expense->total_discount = 0.00;
+            $expense->taxable_amount = 0.00;
+            $expense->total_taxes = 0.00;
+            $expense->total_after_tax_amount = 0.00;
+            $expense->expense_amount = 0.00;
+            $expense->total_amount = 0.00;
+            $expense->total_item_amount = 0.00;
+            $expense->reference_type = null;
+            $expense->supplier_invoice_no = null;
+            $expense->supplier_invoice_date = null;
+            $expense->cost_center_id = null;
+
+
+            $expense->save();
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Expense Advise cancelled successfully.',
+                'data' => [
+                    'status' => true,
+                    'id' => $expense->id,
+                    'document_status' => $expense->document_status,
+                    'revision_number' => $expense->revision_number,
+                    'cancellation_type' => $cancelType,
+                ],
+            ], 200);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'status' => false,
+                'message' => 'An error occurred while processing your request.',
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }

@@ -733,16 +733,15 @@ class ItemController extends Controller
     public function exportSuccessfulItems()
     {
         $user = Helper::getAuthenticatedUser();
-        $uploadItems = UploadItemMaster::where('status', 'Success')->where('user_id', $user->id)->get();
+        $uploadItems = UploadItemMaster::where('status', 'Success')->where('user_id', $user->auth_user_id)->get();
         $items = Item::with(['category', 'subTypes', 'subcategory', 'hsn', 'uom', 'itemAttributes', 'specifications', 'alternateUOMs'])->whereIn('item_code', $uploadItems->pluck('item_code'))->get();
         return Excel::download(new ItemsExport($items, $this->itemImportExportService), "successful-items.xlsx");
     }
 
-
     public function exportFailedItems()
     {
         $user = Helper::getAuthenticatedUser();
-        $failedItems = UploadItemMaster::where('status', 'Failed')->where('user_id', $user->id)->get();
+        $failedItems = UploadItemMaster::where('status', 'Failed')->where('user_id', $user->auth_user_id)->get();
         return Excel::download(new FailedItemsExport($failedItems), "failed-items.xlsx");
     }
 

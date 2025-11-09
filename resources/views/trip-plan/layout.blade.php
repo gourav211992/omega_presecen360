@@ -329,7 +329,7 @@
     let requesterTypeParam = "{{isset($order) ? $order -> requester_type : 'Department'}}";
     let redirect = "{{$redirect_url}}";   
     </script>
-    @include('trip-plan.common-js-route',["order" => isset($order) ? $order : null, "route_prefix" => "trip"])
+    @include('PL.common-js-route',["order" => isset($order) ? $order : null, "route_prefix" => "trip-plan"])
     <script src="{{ asset("assets\\js\\modules\\pl\\common-script.js") }}"></script>
     <script src="{{ asset("assets\\js\\modules\\trip\\trip.js") }}"></script>
 

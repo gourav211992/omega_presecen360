@@ -55,6 +55,7 @@ class MrnHeaderHistory extends Model
         'consignment_no',
         'transporter_name',
         'vehicle_no',
+        'manual_entry_no',
         'billing_to',
         'ship_to',
         'billing_address',
@@ -224,6 +225,11 @@ class MrnHeaderHistory extends Model
     public function headerDiscount()
     {
         return $this->hasMany(MrnExtraAmountHistory::class, 'mrn_header_history_id')->where('ted_level', 'H')->where('ted_type', 'Discount');
+    }
+
+    public function header_tax()
+    {
+        return $this->hasOne(MrnExtraAmountHistory::class, 'mrn_header_history_id')->where('ted_level', 'H')->where('ted_type', 'Tax');
     }
 
     /*Total discount header level total_header_disc_amount*/

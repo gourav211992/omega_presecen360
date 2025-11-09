@@ -94,7 +94,10 @@
                                         <td>WIP ({{ @$order?->mo?->station?->name }})</td>
                                     </tr>
                                     @endif
-
+                                    <tr>
+                                        <td><b>Lot No:</b></td>
+                                        <td>{{$order?->lot_number}}</td>
+                                    </tr>
                                 </table>
                             </td>
 
@@ -140,7 +143,7 @@
                                     <tr>
                                         <td><b>Mo No:</b></td>
                                         <td>{{$order?->mo?->book_code."-".$order?->mo?->document_number}}</td>
-                                    </tr>
+                                    </tr> 
                                     <tr>
                                         <td><b>Mo Date:</b></td>
                                         <td>{{$order?->mo?->document_date}}</td>

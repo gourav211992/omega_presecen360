@@ -97,7 +97,7 @@
                                                     ];
                                                 } elseif ($order->document_type == "dnote") {
                                                     $options = ['Delivery Note'];
-                                                } elseif ($order->document_type == 'si-dnote' || $order->document_type == 'sinv') {
+                                                } elseif ($order->document_type == 'sinv') {
                                                     $options = [
                                                         'Tax Invoice',
                                                         'Original',
@@ -207,9 +207,14 @@
                                     <button id = "revokeButton" type="button" onclick = "revokeDocument();" class="btn btn-primary btn-sm mb-50 mb-sm-0"><i data-feather='rotate-ccw'></i> Revoke</button>
                                 @endif
 
-                                @if($enableEinvoice && !$einvoice && in_array($order -> document_status, ['approved', 'approval_not_required', 'posted']))
+                                @if($enableEinvoice && (!isset($einvoice) || empty($einvoice->irn_number)) && in_array($order -> document_status, ['approved', 'approval_not_required', 'posted']))
                                 <a type="button" class="btn btn-primary btn-sm" id="eEInvoiceBtn" onclick = "generateEInvoice('{{$order -> id}}')">
                                     <i data-feather="check-circle"></i> Generate E-Invoice
+                                </a>
+                                @endif
+                                @if ($buttons['cancel'])
+                                    <a type="button" class="btn btn-danger btn-sm" id="cancelDocButton" onclick="openCancelDoc({{ $order->id }})">
+                                    <i data-feather="check-circle"></i>Cancel Doc
                                 </a>
                                 @endif
                                 @if($cancelEInvoice || $cancelEWayBill)
@@ -596,6 +601,25 @@
                                                     </div>
                                                     @endif
 
+                                                    @if($showSaleType)
+                                                        <div class="col-md-3">
+                                                            <div class="mb-1">
+                                                                <label class="form-label">Sale Type <span class="text-danger">*</span></label>
+                                                                <select class="form-select disable_on_edit" id = "sale_type_dropdown" name = "sale_type">
+                                                                    <option selected value = "Sale">Sale</option>
+                                                                    <option value = "Rent">Rent</option>
+                                                                </select>
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-md-3">
+                                                            <div class="mb-1">
+                                                                <label class="form-label">Customer Store</label>
+                                                                <input type="text" class="form-control ledgerselecct ui-autocomplete-input" autocomplete="off"  id = "customer_store_input" readonly value = "{{ isset($order) ? $order -> customerSubStore ?-> name : '' }}" />
+                                                            </div>
+                                                        </div>
+                                                    @endif
+
 											    </div>
 
                                                  </div>
@@ -653,7 +677,7 @@
 
                                                <div class="col-md-4">
                                                         <div class="customer-billing-section">
-                                                            <p>Pickup Address&nbsp;<span class="text-danger">*</span>
+                                                            <p>Dispatch From&nbsp;<span class="text-danger">*</span>
                                                         </p>
                                                             <div class="bilnbody">
 
@@ -2827,6 +2851,7 @@
 </div>
 @include('salesInvoice.popups.cancelEInvoice');
 @include('salesInvoice.popups.cancelEwayBill');
+@include('salesInvoice.popups.cancelPopup');
 
 
 
@@ -4091,6 +4116,8 @@
                         $("#reference_no_input").val(currentOrder?.reference_number);
                         $("#customer_code_input").val(currentOrder.customer?.company_name);
                         $("#customer_id_input").val(currentOrder.customer_id);
+                        $("#sale_type_dropdown").val(currentOrder?.sale_type);
+                        $("#customer_sub_store_input").val(currentOrder?.customerSubStore?.name);
                         $("#customer_code_input_hidden").val(currentOrder.customer?.company_name);
                         $("#consignee_name_input").val(currentOrder.consignee_name);
                         $("#consignee_id_input").val(currentOrder?.consignee_id);
@@ -6103,6 +6130,40 @@ function initializeAutocompleteTed(selector, idSelector, type, percentageVal) {
         $("#canceEWayBillModal").modal('show');
         $("#si_cancel_ewb_id").val(invoiceId);
     }
+
+    function openCancelDoc(invoiceId)
+    {
+        $("#cancelDocument").modal('show');
+        $("#cancel_invoice_id").val(invoiceId);
+    }
+
+    function getCustomerSubStore()
+    {
+        let customerId = $("#customer_id_input").val();
+        let storeId = $("#store_id_input").val();
+
+        $.ajax({
+            url: "{{route('sales.customer.subStore.get')}}",
+            method: 'GET',
+            dataType: 'json',
+            data: {
+                customer_id: customerId,
+                store_id: storeId,
+            },
+            success: function(data) {
+                if (data && data.status == "success") {
+                    $("#customer_store_input").val(data.data?.name);
+                } else {
+                    $("#customer_store_input").val('');
+                }
+            },
+            error: function(xhr) {
+                $("#customer_store_input").val('');
+                console.error('Error fetching customer data:', xhr.responseText);
+            }
+        });
+    }
+
 
     const debouncedGetOrders = debounce(getOrders, 600);
 

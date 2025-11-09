@@ -41,6 +41,8 @@ use App\Models\Overhead;
 use App\Models\ProductionRoute;
 use App\Models\Station;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Services\Common\DocumentLockService;
+
 use Illuminate\Support\Str;
 
 class BomController extends Controller
@@ -269,7 +271,7 @@ class BomController extends Controller
 
     }
 
-    public function store(BomRequest $request)
+    public function store(BomRequest $request, DocumentLockService $lockService)
     {
         # check validation
         $canView = true;
@@ -646,7 +648,23 @@ class BomController extends Controller
             }
 
             $bom->save();
+            // Define a unique lock key for this document number
+            $lockKey = "org_{$organization->id}_book_{$request->book_id}_doc_{$document_number}";
 
+            // Run insertion safely under lock
+            $lockResult = $lockService->lockDocumentNumber($lockKey);
+
+            // Check if the lock was successful
+            if (!$lockResult['success']) {
+                // If the lock wasn't successful, roll back the transaction
+                DB::rollBack();
+                
+                // Return the response with the error message and status from the lock service
+                return response()->json([
+                    'message' => $lockResult['message'],
+                    'error' => 'lockResult',
+                ], $lockResult['status']);
+            }
             DB::commit();
 
             return response()->json([
@@ -1172,6 +1190,19 @@ class BomController extends Controller
             $actionType = $request->action_type;
             $bom->bom_type = ConstantHelper::FIXED;
             $bom->customizable = $request->customizable ?? 'no';
+            if($bom->type==ConstantHelper::BOM_SERVICE_ALIAS && !in_array($bom->document_status, ConstantHelper::DOCUMENT_STATUS_SUBMITTED)){
+                $bomExists = Bom::where('item_id',$bom->item_id)->where('type','bom')->where('status', ConstantHelper::ACTIVE)
+                    ->whereIn('document_status', ConstantHelper::DOCUMENT_STATUS_SUBMITTED)
+                    ->first();
+                
+                if ($bomExists) {
+                    return response()->json([
+                        'status' => 422,
+                        'message' =>'Bom already exists for this item '.$bomExists->item_code
+                    ], 422);  
+                }
+            }
+
             if(($currentStatus == ConstantHelper::APPROVED || $currentStatus == ConstantHelper::APPROVAL_NOT_REQUIRED) && $request->action_type == 'amendment')
             {
                 $revisionData = [
@@ -2102,7 +2133,11 @@ class BomController extends Controller
 
             // Finally delete the BOM
             $bom->delete();
-
+            $Qbom=Bom::where('production_bom_id',$id)->first();
+            if($Qbom){
+                $Qbom->production_bom_id=null;
+                $Qbom->save();
+                }
             DB::commit();
 
             return response()->json([

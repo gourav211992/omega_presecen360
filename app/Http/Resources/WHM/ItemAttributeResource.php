@@ -28,6 +28,7 @@ class ItemAttributeResource extends JsonResource
             ->get();
 
         return [
+            'id'    => $this->id,
             'item_id'    => $this->item_id,
             'group_id'    => $this->attribute_group_id,
             'group_name'  => optional($this->group)->name,

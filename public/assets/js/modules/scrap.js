@@ -18,6 +18,7 @@ $(document).on("click", "#approved-button", (e) => {
     $("#approveModal #popupTitle").text("Approve Application");
     $("#approveModal").modal("show");
 });
+
 $(document).on("click", "#reject-button", (e) => {
     let actionType = "reject";
     $("#approveModal").find("#action_type").val(actionType);
@@ -569,9 +570,11 @@ $(document).on("click", ".attributeBtn", (e) => {
 ================================ */
 $(document).on(
     "input change focus",
-    "#scavengingItemsTable tr input, #scavengingItemsTable tr select",
+    ".ItemsTable tr input, .ItemsTable tr select",
     (e) => {
         let currentTr = e.target.closest("tr");
+        let $table = $(currentTr).closest(".ItemsTable");
+        let tableId = $table.attr("id");
         let rowCount = $(currentTr).attr("data-index");
         let itemId = $(currentTr).find("[name*='[item_id]']").val();
 
@@ -612,12 +615,23 @@ $(document).on(
             .then((res) => res.json())
             .then((data) => {
                 if (data.status === 200) {
-                    $("#itemDetailDisplay").html(data.data.html);
-                    let avlStock =
-                        data.data?.inventoryStock.confirmedStocks || 0;
-                    $(`input[name="components[${rowCount}][avl_stock]"]`).val(
-                        Number(avlStock).toFixed(2)
-                    );
+                    console.log(tableId);
+
+                    let targetDisplay = $(`#${tableId}_Display`);
+                    console.log(targetDisplay);
+
+                    if (targetDisplay.length) {
+                        targetDisplay.html(data.data.html);
+                        let avlStock =
+                            data.data?.inventoryStock.confirmedStocks || 0;
+                        $(
+                            `input[name="components[${rowCount}][avl_stock]"]`
+                        ).val(Number(avlStock).toFixed(2));
+                    } else {
+                        console.warn(
+                            `No display container found for #${tableId}_Display`
+                        );
+                    }
                 }
             });
     }
@@ -638,6 +652,7 @@ $(document).on("click", ".submitAttributeBtn", (e) => {
 function getSubStores(storeId, subStoreId = "") {
     const $subStoreRow = $(".sub-store-row");
     const $subStoreSelect = $(".sub_store");
+    const $storeSelect = $("#store_id");
 
     if (!storeId) {
         $subStoreRow.addClass("d-none");
@@ -660,8 +675,9 @@ function getSubStores(storeId, subStoreId = "") {
                 data.data.length
             ) {
                 enableDisableFormOnValidation("enable");
+
                 let options = '<option value="">Select Sub Store</option>';
-                data.data.forEach(function (subStore) {
+                data.data.forEach((subStore) => {
                     options += `<option value="${subStore.id}">${subStore.name}</option>`;
                 });
 
@@ -672,6 +688,19 @@ function getSubStores(storeId, subStoreId = "") {
                     .trigger("change");
 
                 $subStoreRow.removeClass("d-none");
+
+                if (!subStoreId || subStoreId === "") {
+                    const firstSubStoreId = $subStoreSelect
+                        .find("option[value!='']")
+                        .first()
+                        .val();
+                    if (firstSubStoreId) {
+                        $subStoreSelect.val(firstSubStoreId).trigger("change");
+                    } else {
+                        $subStoreSelect.empty();
+                        $("#reference_type_div").addClass("d-none");
+                    }
+                }
             } else {
                 $subStoreSelect.empty().val(null);
                 $subStoreRow.addClass("d-none");
@@ -681,11 +710,10 @@ function getSubStores(storeId, subStoreId = "") {
                     text: "No scrap type sub store exists for this location.",
                     icon: "error",
                 });
+
                 enableDisableFormOnValidation("disable");
+                $("#store_id").val("").trigger("change");
                 return;
-                // setTimeout(() => {
-                //     window.location.href(scrapIndexRoute);
-                // }, 500);
             }
         },
         error: function (xhr) {
@@ -818,22 +846,31 @@ function getDocNumberByBookId(bookId, docNumber) {
         "?book_id=" +
         bookId +
         "&document_date=" +
-        document_date +
-        "&document_number=" +
-        docNumber;
+        document_date;
+
     fetch(actionUrl).then((response) => {
         return response.json().then((data) => {
             if (data.status == 200) {
-                $("#book_code").val(data.data.book_code);
-                if (!data.data.doc.document_number) {
-                    $("#document_number").val("");
-                }
-                $("#document_number").val(data.data.doc.document_number);
-                if (data.data.doc.type == "Manually") {
-                    $("#document_number").attr("readonly", false);
+                let scrap_id = $("#scrap_id").val();
+                if (scrap_id && scrap_id != "") {
+                    $("#book_code").val(data.data.book_code);
+                    //   if(!data.data.doc.document_number) {
+                    //      $("#document_number").val('');
+                    //  }
+                    //  $("#document_number").val(data.data.doc.document_number);
                 } else {
-                    $("#document_number").attr("readonly", true);
+                    $("#book_code").val(data.data.book_code);
+                    if (!data.data.doc.document_number) {
+                        $("#document_number").val("");
+                    }
+                    $("#document_number").val(data.data.doc.document_number);
+                    if (data.data.doc.type == "Manually") {
+                        $("#document_number").attr("readonly", false);
+                    } else {
+                        $("#document_number").attr("readonly", true);
+                    }
                 }
+
                 const parameters = data.data.parameters;
                 setServiceParameters(parameters);
             }
@@ -866,73 +903,84 @@ function getDocNumberByBookId(bookId, docNumber) {
 
 /*Set Service Parameter*/
 function setServiceParameters(parameters) {
-    /*Date Validation*/
+    const $storeSelect = $("#store_id");
+    const $subStoreSelect = $("#sub_store_id");
+
+    if (!$storeSelect.val() || $storeSelect.val() === "") {
+        const firstStoreId = $storeSelect
+            .find("option[value!='']")
+            .first()
+            .val();
+        if (firstStoreId) {
+            $storeSelect.val(firstStoreId).trigger("change");
+            getSubStores(firstStoreId);
+        }
+    } else {
+        getSubStores($storeSelect.val(), $subStoreSelect.val());
+    }
+
+    /* ------------------ Date Validation ------------------ */
     const docDateInput = $("[name='document_date']");
     let isFeature = false;
     let isPast = false;
-    if (
-        parameters.future_date_allowed &&
-        parameters.future_date_allowed.includes("yes")
-    ) {
+
+    if (parameters.future_date_allowed?.includes("yes")) {
         let futureDate = new Date();
-        futureDate.setDate(
-            futureDate.getDate() /*+ (parameters.future_date_days || 1)*/
-        );
+        futureDate.setDate(futureDate.getDate());
         docDateInput.val(futureDate.toISOString().split("T")[0]);
         docDateInput.attr("min", new Date().toISOString().split("T")[0]);
         isFeature = true;
     } else {
-        isFeature = false;
         docDateInput.attr("max", new Date().toISOString().split("T")[0]);
     }
-    if (
-        parameters.back_date_allowed &&
-        parameters.back_date_allowed.includes("yes")
-    ) {
+
+    if (parameters.back_date_allowed?.includes("yes")) {
         let backDate = new Date();
-        backDate.setDate(
-            backDate.getDate() /*- (parameters.back_date_days || 1)*/
-        );
+        backDate.setDate(backDate.getDate());
         docDateInput.val(backDate.toISOString().split("T")[0]);
-        // docDateInput.attr("max", "");
         isPast = true;
     } else {
-        isPast = false;
         docDateInput.attr("min", new Date().toISOString().split("T")[0]);
     }
-    /*Date Validation*/
+
     if (isFeature && isPast) {
-        docDateInput.removeAttr("min");
-        docDateInput.removeAttr("max");
+        docDateInput.removeAttr("min").removeAttr("max");
     }
 
-    /*Reference from*/
-    let reference_from_service = parameters.reference_from_service;
-    if ($("#sub_store_id").val() || "") {
-        if (reference_from_service.length) {
+    /* ------------------ Reference From ------------------ */
+    const reference_from_service = parameters.reference_from_service || [];
+
+    if (reference_from_service.length && reference_from_service.length > 0) {
+        if (
+            reference_from_service.includes(PRODUCTION_SLIP_SERVICE_ALIAS) ||
+            reference_from_service.includes("ro") ||
+            reference_from_service.includes("d")
+        ) {
+            $("#reference_type_div").removeClass("d-none");
             if (
                 reference_from_service.includes(PRODUCTION_SLIP_SERVICE_ALIAS)
             ) {
-                $("#reference_type_div").removeClass("d-none");
-            } else {
-                $("#reference_type_div").addClass("d-none");
+                $(".psSelect").prop("disabled", false);
             }
-
+            if (reference_from_service.includes("ro")) {
+                $(".roSelect").prop("disabled", false);
+            }
             if (reference_from_service.includes("d")) {
-                $("#addNewItemBtn").removeClass("d-none");
-            } else {
-                $("#addNewItemBtn").addClass("d-none");
+                $("#deleteBtn, #addNewItemBtn").removeClass("d-none");
             }
         } else {
-            Swal.fire({
-                title: "Error!",
-                text: "Please update first reference from service param.",
-                icon: "error",
-            });
-            setTimeout(() => {
-                location.href = scrapIndexRoute;
-            }, 1500);
+            $("#reference_type_div").addClass("d-none");
+            $("#deleteBtn, #addNewItemBtn").addClass("d-none");
         }
+    } else {
+        Swal.fire({
+            title: "Error!",
+            text: "Please update first reference from service param.",
+            icon: "error",
+        });
+        setTimeout(() => {
+            location.href = scrapIndexRoute;
+        }, 1500);
     }
 }
 
@@ -1161,12 +1209,12 @@ function getPslipItems() {
             title: "UOM",
         },
         {
-            data: "qty",
-            name: "qty",
+            data: "rejected_qty",
+            name: "rejected_qty",
             render: renderData,
             orderable: true,
             searchable: false,
-            title: "Qty",
+            title: "Rejected Qty",
         },
         {
             data: "remarks",
@@ -1186,6 +1234,76 @@ function getPslipItems() {
 
 $(document).on("keyup", "#item_name_search", function () {
     if (psTable) psTable.ajax.reload(null, false);
+});
+
+/*Open amendment popup*/
+$(document).on("click", "#amendmentBtn", (e) => {
+    $("#amendmentModal").modal("show");
+});
+
+$(document).on("click", "#amendmentSubmit", (e) => {
+    let url = new URL(window.location.href);
+    url.search = "";
+    url.searchParams.set("amendment", 1);
+    let amendmentUrl = url.toString();
+    window.location.replace(amendmentUrl);
+});
+
+/*Amendment btn submit*/
+$(document).on("click", "#amendmentBtnSubmit", (e) => {
+    let remark = $("#amendmentModal").find('[name="amend_remarks"]').val();
+    if (!remark) {
+        e.preventDefault();
+        $("#amendRemarkError").removeClass("d-none");
+        return false;
+    } else {
+        $("#amendmentModal").modal("hide");
+        $("#amendRemarkError").addClass("d-none");
+        e.preventDefault();
+        let $actionInput = $("#scrap_module_form").find(
+            'input[name="action_type"]'
+        );
+
+        if ($actionInput) {
+            $actionInput.val("amendment");
+        }
+
+        $("#scrap_module_form").submit();
+    }
+});
+
+// # Revision Number On Chage
+$(document).on("change", "#revisionNumber", (e) => {
+    let actionUrl = location.pathname + "?revisionNumber=" + e.target.value;
+    let revision_number = Number("{{ $revision_number }}");
+    let revisionNumber = Number(e.target.value);
+    if (revision_number == revisionNumber) {
+        location.href = actionUrl;
+    } else {
+        window.open(actionUrl, "_blank");
+    }
+});
+
+// Revoke Document
+$(document).on("click", "#revokeButton", (e) => {
+    fetch(revokeDocumentUrl).then((response) => {
+        return response.json().then((data) => {
+            if (data.status == "error") {
+                Swal.fire({
+                    title: "Error!",
+                    text: data.message,
+                    icon: "error",
+                });
+            } else {
+                Swal.fire({
+                    title: "Success!",
+                    text: data.message,
+                    icon: "success",
+                });
+            }
+            location.reload();
+        });
+    });
 });
 
 function initializeDataTableCustom(

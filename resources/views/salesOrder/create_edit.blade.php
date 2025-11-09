@@ -345,6 +345,26 @@
                                                         </div>
                                                     </div>
 
+                                                    <div class="col-md-3">
+                                                        <div class="mb-1">
+                                                            <label class="form-label">Sale Type <span class="text-danger">*</span></label>
+                                                             <select class="form-select disable_on_edit" id = "sale_type_dropdown" name = "sale_type">
+                                                                @if (isset($order))
+                                                                    <option selected value = "{{ $order -> sale_type }}">{{ $order -> sale_type }}</option>
+                                                                @else
+                                                                    <option selected value = "Sale">Sale</option>
+                                                                @endif
+                                                            </select>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="col-md-3">
+                                                        <div class="mb-1">
+                                                            <label class="form-label">Customer Store</label>
+                                                            <input type="text" class="form-control ledgerselecct ui-autocomplete-input" autocomplete="off"  id = "customer_store_input" readonly value = "{{ isset($order) ? $order -> customerSubStore ?-> name : '' }}" />
+                                                        </div>
+                                                    </div>
+
                                                  </div>
 
                                                 <div class="row">
@@ -401,7 +421,7 @@
 
                                                     <div class="col-md-4">
                                                         <div class="customer-billing-section">
-                                                            <p>Pickup Address&nbsp;<span class="text-danger">*</span>
+                                                            <p>Dispatch From&nbsp;<span class="text-danger">*</span>
                                                         </p>
                                                             <div class="bilnbody">
 
@@ -2139,6 +2159,8 @@
                 //Get Addresses (Billing + Shipping)
                 changeDropdownOptions(document.getElementById('customer_id_input'), ['billing_address_dropdown','shipping_address_dropdown'], ['billing_addresses', 'shipping_addresses'], '/customer/addresses/', 'vendor_dependent');
             }
+            //Get Customer Sub Store
+            getCustomerSubStore();
         }
 
         function onChangeConsignee(selectElementId, reset = false)
@@ -2147,7 +2169,7 @@
             if (reset && !selectedOption.value) {
                 document.getElementById('consignee_id_input').value = "";
                 //Get Addresses Shipping
-                changeDropdownOptions(document.getElementById('consignee_id_input'), ['shipping_address_dropdown'], ['shipping_addresses'], "{{ url('sales/customer-consignee/addresses') }}" + "/", 'consignee_dependent');
+                changeDropdownOptions(document.getElementById('customer_id_input'), ['shipping_address_dropdown'], ['shipping_addresses'], "{{ url('customer/addresses') }}" + "/", 'consignee_dependent');
             }
             if (!reset && selectedOption.value) {
                 changeDropdownOptions(document.getElementById('consignee_id_input'), ['shipping_address_dropdown'], ['shipping_addresses'], "{{ url('sales/customer-consignee/addresses') }}" + "/", 'consignee_dependent');
@@ -4277,6 +4299,10 @@
         var selectedRefFromServiceOption = paramData.reference_from_service;
         var selectedBackDateOption = paramData.back_date_allowed;
         var selectedFutureDateOption = paramData.future_date_allowed;
+        var saleTypeOptions = paramData?.so_sale_type_allowed;
+        var itemTypeOption = paramData?.goods_or_services;
+        const currOrder = @json(isset($order) ? $order : null);
+
         //Reference From
         if (selectedRefFromServiceOption) {
             var selectVal = selectedRefFromServiceOption;
@@ -4309,7 +4335,7 @@
         if (allowBomIconParam) {
             if  (allowBomIconParam && allowBomIconParam.length > 0) {
                 //Handle according to param
-                if (allowBomIconParam[0] == 'yes') {
+                if ((allowBomIconParam[0]).toLowerCase() == 'yes') {
                     showBomIcon = true;
                 } else {
                     showBomIcon = false;
@@ -4378,6 +4404,34 @@
             $('#order_date_input').on('input', function() {
                 restrictPastDates(this);
             });
+        }
+
+        let itemTypeParam = itemTypeOption && itemTypeOption.length > 0 ? itemTypeOption[0] : 'Goods';
+
+        if (saleTypeOptions && saleTypeOptions.length > 0 && !currOrder && itemTypeParam != 'Service') {
+            let soTypeVal = saleTypeOptions[0];
+            $('#sale_type_dropdown').empty();
+            if (soTypeVal === 'Both') {
+                $('#sale_type_dropdown').append(
+                    $('<option>', {
+                        value: 'Sale',
+                        text: 'Sale'
+                    })
+                );
+                $('#sale_type_dropdown').append(
+                    $('<option>', {
+                        value: 'Rent',
+                        text: 'Rent'
+                    })
+                );
+            } else {
+                $('#sale_type_dropdown').append(
+                    $('<option>', {
+                        value: soTypeVal,
+                        text: soTypeVal
+                    })
+                );
+            }
         }
     }
 
@@ -7131,6 +7185,33 @@ $('#attribute').on('hidden.bs.modal', function () {
             }
         });
 
+    }
+
+    function getCustomerSubStore()
+    {
+        let customerId = $("#customer_id_input").val();
+        let storeId = $("#store_id_input").val();
+
+        $.ajax({
+            url: "{{route('sales.customer.subStore.get')}}",
+            method: 'GET',
+            dataType: 'json',
+            data: {
+                customer_id: customerId,
+                store_id: storeId,
+            },
+            success: function(data) {
+                if (data && data.status == "success") {
+                    $("#customer_store_input").val(data.data?.name);
+                } else {
+                    $("#customer_store_input").val('');
+                }
+            },
+            error: function(xhr) {
+                $("#customer_store_input").val('');
+                console.error('Error fetching customer data:', xhr.responseText);
+            }
+        });
     }
 
     </script>
