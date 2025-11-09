@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Helpers\ConstantHelper;
+use App\Helpers\CommonHelper;
 use App\Models\Finance\GstrCompiledData;
 use App\Models\ErpGstInvoiceType;
 use App\Models\Organization;
@@ -20,8 +21,12 @@ class Gstr3bService
             ->where('month', $month)
             ->where('erp_gstr_compiled_data.supplier_gstin', $gstin);
 
+        // B2B data using same query as main GSTR page
         $b2bData = (clone $baseQuery)
-            ->whereIn('doc_type', ['b2b', 'b2ba'])
+            ->where('doc_type', CommonHelper::INV)
+            ->whereNotNull('party_gstin')
+            ->whereNotNull('invoice_id')
+            ->whereNotNull('invoice_no')
             ->selectRaw('
                 SUM(taxable_amt) as taxable_amt,
                 SUM(igst) as igst,
@@ -30,6 +35,7 @@ class Gstr3bService
                 SUM(cess) as cess
             ')
             ->first();
+        
 
         $zeroRatedData = (clone $baseQuery)
             ->where('rate', 0)
