@@ -114,7 +114,7 @@ class Gstr3bService
             'uin'          => ['taxable_value' => 0, 'igst' => 0, 'details' => []],
         ];
 
-        $unregistered = GstrCompiledData::where('erp_gstr_compiled_data.igst', '>', 0)
+        $unregistered = GstrCompiledData::query()
             ->where(function ($q) {
                 $q->whereNull('erp_gstr_compiled_data.party_gstin')
                 ->orWhere('erp_gstr_compiled_data.party_gstin', '')
@@ -132,6 +132,7 @@ class Gstr3bService
             )
             ->groupBy('erp_gstr_compiled_data.place_of_supply')
             ->get();
+
 
 
         $results['unregistered']['taxable_value'] = $unregistered->sum('taxable_value');
