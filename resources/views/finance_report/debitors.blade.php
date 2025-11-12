@@ -141,93 +141,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-
-                                            @foreach ($customers as $index => $customer)
-                                                <tr>
-                                                    <td>{{ $index + 1 }}</td>
-                                                    <td class="fw-bolder text-dark text-nowrap">
-                                                        <div data-bs-placement="top"
-                                                            title="{{ $customer?->ledger_parent_name ?? '-' }}">
-                                                            {{ $customer?->ledger_parent_name ?? '-' }}
-                                                        </div>
-                                                    </td>
-
-                                                    <td class="text-nowrap">
-                                                        <div data-bs-placement="top"
-                                                            title="{{ $customer?->ledger_name ?? '-' }}">
-                                                            {{ $customer?->ledger_name ?? '-' }}
-                                                        </div>
-                                                    </td>
-                                                    <td>
-                                                        <div data-bs-placement="top"
-                                                            title="{{ $customer?->credit_days ?? 0 }}">
-                                                            {{ $customer?->credit_days ?? 0 }}
-                                                        </div>
-                                                    </td>
-                                                    <td class="text-end text-nowrap">
-                                                        <span class="badge rounded-pill badge-light-success">
-                                                            {{ number_format(abs($customer->total_outstanding), 2) }}
-                                                            <span
-                                                                class="{{ $customer->total_outstanding < 0 ? 'text-danger' : 'text-success' }}">
-                                                                {{ $customer->total_outstanding < 0 ? 'Cr' : 'Dr' }}
-                                                            </span>
-                                                    </td>
-                                                    <td class="text-end text-nowrap">
-                                                        <div data-bs-placement="top"
-                                                            title="{{ $customer?->overdue ?? 0 }}">
-                                                            {{ Helper::formatIndianNumber($customer?->overdue ?? 0) }}
-                                                        </div>
-                                                    </td>
-                                                    <td class="text-end text-nowrap">
-                                                        {{ number_format(abs($customer->days_0_30), 2) }}
-                                                        {{ $customer->days_0_30 < 0 ? 'Cr' : 'Dr' }}
-                                                    </td>
-                                                    <td class="text-end text-nowrap">
-                                                        {{ number_format(abs($customer->days_30_60), 2) }}
-                                                        {{ $customer->days_30_60 < 0 ? 'Cr' : 'Dr' }}
-                                                    </td>
-                                                    <td class="text-end text-nowrap">
-                                                        {{ number_format(abs($customer->days_60_90), 2) }}
-                                                        {{ $customer->days_60_90 < 0 ? 'Cr' : 'Dr' }}
-                                                    </td>
-                                                    <td class="text-end text-nowrap">
-                                                        {{ number_format(abs($customer->days_90_120), 2) }}
-                                                        {{ $customer->days_90_120 < 0 ? 'Cr' : 'Dr' }}
-                                                    </td>
-                                                    <td class="text-end text-nowrap">
-                                                        {{ number_format(abs($customer->days_120_180), 2) }}
-                                                        {{ $customer->days_120_180 < 0 ? 'Cr' : 'Dr' }}
-                                                    </td>
-                                                    <td class="text-end text-nowrap">
-                                                        {{ number_format(abs($customer->days_above_180), 2) }}
-                                                        {{ $customer->days_above_180 < 0 ? 'Cr' : 'Dr' }}
-                                                    </td>
-                                                    <td>
-                                                       @if ($customer->ledger_id)
-                                                        @php
-                                                            $query = [];
-                                                            if (request('date')) $query['date'] = request('date');
-                                                            if (request('location_id')) $query['location_id'] = request('location_id');
-                                                            if (request('organization_id')) $query['organization_id'] = request('organization_id');
-                                                            if (request('cost_center_id')) $query['cost_center_id'] = request('cost_center_id');
-                                                            if (request('cost_group_id')) $query['cost_group_id'] = request('cost_group_id');
-
-                                                            $url = route('crdr.report.ledger.details', ['debit', $customer->ledger_id, $customer->ledger_parent_id]);
-                                                            if ($query) {
-                                                                $url .= '?' . http_build_query($query);
-                                                            }
-                                                        @endphp
-
-                                                        <a href="{{ $url }}" target="_blank">
-                                                            <i class="cursor-pointer" data-feather='eye'></i>
-                                                        </a>
-                                                    @endif
-
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-
-
+                                            <!-- Data will be loaded via AJAX -->
                                         </tbody>
 
 
@@ -617,10 +531,53 @@
         var dt_basic_table = $('.datatables-basic');
         if (dt_basic_table.length) {
             var dt_basic = dt_basic_table.DataTable({
+                processing: true,
+                serverSide: true,
+                scrollX: true,
+                ajax: {
+                    url: "{{ route('voucher.debit.report') }}",
+                    data: function (d) {
+                        d.group = $('#filter_group').val();
+                        d.ledger = $('#filter_ledger').val();
+                        d.date = $('#fp-range').val();
+                        d.location_id = $('#location_id').val();
+                        
+                        // Handle organization_id which might be an array
+                        var orgVal = $('#organization_id').val();
+                        if (Array.isArray(orgVal)) {
+                            d.organization_id = orgVal.join(',');
+                        } else {
+                            d.organization_id = orgVal;
+                        }
+                        
+                        d.cost_center_id = $('#cost_center_id').val();
+                        d.cost_group_id = $('#cost_group_id').val();
+                        d.age0 = $('#age0').val() || 30;
+                        d.age1 = $('#age1').val() || 60;
+                        d.age2 = $('#age2').val() || 90;
+                        d.age3 = $('#age3').val() || 120;
+                        d.age4 = $('#age4').val() || 180;
+                        d.d = $('input[name="d"]:checked').val() || 'invoice';
+                    }
+                },
+                columns: [
+                    { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
+                    { data: 'group_name', name: 'ledger_parent_name', className: 'fw-bolder text-dark text-nowrap' },
+                    { data: 'ledger_name', name: 'ledger_name', className: 'text-nowrap' },
+                    { data: 'credit_days', name: 'credit_days' },
+                    { data: 'total_outstanding', name: 'total_outstanding', className: 'text-end text-nowrap' },
+                    { data: 'overdue', name: 'overdue', className: 'text-end text-nowrap' },
+                    { data: 'days_0_30', name: 'days_0_30', className: 'text-end text-nowrap' },
+                    { data: 'days_30_60', name: 'days_30_60', className: 'text-end text-nowrap' },
+                    { data: 'days_60_90', name: 'days_60_90', className: 'text-end text-nowrap' },
+                    { data: 'days_90_120', name: 'days_90_120', className: 'text-end text-nowrap' },
+                    { data: 'days_120_180', name: 'days_120_180', className: 'text-end text-nowrap' },
+                    { data: 'days_above_180', name: 'days_above_180', className: 'text-end text-nowrap' },
+                    { data: 'action', name: 'action', orderable: false, searchable: false }
+                ],
                 order: [
                     [0, 'asc']
                 ],
-                scrollX: true,
                 dom: '<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-3"l><"col-sm-12 col-md-6 withoutheadbuttin dt-action-buttons text-end pe-0"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
                 "drawCallback": function(settings) {
                     feather.replace(); // Re-initialize icons if needed
@@ -919,9 +876,15 @@
             });
 
 
-            if (isValid)
-                window.location.href = currentUrl.toString();
-            else {
+            if (isValid) {
+                // Update URL without reloading page
+                window.history.pushState({}, '', currentUrl.toString());
+                
+                // Reload DataTable with new filters
+                if (typeof dt_basic !== 'undefined') {
+                    dt_basic.ajax.reload();
+                }
+            } else {
                 Swal.fire({
                     title: 'Not Valid Ageing!',
                     text: "Each age must be a number greater than the previous one.",

@@ -195,9 +195,7 @@ class PaymentVoucherController extends Controller
 
     public function index(Request $request, $type = "Payment")
     {
-    
         $user = Helper::getAuthenticatedUser();
-        $userId = $user->auth_user_id;
         $organizationId = $user->organization_id;
         $organizations = [];
         $parentURL = request()->segments()[0];
@@ -207,29 +205,27 @@ class PaymentVoucherController extends Controller
             return redirect()->route('/');
         }
 
-
         $createRoute = route('payments.create');
         $editRouteString = 'payments.edit';
+
         if ($parentURL === 'payments') {
             $type = ConstantHelper::PAYMENTS_SERVICE_ALIAS;
-            $createRoute = route('payments.create');
-            $editRouteString = 'payments.edit';
         }
+
         if ($parentURL === 'receipts') {
             $type = ConstantHelper::RECEIPTS_SERVICE_ALIAS;
             $createRoute = route('receipts.create');
             $editRouteString = 'receipts.edit';
         }
+
         request()->merge(['type' => $type]);
 
-        // Check if `filter_organization` is set and push values to `$organizations`
         if ($request->filter_organization && is_array($request->filter_organization)) {
             foreach ($request->filter_organization as $value) {
                 $organizations[] = $value;
             }
         }
 
-        // If no organizations are selected, use the authenticated user's organization
         if (count($organizations) == 0) {
             $organizations[] = $organizationId;
         }
@@ -237,89 +233,107 @@ class PaymentVoucherController extends Controller
         $fyear = Helper::getFinancialYear(date('Y-m-d'));
         $accessibleLocations = InventoryHelper::getAccessibleLocations();
         $locationIds = $accessibleLocations->pluck('id')->toArray();
+
         $cost_center_ids = null;
         if (!empty($request->cost_center_id)) {
-            $cost_center_ids = $request->cost_center_id ?? null;
+            $cost_center_ids = $request->cost_center_id;
         } elseif (!empty($request->cost_group_id)) {
             $cost_group = CostGroup::with('costCenters')
                 ->where('id', $request->cost_group_id)
                 ->where('status', 'active')
                 ->first();
-
             $cost_center_ids = optional($cost_group->costCenters)->pluck('id')->unique()->all();
         }
-        // Retrieve vouchers based on organization_id and include series with levels
-        $data = PaymentVoucher::with([
-            'series' => function ($d) {
-                $d->select('id', 'book_name');
-            },
-            'bank' => function ($d) {
-                $d->select('id', 'bank_name as name');
-            },
-            'ledger' => function ($d) {
-                $d->select('id', 'name');
-            },
-            'currency' => function ($d) {
-                $d->select('id', 'name', 'short_name');
-            }
-        ])->where('document_status', '!=', 'cancel')
-            ->whereIn('location', $locationIds);
 
-        // Apply filters based on the request
-        // if ($request->document_type) {
-        $data = $data->where('document_type', $type);
-        // }
+        $data = PaymentVoucher::with([
+            'series:id,book_name',
+            'bank:id,bank_name as name',
+            'ledger:id,name',
+            'currency:id,name,short_name',
+            'ErpLocation:id,store_name',
+            'costCenter:id,name'
+        ])
+        ->where('document_status', '!=', 'cancel')
+        ->whereIn('location', $locationIds)
+        ->where('document_type', $type);
 
         if ($request->document_no) {
-            $data = $data->where('voucher_no', 'like', "%" . $request->document_no . "%");
+            $data->where('voucher_no', 'like', "%" . $request->document_no . "%");
         }
-
         if ($request->bank_id) {
-            $data = $data->where('bank_id', $request->bank_id);
+            $data->where('bank_id', $request->bank_id);
         }
-
         if ($request->ledger_id) {
-            $data = $data->where('ledger_id', $request->ledger_id);
+            $data->where('ledger_id', $request->ledger_id);
         }
-        // if ($request->cost_center_id) {
-        //     $data = $data->where('cost_center_id', $request->cost_center_id);
-        // }
         if (!empty($cost_center_ids)) {
             if (is_array($cost_center_ids)) {
-                $data = $data->whereIn('cost_center_id', $cost_center_ids);
+                $data->whereIn('cost_center_id', $cost_center_ids);
             } else {
-                $data = $data->where('cost_center_id', $cost_center_ids);
+                $data->where('cost_center_id', $cost_center_ids);
             }
         }
         if ($request->location_id) {
-            $data = $data->where('location', $request->location_id);
+            $data->where('location', $request->location_id);
         }
+
         if ($request->date) {
             $dates = explode(' to ', $request->date);
             $start = date('Y-m-d', strtotime($dates[0]));
-            // $end = date('Y-m-d', strtotime($dates[1]));
-            $end = isset($dates[1]) && $dates[1] ? date('Y-m-d', strtotime($dates[1])) : $start;
-            $data = $data->whereDate('document_date', '>=', $start)->whereDate('document_date', '<=', $end);
+            $end = isset($dates[1]) ? date('Y-m-d', strtotime($dates[1])) : $start;
+            $data->whereBetween('document_date', [$start, $end]);
         } else {
-            $data = $data->whereDate('document_date', '>=', $fyear['start_date'])
-                ->whereDate('document_date', '<=', $fyear['end_date']);
             $start = $fyear['start_date'];
             $end = $fyear['end_date'];
+            $data->whereBetween('document_date', [$start, $end]);
         }
 
-        $data = $data->orderBy('document_date', 'desc')->orderBy('created_at', 'desc')->get();
+        $data = $data->orderBy('document_date', 'desc')
+                    ->orderBy('created_at', 'desc');
 
-        // return response()->json($data);
+        if ($request->ajax()) {
+            return datatables()->of($data)
+                ->addIndexColumn()
+                ->addColumn('date', fn($item) => date('d-m-Y', strtotime($item->document_date)))
+                ->addColumn('series', fn($item) => $item->series?->book_name)
+                ->addColumn('document_no', fn($item) => $item->voucher_no)
+                ->addColumn('bank_ledger', fn($item) => $item->payment_type === "Bank" ? $item->bank?->name : $item->ledger?->name)
+                ->addColumn('amount', fn($item) => Helper::formatIndianNumber($item->amount))
+                ->addColumn('location', fn($item) => $item?->ErpLocation?->store_name ?? '')
+                ->addColumn('cost_center', fn($item) => $item?->costCenter?->name ?? '')
+                ->addColumn('currency', fn($item) => $item->currency?->name . " (" . $item->currency?->short_name . ")")
+                ->addColumn('document', fn($item) => $item->document ? '<a href="voucherPaymentDocuments/'.$item->document.'" target="_blank">View Doc</a>' : '')
+                ->addColumn('status', function ($item) {
+                    $class = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$item->document_status ?? "draft"];
+                    $label = $item->document_status == ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($item->document_status);
+                    return "<span class='badge rounded-pill {$class} badgeborder-radius'>{$label}</span>";
+                })
+                ->addColumn('action', function ($item) use ($editRouteString) {
+                    $url = route($editRouteString, ['payment' => $item->id]);
+                    return '
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-sm dropdown-toggle hide-arrow p-0" data-bs-toggle="dropdown">
+                                <i data-feather="more-vertical"></i>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a class="dropdown-item" href="'.$url.'">
+                                    <i data-feather="edit-3" class="me-50"></i>
+                                    <span>View</span>
+                                </a>
+                            </div>
+                        </div>';
+                })
+                ->rawColumns(['document','status','action'])
+                ->make(true);
+        }
 
-        $mappings =Helper::access_org();
-
+        $mappings = Helper::access_org();
         $book_type = $request->book_type;
-        $date = $request->date;
         $document_no = $request->document_no;
         $bank_id = $request->bank_id;
         $ledger_id = $request->ledger_id;
         $document_type = $request->document_type;
-        $cost_center = $request->cost_center_id;
+
         $banks = Bank::withWhereHas('bankDetails')->get();
         $groupId = Helper::getGroupsQuery()->where('name', 'Cash-in-Hand')->value('id');
 
@@ -327,6 +341,7 @@ class PaymentVoucherController extends Controller
             $query->whereJsonContains('ledger_group_id', (string) $groupId)
                 ->orWhere('ledger_group_id', $groupId);
         })->select('id', 'name')->get();
+
         $date = $request->date ?? Carbon::parse($fyear['start_date'])->format('d-m-Y') . " to " . Carbon::parse($fyear['end_date'])->format('d-m-Y');
         $date2 = Carbon::parse($start)->format('jS-F-Y') . ' to ' . Carbon::parse($end)->format('jS-F-Y');
 
@@ -334,8 +349,32 @@ class PaymentVoucherController extends Controller
         $cost_groups = CostGroup::with('costCenters')->where('status', 'active')->get()->toArray();
         $fyearLocked = $fyear['authorized'];
         $locations = InventoryHelper::getAccessibleLocations();
-        return view('paymentVoucher.paymentVouchers', compact('cost_centers', 'mappings', 'banks', 'ledgers', 'bank_id', 'ledger_id', 'organizationId', 'data', 'book_type', 'date', 'document_no', 'document_type', 'type', 'createRoute', 'editRouteString', 'date', 'date2', 'fyearLocked', 'locations', 'cost_groups'));
+
+        return view('paymentVoucher.paymentVouchers', compact(
+            'cost_centers',
+            'mappings',
+            'banks',
+            'ledgers',
+            'bank_id',
+            'ledger_id',
+            'organizationId',
+            'data',
+            'book_type',
+            'date',
+            'document_no',
+            'document_type',
+            'type',
+            'createRoute',
+            'editRouteString',
+            'date2',
+            'fyearLocked',
+            'locations',
+            'cost_groups'
+        ));
     }
+
+
+
 
     /**
      * Show the form for creating a new resource.

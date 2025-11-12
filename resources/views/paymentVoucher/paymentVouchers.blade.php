@@ -46,57 +46,11 @@
                                             <th>Currency</th>
                                             <th>Document</th>
                                             <th class="text-end">Status</th>
+                                            <th></th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @php
-                                            use App\Helpers\Helper;
-                                        @endphp
-
-                                        @foreach ($data as $index=>$item)
-                                            @php
-                                                $mainBadgeClass = match($item->document_status) {
-                                                    'approved'           => 'success',
-                                                    'approval_not_required' =>'success',
-                                                    'draft'             => 'warning',
-                                                    'submitted'         => 'info',
-                                                    'partially_approved' => 'warning',
-                                                    default             => 'danger',
-                                                };
-                                            @endphp
-                                            <tr>
-                                                <td>{{ $index+1 }}</td>
-                                                <td class="fw-bolder text-dark text-nowrap">{{ date('d-m-Y',strtotime($item->document_date)) }}</td>
-                                                {{-- <td>{{ ucfirst($item->document_type) }}</td> --}}
-                                                <td class="text-nowrap">{{ $item->series?->book_name }}</td>
-                                                <td class="text-nowrap">{{ $item->voucher_no }}</td>
-                                                <td class="text-nowrap">{{ $item->payment_type=="Bank" ? $item->bank->name : $item->ledger->name }}</td>
-                                                <td class="text-nowrap" style="text-align: end;">{{ Helper::formatIndianNumber($item->amount) }}</td>
-                                                <td class="text-nowrap">{{ $item?->ErpLocation?->store_name ?? ''}}</td>
-                                                <td class="text-nowrap">{{ $item?->costCenter?->name}}</td>
-                                                <td class="text-nowrap">{{ $item->currency->name.' ('.$item->currency->short_name.')' }}</td>
-                                                <td class="text-nowrap">@if($item->document)<a href="voucherPaymentDocuments/{{$item->document}}" target="_blank">View Doc</a>@endif</td>
-                                                <td class="tableactionnew">
-                                                    <div class="d-flex align-items-center justify-content-end">
-                                                    @php $statusClasss = App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$item->document_status??"draft"];  @endphp
-
-                                                    <span class='badge rounded-pill {{$statusClasss}} badgeborder-radius'>@if($item->document_status==App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED) Approved @else {{ucfirst($item->document_status)}} @endif</span>
-
-                                                    <div class="dropdown">
-                                                        <button type="button" class="btn btn-sm dropdown-toggle hide-arrow p-0" data-bs-toggle="dropdown">
-                                                            <i data-feather="more-vertical"></i>
-                                                        </button>
-                                                        <div class="dropdown-menu dropdown-menu-end">
-                                                            <a class="dropdown-item" href="{{ route($editRouteString, ['payment' => $item->id]) }}">
-                                                                <i data-feather="edit-3" class="me-50"></i>
-                                                                <span>View</span>
-                                                            </a>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                </td>
-                                            </tr>
-                                        @endforeach
+                                      
                                     </tbody>
                                 </table>
                                 {{-- {{ $data->links('vendor.pagination.custom') }} --}}
@@ -304,102 +258,90 @@
 
                 loadCostCentersByGroup(locationId, groupId);
             });
-       $('.datatables-basic').DataTable({
-        processing: true,  // Show processing indicator
-        scrollX: true,
-        serverSide: false, // Disable server-side processing since data is already loaded
-        drawCallback: function() {
-            feather.replace(); // Re-initialize feather icons if needed (for custom icons like edit)
-        },
-        order: [[0, 'asc']], // Default ordering by the first column (Date)
-        dom:
-					'<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-3 withoutheadbuttin dt-action-buttons text-end"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
-				  lengthMenu: [7, 10, 25, 50, 75, 100], // Options for number of rows to show
-                   buttons:
-                [{
-                    extend: 'excel',
-                            text: feather.icons['file'].toSvg({ class: 'font-small-4 me-50' }) + 'Excel',
-                            className: 'btn btn-outline-secondary',
-                            exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6 ,7] },
-                            filename: function () {
-                                let path = window.location.pathname.toLowerCase();
-                                return path.includes('receipts')
-                                    ? 'Receipts Report'
-                                    : 'Payment Vouchers Report';
-                            }                    ,
-                    init: function (api, node, config) {
-                        $(node).removeClass('btn-secondary');
-                        $(node).parent().removeClass('btn-group');
-                        setTimeout(function () {
-                            $(node).closest('.dt-buttons').removeClass('btn-group').addClass('d-inline-flex');
-                        }, 50);
-                    }
-                    }],
-        // buttons: [
-        //     {
-        //         extend: 'collection',
-        //         className: 'btn btn-outline-secondary dropdown-toggle',
-        //         text: feather.icons['share'].toSvg({ class: 'font-small-4 mr-50' }) + 'Export',
-        //         buttons: [
-        //             {
-        //                 extend: 'print',
-        //                 text: feather.icons['printer'].toSvg({ class: 'font-small-4 mr-50' }) + 'Print',
-        //                 className: 'dropdown-item',
-        //                 exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6 ,7] },
-        //                 filename: 'Vouchers Report'
-        //             },
-        //             {
-        //                 extend: 'csv',
-        //                 text: feather.icons['file-text'].toSvg({ class: 'font-small-4 mr-50' }) + 'Csv',
-        //                 className: 'dropdown-item',
-        //                 exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6 ,7] },
-        //                 filename: 'Vouchers Report'
-        //             },
-        //             {
-        //                 extend: 'excel',
-        //                 text: feather.icons['file'].toSvg({ class: 'font-small-4 mr-50' }) + 'Excel',
-        //                 className: 'dropdown-item',
-        //                 exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6 ,7] },
-        //                 filename: 'Vouchers Report'
-        //             },
-        //             {
-        //                 extend: 'pdf',
-        //                 text: feather.icons['clipboard'].toSvg({ class: 'font-small-4 mr-50' }) + 'Pdf',
-        //                 className: 'dropdown-item',
-        //                 exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6 ,7] },
-        //                 filename: 'Vouchers Report'
-        //             },
-        //             {
-        //                 extend: 'copy',
-        //                 text: feather.icons['copy'].toSvg({ class: 'font-small-4 mr-50' }) + 'Copy',
-        //                 className: 'dropdown-item',
-        //                 exportOptions: { columns: [0, 1, 2, 3, 4, 5, 6 ,7] },
-        //                 filename: 'Vouchers Report'
-        //             }
-        //         ],
-        //         init: function (api, node, config) {
-        //             $(node).removeClass('btn-secondary');
-        //             $(node).parent().removeClass('btn-group');
-        //             setTimeout(function () {
-        //                 $(node).closest('.dt-buttons').removeClass('btn-group').addClass('d-inline-flex');
-        //             }, 50);
-        //         }
-        //     }
-        // ],
-        columnDefs: [
-            { "orderable": false, "targets": [8] }  // Disable sorting on the action column
-        ],
-        language: {
-            paginate: {
-                previous: '&nbsp;',
-                next: '&nbsp;'
-            }
-        }
-    });
           handleRowSelection('.datatables-basic');
 
     // Optionally, you can add some custom logic or event listeners here
 });
+
+
+$('.datatables-basic').DataTable({
+    processing: true,
+    serverSide: true,
+    scrollX: true,
+
+    ajax: {
+        url: "{{ route('payments.index') }}",
+        data: function (d) {
+            d.book_type = $('#book_type').val();
+            d.location_id = $('#location_id').val();
+            d.document_no = $('#document_no').val();
+            d.bank_id = $('#bank_id').val();
+            d.ledger_id = $('#ledger_id').val();
+            d.cost_center_id = $('#cost_center_id').val();
+            d.date = $('#date').val();
+        }
+    },
+
+    dom:
+        '<"d-flex justify-content-between align-items-center mx-2 row"' +
+            '<"col-sm-12 col-md-6"l>' +
+            '<"col-sm-12 col-md-3 withoutheadbuttin dt-action-buttons text-end"B>' +
+            '<"col-sm-12 col-md-3"f>' +
+        '>' +
+        't' +
+        '<"d-flex justify-content-between mx-2 row"' +
+            '<"col-sm-12 col-md-6"i>' +
+            '<"col-sm-12 col-md-6"p>' +
+        '>',
+
+    lengthMenu: [7, 10, 25, 50, 75, 100],
+
+    buttons: [
+        {
+            extend: 'excel',
+            text: feather.icons['file'].toSvg({ class: 'font-small-4 me-50' }) + 'Excel',
+            className: 'btn btn-outline-secondary',
+            exportOptions: { 
+                columns: [0,1,2,3,4,5,6,7,8,9,10]
+            },
+            filename: function () {
+                let path = window.location.pathname.toLowerCase();
+                return path.includes('receipts')
+                    ? 'Receipts Report'
+                    : 'Payment Vouchers Report';
+            },
+            init: function (api, node) {
+                $(node).removeClass('btn-secondary');
+                $(node).parent().removeClass('btn-group');
+
+                setTimeout(function () {
+                    $(node)
+                        .closest('.dt-buttons')
+                        .removeClass('btn-group')
+                        .addClass('d-inline-flex');
+                }, 50);
+            }
+        }
+    ],
+
+    columns: [
+        { data: "DT_RowIndex", name: "", orderable: false, searchable: false },
+        { data: "date", name: "date",className: "text-nowrap" },
+        { data: "series", name: "series" },
+        { data: "document_no", name: "document_no" },
+        { data: "bank_ledger", name: "bank_ledger" },
+        { data: "amount", name: "amount", className: "text-end" },
+        { data: "location", name: "location" },
+        { data: "cost_center", name: "cost_center" },
+        { data: "currency", name: "currency" },
+        { data: "document", name: "document", orderable: false, searchable: false },
+        { data: "status", name: "status", className: "text-end" },
+        { data: "action", name: "action", orderable: false, searchable: false, className: "text-end" }
+    ]
+});
+
+
+
 
 
 </script>

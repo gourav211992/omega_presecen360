@@ -156,6 +156,81 @@ class CrDrReportController extends Controller
         $customers = collect($customers)->reject(function ($item) {
             return (float) $item->total_outstanding === 0.0;
         });
+
+        // Handle AJAX request for server-side pagination
+        if ($request->ajax()) {
+            return datatables()->of($customers)
+                ->addIndexColumn()
+                ->addColumn('group_name', function($row) {
+                    return '<div data-bs-placement="top" title="'.($row->ledger_parent_name ?? '-').'">'.
+                           ($row->ledger_parent_name ?? '-').'</div>';
+                })
+                ->addColumn('ledger_name', function($row) {
+                    return '<div data-bs-placement="top" title="'.($row->ledger_name ?? '-').'">'.
+                           ($row->ledger_name ?? '-').'</div>';
+                })
+                ->addColumn('credit_days', function($row) {
+                    return '<div data-bs-placement="top" title="'.($row->credit_days ?? 0).'">'.
+                           ($row->credit_days ?? 0).'</div>';
+                })
+                ->addColumn('total_outstanding', function($row) {
+                    $badge_class = $row->total_outstanding < 0 ? 'text-danger' : 'text-success';
+                    $cr_dr = $row->total_outstanding < 0 ? 'Cr' : 'Dr';
+                    return '<span class="badge rounded-pill badge-light-success">'.
+                           number_format(abs($row->total_outstanding), 2).
+                           ' <span class="'.$badge_class.'">'.$cr_dr.'</span></span>';
+                })
+                ->addColumn('overdue', function($row) {
+                    return '<div data-bs-placement="top" title="'.($row->overdue ?? 0).'">'.
+                           \App\Helpers\Helper::formatIndianNumber($row->overdue ?? 0).'</div>';
+                })
+                ->addColumn('days_0_30', function($row) {
+                    $cr_dr = $row->days_0_30 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_0_30), 2).' '.$cr_dr;
+                })
+                ->addColumn('days_30_60', function($row) {
+                    $cr_dr = $row->days_30_60 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_30_60), 2).' '.$cr_dr;
+                })
+                ->addColumn('days_60_90', function($row) {
+                    $cr_dr = $row->days_60_90 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_60_90), 2).' '.$cr_dr;
+                })
+                ->addColumn('days_90_120', function($row) {
+                    $cr_dr = $row->days_90_120 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_90_120), 2).' '.$cr_dr;
+                })
+                ->addColumn('days_120_180', function($row) {
+                    $cr_dr = $row->days_120_180 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_120_180), 2).' '.$cr_dr;
+                })
+                ->addColumn('days_above_180', function($row) {
+                    $cr_dr = $row->days_above_180 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_above_180), 2).' '.$cr_dr;
+                })
+                ->addColumn('action', function($row) use ($request) {
+                    if (!$row->ledger_id) return '';
+                    
+                    $query = [];
+                    if ($request->date) $query['date'] = $request->date;
+                    if ($request->location_id) $query['location_id'] = $request->location_id;
+                    if ($request->organization_id) $query['organization_id'] = $request->organization_id;
+                    if ($request->cost_center_id) $query['cost_center_id'] = $request->cost_center_id;
+                    if ($request->cost_group_id) $query['cost_group_id'] = $request->cost_group_id;
+
+                    $url = route('crdr.report.ledger.details', ['debit', $row->ledger_id, $row->ledger_parent_id]);
+                    if ($query) {
+                        $url .= '?' . http_build_query($query);
+                    }
+                    
+                    return '<a href="'.$url.'" target="_blank">
+                                <i class="cursor-pointer" data-feather="eye"></i>
+                            </a>';
+                })
+                ->rawColumns(['group_name', 'ledger_name', 'credit_days', 'total_outstanding', 'overdue', 'action'])
+                ->make(true);
+        }
+
         return view('finance_report.debitors', compact('cost_centers', 'companies', 'organizationId', 'locations', 'customers', 'all_groups', 'all_ledgers', 'date', 'date2', 'cost_groups'));
     }
     public function credit(Request $request)
@@ -250,6 +325,81 @@ class CrDrReportController extends Controller
         $vendors = collect($vendors)->reject(function ($item) {
             return (float) $item->total_outstanding === 0.0;
         });
+
+        // Handle AJAX request for server-side pagination
+        if ($request->ajax()) {
+            return datatables()->of($vendors)
+                ->addIndexColumn()
+                ->addColumn('group_name', function($row) {
+                    return '<div data-bs-placement="top" title="'.($row->ledger_parent_name ?? '-').'">'.
+                           ($row->ledger_parent_name ?? '-').'</div>';
+                })
+                ->addColumn('ledger_name', function($row) {
+                    return '<div data-bs-placement="top" title="'.($row->ledger_name ?? '-').'">'.
+                           ($row->ledger_name ?? '-').'</div>';
+                })
+                ->addColumn('credit_days', function($row) {
+                    return '<div data-bs-placement="top" title="'.($row->credit_days ?? 0).'">'.
+                           ($row->credit_days ?? 0).'</div>';
+                })
+                ->addColumn('total_outstanding', function($row) {
+                    $badge_class = $row->total_outstanding < 0 ? 'text-danger' : 'text-success';
+                    $cr_dr = $row->total_outstanding < 0 ? 'Cr' : 'Dr';
+                    return '<span class="badge rounded-pill badge-light-success">'.
+                           number_format(abs($row->total_outstanding), 2).
+                           ' <span class="'.$badge_class.'">'.$cr_dr.'</span></span>';
+                })
+                ->addColumn('overdue', function($row) {
+                    return '<div data-bs-placement="top" title="'.($row->overdue ?? 0).'">'.
+                           Helper::formatIndianNumber($row->overdue ?? 0).'</div>';
+                })
+                ->addColumn('days_0_30', function($row) {
+                    $cr_dr = $row->days_0_30 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_0_30), 2).' '.$cr_dr;
+                })
+                ->addColumn('days_30_60', function($row) {
+                    $cr_dr = $row->days_30_60 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_30_60), 2).' '.$cr_dr;
+                })
+                ->addColumn('days_60_90', function($row) {
+                    $cr_dr = $row->days_60_90 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_60_90), 2).' '.$cr_dr;
+                })
+                ->addColumn('days_90_120', function($row) {
+                    $cr_dr = $row->days_90_120 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_90_120), 2).' '.$cr_dr;
+                })
+                ->addColumn('days_120_180', function($row) {
+                    $cr_dr = $row->days_120_180 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_120_180), 2).' '.$cr_dr;
+                })
+                ->addColumn('days_above_180', function($row) {
+                    $cr_dr = $row->days_above_180 < 0 ? 'Cr' : 'Dr';
+                    return number_format(abs($row->days_above_180), 2).' '.$cr_dr;
+                })
+                ->addColumn('action', function($row) use ($request) {
+                    if (!$row->ledger_id) return '';
+                    
+                    $query = [];
+                    if ($request->date) $query['date'] = $request->date;
+                    if ($request->location_id) $query['location_id'] = $request->location_id;
+                    if ($request->organization_id) $query['organization_id'] = $request->organization_id;
+                    if ($request->cost_center_id) $query['cost_center_id'] = $request->cost_center_id;
+                    if ($request->cost_group_id) $query['cost_group_id'] = $request->cost_group_id;
+
+                    $url = route('crdr.report.ledger.details', ['credit', $row->ledger_id, $row->ledger_parent_id]);
+                    if ($query) {
+                        $url .= '?' . http_build_query($query);
+                    }
+                    
+                    return '<a href="'.$url.'" target="_blank">
+                                <i class="cursor-pointer" data-feather="eye"></i>
+                            </a>';
+                })
+                ->rawColumns(['group_name', 'ledger_name', 'credit_days', 'total_outstanding', 'overdue', 'action'])
+                ->make(true);
+        }
+
         return view('finance_report.creditors', compact('cost_centers', 'companies', 'organizationId', 'locations', 'vendors', 'all_groups', 'all_ledgers', 'date', 'date2', 'cost_groups'));
     }
 

@@ -37,113 +37,26 @@
                         <div class="col-12">
                             <div class="card">
                                 <div class="table-responsive">
-                                    <table class="datatables-basic table myrequesttablecbox tableistlastcolumnfixed">
-                                        <thead>
-                                            <tr>
-                                                <th>Sr. No</th>
-                                                <th>Date</th>
-                                                <th>Document Type</th>
-                                                <th>Series</th>
-                                                <th>Voucher No.</th>
-                                                <th>Ledger</th>
-                                                <th class="text-end">Amount</th>
-                                                <th>Location</th>
-                                                <th>Cost Center</th>
-                                                <th>Document</th>
-                                                <th>Remarks</th>
-                                                <th class="text-end">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @php
-                                                use App\Helpers\Helper;
-                                            @endphp
-
-                                            @foreach ($data as $index=>$item)
-                                                @php
-                                                    $mainBadgeClass = match ($item->approvalStatus) {
-                                                        'approved' => 'success',
-                                                        'approval_not_required' => 'success',
-                                                        'draft' => 'warning',
-                                                        'submitted' => 'info',
-                                                        'partially_approved' => 'warning',
-                                                        default => 'danger',
-                                                    };
-                                                @endphp
-                                                <tr>
-                                                    <td>{{ $index+1 }}</td>
-                                                    <td class="fw-bolder text-nowrap text-dark">
-                                                        {{ date('d-m-Y', strtotime($item->document_date)) }}</td>
-                                                    <td class="text-nowrap">{{ $item->series->service->name ?? '-' }}</td>
-                                                    <td class="text-nowrap">{{ $item->series->book_code ?? '-' }}</td>
-                                                    <td class="text-nowrap">{{ $item->voucher_no ?? '-' }}</td>
-                                                    <td class="text-nowrap">{{ $item?->items?->first()?->ledger?->name ?? '-' }}</td>
-                                                    <td class="text-nowrap" style="text-align: end;">
-                                                        {{ Helper::formatIndianNumber($item->amount) ?? '-' }}</td>
-                                                    <td class="text-nowrap">{{ $item?->ErpLocation?->store_name ?? ''}}</td>
-                                                    <td class="text-nowrap">{{ $item?->items?->first()?->costCenter?->name ?? '-' }}</td>
-
-                                                    <td>
-                                                        @php $documents = $item->document
-                                                                                                                            ? json_decode($item->document, true)
-                                                                                                                            : [];
-                                                                                                                        if (!is_array($documents) && $item->document) {
-                                                                                                                            $documents[] = $item->document;
-                                                                                                                        }
-
-                                                                                                                @endphp
-                                                        @if ($documents)
-                                                            <span style="display: flex;margin:0;padding:0">
-                                                                @foreach ($documents as $doc)
-                                                                    <a style="display: flex;margin:0;padding:0"
-                                                                        class="dropdown-item"
-                                                                        href="voucherDocuments/{{ $doc }}"
-                                                                        target="_blank">
-                                                                        <i data-feather="file-text"
-                                                                            class="fileuploadicon"></i>
-                                                                    </a>
-                                                                @endforeach
-                                                            </span>
-                                                        @endif
-
-
-
-
-                                                    <td class="text-nowrap">
-                                                        {{ $item->remarks ?? '-' }}
-                                                    </td>
-
-                                                    <td class="tableactionnew">
-                                                        <div class="d-flex align-items-center justify-content-end">
-                                                        @php $statusClasss = App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$item->document_status??"draft"];  @endphp
-                                                        <span
-                                                            class='badge rounded-pill {{ $statusClasss }} badgeborder-radius'>
-                                                            @if ($item->document_status == App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED)
-                                                                Approved
-                                                            @else
-                                                                {{ ucfirst($item->document_status) }}
-                                                            @endif
-                                                        </span>
-                                                        <div class="dropdown">
-                                                            <button type="button"
-                                                                class="btn btn-sm dropdown-toggle hide-arrow p-0"
-                                                                data-bs-toggle="dropdown">
-                                                                <i data-feather="more-vertical"></i>
-                                                            </button>
-                                                            <div class="dropdown-menu dropdown-menu-end">
-                                                                <a class="dropdown-item"
-                                                                    href="{{ route('vouchers.edit', ['voucher' => $item->id]) }}">
-                                                                    <i data-feather="edit-3" class="me-50"></i>
-                                                                    <span>View</span>
-                                                                </a>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    </td>
-                                                </tr>
-                                            @endforeach
-                                        </tbody>
-                                    </table>
+                                <table class="datatables-basic table myrequesttablecbox tableistlastcolumnfixed">
+                                    <thead>
+                                        <tr>
+                                            <th>Sr. No</th>
+                                            <th>Date</th>
+                                            <th>Document Type</th>
+                                            <th>Series</th>
+                                            <th>Voucher No.</th>
+                                            <th>Ledger</th>
+                                            <th class="text-end">Amount</th>
+                                            <th>Location</th>
+                                            <th>Cost Center</th>
+                                            <th>Document</th>
+                                            <th>Remarks</th>
+                                            <th class="text-end">Status</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
 
                                 </div>
                             </div>
@@ -403,124 +316,208 @@
                 loadCostCentersByGroup(locationId, groupId);
             });
             // Initialize DataTable on the table with the class .datatables-basic
-            $('.datatables-basic').DataTable({
-                processing: true, // Show processing indicator
-                serverSide: false, // Disable server-side processing since data is already loaded
-                scrollX: true,
-                drawCallback: function() {
-                    feather
-                        .replace(); // Re-initialize feather icons if needed (for custom icons like edit)
-                },
-                order: [[0, 'asc']], // Default ordering by the first column (Date)
-                dom: '<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-3 withoutheadbuttin dt-action-buttons text-end"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
-                lengthMenu: [7, 10, 25, 50, 75, 100], // Options for number of rows to show
-                 buttons:
-                [{
+            // $('.datatables-basic').DataTable({
+            //     processing: true, // Show processing indicator
+            //     serverSide: false, // Disable server-side processing since data is already loaded
+            //     scrollX: true,
+            //     drawCallback: function() {
+            //         feather
+            //             .replace(); // Re-initialize feather icons if needed (for custom icons like edit)
+            //     },
+            //     order: [[0, 'asc']], // Default ordering by the first column (Date)
+            //     dom: '<"d-flex justify-content-between align-items-center mx-2 row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-3 withoutheadbuttin dt-action-buttons text-end"B><"col-sm-12 col-md-3"f>>t<"d-flex justify-content-between mx-2 row"<"col-sm-12 col-md-6"i><"col-sm-12 col-md-6"p>>',
+            //     lengthMenu: [7, 10, 25, 50, 75, 100], // Options for number of rows to show
+            //      buttons:
+            //     [{
+            //         extend: 'excel',
+            //                 text: feather.icons['file'].toSvg({ class: 'font-small-4 me-50' }) + 'Excel',
+            //                 className: 'btn btn-outline-secondary',
+            //                 exportOptions: {
+            //                     columns: [0, 1, 2, 3, 4, 5, 6, 7,8]
+            //                 },
+            //                 filename: 'Vouchers Report'
+            //         ,
+            //         init: function (api, node, config) {
+            //             $(node).removeClass('btn-secondary');
+            //             $(node).parent().removeClass('btn-group');
+            //             setTimeout(function () {
+            //                 $(node).closest('.dt-buttons').removeClass('btn-group').addClass('d-inline-flex');
+            //             }, 50);
+            //         }
+            //         }],
+            //     // buttons: [{
+            //     //     extend: 'collection',
+            //     //     className: 'btn btn-outline-secondary dropdown-toggle',
+            //     //     text: feather.icons['share'].toSvg({
+            //     //         class: 'font-small-4 mr-50'
+            //     //     }) + 'Export',
+            //     //     buttons: [{
+            //     //             extend: 'print',
+            //     //             text: feather.icons['printer'].toSvg({
+            //     //                 class: 'font-small-4 mr-50'
+            //     //             }) + 'Print',
+            //     //             className: 'dropdown-item',
+            //     //             exportOptions: {
+            //     //                 columns: [0, 1, 2, 3, 4, 5, 6, 7]
+            //     //             },
+            //     //             filename: 'Vouchers Report'
+            //     //         },
+            //     //         {
+            //     //             extend: 'csv',
+            //     //             text: feather.icons['file-text'].toSvg({
+            //     //                 class: 'font-small-4 mr-50'
+            //     //             }) + 'Csv',
+            //     //             className: 'dropdown-item',
+            //     //             exportOptions: {
+            //     //                 columns: [0, 1, 2, 3, 4, 5, 6, 7]
+            //     //             },
+            //     //             filename: 'Vouchers Report'
+            //     //         },
+            //     //         {
+            //     //             extend: 'excel',
+            //     //             text: feather.icons['file'].toSvg({
+            //     //                 class: 'font-small-4 mr-50'
+            //     //             }) + 'Excel',
+            //     //             className: 'dropdown-item',
+            //     //             exportOptions: {
+            //     //                 columns: [0, 1, 2, 3, 4, 5, 6, 7]
+            //     //             },
+            //     //             filename: 'Vouchers Report'
+            //     //         },
+            //     //         {
+            //     //             extend: 'pdf',
+            //     //             text: feather.icons['clipboard'].toSvg({
+            //     //                 class: 'font-small-4 mr-50'
+            //     //             }) + 'Pdf',
+            //     //             className: 'dropdown-item',
+            //     //             exportOptions: {
+            //     //                 columns: [0, 1, 2, 3, 4, 5, 6, 7]
+            //     //             },
+            //     //             filename: 'Vouchers Report'
+            //     //         },
+            //     //         {
+            //     //             extend: 'copy',
+            //     //             text: feather.icons['copy'].toSvg({
+            //     //                 class: 'font-small-4 mr-50'
+            //     //             }) + 'Copy',
+            //     //             className: 'dropdown-item',
+            //     //             exportOptions: {
+            //     //                 columns: [0, 1, 2, 3, 4, 5, 6, 7]
+            //     //             },
+            //     //             filename: 'Vouchers Report'
+            //     //         }
+            //     //     ],
+            //     //     init: function(api, node, config) {
+            //     //         $(node).removeClass('btn-secondary');
+            //     //         $(node).parent().removeClass('btn-group');
+            //     //         setTimeout(function() {
+            //     //             $(node).closest('.dt-buttons').removeClass('btn-group')
+            //     //                 .addClass('d-inline-flex');
+            //     //         }, 50);
+            //     //     }
+            //     // }],
+            //     columnDefs: [{
+            //             "orderable": false,
+            //             "targets": [8]
+            //         } // Disable sorting on the action column
+            //     ],
+            //     language: {
+            //         paginate: {
+            //             previous: '&nbsp;',
+            //             next: '&nbsp;'
+            //         }
+            //     }
+            // });
+
+        //   handleRowSelection('.datatables-basic');
+
+            // Optionally, you can add some custom logic or event listeners here
+        });
+
+        $('.datatables-basic').DataTable({
+            processing: true,
+            serverSide: true,
+            scrollX: true,
+            ajax: {
+                url: "{{ route('vouchers.index') }}",
+                data: function (d) {
+                    d.book_type = $('#book_type').val();
+                    d.location_id = $('#location_id').val();
+                    d.voucher_no = $('#voucher_no').val();
+                    d.voucher_name = $('#voucher_name').val();
+                    d.date = $('#fp-range').val();
+                }
+            },
+
+            columns: [
+                { data: 'DT_RowIndex', orderable: false, searchable: false },
+                { data: 'date', name: 'document_date', className: 'text-nowrap' },
+                { data: 'document_type', name: 'document_type', className: 'text-nowrap' },
+                { data: 'series_code', name: 'series_code', className: 'text-nowrap' },
+                { data: 'voucher_no', name: 'voucher_no', className: 'text-nowrap' },
+                { data: 'ledger', name: 'ledger', className: 'text-nowrap' },
+                { data: 'amount_formatted', name: 'amount', className: "text-end" },
+                { data: 'location_name', name: 'location_name', className: 'text-nowrap' },
+                { data: 'cost_center', name: 'cost_center', className: 'text-nowrap' },
+                { data: 'document_icons', name: 'document', orderable:false, searchable:false },
+                { data: 'remarks', name: 'remarks', className: 'text-nowrap' },
+                { data: 'document_status', name: 'document_status', className: "text-end" },
+                { data: 'action', name: 'action', orderable: false, searchable: false, className: "text-end" }
+            ],
+
+            drawCallback: function() {
+                feather.replace();
+            },
+
+            order: [[1, 'desc']],
+
+            dom:
+                '<"d-flex justify-content-between align-items-center mx-2 row"' +
+                    '<"col-sm-12 col-md-6"l>' +
+                    '<"col-sm-12 col-md-3 withoutheadbuttin dt-action-buttons text-end"B>' +
+                    '<"col-sm-12 col-md-3"f>' +
+                '>' +
+                't' +
+                '<"d-flex justify-content-between mx-2 row"' +
+                    '<"col-sm-12 col-md-6"i>' +
+                    '<"col-sm-12 col-md-6"p>' +
+                '>',
+
+
+            buttons: [
+                {
                     extend: 'excel',
-                            text: feather.icons['file'].toSvg({ class: 'font-small-4 me-50' }) + 'Excel',
-                            className: 'btn btn-outline-secondary',
-                            exportOptions: {
-                                columns: [0, 1, 2, 3, 4, 5, 6, 7,8]
-                            },
-                            filename: 'Vouchers Report'
-                    ,
+                    text: feather.icons['file'].toSvg({ class: 'font-small-4 me-50' }) + 'Excel',
+                    className: 'btn btn-outline-secondary',
+                    exportOptions: {
+                        columns: [0,1,2,3,4,5,6,7,8]
+                    },
+                    filename: 'Vouchers Report',
+
                     init: function (api, node, config) {
                         $(node).removeClass('btn-secondary');
                         $(node).parent().removeClass('btn-group');
                         setTimeout(function () {
-                            $(node).closest('.dt-buttons').removeClass('btn-group').addClass('d-inline-flex');
+                            $(node).closest('.dt-buttons')
+                                .removeClass('btn-group')
+                                .addClass('d-inline-flex');
                         }, 50);
                     }
-                    }],
-                // buttons: [{
-                //     extend: 'collection',
-                //     className: 'btn btn-outline-secondary dropdown-toggle',
-                //     text: feather.icons['share'].toSvg({
-                //         class: 'font-small-4 mr-50'
-                //     }) + 'Export',
-                //     buttons: [{
-                //             extend: 'print',
-                //             text: feather.icons['printer'].toSvg({
-                //                 class: 'font-small-4 mr-50'
-                //             }) + 'Print',
-                //             className: 'dropdown-item',
-                //             exportOptions: {
-                //                 columns: [0, 1, 2, 3, 4, 5, 6, 7]
-                //             },
-                //             filename: 'Vouchers Report'
-                //         },
-                //         {
-                //             extend: 'csv',
-                //             text: feather.icons['file-text'].toSvg({
-                //                 class: 'font-small-4 mr-50'
-                //             }) + 'Csv',
-                //             className: 'dropdown-item',
-                //             exportOptions: {
-                //                 columns: [0, 1, 2, 3, 4, 5, 6, 7]
-                //             },
-                //             filename: 'Vouchers Report'
-                //         },
-                //         {
-                //             extend: 'excel',
-                //             text: feather.icons['file'].toSvg({
-                //                 class: 'font-small-4 mr-50'
-                //             }) + 'Excel',
-                //             className: 'dropdown-item',
-                //             exportOptions: {
-                //                 columns: [0, 1, 2, 3, 4, 5, 6, 7]
-                //             },
-                //             filename: 'Vouchers Report'
-                //         },
-                //         {
-                //             extend: 'pdf',
-                //             text: feather.icons['clipboard'].toSvg({
-                //                 class: 'font-small-4 mr-50'
-                //             }) + 'Pdf',
-                //             className: 'dropdown-item',
-                //             exportOptions: {
-                //                 columns: [0, 1, 2, 3, 4, 5, 6, 7]
-                //             },
-                //             filename: 'Vouchers Report'
-                //         },
-                //         {
-                //             extend: 'copy',
-                //             text: feather.icons['copy'].toSvg({
-                //                 class: 'font-small-4 mr-50'
-                //             }) + 'Copy',
-                //             className: 'dropdown-item',
-                //             exportOptions: {
-                //                 columns: [0, 1, 2, 3, 4, 5, 6, 7]
-                //             },
-                //             filename: 'Vouchers Report'
-                //         }
-                //     ],
-                //     init: function(api, node, config) {
-                //         $(node).removeClass('btn-secondary');
-                //         $(node).parent().removeClass('btn-group');
-                //         setTimeout(function() {
-                //             $(node).closest('.dt-buttons').removeClass('btn-group')
-                //                 .addClass('d-inline-flex');
-                //         }, 50);
-                //     }
-                // }],
-                columnDefs: [{
-                        "orderable": false,
-                        "targets": [8]
-                    } // Disable sorting on the action column
-                ],
-                language: {
-                    paginate: {
-                        previous: '&nbsp;',
-                        next: '&nbsp;'
-                    }
                 }
-            });
+            ],
 
-          handleRowSelection('.datatables-basic');
-
-            // Optionally, you can add some custom logic or event listeners here
+            language: {
+                paginate: {
+                    previous: '&nbsp;',
+                    next: '&nbsp;'
+                }
+            }
         });
+
+
     </script>
+
+    
 
 
 @endsection

@@ -1108,17 +1108,117 @@ class VoucherController extends Controller
         return response()->json($data);
     }
 
+ 
+
     public function index(Request $request)
     {
-       
         $parentURL = request()->segments()[0];
         $servicesBooks = Helper::getAccessibleServicesFromMenuAlias($parentURL);
-        if (count($servicesBooks['services']) == 0) {
-            return redirect()->route('/');
+        if (count($servicesBooks['services']) == 0) return redirect()->route('/');
+
+        $user = Helper::getAuthenticatedUser();
+        $organizationId = $user->organization_id;
+        $fyear = Helper::getFinancialYear(date('Y-m-d'));
+
+        $parentUrl = request()->segments()[0];
+        $serviceAlias = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
+        if (count($serviceAlias['services']) == 0) return redirect()->route('/');
+
+        $bookTypes = $serviceAlias['services'];
+        $mappings = Helper::access_org();
+
+        $book_type = $request->book_type;
+        $date = $request->date ?? Carbon::parse($fyear['start_date'])->format('d-m-Y') . " to " . Carbon::parse($fyear['end_date'])->format('d-m-Y');
+        $date2 = Carbon::parse($fyear['start_date'])->format('jS-F-Y') . ' to ' . Carbon::parse($fyear['end_date'])->format('jS-F-Y');
+
+        $voucher_no = $request->voucher_no;
+        $voucher_name = $request->voucher_name;
+        $cost_centers = Helper::getActiveCostCenters();
+        $cost_groups = CostGroup::with('costCenters')->where('status','active')->get()->toArray();
+        $fyearLocked = $fyear['authorized'];
+        $locations = InventoryHelper::getAccessibleLocations();
+
+        if ($request->ajax()) {
+
+            $locationIds = $locations->pluck('id')->toArray();
+
+            $query = Voucher::with([
+                'series.service',
+                'items.ledger',
+                'items.costCenter',
+                'ErpLocation'
+            ])
+            ->where('approvalStatus', '!=', 'cancel')
+            ->whereIn('location', $locationIds);
+
+            if ($request->book_type) $query->where('book_type_id', $request->book_type);
+            if ($request->location_id) $query->where('location', $request->location_id);
+            if ($request->voucher_no) $query->where('voucher_no', 'like', "%".$request->voucher_no."%");
+            if ($request->voucher_name) $query->where('voucher_name', 'like', "%".$request->voucher_name."%");
+
+            if ($request->date) {
+                $dates = explode(' to ', $request->date);
+                $start = date('Y-m-d', strtotime($dates[0]));
+                $end = isset($dates[1]) ? date('Y-m-d', strtotime($dates[1])) : $start;
+                $query->whereBetween('document_date', [$start, $end]);
+            }
+
+            return datatables()->of($query)
+                ->addIndexColumn()
+                ->editColumn('date', fn($row)=>date('d-m-Y', strtotime($row->document_date)))
+                ->addColumn('document_type', fn($row)=>$row->series->service->name ?? '-')
+                ->addColumn('series_code', fn($row)=>$row->series->book_code ?? '-')
+                ->addColumn('ledger', fn($row)=>$row->items->first()->ledger->name ?? '-')
+                ->addColumn('amount_formatted', fn($row)=>Helper::formatIndianNumber($row->amount))
+                ->addColumn('location_name', fn($row)=>$row->ErpLocation->store_name ?? '-')
+                ->addColumn('cost_center', fn($row)=>$row->items->first()->costCenter->name ?? '-')
+                ->addColumn('document_icons', function($row){
+                    $docs = $row->document ? json_decode($row->document, true) : [];
+                    $html = '';
+                    foreach ($docs as $d) {
+                        $html .= "<a href='/voucherDocuments/$d' target='_blank'><i data-feather='file-text'></i></a>";
+                    }
+                    return $html ?: '-';
+                })
+                ->addColumn('document_status', function($row){
+                    $css = ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$row->document_status ?? "draft"];
+                
+                    $label = ($row->document_status === ConstantHelper::APPROVAL_NOT_REQUIRED)
+                        ? "Approved"
+                        : ucfirst($row->document_status);
+                
+                    return "<span class='badge rounded-pill $css'>$label</span>";
+                })
+                ->addColumn('action', function($row){
+                    $url = route('vouchers.edit', ['voucher' => $row->id]);
+                    return '
+                        <div class="dropdown">
+                            <button type="button" class="btn btn-sm dropdown-toggle hide-arrow p-0" data-bs-toggle="dropdown">
+                                <i data-feather="more-vertical"></i>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a class="dropdown-item" href="'.$url.'">
+                                    <i data-feather="edit-3" class="me-50"></i>
+                                    <span>View</span>
+                                </a>
+                            </div>
+                        </div>';
+                })
+                ->rawColumns(['document_icons','document_status','action'])
+                ->make(true);
         }
 
+        $data = [];
+
+        return view('voucher.view_vouchers', compact(
+            'cost_centers','bookTypes','mappings','organizationId','data','book_type',
+            'date','voucher_no','voucher_name','date2','fyearLocked','locations','cost_groups'
+        ));
+    }
 
 
+    public function getVouchersData(Request $request)
+    {
         $user = Helper::getAuthenticatedUser();
         $userId = $user->id;
         $organizationId = $user->organization_id;
@@ -1140,12 +1240,10 @@ class VoucherController extends Controller
         $accessibleLocations = InventoryHelper::getAccessibleLocations();
         $locationIds = $accessibleLocations->pluck('id')->toArray();
 
-
         // Retrieve vouchers based on organization_id and include series with levels
         $cost_center_ids = null;
         if (!empty($request->cost_center_id)) {
             $cost_center_ids = $request->cost_center_id ?? null;
-            // dd($cost_center_ids);
         } elseif (!empty($request->cost_group_id)) {
             $cost_group = CostGroup::with('costCenters')
                 ->where('id', $request->cost_group_id)
@@ -1153,14 +1251,17 @@ class VoucherController extends Controller
                 ->first();
 
             $cost_center_ids = optional($cost_group->costCenters)->pluck('id')->unique()->all();
-                        // dd($cost_center_ids);
         }
-        $data =  Voucher::with([
+        
+        $data = Voucher::with([
             'documents:id,name',
+            'series.service:id,name',
+            'ErpLocation:id,store_name',
+            'items.ledger:id,name',
+            'items.costCenter:id,name'
         ])
         ->whereHas('items', function ($d) use ($cost_center_ids) {
            if (!empty($cost_center_ids)) {
-            // dd($cost_center_ids);
             if (is_array($cost_center_ids)) {
                 $d->whereIn('cost_center_id', $cost_center_ids);
             } else {
@@ -1170,6 +1271,7 @@ class VoucherController extends Controller
         })
         ->where('approvalStatus', '!=', 'cancel')
         ->whereIn('location', $locationIds);
+        
         // Apply filters based on the request
         if ($request->book_type) {
             $data = $data->where('book_type_id', $request->book_type);
@@ -1189,49 +1291,60 @@ class VoucherController extends Controller
 
         if ($request->date) {
             $dates = explode(' to ', $request->date);
-
-            // If no end date, use start date as end date
             $start = date('Y-m-d', strtotime($dates[0]));
             $end = isset($dates[1]) && $dates[1] ? date('Y-m-d', strtotime($dates[1])) : $start;
-
             $data = $data->whereDate('document_date', '>=', $start)
                         ->whereDate('document_date', '<=', $end);
-        }
-        else{
-
+        } else {
             $data = $data->whereDate('document_date', '>=',$fyear['start_date'])
                 ->whereDate('document_date', '<=',$fyear['end_date']);
-                $start = $fyear['start_date'];
-                $end = $fyear['end_date'];
-
-
         }
-
 
         $data = $data->orderBy('document_date', 'desc')->get();
 
-        $parentUrl = request()->segments()[0];
-
-        $serviceAlias = Helper::getAccessibleServicesFromMenuAlias($parentUrl);
-        if (count($serviceAlias['services']) == 0) {
-            return redirect()->route('/');
+        // Return JSON response with formatted data
+        $formattedData = [];
+        foreach ($data as $index => $item) {
+            $statusClass = \App\Helpers\ConstantHelper::DOCUMENT_STATUS_CSS_LIST[$item->document_status ?? "draft"];
+            
+            $documents = $item->document ? json_decode($item->document, true) : [];
+            if (!is_array($documents) && $item->document) {
+                $documents[] = $item->document;
+            }
+            
+            $documentsHtml = '';
+            if ($documents) {
+                $documentsHtml = '<span style="display: flex;margin:0;padding:0">';
+                foreach ($documents as $doc) {
+                    $documentsHtml .= '<a style="display: flex;margin:0;padding:0" class="dropdown-item" href="voucherDocuments/' . $doc . '" target="_blank">';
+                    $documentsHtml .= '<i data-feather="file-text" class="fileuploadicon"></i></a>';
+                }
+                $documentsHtml .= '</span>';
+            }
+            
+            $formattedData[] = [
+                'sr_no' => $index + 1,
+                'date' => date('d-m-Y', strtotime($item->document_date)),
+                'document_type' => $item->series->service->name ?? '-',
+                'series' => $item->series->book_code ?? '-',
+                'voucher_no' => $item->voucher_no ?? '-',
+                'ledger' => $item->items->first()->ledger->name ?? '-',
+                'amount' => \App\Helpers\Helper::formatIndianNumber($item->amount) ?? '-',
+                'location' => $item->ErpLocation->store_name ?? '',
+                'cost_center' => $item->items->first()->costCenter->name ?? '-',
+                'documents' => $documentsHtml,
+                'remarks' => $item->remarks ?? '-',
+                'status_class' => $statusClass,
+                'status_text' => $item->document_status == \App\Helpers\ConstantHelper::APPROVAL_NOT_REQUIRED ? 'Approved' : ucfirst($item->document_status),
+                'edit_url' => route('vouchers.edit', ['voucher' => $item->id])
+            ];
         }
 
-        $bookTypes = $serviceAlias['services'];
-
-        $mappings =Helper::access_org();
-
-        $book_type = $request->book_type;
-        $date = $request->date ?? \Carbon\Carbon::parse($fyear['start_date'])->format('d-m-Y') . " to " . \Carbon\Carbon::parse($fyear['end_date'])->format('d-m-Y');
-        $date2 = \Carbon\Carbon::parse($start)->format('jS-F-Y') . ' to ' . \Carbon\Carbon::parse($end)->format('jS-F-Y');
-
-        $voucher_no = $request->voucher_no;
-        $voucher_name = $request->voucher_name;
-        $cost_centers = Helper::getActiveCostCenters();
-        $cost_groups = CostGroup::with('costCenters')->where('status','active')->get()->toArray();
-         $fyearLocked = $fyear['authorized'];
-        $locations = InventoryHelper::getAccessibleLocations();
-        return view('voucher.view_vouchers', compact('cost_centers','bookTypes', 'mappings', 'organizationId', 'data', 'book_type', 'date', 'voucher_no', 'voucher_name','date2','fyearLocked','locations','cost_groups'));
+        return response()->json([
+            'success' => true,
+            'data' => $formattedData,
+            'total' => count($formattedData)
+        ]);
     }
 
     public function create()
