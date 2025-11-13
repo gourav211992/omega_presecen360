@@ -344,6 +344,8 @@
                                                                 <th width="150px" class="text-end">Debit Amt</th>
                                                                 <th width="150px" class="text-end">Credit Amt</th>
                                                                 <th width="200px">Cost Center</th>
+                                                                <th class="opening-balance-col" style="display: none;">Reference Party No</th>
+                                                                <th class="opening-balance-col" style="display: none;">Reference Party Date</th>
                                                                 <th>Remarks</th>
                                                                 <th width="60px">Action</th>
                                                             </tr>
@@ -401,6 +403,21 @@
                                                                         name="cost_center_id[]" id="cost_center_id1">
                                                                     </select>
                                                                 </td>
+                                                                <td class="opening-balance-col" style="display: none;">
+                                                                    <input type="text"
+                                                                        class="form-control mw-100"
+                                                                        placeholder="Reference Party No" 
+                                                                        name="reference_party_no[]" 
+                                                                        id="reference_party_no_1" 
+                                                                        value="">
+                                                                </td>
+                                                                <td class="opening-balance-col" style="display: none;">
+                                                                    <input type="date"
+                                                                        class="form-control mw-100"
+                                                                        name="reference_party_date[]" 
+                                                                        id="reference_party_date_1" 
+                                                                        value="">
+                                                                </td>
                                                                 <td>
                                                                     <input type="text"
                                                                         class="form-control mw-100 remarks_"
@@ -444,6 +461,8 @@
                                                                 <td hidden class="text-end">
                                                                     <h5 id="crd_total_inr">0.00</h5>
                                                                 </td>
+                                                                <td class="opening-balance-col" style="display: none;"></td>
+                                                                <td class="opening-balance-col" style="display: none;"></td>
                                                                 <td colspan="3" class="text-end">
                                                                     <a href="#"
                                                                         class="text-primary add-contactpeontxt mt-0 add-item-row"
@@ -737,11 +756,16 @@
                     let groupDropdown = $(`#groupSelect${rowId}`);
 
                     if (ledgerId) {
+                        // Check if this is opening balance
+                        let selectedBookType = $('#book_type_id').find('option:selected');
+                        let isOpeningBalance = selectedBookType.data('alias') === 'ob';
+                        
                         $.ajax({
                             url: '{{ route('voucher.getLedgerGroups') }}',
                             method: 'POST',
                             data: {
                                 ledger_id: ledgerId,
+                                is_opening_balance: isOpeningBalance,
                                 _token: $('meta[name="csrf-token"]').attr('content') // CSRF token
                             },
                             success: function(response) {
@@ -962,12 +986,18 @@
 
 
                     if (ledgerId) {
+                        // Check if this is opening balance
+                        let selectedBookType = $('#book_type_id').find('option:selected');
+                        let isOpeningBalance = selectedBookType.data('alias') === 'ob';
+                        
+                        
                         $.ajax({
                             url: '{{ route('voucher.getLedgerGroups') }}',
                             method: 'GET',
                             data: {
                                 ledger_id: ledgerId,
                                 ids: preGroups,
+                                is_opening_balance: isOpeningBalance,
                                 _token: $('meta[name="csrf-token"]').attr(
                                     'content') // CSRF token
                             },
@@ -1476,6 +1506,14 @@
                         <select class="costCenter form-select mw-100" name="cost_center_id[]" id="cost_center_id${rowCount + 1}">
                         </select>
                     </td>
+                    <td class="opening-balance-col" style="display: none;">
+                        <input type="text" class="form-control mw-100" placeholder="Reference Party No" 
+                            name="reference_party_no[]" id="reference_party_no_${rowCount + 1}" value="">
+                    </td>
+                    <td class="opening-balance-col" style="display: none;">
+                        <input type="date" class="form-control mw-100" 
+                            name="reference_party_date[]" id="reference_party_date_${rowCount + 1}" value="">
+                    </td>
                     <td>
                         <input type="text" class="form-control mw-100 remarks_" placeholder="Enter Remarks"
                             id="hiddenRemarks_${rowCount + 1}" name="item_remarks[]" value="">
@@ -1492,6 +1530,14 @@
 
                 updateRowNumbers();
                 document.querySelector('#item-details-body').insertAdjacentHTML('beforeend', newRow);
+                
+                // Check if opening balance is selected and show columns for new row
+                let selectedBookType = $('#book_type_id').find('option:selected');
+                let openingBalanceAlias = 'ob';
+                if (selectedBookType.data('alias') === openingBalanceAlias) {
+                    $('.opening-balance-col').show();
+                }
+                
                 // Populate cost centers for the new row's dropdown
                 let selected = $(`#cost_center_id${rowCount}`).val();
                 populateSingleCostCenterDropdown($(`#cost_center_id${rowCount + 1}`),selected);
@@ -1575,12 +1621,17 @@
 
 
                         if (ledgerId) {
+                            // Check if this is opening balance
+                            let selectedBookType = $('#book_type_id').find('option:selected');
+                            let isOpeningBalance = selectedBookType.data('alias') === 'ob';
+                            
                             $.ajax({
                                 url: '{{ route('voucher.getLedgerGroups') }}',
                                 method: 'GET',
                                 data: {
                                     ledger_id: ledgerId,
                                     ids: preGroups,
+                                    is_opening_balance: isOpeningBalance,
                                     _token: $('meta[name="csrf-token"]').attr(
                                         'content') // CSRF token
                                 },
@@ -1805,7 +1856,15 @@
                 });
             }
 
-           
+            // Show/Hide opening balance columns based on book type
+            let openingBalanceAlias = 'ob'; // Opening balance alias
+            if (selectedOption.data('alias') === openingBalanceAlias) {
+                // Show opening balance columns
+                $('.opening-balance-col').show();
+            } else {
+                // Hide opening balance columns
+                $('.opening-balance-col').hide();
+            }
 
         }
 

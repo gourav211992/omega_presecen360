@@ -315,6 +315,7 @@
                                                         <select class="form-select select2 disable" name="book_type_id"
                                                             id="book_type_id" required onchange="getBooks()" disabled>
                                                             <option value="{{ $data?->series?->org_service_id }}"
+                                                                data-alias="{{ $data?->series?->org_service?->alias }}"
                                                                 selected>
                                                                 {{ $data?->series?->org_service?->name }}</option>
 
@@ -530,6 +531,8 @@
                                                         <th>Due Date</th>
                                                         @endif
                                                         <th width="200px">Cost Center</th>
+                                                        <th class="opening-balance-col" style="display: none;">Reference Party No</th>
+                                                        <th class="opening-balance-col" style="display: none;">Reference Party Date</th>
                                                         <th>Remarks</th>
                                                         <th width="60px">Action</th>
                                                     </tr>
@@ -648,6 +651,19 @@
 
 
                                                             </td>
+                                                            <td class="opening-balance-col" style="display: none;">
+                                                                <input type="text" class="form-control mw-100"
+                                                                    placeholder="Reference Party No" 
+                                                                    name="reference_party_no[]" 
+                                                                    id="reference_party_no_{{ $no }}" 
+                                                                    value="{{ $item->reference_party_no ?? '' }}">
+                                                            </td>
+                                                            <td class="opening-balance-col" style="display: none;">
+                                                                <input type="date" class="form-control mw-100"
+                                                                    name="reference_party_date[]" 
+                                                                    id="reference_party_date_{{ $no }}" 
+                                                                    value="{{ $item->reference_party_date ?? '' }}">
+                                                            </td>
                                                             <td>
                                                                 <input type="text" class="form-control mw-100 remarks_"
                                                                     placeholder="Enter Remarks"
@@ -665,16 +681,14 @@
                                                                     </div>
                                                             </td>
                                                             <td>
-                                                                @if ($buttons['draft'] && $fyear['authorized'])
+                                                               
                                                                     <div class="me-50 cursor-pointer"><span
                                                                             data-bs-placement="top"
-                                                                            class="text-danger remove-item"><i
+                                                                            class="text-danger @if($buttons['draft'] && $fyear['authorized'])remove-item @endif"><i
                                                                                 data-feather="trash-2"></i></span>
                                                                     </div>
-                                                                @endif
-                                        </div>
-
-                                        </td>
+                                                               
+                                                            </td>
                                         </tr>
                                     @empty
                                         <div>No Item data..</div>
@@ -697,6 +711,8 @@
                                                     <h5 id="crd_total_inr">0.00</h5>
                                                 </td>
                                                  
+                                                <td class="opening-balance-col" style="display: none;"></td>
+                                                <td class="opening-balance-col" style="display: none;"></td>
                                                 <td colspan="{{in_array($data->reference_service,App\Helpers\ConstantHelper::DUE_DATE_ALIAS)?4:3}}" class="text-end">
                                                     @if ($buttons['draft'] && $fyear['authorized'])
                                                         <a href="#"
@@ -1018,6 +1034,16 @@
 
                     }
                 });
+            }
+
+            // Show/Hide opening balance columns based on book type
+            let openingBalanceAlias = 'ob'; // Opening balance alias
+            if (selectedOption.data('alias') === openingBalanceAlias) {
+                // Show opening balance columns
+                $('.opening-balance-col').show();
+            } else {
+                // Hide opening balance columns
+                $('.opening-balance-col').hide();
             }
 
             if (orgCurrency != "") {
@@ -2097,12 +2123,17 @@
                         });
 
                         if (ledgerId) {
+                            // Check if this is opening balance
+                            let selectedBookType = $('#book_type_id').find('option:selected');
+                            let isOpeningBalance = selectedBookType.data('alias') === 'ob';
+                            
                             $.ajax({
                                 url: '{{ route('voucher.getLedgerGroups') }}',
                                 method: 'GET',
                                 data: {
                                     ids: preGroups,
-                                    ledger_id: ledgerId
+                                    ledger_id: ledgerId,
+                                    is_opening_balance: isOpeningBalance
                                 },
                                 success: function(response) {
 

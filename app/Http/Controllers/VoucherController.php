@@ -1635,7 +1635,8 @@ class VoucherController extends Controller
         $creditAmtsOrg = $request->input('org_credit_amt');
 
         $itemRemarks = $request->input('item_remarks');
-
+        $referencePartyNos = $request->input('reference_party_no');
+        $referencePartyDates = $request->input('reference_party_date');
 
         $debitAmtsGroup = $request->input('group_debit_amt');
         $costCenters = $request->input('cost_center_id');
@@ -1667,6 +1668,8 @@ class VoucherController extends Controller
                 $parent_ledger_id = $parentLedger[$index];
 
                 $item_remarks = $itemRemarks[$index] ?? "";
+                $reference_party_no = $referencePartyNos[$index] ?? "";
+                $reference_party_date = $referencePartyDates[$index] ?? null;
 
                 // Insert the new ItemDetail record
                 ItemDetail::create([
@@ -1687,7 +1690,9 @@ class VoucherController extends Controller
                     'organization_id' => $organization->id,
                     'group_id' => $organization->group_id,
                     'company_id' => $organization->group_id,
-                    'remarks' => $item_remarks
+                    'remarks' => $item_remarks,
+                    'reference_party_no' => $reference_party_no,
+                    'reference_party_date' => $reference_party_date
                 ]);
             }
         }
@@ -1818,7 +1823,8 @@ class VoucherController extends Controller
         $creditAmtsOrg = $request->input('org_credit_amt');
 
         $itemRemarks = $request->input('item_remarks');
-
+        $referencePartyNos = $request->input('reference_party_no');
+        $referencePartyDates = $request->input('reference_party_date');
 
         $debitAmtsGroup = $request->input('group_debit_amt');
         $creditAmtsGroup = $request->input('group_credit_amt');
@@ -1843,6 +1849,8 @@ class VoucherController extends Controller
                 $parent_ledger_id = $parentLedger[$index];
 
                 $item_remarks = $itemRemarks[$index] ?? "";
+                $reference_party_no = $referencePartyNos[$index] ?? "";
+                $reference_party_date = $referencePartyDates[$index] ?? null;
                 
                 ItemDetail::create([
                     'voucher_id' => $id,
@@ -1860,6 +1868,8 @@ class VoucherController extends Controller
                     'remarks'=>$item_remarks,
                     'notes' => $request->$notename,
                     'date' => $request->date,
+                    'reference_party_no' => $reference_party_no,
+                    'reference_party_date' => $reference_party_date
                 ]);
             }
             
@@ -1874,6 +1884,7 @@ class VoucherController extends Controller
         $ledgerId = $request->input('ledger_id');
         $ledger = Ledger::find($ledgerId);
         $excludeItems = $request->input('ids', []); // Expecting an array of objects [{ledger_id, ledgerGroup}]
+        $isOpeningBalance = $request->input('is_opening_balance', false); // Check if this is opening balance
         if ($ledger) {
             $groups = $ledger->group(); // Assuming group() is a valid method on Ledger
 
@@ -1890,22 +1901,26 @@ class VoucherController extends Controller
             } else {
                 $groupItems = [];
             }
-
-            // Ensure $excludeItems is an array of objects [{ledger_id, ledgerGroup}]
-            $groupItems = array_filter($groupItems, function ($item) use ($excludeItems, $ledgerId) {
-                foreach ($excludeItems as $exclude) {
-                    if (
-                        isset($exclude['ledger_id'], $exclude['ledgerGroup']) &&
-                        $exclude['ledger_id'] == $ledgerId && $exclude['ledgerGroup'] == $item['id'] . ""
-                    ) {
-                        return false; // Exclude this group
+         
+            // Skip filtering for opening balance - allow all groups
+            if (!$isOpeningBalance) {
+                // Ensure $excludeItems is an array of objects [{ledger_id, ledgerGroup}]
+                $groupItems = array_filter($groupItems, function ($item) use ($excludeItems, $ledgerId) {
+                    foreach ($excludeItems as $exclude) {
+                        if (
+                            isset($exclude['ledger_id'], $exclude['ledgerGroup']) &&
+                            $exclude['ledger_id'] == $ledgerId && $exclude['ledgerGroup'] == $item['id'] . ""
+                        ) {
+                            return false; // Exclude this group
+                        }
                     }
-                }
-                return true;
-            });
+                    return true;
+                });
+            }
 
+            
             $groupItems = array_values($groupItems); // Reindex the array
-            if (empty($groupItems)) {
+            if (empty($groupItems) && !$isOpeningBalance) {
                 return response()->json(['error' => 'All Groups Already Selected for that ledger...Please Select any other ledger'], 404);
             }
 
